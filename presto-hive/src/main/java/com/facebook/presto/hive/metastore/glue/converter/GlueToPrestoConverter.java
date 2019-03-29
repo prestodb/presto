@@ -20,6 +20,7 @@ import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.SortingColumn;
 import com.facebook.presto.hive.metastore.SortingColumn.Order;
 import com.facebook.presto.hive.metastore.Storage;
@@ -36,6 +37,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.metastore.PrestoTableType.OTHER;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -69,7 +71,7 @@ public final class GlueToPrestoConverter
                 .setDatabaseName(dbName)
                 .setTableName(glueTable.getName())
                 .setOwner(nullToEmpty(glueTable.getOwner()))
-                .setTableType(glueTable.getTableType())
+                .setTableType(PrestoTableType.optionalValueOf(glueTable.getTableType()).orElse(OTHER))
                 .setDataColumns(sd.getColumns().stream()
                         .map(GlueToPrestoConverter::convertColumn)
                         .collect(toList()))

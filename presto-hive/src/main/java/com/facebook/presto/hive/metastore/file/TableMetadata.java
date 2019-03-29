@@ -17,6 +17,7 @@ import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
+import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
@@ -24,13 +25,13 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.hadoop.hive.metastore.TableType;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -38,7 +39,7 @@ import static java.util.Objects.requireNonNull;
 public class TableMetadata
 {
     private final String owner;
-    private final String tableType;
+    private final PrestoTableType tableType;
     private final List<Column> dataColumns;
     private final List<Column> partitionColumns;
     private final Map<String, String> parameters;
@@ -57,7 +58,7 @@ public class TableMetadata
     @JsonCreator
     public TableMetadata(
             @JsonProperty("owner") String owner,
-            @JsonProperty("tableType") String tableType,
+            @JsonProperty("tableType") PrestoTableType tableType,
             @JsonProperty("dataColumns") List<Column> dataColumns,
             @JsonProperty("partitionColumns") List<Column> partitionColumns,
             @JsonProperty("parameters") Map<String, String> parameters,
@@ -79,7 +80,7 @@ public class TableMetadata
         this.bucketProperty = requireNonNull(bucketProperty, "bucketProperty is null");
         this.serdeParameters = requireNonNull(serdeParameters, "serdeParameters is null");
         this.externalLocation = requireNonNull(externalLocation, "externalLocation is null");
-        if (tableType.equals(TableType.EXTERNAL_TABLE.name())) {
+        if (tableType.equals(EXTERNAL_TABLE)) {
             checkArgument(externalLocation.isPresent(), "External location is required for external tables");
         }
         else {
@@ -112,7 +113,7 @@ public class TableMetadata
         bucketProperty = table.getStorage().getBucketProperty();
         serdeParameters = table.getStorage().getSerdeParameters();
 
-        if (tableType.equals(TableType.EXTERNAL_TABLE.name())) {
+        if (tableType.equals(EXTERNAL_TABLE)) {
             externalLocation = Optional.of(table.getStorage().getLocation());
         }
         else {
@@ -131,7 +132,7 @@ public class TableMetadata
     }
 
     @JsonProperty
-    public String getTableType()
+    public PrestoTableType getTableType()
     {
         return tableType;
     }

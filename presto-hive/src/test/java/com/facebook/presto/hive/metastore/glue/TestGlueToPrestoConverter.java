@@ -73,7 +73,7 @@ public class TestGlueToPrestoConverter
         com.facebook.presto.hive.metastore.Table prestoTbl = GlueToPrestoConverter.convertTable(testTbl, testDb.getName());
         assertEquals(prestoTbl.getTableName(), testTbl.getName());
         assertEquals(prestoTbl.getDatabaseName(), testDb.getName());
-        assertEquals(prestoTbl.getTableType(), testTbl.getTableType());
+        assertEquals(prestoTbl.getTableType().toString(), testTbl.getTableType());
         assertEquals(prestoTbl.getOwner(), testTbl.getOwner());
         assertEquals(prestoTbl.getParameters(), testTbl.getParameters());
         assertColumnList(prestoTbl.getDataColumns(), testTbl.getStorageDescriptor().getColumns());

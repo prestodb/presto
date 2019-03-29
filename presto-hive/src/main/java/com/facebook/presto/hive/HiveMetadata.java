@@ -22,6 +22,7 @@ import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.SortingColumn;
@@ -90,7 +91,6 @@ import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
@@ -180,6 +180,9 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.toHivePrivile
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
+import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
+import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
+import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledPrincipals;
@@ -216,8 +219,6 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
-import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 
 public class HiveMetadata
         implements TransactionalMetadata
@@ -429,7 +430,7 @@ public class HiveMetadata
     private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
     {
         Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-        if (!table.isPresent() || table.get().getTableType().equals(TableType.VIRTUAL_VIEW.name())) {
+        if (!table.isPresent() || table.get().getTableType().equals(VIRTUAL_VIEW)) {
             throw new TableNotFoundException(tableName);
         }
 
@@ -441,7 +442,7 @@ public class HiveMetadata
 
         // External location property
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
-        if (table.get().getTableType().equals(EXTERNAL_TABLE.name())) {
+        if (table.get().getTableType().equals(EXTERNAL_TABLE)) {
             properties.put(EXTERNAL_LOCATION_PROPERTY, table.get().getStorage().getLocation());
         }
 
@@ -689,18 +690,18 @@ public class HiveMetadata
         checkPartitionTypesSupported(partitionColumns);
 
         Path targetPath;
-        boolean external;
+        PrestoTableType tableType;
         String externalLocation = getExternalLocation(tableMetadata.getProperties());
         if (externalLocation != null) {
             if (!createsOfNonManagedTablesEnabled) {
                 throw new PrestoException(NOT_SUPPORTED, "Cannot create non-managed Hive table");
             }
 
-            external = true;
+            tableType = EXTERNAL_TABLE;
             targetPath = getExternalPath(new HdfsContext(session, schemaName, tableName), externalLocation);
         }
         else {
-            external = false;
+            tableType = MANAGED_TABLE;
             LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName);
             targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
         }
@@ -716,7 +717,7 @@ public class HiveMetadata
                 bucketProperty,
                 tableProperties,
                 targetPath,
-                external,
+                tableType,
                 prestoVersion);
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner());
         HiveBasicStatistics basicStatistics = table.getPartitionColumns().isEmpty() ? createZeroStatistics() : createEmptyStatistics();
@@ -820,7 +821,7 @@ public class HiveMetadata
             Optional<HiveBucketProperty> bucketProperty,
             Map<String, String> additionalTableParameters,
             Path targetPath,
-            boolean external,
+            PrestoTableType tableType,
             String prestoVersion)
     {
         Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
@@ -849,7 +850,7 @@ public class HiveMetadata
                 .put(PRESTO_QUERY_ID_NAME, queryId)
                 .putAll(additionalTableParameters);
 
-        if (external) {
+        if (tableType.equals(EXTERNAL_TABLE)) {
             tableParameters.put("EXTERNAL", "TRUE");
         }
 
@@ -857,7 +858,7 @@ public class HiveMetadata
                 .setDatabaseName(schemaName)
                 .setTableName(tableName)
                 .setOwner(tableOwner)
-                .setTableType((external ? EXTERNAL_TABLE : MANAGED_TABLE).name())
+                .setTableType(tableType)
                 .setDataColumns(columns.build())
                 .setPartitionColumns(partitionColumns)
                 .setParameters(tableParameters.build());
@@ -1102,7 +1103,7 @@ public class HiveMetadata
                 handle.getBucketProperty(),
                 handle.getAdditionalTableParameters(),
                 writeInfo.getTargetPath(),
-                false,
+                MANAGED_TABLE,
                 prestoVersion);
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(handle.getTableOwner());
 
@@ -1521,7 +1522,7 @@ public class HiveMetadata
                 .setDatabaseName(viewName.getSchemaName())
                 .setTableName(viewName.getTableName())
                 .setOwner(session.getUser())
-                .setTableType(TableType.VIRTUAL_VIEW.name())
+                .setTableType(VIRTUAL_VIEW)
                 .setDataColumns(ImmutableList.of(dummyColumn))
                 .setPartitionColumns(ImmutableList.of())
                 .setParameters(properties)

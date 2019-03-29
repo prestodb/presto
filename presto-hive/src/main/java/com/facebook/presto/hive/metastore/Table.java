@@ -38,7 +38,7 @@ public class Table
     private final String databaseName;
     private final String tableName;
     private final String owner;
-    private final String tableType; // This is not an enum because some Hive implementations define additional table types.
+    private final PrestoTableType tableType;
     private final List<Column> dataColumns;
     private final List<Column> partitionColumns;
     private final Storage storage;
@@ -51,7 +51,7 @@ public class Table
             @JsonProperty("databaseName") String databaseName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("owner") String owner,
-            @JsonProperty("tableType") String tableType,
+            @JsonProperty("tableType") PrestoTableType tableType,
             @JsonProperty("storage") Storage storage,
             @JsonProperty("dataColumns") List<Column> dataColumns,
             @JsonProperty("partitionColumns") List<Column> partitionColumns,
@@ -90,7 +90,7 @@ public class Table
     }
 
     @JsonProperty
-    public String getTableType()
+    public PrestoTableType getTableType()
     {
         return tableType;
     }
@@ -210,7 +210,7 @@ public class Table
         private String databaseName;
         private String tableName;
         private String owner;
-        private String tableType;
+        private PrestoTableType tableType;
         private List<Column> dataColumns = new ArrayList<>();
         private List<Column> partitionColumns = new ArrayList<>();
         private Map<String, String> parameters = new LinkedHashMap<>();
@@ -254,7 +254,7 @@ public class Table
             return this;
         }
 
-        public Builder setTableType(String tableType)
+        public Builder setTableType(PrestoTableType tableType)
         {
             this.tableType = tableType;
             return this;

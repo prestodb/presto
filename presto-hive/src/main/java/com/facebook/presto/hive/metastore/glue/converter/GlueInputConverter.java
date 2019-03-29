@@ -28,10 +28,15 @@ import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.EnumSet;
 import java.util.List;
 
+import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
+import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
+import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.stream.Collectors.toList;
 
 public final class GlueInputConverter
@@ -53,12 +58,27 @@ public final class GlueInputConverter
         TableInput input = new TableInput();
         input.setName(table.getTableName());
         input.setOwner(table.getOwner());
-        input.setTableType(table.getTableType());
+        checkArgument(EnumSet.of(MANAGED_TABLE, EXTERNAL_TABLE, VIRTUAL_VIEW).contains(table.getTableType()), "Invalid table type: %s", table.getTableType());
+        input.setTableType(table.getTableType().toString());
         input.setStorageDescriptor(convertStorage(table.getStorage(), table.getDataColumns()));
         input.setPartitionKeys(table.getPartitionColumns().stream().map(GlueInputConverter::convertColumn).collect(toList()));
         input.setParameters(table.getParameters());
         table.getViewOriginalText().ifPresent(input::setViewOriginalText);
         table.getViewExpandedText().ifPresent(input::setViewExpandedText);
+        return input;
+    }
+
+    public static TableInput toTableInput(com.amazonaws.services.glue.model.Table table)
+    {
+        TableInput input = new TableInput();
+        input.setName(table.getName());
+        input.setOwner(table.getOwner());
+        input.setTableType(table.getTableType());
+        input.setStorageDescriptor(table.getStorageDescriptor());
+        input.setPartitionKeys(table.getPartitionKeys());
+        input.setParameters(table.getParameters());
+        input.setViewOriginalText(table.getViewOriginalText());
+        input.setViewExpandedText(table.getViewExpandedText());
         return input;
     }
 
@@ -107,7 +127,7 @@ public final class GlueInputConverter
         return sd;
     }
 
-    private static com.amazonaws.services.glue.model.Column convertColumn(Column prestoColumn)
+    public static com.amazonaws.services.glue.model.Column convertColumn(Column prestoColumn)
     {
         return new com.amazonaws.services.glue.model.Column()
                 .withName(prestoColumn.getName())
