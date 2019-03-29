@@ -14,10 +14,16 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.SqlVarbinary;
+import com.google.common.net.InetAddresses;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -136,5 +142,20 @@ public class TestIpAddressOperators
     {
         assertOperator(INDETERMINATE, "CAST(null AS IPADDRESS)", BOOLEAN, true);
         assertOperator(INDETERMINATE, "IPADDRESS '::2222'", BOOLEAN, false);
+    }
+
+    @Test
+    public void testHash()
+    {
+        assertOperator(HASH_CODE, "CAST(null AS IPADDRESS)", BIGINT, null);
+        assertOperator(HASH_CODE, "IPADDRESS '::2222'", BIGINT, hashFromType("::2222"));
+    }
+
+    private static long hashFromType(String address)
+    {
+        BlockBuilder blockBuilder = IPADDRESS.createBlockBuilder(null, 1);
+        IPADDRESS.writeSlice(blockBuilder, Slices.wrappedBuffer(InetAddresses.forString(address).getAddress()));
+        Block block = blockBuilder.build();
+        return IPADDRESS.hash(block, 0);
     }
 }
