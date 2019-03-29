@@ -1169,8 +1169,34 @@ public class HiveMetadata
             Table table,
             List<PartitionUpdate> partitionUpdates)
     {
-        ImmutableList.Builder<PartitionUpdate> partitionUpdatesForMissingBucketsBuilder = ImmutableList.builder();
         HiveStorageFormat storageFormat = table.getPartitionColumns().isEmpty() ? handle.getTableStorageFormat() : handle.getPartitionStorageFormat();
+
+        // empty unpartitioned bucketed table
+        if (table.getPartitionColumns().isEmpty() && partitionUpdates.isEmpty()) {
+            int bucketCount = handle.getBucketProperty().get().getBucketCount();
+            LocationHandle locationHandle = handle.getLocationHandle();
+            List<String> fileNamesForMissingBuckets = computeFileNamesForMissingBuckets(
+                    session,
+                    table,
+                    storageFormat,
+                    locationHandle.getTargetPath(),
+                    handle.getFilePrefix(),
+                    bucketCount,
+                    ImmutableSet.of());
+            return ImmutableList.of(new PartitionUpdate(
+                    "",
+                    (handle instanceof HiveInsertTableHandle) ? APPEND : NEW,
+                    locationHandle.getWritePath(),
+                    locationHandle.getTargetPath(),
+                    fileNamesForMissingBuckets.stream()
+                            .map(fileName -> new FileWriteInfo(fileName, fileName))
+                            .collect(toImmutableList()),
+                    0,
+                    0,
+                    0));
+        }
+
+        ImmutableList.Builder<PartitionUpdate> partitionUpdatesForMissingBucketsBuilder = ImmutableList.builder();
         for (PartitionUpdate partitionUpdate : partitionUpdates) {
             int bucketCount = handle.getBucketProperty().get().getBucketCount();
 
@@ -1181,7 +1207,7 @@ public class HiveMetadata
                     partitionUpdate.getTargetPath(),
                     handle.getFilePrefix(),
                     bucketCount,
-                    partitionUpdate);
+                    ImmutableSet.copyOf(getTargetFileNames(partitionUpdate.getFileWriteInfos())));
             partitionUpdatesForMissingBucketsBuilder.add(new PartitionUpdate(
                     partitionUpdate.getName(),
                     partitionUpdate.getUpdateMode(),
@@ -1204,25 +1230,24 @@ public class HiveMetadata
             Path targetPath,
             String filePrefix,
             int bucketCount,
-            PartitionUpdate partitionUpdate)
+            Set<String> existingFileNames)
     {
-        if (partitionUpdate.getFileWriteInfos().size() == bucketCount) {
+        if (existingFileNames.size() == bucketCount) {
             // fast path for common case
             return ImmutableList.of();
         }
         HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
         JobConf conf = toJobConf(hdfsEnvironment.getConfiguration(hdfsContext, targetPath));
         String fileExtension = HiveWriterFactory.getFileExtension(conf, fromHiveStorageFormat(storageFormat));
-        Set<String> targetFileNames = ImmutableSet.copyOf(getTargetFileNames(partitionUpdate.getFileWriteInfos()));
         ImmutableList.Builder<String> missingFileNamesBuilder = ImmutableList.builder();
         for (int i = 0; i < bucketCount; i++) {
             String targetFileName = HiveWriterFactory.computeBucketedFileName(filePrefix, i) + fileExtension;
-            if (!targetFileNames.contains(targetFileName)) {
+            if (!existingFileNames.contains(targetFileName)) {
                 missingFileNamesBuilder.add(targetFileName);
             }
         }
         List<String> missingFileNames = missingFileNamesBuilder.build();
-        verify(targetFileNames.size() + missingFileNames.size() == bucketCount);
+        verify(existingFileNames.size() + missingFileNames.size() == bucketCount);
         return missingFileNames;
     }
 

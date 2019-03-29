@@ -978,6 +978,24 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCreateEmptyUnpartitionedBucketedTable()
+    {
+        String tableName = "test_create_empty_bucketed_table";
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + " " +
+                "WITH (" +
+                "   bucketed_by = ARRAY[ 'custkey' ], " +
+                "   bucket_count = 11 " +
+                ") " +
+                "AS " +
+                "SELECT custkey, comment " +
+                "FROM customer " +
+                "WHERE custkey < 0", 0);
+        assertQuery("SELECT count(*) FROM " + tableName, "SELECT 0");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testCreateEmptyBucketedPartition()
     {
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
