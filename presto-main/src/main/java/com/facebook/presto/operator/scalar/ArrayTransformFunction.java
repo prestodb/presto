@@ -113,8 +113,7 @@ public final class ArrayTransformFunction
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         functionTypeArgumentProperty(UnaryFunctionInterface.class)),
                 methodHandle(generatedClass, "transform", PageBuilder.class, Block.class, UnaryFunctionInterface.class),
-                Optional.of(methodHandle(generatedClass, "createPageBuilder")),
-                isDeterministic());
+                Optional.of(methodHandle(generatedClass, "createPageBuilder")));
     }
 
     private static Class<?> generateTransform(Type inputType, Type outputType)

@@ -85,8 +85,7 @@ public class ArrayToArrayCast
                 ImmutableList.of(
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                methodHandle,
-                isDeterministic());
+                methodHandle);
     }
 
     private static Class<?> generateArrayCast(TypeManager typeManager, FunctionMetadata elementCastFunctionMetadata, ScalarFunctionImplementation elementCast)

@@ -182,8 +182,7 @@ public final class ArrayJoin
                     false,
                     argumentProperties,
                     methodHandle.bindTo(null),
-                    Optional.of(STATE_FACTORY),
-                    true);
+                    Optional.of(STATE_FACTORY));
         }
         else {
             try {
@@ -227,8 +226,7 @@ public final class ArrayJoin
                         false,
                         argumentProperties,
                         target,
-                        Optional.of(STATE_FACTORY),
-                        true);
+                        Optional.of(STATE_FACTORY));
             }
             catch (PrestoException e) {
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Input type %s not supported", type), e);

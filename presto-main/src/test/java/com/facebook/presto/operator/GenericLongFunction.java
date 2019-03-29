@@ -70,7 +70,7 @@ public final class GenericLongFunction
     public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(longUnaryOperator);
-        return new ScalarFunctionImplementation(false, ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)), methodHandle, isDeterministic());
+        return new ScalarFunctionImplementation(false, ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)), methodHandle);
     }
 
     public static long apply(LongUnaryOperator longUnaryOperator, long value)

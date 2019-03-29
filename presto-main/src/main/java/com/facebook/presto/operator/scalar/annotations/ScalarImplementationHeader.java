@@ -115,11 +115,6 @@ public class ScalarImplementationHeader
         return header.isHidden();
     }
 
-    public boolean isDeterministic()
-    {
-        return header.isDeterministic();
-    }
-
     public ScalarHeader getHeader()
     {
         return header;

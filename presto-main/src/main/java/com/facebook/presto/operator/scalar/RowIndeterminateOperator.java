@@ -78,8 +78,7 @@ public class RowIndeterminateOperator
         return new ScalarFunctionImplementation(
                 false,
                 ImmutableList.of(valueTypeArgumentProperty(USE_NULL_FLAG)),
-                indeterminateMethod,
-                isDeterministic());
+                indeterminateMethod);
     }
 
     private static Class<?> generateIndeterminate(Type type, FunctionManager functionManager)

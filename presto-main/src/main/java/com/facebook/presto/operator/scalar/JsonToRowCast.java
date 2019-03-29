@@ -88,8 +88,7 @@ public class JsonToRowCast
         return new ScalarFunctionImplementation(
                 true,
                 ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                methodHandle,
-                isDeterministic());
+                methodHandle);
     }
 
     @UsedByGeneratedCode

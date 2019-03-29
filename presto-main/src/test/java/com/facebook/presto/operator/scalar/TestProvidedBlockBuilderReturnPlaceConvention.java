@@ -200,8 +200,7 @@ public class TestProvidedBlockBuilderReturnPlaceConvention
                                     ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                                     PROVIDED_BLOCKBUILDER,
                                     methodHandleProvidedBlock,
-                                    Optional.empty())),
-                    isDeterministic());
+                                    Optional.empty())));
         }
 
         public static void providedBlockLong(Type type, BlockBuilder output, long value)
@@ -321,8 +320,7 @@ public class TestProvidedBlockBuilderReturnPlaceConvention
                                     ImmutableList.of(valueTypeArgumentProperty(USE_BOXED_TYPE)),
                                     PROVIDED_BLOCKBUILDER,
                                     methodHandleProvidedBlock,
-                                    Optional.empty())),
-                    isDeterministic());
+                                    Optional.empty())));
         }
 
         public static void providedBlockLong(Type type, BlockBuilder output, Long value)

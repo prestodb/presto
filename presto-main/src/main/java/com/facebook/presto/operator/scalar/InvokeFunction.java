@@ -81,8 +81,7 @@ public final class InvokeFunction
                 ImmutableList.of(functionTypeArgumentProperty(InvokeLambda.class)),
                 METHOD_HANDLE.asType(
                         METHOD_HANDLE.type()
-                                .changeReturnType(wrap(returnType.getJavaType()))),
-                isDeterministic());
+                                .changeReturnType(wrap(returnType.getJavaType()))));
     }
 
     public static Object invoke(InvokeLambda function)

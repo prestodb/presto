@@ -78,8 +78,7 @@ public class StatefulSleepingSum
                 false,
                 nCopies(args, valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 methodHandle(StatefulSleepingSum.class, "statefulSleepingSum", State.class, double.class, long.class, long.class, long.class),
-                Optional.of(constructorMethodHandle(State.class)),
-                true);
+                Optional.of(constructorMethodHandle(State.class)));
     }
 
     public static long statefulSleepingSum(State state, double sleepProbability, long sleepDurationMillis, long a, long b)

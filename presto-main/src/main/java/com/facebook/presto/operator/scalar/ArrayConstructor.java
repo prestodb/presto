@@ -129,8 +129,7 @@ public final class ArrayConstructor
         return new ScalarFunctionImplementation(
                 false,
                 nCopies(stackTypes.size(), valueTypeArgumentProperty(USE_BOXED_TYPE)),
-                methodHandle,
-                isDeterministic());
+                methodHandle);
     }
 
     private static Class<?> generateArrayConstructor(List<Class<?>> stackTypes, Type elementType)
