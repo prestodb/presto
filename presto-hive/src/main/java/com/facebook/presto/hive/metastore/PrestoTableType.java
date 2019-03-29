@@ -20,7 +20,8 @@ public enum PrestoTableType
     MANAGED_TABLE,
     EXTERNAL_TABLE,
     VIRTUAL_VIEW,
-    OTHER,
+    TEMPORARY_TABLE,
+    OTHER, // Some Hive implementations define additional table types
     /**/;
 
     public static Optional<PrestoTableType> optionalValueOf(String value)

@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -88,7 +89,7 @@ public class HiveClientConfig
 
     private S3FileSystemType s3FileSystemType = S3FileSystemType.PRESTO;
 
-    private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.ORC;
+    private HiveStorageFormat hiveStorageFormat = ORC;
     private HiveCompressionCodec hiveCompressionCodec = HiveCompressionCodec.GZIP;
     private boolean respectTableFormat = true;
     private boolean immutablePartitions;
@@ -156,6 +157,8 @@ public class HiveClientConfig
     private boolean preloadSplitsForGroupedExecution;
 
     private boolean writingStagingFilesEnabled;
+    private String temporaryTableSchema = "default";
+    private HiveStorageFormat temporaryTableStorageFormat = ORC;
 
     public int getMaxInitialSplits()
     {
@@ -1276,6 +1279,32 @@ public class HiveClientConfig
     public HiveClientConfig setWritingStagingFilesEnabled(boolean writingStagingFilesEnabled)
     {
         this.writingStagingFilesEnabled = writingStagingFilesEnabled;
+        return this;
+    }
+
+    @NotNull
+    public String getTemporaryTableSchema()
+    {
+        return temporaryTableSchema;
+    }
+
+    @Config("hive.temporary-table-schema")
+    public HiveClientConfig setTemporaryTableSchema(String temporaryTableSchema)
+    {
+        this.temporaryTableSchema = temporaryTableSchema;
+        return this;
+    }
+
+    @NotNull
+    public HiveStorageFormat getTemporaryTableStorageFormat()
+    {
+        return temporaryTableStorageFormat;
+    }
+
+    @Config("hive.temporary-table-storage-format")
+    public HiveClientConfig setTemporaryTableStorageFormat(HiveStorageFormat temporaryTableStorageFormat)
+    {
+        this.temporaryTableStorageFormat = temporaryTableStorageFormat;
         return this;
     }
 }
