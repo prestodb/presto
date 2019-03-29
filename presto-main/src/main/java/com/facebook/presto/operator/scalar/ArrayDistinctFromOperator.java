@@ -32,7 +32,7 @@ import static com.facebook.presto.spi.function.InvocationConvention.InvocationRe
 import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.util.Failures.internalError;
 
-@ScalarOperator(IS_DISTINCT_FROM)
+@ScalarOperator(value = IS_DISTINCT_FROM)
 public final class ArrayDistinctFromOperator
 {
     private ArrayDistinctFromOperator() {}

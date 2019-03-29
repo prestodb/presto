@@ -25,7 +25,7 @@ import io.airlift.slice.Slice;
 import static io.airlift.slice.Slices.utf8Slice;
 
 @Description("textual representation of expression type")
-@ScalarFunction("typeof")
+@ScalarFunction(value = "typeof", calledOnNullInput = true)
 public final class TypeOfFunction
 {
     private TypeOfFunction() {}

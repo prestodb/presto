@@ -74,7 +74,7 @@ public class TestBlockAndPositionNullConvention
         assertTrue(FunctionWithBlockAndPositionConvention.hitBlockPositionBoolean.get());
     }
 
-    @ScalarFunction("test_block_position")
+    @ScalarFunction(value = "test_block_position", calledOnNullInput = true)
     public static class FunctionWithBlockAndPositionConvention
     {
         private static final AtomicBoolean hitBlockPositionBigint = new AtomicBoolean();
@@ -124,7 +124,7 @@ public class TestBlockAndPositionNullConvention
         @TypeParameter("E")
         @SqlNullable
         @SqlType("E")
-        public static Boolean speciailizedBoolean(@TypeParameter("E") Type type, @SqlType("E") boolean bool)
+        public static Boolean speciailizedBoolean(@TypeParameter("E") Type type, @SqlNullable @SqlType("E") Boolean bool)
         {
             return bool;
         }
@@ -141,7 +141,7 @@ public class TestBlockAndPositionNullConvention
         // exact
 
         @SqlType(StandardTypes.BIGINT)
-        public static long getLong(@SqlType(StandardTypes.BIGINT) long number)
+        public static long getLong(@SqlNullable @SqlType(StandardTypes.BIGINT) Long number)
         {
             return number;
         }
@@ -155,7 +155,7 @@ public class TestBlockAndPositionNullConvention
 
         @SqlType(StandardTypes.DOUBLE)
         @SqlNullable
-        public static Double getDouble(@SqlType(StandardTypes.DOUBLE) double number)
+        public static Double getDouble(@SqlNullable @SqlType(StandardTypes.DOUBLE) Double number)
         {
             return number;
         }

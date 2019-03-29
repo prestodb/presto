@@ -26,12 +26,14 @@ public class FunctionMetadata
 {
     private final Signature signature;
     private final boolean deterministic;
+    private final boolean calledOnNullInput;
 
-    public FunctionMetadata(Signature signature, boolean deterministic)
+    public FunctionMetadata(Signature signature, boolean deterministic, boolean calledOnNullInput)
     {
         checkArgument(signature.getLongVariableConstraints().isEmpty() && signature.getTypeVariableConstraints().isEmpty());
         this.signature = requireNonNull(signature, "signature is null");
         this.deterministic = deterministic;
+        this.calledOnNullInput = calledOnNullInput;
     }
 
     public FunctionKind getFunctionKind()
@@ -57,5 +59,10 @@ public class FunctionMetadata
     public boolean isDeterministic()
     {
         return deterministic;
+    }
+
+    public boolean isCalledOnNullInput()
+    {
+        return calledOnNullInput;
     }
 }
