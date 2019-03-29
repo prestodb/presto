@@ -220,7 +220,7 @@ public class DecimalEncoding
 
         // second vint is length
         // todo get rid of BigInteger
-        BigInteger decimal = Decimals.decodeUnscaledValue(block.getSlice(position, 0, BYTES_IN_LONG_DECIMAL));
+        BigInteger decimal = Decimals.decodeUnscaledValue(type.getSlice(block, position));
         byte[] decimalBytes = decimal.toByteArray();
         writeVInt(output, decimalBytes.length);
 
