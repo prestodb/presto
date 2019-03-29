@@ -105,7 +105,7 @@ public class TestStaticFunctionNamespace
         TypeRegistry typeManager = new TypeRegistry();
         StaticFunctionNamespace staticFunctionNamespace = createStaticFunctionNamespace(typeManager);
         FunctionHandle functionHandle = staticFunctionNamespace.resolveFunction(QualifiedName.of(signature.getName()), fromTypeSignatures(signature.getArgumentTypes()));
-        assertEquals(functionHandle.getSignature().getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
+        assertEquals(staticFunctionNamespace.getFunctionMetadata(functionHandle).getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
     }
 

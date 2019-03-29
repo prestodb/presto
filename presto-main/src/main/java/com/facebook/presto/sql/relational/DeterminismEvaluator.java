@@ -69,7 +69,7 @@ public class DeterminismEvaluator
         {
             FunctionHandle functionHandle = call.getFunctionHandle();
             try {
-                if (!functionManager.getScalarFunctionImplementation(functionHandle).isDeterministic()) {
+                if (!functionManager.getFunctionMetadata(functionHandle).isDeterministic()) {
                     return false;
                 }
             }

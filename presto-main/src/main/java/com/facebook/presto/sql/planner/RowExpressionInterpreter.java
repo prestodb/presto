@@ -15,6 +15,8 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -191,9 +193,10 @@ public class RowExpressionInterpreter
             }
 
             FunctionHandle functionHandle = node.getFunctionHandle();
+            FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(node.getFunctionHandle());
 
             // Special casing for large constant array construction
-            if (functionHandle.getSignature().getName().toUpperCase().equals(ARRAY_CONSTRUCTOR)) {
+            if (functionMetadata.getName().toUpperCase().equals(ARRAY_CONSTRUCTOR)) {
                 SpecialCallResult result = tryHandleArrayConstructor(node, argumentValues);
                 if (result.isChanged()) {
                     return result.getValue();
@@ -225,7 +228,7 @@ public class RowExpressionInterpreter
             }
 
             // do not optimize non-deterministic functions
-            if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues) || functionHandle.getSignature().getName().equals("fail"))) {
+            if (optimize && (!functionMetadata.isDeterministic() || hasUnresolvedValue(argumentValues) || functionMetadata.getName().equals("fail"))) {
                 return call(functionHandle, node.getType(), toRowExpressions(argumentValues, argumentTypes));
             }
             return functionInvoker.invoke(functionHandle, session.toConnectorSession(), argumentValues);
@@ -663,7 +666,7 @@ public class RowExpressionInterpreter
 
         private SpecialCallResult tryHandleArrayConstructor(CallExpression callExpression, List<Object> argumentValues)
         {
-            checkArgument(callExpression.getFunctionHandle().getSignature().getName().toUpperCase().equals(ARRAY_CONSTRUCTOR));
+            checkArgument(metadata.getFunctionManager().getFunctionMetadata(callExpression.getFunctionHandle()).getName().toUpperCase().equals(ARRAY_CONSTRUCTOR));
             boolean allConstants = true;
             for (Object values : argumentValues) {
                 if (values instanceof RowExpression) {

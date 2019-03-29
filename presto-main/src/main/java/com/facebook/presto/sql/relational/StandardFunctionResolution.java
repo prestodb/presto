@@ -72,7 +72,7 @@ public final class StandardFunctionResolution
 
     public boolean isLikeFunction(FunctionHandle functionHandle)
     {
-        return functionHandle.getSignature().getName().toUpperCase().equals("LIKE");
+        return functionManager.getFunctionMetadata(functionHandle).getName().toUpperCase().equals("LIKE");
     }
 
     public FunctionHandle likePatternFunction()
@@ -82,7 +82,7 @@ public final class StandardFunctionResolution
 
     public boolean isCastFunction(FunctionHandle functionHandle)
     {
-        return functionHandle.getSignature().getName().equals(mangleOperatorName(OperatorType.CAST.name()));
+        return functionManager.getFunctionMetadata(functionHandle).getName().equals(mangleOperatorName(OperatorType.CAST.name()));
     }
 
     public FunctionHandle arithmeticFunction(ArithmeticBinaryExpression.Operator operator, Type leftType, Type rightType)

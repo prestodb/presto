@@ -15,6 +15,8 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.predicate.Domain;
@@ -109,7 +111,7 @@ public class WindowFilterPushDown
             checkState(node.getWindowFunctions().size() == 1, "WindowFilterPushdown requires that WindowNodes contain exactly one window function");
             PlanNode rewrittenSource = context.rewrite(node.getSource());
 
-            if (canReplaceWithRowNumber(node)) {
+            if (canReplaceWithRowNumber(node, metadata.getFunctionManager())) {
                 return new RowNumberNode(idAllocator.getNextId(),
                         rewrittenSource,
                         node.getPartitionBy(),
@@ -137,7 +139,7 @@ public class WindowFilterPushDown
                 }
                 source = rowNumberNode;
             }
-            else if (source instanceof WindowNode && canOptimizeWindowFunction((WindowNode) source) && isOptimizeTopNRowNumber(session)) {
+            else if (source instanceof WindowNode && canOptimizeWindowFunction((WindowNode) source, metadata.getFunctionManager()) && isOptimizeTopNRowNumber(session)) {
                 WindowNode windowNode = (WindowNode) source;
                 // verify that unordered row_number window functions are replaced by RowNumberNode
                 verify(windowNode.getOrderingScheme().isPresent());
@@ -166,7 +168,7 @@ public class WindowFilterPushDown
                     return rewriteFilterSource(node, source, rowNumberSymbol, upperBound.getAsInt());
                 }
             }
-            else if (source instanceof WindowNode && canOptimizeWindowFunction((WindowNode) source) && isOptimizeTopNRowNumber(session)) {
+            else if (source instanceof WindowNode && canOptimizeWindowFunction((WindowNode) source, metadata.getFunctionManager()) && isOptimizeTopNRowNumber(session)) {
                 WindowNode windowNode = (WindowNode) source;
                 Symbol rowNumberSymbol = getOnlyElement(windowNode.getWindowFunctions().entrySet()).getKey();
                 OptionalInt upperBound = extractUpperBound(tupleDomain, rowNumberSymbol);
@@ -266,23 +268,26 @@ public class WindowFilterPushDown
                     Optional.empty());
         }
 
-        private static boolean canReplaceWithRowNumber(WindowNode node)
+        private static boolean canReplaceWithRowNumber(WindowNode node, FunctionManager functionManager)
         {
-            return canOptimizeWindowFunction(node) && !node.getOrderingScheme().isPresent();
+            return canOptimizeWindowFunction(node, functionManager) && !node.getOrderingScheme().isPresent();
         }
 
-        private static boolean canOptimizeWindowFunction(WindowNode node)
+        private static boolean canOptimizeWindowFunction(WindowNode node, FunctionManager functionManager)
         {
             if (node.getWindowFunctions().size() != 1) {
                 return false;
             }
             Symbol rowNumberSymbol = getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
-            return isRowNumberSignature(node.getWindowFunctions().get(rowNumberSymbol).getFunctionHandle().getSignature());
+            return isRowNumberMetadata(functionManager.getFunctionMetadata(node.getWindowFunctions().get(rowNumberSymbol).getFunctionHandle()));
         }
 
-        private static boolean isRowNumberSignature(Signature signature)
+        private static boolean isRowNumberMetadata(FunctionMetadata functionMetadata)
         {
-            return signature.equals(ROW_NUMBER_SIGNATURE);
+            return functionMetadata.getName().equals(ROW_NUMBER_SIGNATURE.getName())
+                    && functionMetadata.getFunctionKind().equals(ROW_NUMBER_SIGNATURE.getKind())
+                    && functionMetadata.getArgumentTypes().equals(ROW_NUMBER_SIGNATURE.getArgumentTypes())
+                    && functionMetadata.getReturnType().equals(ROW_NUMBER_SIGNATURE.getReturnType());
         }
     }
 }

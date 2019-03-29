@@ -16,11 +16,11 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionMetadata;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.ArrayGeneratorUtils;
@@ -78,7 +78,7 @@ public class ArrayToArrayCast
 
         FunctionHandle functionHandle = functionManager.lookupCast(CastType.CAST, fromType.getTypeSignature(), toType.getTypeSignature());
         ScalarFunctionImplementation function = functionManager.getScalarFunctionImplementation(functionHandle);
-        Class<?> castOperatorClass = generateArrayCast(typeManager, functionHandle.getSignature(), function);
+        Class<?> castOperatorClass = generateArrayCast(typeManager, functionManager.getFunctionMetadata(functionHandle), function);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", ConnectorSession.class, Block.class);
         return new ScalarFunctionImplementation(
                 false,
@@ -89,13 +89,13 @@ public class ArrayToArrayCast
                 isDeterministic());
     }
 
-    private static Class<?> generateArrayCast(TypeManager typeManager, Signature elementCastSignature, ScalarFunctionImplementation elementCast)
+    private static Class<?> generateArrayCast(TypeManager typeManager, FunctionMetadata elementCastFunctionMetadata, ScalarFunctionImplementation elementCast)
     {
         CallSiteBinder binder = new CallSiteBinder();
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(Joiner.on("$").join("ArrayCast", elementCastSignature.getArgumentTypes().get(0), elementCastSignature.getReturnType())),
+                makeClassName(Joiner.on("$").join("ArrayCast", elementCastFunctionMetadata.getArgumentTypes().get(0), elementCastFunctionMetadata.getReturnType())),
                 type(Object.class));
 
         Parameter session = arg("session", ConnectorSession.class);
@@ -115,10 +115,10 @@ public class ArrayToArrayCast
         body.append(wasNull.set(constantBoolean(false)));
 
         // cast map elements
-        Type fromElementType = typeManager.getType(elementCastSignature.getArgumentTypes().get(0));
-        Type toElementType = typeManager.getType(elementCastSignature.getReturnType());
+        Type fromElementType = typeManager.getType(elementCastFunctionMetadata.getArgumentTypes().get(0));
+        Type toElementType = typeManager.getType(elementCastFunctionMetadata.getReturnType());
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(definition, binder);
-        ArrayMapBytecodeExpression newArray = ArrayGeneratorUtils.map(scope, cachedInstanceBinder, fromElementType, toElementType, value, elementCastSignature.getName(), elementCast);
+        ArrayMapBytecodeExpression newArray = ArrayGeneratorUtils.map(scope, cachedInstanceBinder, fromElementType, toElementType, value, elementCastFunctionMetadata.getName(), elementCast);
 
         // return the block
         body.append(newArray.ret());

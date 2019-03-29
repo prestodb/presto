@@ -136,7 +136,7 @@ public class ExpressionEquivalence
                             .map(expression -> expression.accept(this, context))
                             .collect(toImmutableList()));
 
-            String callName = call.getFunctionHandle().getSignature().getName();
+            String callName = functionManager.getFunctionMetadata(call.getFunctionHandle()).getName();
 
             if (callName.equals(mangleOperatorName(EQUAL)) || callName.equals(mangleOperatorName(NOT_EQUAL)) || callName.equals(mangleOperatorName(IS_DISTINCT_FROM))) {
                 // sort arguments
