@@ -50,8 +50,7 @@ public final class RowGreaterThanOrEqualOperator
                 ImmutableList.of(
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                METHOD_HANDLE.bindTo(type).bindTo(getMethodHandles((RowType) type, functionManager, GREATER_THAN)),
-                isDeterministic());
+                METHOD_HANDLE.bindTo(type).bindTo(getMethodHandles((RowType) type, functionManager, GREATER_THAN)));
     }
 
     public static boolean greaterOrEqual(

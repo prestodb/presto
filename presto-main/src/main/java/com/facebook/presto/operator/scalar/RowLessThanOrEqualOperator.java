@@ -50,8 +50,7 @@ public final class RowLessThanOrEqualOperator
                 ImmutableList.of(
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                METHOD_HANDLE.bindTo(type).bindTo(getMethodHandles((RowType) type, functionManager, LESS_THAN)),
-                isDeterministic());
+                METHOD_HANDLE.bindTo(type).bindTo(getMethodHandles((RowType) type, functionManager, LESS_THAN)));
     }
 
     public static boolean lessOrEqual(

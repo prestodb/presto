@@ -93,8 +93,7 @@ public final class ZipWithFunction
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         functionTypeArgumentProperty(BinaryFunctionInterface.class)),
                 METHOD_HANDLE.bindTo(leftElementType).bindTo(rightElementType).bindTo(outputArrayType),
-                Optional.of(STATE_FACTORY.bindTo(outputArrayType)),
-                isDeterministic());
+                Optional.of(STATE_FACTORY.bindTo(outputArrayType)));
     }
 
     public static Object createState(ArrayType arrayType)

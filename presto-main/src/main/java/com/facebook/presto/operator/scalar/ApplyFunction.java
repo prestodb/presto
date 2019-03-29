@@ -86,8 +86,7 @@ public final class ApplyFunction
                 METHOD_HANDLE.asType(
                         METHOD_HANDLE.type()
                                 .changeReturnType(wrap(returnType.getJavaType()))
-                                .changeParameterType(0, wrap(argumentType.getJavaType()))),
-                isDeterministic());
+                                .changeParameterType(0, wrap(argumentType.getJavaType()))));
     }
 
     public static Object apply(Object input, UnaryFunctionInterface function)

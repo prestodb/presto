@@ -132,8 +132,7 @@ public final class MapTransformKeyFunction
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         functionTypeArgumentProperty(BinaryFunctionInterface.class)),
                 generateTransformKey(keyType, transformedKeyType, valueType, resultMapType),
-                Optional.of(STATE_FACTORY.bindTo(resultMapType)),
-                isDeterministic());
+                Optional.of(STATE_FACTORY.bindTo(resultMapType)));
     }
 
     @UsedByGeneratedCode

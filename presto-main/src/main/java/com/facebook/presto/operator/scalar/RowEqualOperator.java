@@ -64,8 +64,7 @@ public class RowEqualOperator
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 METHOD_HANDLE
                         .bindTo(type)
-                        .bindTo(resolveFieldEqualOperators(type, functionManager)),
-                isDeterministic());
+                        .bindTo(resolveFieldEqualOperators(type, functionManager)));
     }
 
     public static List<MethodHandle> resolveFieldEqualOperators(RowType rowType, FunctionManager functionManager)

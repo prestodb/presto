@@ -62,8 +62,7 @@ public class MapHashCodeOperator
         return new ScalarFunctionImplementation(
                 false,
                 ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                method,
-                isDeterministic());
+                method);
     }
 
     @UsedByGeneratedCode

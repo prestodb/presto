@@ -53,7 +53,6 @@ public class IdentityCast
         return new ScalarFunctionImplementation(
                 false,
                 ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                identity,
-                isDeterministic());
+                identity);
     }
 }
