@@ -116,6 +116,17 @@ public class TestBlockRetainedSizeBreakdown
         checkRetainedSize(createVariableWidthBlock(EXPECTED_ENTRIES), false);
     }
 
+    @Test
+    public void testInt128ArrayBlock()
+    {
+        long[] longs = new long[EXPECTED_ENTRIES * 2];
+        for (int i = 0; i < longs.length; i++) {
+            longs[i] = i;
+        }
+        Block block = new Int128ArrayBlock(EXPECTED_ENTRIES, Optional.empty(), longs);
+        checkRetainedSize(block, false);
+    }
+
     private static final class ObjectStrategy
             implements Strategy<Object>
     {

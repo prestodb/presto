@@ -303,6 +303,12 @@ public abstract class AbstractTestBlock
                 }
             }
 
+            if (isAlignedLongAccessSupported()) {
+                for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_LONG; offset += SIZE_OF_LONG) {
+                    assertEquals(block.getLong(position, offset), expectedSliceValue.getLong(offset));
+                }
+            }
+
             if (isSliceAccessSupported()) {
                 assertEquals(block.getSliceLength(position), expectedSliceValue.length());
                 assertSlicePosition(block, position, expectedSliceValue);
@@ -384,6 +390,11 @@ public abstract class AbstractTestBlock
     protected boolean isLongAccessSupported()
     {
         return true;
+    }
+
+    protected boolean isAlignedLongAccessSupported()
+    {
+        return false;
     }
 
     protected boolean isSliceAccessSupported()
