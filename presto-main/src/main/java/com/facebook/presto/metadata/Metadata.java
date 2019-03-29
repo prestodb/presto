@@ -158,6 +158,15 @@ public interface Metadata
     void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting);
 
     /**
+     * Creates a temporary table with optional partitioning requirements.
+     * Temporary table might have different default storage format, compression scheme, replication factor, etc,
+     * and gets automatically dropped when the transaction ends.
+     *
+     * This SPI is unstable and subject to change in the future.
+     */
+    TableHandle createTemporaryTable(Session session, String catalogName, List<ColumnMetadata> columns, Optional<PartitioningMetadata> partitioningMetadata);
+
+    /**
      * Rename the specified table.
      */
     void renameTable(Session session, TableHandle tableHandle, QualifiedObjectName newTableName);
