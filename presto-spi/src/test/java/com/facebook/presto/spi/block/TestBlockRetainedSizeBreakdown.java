@@ -69,14 +69,6 @@ public class TestBlockRetainedSizeBreakdown
     }
 
     @Test
-    public void testFixedWidthBlock()
-    {
-        BlockBuilder blockBuilder = new FixedWidthBlockBuilder(8, null, EXPECTED_ENTRIES);
-        writeEntries(EXPECTED_ENTRIES, blockBuilder, DOUBLE);
-        checkRetainedSize(blockBuilder.build(), true);
-    }
-
-    @Test
     public void testIntArrayBlock()
     {
         BlockBuilder blockBuilder = new IntArrayBlockBuilder(null, EXPECTED_ENTRIES);
