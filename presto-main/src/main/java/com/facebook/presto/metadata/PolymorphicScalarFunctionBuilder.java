@@ -43,15 +43,24 @@ import static java.util.Objects.requireNonNull;
 public final class PolymorphicScalarFunctionBuilder
 {
     private final Class<?> clazz;
+    private final Optional<OperatorType> operatorType;
     private Signature signature;
     private String description;
     private Optional<Boolean> hidden = Optional.empty();
     private Boolean deterministic;
+    private Boolean calledOnNullInput;
     private final List<PolymorphicScalarFunctionChoice> choices = new ArrayList<>();
 
     public PolymorphicScalarFunctionBuilder(Class<?> clazz)
     {
         this.clazz = clazz;
+        this.operatorType = Optional.empty();
+    }
+
+    public PolymorphicScalarFunctionBuilder(Class<?> clazz, OperatorType operatorType)
+    {
+        this.clazz = clazz;
+        this.operatorType = Optional.of(operatorType);
     }
 
     public PolymorphicScalarFunctionBuilder signature(Signature signature)
@@ -79,6 +88,12 @@ public final class PolymorphicScalarFunctionBuilder
         return this;
     }
 
+    public PolymorphicScalarFunctionBuilder calledOnNullInput(boolean calledOnNullInput)
+    {
+        this.calledOnNullInput = calledOnNullInput;
+        return this;
+    }
+
     public PolymorphicScalarFunctionBuilder choice(Function<ChoiceBuilder, ChoiceBuilder> choiceSpecification)
     {
         ChoiceBuilder choiceBuilder = new ChoiceBuilder(clazz, signature);
@@ -91,12 +106,13 @@ public final class PolymorphicScalarFunctionBuilder
     {
         checkState(signature != null, "signature is null");
         checkState(deterministic != null, "deterministic is null");
-
+        checkState(operatorType.isPresent() || calledOnNullInput != null, "None operator needs to set calledOnNullInput");
         return new PolymorphicScalarFunction(
                 signature,
                 description,
                 hidden.orElse(false),
                 deterministic,
+                operatorType.map(OperatorType::isCalledOnNullInput).orElse(calledOnNullInput),
                 choices);
     }
 

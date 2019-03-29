@@ -47,6 +47,7 @@ class PolymorphicScalarFunction
     private final String description;
     private final boolean hidden;
     private final boolean deterministic;
+    private final boolean calledOnNullInput;
     private final List<PolymorphicScalarFunctionChoice> choices;
 
     PolymorphicScalarFunction(
@@ -54,6 +55,7 @@ class PolymorphicScalarFunction
             String description,
             boolean hidden,
             boolean deterministic,
+            boolean calledOnNullInput,
             List<PolymorphicScalarFunctionChoice> choices)
     {
         super(signature);
@@ -61,6 +63,7 @@ class PolymorphicScalarFunction
         this.description = description;
         this.hidden = hidden;
         this.deterministic = deterministic;
+        this.calledOnNullInput = calledOnNullInput;
         this.choices = requireNonNull(choices, "choices is null");
     }
 
@@ -74,6 +77,12 @@ class PolymorphicScalarFunction
     public boolean isDeterministic()
     {
         return deterministic;
+    }
+
+    @Override
+    public boolean isCalledOnNullInput()
+    {
+        return calledOnNullInput;
     }
 
     @Override

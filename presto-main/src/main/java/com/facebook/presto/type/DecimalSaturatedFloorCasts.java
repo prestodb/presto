@@ -42,7 +42,7 @@ public final class DecimalSaturatedFloorCasts
 {
     private DecimalSaturatedFloorCasts() {}
 
-    public static final SqlScalarFunction DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST = SqlScalarFunction.builder(DecimalSaturatedFloorCasts.class)
+    public static final SqlScalarFunction DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST = SqlScalarFunction.builder(DecimalSaturatedFloorCasts.class, SATURATED_FLOOR_CAST)
             .signature(SignatureBuilder.builder()
                     .kind(SCALAR)
                     .operatorType(SATURATED_FLOOR_CAST)
@@ -113,7 +113,7 @@ public final class DecimalSaturatedFloorCasts
 
     private static SqlScalarFunction decimalToGenericIntegerTypeSaturatedFloorCast(Type type, long minValue, long maxValue)
     {
-        return SqlScalarFunction.builder(DecimalSaturatedFloorCasts.class)
+        return SqlScalarFunction.builder(DecimalSaturatedFloorCasts.class, SATURATED_FLOOR_CAST)
                 .signature(SignatureBuilder.builder()
                         .kind(SCALAR)
                         .operatorType(SATURATED_FLOOR_CAST)
@@ -163,7 +163,7 @@ public final class DecimalSaturatedFloorCasts
 
     private static SqlScalarFunction genericIntegerTypeToDecimalSaturatedFloorCast(Type integerType)
     {
-        return SqlScalarFunction.builder(DecimalSaturatedFloorCasts.class)
+        return SqlScalarFunction.builder(DecimalSaturatedFloorCasts.class, SATURATED_FLOOR_CAST)
                 .signature(SignatureBuilder.builder()
                         .kind(SCALAR)
                         .operatorType(SATURATED_FLOOR_CAST)

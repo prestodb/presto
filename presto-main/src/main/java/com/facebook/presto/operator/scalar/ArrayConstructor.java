@@ -95,6 +95,12 @@ public final class ArrayConstructor
     }
 
     @Override
+    public boolean isCalledOnNullInput()
+    {
+        return true;
+    }
+
+    @Override
     public String getDescription()
     {
         // Internal function, doesn't need a description

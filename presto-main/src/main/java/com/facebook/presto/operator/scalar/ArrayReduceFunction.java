@@ -69,6 +69,12 @@ public final class ArrayReduceFunction
     }
 
     @Override
+    public boolean isCalledOnNullInput()
+    {
+        return true;
+    }
+
+    @Override
     public String getDescription()
     {
         return "Reduce elements of the array into a single value";

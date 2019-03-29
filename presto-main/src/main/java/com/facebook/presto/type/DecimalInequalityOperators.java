@@ -117,7 +117,7 @@ public class DecimalInequalityOperators
                 .argumentTypes(DECIMAL_SIGNATURE, DECIMAL_SIGNATURE)
                 .returnType(parseTypeSignature(BOOLEAN))
                 .build();
-        return SqlScalarFunction.builder(DecimalInequalityOperators.class)
+        return SqlScalarFunction.builder(DecimalInequalityOperators.class, operatorType)
                 .signature(signature)
                 .deterministic(true);
     }
@@ -266,7 +266,7 @@ public class DecimalInequalityOperators
                 .argumentTypes(DECIMAL_SIGNATURE, DECIMAL_SIGNATURE, DECIMAL_SIGNATURE)
                 .returnType(parseTypeSignature(BOOLEAN))
                 .build();
-        return SqlScalarFunction.builder(DecimalInequalityOperators.class)
+        return SqlScalarFunction.builder(DecimalInequalityOperators.class, BETWEEN)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice

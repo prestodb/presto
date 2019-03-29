@@ -142,7 +142,7 @@ public class TestAnnotationEngineForScalars
         assertFalse(scalar.isHidden());
     }
 
-    @ScalarFunction("scalar_with_nullable")
+    @ScalarFunction(value = "scalar_with_nullable", calledOnNullInput = true)
     @Description("Simple scalar with nullable primitive")
     public static class WithNullablePrimitiveArgScalarFunction
     {
@@ -181,7 +181,7 @@ public class TestAnnotationEngineForScalars
         assertEquals(specialized.getArgumentProperty(1), valueTypeArgumentProperty(USE_NULL_FLAG));
     }
 
-    @ScalarFunction("scalar_with_nullable_complex")
+    @ScalarFunction(value = "scalar_with_nullable_complex", calledOnNullInput = true)
     @Description("Simple scalar with nullable complex type")
     public static class WithNullableComplexArgScalarFunction
     {

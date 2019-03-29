@@ -88,7 +88,7 @@ public class TestPolymorphicScalarFunction
                 .returnType(parseTypeSignature(BOOLEAN))
                 .build();
 
-        SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
+        SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class, IS_DISTINCT_FROM)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -127,6 +127,7 @@ public class TestPolymorphicScalarFunction
         SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
                 .signature(SIGNATURE)
                 .deterministic(true)
+                .calledOnNullInput(false)
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup.methods("bigintToBigintReturnExtraParameter"))
                         .implementation(methodsGroup -> methodsGroup
@@ -145,6 +146,7 @@ public class TestPolymorphicScalarFunction
         SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
                 .signature(SIGNATURE)
                 .deterministic(true)
+                .calledOnNullInput(false)
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup.methods("varcharToVarcharCreateSliceWithExtraParameterLength"))
                         .implementation(methodsGroup -> methodsGroup
@@ -171,6 +173,7 @@ public class TestPolymorphicScalarFunction
         SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
                 .signature(signature)
                 .deterministic(true)
+                .calledOnNullInput(false)
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup.methods("varcharToVarchar")))
                 .build();
@@ -195,6 +198,7 @@ public class TestPolymorphicScalarFunction
         SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
                 .signature(signature)
                 .deterministic(true)
+                .calledOnNullInput(false)
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup.methods("varcharToVarchar")))
                 .build();
@@ -214,7 +218,7 @@ public class TestPolymorphicScalarFunction
                 .argumentTypes(parseTypeSignature("varchar(x)", ImmutableSet.of("x")))
                 .build();
 
-        SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
+        SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class, ADD)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -231,6 +235,7 @@ public class TestPolymorphicScalarFunction
         SqlScalarFunction.builder(TestMethods.class)
                 .signature(SIGNATURE)
                 .deterministic(true)
+                .calledOnNullInput(false)
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup.methods("bigintToBigintReturnExtraParameter"))
                         .implementation(methodsGroup -> methodsGroup.methods("foo")))
@@ -244,6 +249,7 @@ public class TestPolymorphicScalarFunction
         SqlScalarFunction.builder(TestMethods.class)
                 .signature(SIGNATURE)
                 .deterministic(true)
+                .calledOnNullInput(false)
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup
                                 .withExtraParameters(context -> ImmutableList.of(42))))
@@ -257,6 +263,7 @@ public class TestPolymorphicScalarFunction
         SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
                 .signature(SIGNATURE)
                 .deterministic(true)
+                .calledOnNullInput(false)
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup.methods("varcharToBigintReturnFirstExtraParameter"))
                         .implementation(methodsGroup -> methodsGroup.methods("varcharToBigintReturnExtraParameter")))

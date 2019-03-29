@@ -93,7 +93,7 @@ public final class DecimalOperators
                 .argumentTypes(decimalLeftSignature, decimalRightSignature)
                 .returnType(decimalResultSignature)
                 .build();
-        return SqlScalarFunction.builder(DecimalOperators.class)
+        return SqlScalarFunction.builder(DecimalOperators.class, ADD)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -175,7 +175,7 @@ public final class DecimalOperators
                 .argumentTypes(decimalLeftSignature, decimalRightSignature)
                 .returnType(decimalResultSignature)
                 .build();
-        return SqlScalarFunction.builder(DecimalOperators.class)
+        return SqlScalarFunction.builder(DecimalOperators.class, SUBTRACT)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -253,7 +253,7 @@ public final class DecimalOperators
                 .argumentTypes(decimalLeftSignature, decimalRightSignature)
                 .returnType(decimalResultSignature)
                 .build();
-        return SqlScalarFunction.builder(DecimalOperators.class)
+        return SqlScalarFunction.builder(DecimalOperators.class, MULTIPLY)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -318,7 +318,7 @@ public final class DecimalOperators
                 .argumentTypes(decimalLeftSignature, decimalRightSignature)
                 .returnType(decimalResultSignature)
                 .build();
-        return SqlScalarFunction.builder(DecimalOperators.class)
+        return SqlScalarFunction.builder(DecimalOperators.class, DIVIDE)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -459,7 +459,7 @@ public final class DecimalOperators
 
     public static SqlScalarFunction modulusScalarFunction(Signature signature)
     {
-        return SqlScalarFunction.builder(DecimalOperators.class)
+        return SqlScalarFunction.builder(DecimalOperators.class, MODULUS)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice

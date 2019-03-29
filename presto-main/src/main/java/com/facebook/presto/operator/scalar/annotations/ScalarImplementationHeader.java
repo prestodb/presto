@@ -79,15 +79,15 @@ public class ScalarImplementationHeader
 
         if (scalarFunction != null) {
             String baseName = scalarFunction.value().isEmpty() ? camelToSnake(annotatedName(annotated)) : scalarFunction.value();
-            builder.add(new ScalarImplementationHeader(baseName, new ScalarHeader(description, scalarFunction.hidden(), scalarFunction.deterministic())));
+            builder.add(new ScalarImplementationHeader(baseName, new ScalarHeader(description, scalarFunction.hidden(), scalarFunction.deterministic(), scalarFunction.calledOnNullInput())));
 
             for (String alias : scalarFunction.alias()) {
-                builder.add(new ScalarImplementationHeader(alias, new ScalarHeader(description, scalarFunction.hidden(), scalarFunction.deterministic())));
+                builder.add(new ScalarImplementationHeader(alias, new ScalarHeader(description, scalarFunction.hidden(), scalarFunction.deterministic(), scalarFunction.calledOnNullInput())));
             }
         }
 
         if (scalarOperator != null) {
-            builder.add(new ScalarImplementationHeader(scalarOperator.value(), new ScalarHeader(description, true, true)));
+            builder.add(new ScalarImplementationHeader(scalarOperator.value(), new ScalarHeader(description, true, true, scalarOperator.value().isCalledOnNullInput())));
         }
 
         List<ScalarImplementationHeader> result = builder.build();

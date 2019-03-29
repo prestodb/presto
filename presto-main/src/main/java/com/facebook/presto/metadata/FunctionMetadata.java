@@ -28,14 +28,16 @@ public class FunctionMetadata
     private final TypeSignature returnType;
     private final FunctionKind functionKind;
     private final boolean deterministic;
+    private final boolean calledOnNullInput;
 
-    public FunctionMetadata(String name, List<TypeSignature> argumentTypes, TypeSignature returnType, FunctionKind functionKind, boolean deterministic)
+    public FunctionMetadata(String name, List<TypeSignature> argumentTypes, TypeSignature returnType, FunctionKind functionKind, boolean deterministic, boolean calledOnNullInput)
     {
         this.name = requireNonNull(name, "name is null");
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
         this.returnType = requireNonNull(returnType, "returnType is null");
         this.functionKind = requireNonNull(functionKind, "functionKind is null");
         this.deterministic = deterministic;
+        this.calledOnNullInput = calledOnNullInput;
     }
 
     public FunctionKind getFunctionKind()
@@ -61,5 +63,10 @@ public class FunctionMetadata
     public boolean isDeterministic()
     {
         return deterministic;
+    }
+
+    public boolean isCalledOnNullInput()
+    {
+        return calledOnNullInput;
     }
 }

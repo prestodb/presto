@@ -68,6 +68,12 @@ public final class ApplyFunction
     }
 
     @Override
+    public boolean isCalledOnNullInput()
+    {
+        return true;
+    }
+
+    @Override
     public String getDescription()
     {
         return "lambda apply function";

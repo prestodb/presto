@@ -449,7 +449,7 @@ public class ParametricScalarImplementation
 
     public static final class Parser
     {
-        private final String functionName;
+        private final ScalarImplementationHeader header;
         private final boolean nullable;
         private final List<ArgumentProperty> argumentProperties = new ArrayList<>();
         private final TypeSignature returnType;
@@ -469,9 +469,9 @@ public class ParametricScalarImplementation
 
         private final List<ParametricScalarImplementationChoice> choices = new ArrayList<>();
 
-        private Parser(String functionName, Method method, Optional<Constructor<?>> constructor)
+        private Parser(ScalarImplementationHeader header, Method method, Optional<Constructor<?>> constructor)
         {
-            this.functionName = requireNonNull(functionName, "functionName is null");
+            this.header = requireNonNull(header, "header is null");
             this.nullable = method.getAnnotation(SqlNullable.class) != null;
             checkArgument(nullable || !containsLegacyNullable(method.getAnnotations()), "Method [%s] is annotated with @Nullable but not @SqlNullable", method);
 
@@ -629,6 +629,17 @@ public class ParametricScalarImplementation
                     }
                 }
             }
+            long valueArgumentsCalledOnNullCount = argumentProperties.stream()
+                    .filter(argumentProperty -> argumentProperty.getArgumentType() == VALUE_TYPE)
+                    .map(ArgumentProperty::getNullConvention)
+                    .filter(nullConvention -> nullConvention != RETURN_NULL_ON_NULL)
+                    .count();
+            checkCondition((header.getHeader().isCalledOnNullInput() && valueArgumentsCalledOnNullCount > 0)
+                    || (!header.getHeader().isCalledOnNullInput() && valueArgumentsCalledOnNullCount == 0),
+                    FUNCTION_IMPLEMENTATION_ERROR,
+                    header.getHeader().isCalledOnNullInput() ?
+                            format("Method [%s] is annotated as called on null input but no argument handles null", method) :
+                            format("Method [%s] is annotated as not called on null input but some arguments expect null", method));
         }
 
         private void inferSpecialization(Method method, Class<?> parameterType, String typeParameterName)
@@ -696,7 +707,7 @@ public class ParametricScalarImplementation
         public ParametricScalarImplementation get()
         {
             Signature signature = new Signature(
-                    functionName,
+                    header.getName(),
                     SCALAR,
                     createTypeVariableConstraints(typeParameters, dependencies),
                     longVariableConstraints,
@@ -712,9 +723,9 @@ public class ParametricScalarImplementation
                     returnNativeContainerType);
         }
 
-        static ParametricScalarImplementation parseImplementation(String functionName, Method method, Optional<Constructor<?>> constructor)
+        static ParametricScalarImplementation parseImplementation(ScalarImplementationHeader header, Method method, Optional<Constructor<?>> constructor)
         {
-            return new Parser(functionName, method, constructor).get();
+            return new Parser(header, method, constructor).get();
         }
     }
 }

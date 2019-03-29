@@ -62,6 +62,12 @@ public class ParametricScalar
     }
 
     @Override
+    public boolean isCalledOnNullInput()
+    {
+        return details.isCalledOnNullInput();
+    }
+
+    @Override
     public String getDescription()
     {
         return details.getDescription().isPresent() ? details.getDescription().get() : "";
