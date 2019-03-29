@@ -47,7 +47,6 @@ public final class TestingBlockEncodingSerde
 
         // always add the built-in BlockEncodings
         addBlockEncoding(new VariableWidthBlockEncoding());
-        addBlockEncoding(new FixedWidthBlockEncoding());
         addBlockEncoding(new ByteArrayBlockEncoding());
         addBlockEncoding(new ShortArrayBlockEncoding());
         addBlockEncoding(new IntArrayBlockEncoding());
