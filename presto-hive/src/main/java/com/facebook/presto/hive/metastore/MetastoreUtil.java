@@ -111,7 +111,10 @@ public class MetastoreUtil
         schema.setProperty(META_TABLE_LOCATION, sd.getLocation());
 
         if (sd.getBucketProperty().isPresent()) {
-            schema.setProperty(BUCKET_FIELD_NAME, sd.getBucketProperty().get().getBucketedBy().get(0));
+            List<String> bucketedBy = sd.getBucketProperty().get().getBucketedBy();
+            if (!bucketedBy.isEmpty()) {
+                schema.setProperty(BUCKET_FIELD_NAME, bucketedBy.get(0));
+            }
             schema.setProperty(BUCKET_COUNT, Integer.toString(sd.getBucketProperty().get().getBucketCount()));
         }
         else {

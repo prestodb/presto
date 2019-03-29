@@ -2661,6 +2661,9 @@ public abstract class AbstractTestHiveClient
                 TEMPORARY_TABLE_BUCKET_COUNT,
                 TEMPORARY_TABLE_BUCKET_COLUMNS,
                 MaterializedResult.resultBuilder(SESSION, VARCHAR, VARCHAR).build());
+
+        // bucketed on zero columns
+        testCreateTemporaryTable(TEMPORARY_TABLE_COLUMNS, TEMPORARY_TABLE_BUCKET_COUNT, ImmutableList.of(), TEMPORARY_TABLE_DATA);
     }
 
     private void testCreateTemporaryTable(List<ColumnMetadata> columns, int bucketCount, List<String> bucketingColumns, MaterializedResult inputRows)
