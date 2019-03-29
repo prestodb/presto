@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.metadata.CastType;
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionMetadata;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -63,14 +65,16 @@ public class NullIfCodeGenerator
         Type secondType = second.getType();
 
         // if (equal(cast(first as <common type>), cast(second as <common type>))
-        FunctionHandle equalFunction = generatorContext.getFunctionManager().resolveOperator(EQUAL, fromTypes(firstType, secondType));
+        FunctionManager functionManager = generatorContext.getFunctionManager();
+        FunctionHandle equalFunction = functionManager.resolveOperator(EQUAL, fromTypes(firstType, secondType));
+        FunctionMetadata equalFunctionMetadata = functionManager.getFunctionMetadata(equalFunction);
         ScalarFunctionImplementation equalsFunction = generatorContext.getFunctionManager().getScalarFunctionImplementation(equalFunction);
         BytecodeNode equalsCall = generatorContext.generateCall(
                 EQUAL.name(),
                 equalsFunction,
                 ImmutableList.of(
-                        cast(generatorContext, firstValue, firstType, equalFunction.getSignature().getArgumentTypes().get(0)),
-                        cast(generatorContext, generatorContext.generate(second, Optional.empty()), secondType, equalFunction.getSignature().getArgumentTypes().get(1))));
+                        cast(generatorContext, firstValue, firstType, equalFunctionMetadata.getArgumentTypes().get(0)),
+                        cast(generatorContext, generatorContext.generate(second, Optional.empty()), secondType, equalFunctionMetadata.getArgumentTypes().get(1))));
 
         BytecodeBlock conditionBlock = new BytecodeBlock()
                 .append(equalsCall)

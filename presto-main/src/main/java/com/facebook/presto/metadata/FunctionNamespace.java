@@ -49,6 +49,11 @@ class FunctionNamespace
         return registry.list();
     }
 
+    public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
+    {
+        return registry.getFunctionMetadata(functionHandle);
+    }
+
     public FunctionHandle lookupFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         return registry.lookupFunction(name, parameterTypes);

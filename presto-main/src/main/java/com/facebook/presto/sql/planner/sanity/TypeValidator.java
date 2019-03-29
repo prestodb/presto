@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.sanity;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -147,18 +147,17 @@ public final class TypeValidator
         private void checkWindowFunctions(Map<Symbol, WindowNode.Function> functions)
         {
             for (Map.Entry<Symbol, WindowNode.Function> entry : functions.entrySet()) {
-                Signature signature = entry.getValue().getFunctionHandle().getSignature();
+                FunctionHandle functionHandle = entry.getValue().getFunctionHandle();
                 FunctionCall call = entry.getValue().getFunctionCall();
 
-                checkSignature(entry.getKey(), signature);
+                checkTypeSignature(entry.getKey(), metadata.getFunctionManager().getFunctionMetadata(functionHandle).getReturnType());
                 checkCall(entry.getKey(), call);
             }
         }
 
-        private void checkSignature(Symbol symbol, Signature signature)
+        private void checkTypeSignature(Symbol symbol, TypeSignature actualTypeSignature)
         {
             TypeSignature expectedTypeSignature = types.get(symbol).getTypeSignature();
-            TypeSignature actualTypeSignature = signature.getReturnType();
             verifyTypeSignature(symbol, expectedTypeSignature, actualTypeSignature);
         }
 
@@ -173,7 +172,7 @@ public final class TypeValidator
         private void checkFunctionSignature(Map<Symbol, Aggregation> aggregations)
         {
             for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
-                checkSignature(entry.getKey(), entry.getValue().getFunctionHandle().getSignature());
+                checkTypeSignature(entry.getKey(), metadata.getFunctionManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getReturnType());
             }
         }
 

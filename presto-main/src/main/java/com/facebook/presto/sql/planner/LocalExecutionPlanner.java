@@ -21,6 +21,7 @@ import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.AssignUniqueIdOperator;
@@ -905,8 +906,9 @@ public class LocalExecutionPlanner
                     arguments.add(source.getLayout().get(argumentSymbol));
                 }
                 Symbol symbol = entry.getKey();
-                WindowFunctionSupplier windowFunctionSupplier = metadata.getFunctionManager().getWindowFunctionImplementation(functionHandle);
-                Type type = metadata.getType(functionHandle.getSignature().getReturnType());
+                FunctionManager functionManager = metadata.getFunctionManager();
+                WindowFunctionSupplier windowFunctionSupplier = functionManager.getWindowFunctionImplementation(functionHandle);
+                Type type = metadata.getType(functionManager.getFunctionMetadata(functionHandle).getReturnType());
                 windowFunctionsBuilder.add(window(windowFunctionSupplier, type, frameInfo, arguments.build()));
                 windowFunctionOutputSymbolsBuilder.add(symbol);
             }
@@ -2499,9 +2501,8 @@ public class LocalExecutionPlanner
                 PhysicalOperation source,
                 Aggregation aggregation)
         {
-            InternalAggregationFunction internalAggregationFunction = metadata
-                    .getFunctionManager()
-                    .getAggregateFunctionImplementation(aggregation.getFunctionHandle());
+            FunctionManager functionManager = metadata.getFunctionManager();
+            InternalAggregationFunction internalAggregationFunction = functionManager.getAggregateFunctionImplementation(aggregation.getFunctionHandle());
 
             List<Integer> valueChannels = new ArrayList<>();
             for (Expression argument : aggregation.getCall().getArguments()) {
@@ -2517,7 +2518,7 @@ public class LocalExecutionPlanner
                     .map(LambdaExpression.class::cast)
                     .collect(toImmutableList());
             if (!lambdaExpressions.isEmpty()) {
-                List<FunctionType> functionTypes = aggregation.getFunctionHandle().getSignature().getArgumentTypes().stream()
+                List<FunctionType> functionTypes = functionManager.getFunctionMetadata(aggregation.getFunctionHandle()).getArgumentTypes().stream()
                         .filter(typeSignature -> typeSignature.getBase().equals(FunctionType.NAME))
                         .map(typeSignature -> (FunctionType) (metadata.getTypeManager().getType(typeSignature)))
                         .collect(toImmutableList());

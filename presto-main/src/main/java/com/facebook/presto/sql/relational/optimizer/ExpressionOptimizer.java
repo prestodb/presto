@@ -15,6 +15,7 @@ package com.facebook.presto.sql.relational.optimizer;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionMetadata;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -95,13 +96,14 @@ public class ExpressionOptimizer
         public RowExpression visitCall(CallExpression call, Void context)
         {
             FunctionHandle functionHandle = call.getFunctionHandle();
-            if (functionHandle.getSignature().getName().equals(TRY_CAST_NAME)) {
+            FunctionMetadata functionMetadata = functionManager.getFunctionMetadata(functionHandle);
+            if (functionMetadata.getName().equals(TRY_CAST_NAME)) {
                 List<RowExpression> arguments = call.getArguments().stream()
                         .map(argument -> argument.accept(this, null))
                         .collect(toImmutableList());
                 return call(functionHandle, call.getType(), arguments);
             }
-            if (functionHandle.getSignature().getName().equals(CAST.getCastName())) {
+            if (functionMetadata.getName().equals(CAST.getCastName())) {
                 call = rewriteCast(call);
                 functionHandle = call.getFunctionHandle();
             }
@@ -112,7 +114,7 @@ public class ExpressionOptimizer
                     .collect(toImmutableList());
 
             // TODO: optimize function calls with lambda arguments. For example, apply(x -> x + 2, 1)
-            if (Iterables.all(arguments, instanceOf(ConstantExpression.class)) && function.isDeterministic()) {
+            if (Iterables.all(arguments, instanceOf(ConstantExpression.class)) && functionMetadata.isDeterministic()) {
                 MethodHandle method = function.getMethodHandle();
 
                 if (method.type().parameterCount() > 0 && method.type().parameterType(0) == ConnectorSession.class) {
@@ -226,10 +228,10 @@ public class ExpressionOptimizer
             if (call.getArguments().get(0) instanceof CallExpression) {
                 // Optimization for CAST(JSON_PARSE(...) AS ARRAY/MAP/ROW)
                 CallExpression innerCall = (CallExpression) call.getArguments().get(0);
-                if (innerCall.getFunctionHandle().getSignature().getName().equals("json_parse")) {
+                if (functionManager.getFunctionMetadata(innerCall.getFunctionHandle()).getName().equals("json_parse")) {
                     checkArgument(innerCall.getType().equals(JSON));
                     checkArgument(innerCall.getArguments().size() == 1);
-                    TypeSignature returnType = call.getFunctionHandle().getSignature().getReturnType();
+                    TypeSignature returnType = functionManager.getFunctionMetadata(call.getFunctionHandle()).getReturnType();
                     if (returnType.getBase().equals(ARRAY)) {
                         return call(
                                 functionManager.lookupCast(

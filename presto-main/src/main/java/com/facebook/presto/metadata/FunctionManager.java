@@ -62,6 +62,10 @@ public class FunctionManager
         return globalFunctionNamespace.listFunctions();
     }
 
+    public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
+    {
+        return globalFunctionNamespace.getFunctionMetadata(functionHandle);
+    }
     /**
      * Lookup up a function with a fully qualified name and fully bound types.
      *

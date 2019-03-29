@@ -138,7 +138,7 @@ public class RowIndeterminateOperator
                 BytecodeExpression element = constantType(binder, fieldTypes.get(i)).getValue(value, constantInt(i));
 
                 ifNullField.ifFalse(new IfStatement("if the field is not null but indeterminate...")
-                        .condition(invokeFunction(scope, cachedInstanceBinder, functionHandle.getSignature().getName(), function, element))
+                        .condition(invokeFunction(scope, cachedInstanceBinder, functionManager.getFunctionMetadata(functionHandle).getName(), function, element))
                         .ifTrue(new BytecodeBlock()
                                 .push(true)
                                 .gotoLabel(end)));

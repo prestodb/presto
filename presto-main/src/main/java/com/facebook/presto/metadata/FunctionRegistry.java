@@ -686,6 +686,20 @@ class FunctionRegistry
         return Iterables.any(functions.get(name), function -> function.getSignature().getKind() == AGGREGATE);
     }
 
+    public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
+    {
+        SpecializedFunctionKey functionKey;
+        try {
+            functionKey = specializedFunctionKeyCache.getUnchecked(functionHandle.getSignature());
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throw e;
+        }
+        SqlFunction function = functionKey.getFunction();
+        return new FunctionMetadata(functionHandle.getSignature(), function.isDeterministic());
+    }
+
     public FunctionHandle lookupFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         Collection<SqlFunction> allCandidates = functions.get(name);
