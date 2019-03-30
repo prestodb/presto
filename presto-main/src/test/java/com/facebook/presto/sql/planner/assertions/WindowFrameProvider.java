@@ -60,8 +60,8 @@ public class WindowFrameProvider
                 startValue.map(alias -> alias.toSymbol(aliases)),
                 endType,
                 endValue.map(alias -> alias.toSymbol(aliases)),
-                originalStartValue,
-                originalEndValue);
+                originalStartValue.map(Expression::toString),
+                originalEndValue.map(Expression::toString));
     }
 
     @Override

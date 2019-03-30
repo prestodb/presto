@@ -770,8 +770,8 @@ class QueryPlanner
                     frameStartSymbol,
                     frameEndType,
                     frameEndSymbol,
-                    Optional.ofNullable(frameStart),
-                    Optional.ofNullable(frameEnd));
+                    Optional.ofNullable(frameStart).map(Expression::toString),
+                    Optional.ofNullable(frameEnd).map(Expression::toString));
 
             TranslationMap outputTranslations = subPlan.copyTranslations();
 

@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.WindowFrame;
@@ -223,8 +224,8 @@ public class TestPruneWindowColumns
                                                 Optional.of(startValue1),
                                                 CURRENT_ROW,
                                                 Optional.of(endValue1),
-                                                Optional.of(startValue1.toSymbolReference()),
-                                                Optional.of(endValue2.toSymbolReference()))),
+                                                Optional.of(startValue1.toSymbolReference()).map(Expression::toString),
+                                                Optional.of(endValue2.toSymbolReference()).map(Expression::toString))),
                                 output2,
                                 new WindowNode.Function(
                                         new FunctionCall(QualifiedName.of("min"), ImmutableList.of(input2.toSymbolReference())),
@@ -235,8 +236,8 @@ public class TestPruneWindowColumns
                                                 Optional.of(startValue2),
                                                 CURRENT_ROW,
                                                 Optional.of(endValue2),
-                                                Optional.of(startValue2.toSymbolReference()),
-                                                Optional.of(endValue2.toSymbolReference())))),
+                                                Optional.of(startValue2.toSymbolReference()).map(Expression::toString),
+                                                Optional.of(endValue2.toSymbolReference()).map(Expression::toString)))),
                         hash,
                         p.values(
                                 inputs.stream()

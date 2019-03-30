@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.WindowFrame;
@@ -226,8 +225,8 @@ public class WindowNode
         private final Optional<Symbol> endValue;
 
         // This information is only used for printing the plan.
-        private final Optional<Expression> originalStartValue;
-        private final Optional<Expression> originalEndValue;
+        private final Optional<String> originalStartValue;
+        private final Optional<String> originalEndValue;
 
         @JsonCreator
         public Frame(
@@ -236,8 +235,8 @@ public class WindowNode
                 @JsonProperty("startValue") Optional<Symbol> startValue,
                 @JsonProperty("endType") FrameBound.Type endType,
                 @JsonProperty("endValue") Optional<Symbol> endValue,
-                @JsonProperty("originalStartValue") Optional<Expression> originalStartValue,
-                @JsonProperty("originalEndValue") Optional<Expression> originalEndValue)
+                @JsonProperty("originalStartValue") Optional<String> originalStartValue,
+                @JsonProperty("originalEndValue") Optional<String> originalEndValue)
         {
             this.startType = requireNonNull(startType, "startType is null");
             this.startValue = requireNonNull(startValue, "startValue is null");
@@ -287,13 +286,13 @@ public class WindowNode
         }
 
         @JsonProperty
-        public Optional<Expression> getOriginalStartValue()
+        public Optional<String> getOriginalStartValue()
         {
             return originalStartValue;
         }
 
         @JsonProperty
-        public Optional<Expression> getOriginalEndValue()
+        public Optional<String> getOriginalEndValue()
         {
             return originalEndValue;
         }
