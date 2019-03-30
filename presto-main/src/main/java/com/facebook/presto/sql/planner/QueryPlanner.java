@@ -79,6 +79,8 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
+import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.toBoundType;
+import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.toWindowType;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.groupingSets;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -765,10 +767,10 @@ class QueryPlanner
             }
 
             WindowNode.Frame frame = new WindowNode.Frame(
-                    frameType,
-                    frameStartType,
+                    toWindowType(frameType),
+                    toBoundType(frameStartType),
                     frameStartSymbol,
-                    frameEndType,
+                    toBoundType(frameEndType),
                     frameEndSymbol,
                     Optional.ofNullable(frameStart).map(Expression::toString),
                     Optional.ofNullable(frameEnd).map(Expression::toString));

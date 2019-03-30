@@ -49,8 +49,9 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType;
+import com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SortItem;
@@ -250,10 +251,10 @@ public final class PlanMatchPattern
     }
 
     public static ExpectedValueProvider<WindowNode.Frame> windowFrame(
-            WindowFrame.Type type,
-            FrameBound.Type startType,
+            WindowType type,
+            BoundType startType,
             Optional<String> startValue,
-            FrameBound.Type endType,
+            BoundType endType,
             Optional<String> endValue)
     {
         return new WindowFrameProvider(
