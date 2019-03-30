@@ -16,9 +16,7 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.WindowFrame;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -218,10 +216,10 @@ public class WindowNode
     @Immutable
     public static class Frame
     {
-        private final WindowFrame.Type type;
-        private final FrameBound.Type startType;
+        private final WindowType type;
+        private final BoundType startType;
         private final Optional<Symbol> startValue;
-        private final FrameBound.Type endType;
+        private final BoundType endType;
         private final Optional<Symbol> endValue;
 
         // This information is only used for printing the plan.
@@ -230,10 +228,10 @@ public class WindowNode
 
         @JsonCreator
         public Frame(
-                @JsonProperty("type") WindowFrame.Type type,
-                @JsonProperty("startType") FrameBound.Type startType,
+                @JsonProperty("type") WindowType type,
+                @JsonProperty("startType") BoundType startType,
                 @JsonProperty("startValue") Optional<Symbol> startValue,
-                @JsonProperty("endType") FrameBound.Type endType,
+                @JsonProperty("endType") BoundType endType,
                 @JsonProperty("endValue") Optional<Symbol> endValue,
                 @JsonProperty("originalStartValue") Optional<String> originalStartValue,
                 @JsonProperty("originalEndValue") Optional<String> originalEndValue)
@@ -256,13 +254,13 @@ public class WindowNode
         }
 
         @JsonProperty
-        public WindowFrame.Type getType()
+        public WindowType getType()
         {
             return type;
         }
 
         @JsonProperty
-        public FrameBound.Type getStartType()
+        public BoundType getStartType()
         {
             return startType;
         }
@@ -274,7 +272,7 @@ public class WindowNode
         }
 
         @JsonProperty
-        public FrameBound.Type getEndType()
+        public BoundType getEndType()
         {
             return endType;
         }
@@ -318,6 +316,20 @@ public class WindowNode
         public int hashCode()
         {
             return Objects.hash(type, startType, startValue, endType, endValue, originalStartValue, originalEndValue);
+        }
+
+        public enum WindowType
+        {
+            RANGE, ROWS
+        }
+
+        public enum BoundType
+        {
+            UNBOUNDED_PRECEDING,
+            PRECEDING,
+            CURRENT_ROW,
+            FOLLOWING,
+            UNBOUNDED_FOLLOWING
         }
     }
 

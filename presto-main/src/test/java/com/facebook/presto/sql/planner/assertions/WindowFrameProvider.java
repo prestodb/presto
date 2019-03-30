@@ -14,9 +14,9 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType;
+import com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FrameBound;
-import com.facebook.presto.sql.tree.WindowFrame;
 
 import java.util.Optional;
 
@@ -26,17 +26,17 @@ import static java.util.Objects.requireNonNull;
 public class WindowFrameProvider
         implements ExpectedValueProvider<WindowNode.Frame>
 {
-    private final WindowFrame.Type type;
-    private final FrameBound.Type startType;
+    private final WindowType type;
+    private final BoundType startType;
     private final Optional<SymbolAlias> startValue;
-    private final FrameBound.Type endType;
+    private final BoundType endType;
     private final Optional<SymbolAlias> endValue;
 
     WindowFrameProvider(
-            WindowFrame.Type type,
-            FrameBound.Type startType,
+            WindowType type,
+            BoundType startType,
             Optional<SymbolAlias> startValue,
-            FrameBound.Type endType,
+            BoundType endType,
             Optional<SymbolAlias> endValue)
     {
         this.type = requireNonNull(type, "type is null");

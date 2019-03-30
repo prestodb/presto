@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.sql.tree.FrameBound;
-import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType;
+import com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -24,17 +24,17 @@ import static java.util.Objects.requireNonNull;
 
 public class FrameInfo
 {
-    private final WindowFrame.Type type;
-    private final FrameBound.Type startType;
+    private final WindowType type;
+    private final BoundType startType;
     private final int startChannel;
-    private final FrameBound.Type endType;
+    private final BoundType endType;
     private final int endChannel;
 
     public FrameInfo(
-            WindowFrame.Type type,
-            FrameBound.Type startType,
+            WindowType type,
+            BoundType startType,
             Optional<Integer> startChannel,
-            FrameBound.Type endType,
+            BoundType endType,
             Optional<Integer> endChannel)
     {
         this.type = requireNonNull(type, "type is null");
@@ -44,12 +44,12 @@ public class FrameInfo
         this.endChannel = requireNonNull(endChannel, "endChannel is null").orElse(-1);
     }
 
-    public WindowFrame.Type getType()
+    public WindowType getType()
     {
         return type;
     }
 
-    public FrameBound.Type getStartType()
+    public BoundType getStartType()
     {
         return startType;
     }
@@ -59,7 +59,7 @@ public class FrameInfo
         return startChannel;
     }
 
-    public FrameBound.Type getEndType()
+    public BoundType getEndType()
     {
         return endType;
     }
