@@ -64,10 +64,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.execution.QueryState.FAILED;
@@ -75,6 +75,7 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
@@ -99,13 +100,14 @@ class Query
 
     private final PagesSerde serde;
 
-    private final AtomicLong resultId = new AtomicLong();
+    @GuardedBy("this")
+    private OptionalLong nextToken = OptionalLong.of(0);
 
     @GuardedBy("this")
     private QueryResults lastResult;
 
     @GuardedBy("this")
-    private String lastResultPath;
+    private long lastToken = -1;
 
     @GuardedBy("this")
     private List<Column> columns;
@@ -272,8 +274,7 @@ class Query
     public synchronized ListenableFuture<QueryResults> waitForResults(long token, UriInfo uriInfo, String scheme, Duration wait, DataSize targetResultSize)
     {
         // before waiting, check if this request has already been processed and cached
-        String requestedPath = uriInfo.getAbsolutePath().getPath();
-        Optional<QueryResults> cachedResult = getCachedResult(token, requestedPath);
+        Optional<QueryResults> cachedResult = getCachedResult(token);
         if (cachedResult.isPresent()) {
             return immediateFuture(cachedResult.get());
         }
@@ -306,7 +307,7 @@ class Query
         }
     }
 
-    private synchronized Optional<QueryResults> getCachedResult(long token, String requestedPath)
+    private synchronized Optional<QueryResults> getCachedResult(long token)
     {
         // is this the first request?
         if (lastResult == null) {
@@ -314,18 +315,24 @@ class Query
         }
 
         // is the a repeated request for the last results?
-        if (requestedPath.equals(lastResultPath)) {
+        if (token == lastToken) {
             // tell query manager we are still interested in the query
             queryManager.recordHeartbeat(queryId);
             return Optional.of(lastResult);
         }
 
-        if (token < resultId.get()) {
+        // if this is a result before the lastResult, the data is gone
+        if (token < lastToken) {
             throw new WebApplicationException(Response.Status.GONE);
         }
 
+        // if this is a request for a result after the end of the stream, return not found
+        if (!nextToken.isPresent()) {
+            throw new WebApplicationException(Response.Status.NOT_FOUND);
+        }
+
         // if this is not a request for the next results, return not found
-        if (lastResult.getNextUri() == null || !requestedPath.equals(lastResult.getNextUri().getPath())) {
+        if (token != nextToken.getAsLong()) {
             // unknown token
             throw new WebApplicationException(Response.Status.NOT_FOUND);
         }
@@ -336,12 +343,13 @@ class Query
     private synchronized QueryResults getNextResult(long token, UriInfo uriInfo, String scheme, DataSize targetResultSize)
     {
         // check if the result for the token have already been created
-        String requestedPath = uriInfo.getAbsolutePath().getPath();
-        Optional<QueryResults> cachedResult = getCachedResult(token, requestedPath);
+        Optional<QueryResults> cachedResult = getCachedResult(token);
         if (cachedResult.isPresent()) {
             return cachedResult.get();
         }
 
+        verify(nextToken.isPresent(), "Can not generate next result when next token is not present");
+        verify(token == nextToken.getAsLong(), "Expected token to equal next token");
         URI queryHtmlUri = uriInfo.getRequestUriBuilder()
                 .scheme(scheme)
                 .replacePath("ui/query.html")
@@ -405,14 +413,21 @@ class Query
             data = ImmutableSet.of(ImmutableList.of(true));
         }
 
+        // advance next token
         // only return a next if
         // (1) the query is not done AND the query state is not FAILED
         //   OR
         // (2)there is more data to send (due to buffering)
+        if ((!queryInfo.isFinalQueryInfo() && queryInfo.getState() != FAILED) || !exchangeClient.isClosed()) {
+            nextToken = OptionalLong.of(token + 1);
+        }
+        else {
+            nextToken = OptionalLong.empty();
+        }
+
         URI nextResultsUri = null;
-        if (!queryInfo.isFinalQueryInfo() && !queryInfo.getState().equals(QueryState.FAILED)
-                || !exchangeClient.isClosed()) {
-            nextResultsUri = createNextResultsUri(scheme, uriInfo);
+        if (nextToken.isPresent()) {
+            nextResultsUri = createNextResultsUri(scheme, uriInfo, nextToken.getAsLong());
         }
 
         // update catalog, schema, and path
@@ -449,14 +464,11 @@ class Query
                 queryInfo.getUpdateType(),
                 updateCount);
 
-        cacheLastResults(queryResults, requestedPath);
-        return queryResults;
-    }
-
-    private synchronized void cacheLastResults(QueryResults queryResults, String requestedPath)
-    {
-        lastResultPath = requestedPath;
+        // cache the new result
+        lastToken = token;
         lastResult = queryResults;
+
+        return queryResults;
     }
 
     private synchronized void closeExchangeClientIfNecessary(QueryInfo queryInfo)
@@ -500,13 +512,14 @@ class Query
         return Futures.transformAsync(queryManager.getStateChange(queryId, currentState), this::queryDoneFuture, directExecutor());
     }
 
-    private synchronized URI createNextResultsUri(String scheme, UriInfo uriInfo)
+    private synchronized URI createNextResultsUri(String scheme, UriInfo uriInfo, long nextToken)
     {
         return uriInfo.getBaseUriBuilder()
                 .scheme(scheme)
                 .replacePath("/v1/statement/executing")
                 .path(queryId.toString())
-                .path(String.valueOf(resultId.incrementAndGet()))
+                .path(slug)
+                .path(String.valueOf(nextToken))
                 .replaceQuery("")
                 .build();
     }
@@ -542,7 +555,6 @@ class Query
         if (stageInfo == null) {
             return null;
         }
-
         com.facebook.presto.execution.StageStats stageStats = stageInfo.getStageStats();
 
         ImmutableList.Builder<StageStats> subStages = ImmutableList.builder();
