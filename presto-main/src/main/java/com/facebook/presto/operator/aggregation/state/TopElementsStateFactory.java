@@ -52,26 +52,26 @@ public class TopElementsStateFactory
             implements TopElementsState
     {
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedTopElementsState.class).instanceSize();
-        private final ObjectBigArray<TopElementsHistogram> histogram = new ObjectBigArray<>();
+        private final ObjectBigArray<TopElementsHistogram> histogramArray = new ObjectBigArray<>();
         private long size;
 
         @Override
         public void ensureCapacity(long size)
         {
-            histogram.ensureCapacity(size);
+            histogramArray.ensureCapacity(size);
         }
 
         @Override
         public TopElementsHistogram getHistogram()
         {
-            return histogram.get(getGroupId());
+            return histogramArray.get(getGroupId());
         }
 
         @Override
         public void setHistogram(TopElementsHistogram value)
         {
             requireNonNull(value, "value is null");
-            histogram.set(getGroupId(), value);
+            histogramArray.set(getGroupId(), value);
         }
 
         @Override
@@ -83,7 +83,7 @@ public class TopElementsStateFactory
         @Override
         public long getEstimatedSize()
         {
-            return INSTANCE_SIZE + size + histogram.sizeOf();
+            return INSTANCE_SIZE + size + histogramArray.sizeOf();
         }
     }
 

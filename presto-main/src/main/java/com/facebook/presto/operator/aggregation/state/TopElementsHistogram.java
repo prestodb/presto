@@ -75,9 +75,7 @@ public class TopElementsHistogram<E>
             itemCount = ccms.add(item.toString(), count);
         }
         rowsProcessed += count;
-        // This is the only place where trim can be done before adding since only one element is being added
-        // And we have handle to that one element.
-        if(100.0*itemCount/rowsProcessed >= minPercentShare) {
+        if(itemCount >= getMinItemCount()) {
             topEntries.addOrUpdate(item, itemCount);
         }
         trimTopElements();
@@ -151,6 +149,10 @@ public class TopElementsHistogram<E>
         return rowsProcessed;
     }
 
+    public double getMinItemCount(){
+        return minPercentShare * rowsProcessed / 100.0;
+    }
+
     public long estimateCount(E item){
         return ccms.estimateCount(item.toString());
     }
@@ -172,7 +174,7 @@ public class TopElementsHistogram<E>
             // If the size is less than maxEntries don't bother trimming
             return;
         }
-        double minItemCount = minPercentShare * rowsProcessed / 100.0;
+        double minItemCount = getMinItemCount();
         int loopCount = topEntries.size();
         for(int i=0; i<loopCount; i++) {
             Entry entry = topEntries.peek();
@@ -191,7 +193,7 @@ public class TopElementsHistogram<E>
     }
 
     public Map<E, Long> getTopElements(){
-        double minItemCount = minPercentShare * rowsProcessed / 100.0;
+        double minItemCount = getMinItemCount();
         Iterator<Entry<E>> elements = this.topEntries.iterator();
         Map<E, Long> topElements = new HashMap<E, Long>();
         while(elements.hasNext()){

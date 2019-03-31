@@ -240,6 +240,7 @@ public final class IndexedPriorityQueue<E>
             return generation;
         }
 
+        //TODO is it the right way to calculate size
         public long estimatedInMemorySize(){
             return INSTANCE_SIZE + GraphLayout.parseInstance(value).totalSize();
         }
