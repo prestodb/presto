@@ -788,13 +788,6 @@ public class OrcRecordReader
                 }
                 if (qualifyingSet == null) {
                     qualifyingSet = new QualifyingSet();
-                    qualifyingSet.setExceptionOnTruncate(retryIfBatchTooLarge);
-                }
-                if (qualifyingSet.getExceptionOnTruncate()) {
-                    qualifyingSet.setRange(0, Math.min(ariaBatchRows, (int) currentGroupRowCount));
-                }
-                else {
-                    qualifyingSet.setRange(0, (int) currentGroupRowCount);
                 }
                 qualifyingSet.setRange(0, Math.min(ariaBatchRows, (int) currentGroupRowCount));
                 reader.setQualifyingSets(qualifyingSet, null);

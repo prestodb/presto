@@ -139,6 +139,36 @@ public class BooleanInputStream
         return count;
     }
 
+    // vector[i] is set to the bit at offsets[i] - offsetBase for i
+    // from 0 to numOffsets. The offset[i] - offsetBase values are
+    // relative to the current position of the stream. 0 would mean
+    // the value returned by a call to next(). The stream is advanced
+    // by numBits. The offset values are increasing and non-repeating.
+    public void getSetBits(int[] offsets, int numOffsets, int offsetBase, int numBits, boolean[] vector)
+            throws IOException
+    {
+        if (offsets[0] == offsetBase && offsets[numOffsets - 1] == offsetBase + numOffsets - 1) {
+            getSetBits(numOffsets, vector);
+            if (numBits > offsets[numOffsets - offsetBase - 1] + 1) {
+                skip(numBits - offsets[numOffsets - 1] - offsetBase - 1);
+            }
+            return;
+        }
+        int position = 0;
+        for (int i = 0; i < numOffsets; i++) {
+            int target = offsets[i] - offsetBase;
+            if (target > position) {
+                skip(target - position);
+                position = target;
+            }
+            vector[i] = nextBit();
+            position++;
+        }
+        if (numBits > offsets[numOffsets - 1] - offsetBase) {
+            skip(offsets[numOffsets - 1] - offsetBase - position);
+        }
+    }
+
     /**
      * Sets the vector element to true if the bit is set, skipping the null values.
      */

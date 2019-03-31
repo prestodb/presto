@@ -335,4 +335,9 @@ abstract class ColumnReader
             throw new IllegalArgumentException(format("Reader does not have enough rows: requested %s, available %s", numFirstRows, numValues));
         }
     }
+
+    public static int roundupSize(int size)
+    {
+        return size + (size / 4);
+    }
 }

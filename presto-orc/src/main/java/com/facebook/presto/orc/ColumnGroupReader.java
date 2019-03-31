@@ -286,8 +286,7 @@ public class ColumnGroupReader
         int bytesSoFar = 0;
         double selectivity = 1;
         int totalAsk = 0;
-        boolean exceptionOnTruncate = inputQualifyingSet.getExceptionOnTruncate();
-        if (!exceptionOnTruncate && (ariaFlags & AriaFlags.noReaderBudget) != 0) {
+        if ((ariaFlags & AriaFlags.noReaderBudget) != 0) {
             for (int i = firstStreamIdx; i < sortedStreamReaders.length; i++) {
                 StreamReader reader = sortedStreamReaders[i];
                 if (reader.getChannel() != -1) {
@@ -740,6 +739,16 @@ public class ColumnGroupReader
         numRowsInResult = base + initialNumSurviving;
         // Check.
         // getBlocks(numRowsInResult, true, false);
+    }
+
+    public boolean mustExtractValues(boolean isNewStripe)
+    {
+        for (StreamReader reader : sortedStreamReaders) {
+            if (reader.mustExtractValues(isNewStripe)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public String toString()

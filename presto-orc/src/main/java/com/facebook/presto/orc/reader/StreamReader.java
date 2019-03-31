@@ -164,4 +164,15 @@ public interface StreamReader
     void close();
 
     long getRetainedSizeInBytes();
+
+    // Returns true if the reader recursively contains a reader that depends
+    // on a stripe or row group dictionary for representing its output This
+    // is called at the beginning of a stripe/row group, after success return
+    // of advanceToNextRowGroup().  If true, the intermediate result is
+    // returned from OrcRecordReader before proceeding. isNewStripe is true
+    // at stripe boundaries and false at row group boundaries.
+    default boolean mustExtractValues(boolean isNewStripe)
+    {
+        return false;
+    }
 }

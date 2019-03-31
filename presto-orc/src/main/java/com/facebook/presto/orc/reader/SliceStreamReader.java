@@ -267,4 +267,10 @@ public class SliceStreamReader
     {
         return INSTANCE_SIZE + directReader.getRetainedSizeInBytes() + dictionaryReader.getRetainedSizeInBytes();
     }
+
+    @Override
+    public boolean mustExtractValues(boolean isNewStripe)
+    {
+        return currentReader.mustExtractValues(isNewStripe);
+    }
 }

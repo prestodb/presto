@@ -640,4 +640,10 @@ public class StructStreamReader
         stopCallCount = stop;
         callCount = cc;
     }
+
+    @Override
+    public boolean mustExtractValues(boolean isNewStripe)
+    {
+        return reader != null && reader.mustExtractValues(isNewStripe);
+    }
 }
