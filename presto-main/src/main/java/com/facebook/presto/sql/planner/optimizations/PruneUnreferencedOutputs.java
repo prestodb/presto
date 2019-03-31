@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -741,12 +742,12 @@ public class PruneUnreferencedOutputs
         public PlanNode visitValues(ValuesNode node, RewriteContext<Set<Symbol>> context)
         {
             ImmutableList.Builder<Symbol> rewrittenOutputSymbolsBuilder = ImmutableList.builder();
-            ImmutableList.Builder<ImmutableList.Builder<Expression>> rowBuildersBuilder = ImmutableList.builder();
+            ImmutableList.Builder<ImmutableList.Builder<RowExpression>> rowBuildersBuilder = ImmutableList.builder();
             // Initialize builder for each row
             for (int i = 0; i < node.getRows().size(); i++) {
                 rowBuildersBuilder.add(ImmutableList.builder());
             }
-            ImmutableList<ImmutableList.Builder<Expression>> rowBuilders = rowBuildersBuilder.build();
+            ImmutableList<ImmutableList.Builder<RowExpression>> rowBuilders = rowBuildersBuilder.build();
             for (int i = 0; i < node.getOutputSymbols().size(); i++) {
                 Symbol outputSymbol = node.getOutputSymbols().get(i);
                 // If output symbol is used
@@ -758,7 +759,7 @@ public class PruneUnreferencedOutputs
                     }
                 }
             }
-            List<List<Expression>> rewrittenRows = rowBuilders.stream()
+            List<List<RowExpression>> rewrittenRows = rowBuilders.stream()
                     .map(ImmutableList.Builder::build)
                     .collect(toImmutableList());
             return new ValuesNode(node.getId(), rewrittenOutputSymbolsBuilder.build(), rewrittenRows);

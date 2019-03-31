@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -88,6 +89,9 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -345,8 +349,15 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitValues(ValuesNode node, RewriteContext<Void> context)
         {
-            List<List<Expression>> canonicalizedRows = node.getRows().stream()
-                    .map(this::canonicalize)
+            List<List<RowExpression>> canonicalizedRows = node.getRows().stream()
+                    .map(rowExpressions -> rowExpressions.stream()
+                            .map(rowExpression -> {
+                                if (isExpression(rowExpression)) {
+                                    return castToRowExpression(canonicalize(castToExpression(rowExpression)));
+                                }
+                                return rowExpression;
+                            })
+                            .collect(toImmutableList()))
                     .collect(toImmutableList());
             List<Symbol> canonicalizedOutputSymbols = canonicalizeAndDistinct(node.getOutputSymbols());
             checkState(node.getOutputSymbols().size() == canonicalizedOutputSymbols.size(), "Values output symbols were pruned");

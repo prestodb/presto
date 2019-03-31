@@ -15,9 +15,9 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
+import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -45,9 +46,9 @@ public class TestPruneCountAggregationOverScalar
                         p.aggregation((a) -> a
                                 .globalGrouping()
                                 .addAggregation(
-                                        p.symbol("count_1", BigintType.BIGINT),
+                                        p.symbol("count_1", BIGINT),
                                         new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
-                                        ImmutableList.of(BigintType.BIGINT))
+                                        ImmutableList.of(BIGINT))
                                 .source(
                                         p.tableScan(ImmutableList.of(), ImmutableMap.of())))
                 ).doesNotFire();
@@ -60,8 +61,8 @@ public class TestPruneCountAggregationOverScalar
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
-                                        p.symbol("count_1", BigintType.BIGINT),
-                                        new FunctionCall(QualifiedName.of("count"), ImmutableList.of()), ImmutableList.of(BigintType.BIGINT))
+                                        p.symbol("count_1", BIGINT),
+                                        new FunctionCall(QualifiedName.of("count"), ImmutableList.of()), ImmutableList.of(BIGINT))
                                 .globalGrouping()
                                 .step(AggregationNode.Step.SINGLE)
                                 .source(
@@ -79,12 +80,14 @@ public class TestPruneCountAggregationOverScalar
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
-                                        p.symbol("count_1", BigintType.BIGINT),
+                                        p.symbol("count_1", BIGINT),
                                         new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
-                                        ImmutableList.of(BigintType.BIGINT))
+                                        ImmutableList.of(BIGINT))
                                 .step(AggregationNode.Step.SINGLE)
                                 .globalGrouping()
-                                .source(p.values(ImmutableList.of(p.symbol("orderkey")), ImmutableList.of(p.expressions("1"))))))
+                                .source(p.values(
+                                        ImmutableList.of(p.symbol("orderkey")),
+                                        ImmutableList.of(PlanBuilder.constantExpressions(BIGINT, 1))))))
                 .matches(values(ImmutableMap.of("count_1", 0)));
     }
 
@@ -95,9 +98,9 @@ public class TestPruneCountAggregationOverScalar
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
-                                        p.symbol("count_1", BigintType.BIGINT),
+                                        p.symbol("count_1", BIGINT),
                                         new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
-                                        ImmutableList.of(BigintType.BIGINT))
+                                        ImmutableList.of(BIGINT))
                                 .step(AggregationNode.Step.SINGLE)
                                 .globalGrouping()
                                 .source(p.enforceSingleRow(p.tableScan(ImmutableList.of(), ImmutableMap.of())))))
@@ -111,9 +114,9 @@ public class TestPruneCountAggregationOverScalar
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
-                                        p.symbol("count_1", BigintType.BIGINT),
+                                        p.symbol("count_1", BIGINT),
                                         new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
-                                        ImmutableList.of(BigintType.BIGINT))
+                                        ImmutableList.of(BIGINT))
                                 .step(AggregationNode.Step.SINGLE)
                                 .globalGrouping()
                                 .source(

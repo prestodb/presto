@@ -24,6 +24,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
@@ -96,7 +97,10 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.MoreLists.nElements;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -182,15 +186,15 @@ public class PlanBuilder
         return values(
                 id,
                 ImmutableList.copyOf(columns),
-                nElements(rows, row -> nElements(columns.length, cell -> (Expression) new NullLiteral())));
+                nElements(rows, row -> nElements(columns.length, cell -> constantNull(UNKNOWN))));
     }
 
-    public ValuesNode values(List<Symbol> columns, List<List<Expression>> rows)
+    public ValuesNode values(List<Symbol> columns, List<List<RowExpression>> rows)
     {
         return values(idAllocator.getNextId(), columns, rows);
     }
 
-    public ValuesNode values(PlanNodeId id, List<Symbol> columns, List<List<Expression>> rows)
+    public ValuesNode values(PlanNodeId id, List<Symbol> columns, List<List<RowExpression>> rows)
     {
         return new ValuesNode(id, columns, rows);
     }
@@ -765,6 +769,13 @@ public class PlanBuilder
     {
         return Stream.of(expressions)
                 .map(PlanBuilder::expression)
+                .collect(toImmutableList());
+    }
+
+    public static List<RowExpression> constantExpressions(Type type, Object... values)
+    {
+        return Stream.of(values)
+                .map(value -> constant(value, type))
                 .collect(toImmutableList());
     }
 

@@ -17,7 +17,9 @@ import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
 
 public class TestRemoveTrivialFilters
         extends BaseRuleTest
@@ -46,7 +48,7 @@ public class TestRemoveTrivialFilters
                         p.expression("FALSE"),
                         p.values(
                                 ImmutableList.of(p.symbol("a")),
-                                ImmutableList.of(p.expressions("1")))))
+                                ImmutableList.of(constantExpressions(BIGINT, 1)))))
                 .matches(values("a"));
     }
 }
