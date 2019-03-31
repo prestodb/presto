@@ -164,7 +164,7 @@ public final class SqlToRowExpressionTranslator
         requireNonNull(result, "translated expression is null");
 
         if (optimize) {
-            ExpressionOptimizer optimizer = new ExpressionOptimizer(functionManager, typeManager, session);
+            ExpressionOptimizer optimizer = new ExpressionOptimizer(functionManager, session);
             return optimizer.optimize(result);
         }
 

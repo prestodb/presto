@@ -23,6 +23,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.RowType;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -58,22 +59,20 @@ import static org.testng.Assert.assertEquals;
 
 public class TestExpressionOptimizer
 {
-    private TypeRegistry typeManager;
     private FunctionManager functionManager;
     private ExpressionOptimizer optimizer;
 
     @BeforeClass
     public void setUp()
     {
-        typeManager = new TypeRegistry();
+        TypeManager typeManager = new TypeRegistry();
         functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-        optimizer = new ExpressionOptimizer(functionManager, typeManager, TEST_SESSION);
+        optimizer = new ExpressionOptimizer(functionManager, TEST_SESSION);
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
-        typeManager = null;
         optimizer = null;
     }
 

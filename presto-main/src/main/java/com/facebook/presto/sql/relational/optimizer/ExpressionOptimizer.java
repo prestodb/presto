@@ -27,7 +27,6 @@ import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -61,13 +60,11 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 public class ExpressionOptimizer
 {
     private final FunctionManager functionManager;
-    private final TypeManager typeManager;
     private final ConnectorSession session;
 
-    public ExpressionOptimizer(FunctionManager functionManager, TypeManager typeManager, Session session)
+    public ExpressionOptimizer(FunctionManager functionManager, Session session)
     {
         this.functionManager = functionManager;
-        this.typeManager = typeManager;
         this.session = session.toConnectorSession();
     }
 
