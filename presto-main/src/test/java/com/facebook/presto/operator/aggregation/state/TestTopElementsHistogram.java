@@ -88,14 +88,14 @@ public class TestTopElementsHistogram {
         List<String> lst = getDeterministicDataSet();
 
         Collections.shuffle(lst);
-        TopElementsHistogram<String> h1 = new TopElementsHistogram<>(0.1, 0.001, 0.999, 5);
+        TopElementsHistogram<String> h1 = new TopElementsHistogram<>(0.02, 0.0001, 0.9999, 5);
         for(String entry: lst){
             String[] e = entry.split(":");
             h1.add(e[0], Long.valueOf(e[1]));
         }
 
         Collections.shuffle(lst);
-        TopElementsHistogram<String> h2 = new TopElementsHistogram<>(0.1, 0.001, 0.999, 5);
+        TopElementsHistogram<String> h2 = new TopElementsHistogram<>(0.02, 0.0001, 0.9999, 5);
         for(String entry: lst){
             String[] e = entry.split(":");
             h2.add(e[0], Long.valueOf(e[1]));
@@ -132,7 +132,7 @@ public class TestTopElementsHistogram {
 
     @Test
     public void testFalsePositive(){
-        TopElementsHistogram<String> histogram = new TopElementsHistogram<String>(1.5, 0.001, 0.999, 1);
+        TopElementsHistogram<String> histogram = new TopElementsHistogram<String>(1.5, 0.01, 0.99, 1);
         histogram.add("a", 2);
         histogram.add("b", 3);
         histogram.add("c", 5);

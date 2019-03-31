@@ -19,7 +19,9 @@ import com.facebook.presto.operator.aggregation.heavyhitters.IndexedPriorityQueu
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.*;
 import org.openjdk.jol.info.ClassLayout;
+import org.openjdk.jol.info.GraphLayout;
 
+import java.io.Serializable;
 import java.util.*;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -64,15 +66,7 @@ public class TopElementsHistogram<E>
             // Mimic Presto's avg function behavior which ignores null both in the numerator and denominator
             return;
         }
-
-        Long itemCount;
-        //TODO can we avoid this if
-        if(item instanceof Slice) {
-            itemCount = ccms.add((Slice)item, count);
-        }
-        else {
-            itemCount = ccms.add(item.toString(), count);
-        }
+        Long itemCount=ccms.add(item.toString(), count);
         rowsProcessed += count;
         // This is the only place where trim can be done before adding since only one element is being added
         // And we have handle to that one element.
