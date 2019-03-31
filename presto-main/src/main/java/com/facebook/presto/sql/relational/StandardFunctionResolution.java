@@ -24,6 +24,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 
 import java.util.List;
 
+import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
 import static com.facebook.presto.spi.function.OperatorType.ADD;
 import static com.facebook.presto.spi.function.OperatorType.DIVIDE;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
@@ -69,9 +70,19 @@ public final class StandardFunctionResolution
         return functionManager.lookupFunction(QualifiedName.of("LIKE"), fromTypes(valueType, LIKE_PATTERN));
     }
 
+    public boolean isLikeFunction(FunctionHandle functionHandle)
+    {
+        return functionHandle.getSignature().getName().toUpperCase().equals("LIKE");
+    }
+
     public FunctionHandle likePatternFunction()
     {
         return functionManager.lookupFunction(QualifiedName.of("LIKE_PATTERN"), fromTypes(VARCHAR, VARCHAR));
+    }
+
+    public boolean isCastFunction(FunctionHandle functionHandle)
+    {
+        return functionHandle.getSignature().getName().equals(mangleOperatorName(OperatorType.CAST.name()));
     }
 
     public FunctionHandle arithmeticFunction(ArithmeticBinaryExpression.Operator operator, Type leftType, Type rightType)
