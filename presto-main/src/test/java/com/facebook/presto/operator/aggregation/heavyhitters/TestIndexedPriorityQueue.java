@@ -26,7 +26,7 @@ import java.util.List;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TestUpdateablePriorityQueue
+public class TestIndexedPriorityQueue
 {
     @Test
     public void testIndexedPriorityQueueReverse()
