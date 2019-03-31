@@ -287,6 +287,15 @@ public class CountMinSketch{
         return res;
     }
 
+    public long estimateCount(Slice item) {
+        long res = Long.MAX_VALUE;
+        int[] buckets = Filter.getHashBuckets(item, depth, width);
+        for (int i = 0; i < depth; ++i) {
+            res = Math.min(res, table[i][buckets[i]]);
+        }
+        return res;
+    }
+
     public long estimateMeanCount(String item) {
         // Based upon https://en.wikipedia.org/wiki/Count–min_sketch#Bias
         long res = Long.MAX_VALUE;

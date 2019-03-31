@@ -19,6 +19,7 @@ import com.facebook.presto.operator.aggregation.state.TopElementsState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.*;
 import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
@@ -71,7 +72,7 @@ public class ApproximateHeavyHittersAggregations
         }
     }
 
-    @OutputFunction("map(varchar,bigint)")
+    @OutputFunction("map(varchar,bigint)")  //  <== these are presto data types and not java
     public static void output(@AggregationState TopElementsState state, BlockBuilder out)
     {
         TopElementsHistogram histogram = state.getHistogram();

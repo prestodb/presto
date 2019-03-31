@@ -66,7 +66,14 @@ public class TopElementsHistogram<E>
             // Mimic Presto's avg function behavior which ignores null both in the numerator and denominator
             return;
         }
-        Long itemCount=ccms.add(item.toString(), count);
+        //TODO can we avoid this if
+        long itemCount;
+        if(item instanceof Slice) {
+            itemCount = ccms.add((Slice)item, count);
+        }
+        else {
+            itemCount = ccms.add(item.toString(), count);
+        }
         rowsProcessed += count;
         // This is the only place where trim can be done before adding since only one element is being added
         // And we have handle to that one element.
@@ -190,7 +197,12 @@ public class TopElementsHistogram<E>
         while(elements.hasNext()){
             Entry<E> e = elements.next();
             E item = e.getValue();
-            long itemCount = ccms.estimateCount(item.toString());
+            long itemCount;
+            if(item instanceof Slice) {
+                itemCount = ccms.estimateCount((Slice) item);
+            }else{
+                itemCount = ccms.estimateCount(item.toString());
+            }
             if(itemCount >= minItemCount){
                 topElements.put(item, itemCount);
             }

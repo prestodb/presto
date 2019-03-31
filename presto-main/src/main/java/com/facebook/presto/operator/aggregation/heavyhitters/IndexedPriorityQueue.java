@@ -253,7 +253,12 @@ public final class IndexedPriorityQueue<E>
             s.writeLong(priority);
             s.writeLong(generation);
 
-            Slice slc=Slices.utf8Slice(value.toString());
+            Slice slc;
+            if(value instanceof Slice){
+                slc = (Slice)value;
+            }else {
+                slc = Slices.utf8Slice(value.toString());
+            }
             s.writeInt(slc.length());
             s.writeBytes(slc);
 
