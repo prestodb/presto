@@ -40,17 +40,17 @@ public class TopElementsHistogram<E>
 
     /**
      * This class is to find heavy hitters and based upon the paper: http://theory.stanford.edu/~tim/s17/l/l2.pdf
-     * @param min_percent_share  User defined parameter to request only those values that occur atleast n/k times where n is the total count of values
+     * @param minPercentShare  User defined parameter to request only those values that occur atleast n/k times where n is the total count of values
      * @param epsError error bound such that counts are overestimated by at most epsError X n. Default value=1/2k
      * @param confidence probability that the count is overestimated by more than the error bound epsError X n. Default value=0.01
      * @param seed
      */
-    public TopElementsHistogram(double min_percent_share, double epsError, double confidence, int seed)
+    public TopElementsHistogram(double minPercentShare, double epsError, double confidence, int seed)
     {
-        checkArgument((0 <= min_percent_share && min_percent_share <= 100), "minPercentShare must be between 0 and 100");
-        requireNonNull(min_percent_share, "minPercentShare is null");
+        checkArgument((0 <= minPercentShare && minPercentShare <= 100), "minPercentShare must be between 0 and 100");
+        requireNonNull(minPercentShare, "minPercentShare is null");
 
-        this.minPercentShare = min_percent_share;
+        this.minPercentShare = minPercentShare;
         this.maxEntries = (int)Math.ceil(100/this.minPercentShare); //there can be more than maxEntries because of over counting of CountMinSketch
         this.ccms=new CountMinSketch(epsError, confidence, seed);
     }
@@ -155,10 +155,10 @@ public class TopElementsHistogram<E>
     /**
      *  Everytime the top entries has to trimmed, we need to re-calculate bottom most elements as they may have had conflict
      *  and hence their estimate count may have changed. If we use the old estimate count (which is accurate) we may drop it
-     *  from the top list. Problem is that this makes the function non-deterministic. If the element comes early on and gets dropped
+     *  from the top list. Problem is that this makes the function non-deterministic: If the element comes earlier and gets dropped
      *  it does not make it to final list. However if it comes in after the other elements with which it has conflict
-     *  then it does not get dropped since the new estimate count is much higher due to conflict. To make the function deterministic,
-     *  estimate count needs to be recalculated for all elements before dropping
+     *  then it does not get dropped since the new estimate count is much higher due to conflict. To make the function
+     *  more deterministic (cannot be 100% deterministic), estimate count needs to be recalculated for elements before dropping
      */
     public void trimTopElements(){
         if(topEntries.size() <= maxEntries){
