@@ -122,7 +122,7 @@ public class TopElementsHistogram<E>
         // DON'T merge this "for" loop with the previous one. It will impact the behaviour of the class
         // All elements must be counted after merging ALL conservative-count-min-sketch for accuracy
         for (TopElementsHistogram<E> histogram : histograms) {
-            Iterator<E> elements = this.topEntries.keysIterator();
+            Iterator<E> elements = histogram.topEntries.keysIterator();
             while(elements.hasNext()){
                 E item=elements.next();
                 //Estimate the count after the merger
