@@ -21,7 +21,9 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestRuleTester
@@ -36,7 +38,7 @@ public class TestRuleTester
                                     Assignments.of(p.symbol("y"), expression("x")),
                                     p.values(
                                             ImmutableList.of(p.symbol("x")),
-                                            ImmutableList.of(ImmutableList.of(expression("1"))))))
+                                            ImmutableList.of(constantExpressions(BIGINT, 1)))))
                     .matches(
                             values(ImmutableList.of("different"), ImmutableList.of()));
         }

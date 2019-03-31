@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Arrays;
@@ -48,8 +48,8 @@ public class PruneValuesColumns
             mapping[i] = valuesNode.getOutputSymbols().indexOf(newOutputs.get(i));
         }
 
-        ImmutableList.Builder<List<Expression>> rowsBuilder = ImmutableList.builder();
-        for (List<Expression> row : valuesNode.getRows()) {
+        ImmutableList.Builder<List<RowExpression>> rowsBuilder = ImmutableList.builder();
+        for (List<RowExpression> row : valuesNode.getRows()) {
             rowsBuilder.add(Arrays.stream(mapping)
                     .mapToObj(row::get)
                     .collect(Collectors.toList()));

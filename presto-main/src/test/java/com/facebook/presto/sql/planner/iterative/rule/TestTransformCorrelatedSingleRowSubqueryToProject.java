@@ -57,8 +57,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                                         Assignments.of(p.symbol("l_expr2"), expression("l_nationkey + 1")),
                                         p.values(
                                                 ImmutableList.of(),
-                                                ImmutableList.of(
-                                                        ImmutableList.of())))))
+                                                ImmutableList.of(ImmutableList.of())))))
                 .matches(project(
                         ImmutableMap.of(
                                 ("l_expr2"), PlanMatchPattern.expression("l_nationkey + 1"),

@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -51,6 +52,7 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupin
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
@@ -269,10 +271,10 @@ public class PushAggregationThroughOuterJoin
         // to symbol references for the new values node.
         NullLiteral nullLiteral = new NullLiteral();
         ImmutableList.Builder<Symbol> nullSymbols = ImmutableList.builder();
-        ImmutableList.Builder<Expression> nullLiterals = ImmutableList.builder();
+        ImmutableList.Builder<RowExpression> nullLiterals = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, SymbolReference> sourcesSymbolMappingBuilder = ImmutableMap.builder();
         for (Symbol sourceSymbol : referenceAggregation.getSource().getOutputSymbols()) {
-            nullLiterals.add(nullLiteral);
+            nullLiterals.add(castToRowExpression(nullLiteral));
             Symbol nullSymbol = symbolAllocator.newSymbol(nullLiteral, symbolAllocator.getTypes().get(sourceSymbol));
             nullSymbols.add(nullSymbol);
             sourcesSymbolMappingBuilder.put(sourceSymbol, nullSymbol.toSymbolReference());

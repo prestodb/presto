@@ -44,6 +44,11 @@ public class StatsCalculatorTester
         this(createQueryRunner(session));
     }
 
+    public Metadata getMetadata()
+    {
+        return metadata;
+    }
+
     private StatsCalculatorTester(LocalQueryRunner queryRunner)
     {
         this.statsCalculator = queryRunner.getStatsCalculator();

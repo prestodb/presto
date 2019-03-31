@@ -301,10 +301,9 @@ class QueryPlanner
 
     private RelationPlan planImplicitTable()
     {
-        List<Expression> emptyRow = ImmutableList.of();
         Scope scope = Scope.create();
         return new RelationPlan(
-                new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(emptyRow)),
+                new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(ImmutableList.of())),
                 scope,
                 ImmutableList.of());
     }

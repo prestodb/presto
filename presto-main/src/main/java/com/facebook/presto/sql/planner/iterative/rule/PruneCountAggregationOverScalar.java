@@ -20,13 +20,14 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.LongLiteral;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Map;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.facebook.presto.sql.relational.Expressions.constant;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -60,7 +61,10 @@ public class PruneCountAggregationOverScalar
             }
         }
         if (!assignments.isEmpty() && isScalar(parent.getSource(), context.getLookup())) {
-            return Result.ofPlanNode(new ValuesNode(parent.getId(), parent.getOutputSymbols(), ImmutableList.of(ImmutableList.of(new LongLiteral("1")))));
+            return Result.ofPlanNode(new ValuesNode(
+                    parent.getId(),
+                    parent.getOutputSymbols(),
+                    ImmutableList.of(ImmutableList.of(constant(1L, BIGINT)))));
         }
         return Result.empty();
     }

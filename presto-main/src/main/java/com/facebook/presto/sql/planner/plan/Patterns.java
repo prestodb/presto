@@ -15,8 +15,8 @@ package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.matching.Property;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Optional;
@@ -249,7 +249,7 @@ public class Patterns
 
     public static class Values
     {
-        public static Property<ValuesNode, List<List<Expression>>> rows()
+        public static Property<ValuesNode, List<List<RowExpression>>> rows()
         {
             return property("rows", ValuesNode::getRows);
         }

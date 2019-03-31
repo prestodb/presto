@@ -28,6 +28,8 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionExtractor
@@ -117,7 +119,11 @@ public class ExpressionExtractor
         @Override
         public Void visitValues(ValuesNode node, ImmutableList.Builder<Expression> context)
         {
-            node.getRows().forEach(context::addAll);
+            node.getRows().forEach(rowExpressions -> rowExpressions.forEach(rowExpression -> {
+                if (isExpression(rowExpression)) {
+                    context.add(castToExpression(rowExpression));
+                }
+            }));
             return super.visitValues(node, context);
         }
 
