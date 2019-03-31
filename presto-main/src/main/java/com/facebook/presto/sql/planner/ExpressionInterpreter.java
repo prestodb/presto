@@ -21,25 +21,23 @@ import com.facebook.presto.operator.scalar.ArraySubscriptOperator;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.RowBlockBuilder;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.FunctionType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.RowType.Field;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.planner.Interpreters.LambdaSymbolResolver;
 import com.facebook.presto.sql.planner.iterative.rule.DesugarCurrentPath;
 import com.facebook.presto.sql.planner.iterative.rule.DesugarCurrentUser;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
@@ -123,6 +121,8 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstant
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
 import static com.facebook.presto.sql.planner.DeterminismEvaluator.isDeterministic;
+import static com.facebook.presto.sql.planner.Interpreters.interpretDereference;
+import static com.facebook.presto.sql.planner.Interpreters.interpretLikePredicate;
 import static com.facebook.presto.sql.planner.LiteralEncoder.isSupportedLiteralType;
 import static com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static com.facebook.presto.type.LikeFunctions.isLikePattern;
@@ -252,7 +252,7 @@ public class ExpressionInterpreter
     public Object evaluate()
     {
         checkState(!optimize, "evaluate() not allowed for optimizer");
-        return visitor.process(expression, new NoPagePositionContext());
+        return visitor.process(expression, null);
     }
 
     public Object evaluate(SymbolResolver inputs)
@@ -297,7 +297,6 @@ public class ExpressionInterpreter
             }
 
             RowType rowType = (RowType) type;
-            Block row = (Block) base;
             Type returnType = type(node);
             String fieldName = node.getField().getValue();
             List<Field> fields = rowType.getFields();
@@ -317,27 +316,7 @@ public class ExpressionInterpreter
                 }
             }
 
-            checkState(index >= 0, "could not find field name: %s", node.getField());
-            if (row.isNull(index)) {
-                return null;
-            }
-            Class<?> javaType = returnType.getJavaType();
-            if (javaType == long.class) {
-                return returnType.getLong(row, index);
-            }
-            else if (javaType == double.class) {
-                return returnType.getDouble(row, index);
-            }
-            else if (javaType == boolean.class) {
-                return returnType.getBoolean(row, index);
-            }
-            else if (javaType == Slice.class) {
-                return returnType.getSlice(row, index);
-            }
-            else if (!javaType.isPrimitive()) {
-                return returnType.getObject(row, index);
-            }
-            throw new UnsupportedOperationException("Dereference a unsupported primitive type: " + javaType.getName());
+            return interpretDereference(base, returnType, index);
         }
 
         @Override
@@ -457,7 +436,7 @@ public class ExpressionInterpreter
             catch (RuntimeException e) {
                 // HACK
                 // Certain operations like 0 / 0 or likeExpression may throw exceptions.
-                // Wrap them a FunctionCall that will throw the exception if the expression is actually executed
+                // Wrap them in a FunctionCall that will throw the exception if the expression is actually executed
                 return createFailureFunction(e, type(expression));
             }
         }
@@ -974,7 +953,7 @@ public class ExpressionInterpreter
                     node.getPattern() instanceof StringLiteral &&
                     (!node.getEscape().isPresent() || node.getEscape().get() instanceof StringLiteral)) {
                 // fast path when we know the pattern and escape are constant
-                return evaluateLikePredicate(node, (Slice) value, getConstantPattern(node));
+                return interpretLikePredicate(type(node.getValue()), (Slice) value, getConstantPattern(node));
             }
 
             Object pattern = process(node.getPattern(), context);
@@ -1003,7 +982,7 @@ public class ExpressionInterpreter
                     regex = LikeFunctions.likePattern((Slice) pattern, (Slice) escape);
                 }
 
-                return evaluateLikePredicate(node, (Slice) value, regex);
+                return interpretLikePredicate(type(node.getValue()), (Slice) value, regex);
             }
 
             // if pattern is a constant without % or _ replace with a comparison
@@ -1037,17 +1016,6 @@ public class ExpressionInterpreter
                     optimizedEscape);
         }
 
-        private boolean evaluateLikePredicate(LikePredicate node, Slice value, Regex regex)
-        {
-            if (type(node.getValue()) instanceof VarcharType) {
-                return LikeFunctions.likeVarchar(value, regex);
-            }
-
-            Type type = type(node.getValue());
-            checkState(type instanceof CharType, "LIKE value is neither VARCHAR or CHAR");
-            return LikeFunctions.likeChar((long) ((CharType) type).getLength(), value, regex);
-        }
-
         private Regex getConstantPattern(LikePredicate node)
         {
             Regex result = likePatternCache.get(node);
@@ -1078,6 +1046,10 @@ public class ExpressionInterpreter
                 throw new IllegalArgumentException("Unsupported type: " + node.getType());
             }
 
+            if (value == null) {
+                return null;
+            }
+
             Type sourceType = type(node.getExpression());
             if (value instanceof Expression) {
                 if (targetType.equals(sourceType)) {
@@ -1095,10 +1067,6 @@ public class ExpressionInterpreter
             // TODO: this will not be an issue when we migrate to RowExpression tree for this, which allows arbitrary literals.
             if (optimize && !isSupportedLiteralType(type(node))) {
                 return new Cast(toExpression(value, sourceType), node.getType(), node.isSafe(), node.isTypeOnly());
-            }
-
-            if (value == null) {
-                return null;
             }
 
             FunctionHandle operator = metadata.getFunctionManager().lookupCast(CAST, sourceType.getTypeSignature(), targetType.getTypeSignature());
@@ -1247,29 +1215,6 @@ public class ExpressionInterpreter
         }
     }
 
-    private interface PagePositionContext
-    {
-        Block getBlock(int channel);
-
-        int getPosition(int channel);
-    }
-
-    private static class NoPagePositionContext
-            implements PagePositionContext
-    {
-        @Override
-        public Block getBlock(int channel)
-        {
-            throw new IllegalArgumentException("Context does not contain any blocks");
-        }
-
-        @Override
-        public int getPosition(int channel)
-        {
-            throw new IllegalArgumentException("Context does not have a position");
-        }
-    }
-
     private static Expression createFailureFunction(RuntimeException exception, Type type)
     {
         requireNonNull(exception, "Exception is null");
@@ -1284,23 +1229,5 @@ public class ExpressionInterpreter
     private static boolean isArray(Type type)
     {
         return type.getTypeSignature().getBase().equals(StandardTypes.ARRAY);
-    }
-
-    private static class LambdaSymbolResolver
-            implements SymbolResolver
-    {
-        private final Map<String, Object> values;
-
-        public LambdaSymbolResolver(Map<String, Object> values)
-        {
-            this.values = requireNonNull(values, "values is null");
-        }
-
-        @Override
-        public Object getValue(Symbol symbol)
-        {
-            checkState(values.containsKey(symbol.getName()), "values does not contain %s", symbol);
-            return values.get(symbol.getName());
-        }
     }
 }
