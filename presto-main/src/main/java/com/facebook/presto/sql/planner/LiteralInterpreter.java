@@ -15,9 +15,29 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.CharType;
+import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.RealType;
+import com.facebook.presto.spi.type.SmallintType;
+import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlTime;
+import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.SqlVarbinary;
+import com.facebook.presto.spi.type.TimeType;
+import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -36,10 +56,20 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
+import com.facebook.presto.type.IntervalDayTimeType;
+import com.facebook.presto.type.IntervalYearMonthType;
+import com.facebook.presto.type.SqlIntervalDayTime;
+import com.facebook.presto.type.SqlIntervalYearMonth;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.MathContext;
+
 import static com.facebook.presto.metadata.CastType.CAST;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
@@ -50,7 +80,10 @@ import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeLiteral;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.String.format;
 
 public final class LiteralInterpreter
 {
@@ -62,6 +95,78 @@ public final class LiteralInterpreter
             throw new IllegalArgumentException("node must be a Literal");
         }
         return new LiteralVisitor(metadata).process(node, session);
+    }
+
+    public static Object evaluate(ConnectorSession session, ConstantExpression node)
+    {
+        Type type = node.getType();
+
+        if (node.getValue() == null) {
+            return null;
+        }
+        if (type instanceof BooleanType) {
+            return node.getValue();
+        }
+        if (type instanceof BigintType || type instanceof TinyintType || type instanceof SmallintType || type instanceof IntegerType) {
+            return node.getValue();
+        }
+        if (type instanceof DoubleType) {
+            return node.getValue();
+        }
+        if (type instanceof RealType) {
+            Long number = (Long) node.getValue();
+            return intBitsToFloat(number.intValue());
+        }
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            if (decimalType.isShort()) {
+                checkState(node.getValue() instanceof Long);
+                return decodeDecimal(BigInteger.valueOf((long) node.getValue()), decimalType);
+            }
+            checkState(node.getValue() instanceof Slice);
+            Slice value = (Slice) node.getValue();
+            return decodeDecimal(decodeUnscaledValue(value), decimalType);
+        }
+        if (type instanceof VarcharType || type instanceof CharType) {
+            return ((Slice) node.getValue()).toStringUtf8();
+        }
+        if (type instanceof VarbinaryType) {
+            return new SqlVarbinary(((Slice) node.getValue()).getBytes());
+        }
+        if (type instanceof DateType) {
+            return new SqlDate(((Long) node.getValue()).intValue());
+        }
+        if (type instanceof TimeType) {
+            if (session.isLegacyTimestamp()) {
+                return new SqlTime((long) node.getValue(), session.getTimeZoneKey());
+            }
+            return new SqlTime((long) node.getValue());
+        }
+        if (type instanceof TimestampType) {
+            try {
+                if (session.isLegacyTimestamp()) {
+                    return new SqlTimestamp((long) node.getValue(), session.getTimeZoneKey());
+                }
+                return new SqlTimestamp((long) node.getValue());
+            }
+            catch (RuntimeException e) {
+                throw new PrestoException(GENERIC_USER_ERROR, format("'%s' is not a valid timestamp literal", (String) node.getValue()));
+            }
+        }
+        if (type instanceof IntervalDayTimeType) {
+            return new SqlIntervalDayTime((long) node.getValue());
+        }
+        if (type instanceof IntervalYearMonthType) {
+            return new SqlIntervalYearMonth((int) node.getValue());
+        }
+
+        // We should not fail at the moment; just return the raw value (block, regex, etc) to the user
+        return node.getValue();
+    }
+
+    private static Number decodeDecimal(BigInteger unscaledValue, DecimalType type)
+    {
+        return new BigDecimal(unscaledValue, type.getScale(), new MathContext(type.getPrecision()));
     }
 
     private static class LiteralVisitor
