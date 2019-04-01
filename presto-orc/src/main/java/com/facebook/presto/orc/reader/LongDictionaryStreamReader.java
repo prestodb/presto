@@ -15,6 +15,7 @@ package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
+import com.facebook.presto.orc.QualifyingSet;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanInputStream;
@@ -29,8 +30,10 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
+import static com.facebook.presto.orc.ResizedArrays.newBooleanArrayForReuse;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
@@ -41,28 +44,33 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class LongDictionaryStreamReader
-        implements StreamReader
+        extends AbstractLongStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongDictionaryStreamReader.class).instanceSize();
+
+    private static final byte FILTER_NOT_EVALUATED = 0;
+    private static final byte FILTER_PASSED = 1;
+    private static final byte FILTER_FAILED = 2;
 
     private final StreamDescriptor streamDescriptor;
 
     private int readOffset;
     private int nextBatchSize;
 
-    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
-    private BooleanInputStream presentStream;
     private boolean[] nullVector = new boolean[0];
 
     private InputStreamSource<LongInputStream> dictionaryDataStreamSource = missingStreamSource(LongInputStream.class);
     private int dictionarySize;
     private long[] dictionary = new long[0];
+    private boolean[] inDictionaryFlags;
 
     private InputStreamSource<BooleanInputStream> inDictionaryStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream inDictionaryStream;
     private boolean[] inDictionaryVector = new boolean[0];
+    // An indicator per dictionary value of whether the filter has been evaluated and what was the result
+    private byte[] filterResults;
 
     private InputStreamSource<LongInputStream> dataStreamSource;
     @Nullable
@@ -70,9 +78,9 @@ public class LongDictionaryStreamReader
     private long[] dataVector = new long[0];
 
     private boolean dictionaryOpen;
-    private boolean rowGroupOpen;
 
     private LocalMemoryContext systemMemoryContext;
+    private ResultsProcessor resultsProcessor = new ResultsProcessor();
 
     public LongDictionaryStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
     {
@@ -172,7 +180,8 @@ public class LongDictionaryStreamReader
         return builder.build();
     }
 
-    private void openRowGroup()
+    @Override
+    protected void openRowGroup()
             throws IOException
     {
         // read the dictionary
@@ -186,14 +195,22 @@ public class LongDictionaryStreamReader
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Dictionary is not empty but data stream is not present");
             }
             dictionaryStream.nextLongVector(dictionarySize, dictionary);
+            if (deterministicFilter) {
+                if (filterResults == null || filterResults.length < dictionarySize) {
+                    filterResults = new byte[dictionarySize];
+                    // the default values are zeros which means FILTER_NOT_EVALUATED
+                }
+                else {
+                    Arrays.fill(filterResults, FILTER_NOT_EVALUATED);
+                }
+            }
+            dictionaryOpen = true;
         }
-        dictionaryOpen = true;
-
         presentStream = presentStreamSource.openStream();
         inDictionaryStream = inDictionaryStreamSource.openStream();
         dataStream = dataStreamSource.openStream();
 
-        rowGroupOpen = true;
+        super.openRowGroup();
     }
 
     @Override
@@ -257,5 +274,157 @@ public class LongDictionaryStreamReader
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + sizeOf(nullVector) + sizeOf(dataVector) + sizeOf(inDictionaryVector);
+    }
+
+    @Override
+    public void scan()
+            throws IOException
+    {
+        if (!rowGroupOpen) {
+            openRowGroup();
+        }
+        beginScan(presentStream, null);
+        ensureValuesCapacity();
+        makeInnerQualifyingSet();
+
+        QualifyingSet input = hasNulls ? innerQualifyingSet : inputQualifyingSet;
+        int numInput = input.getPositionCount();
+        if (inDictionaryStream != null) {
+            if (inDictionaryFlags == null || inDictionaryFlags.length < numInput) {
+                inDictionaryFlags = newBooleanArrayForReuse(numInput);
+            }
+            int begin = hasNulls ? innerPosInRowGroup : posInRowGroup;
+            int end = input.getEnd();
+            inDictionaryStream.getSetBits(input.getPositions(), numInput, begin, end - begin, inDictionaryFlags);
+        }
+        if (filter != null) {
+            outputQualifyingSet.reset(numInput);
+        }
+
+        if (numInput > 0) {
+            resultsProcessor.reset();
+            if (filter != null) {
+                numInnerResults = dataStream.scan(input.getPositions(), 0, numInput, input.getEnd(), resultsProcessor);
+                outputQualifyingSet.setPositionCount(numInnerResults);
+            }
+            else {
+                numInnerResults = dataStream.scan(input.getPositions(), 0, numInput, input.getEnd(), resultsProcessor);
+            }
+        }
+
+        if (hasNulls) {
+            innerPosInRowGroup = innerQualifyingSet.getEnd();
+        }
+        addNullsAfterScan(filter != null ? outputQualifyingSet : inputQualifyingSet, inputQualifyingSet.getEnd());
+        if (filter != null) {
+            outputQualifyingSet.setEnd(inputQualifyingSet.getEnd());
+        }
+        endScan(presentStream);
+    }
+
+    private final class ResultsProcessor
+            implements LongInputStream.ResultsConsumer
+    {
+        private int[] offsets;
+        private int[] rowNumbers;
+        private int[] inputNumbers;
+        private int[] rowNumbersOut;
+        private int[] inputNumbersOut;
+        private int numResults;
+
+        void reset()
+        {
+            QualifyingSet input = hasNulls ? innerQualifyingSet : inputQualifyingSet;
+            offsets = input.getPositions();
+            numResults = 0;
+            if (filter != null) {
+                rowNumbers = inputQualifyingSet.getPositions();
+                inputNumbers = hasNulls ? innerQualifyingSet.getInputNumbers() : null;
+                rowNumbersOut = outputQualifyingSet.getPositions();
+                inputNumbersOut = outputQualifyingSet.getInputNumbers();
+            }
+            else {
+                rowNumbers = null;
+                inputNumbers = null;
+                rowNumbersOut = null;
+                inputNumbersOut = null;
+            }
+        }
+
+        private long adjustValue(int offsetIndex, long value)
+        {
+            if (inDictionaryStream != null) {
+                return inDictionaryFlags[offsetIndex] ? dictionary[(int) value] : value;
+            }
+            return dictionary[(int) value];
+        }
+
+        private boolean test(int offsetIndex, long value)
+        {
+            if (deterministicFilter && (inDictionaryStream == null || inDictionaryFlags[offsetIndex])) {
+                if (filterResults[(int) value] == FILTER_NOT_EVALUATED) {
+                    filterResults[(int) value] = filter.testLong(dictionary[(int) value]) ? FILTER_PASSED : FILTER_FAILED;
+                }
+                return filterResults[(int) value] == FILTER_PASSED;
+            }
+            return filter.testLong(adjustValue(offsetIndex, value));
+        }
+
+        @Override
+        public boolean consume(int offsetIndex, long value)
+        {
+            if (filter != null && !test(offsetIndex, value)) {
+                return false;
+            }
+
+            addResult(offsetIndex, adjustValue(offsetIndex, value));
+            return true;
+        }
+
+        @Override
+        public int consumeRepeated(int offsetIndex, long value, int count)
+        {
+            if (inDictionaryStream == null && (deterministicFilter || filter == null)) {
+                // Common case: One filter and one dictionary lookup
+                // is enough if there are no out of dictionary values
+                // and the filter is null or deterministic.
+                if (filter != null && !test(offsetIndex, value)) {
+                    return 0;
+                }
+                long finalValue = adjustValue(offsetIndex, value);
+                for (int i = 0; i < count; i++) {
+                    addResult(offsetIndex + i, finalValue);
+                }
+                return count;
+            }
+            int added = 0;
+            for (int i = 0; i < count; i++) {
+                if (filter != null && !test(offsetIndex + i, value)) {
+                    continue;
+                }
+                addResult(offsetIndex + i, adjustValue(offsetIndex, value));
+                added++;
+            }
+            return added;
+        }
+
+        private void addResult(int offsetIndex, long value)
+        {
+            if (rowNumbersOut != null) {
+                if (inputNumbers == null) {
+                    rowNumbersOut[numResults] = offsets[offsetIndex];
+                    inputNumbersOut[numResults] = offsetIndex;
+                }
+                else {
+                    int outerIdx = inputNumbers[offsetIndex];
+                    rowNumbersOut[numResults] = rowNumbers[outerIdx];
+                    inputNumbersOut[numResults] = outerIdx;
+                }
+            }
+            if (values != null) {
+                values[numResults + numValues] = value;
+            }
+            ++numResults;
+        }
     }
 }
