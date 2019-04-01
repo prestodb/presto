@@ -63,7 +63,9 @@ import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.warnings.DefaultWarningCollector;
 import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.metadata.AnalyzePropertyManager;
@@ -593,13 +595,13 @@ public class LocalQueryRunner
     @Override
     public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
-        return executeWithPlan(session, sql, WarningCollector.NOOP).getMaterializedResult();
+        return executeWithPlan(session, sql, new DefaultWarningCollector(new WarningCollectorConfig())).getMaterializedResult();
     }
 
     @Override
     public MaterializedResultWithPlan executeWithPlan(Session session, String sql, WarningCollector warningCollector)
     {
-        return inTransaction(session, transactionSession -> executeInternal(transactionSession, sql));
+        return inTransaction(session, transactionSession -> executeInternal(transactionSession, sql, warningCollector));
     }
 
     public <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
@@ -614,7 +616,7 @@ public class LocalQueryRunner
                 .execute(session, transactionSessionConsumer);
     }
 
-    private MaterializedResultWithPlan executeInternal(Session session, @Language("SQL") String sql)
+    private MaterializedResultWithPlan executeInternal(Session session, @Language("SQL") String sql, WarningCollector warningCollector)
     {
         lock.readLock().lock();
         try (Closer closer = Closer.create()) {
@@ -629,7 +631,7 @@ public class LocalQueryRunner
                     .setQueryMaxSpillSize(nodeSpillConfig.getQueryMaxSpillPerNode())
                     .build();
 
-            Plan plan = createPlan(session, sql, WarningCollector.NOOP);
+            Plan plan = createPlan(session, sql, warningCollector);
             List<Driver> drivers = createDrivers(session, plan, outputFactory, taskContext);
             drivers.forEach(closer::register);
 
@@ -795,7 +797,7 @@ public class LocalQueryRunner
 
     public Plan createPlan(Session session, @Language("SQL") String sql, LogicalPlanner.Stage stage, boolean forceSingleNode, WarningCollector warningCollector)
     {
-        PreparedQuery preparedQuery = new QueryPreparer(sqlParser).prepareQuery(session, sql);
+        PreparedQuery preparedQuery = new QueryPreparer(sqlParser).prepareQuery(session, sql, warningCollector);
 
         assertFormattedSql(sqlParser, createParsingOptions(session), preparedQuery.getStatement());
 
@@ -829,8 +831,8 @@ public class LocalQueryRunner
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage, WarningCollector warningCollector)
     {
-        Statement wrappedStatement = sqlParser.createStatement(sql, createParsingOptions(session));
-        PreparedQuery preparedQuery = new QueryPreparer(sqlParser).prepareQuery(session, wrappedStatement);
+        Statement wrappedStatement = sqlParser.createStatement(sql, createParsingOptions(session, warningCollector));
+        PreparedQuery preparedQuery = new QueryPreparer(sqlParser).prepareQuery(session, wrappedStatement, warningCollector);
 
         assertFormattedSql(sqlParser, createParsingOptions(session), preparedQuery.getStatement());
 

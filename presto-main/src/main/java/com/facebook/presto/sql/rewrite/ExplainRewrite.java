@@ -116,7 +116,7 @@ final class ExplainRewrite
         private Node getQueryPlan(Explain node, ExplainType.Type planType, ExplainFormat.Type planFormat)
                 throws IllegalArgumentException
         {
-            PreparedQuery preparedQuery = queryPreparer.prepareQuery(session, node.getStatement());
+            PreparedQuery preparedQuery = queryPreparer.prepareQuery(session, node.getStatement(), warningCollector);
 
             if (planType == VALIDATE) {
                 queryExplainer.get().analyze(session, preparedQuery.getStatement(), preparedQuery.getParameters(), warningCollector);

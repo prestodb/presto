@@ -1962,7 +1962,7 @@ class StatementAnalyzer
         private Query parseView(String view, QualifiedObjectName name, Node node)
         {
             try {
-                return (Query) sqlParser.createStatement(view, createParsingOptions(session));
+                return (Query) sqlParser.createStatement(view, createParsingOptions(session, warningCollector));
             }
             catch (ParsingException e) {
                 throw new SemanticException(VIEW_PARSE_ERROR, node, "Failed parsing stored view '%s': %s", name, e.getMessage());

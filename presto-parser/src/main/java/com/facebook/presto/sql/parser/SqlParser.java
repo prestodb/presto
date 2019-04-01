@@ -38,8 +38,10 @@ import javax.inject.Inject;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SqlParser
@@ -139,7 +141,7 @@ public class SqlParser
                 }
             });
 
-            parser.addParseListener(new PostProcessor(Arrays.asList(parser.getRuleNames())));
+            parser.addParseListener(new PostProcessor(Arrays.asList(parser.getRuleNames()), parsingOptions.getWarningConsumer()));
 
             lexer.removeErrorListeners();
             lexer.addErrorListener(LEXER_ERROR_LISTENER);
@@ -179,10 +181,12 @@ public class SqlParser
             extends SqlBaseBaseListener
     {
         private final List<String> ruleNames;
+        private final Consumer<ParsingWarning> warningConsumer;
 
-        public PostProcessor(List<String> ruleNames)
+        public PostProcessor(List<String> ruleNames, Consumer<ParsingWarning> warningConsumer)
         {
             this.ruleNames = ruleNames;
+            this.warningConsumer = requireNonNull(warningConsumer, "warningConsumer is null");
         }
 
         @Override
@@ -233,6 +237,9 @@ public class SqlParser
             context.getParent().removeLastChild();
 
             Token token = (Token) context.getChild(0).getPayload();
+            if (token.getText().equalsIgnoreCase("CURRENT_ROLE")) {
+                warningConsumer.accept(new ParsingWarning(format("Reserved word used: %s", token.getText()), token.getLine(), token.getCharPositionInLine()));
+            }
             context.getParent().addChild(new CommonToken(
                     new Pair<>(token.getTokenSource(), token.getInputStream()),
                     SqlBaseLexer.IDENTIFIER,

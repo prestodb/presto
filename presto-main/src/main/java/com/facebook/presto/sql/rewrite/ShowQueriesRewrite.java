@@ -614,7 +614,7 @@ final class ShowQueriesRewrite
         private Query parseView(String view, QualifiedObjectName name, Node node)
         {
             try {
-                Statement statement = sqlParser.createStatement(view, createParsingOptions(session));
+                Statement statement = sqlParser.createStatement(view, createParsingOptions(session, warningCollector));
                 return (Query) statement;
             }
             catch (ParsingException e) {

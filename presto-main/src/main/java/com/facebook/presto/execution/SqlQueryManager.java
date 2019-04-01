@@ -22,6 +22,7 @@ import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
@@ -336,8 +337,10 @@ public class SqlQueryManager
             // decode session
             session = sessionSupplier.createSession(queryId, sessionContext);
 
+            WarningCollector warningCollector = warningCollectorFactory.create();
+
             // prepare query
-            preparedQuery = queryPreparer.prepareQuery(session, query);
+            preparedQuery = queryPreparer.prepareQuery(session, query, warningCollector);
 
             // select resource group
             queryType = getQueryType(preparedQuery.getStatement().getClass());
@@ -365,7 +368,7 @@ public class SqlQueryManager
                     session,
                     preparedQuery,
                     selectionContext.getResourceGroupId(),
-                    warningCollectorFactory.create(),
+                    warningCollector,
                     queryType);
         }
         catch (RuntimeException e) {

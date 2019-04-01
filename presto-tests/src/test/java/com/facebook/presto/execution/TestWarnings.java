@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQueryRunner;
+import static com.facebook.presto.spi.StandardWarningCode.PARSER_WARNING;
 import static com.facebook.presto.spi.StandardWarningCode.TOO_MANY_STAGES;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -69,6 +70,17 @@ public class TestWarnings
                 .build();
         assertWarnings(queryRunner, session, query, ImmutableList.of(TOO_MANY_STAGES.toWarningCode()));
         assertWarnings(queryRunner, session, noWarningsQuery, ImmutableList.of());
+    }
+
+    @Test
+    public void testNonReservedWordWarning()
+    {
+        String query = "SELECT CURRENT_ROLE, t.current_role FROM (VALUES (3)) t(current_role)";
+        Session session = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema("tiny")
+                .build();
+        assertWarnings(queryRunner, session, query, ImmutableList.of(PARSER_WARNING.toWarningCode()));
     }
 
     private static void assertWarnings(QueryRunner queryRunner, Session session, @Language("SQL") String sql, List<WarningCode> expectedWarnings)

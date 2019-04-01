@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -49,17 +50,17 @@ public class QueryPreparer
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
     }
 
-    public PreparedQuery prepareQuery(Session session, String query)
+    public PreparedQuery prepareQuery(Session session, String query, WarningCollector warningCollector)
             throws ParsingException, PrestoException, SemanticException
     {
-        Statement wrappedStatement = sqlParser.createStatement(query, createParsingOptions(session));
-        return prepareQuery(session, wrappedStatement);
+        Statement wrappedStatement = sqlParser.createStatement(query, createParsingOptions(session, warningCollector));
+        return prepareQuery(session, wrappedStatement, warningCollector);
     }
 
-    public PreparedQuery prepareQuery(Session session, Statement wrappedStatement)
+    public PreparedQuery prepareQuery(Session session, Statement wrappedStatement, WarningCollector warningCollector)
             throws ParsingException, PrestoException, SemanticException
     {
-        Statement statement = unwrapExecuteStatement(wrappedStatement, sqlParser, session);
+        Statement statement = unwrapExecuteStatement(wrappedStatement, sqlParser, session, warningCollector);
         if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
             Statement innerStatement = ((Explain) statement).getStatement();
             Optional<QueryType> innerQueryType = StatementUtils.getQueryType(innerStatement.getClass());
@@ -75,14 +76,14 @@ public class QueryPreparer
         return new PreparedQuery(statement, parameters);
     }
 
-    private static Statement unwrapExecuteStatement(Statement statement, SqlParser sqlParser, Session session)
+    private static Statement unwrapExecuteStatement(Statement statement, SqlParser sqlParser, Session session, WarningCollector warningCollector)
     {
         if (!(statement instanceof Execute)) {
             return statement;
         }
 
         String sql = session.getPreparedStatementFromExecute((Execute) statement);
-        return sqlParser.createStatement(sql, createParsingOptions(session));
+        return sqlParser.createStatement(sql, createParsingOptions(session, warningCollector));
     }
 
     private static void validateParameters(Statement node, List<Expression> parameterValues)
