@@ -102,7 +102,7 @@ final class DescribeInputRewrite
                 throws SemanticException
         {
             String sqlString = session.getPreparedStatement(node.getName().getValue());
-            Statement statement = parser.createStatement(sqlString, createParsingOptions(session));
+            Statement statement = parser.createStatement(sqlString, createParsingOptions(session, warningCollector));
 
             // create  analysis for the query we are describing.
             Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters, warningCollector);

@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -40,7 +41,7 @@ public class TestQueryPreparer
     @Test
     public void testSelectStatement()
     {
-        PreparedQuery preparedQuery = QUERY_PREPARER.prepareQuery(TEST_SESSION, "SELECT * FROM foo");
+        PreparedQuery preparedQuery = QUERY_PREPARER.prepareQuery(TEST_SESSION, "SELECT * FROM foo", WarningCollector.NOOP);
         assertEquals(preparedQuery.getStatement(),
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo"))));
     }
@@ -51,7 +52,7 @@ public class TestQueryPreparer
         Session session = testSessionBuilder()
                 .addPreparedStatement("my_query", "SELECT * FROM foo")
                 .build();
-        PreparedQuery preparedQuery = QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query");
+        PreparedQuery preparedQuery = QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query", WarningCollector.NOOP);
         assertEquals(preparedQuery.getStatement(),
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo"))));
     }
@@ -60,7 +61,7 @@ public class TestQueryPreparer
     public void testExecuteStatementDoesNotExist()
     {
         try {
-            QUERY_PREPARER.prepareQuery(TEST_SESSION, "execute my_query");
+            QUERY_PREPARER.prepareQuery(TEST_SESSION, "execute my_query", WarningCollector.NOOP);
             fail("expected exception");
         }
         catch (PrestoException e) {
@@ -75,7 +76,7 @@ public class TestQueryPreparer
             Session session = testSessionBuilder()
                     .addPreparedStatement("my_query", "SELECT * FROM foo where col1 = ?")
                     .build();
-            QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query USING 1,2");
+            QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query USING 1,2", WarningCollector.NOOP);
             fail("expected exception");
         }
         catch (SemanticException e) {
@@ -90,7 +91,7 @@ public class TestQueryPreparer
             Session session = testSessionBuilder()
                     .addPreparedStatement("my_query", "SELECT ? FROM foo where col1 = ?")
                     .build();
-            QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query USING 1");
+            QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query USING 1", WarningCollector.NOOP);
             fail("expected exception");
         }
         catch (SemanticException e) {

@@ -14,18 +14,29 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.sql.parser.ParsingOptions;
 
 import static com.facebook.presto.SystemSessionProperties.isParseDecimalLiteralsAsDouble;
+import static com.facebook.presto.spi.StandardWarningCode.PARSER_WARNING;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 
 public class ParsingUtil
 {
+    private ParsingUtil() {}
+
     public static ParsingOptions createParsingOptions(Session session)
     {
-        return new ParsingOptions(isParseDecimalLiteralsAsDouble(session) ? AS_DOUBLE : AS_DECIMAL);
+        return createParsingOptions(session, WarningCollector.NOOP);
     }
 
-    private ParsingUtil() {}
+    public static ParsingOptions createParsingOptions(Session session, WarningCollector warningCollector)
+    {
+        return ParsingOptions.builder()
+                .setDecimalLiteralTreatment(isParseDecimalLiteralsAsDouble(session) ? AS_DOUBLE : AS_DECIMAL)
+                .setWarningConsumer(warning -> warningCollector.add(new PrestoWarning(PARSER_WARNING, warning.getMessage())))
+                .build();
+    }
 }
