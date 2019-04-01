@@ -135,10 +135,10 @@ public class TestTopElementsHistogram {
         TopElementsHistogram<String> hf1 = new TopElementsHistogram<String>(0.02, 0.0001, 0.9999, 5);
         TopElementsHistogram<String> hf2 = new TopElementsHistogram<String>(0.02, 0.0001, 0.9999, 5);
         hf1.merge(h1,h2,h3,h4);
-        hf2.merge(h2,h3,h1,h4);
+        h2.merge(h3,h1,h4);
         System.out.println(hf1.getTopElements());
         System.out.println(hf2.getTopElements());
-        assertEquals(hf1.getTopElements(), hf2.getTopElements());
+        assertEquals(hf1.getTopElements(), h2.getTopElements());
     }
 
 

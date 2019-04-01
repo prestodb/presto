@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
+import com.facebook.presto.operator.aggregation.heavyhitters.ConservativeAddSketch;
 import com.facebook.presto.operator.aggregation.heavyhitters.CountMinSketch;
 import com.facebook.presto.operator.aggregation.heavyhitters.IndexedPriorityQueue;
 import com.facebook.presto.operator.aggregation.heavyhitters.IndexedPriorityQueue.Entry;
@@ -34,7 +35,7 @@ public class TopElementsHistogram<E>
     private int rowsProcessed=0;
     private double minPercentShare =100;
     private int maxEntries;
-    private CountMinSketch ccms;
+    private ConservativeAddSketch ccms;
     private IndexedPriorityQueue<E> topEntries = new IndexedPriorityQueue<E>();
 
 
@@ -52,7 +53,7 @@ public class TopElementsHistogram<E>
 
         this.minPercentShare = minPercentShare;
         this.maxEntries = (int)Math.ceil(100/this.minPercentShare); //there can be more than maxEntries because of over counting of CountMinSketch
-        this.ccms=new CountMinSketch(epsError, confidence, seed);
+        this.ccms=new ConservativeAddSketch(epsError, confidence, seed);
     }
 
     public void add(E  item)
@@ -238,7 +239,7 @@ public class TopElementsHistogram<E>
         rowsProcessed = s.readInt();
         minPercentShare = s.readDouble();
         int ccmsSize = s.readInt();
-        ccms = new CountMinSketch(s.readSlice(ccmsSize));
+        ccms = new ConservativeAddSketch(s.readSlice(ccmsSize));
 
         int topEntriesSize = s.readInt();
         topEntries = new IndexedPriorityQueue(s.readSlice(topEntriesSize));
