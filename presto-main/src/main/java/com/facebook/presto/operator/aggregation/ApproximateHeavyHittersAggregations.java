@@ -51,11 +51,12 @@ public class ApproximateHeavyHittersAggregations
         TopElementsHistogram<String> histogram = state.getHistogram();
         if (histogram == null) {
             histogram = new TopElementsHistogram<>(min_percent_share, error, confidence, 1);  //TODO set the seed to be derived from the column name
+            state.setHistogram(histogram);
+            state.addMemoryUsage(histogram.estimatedInMemorySize());
         }
-
+        long beforeMemory = histogram.estimatedInMemorySize();
         histogram.add(slice.toStringUtf8());
-        state.setHistogram(histogram);
-        state.addMemoryUsage(histogram.estimatedInMemorySize());
+        state.addMemoryUsage(histogram.estimatedInMemorySize() - beforeMemory);
     }
 
     @CombineFunction
@@ -67,8 +68,9 @@ public class ApproximateHeavyHittersAggregations
             state.setHistogram(otherHistogram);
             state.addMemoryUsage(otherHistogram.estimatedInMemorySize());
         }else{
+            long beforeMemory = currHistogram.estimatedInMemorySize();
             currHistogram.merge(otherHistogram);
-            state.addMemoryUsage(otherHistogram.estimatedInMemorySize());
+            state.addMemoryUsage(currHistogram.estimatedInMemorySize() - beforeMemory);
         }
     }
 
