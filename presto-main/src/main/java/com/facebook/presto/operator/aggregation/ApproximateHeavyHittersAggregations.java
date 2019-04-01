@@ -35,7 +35,7 @@ public class ApproximateHeavyHittersAggregations
     @InputFunction
     public static void input(@AggregationState TopElementsState state, @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice slice, @SqlType(StandardTypes.DOUBLE) double min_percent_share)
     {
-        input(state, slice, min_percent_share, 0.001, 0.999);
+        input(state, slice, min_percent_share, 0.0001, 0.999);
     }
 
     //TODO how to add a input function which accepts confidence but uses default value for error
