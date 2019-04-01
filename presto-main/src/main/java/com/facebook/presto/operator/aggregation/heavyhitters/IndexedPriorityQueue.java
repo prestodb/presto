@@ -160,14 +160,14 @@ public final class IndexedPriorityQueue<E>
      * @param itemCount  if add than +1, if removed than -1
      * @return final memory after the change.
      */
-    public int updateMemoryForElement(Entry<E> value, int itemCount){
+    public long updateMemoryForElement(Entry<E> value, int itemCount){
         estimatedInMemorySize += itemCount*value.estimatedInMemorySize();  //itemCount can be negative
         if (estimatedInMemorySize < 0)
             estimatedInMemorySize = 0;
         return this.estimatedInMemorySize();
     }
 
-    public int estimatedInMemorySize() {
+    public long estimatedInMemorySize() {
         // TODO add size of index and queue
         return INSTANCE_SIZE + estimatedInMemorySize;
     }
