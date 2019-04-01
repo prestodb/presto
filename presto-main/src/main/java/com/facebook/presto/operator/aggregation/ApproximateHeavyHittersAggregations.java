@@ -48,14 +48,14 @@ public class ApproximateHeavyHittersAggregations
     @InputFunction
     public static void input(@AggregationState TopElementsState state, @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice slice, @SqlType(StandardTypes.DOUBLE) double min_percent_share, @SqlType(StandardTypes.DOUBLE) double error, @SqlType(StandardTypes.DOUBLE) double confidence)
     {
-        TopElementsHistogram<String> histogram = state.getHistogram();
+        TopElementsHistogram<Slice> histogram = state.getHistogram();
         if (histogram == null) {
             histogram = new TopElementsHistogram<>(min_percent_share, error, confidence, 1);  //TODO set the seed to be derived from the column name
             state.setHistogram(histogram);
             state.addMemoryUsage(histogram.estimatedInMemorySize());
         }
         long beforeMemory = histogram.estimatedInMemorySize();
-        histogram.add(slice.toStringUtf8());
+        histogram.add(slice);
         state.addMemoryUsage(histogram.estimatedInMemorySize() - beforeMemory);
     }
 
@@ -82,11 +82,12 @@ public class ApproximateHeavyHittersAggregations
             out.appendNull();
         }
         else {
-            Map<String, Long> value = histogram.getTopElements();
+            Map<Slice, Long> value = histogram.getTopElements();
 
             BlockBuilder entryBuilder = out.beginBlockEntry();
-            for (Map.Entry<String, Long> entry : value.entrySet()) {
-                VarcharType.VARCHAR.writeString(entryBuilder, entry.getKey());
+            for (Map.Entry<Slice, Long> entry : value.entrySet()) {
+                //VarcharType.VARCHAR.writeString(entryBuilder, entry.getKey());
+                VarbinaryType.VARBINARY.writeSlice(entryBuilder, entry.getKey());
                 BigintType.BIGINT.writeLong(entryBuilder, entry.getValue());
             }
             out.closeEntry();
