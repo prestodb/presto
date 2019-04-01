@@ -24,7 +24,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -44,9 +43,12 @@ import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterrup
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertLessThan;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -84,7 +86,7 @@ public class TestExchangeClient
     @Test
     public void testHappyPath()
     {
-        DataSize maxResponseSize = new DataSize(10, Unit.MEGABYTE);
+        DataSize maxResponseSize = new DataSize(10, MEGABYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
         URI location = URI.create("http://localhost:8080");
@@ -95,10 +97,10 @@ public class TestExchangeClient
 
         @SuppressWarnings("resource")
         ExchangeClient exchangeClient = new ExchangeClient(
-                new DataSize(32, Unit.MEGABYTE),
+                new DataSize(32, MEGABYTE),
                 maxResponseSize,
                 1,
-                new Duration(1, TimeUnit.MINUTES),
+                new Duration(1, MINUTES),
                 true,
                 new TestingHttpClient(processor, scheduler),
                 scheduler,
@@ -108,11 +110,11 @@ public class TestExchangeClient
         exchangeClient.addLocation(location, TaskId.valueOf("taskid"));
         exchangeClient.noMoreLocations();
 
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isClosed());
         assertPageEquals(getNextPage(exchangeClient), createPage(1));
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isClosed());
         assertPageEquals(getNextPage(exchangeClient), createPage(2));
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isClosed());
         assertPageEquals(getNextPage(exchangeClient), createPage(3));
         assertNull(getNextPage(exchangeClient));
         assertEquals(exchangeClient.isClosed(), true);
@@ -129,15 +131,15 @@ public class TestExchangeClient
     public void testAddLocation()
             throws Exception
     {
-        DataSize maxResponseSize = new DataSize(10, Unit.MEGABYTE);
+        DataSize maxResponseSize = new DataSize(10, MEGABYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
         @SuppressWarnings("resource")
         ExchangeClient exchangeClient = new ExchangeClient(
-                new DataSize(32, Unit.MEGABYTE),
+                new DataSize(32, MEGABYTE),
                 maxResponseSize,
                 1,
-                new Duration(1, TimeUnit.MINUTES),
+                new Duration(1, MINUTES),
                 true,
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
                 scheduler,
@@ -151,15 +153,15 @@ public class TestExchangeClient
         processor.setComplete(location1);
         exchangeClient.addLocation(location1, TaskId.valueOf("foo"));
 
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isClosed());
         assertPageEquals(getNextPage(exchangeClient), createPage(1));
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isClosed());
         assertPageEquals(getNextPage(exchangeClient), createPage(2));
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isClosed());
         assertPageEquals(getNextPage(exchangeClient), createPage(3));
 
         assertFalse(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent());
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isClosed());
 
         URI location2 = URI.create("http://localhost:8082/bar");
         processor.addPage(location2, createPage(4));
@@ -168,15 +170,15 @@ public class TestExchangeClient
         processor.setComplete(location2);
         exchangeClient.addLocation(location2, TaskId.valueOf("bar"));
 
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isClosed());
         assertPageEquals(getNextPage(exchangeClient), createPage(4));
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isClosed());
         assertPageEquals(getNextPage(exchangeClient), createPage(5));
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isClosed());
         assertPageEquals(getNextPage(exchangeClient), createPage(6));
 
         assertFalse(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent());
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isClosed());
 
         exchangeClient.noMoreLocations();
         // The transition to closed may happen asynchronously, since it requires that all the HTTP clients
@@ -193,7 +195,7 @@ public class TestExchangeClient
     @Test
     public void testBufferLimit()
     {
-        DataSize maxResponseSize = new DataSize(1, Unit.BYTE);
+        DataSize maxResponseSize = new DataSize(1, BYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
         URI location = URI.create("http://localhost:8080");
@@ -206,10 +208,10 @@ public class TestExchangeClient
 
         @SuppressWarnings("resource")
         ExchangeClient exchangeClient = new ExchangeClient(
-                new DataSize(1, Unit.BYTE),
+                new DataSize(1, BYTE),
                 maxResponseSize,
                 1,
-                new Duration(1, TimeUnit.MINUTES),
+                new Duration(1, MINUTES),
                 true,
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
                 scheduler,
@@ -218,7 +220,7 @@ public class TestExchangeClient
 
         exchangeClient.addLocation(location, TaskId.valueOf("taskid"));
         exchangeClient.noMoreLocations();
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isClosed());
 
         long start = System.nanoTime();
 
@@ -278,7 +280,7 @@ public class TestExchangeClient
     public void testClose()
             throws Exception
     {
-        DataSize maxResponseSize = new DataSize(1, Unit.BYTE);
+        DataSize maxResponseSize = new DataSize(1, BYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
         URI location = URI.create("http://localhost:8080");
@@ -288,10 +290,10 @@ public class TestExchangeClient
 
         @SuppressWarnings("resource")
         ExchangeClient exchangeClient = new ExchangeClient(
-                new DataSize(1, Unit.BYTE),
+                new DataSize(1, BYTE),
                 maxResponseSize,
                 1,
-                new Duration(1, TimeUnit.MINUTES),
+                new Duration(1, MINUTES),
                 true,
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
                 scheduler,
@@ -301,7 +303,7 @@ public class TestExchangeClient
         exchangeClient.noMoreLocations();
 
         // fetch a page
-        assertEquals(exchangeClient.isClosed(), false);
+        assertFalse(exchangeClient.isClosed());
         assertPageEquals(getNextPage(exchangeClient), createPage(1));
 
         // close client while pages are still available
@@ -316,9 +318,7 @@ public class TestExchangeClient
 
         // client should have sent only 2 requests: one to get all pages and once to get the done signal
         PageBufferClientStatus clientStatus = exchangeClient.getStatus().getPageBufferClientStatuses().get(0);
-        assertEquals(clientStatus.getUri(), location);
-        assertEquals(clientStatus.getState(), "closed", "status");
-        assertEquals(clientStatus.getHttpRequestState(), "not scheduled", "httpRequestState");
+        assertStatus(clientStatus, location, "closed", "not scheduled");
     }
 
     private static Page createPage(int size)
@@ -339,7 +339,19 @@ public class TestExchangeClient
         assertEquals(PAGES_SERDE.deserialize(actualPage).getChannelCount(), expectedPage.getChannelCount());
     }
 
-    private static void assertStatus(PageBufferClientStatus clientStatus,
+    private static void assertStatus(
+            PageBufferClientStatus clientStatus,
+            URI location,
+            String status,
+            String httpRequestState)
+    {
+        assertEquals(clientStatus.getUri(), location);
+        assertEquals(clientStatus.getState(), status, "status");
+        assertEquals(clientStatus.getHttpRequestState(), httpRequestState, "httpRequestState");
+    }
+
+    private static void assertStatus(
+            PageBufferClientStatus clientStatus,
             URI location,
             String status,
             int pagesReceived,
