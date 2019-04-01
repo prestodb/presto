@@ -30,6 +30,7 @@ import java.io.IOException;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.io.Resources.getResource;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -44,6 +45,15 @@ public class TestDwrfDictionaries
         Block expected = readFile("test_dictionaries/string-dictionary.orc", VARCHAR);
         Block actual = readFile("test_dictionaries/string-row-group-dictionary.dwrf", VARCHAR);
         assertEqualBlocks(VARCHAR, expected, actual);
+    }
+
+    @Test
+    public void testLong()
+            throws Exception
+    {
+        Block expected = readFile("test_dictionaries/long-direct.orc", BIGINT);
+        Block actual = readFile("test_dictionaries/long-dictionary.dwrf", BIGINT);
+        assertEqualBlocks(BIGINT, expected, actual);
     }
 
     private static void assertEqualBlocks(Type type, Block expected, Block actual)
