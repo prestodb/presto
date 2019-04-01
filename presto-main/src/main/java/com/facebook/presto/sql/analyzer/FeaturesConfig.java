@@ -129,6 +129,8 @@ public class FeaturesConfig
 
     private boolean jsonSerdeCodeGenerationEnabled;
 
+    private boolean rowLevelSecurityEnabled;
+
     public enum JoinReorderingStrategy
     {
         NONE,
@@ -952,5 +954,17 @@ public class FeaturesConfig
     public boolean isPushLimitThroughOuterJoin()
     {
         return pushLimitThroughOuterJoin;
+    }
+
+    @Config("row-level-security-enabled")
+    public FeaturesConfig setRowLevelSecurityEnabled(boolean rowLevelSecurityEnabled)
+    {
+        this.rowLevelSecurityEnabled = rowLevelSecurityEnabled;
+        return this;
+    }
+
+    public boolean isRowLevelSecurityEnabled()
+    {
+        return rowLevelSecurityEnabled;
     }
 }

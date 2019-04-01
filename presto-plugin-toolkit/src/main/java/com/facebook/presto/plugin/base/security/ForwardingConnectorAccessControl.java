@@ -19,6 +19,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.security.RowLevelSecurityResponse;
 
 import java.util.Optional;
 import java.util.Set;
@@ -222,5 +223,11 @@ public abstract class ForwardingConnectorAccessControl
     public void checkCanShowRoleGrants(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
     {
         delegate().checkCanShowRoleGrants(transactionHandle, identity, catalogName);
+    }
+
+    @Override
+    public RowLevelSecurityResponse performRowLevelAuthorization(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columns)
+    {
+        return delegate().performRowLevelAuthorization(transactionHandle, identity, tableName, columns);
     }
 }

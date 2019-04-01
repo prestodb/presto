@@ -17,6 +17,7 @@ import com.facebook.presto.spi.predicate.AllOrNoneValueSet;
 import com.facebook.presto.spi.predicate.EquatableValueSet;
 import com.facebook.presto.spi.predicate.SortedRangeSet;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.type.Type;
 import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
@@ -120,6 +121,22 @@ public final class PrestoThriftValueSet
                     null,
                     null,
                     fromSortedRangeSet((SortedRangeSet) valueSet));
+        }
+        else {
+            throw new IllegalArgumentException("Unknown implementation of a value set: " + valueSet.getClass());
+        }
+    }
+
+    public static ValueSet toValueSet(PrestoThriftValueSet valueSet, Type type)
+    {
+        if (valueSet.getAllOrNoneValueSet() != null) {
+            return PrestoThriftAllOrNoneValueSet.toAllOrNoneValueSet(valueSet.getAllOrNoneValueSet(), type);
+        }
+        else if (valueSet.getRangeValueSet() != null) {
+            return PrestoThriftRangeValueSet.toSortedRangeSet(valueSet.getRangeValueSet(), type);
+        }
+        else if (valueSet.getEquatableValueSet() != null) {
+            throw new IllegalArgumentException("PrestoThriftEquatableValueset cannot be converted to ValueSet");
         }
         else {
             throw new IllegalArgumentException("Unknown implementation of a value set: " + valueSet.getClass());

@@ -21,6 +21,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.security.RowLevelSecurityResponse;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.google.common.collect.ImmutableList;
@@ -311,5 +312,11 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal revokee, boolean grantOptionFor)
     {
+    }
+
+    @Override
+    public RowLevelSecurityResponse performRowLevelAuthorization(Identity identity, CatalogSchemaTableName table, Set<String> columns)
+    {
+        return null;
     }
 }

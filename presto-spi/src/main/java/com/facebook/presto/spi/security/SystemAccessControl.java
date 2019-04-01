@@ -301,4 +301,12 @@ public interface SystemAccessControl
     {
         denyRevokeTablePrivilege(privilege.toString(), table.toString());
     }
+
+    /**
+     * Check the row level access restrictions for the identity.  The column set can be empty.
+     */
+    default RowLevelSecurityResponse performRowLevelAuthorization(Identity identity, CatalogSchemaTableName table, Set<String> columns)
+    {
+        return null;
+    }
 }

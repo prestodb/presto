@@ -28,12 +28,17 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.Range;
+import com.facebook.presto.spi.predicate.SpiUnaryExpression;
+import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.BasicPrincipal;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.security.RowLevelSecurityResponse;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.testing.TestingConnectorContext;
@@ -53,6 +58,7 @@ import static com.facebook.presto.connector.ConnectorId.createInformationSchemaC
 import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static java.util.Objects.requireNonNull;
@@ -184,6 +190,29 @@ public class TestAccessControlManager
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("secured_catalog", "schema", "table"), ImmutableSet.of("column"));
+                });
+    }
+
+    @Test
+    public void testRLS()
+    {
+        CatalogManager catalogManager = new CatalogManager();
+        TransactionManager transactionManager = createTestTransactionManager(catalogManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
+
+        TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
+        accessControlManager.addSystemAccessControlFactory(accessControlFactory);
+        accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
+        ConnectorId connectorId = registerBogusConnector(catalogManager, transactionManager, accessControlManager, "catalog");
+        accessControlManager.addCatalogAccessControl(connectorId, new TestRLSConnectorAccessControl());
+
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    RowLevelSecurityResponse response = accessControlManager.performRowLevelAuthorization(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of("column"));
+                    assertEquals(((SpiUnaryExpression) response.getSpiExpression()).getDomain(), Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 2L)), false));
+                    assertEquals(response.getWarning(), "warn");
+                    RowLevelSecurityResponse superUserResponse = accessControlManager.performRowLevelAuthorization(transactionId, new Identity("superuser", Optional.of(PRINCIPAL)), new QualifiedObjectName("connector", "schema", "table"), ImmutableSet.of("a", "b"));
+                    assertEquals(superUserResponse, null);
                 });
     }
 
@@ -396,6 +425,20 @@ public class TestAccessControlManager
         public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
         {
             throw new UnsupportedOperationException();
+        }
+    }
+
+    private static class TestRLSConnectorAccessControl
+            implements ConnectorAccessControl
+    {
+        @Override
+        public RowLevelSecurityResponse performRowLevelAuthorization(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columns)
+        {
+            if (identity.getUser().equals(USER_NAME) && tableName.getSchemaName().equals("schema") && tableName.getTableName().equals("table") && columns.contains("column")) {
+                Domain domain = Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 2L)), false);
+                return new RowLevelSecurityResponse(new SpiUnaryExpression("a", domain), "warn");
+            }
+            return null;
         }
     }
 }

@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.predicate.AllOrNoneValueSet;
 import com.facebook.presto.spi.predicate.DiscreteValues;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Marker;
@@ -26,9 +27,12 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.Ranges;
 import com.facebook.presto.spi.predicate.SortedRangeSet;
+import com.facebook.presto.spi.predicate.SpiExpression;
+import com.facebook.presto.spi.predicate.SpiUnaryExpression;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.Utils;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
@@ -40,6 +44,7 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
@@ -95,6 +100,52 @@ public final class ExpressionDomainTranslator
         this.literalEncoder = requireNonNull(literalEncoder, "literalEncoder is null");
     }
 
+    public Expression toPredicateFromSpiExpression(SpiExpression spiExpression)
+    {
+        if (spiExpression.getClass() == SpiUnaryExpression.class) {
+            return toPredicateFromSpiUnaryExpression((SpiUnaryExpression) spiExpression);
+        }
+        else {
+            throw new IllegalArgumentException("Unknown implementation of SpiExpression: " + spiExpression.getClass());
+        }
+    }
+
+    private Expression toPredicateFromSpiUnaryExpression(SpiUnaryExpression spiUnaryExpression)
+    {
+        String columnName = spiUnaryExpression.getColumn();
+        Identifier reference = new Identifier(columnName);
+        Domain domain = spiUnaryExpression.getDomain();
+        String type = domain.getType().getTypeSignature().getBase();
+        checkTypeValidity(type);
+        checkValueSetValidity(domain.getValues());
+        return toPredicate(domain, reference);
+    }
+
+    private void checkTypeValidity(String type)
+    {
+        // Not dealing with un-orderable types
+        // TODO add JSON, Array and HyperLogLog
+        switch (type) {
+            case StandardTypes.INTEGER:
+            case StandardTypes.BIGINT:
+            case StandardTypes.DOUBLE:
+            case StandardTypes.VARCHAR:
+            case StandardTypes.BOOLEAN:
+            case StandardTypes.DATE:
+            case StandardTypes.TIMESTAMP:
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported type: " + type + " found in Spi Expression");
+        }
+    }
+
+    private void checkValueSetValidity(ValueSet valueSet)
+    {
+        if (!(valueSet.getClass() == SortedRangeSet.class || valueSet.getClass() == AllOrNoneValueSet.class)) {
+            throw new IllegalArgumentException("Unsupported ValueSet type: " + valueSet.getClass() + " found in Spi Expression");
+        }
+    }
+
     public Expression toPredicate(TupleDomain<Symbol> tupleDomain)
     {
         if (tupleDomain.isNone()) {
@@ -108,7 +159,7 @@ public final class ExpressionDomainTranslator
                 .collect(collectingAndThen(toImmutableList(), ExpressionUtils::combineConjuncts));
     }
 
-    private Expression toPredicate(Domain domain, SymbolReference reference)
+    private Expression toPredicate(Domain domain, Expression reference)
     {
         if (domain.getValues().isNone()) {
             return domain.isNullAllowed() ? new IsNullPredicate(reference) : FALSE_LITERAL;
@@ -135,7 +186,7 @@ public final class ExpressionDomainTranslator
         return combineDisjunctsWithDefault(disjuncts, TRUE_LITERAL);
     }
 
-    private Expression processRange(Type type, Range range, SymbolReference reference)
+    private Expression processRange(Type type, Range range, Expression reference)
     {
         if (range.isAll()) {
             return TRUE_LITERAL;
@@ -181,7 +232,7 @@ public final class ExpressionDomainTranslator
         return combineConjuncts(rangeConjuncts);
     }
 
-    private Expression combineRangeWithExcludedPoints(Type type, SymbolReference reference, Range range, List<Expression> excludedPoints)
+    private Expression combineRangeWithExcludedPoints(Type type, Expression reference, Range range, List<Expression> excludedPoints)
     {
         if (excludedPoints.isEmpty()) {
             return processRange(type, range, reference);
@@ -195,7 +246,7 @@ public final class ExpressionDomainTranslator
         return combineConjuncts(processRange(type, range, reference), excludedPointsExpression);
     }
 
-    private List<Expression> extractDisjuncts(Type type, Ranges ranges, SymbolReference reference)
+    private List<Expression> extractDisjuncts(Type type, Ranges ranges, Expression reference)
     {
         List<Expression> disjuncts = new ArrayList<>();
         List<Expression> singleValues = new ArrayList<>();
@@ -238,7 +289,7 @@ public final class ExpressionDomainTranslator
         return disjuncts;
     }
 
-    private List<Expression> extractDisjuncts(Type type, DiscreteValues discreteValues, SymbolReference reference)
+    private List<Expression> extractDisjuncts(Type type, DiscreteValues discreteValues, Expression reference)
     {
         List<Expression> values = discreteValues.getValues().stream()
                 .map(object -> literalEncoder.toExpression(object, type))

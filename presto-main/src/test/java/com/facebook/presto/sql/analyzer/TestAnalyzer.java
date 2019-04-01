@@ -38,18 +38,28 @@ import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AccessControlManager;
-import com.facebook.presto.security.AllowAllAccessControl;
+import com.facebook.presto.security.AllowAllSystemAccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.Range;
+import com.facebook.presto.spi.predicate.SpiUnaryExpression;
+import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.security.ConnectorIdentity;
+import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.security.RowLevelSecurityResponse;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.Statement;
@@ -57,13 +67,16 @@ import com.facebook.presto.testing.TestingMetadata;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
@@ -124,6 +137,7 @@ import static com.facebook.presto.transaction.InMemoryTransactionManager.createT
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -135,6 +149,9 @@ public class TestAnalyzer
     private static final ConnectorId SECOND_CONNECTOR_ID = new ConnectorId(SECOND_CATALOG);
     private static final String THIRD_CATALOG = "c3";
     private static final ConnectorId THIRD_CONNECTOR_ID = new ConnectorId(THIRD_CATALOG);
+    // Used to test Row Level Security
+    private static final String FOURTH_CATALOG = "c4";
+    private static final ConnectorId FOURTH_CONNECTOR_ID = new ConnectorId(FOURTH_CATALOG);
     private static final Session SETUP_SESSION = testSessionBuilder()
             .setCatalog("c1")
             .setSchema("s1")
@@ -1536,13 +1553,46 @@ public class TestAnalyzer
         assertFails(MISSING_SCHEMA, "SELECT * FROM \"\".foo");
     }
 
+    @Test
+    public void testRLS()
+    {
+        // Basic query
+        assertEquivalence("SELECT * FROM c4.s4.t8", "SELECT * FROM (SELECT a , b , c , d FROM c4.s4.t8 WHERE (a = BIGINT '2') )");
+        // Table in WHERE clause
+        assertEquivalence("SELECT a FROM c4.s4.t8 WHERE b IN (SELECT b FROM c4.s4.t8)",
+                "SELECT a FROM (SELECT b FROM c4.s4.t8 WHERE (a = BIGINT '2') ) WHERE (b IN (SELECT b FROM (SELECT b FROM c4.s4.t8 WHERE (a = BIGINT '2') ) ))");
+        // Order by and Limit
+        assertEquivalence("SELECT a FROM c4.s4.t8 WHERE b IN (SELECT b FROM c4.s4.t8) ORDER BY a LIMIT 10",
+                "SELECT a FROM (SELECT b FROM c4.s4.t8 WHERE (a = BIGINT '2') ) WHERE (b IN (SELECT b FROM (SELECT b FROM c4.s4.t8 WHERE (a = BIGINT '2') ) )) ORDER BY a ASC LIMIT 10");
+        // Ensuring projection in the RLS rewrite contains all needed columns
+        assertEquivalence("SELECT a FROM c4.s4.t8 WHERE b = 10", "SELECT a FROM (SELECT a , b FROM c4.s4.t8 WHERE (a = BIGINT '2') ) WHERE (b = 10)");
+        // WITH query
+        assertEquivalence("WITH t1 AS (SELECT a FROM c4.s4.t8) SELECT * FROM t1", "WITH t1 AS ( SELECT a FROM ( SELECT a FROM c4.s4.t8 WHERE (a = BIGINT '2') ) ) SELECT * FROM t1");
+        // JOIN
+        assertEquivalence("SELECT t1.b FROM c4.s4.t8 as t1 JOIN c4.s4.t9 as t2 ON t1.a = t2.a",
+                "SELECT t1.b FROM ( (SELECT a , b FROM c4.s4.t8 WHERE (a = BIGINT '2') ) t1 INNER JOIN c4.s4.t9 t2 ON (t1.a = t2.a))");
+        // INSERT
+        assertEquivalence("INSERT INTO c4.s4.t8 VALUES (1, 2, 'abcd', array[1,2])", "INSERT INTO c4.s4.t8 VALUES ROW (1, 2, 'abcd', ARRAY[1,2])");
+        // DELETE
+        assertEquivalence("DELETE FROM c4.s4.t8", "DELETE FROM c4.s4.t8");
+        // VIEW with a different owner than 'user'
+        assertEquivalence("SELECT * FROM c4.s4.v6", "SELECT * FROM c4.s4.v6");
+        // VIEW owned by 'user'
+        assertEquivalence("SELECT * FROM c4.s4.v6", "SELECT * FROM c4.s4.v6");
+        // Selecting a column on which row level security is not imposed
+        assertEquivalence("SELECT c FROM c4.s4.t8", "SELECT c FROM c4.s4.t8");
+    }
+
     @BeforeClass
     public void setup()
     {
         TypeManager typeManager = new TypeRegistry();
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
-        accessControl = new AccessControlManager(transactionManager);
+        TestAccessControlManager accessControlManager = new TestAccessControlManager(transactionManager);
+        accessControlManager.setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
+        accessControlManager.addCatalogAccessControl(FOURTH_CONNECTOR_ID, new TestRLSConnectorAccessControl());
+        accessControl = accessControlManager;
 
         metadata = new MetadataManager(
                 new FeaturesConfig(),
@@ -1563,6 +1613,7 @@ public class TestAnalyzer
 
         catalogManager.registerCatalog(createTestingCatalog(SECOND_CATALOG, SECOND_CONNECTOR_ID));
         catalogManager.registerCatalog(createTestingCatalog(THIRD_CATALOG, THIRD_CONNECTOR_ID));
+        catalogManager.registerCatalog(createTestingCatalog(FOURTH_CATALOG, FOURTH_CONNECTOR_ID));
 
         SchemaTableName table1 = new SchemaTableName("s1", "t1");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
@@ -1623,6 +1674,23 @@ public class TestAnalyzer
                         new ColumnMetadata("d", new ArrayType(DOUBLE)))),
                 false));
 
+        // table with bigint, double, varchar and array of bigints column
+        SchemaTableName table8 = new SchemaTableName("s4", "t8");
+        inSetupTransaction(session -> metadata.createTable(session, FOURTH_CATALOG,
+                new ConnectorTableMetadata(table8, ImmutableList.of(
+                        new ColumnMetadata("a", BIGINT),
+                        new ColumnMetadata("b", DOUBLE),
+                        new ColumnMetadata("c", VARCHAR),
+                        new ColumnMetadata("d", new ArrayType(BIGINT)))),
+                false));
+
+        // table with bigint
+        SchemaTableName table9 = new SchemaTableName("s4", "t9");
+        inSetupTransaction(session -> metadata.createTable(session, FOURTH_CATALOG,
+                new ConnectorTableMetadata(table9, ImmutableList.of(
+                        new ColumnMetadata("a", BIGINT))),
+                false));
+
         // valid view referencing table in same schema
         String viewData1 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
                 new ViewDefinition(
@@ -1672,6 +1740,26 @@ public class TestAnalyzer
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, false));
+
+        // view to RLS enabled table
+        String viewData6 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select a from t8",
+                        Optional.of(FOURTH_CATALOG),
+                        Optional.of("s4"),
+                        ImmutableList.of(new ViewColumn("a", BIGINT)),
+                        Optional.of("owner")));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(FOURTH_CATALOG, "s4", "v6"), viewData6, false));
+
+        // view to RLS enabled table with user as owner
+        String viewData7 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select a from t8",
+                        Optional.of(FOURTH_CATALOG),
+                        Optional.of("s4"),
+                        ImmutableList.of(new ViewColumn("a", BIGINT)),
+                        Optional.of("user")));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(FOURTH_CATALOG, "s4", "v7"), viewData7, false));
     }
 
     private void inSetupTransaction(Consumer<Session> consumer)
@@ -1682,33 +1770,33 @@ public class TestAnalyzer
                 .execute(SETUP_SESSION, consumer);
     }
 
-    private static Analyzer createAnalyzer(Session session, Metadata metadata)
+    private static Analyzer createAnalyzer(Session session, Metadata metadata, AccessControl accessControl)
     {
         return new Analyzer(
                 session,
                 metadata,
                 SQL_PARSER,
-                new AllowAllAccessControl(),
+                accessControl,
                 Optional.empty(),
                 emptyList(),
                 WarningCollector.NOOP);
     }
 
-    private void analyze(@Language("SQL") String query)
+    private Analysis analyze(@Language("SQL") String query)
     {
-        analyze(CLIENT_SESSION, query);
+        return analyze(CLIENT_SESSION, query);
     }
 
-    private void analyze(Session clientSession, @Language("SQL") String query)
+    private Analysis analyze(Session clientSession, @Language("SQL") String query)
     {
-        transaction(transactionManager, accessControl)
+        return transaction(transactionManager, accessControl)
                 .singleStatement()
                 .readUncommitted()
                 .readOnly()
                 .execute(clientSession, session -> {
-                    Analyzer analyzer = createAnalyzer(session, metadata);
+                    Analyzer analyzer = createAnalyzer(session, metadata, accessControl);
                     Statement statement = SQL_PARSER.createStatement(query);
-                    analyzer.analyze(statement);
+                    return analyzer.analyze(statement);
                 });
     }
 
@@ -1777,6 +1865,19 @@ public class TestAnalyzer
         }
     }
 
+    private void assertEquivalence(String query, String expectedResult)
+    {
+        Session session = testSessionBuilder()
+                .setCatalog(null)
+                .setSchema(null)
+                .setSystemProperty("row_level_security_enabled", "true")
+                .build();
+
+        Analysis analysis = analyze(session, query);
+        String result = SqlFormatter.formatSql(analysis.getStatement(), java.util.Optional.empty(), analysis.getNamedQueriesForRLS());
+        assertEquals(expectedResult.trim().replaceAll("\\s+", " "), result.trim().replaceAll("\\s+", " "), null);
+    }
+
     private Catalog createTestingCatalog(String catalogName, ConnectorId connectorId)
     {
         ConnectorId systemId = createSystemTablesConnectorId(connectorId);
@@ -1801,6 +1902,8 @@ public class TestAnalyzer
         return new Connector()
         {
             private final ConnectorMetadata metadata = new TestingMetadata();
+
+            private final ConnectorAccessControl connectorAccessControl = new TestRLSConnectorAccessControl();
 
             @Override
             public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
@@ -1828,5 +1931,124 @@ public class TestAnalyzer
                         integerProperty("p2", "test integer property", 0, false));
             }
         };
+    }
+
+    private static class TestAccessControlManager
+            extends AccessControlManager
+    {
+        public TestAccessControlManager(TransactionManager transactionManager)
+        {
+            super(transactionManager);
+        }
+
+        @Override
+        public void setSystemAccessControl(String name, Map<String, String> properties)
+        {
+            super.setSystemAccessControl(name, properties);
+        }
+    }
+
+    private static class TestRLSConnectorAccessControl
+            implements ConnectorAccessControl
+    {
+        @Override
+        public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columnNames)
+        {
+        }
+
+        @Override
+        public void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName)
+        {
+        }
+
+        @Override
+        public void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName)
+        {
+        }
+
+        @Override
+        public void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName, String newSchemaName)
+        {
+        }
+
+        @Override
+        public void checkCanCreateTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+        {
+        }
+
+        @Override
+        public void checkCanDropTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+        {
+        }
+
+        @Override
+        public void checkCanRenameTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, SchemaTableName newTableName)
+        {
+        }
+
+        @Override
+        public void checkCanAddColumn(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+        {
+        }
+
+        @Override
+        public void checkCanDropColumn(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+        {
+        }
+
+        @Override
+        public void checkCanRenameColumn(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+        {
+        }
+
+        @Override
+        public void checkCanInsertIntoTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+        {
+        }
+
+        @Override
+        public void checkCanDeleteFromTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+        {
+        }
+
+        @Override
+        public void checkCanCreateView(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName viewName)
+        {
+        }
+
+        @Override
+        public void checkCanDropView(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName viewName)
+        {
+        }
+
+        @Override
+        public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columnNames)
+        {
+        }
+
+        @Override
+        public void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String propertyName)
+        {
+        }
+
+        @Override
+        public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean withGrantOption)
+        {
+        }
+
+        @Override
+        public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
+        {
+        }
+
+        @Override
+        public RowLevelSecurityResponse performRowLevelAuthorization(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columns)
+        {
+            if (identity.getUser().equals("user") && tableName.getSchemaName().equals("s4") && tableName.getTableName().equals("t8") && (columns.contains("a") || columns.contains("b"))) {
+                Domain domain = Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 2L)), false);
+                return new RowLevelSecurityResponse(new SpiUnaryExpression("a", domain), "");
+            }
+            return null;
+        }
     }
 }

@@ -57,6 +57,7 @@ import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
@@ -64,6 +65,7 @@ import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
+import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
@@ -74,6 +76,7 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TryExpression;
@@ -89,6 +92,7 @@ import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.PrimitiveIterator;
 import java.util.function.Function;
@@ -109,7 +113,13 @@ public final class ExpressionFormatter
 
     public static String formatExpression(Expression expression, Optional<List<Expression>> parameters)
     {
-        return new Formatter(parameters).process(expression, null);
+        return new Formatter(parameters, null).process(expression, null);
+    }
+
+    // namedQueries allows you to expand named queries for views or row level security
+    public static String formatExpression(Expression expression, Optional<List<Expression>> parameters, Map<NodeRef<Table>, Query> namedQueries)
+    {
+        return new Formatter(parameters, namedQueries).process(expression, null);
     }
 
     public static String formatQualifiedName(QualifiedName name)
@@ -128,10 +138,12 @@ public final class ExpressionFormatter
             extends AstVisitor<String, Void>
     {
         private final Optional<List<Expression>> parameters;
+        private final Map<NodeRef<Table>, Query> namedQueries;
 
-        public Formatter(Optional<List<Expression>> parameters)
+        public Formatter(Optional<List<Expression>> parameters, Map<NodeRef<Table>, Query> namedQueries)
         {
             this.parameters = parameters;
+            this.namedQueries = namedQueries;
         }
 
         @Override
@@ -236,7 +248,7 @@ public final class ExpressionFormatter
         {
             ImmutableList.Builder<String> valueStrings = ImmutableList.builder();
             for (Expression value : node.getValues()) {
-                valueStrings.add(formatSql(value, parameters));
+                valueStrings.add(formatSql(value, parameters, namedQueries));
             }
             return "ARRAY[" + Joiner.on(",").join(valueStrings.build()) + "]";
         }
@@ -244,7 +256,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitSubscriptExpression(SubscriptExpression node, Void context)
         {
-            return formatSql(node.getBase(), parameters) + "[" + formatSql(node.getIndex(), parameters) + "]";
+            return formatSql(node.getBase(), parameters, namedQueries) + "[" + formatSql(node.getIndex(), parameters, namedQueries) + "]";
         }
 
         @Override
@@ -309,13 +321,13 @@ public final class ExpressionFormatter
         @Override
         protected String visitSubqueryExpression(SubqueryExpression node, Void context)
         {
-            return "(" + formatSql(node.getQuery(), parameters) + ")";
+            return "(" + formatSql(node.getQuery(), parameters, namedQueries) + ")";
         }
 
         @Override
         protected String visitExists(ExistsPredicate node, Void context)
         {
-            return "(EXISTS " + formatSql(node.getSubquery(), parameters) + ")";
+            return "(EXISTS " + formatSql(node.getSubquery(), parameters, namedQueries) + ")";
         }
 
         @Override

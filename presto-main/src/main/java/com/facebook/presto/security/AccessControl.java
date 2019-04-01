@@ -19,6 +19,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.security.RowLevelSecurityResponse;
 import com.facebook.presto.transaction.TransactionId;
 
 import java.security.Principal;
@@ -261,4 +262,11 @@ public interface AccessControl
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanShowRoleGrants(TransactionId transactionId, Identity identity, String catalogName);
+
+    /**
+     * Perform the row level access restrictions for the identity.  The column set can be empty.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if timeout occurs
+     */
+    public RowLevelSecurityResponse performRowLevelAuthorization(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columns);
 }

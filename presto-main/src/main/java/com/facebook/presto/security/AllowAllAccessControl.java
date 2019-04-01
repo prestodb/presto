@@ -19,6 +19,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.security.RowLevelSecurityResponse;
 import com.facebook.presto.transaction.TransactionId;
 
 import java.security.Principal;
@@ -199,5 +200,11 @@ public class AllowAllAccessControl
     @Override
     public void checkCanShowRoleGrants(TransactionId transactionId, Identity identity, String catalogName)
     {
+    }
+
+    @Override
+    public RowLevelSecurityResponse performRowLevelAuthorization(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
+    {
+        return null;
     }
 }

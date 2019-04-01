@@ -25,26 +25,38 @@ public class Table
         extends QueryBody
 {
     private final QualifiedName name;
+    private final boolean isPlaceholderForRLS;
 
     public Table(QualifiedName name)
     {
-        this(Optional.empty(), name);
+        this(Optional.empty(), name, false);
+    }
+
+    public Table(QualifiedName name, boolean isPlaceholderForRLS)
+    {
+        this(Optional.empty(), name, isPlaceholderForRLS);
     }
 
     public Table(NodeLocation location, QualifiedName name)
     {
-        this(Optional.of(location), name);
+        this(Optional.of(location), name, false);
     }
 
-    private Table(Optional<NodeLocation> location, QualifiedName name)
+    private Table(Optional<NodeLocation> location, QualifiedName name, boolean isPlaceholderForRLS)
     {
         super(location);
         this.name = name;
+        this.isPlaceholderForRLS = isPlaceholderForRLS;
     }
 
     public QualifiedName getName()
     {
         return name;
+    }
+
+    public boolean isPlaceholderForRLS()
+    {
+        return isPlaceholderForRLS;
     }
 
     @Override
@@ -78,7 +90,7 @@ public class Table
         }
 
         Table table = (Table) o;
-        return Objects.equals(name, table.name);
+        return (Objects.equals(name, table.name) && Objects.equals(isPlaceholderForRLS, table.isPlaceholderForRLS));
     }
 
     @Override

@@ -39,6 +39,7 @@ import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -80,11 +81,16 @@ public class Analysis
 
     private final Map<NodeRef<Table>, Query> namedQueries = new LinkedHashMap<>();
 
+    private final Map<NodeRef<Table>, Query> namedQueriesForRLS = new LinkedHashMap<>();
+
     private final Map<NodeRef<Node>, Scope> scopes = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, FieldId> columnReferences = new LinkedHashMap<>();
 
     // a map of users to the columns per table that they access
     private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
+
+    // a map of users to the table references they have accessed
+    private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<NodeRef>>> tableNodeReferences = new LinkedHashMap<>();
 
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> aggregates = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<Expression>> orderByAggregates = new LinkedHashMap<>();
@@ -137,6 +143,9 @@ public class Analysis
 
     // for recursive view detection
     private final Deque<Table> tablesForView = new ArrayDeque<>();
+
+    // for recursive RLS detection
+    private final Deque<Table> tablesForRLS = new ArrayDeque<>();
 
     public Analysis(@Nullable Statement root, List<Expression> parameters, boolean isDescribe)
     {
@@ -586,6 +595,40 @@ public class Analysis
         namedQueries.put(NodeRef.of(tableReference), query);
     }
 
+    @VisibleForTesting
+    protected Map<NodeRef<Table>, Query> getNamedQueriesForRLS()
+    {
+        return namedQueriesForRLS;
+    }
+
+    public Query getNamedQueryForRLS(Table table)
+    {
+        return namedQueriesForRLS.get(NodeRef.of(table));
+    }
+
+    public void registerNamedQueryForRLS(Table tableReference, Query query)
+    {
+        requireNonNull(tableReference, "tableReference is null");
+        requireNonNull(query, "query is null");
+
+        namedQueriesForRLS.put(NodeRef.of(tableReference), query);
+    }
+
+    public void registerTableForRLS(Table tableReference)
+    {
+        tablesForRLS.push(requireNonNull(tableReference, "table is null"));
+    }
+
+    public void unregisterTableForRLS(Table tableReference)
+    {
+        tablesForRLS.pop();
+    }
+
+    public boolean hasTableInRLS(Table tableReference)
+    {
+        return tablesForRLS.contains(tableReference);
+    }
+
     public void registerTableForView(Table tableReference)
     {
         tablesForView.push(requireNonNull(tableReference, "table is null"));
@@ -652,6 +695,13 @@ public class Analysis
                 .forEach((key, value) -> references.computeIfAbsent(key, k -> new HashSet<>()).addAll(value));
     }
 
+    public void addTableNodeReferences(AccessControl accessControl, Identity identity, NodeRef table, QualifiedObjectName objectName)
+    {
+        AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
+        Map<QualifiedObjectName, Set<NodeRef>> references = tableNodeReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>());
+        references.computeIfAbsent(objectName, k -> new HashSet<>()).add(table);
+    }
+
     public void addEmptyColumnReferencesForTable(AccessControl accessControl, Identity identity, QualifiedObjectName table)
     {
         AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
@@ -661,6 +711,11 @@ public class Analysis
     public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferences()
     {
         return tableColumnReferences;
+    }
+
+    public Map<AccessControlInfo, Map<QualifiedObjectName, Set<NodeRef>>> getTableNodeReferences()
+    {
+        return tableNodeReferences;
     }
 
     @Immutable

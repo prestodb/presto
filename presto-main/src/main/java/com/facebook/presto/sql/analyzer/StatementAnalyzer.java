@@ -30,17 +30,23 @@ import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.spi.WarningCode;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.predicate.SpiExpression;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.RowLevelSecurityResponse;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
+import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.AddColumn;
@@ -134,6 +140,7 @@ import com.google.common.collect.Multimap;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -183,6 +190,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NONDETERMINISTI
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NON_NUMERIC_SAMPLE_PERCENTAGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_BE_IN_SELECT;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.RLS_PREDICATE_IS_RECURSIVE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TOO_MANY_GROUPING_SETS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
@@ -246,7 +254,61 @@ class StatementAnalyzer
 
     public Scope analyze(Node node, Optional<Scope> outerQueryScope)
     {
-        return new Visitor(outerQueryScope, warningCollector).process(node, Optional.empty());
+        Scope scope = new Visitor(outerQueryScope, warningCollector).process(node, Optional.empty());
+        if (SystemSessionProperties.isRowLevelSecurityEnabled(session)) {
+            performRowLevelSecurity();
+        }
+        return scope;
+    }
+
+    private void performRowLevelSecurity()
+    {
+        Map<Analysis.AccessControlInfo, Map<QualifiedObjectName, Set<NodeRef>>> nodeReferencesMap = new HashMap<>(analysis.getTableNodeReferences());
+        analysis.getTableNodeReferences().clear();
+        // perform row level access control for each table
+        nodeReferencesMap.forEach((accessControlInfo, tableNodeReferences) ->
+                tableNodeReferences.forEach((tableName, nodeRefs) -> {
+                    Map<Analysis.AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = analysis.getTableColumnReferences();
+                    Set<String> accessedColumns = tableColumnReferences.get(accessControlInfo).get(tableName);
+                    ImmutableList<SelectItem> selectItems = accessedColumns.stream().map(accessedColumn -> (SelectItem) new SingleColumn(new Identifier(accessedColumn))).collect(toImmutableList());
+                    RowLevelSecurityResponse response = accessControlInfo.getAccessControl().performRowLevelAuthorization(
+                            session.getRequiredTransactionId(),
+                            accessControlInfo.getIdentity(),
+                            tableName,
+                            accessedColumns);
+                    if (response == null) {
+                        return;
+                    }
+                    SpiExpression expression = response.getSpiExpression();
+                    String warning = response.getWarning();
+                    int numWarnings = warningCollector.getWarnings().size() + 1;
+                    //TODO Warning code
+                    String warningMessage = "Row Level security applied on table, " + tableName + " for user, " + accessControlInfo.getIdentity().getUser() + " : " + warning;
+                    warningCollector.add(new PrestoWarning(new WarningCode(numWarnings, "CODE_" + numWarnings), warningMessage));
+                    LiteralEncoder literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
+                    ExpressionDomainTranslator domainTranslator = new ExpressionDomainTranslator(literalEncoder);
+                    Expression expr = domainTranslator.toPredicateFromSpiExpression(expression);
+                    nodeRefs.forEach(nodeRef -> {
+                        Table table = (Table) nodeRef.getNode();
+                        QuerySpecification querySpec =
+                                new QuerySpecification(
+                                        new Select(false, selectItems),
+                                        Optional.of(new Table(table.getName(), true)),
+                                        Optional.of(expr), /* WHERE */
+                                        Optional.empty(), /* GROUP BY */
+                                        Optional.empty(), /* HAVING */
+                                        Optional.empty(), /* ORDER BY */
+                                        Optional.empty()); /* LIMIT */
+                        Query rlsStatement =
+                                new Query(Optional.empty(), querySpec, Optional.empty(), Optional.empty());
+                        analysis.registerTableForRLS(table); // recording the table so that we can check for recursive references
+                        StatementAnalyzer rlsAnalyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, WarningCollector.NOOP);
+                        rlsAnalyzer.analyze(rlsStatement, Scope.create());
+                        analysis.unregisterTableForRLS(table);
+
+                        analysis.registerNamedQueryForRLS(table, rlsStatement);
+                    });
+                }));
     }
 
     /**
@@ -945,7 +1007,29 @@ class StatementAnalyzer
 
             analysis.registerTable(table, tableHandle.get());
 
+            if (checkRecursionInRLS(table)) {
+                analysis.addTableNodeReferences(accessControl, session.getIdentity(), NodeRef.of(table), name);
+            }
+
             return createAndAssignScope(table, scope, fields.build());
+        }
+
+        private boolean checkRecursionInRLS(Table table)
+        {
+            /*
+             * RLS rewrite predicate will transform a table reference to a sub query :
+             * SELECT * FROM tab1 => SELECT * FROM (SELECT * FROM tab1 WHERE col1 IN (value1, value2);
+             * Therefore, when you process tab1 for rewrite, the query will contain one reference of tab1 irrespective of what the WHERE predicate returned by the authorization engine.
+             * We should ignore this single table reference created as an artifact.
+             * However, we should look for recursive references of the table in the WHERE predicate returned by the authorization engine.
+             */
+            if (table.isPlaceholderForRLS()) {
+                return false;
+            }
+            if (analysis.hasTableInRLS(table)) {
+                throw new SemanticException(RLS_PREDICATE_IS_RECURSIVE, table, "Recursive row level security predicate detected");
+            }
+            return true;
         }
 
         @Override

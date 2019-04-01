@@ -21,6 +21,7 @@ import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.security.RowLevelSecurityResponse;
 import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
@@ -168,6 +169,13 @@ public class FileBasedAccessControl
         if (!checkTablePermission(identity, tableName, SELECT)) {
             denySelectTable(tableName.toString());
         }
+    }
+
+    @Override
+    public RowLevelSecurityResponse performRowLevelAuthorization(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columns)
+    {
+        // TODO : Implement row level permissions
+        return null;
     }
 
     @Override

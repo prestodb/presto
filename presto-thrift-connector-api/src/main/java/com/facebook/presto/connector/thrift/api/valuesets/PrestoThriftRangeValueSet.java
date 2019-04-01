@@ -14,10 +14,12 @@
 package com.facebook.presto.connector.thrift.api.valuesets;
 
 import com.facebook.presto.connector.thrift.api.PrestoThriftBlock;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.Marker;
 import com.facebook.presto.spi.predicate.Marker.Bound;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.SortedRangeSet;
+import com.facebook.presto.spi.type.Type;
 import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftEnum;
 import io.airlift.drift.annotations.ThriftEnumValue;
@@ -28,6 +30,7 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.fromBlock;
 import static com.facebook.presto.connector.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftBound.fromBound;
@@ -95,6 +98,14 @@ public final class PrestoThriftRangeValueSet
         return new PrestoThriftRangeValueSet(ranges);
     }
 
+    public static SortedRangeSet toSortedRangeSet(PrestoThriftRangeValueSet valueSet, Type type)
+    {
+        List<Range> ranges = valueSet.getRanges().stream()
+                .map(range -> PrestoThriftRange.toRange(range, type))
+                .collect(toImmutableList());
+        return SortedRangeSet.copyOf(type, ranges);
+    }
+
     @ThriftEnum
     public enum PrestoThriftBound
     {
@@ -124,6 +135,20 @@ public final class PrestoThriftRangeValueSet
                     return EXACTLY;
                 case ABOVE:
                     return ABOVE;
+                default:
+                    throw new IllegalArgumentException("Unknown bound: " + bound);
+            }
+        }
+
+        public static Bound toBound(PrestoThriftBound bound)
+        {
+            switch (bound) {
+                case BELOW:
+                    return Bound.BELOW;
+                case EXACTLY:
+                    return Bound.EXACTLY;
+                case ABOVE:
+                    return Bound.ABOVE;
                 default:
                     throw new IllegalArgumentException("Unknown bound: " + bound);
             }
@@ -195,6 +220,12 @@ public final class PrestoThriftRangeValueSet
             PrestoThriftBlock value = marker.getValueBlock().isPresent() ? fromBlock(marker.getValueBlock().get(), marker.getType()) : null;
             return new PrestoThriftMarker(value, fromBound(marker.getBound()));
         }
+
+        public static Marker toMarker(PrestoThriftMarker marker, Type type)
+        {
+            Optional<Block> value = (marker.getValue() != null) ? Optional.of(marker.getValue().toBlock(type)) : Optional.empty();
+            return new Marker(type, value, PrestoThriftBound.toBound(marker.getBound()));
+        }
     }
 
     @ThriftStruct
@@ -254,6 +285,11 @@ public final class PrestoThriftRangeValueSet
         public static PrestoThriftRange fromRange(Range range)
         {
             return new PrestoThriftRange(fromMarker(range.getLow()), fromMarker(range.getHigh()));
+        }
+
+        public static Range toRange(PrestoThriftRange range, Type type)
+        {
+            return new Range(PrestoThriftMarker.toMarker(range.getLow(), type), PrestoThriftMarker.toMarker(range.getHigh(), type));
         }
     }
 }

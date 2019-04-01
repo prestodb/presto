@@ -149,6 +149,14 @@ class RelationPlanner
             return new RelationPlan(withCoercions.getRoot(), scope, withCoercions.getFieldMappings());
         }
 
+        // If not a named query, this is a table reference, check whether there are RLS rewrites
+        Query namedQueryForRLS = analysis.getNamedQueryForRLS(node);
+
+        if (namedQueryForRLS != null) {
+            RelationPlan subPlan = process(namedQueryForRLS, null);
+            return subPlan;
+        }
+
         TableHandle handle = analysis.getTableHandle(node);
 
         ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
