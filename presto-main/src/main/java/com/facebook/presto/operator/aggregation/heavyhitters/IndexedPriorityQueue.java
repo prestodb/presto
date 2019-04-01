@@ -54,11 +54,9 @@ public final class IndexedPriorityQueue<E>
         Entry<E> entry = index.get(element);
         if (entry != null) {
             queue.remove(entry);
-            updateMemoryForElement(entry, -1);  //Update memory usage
             Entry<E> newEntry = new Entry<>(element, priority, entry.getGeneration());
             queue.add(newEntry);
             index.put(element, newEntry);
-            updateMemoryForElement(newEntry, 1);  //Update memory usage
             return false;
         }
         Entry<E> newEntry = new Entry<>(element, priority, generation);
@@ -170,6 +168,7 @@ public final class IndexedPriorityQueue<E>
     }
 
     public int estimatedInMemorySize() {
+        // TODO add size of index and queue
         return INSTANCE_SIZE + estimatedInMemorySize;
     }
 
@@ -242,7 +241,7 @@ public final class IndexedPriorityQueue<E>
 
         //TODO is it the right way to calculate size
         public long estimatedInMemorySize(){
-            return INSTANCE_SIZE + GraphLayout.parseInstance(value).totalSize();
+            return INSTANCE_SIZE + value.toString().getBytes().length;
         }
 
         public String toString(){

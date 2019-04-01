@@ -76,8 +76,6 @@ public class CountMinSketch{
         this.width = (int) Math.ceil(Math.E / epsOfTotalCount);
         this.depth = (int) Math.ceil(Math.log(1/(1-confidence)));
         initTablesWith(depth, width, seed);
-        //TODO: Is this efficient way to calculate size since the size is constant here?
-        estimatedInMemorySize=SizeOf.sizeOf(table) + SizeOf.sizeOf(hashA);
     }
 
 
@@ -156,6 +154,7 @@ public class CountMinSketch{
         for (int i = 0; i < depth; ++i) {
             hashA[i] = r.nextInt(Integer.MAX_VALUE);
         }
+        estimatedInMemorySize += SIZE_OF_LONG * (depth * width + depth) + SizeOf.sizeOf(hashA) + width * SizeOf.sizeOf(table);
     }
 
     public double getRelativeError() {
