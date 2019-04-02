@@ -75,7 +75,7 @@ public class WorkerResource
                 .orElseThrow(() -> new WebApplicationException(NOT_FOUND));
 
         Request request = prepareGet()
-                .setUri(uriBuilderFrom(node.getHttpUri())
+                .setUri(uriBuilderFrom(node.getInternalUri())
                         .appendPath(workerPath)
                         .build())
                 .build();

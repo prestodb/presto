@@ -31,15 +31,15 @@ public class InternalNode
         implements Node
 {
     private final String nodeIdentifier;
-    private final URI httpUri;
+    private final URI internalUri;
     private final NodeVersion nodeVersion;
     private final boolean coordinator;
 
-    public InternalNode(String nodeIdentifier, URI httpUri, NodeVersion nodeVersion, boolean coordinator)
+    public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator)
     {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
         this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null or empty");
-        this.httpUri = requireNonNull(httpUri, "httpUri is null");
+        this.internalUri = requireNonNull(internalUri, "internalUri is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.coordinator = coordinator;
     }
@@ -51,15 +51,27 @@ public class InternalNode
     }
 
     @Override
+    public String getHost()
+    {
+        return internalUri.getHost();
+    }
+
+    @Override
+    @Deprecated
     public URI getHttpUri()
     {
-        return httpUri;
+        return getInternalUri();
+    }
+
+    public URI getInternalUri()
+    {
+        return internalUri;
     }
 
     @Override
     public HostAddress getHostAndPort()
     {
-        return HostAddress.fromUri(httpUri);
+        return HostAddress.fromUri(internalUri);
     }
 
     @Override
@@ -103,7 +115,7 @@ public class InternalNode
     {
         return toStringHelper(this)
                 .add("nodeIdentifier", nodeIdentifier)
-                .add("httpUri", httpUri)
+                .add("internalUri", internalUri)
                 .add("nodeVersion", nodeVersion)
                 .toString();
     }

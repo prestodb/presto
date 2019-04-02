@@ -151,7 +151,7 @@ public class NodeScheduler
                 try {
                     byHostAndPort.put(node.getHostAndPort(), node);
 
-                    InetAddress host = InetAddress.getByName(node.getHttpUri().getHost());
+                    InetAddress host = InetAddress.getByName(node.getInternalUri().getHost());
                     byHost.put(host, node);
                 }
                 catch (UnknownHostException e) {

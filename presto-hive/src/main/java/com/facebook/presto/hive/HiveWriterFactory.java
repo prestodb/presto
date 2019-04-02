@@ -494,7 +494,7 @@ public class HiveWriterFactory
                     outputStorageFormat.getOutputFormat(),
                     writerImplementation,
                     nodeManager.getCurrentNode().getVersion(),
-                    nodeManager.getCurrentNode().getHttpUri().getHost(),
+                    nodeManager.getCurrentNode().getHost(),
                     session.getIdentity().getPrincipal().map(Principal::getName).orElse(null),
                     nodeManager.getEnvironment(),
                     sessionProperties,
