@@ -433,20 +433,26 @@ public class PropertyDerivations
                             .unordered(true)
                             .build();
                 case FULL:
-                    if (probeProperties.getNodePartitioning().isPresent()) {
-                        Partitioning nodePartitioning = probeProperties.getNodePartitioning().get();
-                        ImmutableList.Builder<Expression> coalesceExpressions = ImmutableList.builder();
-                        for (Symbol column : nodePartitioning.getColumns()) {
-                            for (JoinNode.EquiJoinClause equality : node.getCriteria()) {
-                                if (equality.getLeft().equals(column) || equality.getRight().equals(column)) {
-                                    coalesceExpressions.add(new CoalesceExpression(ImmutableList.of(equality.getLeft().toSymbolReference(), equality.getRight().toSymbolReference())));
+                    if (probeProperties.getNodePartitioning().isPresent() && buildProperties.getNodePartitioning().isPresent()) {
+                        Partitioning probePartitioning = probeProperties.getNodePartitioning().get();
+                        Partitioning buildPartitioning = buildProperties.getNodePartitioning().get();
+                        if (probePartitioning.isOnlyPartitionedOnColumns() && buildPartitioning.isOnlyPartitionedOnColumns()) {
+                            ImmutableList.Builder<Expression> coalesceExpressionsBuilder = ImmutableList.builder();
+                            for (Symbol column : probePartitioning.getColumns()) {
+                                for (JoinNode.EquiJoinClause equality : node.getCriteria()) {
+                                    if (equality.getLeft().equals(column) || equality.getRight().equals(column)) {
+                                        coalesceExpressionsBuilder.add(new CoalesceExpression(ImmutableList.of(equality.getLeft().toSymbolReference(), equality.getRight().toSymbolReference())));
+                                    }
                                 }
                             }
+                            List<Expression> coalesceExpressions = coalesceExpressionsBuilder.build();
+                            // If the join clause includes equi-join of all partition symbols, the result is partitioned on coalesce of all partition symbols
+                            if (probePartitioning.getColumns().size() == coalesceExpressions.size()) {
+                                return ActualProperties.builder()
+                                        .global(partitionedOn(Partitioning.createWithExpressions(probePartitioning.getHandle(), coalesceExpressions), Optional.empty()))
+                                        .build();
+                            }
                         }
-
-                        return ActualProperties.builder()
-                                .global(partitionedOn(Partitioning.createWithExpressions(nodePartitioning.getHandle(), coalesceExpressions.build()), Optional.empty()))
-                                .build();
                     }
                     return ActualProperties.builder()
                             .global(probeProperties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())

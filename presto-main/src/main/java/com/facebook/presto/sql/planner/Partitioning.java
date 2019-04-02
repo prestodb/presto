@@ -87,6 +87,11 @@ public final class Partitioning
         return arguments;
     }
 
+    public boolean isOnlyPartitionedOnColumns()
+    {
+        return arguments.stream().allMatch(ArgumentBinding::isSymbolReference);
+    }
+
     public Set<Symbol> getColumns()
     {
         return arguments.stream()
