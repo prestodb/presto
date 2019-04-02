@@ -14,8 +14,8 @@
 package com.facebook.presto.execution.scheduler.group;
 
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.Node;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 
@@ -30,7 +30,7 @@ public class DynamicBucketNodeMap
         extends BucketNodeMap
 {
     private final int bucketCount;
-    private final Int2ObjectMap<Node> bucketToNode = new Int2ObjectOpenHashMap<>();
+    private final Int2ObjectMap<InternalNode> bucketToNode = new Int2ObjectOpenHashMap<>();
 
     public DynamicBucketNodeMap(ToIntFunction<Split> splitToBucket, int bucketCount)
     {
@@ -40,7 +40,7 @@ public class DynamicBucketNodeMap
     }
 
     @Override
-    public Optional<Node> getAssignedNode(int bucketedId)
+    public Optional<InternalNode> getAssignedNode(int bucketedId)
     {
         return Optional.ofNullable(bucketToNode.get(bucketedId));
     }
@@ -52,7 +52,7 @@ public class DynamicBucketNodeMap
     }
 
     @Override
-    public void assignBucketToNode(int bucketedId, Node node)
+    public void assignBucketToNode(int bucketedId, InternalNode node)
     {
         checkArgument(bucketedId >= 0 && bucketedId < bucketCount);
         requireNonNull(node, "node is null");

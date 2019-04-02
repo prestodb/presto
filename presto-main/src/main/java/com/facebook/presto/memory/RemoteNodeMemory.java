@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.memory;
 
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.server.smile.Codec;
 import com.facebook.presto.server.smile.SmileCodec;
-import com.facebook.presto.spi.Node;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import io.airlift.http.client.HttpClient;
@@ -54,7 +54,7 @@ public class RemoteNodeMemory
 {
     private static final Logger log = Logger.get(RemoteNodeMemory.class);
 
-    private final Node node;
+    private final InternalNode node;
     private final HttpClient httpClient;
     private final URI memoryInfoUri;
     private final Codec<MemoryInfo> memoryInfoCodec;
@@ -67,7 +67,7 @@ public class RemoteNodeMemory
     private final boolean isBinaryTransportEnabled;
 
     public RemoteNodeMemory(
-            Node node,
+            InternalNode node,
             HttpClient httpClient,
             Codec<MemoryInfo> memoryInfoCodec,
             Codec<MemoryPoolAssignmentsRequest> assignmentsRequestCodec,
@@ -92,7 +92,7 @@ public class RemoteNodeMemory
         return memoryInfo.get();
     }
 
-    public Node getNode()
+    public InternalNode getNode()
     {
         return node;
     }

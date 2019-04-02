@@ -20,9 +20,9 @@ import com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason;
 import com.facebook.presto.execution.scheduler.group.DynamicLifespanScheduler;
 import com.facebook.presto.execution.scheduler.group.FixedLifespanScheduler;
 import com.facebook.presto.execution.scheduler.group.LifespanScheduler;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.StageExecutionDescriptor;
-import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -57,7 +57,7 @@ public class FixedSourcePartitionedScheduler
     private static final Logger log = Logger.get(FixedSourcePartitionedScheduler.class);
 
     private final SqlStageExecution stage;
-    private final List<Node> nodes;
+    private final List<InternalNode> nodes;
     private final List<SourceScheduler> sourceSchedulers;
     private final List<ConnectorPartitionHandle> partitionHandles;
     private boolean scheduledTasks;
@@ -68,7 +68,7 @@ public class FixedSourcePartitionedScheduler
             Map<PlanNodeId, SplitSource> splitSources,
             StageExecutionDescriptor stageExecutionDescriptor,
             List<PlanNodeId> schedulingOrder,
-            List<Node> nodes,
+            List<InternalNode> nodes,
             BucketNodeMap bucketNodeMap,
             int splitBatchSize,
             OptionalInt concurrentLifespansPerTask,
@@ -251,13 +251,13 @@ public class FixedSourcePartitionedScheduler
             implements SplitPlacementPolicy
     {
         private final NodeSelector nodeSelector;
-        private final List<Node> allNodes;
+        private final List<InternalNode> allNodes;
         private final BucketNodeMap bucketNodeMap;
         private final Supplier<? extends List<RemoteTask>> remoteTasks;
 
         public BucketedSplitPlacementPolicy(
                 NodeSelector nodeSelector,
-                List<Node> allNodes,
+                List<InternalNode> allNodes,
                 BucketNodeMap bucketNodeMap,
                 Supplier<? extends List<RemoteTask>> remoteTasks)
         {
@@ -279,12 +279,12 @@ public class FixedSourcePartitionedScheduler
         }
 
         @Override
-        public List<Node> allNodes()
+        public List<InternalNode> allNodes()
         {
             return allNodes;
         }
 
-        public Node getNodeForBucket(int bucketId)
+        public InternalNode getNodeForBucket(int bucketId)
         {
             return bucketNodeMap.getAssignedNode(bucketId).get();
         }

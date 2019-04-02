@@ -18,7 +18,6 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.server.InternalCommunicationConfig;
-import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeState;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -84,13 +83,13 @@ public final class DiscoveryNodeManager
     private final InternalNode currentNode;
 
     @GuardedBy("this")
-    private SetMultimap<ConnectorId, Node> activeNodesByConnectorId;
+    private SetMultimap<ConnectorId, InternalNode> activeNodesByConnectorId;
 
     @GuardedBy("this")
     private AllNodes allNodes;
 
     @GuardedBy("this")
-    private Set<Node> coordinators;
+    private Set<InternalNode> coordinators;
 
     @GuardedBy("this")
     private final List<Consumer<AllNodes>> listeners = new ArrayList<>();
@@ -159,13 +158,13 @@ public final class DiscoveryNodeManager
     private void pollWorkers()
     {
         AllNodes allNodes = getAllNodes();
-        Set<Node> aliveNodes = ImmutableSet.<Node>builder()
+        Set<InternalNode> aliveNodes = ImmutableSet.<InternalNode>builder()
                 .addAll(allNodes.getActiveNodes())
                 .addAll(allNodes.getShuttingDownNodes())
                 .build();
 
         ImmutableSet<String> aliveNodeIds = aliveNodes.stream()
-                .map(Node::getNodeIdentifier)
+                .map(InternalNode::getNodeIdentifier)
                 .collect(toImmutableSet());
 
         // Remove nodes that don't exist anymore
@@ -174,7 +173,7 @@ public final class DiscoveryNodeManager
         nodeStates.keySet().removeAll(deadNodes);
 
         // Add new nodes
-        for (Node node : aliveNodes) {
+        for (InternalNode node : aliveNodes) {
             nodeStates.putIfAbsent(node.getNodeIdentifier(),
                     new RemoteNodeState(httpClient, uriBuilderFrom(node.getHttpUri()).appendPath("/v1/info/state").build()));
         }
@@ -206,11 +205,11 @@ public final class DiscoveryNodeManager
                 .filter(service -> !failureDetector.getFailed().contains(service))
                 .collect(toImmutableSet());
 
-        ImmutableSet.Builder<Node> activeNodesBuilder = ImmutableSet.builder();
-        ImmutableSet.Builder<Node> inactiveNodesBuilder = ImmutableSet.builder();
-        ImmutableSet.Builder<Node> shuttingDownNodesBuilder = ImmutableSet.builder();
-        ImmutableSet.Builder<Node> coordinatorsBuilder = ImmutableSet.builder();
-        ImmutableSetMultimap.Builder<ConnectorId, Node> byConnectorIdBuilder = ImmutableSetMultimap.builder();
+        ImmutableSet.Builder<InternalNode> activeNodesBuilder = ImmutableSet.builder();
+        ImmutableSet.Builder<InternalNode> inactiveNodesBuilder = ImmutableSet.builder();
+        ImmutableSet.Builder<InternalNode> shuttingDownNodesBuilder = ImmutableSet.builder();
+        ImmutableSet.Builder<InternalNode> coordinatorsBuilder = ImmutableSet.builder();
+        ImmutableSetMultimap.Builder<ConnectorId, InternalNode> byConnectorIdBuilder = ImmutableSetMultimap.builder();
 
         for (ServiceDescriptor service : services) {
             URI uri = getHttpUri(service, httpsRequired);
@@ -253,8 +252,8 @@ public final class DiscoveryNodeManager
 
         if (allNodes != null) {
             // log node that are no longer active (but not shutting down)
-            SetView<Node> missingNodes = difference(allNodes.getActiveNodes(), Sets.union(activeNodesBuilder.build(), shuttingDownNodesBuilder.build()));
-            for (Node missingNode : missingNodes) {
+            SetView<InternalNode> missingNodes = difference(allNodes.getActiveNodes(), Sets.union(activeNodesBuilder.build(), shuttingDownNodesBuilder.build()));
+            for (InternalNode missingNode : missingNodes) {
                 log.info("Previously active node is missing: %s (last seen at %s)", missingNode.getNodeIdentifier(), missingNode.getHostAndPort());
             }
         }
@@ -323,7 +322,7 @@ public final class DiscoveryNodeManager
     }
 
     @Override
-    public Set<Node> getNodes(NodeState state)
+    public Set<InternalNode> getNodes(NodeState state)
     {
         switch (state) {
             case ACTIVE:
@@ -338,19 +337,19 @@ public final class DiscoveryNodeManager
     }
 
     @Override
-    public synchronized Set<Node> getActiveConnectorNodes(ConnectorId connectorId)
+    public synchronized Set<InternalNode> getActiveConnectorNodes(ConnectorId connectorId)
     {
         return activeNodesByConnectorId.get(connectorId);
     }
 
     @Override
-    public Node getCurrentNode()
+    public InternalNode getCurrentNode()
     {
         return currentNode;
     }
 
     @Override
-    public synchronized Set<Node> getCoordinators()
+    public synchronized Set<InternalNode> getCoordinators()
     {
         return coordinators;
     }
