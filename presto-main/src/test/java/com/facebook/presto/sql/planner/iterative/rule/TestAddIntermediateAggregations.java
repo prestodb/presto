@@ -40,7 +40,7 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 
@@ -61,7 +61,7 @@ public class TestAddIntermediateAggregations
                             .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
-                                            ExchangeNode.Scope.REMOTE,
+                                            ExchangeNode.Scope.REMOTE_STREAMING,
                                             p.aggregation(ap -> ap.globalGrouping()
                                                     .step(AggregationNode.Step.PARTIAL)
                                                     .addAggregation(p.symbol("b"), expression("count(a)"), ImmutableList.of(BIGINT))
@@ -83,7 +83,7 @@ public class TestAddIntermediateAggregations
                                                 Optional.empty(),
                                                 INTERMEDIATE,
                                                 exchange(LOCAL, REPARTITION,
-                                                        exchange(REMOTE, GATHER,
+                                                        exchange(REMOTE_STREAMING, GATHER,
                                                                 aggregation(
                                                                         globalAggregation(),
                                                                         ImmutableMap.of(Optional.empty(), aggregationPattern),
@@ -116,7 +116,7 @@ public class TestAddIntermediateAggregations
                             .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
-                                            ExchangeNode.Scope.REMOTE,
+                                            ExchangeNode.Scope.REMOTE_STREAMING,
                                             p.aggregation(ap -> ap.globalGrouping()
                                                     .step(AggregationNode.Step.PARTIAL)
                                                     .addAggregation(p.symbol("b"), expression("count(*)"), ImmutableList.of(BIGINT))
@@ -138,7 +138,7 @@ public class TestAddIntermediateAggregations
                                                 Optional.empty(),
                                                 INTERMEDIATE,
                                                 exchange(LOCAL, REPARTITION,
-                                                        exchange(REMOTE, GATHER,
+                                                        exchange(REMOTE_STREAMING, GATHER,
                                                                 aggregation(
                                                                         globalAggregation(),
                                                                         ImmutableMap.of(Optional.empty(), partialInputCount),
@@ -169,9 +169,9 @@ public class TestAddIntermediateAggregations
                             .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
-                                            ExchangeNode.Scope.REMOTE,
+                                            ExchangeNode.Scope.REMOTE_STREAMING,
                                             p.gatheringExchange(
-                                                    ExchangeNode.Scope.REMOTE,
+                                                    ExchangeNode.Scope.REMOTE_STREAMING,
                                                     p.aggregation(ap -> ap.globalGrouping()
                                                             .step(AggregationNode.Step.PARTIAL)
                                                             .addAggregation(p.symbol("b"), expression("count(a)"), ImmutableList.of(BIGINT))
@@ -193,8 +193,8 @@ public class TestAddIntermediateAggregations
                                                 Optional.empty(),
                                                 INTERMEDIATE,
                                                 exchange(LOCAL, REPARTITION,
-                                                        exchange(REMOTE, GATHER,
-                                                                exchange(REMOTE, GATHER,
+                                                        exchange(REMOTE_STREAMING, GATHER,
+                                                                exchange(REMOTE_STREAMING, GATHER,
                                                                         aggregation(
                                                                                 globalAggregation(),
                                                                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
@@ -223,7 +223,7 @@ public class TestAddIntermediateAggregations
                             .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
-                                            ExchangeNode.Scope.REMOTE,
+                                            ExchangeNode.Scope.REMOTE_STREAMING,
                                             p.aggregation(ap -> ap.globalGrouping()
                                                     .step(AggregationNode.Step.PARTIAL)
                                                     .addAggregation(p.symbol("b"), expression("count(a)"), ImmutableList.of(BIGINT))
@@ -247,7 +247,7 @@ public class TestAddIntermediateAggregations
                             .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
-                                            ExchangeNode.Scope.REMOTE,
+                                            ExchangeNode.Scope.REMOTE_STREAMING,
                                             p.aggregation(ap -> ap.globalGrouping()
                                                     .step(AggregationNode.Step.PARTIAL)
                                                     .addAggregation(p.symbol("b"), expression("count(a)"), ImmutableList.of(BIGINT))
@@ -261,7 +261,7 @@ public class TestAddIntermediateAggregations
                                 ImmutableMap.of(),
                                 Optional.empty(),
                                 FINAL,
-                                exchange(REMOTE, GATHER,
+                                exchange(REMOTE_STREAMING, GATHER,
                                         aggregation(
                                                 globalAggregation(),
                                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
@@ -290,7 +290,7 @@ public class TestAddIntermediateAggregations
                             .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
-                                            ExchangeNode.Scope.REMOTE,
+                                            ExchangeNode.Scope.REMOTE_STREAMING,
                                             p.aggregation(ap -> ap.singleGroupingSet(p.symbol("b"))
                                                     .step(AggregationNode.Step.PARTIAL)
                                                     .addAggregation(p.symbol("b"), expression("count(a)"), ImmutableList.of(BIGINT))
@@ -314,7 +314,7 @@ public class TestAddIntermediateAggregations
                             .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
-                                            ExchangeNode.Scope.REMOTE,
+                                            ExchangeNode.Scope.REMOTE_STREAMING,
                                             p.project(
                                                     Assignments.identity(p.symbol("b")),
                                                     p.aggregation(ap -> ap.globalGrouping()
@@ -338,7 +338,7 @@ public class TestAddIntermediateAggregations
                                                 Optional.empty(),
                                                 INTERMEDIATE,
                                                 exchange(LOCAL, REPARTITION,
-                                                        exchange(REMOTE, GATHER,
+                                                        exchange(REMOTE_STREAMING, GATHER,
                                                                 project(
                                                                         aggregation(
                                                                                 globalAggregation(),

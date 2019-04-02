@@ -26,7 +26,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchan
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 
@@ -47,11 +47,11 @@ public class TestAddExchangesPlans
                         aggregation(ImmutableMap.of(),
                                 anyTree(
                                         anyTree(
-                                                exchange(REMOTE, REPARTITION,
+                                                exchange(REMOTE_STREAMING, REPARTITION,
                                                         anyTree(
                                                                 tableScan("nation")))),
                                         anyTree(
-                                                exchange(REMOTE, REPARTITION,
+                                                exchange(REMOTE_STREAMING, REPARTITION,
                                                         anyTree(
                                                                 tableScan("region"))))))));
         assertDistributedPlan("SELECT nationkey FROM nation UNION select 1",
@@ -59,11 +59,11 @@ public class TestAddExchangesPlans
                         aggregation(ImmutableMap.of(),
                                 anyTree(
                                         anyTree(
-                                                exchange(REMOTE, REPARTITION,
+                                                exchange(REMOTE_STREAMING, REPARTITION,
                                                         anyTree(
                                                                 tableScan("nation")))),
                                         anyTree(
-                                                exchange(REMOTE, REPARTITION,
+                                                exchange(REMOTE_STREAMING, REPARTITION,
                                                         anyTree(
                                                                 values())))))));
     }
@@ -75,14 +75,14 @@ public class TestAddExchangesPlans
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")),
                                 anyTree(
-                                        exchange(REMOTE, REPARTITION,
+                                        exchange(REMOTE_STREAMING, REPARTITION,
                                                 anyTree(
                                                         tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))),
-                                        exchange(REMOTE, REPARTITION,
+                                        exchange(REMOTE_STREAMING, REPARTITION,
                                                 anyTree(
                                                         tableScan("nation")))),
                                 anyTree(
-                                        exchange(REMOTE, REPARTITION,
+                                        exchange(REMOTE_STREAMING, REPARTITION,
                                                 anyTree(
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
 
@@ -90,14 +90,14 @@ public class TestAddExchangesPlans
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")),
                                 anyTree(
-                                        exchange(REMOTE, REPARTITION,
+                                        exchange(REMOTE_STREAMING, REPARTITION,
                                                 anyTree(
                                                         tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))),
-                                        exchange(REMOTE, REPARTITION,
+                                        exchange(REMOTE_STREAMING, REPARTITION,
                                                 anyTree(
                                                         values()))),
                                 anyTree(
-                                        exchange(REMOTE, REPARTITION,
+                                        exchange(REMOTE_STREAMING, REPARTITION,
                                                 anyTree(
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
     }

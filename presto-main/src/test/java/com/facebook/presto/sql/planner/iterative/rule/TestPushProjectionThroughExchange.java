@@ -30,7 +30,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expres
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.FIRST;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
@@ -178,7 +178,7 @@ public class TestPushProjectionThroughExchange
                 })
                 .matches(
                         project(
-                                exchange(REMOTE, GATHER, ImmutableList.of(sort("sortSymbol", ASCENDING, FIRST)),
+                                exchange(REMOTE_STREAMING, GATHER, ImmutableList.of(sort("sortSymbol", ASCENDING, FIRST)),
                                         project(
                                                 values(
                                                         ImmutableList.of("a", "b", "h", "sortSymbol")))

@@ -230,7 +230,8 @@ public class CostCalculatorUsingExchanges
                         default:
                             throw new IllegalArgumentException("Unexpected type: " + node.getType());
                     }
-                case REMOTE:
+                case REMOTE_STREAMING:
+                case REMOTE_MATERIALIZED:
                     switch (node.getType()) {
                         case GATHER:
                             return calculateRemoteGatherCost(inputSizeInBytes);
