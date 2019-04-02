@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
+import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.GroupingProperty;
@@ -39,6 +40,7 @@ import com.facebook.presto.sql.planner.plan.ChildReplacer;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode.Scope;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
@@ -90,6 +92,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializationStrategy;
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.getPartitioningProviderCatalog;
 import static com.facebook.presto.SystemSessionProperties.isColocatedJoinEnabled;
@@ -108,6 +111,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DI
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.LocalProperties.grouped;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
@@ -159,6 +163,7 @@ public class AddExchanges
         private final boolean scaleWriters;
         private final String partitioningProviderCatalog;
         private final int hashPartitionCount;
+        private final ExchangeMaterializationStrategy exchangeMaterializationStrategy;
 
         public Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
         {
@@ -172,6 +177,7 @@ public class AddExchanges
             this.preferStreamingOperators = preferStreamingOperators(session);
             this.partitioningProviderCatalog = getPartitioningProviderCatalog(session);
             this.hashPartitionCount = getHashPartitionCount(session);
+            this.exchangeMaterializationStrategy = getExchangeMaterializationStrategy(session);
         }
 
         @Override
@@ -244,7 +250,12 @@ public class AddExchanges
             }
             else if (!child.getProperties().isStreamPartitionedOn(partitioningRequirement) && !child.getProperties().isNodePartitionedOn(partitioningRequirement)) {
                 child = withDerivedProperties(
-                        partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode(), createPartitioning(node.getGroupingKeys()), node.getHashSymbol()),
+                        partitionedExchange(
+                                idAllocator.getNextId(),
+                                selectExchangeScopeForPartitionedRemoteExchange(child.getNode()),
+                                child.getNode(),
+                                createPartitioning(node.getGroupingKeys()),
+                                node.getHashSymbol()),
                         child.getProperties());
             }
             return rebaseAndDeriveProperties(node, child);
@@ -285,7 +296,7 @@ public class AddExchanges
                 child = withDerivedProperties(
                         partitionedExchange(
                                 idAllocator.getNextId(),
-                                REMOTE_STREAMING,
+                                selectExchangeScopeForPartitionedRemoteExchange(child.getNode()),
                                 child.getNode(),
                                 createPartitioning(node.getDistinctSymbols()),
                                 node.getHashSymbol()),
@@ -704,6 +715,7 @@ public class AddExchanges
                 Partitioning rightPartitioning = left.getProperties().translate(createTranslator(leftToRight)).getNodePartitioning().get();
                 right = node.getRight().accept(this, PreferredProperties.partitioned(rightPartitioning));
                 if (!right.getProperties().isCompatibleTablePartitioningWith(left.getProperties(), rightToLeft::get, metadata, session)) {
+                    // TODO: support materialization when one of the tables is pre-bucketed
                     right = withDerivedProperties(
                             partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, right.getNode(), new PartitioningScheme(rightPartitioning, right.getNode().getOutputSymbols())),
                             right.getProperties());
@@ -714,16 +726,27 @@ public class AddExchanges
 
                 if (right.getProperties().isNodePartitionedOn(rightSymbols) && !right.getProperties().isSingleNode()) {
                     Partitioning leftPartitioning = right.getProperties().translate(createTranslator(rightToLeft)).getNodePartitioning().get();
+                    // TODO: support materialization when one of the tables is pre-bucketed
                     left = withDerivedProperties(
                             partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, left.getNode(), new PartitioningScheme(leftPartitioning, left.getNode().getOutputSymbols())),
                             left.getProperties());
                 }
                 else {
                     left = withDerivedProperties(
-                            partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, left.getNode(), createPartitioning(leftSymbols), Optional.empty()),
+                            partitionedExchange(
+                                    idAllocator.getNextId(),
+                                    selectExchangeScopeForPartitionedRemoteExchange(left.getNode()),
+                                    left.getNode(),
+                                    createPartitioning(leftSymbols),
+                                    Optional.empty()),
                             left.getProperties());
                     right = withDerivedProperties(
-                            partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, right.getNode(), createPartitioning(rightSymbols), Optional.empty()),
+                            partitionedExchange(
+                                    idAllocator.getNextId(),
+                                    selectExchangeScopeForPartitionedRemoteExchange(right.getNode()),
+                                    right.getNode(),
+                                    createPartitioning(rightSymbols),
+                                    Optional.empty()),
                             right.getProperties());
                 }
             }
@@ -733,6 +756,7 @@ public class AddExchanges
             // if colocated joins are disabled, force redistribute when using a custom partitioning
             if (!isColocatedJoinEnabled(session) && hasMultipleSources(left.getNode(), right.getNode())) {
                 Partitioning rightPartitioning = left.getProperties().translate(createTranslator(leftToRight)).getNodePartitioning().get();
+                // TODO: support materialization when one of the tables is pre-bucketed
                 right = withDerivedProperties(
                         partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, right.getNode(), new PartitioningScheme(rightPartitioning, right.getNode().getOutputSymbols())),
                         right.getProperties());
@@ -863,7 +887,12 @@ public class AddExchanges
                     }
                     else {
                         source = withDerivedProperties(
-                                partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, source.getNode(), createPartitioning(sourceSymbols), Optional.empty()),
+                                partitionedExchange(
+                                        idAllocator.getNextId(),
+                                        REMOTE_STREAMING,
+                                        source.getNode(),
+                                        createPartitioning(sourceSymbols),
+                                        Optional.empty()),
                                 source.getProperties());
                         filteringSource = withDerivedProperties(
                                 partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, filteringSource.getNode(), createPartitioning(filteringSourceSymbols), Optional.empty(), true),
@@ -1250,6 +1279,22 @@ public class AddExchanges
                     .collect(toImmutableList());
             PartitioningHandle partitioningHandle = metadata.getPartitioningHandleForExchange(session, partitioningProviderCatalog, hashPartitionCount, partitioningTypes);
             return Partitioning.create(partitioningHandle, partitioningColumns);
+        }
+
+        private Scope selectExchangeScopeForPartitionedRemoteExchange(PlanNode exchangeSource)
+        {
+            if (exchangeSource.getOutputSymbols().isEmpty()) {
+                // materializing 0 columns input is not supported
+                return REMOTE_STREAMING;
+            }
+            switch (exchangeMaterializationStrategy) {
+                case ALL:
+                    return REMOTE_MATERIALIZED;
+                case NONE:
+                    return REMOTE_STREAMING;
+                default:
+                    throw new IllegalStateException("Unexpected exchange materialization strategy: " + exchangeMaterializationStrategy);
+            }
         }
     }
 
