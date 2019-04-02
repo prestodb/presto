@@ -16,7 +16,7 @@ package com.facebook.presto.execution.scheduler.group;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.SourceScheduler;
-import com.facebook.presto.spi.Node;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.SettableFuture;
@@ -43,7 +43,7 @@ public class DynamicLifespanScheduler
         implements LifespanScheduler
 {
     private final BucketNodeMap bucketNodeMap;
-    private final List<Node> allNodes;
+    private final List<InternalNode> allNodes;
     private final List<ConnectorPartitionHandle> partitionHandles;
     private final OptionalInt concurrentLifespansPerTask;
 
@@ -61,7 +61,7 @@ public class DynamicLifespanScheduler
     @GuardedBy("this")
     private int totalLifespanExecutionFinished;
 
-    public DynamicLifespanScheduler(BucketNodeMap bucketNodeMap, List<Node> allNodes, List<ConnectorPartitionHandle> partitionHandles, OptionalInt concurrentLifespansPerTask)
+    public DynamicLifespanScheduler(BucketNodeMap bucketNodeMap, List<InternalNode> allNodes, List<ConnectorPartitionHandle> partitionHandles, OptionalInt concurrentLifespansPerTask)
     {
         this.bucketNodeMap = requireNonNull(bucketNodeMap, "bucketNodeMap is null");
         this.allNodes = requireNonNull(allNodes, "allNodes is null");
@@ -136,7 +136,7 @@ public class DynamicLifespanScheduler
             }
             int driverGroupId = driverGroups.nextInt();
 
-            Node nodeForCompletedDriverGroup = bucketNodeMap.getAssignedNode(driverGroup.getId()).orElseThrow(IllegalStateException::new);
+            InternalNode nodeForCompletedDriverGroup = bucketNodeMap.getAssignedNode(driverGroup.getId()).orElseThrow(IllegalStateException::new);
             bucketNodeMap.assignBucketToNode(driverGroupId, nodeForCompletedDriverGroup);
             scheduler.startLifespan(Lifespan.driverGroup(driverGroupId), partitionHandles.get(driverGroupId));
         }

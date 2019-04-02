@@ -17,8 +17,8 @@ import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.scheduler.FixedSourcePartitionedScheduler.BucketedSplitPlacementPolicy;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.split.EmptySplit;
 import com.facebook.presto.split.SplitSource;
@@ -241,7 +241,7 @@ public class SourcePartitionedScheduler
                 }
             }
 
-            Multimap<Node, Split> splitAssignment = ImmutableMultimap.of();
+            Multimap<InternalNode, Split> splitAssignment = ImmutableMultimap.of();
             if (!pendingSplits.isEmpty()) {
                 if (!scheduleGroup.placementFuture.isDone()) {
                     anyBlockedOnPlacements = true;
@@ -272,11 +272,11 @@ public class SourcePartitionedScheduler
             }
 
             // if no new splits will be assigned, update state and attach completion event
-            Multimap<Node, Lifespan> noMoreSplitsNotification = ImmutableMultimap.of();
+            Multimap<InternalNode, Lifespan> noMoreSplitsNotification = ImmutableMultimap.of();
             if (pendingSplits.isEmpty() && scheduleGroup.state == ScheduleGroupState.NO_MORE_SPLITS) {
                 scheduleGroup.state = ScheduleGroupState.DONE;
                 if (!lifespan.isTaskWide()) {
-                    Node node = ((BucketedSplitPlacementPolicy) splitPlacementPolicy).getNodeForBucket(lifespan.getId());
+                    InternalNode node = ((BucketedSplitPlacementPolicy) splitPlacementPolicy).getNodeForBucket(lifespan.getId());
                     noMoreSplitsNotification = ImmutableMultimap.of(node, lifespan);
                 }
             }
@@ -429,15 +429,15 @@ public class SourcePartitionedScheduler
         whenFinishedOrNewLifespanAdded.set(null);
     }
 
-    private Set<RemoteTask> assignSplits(Multimap<Node, Split> splitAssignment, Multimap<Node, Lifespan> noMoreSplitsNotification)
+    private Set<RemoteTask> assignSplits(Multimap<InternalNode, Split> splitAssignment, Multimap<InternalNode, Lifespan> noMoreSplitsNotification)
     {
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
 
-        ImmutableSet<Node> nodes = ImmutableSet.<Node>builder()
+        ImmutableSet<InternalNode> nodes = ImmutableSet.<InternalNode>builder()
                 .addAll(splitAssignment.keySet())
                 .addAll(noMoreSplitsNotification.keySet())
                 .build();
-        for (Node node : nodes) {
+        for (InternalNode node : nodes) {
             // source partitioned tasks can only receive broadcast data; otherwise it would have a different distribution
             ImmutableMultimap<PlanNodeId, Split> splits = ImmutableMultimap.<PlanNodeId, Split>builder()
                     .putAll(partitionedNode, splitAssignment.get(node))
@@ -463,7 +463,7 @@ public class SourcePartitionedScheduler
 
         splitPlacementPolicy.lockDownNodes();
 
-        Set<Node> scheduledNodes = stage.getScheduledNodes();
+        Set<InternalNode> scheduledNodes = stage.getScheduledNodes();
         Set<RemoteTask> newTasks = splitPlacementPolicy.allNodes().stream()
                 .filter(node -> !scheduledNodes.contains(node))
                 .flatMap(node -> stage.scheduleSplits(node, ImmutableMultimap.of(), ImmutableMultimap.of()).stream())

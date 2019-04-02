@@ -22,12 +22,12 @@ import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.Catalog;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.split.PageSourceManager;
@@ -332,7 +332,7 @@ public class DistributedQueryRunner
     {
         for (TestingPrestoServer server : servers) {
             server.refreshNodes();
-            Set<Node> activeNodesWithConnector = server.getActiveNodesWithConnector(connectorId);
+            Set<InternalNode> activeNodesWithConnector = server.getActiveNodesWithConnector(connectorId);
             if (activeNodesWithConnector.size() != servers.size()) {
                 return false;
             }

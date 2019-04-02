@@ -19,7 +19,6 @@ import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.InternalNode;
-import com.facebook.presto.spi.Node;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -91,7 +90,7 @@ public class TestFixedCountScheduler
         assertEquals(result.getNewTasks().stream().map(RemoteTask::getNodeId).collect(toImmutableSet()).size(), 5);
     }
 
-    private static List<Node> generateRandomNodes(int count)
+    private static List<InternalNode> generateRandomNodes(int count)
     {
         return IntStream.range(0, count)
                 .mapToObj(i -> new InternalNode("other " + i, URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false))

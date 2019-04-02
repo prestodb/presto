@@ -16,7 +16,7 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.TaskStatus;
-import com.facebook.presto.spi.Node;
+import com.facebook.presto.metadata.InternalNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
@@ -46,7 +46,7 @@ public class ScaledWriterScheduler
     private final NodeSelector nodeSelector;
     private final ScheduledExecutorService executor;
     private final long writerMinSizeBytes;
-    private final Set<Node> scheduledNodes = new HashSet<>();
+    private final Set<InternalNode> scheduledNodes = new HashSet<>();
     private final AtomicBoolean done = new AtomicBoolean();
     private volatile SettableFuture<?> future = SettableFuture.create();
 
@@ -114,12 +114,12 @@ public class ScaledWriterScheduler
             return ImmutableList.of();
         }
 
-        List<Node> nodes = nodeSelector.selectRandomNodes(count, scheduledNodes);
+        List<InternalNode> nodes = nodeSelector.selectRandomNodes(count, scheduledNodes);
 
         checkCondition(!scheduledNodes.isEmpty() || !nodes.isEmpty(), NO_NODES_AVAILABLE, "No nodes available to run query");
 
         ImmutableList.Builder<RemoteTask> tasks = ImmutableList.builder();
-        for (Node node : nodes) {
+        for (InternalNode node : nodes) {
             Optional<RemoteTask> remoteTask = stage.scheduleTask(node, scheduledNodes.size(), OptionalInt.empty());
             remoteTask.ifPresent(task -> {
                 tasks.add(task);

@@ -19,12 +19,12 @@ import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.FixedBucketNodeMap;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.group.DynamicBucketNodeMap;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.BucketPartitionFunction;
 import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.connector.ConnectorBucketNodeMap;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
@@ -138,9 +138,9 @@ public class NodePartitioningManager
         // safety check for crazy partitioning
         checkArgument(connectorBucketNodeMap.getBucketCount() < 1_000_000, "Too many buckets in partitioning: %s", connectorBucketNodeMap.getBucketCount());
 
-        List<Node> bucketToNode;
+        List<InternalNode> bucketToNode;
         if (connectorBucketNodeMap.hasFixedMapping()) {
-            bucketToNode = connectorBucketNodeMap.getFixedMapping();
+            bucketToNode = getFixedMapping(connectorBucketNodeMap);
         }
         else {
             bucketToNode = createArbitraryBucketToNode(
@@ -149,10 +149,10 @@ public class NodePartitioningManager
         }
 
         int[] bucketToPartition = new int[connectorBucketNodeMap.getBucketCount()];
-        BiMap<Node, Integer> nodeToPartition = HashBiMap.create();
+        BiMap<InternalNode, Integer> nodeToPartition = HashBiMap.create();
         int nextPartitionId = 0;
         for (int bucket = 0; bucket < bucketToNode.size(); bucket++) {
-            Node node = bucketToNode.get(bucket);
+            InternalNode node = bucketToNode.get(bucket);
             Integer partitionId = nodeToPartition.get(node);
             if (partitionId == null) {
                 partitionId = nextPartitionId++;
@@ -161,7 +161,7 @@ public class NodePartitioningManager
             bucketToPartition[bucket] = partitionId;
         }
 
-        List<Node> partitionToNode = IntStream.range(0, nodeToPartition.size())
+        List<InternalNode> partitionToNode = IntStream.range(0, nodeToPartition.size())
                 .mapToObj(partitionId -> nodeToPartition.inverse().get(partitionId))
                 .collect(toImmutableList());
 
@@ -173,7 +173,7 @@ public class NodePartitioningManager
         ConnectorBucketNodeMap connectorBucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle);
 
         if (connectorBucketNodeMap.hasFixedMapping()) {
-            return new FixedBucketNodeMap(getSplitToBucket(session, partitioningHandle), connectorBucketNodeMap.getFixedMapping());
+            return new FixedBucketNodeMap(getSplitToBucket(session, partitioningHandle), getFixedMapping(connectorBucketNodeMap));
         }
 
         if (preferDynamic) {
@@ -185,6 +185,13 @@ public class NodePartitioningManager
                 createArbitraryBucketToNode(
                         new ArrayList<>(nodeScheduler.createNodeSelector(partitioningHandle.getConnectorId().get()).selectRandomNodes(getMaxTasksPerStage(session))),
                         connectorBucketNodeMap.getBucketCount()));
+    }
+
+    private static List<InternalNode> getFixedMapping(ConnectorBucketNodeMap connectorBucketNodeMap)
+    {
+        return connectorBucketNodeMap.getFixedMapping().stream()
+                .map(InternalNode.class::cast)
+                .collect(toImmutableList());
     }
 
     private ConnectorBucketNodeMap getConnectorBucketNodeMap(Session session, PartitioningHandle partitioningHandle)
@@ -229,7 +236,7 @@ public class NodePartitioningManager
         };
     }
 
-    private static List<Node> createArbitraryBucketToNode(List<Node> nodes, int bucketCount)
+    private static List<InternalNode> createArbitraryBucketToNode(List<InternalNode> nodes, int bucketCount)
     {
         return cyclingShuffledStream(nodes)
                 .limit(bucketCount)

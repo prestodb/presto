@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.Node;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -27,16 +27,16 @@ import static java.util.Objects.requireNonNull;
 public class FixedBucketNodeMap
         extends BucketNodeMap
 {
-    private final List<Node> bucketToNode;
+    private final List<InternalNode> bucketToNode;
 
-    public FixedBucketNodeMap(ToIntFunction<Split> splitToBucket, List<Node> bucketToNode)
+    public FixedBucketNodeMap(ToIntFunction<Split> splitToBucket, List<InternalNode> bucketToNode)
     {
         super(splitToBucket);
         this.bucketToNode = ImmutableList.copyOf(requireNonNull(bucketToNode, "bucketToNode is null"));
     }
 
     @Override
-    public Optional<Node> getAssignedNode(int bucketedId)
+    public Optional<InternalNode> getAssignedNode(int bucketedId)
     {
         return Optional.of(bucketToNode.get(bucketedId));
     }
@@ -48,7 +48,7 @@ public class FixedBucketNodeMap
     }
 
     @Override
-    public void assignBucketToNode(int bucketedId, Node node)
+    public void assignBucketToNode(int bucketedId, InternalNode node)
     {
         throw new UnsupportedOperationException();
     }

@@ -48,7 +48,7 @@ public class ConnectorAwareNodeManager
     @Override
     public Set<Node> getWorkerNodes()
     {
-        return nodeManager.getActiveConnectorNodes(connectorId);
+        return ImmutableSet.copyOf(nodeManager.getActiveConnectorNodes(connectorId));
     }
 
     @Override

@@ -16,10 +16,10 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.RemoteTask;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.Node;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
@@ -125,11 +125,11 @@ public class NodeScheduler
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the the split is about to be scheduled
         Supplier<NodeMap> nodeMap = Suppliers.memoizeWithExpiration(() -> {
-            ImmutableSetMultimap.Builder<HostAddress, Node> byHostAndPort = ImmutableSetMultimap.builder();
-            ImmutableSetMultimap.Builder<InetAddress, Node> byHost = ImmutableSetMultimap.builder();
-            ImmutableSetMultimap.Builder<NetworkLocation, Node> workersByNetworkPath = ImmutableSetMultimap.builder();
+            ImmutableSetMultimap.Builder<HostAddress, InternalNode> byHostAndPort = ImmutableSetMultimap.builder();
+            ImmutableSetMultimap.Builder<InetAddress, InternalNode> byHost = ImmutableSetMultimap.builder();
+            ImmutableSetMultimap.Builder<NetworkLocation, InternalNode> workersByNetworkPath = ImmutableSetMultimap.builder();
 
-            Set<Node> nodes;
+            Set<InternalNode> nodes;
             if (connectorId != null) {
                 nodes = nodeManager.getActiveConnectorNodes(connectorId);
             }
@@ -138,10 +138,10 @@ public class NodeScheduler
             }
 
             Set<String> coordinatorNodeIds = nodeManager.getCoordinators().stream()
-                    .map(Node::getNodeIdentifier)
+                    .map(InternalNode::getNodeIdentifier)
                     .collect(toImmutableSet());
 
-            for (Node node : nodes) {
+            for (InternalNode node : nodes) {
                 if (useNetworkTopology && (includeCoordinator || !coordinatorNodeIds.contains(node.getNodeIdentifier()))) {
                     NetworkLocation location = networkLocationCache.get(node.getHostAndPort());
                     for (int i = 0; i <= location.getSegments().size(); i++) {
@@ -180,11 +180,11 @@ public class NodeScheduler
         }
     }
 
-    public static List<Node> selectNodes(int limit, ResettableRandomizedIterator<Node> candidates)
+    public static List<InternalNode> selectNodes(int limit, ResettableRandomizedIterator<InternalNode> candidates)
     {
         checkArgument(limit > 0, "limit must be at least 1");
 
-        List<Node> selected = new ArrayList<>(min(limit, candidates.size()));
+        List<InternalNode> selected = new ArrayList<>(min(limit, candidates.size()));
         while (selected.size() < limit && candidates.hasNext()) {
             selected.add(candidates.next());
         }
@@ -192,18 +192,18 @@ public class NodeScheduler
         return selected;
     }
 
-    public static ResettableRandomizedIterator<Node> randomizedNodes(NodeMap nodeMap, boolean includeCoordinator, Set<Node> excludedNodes)
+    public static ResettableRandomizedIterator<InternalNode> randomizedNodes(NodeMap nodeMap, boolean includeCoordinator, Set<InternalNode> excludedNodes)
     {
-        ImmutableList<Node> nodes = nodeMap.getNodesByHostAndPort().values().stream()
+        ImmutableList<InternalNode> nodes = nodeMap.getNodesByHostAndPort().values().stream()
                 .filter(node -> includeCoordinator || !nodeMap.getCoordinatorNodeIds().contains(node.getNodeIdentifier()))
                 .filter(node -> !excludedNodes.contains(node))
                 .collect(toImmutableList());
         return new ResettableRandomizedIterator<>(nodes);
     }
 
-    public static List<Node> selectExactNodes(NodeMap nodeMap, List<HostAddress> hosts, boolean includeCoordinator)
+    public static List<InternalNode> selectExactNodes(NodeMap nodeMap, List<HostAddress> hosts, boolean includeCoordinator)
     {
-        Set<Node> chosen = new LinkedHashSet<>();
+        Set<InternalNode> chosen = new LinkedHashSet<>();
         Set<String> coordinatorIds = nodeMap.getCoordinatorNodeIds();
 
         for (HostAddress host : hosts) {
@@ -267,13 +267,13 @@ public class NodeScheduler
             List<RemoteTask> existingTasks,
             BucketNodeMap bucketNodeMap)
     {
-        Multimap<Node, Split> assignments = HashMultimap.create();
+        Multimap<InternalNode, Split> assignments = HashMultimap.create();
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
 
-        Set<Node> blockedNodes = new HashSet<>();
+        Set<InternalNode> blockedNodes = new HashSet<>();
         for (Split split : splits) {
             // node placement is forced by the bucket to node map
-            Node node = bucketNodeMap.getAssignedNode(split).get();
+            InternalNode node = bucketNodeMap.getAssignedNode(split).get();
 
             // if node is full, don't schedule now, which will push back on the scheduling of splits
             if (assignmentStats.getTotalSplitCount(node) < maxSplitsPerNode ||
@@ -295,7 +295,7 @@ public class NodeScheduler
         return (int) Math.ceil(maxPendingSplitsPerTask / 2.0);
     }
 
-    public static ListenableFuture<?> toWhenHasSplitQueueSpaceFuture(Set<Node> blockedNodes, List<RemoteTask> existingTasks, int spaceThreshold)
+    public static ListenableFuture<?> toWhenHasSplitQueueSpaceFuture(Set<InternalNode> blockedNodes, List<RemoteTask> existingTasks, int spaceThreshold)
     {
         if (blockedNodes.isEmpty()) {
             return immediateFuture(null);
@@ -305,7 +305,7 @@ public class NodeScheduler
             nodeToTaskMap.put(task.getNodeId(), task);
         }
         List<ListenableFuture<?>> blockedFutures = blockedNodes.stream()
-                .map(Node::getNodeIdentifier)
+                .map(InternalNode::getNodeIdentifier)
                 .map(nodeToTaskMap::get)
                 .filter(Objects::nonNull)
                 .map(remoteTask -> remoteTask.whenSplitQueueHasSpace(spaceThreshold))
