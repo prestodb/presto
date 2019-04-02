@@ -46,6 +46,7 @@ public class BaseJdbcConfig
         return this;
     }
 
+    @Nullable
     public String getConnectionUser()
     {
         return connectionUser;
@@ -58,6 +59,7 @@ public class BaseJdbcConfig
         return this;
     }
 
+    @Nullable
     public String getConnectionPassword()
     {
         return connectionPassword;
