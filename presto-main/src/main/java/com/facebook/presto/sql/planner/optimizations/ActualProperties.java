@@ -21,7 +21,6 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -154,21 +153,17 @@ public class ActualProperties
 
     public ActualProperties translate(Function<Symbol, Optional<Symbol>> translator)
     {
+        Map<Symbol, NullableValue> translatedConstants = new HashMap<>();
+        for (Map.Entry<Symbol, NullableValue> entry : constants.entrySet()) {
+            Optional<Symbol> translatedKey = translator.apply(entry.getKey());
+            if (translatedKey.isPresent()) {
+                translatedConstants.put(translatedKey.get(), entry.getValue());
+            }
+        }
         return builder()
-                .global(global.translate(new Partitioning.Translator(translator, symbol -> Optional.ofNullable(constants.get(symbol)), expression -> Optional.empty())))
+                .global(global.translate(translator, symbol -> Optional.ofNullable(constants.get(symbol))))
                 .local(LocalProperties.translate(localProperties, translator))
-                .constants(translateConstants(translator))
-                .build();
-    }
-
-    public ActualProperties translate(
-            Function<Symbol, Optional<Symbol>> translator,
-            Function<Expression, Optional<Symbol>> expressionTranslator)
-    {
-        return builder()
-                .global(global.translate(new Partitioning.Translator(translator, symbol -> Optional.ofNullable(constants.get(symbol)), expressionTranslator)))
-                .local(LocalProperties.translate(localProperties, translator))
-                .constants(translateConstants(translator))
+                .constants(translatedConstants)
                 .build();
     }
 
@@ -202,18 +197,6 @@ public class ActualProperties
     public static Builder builderFrom(ActualProperties properties)
     {
         return new Builder(properties.global, properties.localProperties, properties.constants);
-    }
-
-    private Map<Symbol, NullableValue> translateConstants(Function<Symbol, Optional<Symbol>> translator)
-    {
-        Map<Symbol, NullableValue> translatedConstants = new HashMap<>();
-        for (Map.Entry<Symbol, NullableValue> entry : constants.entrySet()) {
-            Optional<Symbol> translatedKey = translator.apply(entry.getKey());
-            if (translatedKey.isPresent()) {
-                translatedConstants.put(translatedKey.get(), entry.getValue());
-            }
-        }
-        return translatedConstants;
     }
 
     public static class Builder
@@ -465,11 +448,11 @@ public class ActualProperties
             return (!streamPartitioning.isPresent() || streamPartitioning.get().isRepartitionEffective(keys, constants)) && !nullsAndAnyReplicated;
         }
 
-        private Global translate(Partitioning.Translator translator)
+        private Global translate(Function<Symbol, Optional<Symbol>> translator, Function<Symbol, Optional<NullableValue>> constants)
         {
             return new Global(
-                    nodePartitioning.flatMap(partitioning -> partitioning.translate(translator)),
-                    streamPartitioning.flatMap(partitioning -> partitioning.translate(translator)),
+                    nodePartitioning.flatMap(partitioning -> partitioning.translate(translator, constants)),
+                    streamPartitioning.flatMap(partitioning -> partitioning.translate(translator, constants)),
                     nullsAndAnyReplicated);
         }
 

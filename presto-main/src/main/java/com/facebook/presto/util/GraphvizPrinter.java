@@ -319,8 +319,7 @@ public final class GraphvizPrinter
         public Void visitExchange(ExchangeNode node, Void context)
         {
             List<ArgumentBinding> symbols = node.getOutputSymbols().stream()
-                    .map(Symbol::toSymbolReference)
-                    .map(ArgumentBinding::expressionBinding)
+                    .map(ArgumentBinding::columnBinding)
                     .collect(toImmutableList());
             if (node.getType() == REPARTITION) {
                 symbols = node.getPartitioningScheme().getPartitioning().getArguments();
