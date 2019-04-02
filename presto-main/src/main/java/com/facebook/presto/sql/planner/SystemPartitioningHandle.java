@@ -16,13 +16,13 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSelector;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.operator.BucketPartitionFunction;
 import com.facebook.presto.operator.HashGenerator;
 import com.facebook.presto.operator.InterpretedHashGenerator;
 import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.operator.PrecomputedHashGenerator;
 import com.facebook.presto.spi.BucketFunction;
-import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.type.Type;
@@ -139,7 +139,7 @@ public final class SystemPartitioningHandle
     public NodePartitionMap getNodePartitionMap(Session session, NodeScheduler nodeScheduler)
     {
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(null);
-        List<Node> nodes;
+        List<InternalNode> nodes;
         if (partitioning == SystemPartitioning.COORDINATOR_ONLY) {
             nodes = ImmutableList.of(nodeSelector.selectCurrentNode());
         }

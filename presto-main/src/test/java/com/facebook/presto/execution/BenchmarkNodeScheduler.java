@@ -27,7 +27,6 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.Node;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.util.FinalizerService;
@@ -100,8 +99,8 @@ public class BenchmarkNodeScheduler
         Iterator<Split> splits = data.getSplits().iterator();
         Set<Split> batch = new HashSet<>();
         while (splits.hasNext() || !batch.isEmpty()) {
-            Multimap<Node, Split> assignments = data.getNodeSelector().computeAssignments(batch, remoteTasks).getAssignments();
-            for (Node node : assignments.keySet()) {
+            Multimap<InternalNode, Split> assignments = data.getNodeSelector().computeAssignments(batch, remoteTasks).getAssignments();
+            for (InternalNode node : assignments.keySet()) {
                 MockRemoteTaskFactory.MockRemoteTask remoteTask = data.getTaskMap().get(node);
                 remoteTask.addSplits(ImmutableMultimap.<PlanNodeId, Split>builder()
                         .putAll(new PlanNodeId("sourceId"), assignments.get(node))
@@ -134,7 +133,7 @@ public class BenchmarkNodeScheduler
 
         private FinalizerService finalizerService = new FinalizerService();
         private NodeSelector nodeSelector;
-        private Map<Node, MockRemoteTaskFactory.MockRemoteTask> taskMap = new HashMap<>();
+        private Map<InternalNode, MockRemoteTaskFactory.MockRemoteTask> taskMap = new HashMap<>();
         private List<Split> splits = new ArrayList<>();
 
         @Setup
@@ -145,16 +144,16 @@ public class BenchmarkNodeScheduler
             finalizerService.start();
             NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
 
-            ImmutableList.Builder<Node> nodeBuilder = ImmutableList.builder();
+            ImmutableList.Builder<InternalNode> nodeBuilder = ImmutableList.builder();
             for (int i = 0; i < NODES; i++) {
                 nodeBuilder.add(new InternalNode("node" + i, URI.create("http://" + addressForHost(i).getHostText()), NodeVersion.UNKNOWN, false));
             }
-            List<Node> nodes = nodeBuilder.build();
+            List<InternalNode> nodes = nodeBuilder.build();
             MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(
                     newCachedThreadPool(daemonThreadsNamed("remoteTaskExecutor-%s")),
                     newScheduledThreadPool(2, daemonThreadsNamed("remoteTaskScheduledExecutor-%s")));
             for (int i = 0; i < nodes.size(); i++) {
-                Node node = nodes.get(i);
+                InternalNode node = nodes.get(i);
                 ImmutableList.Builder<Split> initialSplits = ImmutableList.builder();
                 for (int j = 0; j < MAX_SPLITS_PER_NODE + MAX_PENDING_SPLITS_PER_TASK_PER_NODE; j++) {
                     initialSplits.add(new Split(CONNECTOR_ID, transactionHandle, new TestSplitRemote(i)));
@@ -209,7 +208,7 @@ public class BenchmarkNodeScheduler
             return topology;
         }
 
-        public Map<Node, MockRemoteTaskFactory.MockRemoteTask> getTaskMap()
+        public Map<InternalNode, MockRemoteTaskFactory.MockRemoteTask> getTaskMap()
         {
             return taskMap;
         }

@@ -14,8 +14,8 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.execution.RemoteTask;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.Node;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
@@ -25,16 +25,16 @@ public interface NodeSelector
 {
     void lockDownNodes();
 
-    List<Node> allNodes();
+    List<InternalNode> allNodes();
 
-    Node selectCurrentNode();
+    InternalNode selectCurrentNode();
 
-    default List<Node> selectRandomNodes(int limit)
+    default List<InternalNode> selectRandomNodes(int limit)
     {
         return selectRandomNodes(limit, ImmutableSet.of());
     }
 
-    List<Node> selectRandomNodes(int limit, Set<Node> excludedNodes);
+    List<InternalNode> selectRandomNodes(int limit, Set<InternalNode> excludedNodes);
 
     /**
      * Identifies the nodes for running the specified splits.

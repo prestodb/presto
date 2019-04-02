@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeState;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
@@ -68,8 +68,8 @@ public class WorkerResource
 
     private Response proxyJsonResponse(String nodeId, String workerPath)
     {
-        Set<Node> nodes = nodeManager.getNodes(NodeState.ACTIVE);
-        Node node = nodes.stream()
+        Set<InternalNode> nodes = nodeManager.getNodes(NodeState.ACTIVE);
+        InternalNode node = nodes.stream()
                 .filter(n -> n.getNodeIdentifier().equals(nodeId))
                 .findFirst()
                 .orElseThrow(() -> new WebApplicationException(NOT_FOUND));
