@@ -148,36 +148,36 @@ public class TestApproximateHeavyHittersAggregation
     }
 
     @Test
-//    public void testManyValues()
-//    {
-//        // Test many values so multiple BlockBuilders will be used to store group state.
-//        InternalAggregationFunction approxHeavyHitters = getAggregation(VARCHAR, DOUBLE);
-//
-//        int numGroups = 50000;
-//        int arraySize = 30;
-//        Random random = new Random();
-//        GroupedAccumulator groupedAccumulator = createGroupedAccumulator(approxHeavyHitters);
-//        Block minPercentShare = createRLEBlock(2.0, arraySize);
-//
-//        for (int j = 0; j < numGroups; j++) {
-//            Map<String, Long> expectedValues = new HashMap<>();
-//            List<String> valueList = new ArrayList<>();
-//
-//            for (int i = 0; i < arraySize; i++) {
-//                String str = String.valueOf(random.nextInt());
-//                valueList.add(str);
-//                expectedValues.merge(str, 1L, Long::sum);
-//            }
-//
-//            Block block = createStringsBlock(valueList);
-//            AggregationTestInputBuilder testInputBuilder = new AggregationTestInputBuilder(
-//                    new Block[] {block, minPercentShare},
-//                    approxHeavyHitters);
-//            AggregationTestInput test1 = testInputBuilder.build();
-//
-//            test1.runPagesOnAccumulatorWithAssertion(j, groupedAccumulator, new AggregationTestOutput(expectedValues));
-//        }
-//    }
+    public void testManyValues()
+    {
+        // Test many values so multiple BlockBuilders will be used to store group state.
+        InternalAggregationFunction approxHeavyHitters = getAggregation(VARCHAR, DOUBLE);
+
+        int numGroups = 500;
+        int arraySize = 30;
+        Random random = new Random();
+        GroupedAccumulator groupedAccumulator = createGroupedAccumulator(approxHeavyHitters);
+        Block minPercentShare = createRLEBlock(2.0, arraySize);
+
+        for (int j = 0; j < numGroups; j++) {
+            Map<String, Long> expectedValues = new HashMap<>();
+            List<String> valueList = new ArrayList<>();
+
+            for (int i = 0; i < arraySize; i++) {
+                String str = String.valueOf(random.nextInt());
+                valueList.add(str);
+                expectedValues.merge(str, 1L, Long::sum);
+            }
+
+            Block block = createStringsBlock(valueList);
+            AggregationTestInputBuilder testInputBuilder = new AggregationTestInputBuilder(
+                    new Block[] {block, minPercentShare},
+                    approxHeavyHitters);
+            AggregationTestInput test1 = testInputBuilder.build();
+
+            test1.runPagesOnAccumulatorWithAssertion(j, groupedAccumulator, new AggregationTestOutput(expectedValues));
+        }
+    }
 
     private GroupedAccumulator createGroupedAccumulator(InternalAggregationFunction function)
     {
