@@ -4,6 +4,7 @@ package com.facebook.presto.operator.aggregation.state;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.testng.annotations.Test;
@@ -19,9 +20,9 @@ public class TestTopElementsHistogram {
 
     @Test
     public void testNull() {
-        TopElementsHistogram<String> histogram = new TopElementsHistogram<>(40, 0.01, 0.99, 1);
-        histogram.add(Arrays.asList(null,"b",null,"a",null,"b"));
-        assertEquals(histogram.getTopElements(), ImmutableMap.of("b", 2L));
+        TopElementsHistogram<Slice> histogram = new TopElementsHistogram<>(40, 0.01, 0.99, 1);
+        histogram.add(Arrays.asList(null, Slices.utf8Slice("b"), null, Slices.utf8Slice("a"), null, Slices.utf8Slice("b")));
+        assertEquals(histogram.getTopElements(), ImmutableMap.of(Slices.utf8Slice("b"), 2L));
     }
 
     @Test
@@ -106,7 +107,6 @@ public class TestTopElementsHistogram {
         for(String entry: lst){
             String[] e = entry.split(":");
             assertEquals(h1.estimateCount(e[0]), h2.estimateCount(e[0]));
-            assertEquals(h1.estimateMeanCount(e[0]), h2.estimateMeanCount(e[0]));
         }
         System.out.println(h1.getTopElements());
         System.out.println(h2.getTopElements());

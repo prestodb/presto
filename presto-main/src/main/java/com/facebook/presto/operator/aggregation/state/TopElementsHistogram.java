@@ -94,6 +94,7 @@ public class TopElementsHistogram<E>
         }
     }
 
+
     /**
      * Be EXTREMELY careful in changing this method.
      * Changes here can result in many unintended consequences in the edge cases
@@ -113,16 +114,20 @@ public class TopElementsHistogram<E>
             try {
                 this.ccms.merge(histogram.ccms);
             }catch(Exception e){
-                //TODO how to handle the CountMinSketch.CMSMergeException
-                // Shouldn't happen
                 throw new RuntimeException(e);
             }
             this.rowsProcessed += histogram.rowsProcessed;
         }
 
+
         // DON'T merge this "for" loop with the previous one. It will impact the behaviour of the class
         // All elements must be counted after merging ALL conservative-count-min-sketch for accuracy
-        for (TopElementsHistogram<E> histogram : histograms) {
+        double minItemCount = getMinItemCount();
+        ArrayList<TopElementsHistogram<E>> histogramList= new ArrayList<>(Arrays.asList(histograms));
+        histogramList.add(this); //Combining topElements from "this" instance into the list
+        Iterator<TopElementsHistogram<E>> histogramIterator = histogramList.iterator();
+        while(histogramIterator.hasNext()){
+            TopElementsHistogram<E> histogram = histogramIterator.next();
             Iterator<E> elements = histogram.topEntries.keysIterator();
             while(elements.hasNext()){
                 E item=elements.next();
@@ -133,22 +138,10 @@ public class TopElementsHistogram<E>
                 }else {
                     itemCount = ccms.estimateCount(item.toString());
                 }
-                topEntries.addOrUpdate(item, itemCount);
+                if(itemCount >= minItemCount) {
+                    topEntries.addOrUpdate(item, itemCount);
+                }
             }
-        }
-        // Elements from "this-instance" must be counted again after the conservative-count-min-sketch merger
-        Iterator<E> elements = this.topEntries.keysIterator();
-        //TODO is it ok to update values of the iterator's underlying map?
-        while(elements.hasNext()){
-            E item=elements.next();
-            //Estimate the count after the merger
-            Long itemCount;
-            if(item instanceof Slice){
-                itemCount = ccms.estimateCount((Slice)item);
-            }else {
-                itemCount = ccms.estimateCount(item.toString());
-            }
-            topEntries.addOrUpdate(item, itemCount);
         }
 
         // DON'T trim earlier for conserving memory. Trimming can only be done at the end.
