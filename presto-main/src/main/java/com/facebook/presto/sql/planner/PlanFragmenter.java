@@ -74,7 +74,6 @@ import static com.facebook.presto.sql.planner.SymbolsExtractor.extractOutputSymb
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonFragmentPlan;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -356,10 +355,19 @@ public class PlanFragmenter
         @Override
         public PlanNode visitExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
         {
-            if (exchange.getScope() != REMOTE) {
-                return context.defaultRewrite(exchange, context.get());
+            switch (exchange.getScope()) {
+                case LOCAL:
+                    return context.defaultRewrite(exchange, context.get());
+                case REMOTE_STREAMING:
+                case REMOTE_MATERIALIZED:
+                    return createRemoteExchange(exchange, context);
+                default:
+                    throw new IllegalArgumentException("Unexpected exchange scope: " + exchange.getScope());
             }
+        }
 
+        private PlanNode createRemoteExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
+        {
             PartitioningScheme partitioningScheme = exchange.getPartitioningScheme();
 
             if (exchange.getType() == ExchangeNode.Type.GATHER) {

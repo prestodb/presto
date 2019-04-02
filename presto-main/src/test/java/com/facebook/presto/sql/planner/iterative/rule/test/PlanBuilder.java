@@ -510,7 +510,7 @@ public class PlanBuilder
     public class ExchangeBuilder
     {
         private ExchangeNode.Type type = ExchangeNode.Type.GATHER;
-        private ExchangeNode.Scope scope = ExchangeNode.Scope.REMOTE;
+        private ExchangeNode.Scope scope = ExchangeNode.Scope.REMOTE_STREAMING;
         private PartitioningScheme partitioningScheme;
         private OrderingScheme orderingScheme;
         private List<PlanNode> sources = new ArrayList<>();

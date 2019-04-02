@@ -176,7 +176,7 @@ public abstract class AbstractCostBasedPlanTest
             output(
                     indent,
                     "%s exchange (%s, %s, %s)",
-                    node.getScope().name().toLowerCase(ENGLISH),
+                    node.getScope().isRemote() ? "remote" : "local",
                     node.getType(),
                     partitioning.getHandle(),
                     partitioning.getArguments().stream()

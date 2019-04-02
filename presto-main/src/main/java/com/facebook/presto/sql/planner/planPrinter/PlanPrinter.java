@@ -51,7 +51,6 @@ import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.ExchangeNode.Scope;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
@@ -934,7 +933,7 @@ public class PlanPrinter
                         format("%sMerge", UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, node.getScope().toString())),
                         format("[%s]", Joiner.on(", ").join(orderBy)));
             }
-            else if (node.getScope() == Scope.LOCAL) {
+            else if (node.getScope().isLocal()) {
                 addNode(node,
                         "LocalExchange",
                         format("[%s%s]%s (%s)",

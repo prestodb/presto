@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.sql.planner.plan.Patterns.assignUniqueId;
 import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
@@ -46,7 +45,7 @@ public final class PushRemoteExchangeThroughAssignUniqueId
 {
     private static final Capture<AssignUniqueId> ASSIGN_UNIQUE_ID = newCapture();
     private static final Pattern<ExchangeNode> PATTERN = exchange()
-            .matching(exchange -> exchange.getScope() == REMOTE)
+            .matching(exchange -> exchange.getScope().isRemote())
             .matching(exchange -> exchange.getType() != REPLICATE)
             .with(source().matching(assignUniqueId().capturedAs(ASSIGN_UNIQUE_ID)));
 
