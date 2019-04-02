@@ -286,7 +286,7 @@ public class PlanPrinter
                         String printableValue = castToVarchar(constant.getType(), constant.getValue(), functionManager, session);
                         return constant.getType().getDisplayName() + "(" + printableValue + ")";
                     }
-                    return argument.getSymbol().toString();
+                    return argument.getColumn().toString();
                 })
                 .collect(toImmutableList());
         builder.append(indentString(1));

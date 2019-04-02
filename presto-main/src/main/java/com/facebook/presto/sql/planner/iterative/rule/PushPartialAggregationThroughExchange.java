@@ -119,8 +119,8 @@ public class PushPartialAggregationThroughExchange
                     .getPartitioning()
                     .getArguments()
                     .stream()
-                    .filter(Partitioning.ArgumentBinding::isSymbolReference)
-                    .map(Partitioning.ArgumentBinding::getSymbol)
+                    .filter(Partitioning.ArgumentBinding::isVariable)
+                    .map(Partitioning.ArgumentBinding::getColumn)
                     .collect(Collectors.toList());
 
             if (!aggregationNode.getGroupingKeys().containsAll(partitioningColumns)) {
