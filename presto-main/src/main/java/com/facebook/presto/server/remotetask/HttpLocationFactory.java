@@ -78,7 +78,7 @@ public class HttpLocationFactory
     {
         requireNonNull(node, "node is null");
         requireNonNull(taskId, "taskId is null");
-        return uriBuilderFrom(node.getHttpUri())
+        return uriBuilderFrom(node.getInternalUri())
                 .appendPath("/v1/task")
                 .appendPath(taskId.toString())
                 .build();
@@ -88,7 +88,7 @@ public class HttpLocationFactory
     public URI createMemoryInfoLocation(InternalNode node)
     {
         requireNonNull(node, "node is null");
-        return uriBuilderFrom(node.getHttpUri())
+        return uriBuilderFrom(node.getInternalUri())
                 .appendPath("/v1/memory").build();
     }
 }

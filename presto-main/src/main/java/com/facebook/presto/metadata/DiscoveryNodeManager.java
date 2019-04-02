@@ -175,7 +175,7 @@ public final class DiscoveryNodeManager
         // Add new nodes
         for (InternalNode node : aliveNodes) {
             nodeStates.putIfAbsent(node.getNodeIdentifier(),
-                    new RemoteNodeState(httpClient, uriBuilderFrom(node.getHttpUri()).appendPath("/v1/info/state").build()));
+                    new RemoteNodeState(httpClient, uriBuilderFrom(node.getInternalUri()).appendPath("/v1/info/state").build()));
         }
 
         // Schedule refresh
@@ -254,7 +254,7 @@ public final class DiscoveryNodeManager
             // log node that are no longer active (but not shutting down)
             SetView<InternalNode> missingNodes = difference(allNodes.getActiveNodes(), Sets.union(activeNodesBuilder.build(), shuttingDownNodesBuilder.build()));
             for (InternalNode missingNode : missingNodes) {
-                log.info("Previously active node is missing: %s (last seen at %s)", missingNode.getNodeIdentifier(), missingNode.getHostAndPort());
+                log.info("Previously active node is missing: %s (last seen at %s)", missingNode.getNodeIdentifier(), missingNode.getHost());
             }
         }
 
