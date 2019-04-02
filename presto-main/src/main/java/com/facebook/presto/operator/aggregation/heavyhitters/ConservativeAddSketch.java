@@ -37,7 +37,6 @@ public class ConservativeAddSketch extends CountMinSketch {
         super(epsOfTotalCount, confidence, seed);
     }
 
-    //TODO any way to collapse all the add methods? bring out the common code into a different function
     @Override
     public long add(long item, long count) {
         int[] buckets = new int[depth];
