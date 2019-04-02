@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import static com.google.common.collect.Iterators.transform;
 import com.facebook.presto.operator.aggregation.heavyhitters.IndexedPriorityQueue.Entry;
 
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -77,6 +79,16 @@ public class TestIndexedPriorityQueue
         Entry<String> in = testQ.poll();
         Entry<String> out = new Entry<>(in.serialize());
         assertEquals(in.toString(), out.toString());
+    }
+
+    @Test
+    public void testSerializeEntrySlice(){
+        IndexedPriorityQueue<Slice> testQ = new IndexedPriorityQueue<>();
+        testQ.addOrUpdate(Slices.utf8Slice("abc"), 1);
+        Entry<Slice> in = testQ.poll();
+        Entry<Slice> out = new Entry<>(in.serialize());
+        assertEquals(in.getValue(), out.getValue());
+        assertEquals(in.getPriority(), out.getPriority());
     }
 
     @Test

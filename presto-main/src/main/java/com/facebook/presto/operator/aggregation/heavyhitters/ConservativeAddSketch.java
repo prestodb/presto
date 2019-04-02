@@ -40,35 +40,31 @@ public class ConservativeAddSketch extends CountMinSketch {
     //TODO any way to collapse all the add methods? bring out the common code into a different function
     @Override
     public long add(long item, long count) {
-        if (count < 0) {
-            // Negative values are not implemented in the regular version, and do not
-            // play nicely with this algorithm anyway
-            throw new IllegalArgumentException("Negative increments not implemented");
-        }
         int[] buckets = new int[depth];
         for (int i = 0; i < depth; ++i) {
             buckets[i] = hash(item, i);
         }
-        long min = table[0][buckets[0]];
-        for (int i = 1; i < depth; ++i) {
-            min = Math.min(min, table[i][buckets[i]]);
-        }
-        for (int i = 0; i < depth; ++i) {
-            long newVal = Math.max(table[i][buckets[i]], min + count);
-            table[i][buckets[i]] = newVal;
-        }
-        size += count;
-        return min + count;
+        return add(buckets, count);
     }
 
     @Override
     public long add(String item, long count) {
+        int[] buckets = Filter.getHashBuckets(item, depth, width);
+        return add(buckets, count);
+    }
+
+    @Override
+    public long add(Slice item, long count) {
+        int[] buckets = Filter.getHashBuckets(item, depth, width);
+        return add(buckets, count);
+    }
+
+    public long add(int[] buckets, long count) {
         if (count < 0) {
             // Negative values are not implemented in the regular version, and do not
             // play nicely with this algorithm anyway
             throw new IllegalArgumentException("Negative increments not implemented");
         }
-        int[] buckets = Filter.getHashBuckets(item, depth, width);
         long min = table[0][buckets[0]];
         for (int i = 1; i < depth; ++i) {
             min = Math.min(min, table[i][buckets[i]]);
@@ -81,25 +77,6 @@ public class ConservativeAddSketch extends CountMinSketch {
         return min + count;
     }
 
-    @Override
-    public long add(Slice item, long count) {
-        if (count < 0) {
-            // Negative values are not implemented in the regular version, and do not
-            // play nicely with this algorithm anyway
-            throw new IllegalArgumentException("Negative increments not implemented");
-        }
-        int[] buckets = Filter.getHashBuckets(item, depth, width);
-        long min = table[0][buckets[0]];
-        for (int i = 1; i < depth; ++i) {
-            min = Math.min(min, table[i][buckets[i]]);
-        }
-        for (int i = 0; i < depth; ++i) {
-            long newVal = Math.max(table[i][buckets[i]], min + count);
-            table[i][buckets[i]] = newVal;
-        }
-        size += count;
-        return min + count;
-    }
 
     @VisibleForTesting
     public ConservativeAddSketch(Slice serialized) {
