@@ -43,6 +43,7 @@ public class QueryManagerConfig
 
     private int hashPartitionCount = 100;
     private String partitioningProviderCatalog = GlobalSystemConnector.NAME;
+    private ExchangeMaterializationStrategy exchangeMaterializationStrategy = ExchangeMaterializationStrategy.NONE;
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
@@ -148,6 +149,20 @@ public class QueryManagerConfig
     public QueryManagerConfig setPartitioningProviderCatalog(String partitioningProviderCatalog)
     {
         this.partitioningProviderCatalog = partitioningProviderCatalog;
+        return this;
+    }
+
+    @NotNull
+    public ExchangeMaterializationStrategy getExchangeMaterializationStrategy()
+    {
+        return exchangeMaterializationStrategy;
+    }
+
+    @Config("query.exchange-materialization-strategy")
+    @ConfigDescription("The exchange materialization strategy to use")
+    public QueryManagerConfig setExchangeMaterializationStrategy(ExchangeMaterializationStrategy exchangeMaterializationStrategy)
+    {
+        this.exchangeMaterializationStrategy = exchangeMaterializationStrategy;
         return this;
     }
 
@@ -393,5 +408,11 @@ public class QueryManagerConfig
     {
         this.requiredWorkersMaxWait = requiredWorkersMaxWait;
         return this;
+    }
+
+    public enum ExchangeMaterializationStrategy
+    {
+        NONE,
+        ALL,
     }
 }

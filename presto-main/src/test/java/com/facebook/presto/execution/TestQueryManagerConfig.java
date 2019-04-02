@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.Duration;
@@ -39,6 +40,7 @@ public class TestQueryManagerConfig
                 .setMaxQueuedQueries(5000)
                 .setHashPartitionCount(100)
                 .setPartitioningProviderCatalog("system")
+                .setExchangeMaterializationStrategy(ExchangeMaterializationStrategy.NONE)
                 .setQueryManagerExecutorPoolSize(5)
                 .setRemoteTaskMinErrorDuration(new Duration(5, TimeUnit.MINUTES))
                 .setRemoteTaskMaxErrorDuration(new Duration(5, TimeUnit.MINUTES))
@@ -69,6 +71,7 @@ public class TestQueryManagerConfig
                 .put("query.max-queued-queries", "15")
                 .put("query.hash-partition-count", "16")
                 .put("query.partitioning-provider-catalog", "hive")
+                .put("query.exchange-materialization-strategy", "ALL")
                 .put("query.manager-executor-pool-size", "11")
                 .put("query.remote-task.min-error-duration", "30s")
                 .put("query.remote-task.max-error-duration", "60s")
@@ -96,6 +99,7 @@ public class TestQueryManagerConfig
                 .setMaxQueuedQueries(15)
                 .setHashPartitionCount(16)
                 .setPartitioningProviderCatalog("hive")
+                .setExchangeMaterializationStrategy(ExchangeMaterializationStrategy.ALL)
                 .setQueryManagerExecutorPoolSize(11)
                 .setRemoteTaskMinErrorDuration(new Duration(60, TimeUnit.SECONDS))
                 .setRemoteTaskMaxErrorDuration(new Duration(60, TimeUnit.SECONDS))
