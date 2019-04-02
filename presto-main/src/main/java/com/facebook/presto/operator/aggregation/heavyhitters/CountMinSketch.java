@@ -154,6 +154,7 @@ public class CountMinSketch{
         for (int i = 0; i < depth; ++i) {
             hashA[i] = r.nextInt(Integer.MAX_VALUE);
         }
+        //TODO is this a right calculation
         estimatedInMemorySize += SIZE_OF_LONG * (depth * width + depth) + SizeOf.sizeOf(hashA) + width * SizeOf.sizeOf(table);
     }
 
@@ -351,7 +352,6 @@ public class CountMinSketch{
         s.writeLong(size);
         s.writeInt(depth);
         s.writeInt(width);
-        s.writeLong(size);
         s.writeLong(estimatedInMemorySize);
         for (int i = 0; i < depth; ++i) {
             s.writeLong(hashA[i]);
@@ -369,7 +369,6 @@ public class CountMinSketch{
         size = s.readLong();
         depth = s.readInt();
         width = s.readInt();
-        size = s.readLong();
         estimatedInMemorySize = s.readLong();
         // e/w = eps ; w = e/eps  Where e is the natural log base.
         // 1/2^depth <= 1-confidence ; depth >= log2(1/(1-confidence))

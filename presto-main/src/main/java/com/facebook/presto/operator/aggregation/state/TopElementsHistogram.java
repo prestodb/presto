@@ -33,7 +33,7 @@ public class TopElementsHistogram<E>
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(TopElementsHistogram.class).instanceSize();
 
     private int rowsProcessed=0;
-    private double minPercentShare =100;
+    private double minPercentShare;
     private int maxEntries;
     private ConservativeAddSketch ccms;
     private IndexedPriorityQueue<E> topEntries = new IndexedPriorityQueue<E>();
@@ -127,7 +127,12 @@ public class TopElementsHistogram<E>
             while(elements.hasNext()){
                 E item=elements.next();
                 //Estimate the count after the merger
-                Long itemCount=ccms.estimateCount(item.toString());
+                Long itemCount;
+                if(item instanceof Slice){
+                    itemCount = ccms.estimateCount((Slice)item);
+                }else {
+                    itemCount = ccms.estimateCount(item.toString());
+                }
                 topEntries.addOrUpdate(item, itemCount);
             }
         }
@@ -137,7 +142,12 @@ public class TopElementsHistogram<E>
         while(elements.hasNext()){
             E item=elements.next();
             //Estimate the count after the merger
-            Long itemCount=ccms.estimateCount(item.toString());
+            Long itemCount;
+            if(item instanceof Slice){
+                itemCount = ccms.estimateCount((Slice)item);
+            }else {
+                itemCount = ccms.estimateCount(item.toString());
+            }
             topEntries.addOrUpdate(item, itemCount);
         }
 

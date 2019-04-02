@@ -31,7 +31,6 @@ import static java.util.Objects.requireNonNull;
  */
 public final class IndexedPriorityQueue<E>
 {
-    private E dummy;
     private long generation;
     private int estimatedInMemorySize;
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(IndexedPriorityQueue.class).instanceSize();
@@ -214,8 +213,8 @@ public final class IndexedPriorityQueue<E>
         private final long priority;
         private final long generation;
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(Entry.class).instanceSize();
-        private static int TYPE_STRING = 0;
-        private static int TYPE_LONG = 1;
+        private static int TYPE_SLICE = 0;
+        private static int TYPE_STRING = 1;
 
         private Entry(E value, long priority, long generation)
         {
@@ -239,7 +238,7 @@ public final class IndexedPriorityQueue<E>
             return generation;
         }
 
-        //TODO is it the right way to calculate size
+        //TODO is it the right way to calculate size. If String then correct for java primitive this won't work.
         public long estimatedInMemorySize(){
             return INSTANCE_SIZE + value.toString().getBytes().length;
         }
@@ -256,8 +255,10 @@ public final class IndexedPriorityQueue<E>
             Slice slc;
             if(value instanceof Slice){
                 slc = (Slice)value;
+                s.writeInt(TYPE_SLICE);
             }else {
                 slc = Slices.utf8Slice(value.toString());
+                s.writeInt(TYPE_STRING);
             }
             s.writeInt(slc.length());
             s.writeBytes(slc);
@@ -270,10 +271,15 @@ public final class IndexedPriorityQueue<E>
             SliceInput s = new BasicSliceInput(serialized);
             priority = s.readLong();
             generation = s.readLong();
+            int type = s.readInt();
             int length = s.readInt();
             byte[] b = new byte[length];
             s.readBytes(b,0, length);
-            value = (E)new String(b);
+            if(type == TYPE_SLICE){
+                value = (E) Slices.wrappedBuffer(b);
+            }else {
+                value = (E) new String(b);
+            }
         }
     }
 }

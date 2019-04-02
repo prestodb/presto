@@ -86,7 +86,6 @@ public class ApproximateHeavyHittersAggregations
 
             BlockBuilder entryBuilder = out.beginBlockEntry();
             for (Map.Entry<Slice, Long> entry : value.entrySet()) {
-                //VarcharType.VARCHAR.writeString(entryBuilder, entry.getKey());
                 VarbinaryType.VARBINARY.writeSlice(entryBuilder, entry.getKey());
                 BigintType.BIGINT.writeLong(entryBuilder, entry.getValue());
             }
