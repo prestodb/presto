@@ -97,7 +97,8 @@ public final class OrcPageFileRewriter
                     readerAttributes.getMaxMergeDistance(),
                     readerAttributes.getMaxReadSize(),
                     readerAttributes.getTinyStripeThreshold(),
-                    HUGE_MAX_READ_BLOCK_SIZE);
+                    HUGE_MAX_READ_BLOCK_SIZE,
+                    false);
 
             if (reader.getFooter().getNumberOfRows() < rowsToDelete.length()) {
                 throw new IOException("File has fewer rows than deletion vector");

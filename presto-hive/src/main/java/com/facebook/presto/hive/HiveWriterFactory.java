@@ -67,6 +67,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMA
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
+import static com.facebook.presto.hive.HiveSessionProperties.isOrcOptimizedReaderEnabled;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.hive.HiveWriteUtils.createPartitionValues;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
@@ -137,6 +138,7 @@ public class HiveWriterFactory
     private final OrcFileWriterFactory orcFileWriterFactory;
 
     private final boolean partitionCommitRequired;
+    private final boolean orcOptimizedReaderEnabled;
 
     public HiveWriterFactory(
             Set<HiveFileWriterFactory> fileWriterFactories,
@@ -258,6 +260,7 @@ public class HiveWriterFactory
         this.orcFileWriterFactory = requireNonNull(orcFileWriterFactory, "orcFileWriterFactory is null");
 
         this.partitionCommitRequired = partitionCommitRequired;
+        this.orcOptimizedReaderEnabled = isOrcOptimizedReaderEnabled(session);
     }
 
     public HiveWriter createWriter(Page partitionColumns, int position, OptionalInt bucketNumber)
@@ -543,7 +546,8 @@ public class HiveWriterFactory
                     sortFields,
                     sortOrders,
                     pageSorter,
-                    (fs, p) -> orcFileWriterFactory.createOrcDataSink(session, fs, p));
+                    (fs, p) -> orcFileWriterFactory.createOrcDataSink(session, fs, p),
+                    orcOptimizedReaderEnabled);
         }
 
         return new HiveWriter(

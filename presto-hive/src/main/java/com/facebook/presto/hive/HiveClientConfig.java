@@ -118,7 +118,7 @@ public class HiveClientConfig
     private boolean orcOptimizedWriterEnabled = true;
     private double orcWriterValidationPercentage;
     private OrcWriteValidationMode orcWriterValidationMode = OrcWriteValidationMode.BOTH;
-
+    private boolean orcOptimizedReaderEnabled;
     private boolean rcfileOptimizedWriterEnabled = true;
     private boolean rcfileWriterValidate;
 
@@ -847,6 +847,18 @@ public class HiveClientConfig
     public HiveClientConfig setOrcWriterValidationMode(OrcWriteValidationMode orcWriterValidationMode)
     {
         this.orcWriterValidationMode = orcWriterValidationMode;
+        return this;
+    }
+
+    public boolean isOrcOptimizedReaderEnabled()
+    {
+        return orcOptimizedReaderEnabled;
+    }
+
+    @Config("hive.orc.optimized-reader.enabled")
+    public HiveClientConfig setOrcOptimizedReaderEnabled(boolean orcOptimizedReaderEnabled)
+    {
+        this.orcOptimizedReaderEnabled = orcOptimizedReaderEnabled;
         return this;
     }
 

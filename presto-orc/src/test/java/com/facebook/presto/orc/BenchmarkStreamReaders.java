@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDecimal;
@@ -26,6 +27,7 @@ import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
@@ -49,7 +51,6 @@ import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
 import static com.facebook.presto.orc.OrcTester.writeOrcColumnHive;
-import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
@@ -295,6 +296,12 @@ public class BenchmarkStreamReaders
         protected File booleanNoNullFile;
         private Random random;
 
+        @Param({"false", "true"})
+        private String orcOptimizedReader;
+
+        @Param({"NONE", "ZLIB"})
+        private String compressionKind;
+
         @Setup
         public void setup()
                 throws Exception
@@ -302,7 +309,7 @@ public class BenchmarkStreamReaders
             random = new Random(0);
             temporaryDirectory = createTempDir();
             booleanNoNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(booleanNoNullFile, ORC_12, NONE, BOOLEAN, createBooleanValuesNoNull().iterator());
+            writeOrcColumnHive(booleanNoNullFile, ORC_12, CompressionKind.valueOf(compressionKind), BOOLEAN, createBooleanValuesNoNull().iterator());
         }
 
         @TearDown
@@ -316,7 +323,7 @@ public class BenchmarkStreamReaders
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(booleanNoNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), Boolean.valueOf(orcOptimizedReader));
             return orcReader.createRecordReader(
                     ImmutableMap.of(0, BOOLEAN),
                     OrcPredicate.TRUE,
@@ -343,6 +350,12 @@ public class BenchmarkStreamReaders
         protected File booleanWithNullFile;
         private Random random;
 
+        @Param({"false", "true"})
+        private String orcOptimizedReader;
+
+        @Param({"NONE", "ZLIB"})
+        private String compressionKind;
+
         @Setup
         public void setup()
                 throws Exception
@@ -350,7 +363,7 @@ public class BenchmarkStreamReaders
             random = new Random(0);
             temporaryDirectory = createTempDir();
             booleanWithNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(booleanWithNullFile, ORC_12, NONE, BOOLEAN, createBooleanValuesWithNull().iterator());
+            writeOrcColumnHive(booleanWithNullFile, ORC_12, CompressionKind.valueOf(compressionKind), BOOLEAN, createBooleanValuesWithNull().iterator());
         }
 
         @TearDown
@@ -364,7 +377,7 @@ public class BenchmarkStreamReaders
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(booleanWithNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), Boolean.valueOf(orcOptimizedReader));
             return orcReader.createRecordReader(
                     ImmutableMap.of(0, BOOLEAN),
                     OrcPredicate.TRUE,
@@ -391,6 +404,12 @@ public class BenchmarkStreamReaders
         protected File tinyIntNoNullFile;
         private Random random;
 
+        @Param({"false", "true"})
+        private String orcOptimizedReader;
+
+        @Param({"NONE", "ZLIB"})
+        private String compressionKind;
+
         @Setup
         public void setup()
                 throws Exception
@@ -398,7 +417,7 @@ public class BenchmarkStreamReaders
             random = new Random(0);
             temporaryDirectory = createTempDir();
             tinyIntNoNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(tinyIntNoNullFile, ORC_12, NONE, TINYINT, createTinyIntValuesNoNull().iterator());
+            writeOrcColumnHive(tinyIntNoNullFile, ORC_12, CompressionKind.valueOf(compressionKind), TINYINT, createTinyIntValuesNoNull().iterator());
         }
 
         @TearDown
@@ -412,7 +431,7 @@ public class BenchmarkStreamReaders
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(tinyIntNoNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), Boolean.valueOf(orcOptimizedReader));
             return orcReader.createRecordReader(
                     ImmutableMap.of(0, TINYINT),
                     OrcPredicate.TRUE,
@@ -439,6 +458,12 @@ public class BenchmarkStreamReaders
         protected File tinyIntWithNullFile;
         private Random random;
 
+        @Param({"false", "true"})
+        private String orcOptimizedReader;
+
+        @Param({"NONE", "ZLIB"})
+        private String compressionKind;
+
         @Setup
         public void setup()
                 throws Exception
@@ -446,7 +471,7 @@ public class BenchmarkStreamReaders
             random = new Random(0);
             temporaryDirectory = createTempDir();
             tinyIntWithNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(tinyIntWithNullFile, ORC_12, NONE, TINYINT, createTinyIntValuesWithNull().iterator());
+            writeOrcColumnHive(tinyIntWithNullFile, ORC_12, CompressionKind.valueOf(compressionKind), TINYINT, createTinyIntValuesWithNull().iterator());
         }
 
         @TearDown
@@ -460,7 +485,7 @@ public class BenchmarkStreamReaders
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(tinyIntWithNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), Boolean.valueOf(orcOptimizedReader));
             return orcReader.createRecordReader(
                     ImmutableMap.of(0, TINYINT),
                     OrcPredicate.TRUE,
@@ -492,6 +517,12 @@ public class BenchmarkStreamReaders
         protected File decimalNoNullFile;
         private Random random;
 
+        @Param({"false", "true"})
+        private String orcOptimizedReader;
+
+        @Param({"NONE", "ZLIB"})
+        private String compressionKind;
+
         @Setup
         public void setup()
                 throws Exception
@@ -499,7 +530,7 @@ public class BenchmarkStreamReaders
             random = new Random(0);
             temporaryDirectory = createTempDir();
             decimalNoNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(decimalNoNullFile, ORC_12, NONE, DECIMAL_TYPE, createDecimalValuesNoNull().iterator());
+            writeOrcColumnHive(decimalNoNullFile, ORC_12, CompressionKind.valueOf(compressionKind), DECIMAL_TYPE, createDecimalValuesNoNull().iterator());
         }
 
         @TearDown
@@ -513,7 +544,7 @@ public class BenchmarkStreamReaders
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(decimalNoNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), Boolean.valueOf(orcOptimizedReader));
             return orcReader.createRecordReader(
                     ImmutableMap.of(0, DECIMAL_TYPE),
                     OrcPredicate.TRUE,
@@ -541,6 +572,12 @@ public class BenchmarkStreamReaders
         protected File decimalWithNullFile;
         private Random random;
 
+        @Param({"false", "true"})
+        private String orcOptimizedReader;
+
+        @Param({"NONE", "ZLIB"})
+        private String compressionKind;
+
         @Setup
         public void setup()
                 throws Exception
@@ -548,7 +585,7 @@ public class BenchmarkStreamReaders
             random = new Random(0);
             temporaryDirectory = createTempDir();
             decimalWithNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(decimalWithNullFile, ORC_12, NONE, DECIMAL_TYPE, createDecimalValuesWithNull().iterator());
+            writeOrcColumnHive(decimalWithNullFile, ORC_12, CompressionKind.valueOf(compressionKind), DECIMAL_TYPE, createDecimalValuesWithNull().iterator());
         }
 
         @TearDown
@@ -562,7 +599,7 @@ public class BenchmarkStreamReaders
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(decimalWithNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), Boolean.valueOf(orcOptimizedReader));
             return orcReader.createRecordReader(
                     ImmutableMap.of(0, DECIMAL_TYPE),
                     OrcPredicate.TRUE,
@@ -595,6 +632,12 @@ public class BenchmarkStreamReaders
         protected File doubleNoNullFile;
         private Random random;
 
+        @Param({"false", "true"})
+        private String orcOptimizedReader;
+
+        @Param({"NONE", "ZLIB"})
+        private String compressionKind;
+
         @Setup
         public void setup()
                 throws Exception
@@ -602,7 +645,7 @@ public class BenchmarkStreamReaders
             random = new Random(0);
             temporaryDirectory = createTempDir();
             doubleNoNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(doubleNoNullFile, ORC_12, NONE, DOUBLE, createDoubleValuesNoNull().iterator());
+            writeOrcColumnHive(doubleNoNullFile, ORC_12, CompressionKind.valueOf(compressionKind), DOUBLE, createDoubleValuesNoNull().iterator());
         }
 
         @TearDown
@@ -616,7 +659,7 @@ public class BenchmarkStreamReaders
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(doubleNoNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), Boolean.valueOf(orcOptimizedReader));
             return orcReader.createRecordReader(
                     ImmutableMap.of(0, DOUBLE),
                     OrcPredicate.TRUE,
@@ -643,6 +686,12 @@ public class BenchmarkStreamReaders
         protected File doubleWithNullFile;
         private Random random;
 
+        @Param({"false", "true"})
+        private String orcOptimizedReader;
+
+        @Param({"NONE", "ZLIB"})
+        private String compressionKind;
+
         @Setup
         public void setup()
                 throws Exception
@@ -650,7 +699,7 @@ public class BenchmarkStreamReaders
             random = new Random(0);
             temporaryDirectory = createTempDir();
             doubleWithNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(doubleWithNullFile, ORC_12, NONE, DOUBLE, createDoubleValuesWithNull().iterator());
+            writeOrcColumnHive(doubleWithNullFile, ORC_12, CompressionKind.valueOf(compressionKind), DOUBLE, createDoubleValuesWithNull().iterator());
         }
 
         @TearDown
@@ -664,7 +713,7 @@ public class BenchmarkStreamReaders
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(doubleWithNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), Boolean.valueOf(orcOptimizedReader));
             return orcReader.createRecordReader(
                     ImmutableMap.of(0, DOUBLE),
                     OrcPredicate.TRUE,
@@ -696,6 +745,12 @@ public class BenchmarkStreamReaders
         protected File floatNoNullFile;
         private Random random;
 
+        @Param({"false", "true"})
+        private String orcOptimizedReader;
+
+        @Param({"NONE", "ZLIB"})
+        private String compressionKind;
+
         @Setup
         public void setup()
                 throws Exception
@@ -703,7 +758,7 @@ public class BenchmarkStreamReaders
             random = new Random(0);
             temporaryDirectory = createTempDir();
             floatNoNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(floatNoNullFile, ORC_12, NONE, REAL, createFloatValuesNoNull().iterator());
+            writeOrcColumnHive(floatNoNullFile, ORC_12, CompressionKind.valueOf(compressionKind), REAL, createFloatValuesNoNull().iterator());
         }
 
         @TearDown
@@ -717,7 +772,7 @@ public class BenchmarkStreamReaders
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(floatNoNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), Boolean.valueOf(orcOptimizedReader));
             return orcReader.createRecordReader(
                     ImmutableMap.of(0, REAL),
                     OrcPredicate.TRUE,
@@ -744,6 +799,12 @@ public class BenchmarkStreamReaders
         protected File floatWithNullFile;
         private Random random;
 
+        @Param({"false", "true"})
+        private String orcOptimizedReader;
+
+        @Param({"NONE", "ZLIB"})
+        private String compressionKind;
+
         @Setup
         public void setup()
                 throws Exception
@@ -751,7 +812,7 @@ public class BenchmarkStreamReaders
             random = new Random(0);
             temporaryDirectory = createTempDir();
             floatWithNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(floatWithNullFile, ORC_12, NONE, REAL, createFloatValuesWithNull().iterator());
+            writeOrcColumnHive(floatWithNullFile, ORC_12, CompressionKind.valueOf(compressionKind), REAL, createFloatValuesWithNull().iterator());
         }
 
         @TearDown
@@ -765,7 +826,7 @@ public class BenchmarkStreamReaders
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(floatWithNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), Boolean.valueOf(orcOptimizedReader));
             return orcReader.createRecordReader(
                     ImmutableMap.of(0, REAL),
                     OrcPredicate.TRUE,
@@ -797,6 +858,12 @@ public class BenchmarkStreamReaders
         protected File bigintNoNullFile;
         private Random random;
 
+        @Param({"false", "true"})
+        private String orcOptimizedReader;
+
+        @Param({"NONE", "ZLIB"})
+        private String compressionKind;
+
         @Setup
         public void setup()
                 throws Exception
@@ -805,7 +872,7 @@ public class BenchmarkStreamReaders
             temporaryDirectory = createTempDir();
 
             bigintNoNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(bigintNoNullFile, ORC_12, NONE, BIGINT, createBigintValuesNoNull().iterator());
+            writeOrcColumnHive(bigintNoNullFile, ORC_12, CompressionKind.valueOf(compressionKind), BIGINT, createBigintValuesNoNull().iterator());
         }
 
         @TearDown
@@ -819,7 +886,7 @@ public class BenchmarkStreamReaders
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(bigintNoNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), Boolean.valueOf(orcOptimizedReader));
             return orcReader.createRecordReader(
                     ImmutableMap.of(0, BIGINT),
                     OrcPredicate.TRUE,
@@ -846,6 +913,12 @@ public class BenchmarkStreamReaders
         protected File bigintWithNullFile;
         private Random random;
 
+        @Param({"false", "true"})
+        private String orcOptimizedReader;
+
+        @Param({"NONE", "ZLIB"})
+        private String compressionKind;
+
         @Setup
         public void setup()
                 throws Exception
@@ -853,7 +926,7 @@ public class BenchmarkStreamReaders
             random = new Random(0);
             temporaryDirectory = createTempDir();
             bigintWithNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(bigintWithNullFile, ORC_12, NONE, BIGINT, createBigintValuesWithNull().iterator());
+            writeOrcColumnHive(bigintWithNullFile, ORC_12, CompressionKind.valueOf(compressionKind), BIGINT, createBigintValuesWithNull().iterator());
         }
 
         @TearDown
@@ -867,7 +940,7 @@ public class BenchmarkStreamReaders
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(bigintWithNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), Boolean.valueOf(orcOptimizedReader));
             return orcReader.createRecordReader(
                     ImmutableMap.of(0, BIGINT),
                     OrcPredicate.TRUE,
@@ -899,6 +972,12 @@ public class BenchmarkStreamReaders
         protected File varcharNoNullFile;
         private Random random;
 
+        @Param({"false", "true"})
+        private String orcOptimizedReader;
+
+        @Param({"NONE", "ZLIB"})
+        private String compressionKind;
+
         @Setup
         public void setup()
                 throws Exception
@@ -906,7 +985,7 @@ public class BenchmarkStreamReaders
             random = new Random(0);
             temporaryDirectory = createTempDir();
             varcharNoNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(varcharNoNullFile, ORC_12, NONE, VARCHAR, createVarcharValuesNoNull().iterator());
+            writeOrcColumnHive(varcharNoNullFile, ORC_12, CompressionKind.valueOf(compressionKind), VARCHAR, createVarcharValuesNoNull().iterator());
         }
 
         @TearDown
@@ -920,7 +999,7 @@ public class BenchmarkStreamReaders
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(varcharNoNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), Boolean.valueOf(orcOptimizedReader));
             return orcReader.createRecordReader(
                     ImmutableMap.of(0, VARCHAR),
                     OrcPredicate.TRUE,
@@ -947,6 +1026,12 @@ public class BenchmarkStreamReaders
         protected File varcharWithNullFile;
         private Random random;
 
+        @Param({"false", "true"})
+        public String orcOptimizedReader;
+
+        @Param({"NONE", "ZLIB"})
+        private String compressionKind;
+
         @Setup
         public void setup()
                 throws Exception
@@ -954,7 +1039,7 @@ public class BenchmarkStreamReaders
             random = new Random(0);
             temporaryDirectory = createTempDir();
             varcharWithNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(varcharWithNullFile, ORC_12, NONE, VARCHAR, createVarcharValuesWithNulls().iterator());
+            writeOrcColumnHive(varcharWithNullFile, ORC_12, CompressionKind.valueOf(compressionKind), VARCHAR, createVarcharValuesWithNulls().iterator());
         }
 
         @TearDown
@@ -968,7 +1053,7 @@ public class BenchmarkStreamReaders
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(varcharWithNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), Boolean.valueOf(orcOptimizedReader));
             return orcReader.createRecordReader(
                     ImmutableMap.of(0, VARCHAR),
                     OrcPredicate.TRUE,
@@ -1001,6 +1086,12 @@ public class BenchmarkStreamReaders
         protected File timestampNoNullFile;
         private Random random;
 
+        @Param({"false", "true"})
+        public String orcOptimizedReader;
+
+        @Param({"NONE", "ZLIB"})
+        private String compressionKind;
+
         @Setup
         public void setup()
                 throws Exception
@@ -1009,7 +1100,7 @@ public class BenchmarkStreamReaders
             temporaryDirectory = createTempDir();
 
             timestampNoNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(timestampNoNullFile, ORC_12, NONE, TIMESTAMP, createSqlTimeStampValuesNoNull().iterator());
+            writeOrcColumnHive(timestampNoNullFile, ORC_12, CompressionKind.valueOf(compressionKind), TIMESTAMP, createSqlTimeStampValuesNoNull().iterator());
         }
 
         @TearDown
@@ -1023,7 +1114,7 @@ public class BenchmarkStreamReaders
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(timestampNoNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), Boolean.valueOf(orcOptimizedReader));
             return orcReader.createRecordReader(
                     ImmutableMap.of(0, TIMESTAMP),
                     OrcPredicate.TRUE,
@@ -1050,6 +1141,12 @@ public class BenchmarkStreamReaders
         protected File timestampWithNullFile;
         private Random random;
 
+        @Param({"false", "true"})
+        public String orcOptimizedReader;
+
+        @Param({"NONE", "ZLIB"})
+        private String compressionKind;
+
         @Setup
         public void setup()
                 throws Exception
@@ -1058,7 +1155,7 @@ public class BenchmarkStreamReaders
             temporaryDirectory = createTempDir();
 
             timestampWithNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(timestampWithNullFile, ORC_12, NONE, TIMESTAMP, createSqlTimestampValuesWithNull().iterator());
+            writeOrcColumnHive(timestampWithNullFile, ORC_12, CompressionKind.valueOf(compressionKind), TIMESTAMP, createSqlTimestampValuesWithNull().iterator());
         }
 
         @TearDown
@@ -1072,7 +1169,7 @@ public class BenchmarkStreamReaders
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(timestampWithNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), Boolean.valueOf(orcOptimizedReader));
             return orcReader.createRecordReader(
                     ImmutableMap.of(0, TIMESTAMP),
                     OrcPredicate.TRUE,

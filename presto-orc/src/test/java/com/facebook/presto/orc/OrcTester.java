@@ -83,6 +83,7 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
+import org.testng.annotations.DataProvider;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -171,6 +172,7 @@ public class OrcTester
 {
     public static final DataSize MAX_BLOCK_SIZE = new DataSize(1, Unit.MEGABYTE);
     public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
+    public static final boolean[] ORC_OPTIMIZED_READER_ENABLED_VALUES = {false, true};
 
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
 
@@ -233,6 +235,12 @@ public class OrcTester
         public abstract Serializer createSerializer();
     }
 
+    @DataProvider(name = "orcOptimizedReaderEnabledValues")
+    public static Object[][] orcOptimizedReaderEnabledValuesProvider()
+    {
+        return new Object[][] {{true}, {false}};
+    }
+
     private boolean structTestsEnabled;
     private boolean mapTestsEnabled;
     private boolean listTestsEnabled;
@@ -278,11 +286,11 @@ public class OrcTester
         return orcTester;
     }
 
-    public void testRoundTrip(Type type, List<?> readValues)
+    public void testRoundTrip(Type type, List<?> readValues, boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         // just the values
-        testRoundTripType(type, readValues);
+        testRoundTripType(type, readValues, orcOptimizedReaderEnabled);
 
         // all nulls
         if (nullTestsEnabled) {
@@ -290,12 +298,13 @@ public class OrcTester
                     type,
                     readValues.stream()
                             .map(value -> null)
-                            .collect(toList()));
+                            .collect(toList()),
+                    orcOptimizedReaderEnabled);
         }
 
         // values wrapped in struct
         if (structTestsEnabled) {
-            testStructRoundTrip(type, readValues);
+            testStructRoundTrip(type, readValues, orcOptimizedReaderEnabled);
         }
 
         // values wrapped in a struct wrapped in a struct
@@ -304,17 +313,18 @@ public class OrcTester
                     rowType(type, type, type),
                     readValues.stream()
                             .map(OrcTester::toHiveStruct)
-                            .collect(toList()));
+                            .collect(toList()),
+                    orcOptimizedReaderEnabled);
         }
 
         // values wrapped in map
         if (mapTestsEnabled && type.isComparable()) {
-            testMapRoundTrip(type, readValues);
+            testMapRoundTrip(type, readValues, orcOptimizedReaderEnabled);
         }
 
         // values wrapped in list
         if (listTestsEnabled) {
-            testListRoundTrip(type, readValues);
+            testListRoundTrip(type, readValues, orcOptimizedReaderEnabled);
         }
 
         // values wrapped in a list wrapped in a list
@@ -323,11 +333,12 @@ public class OrcTester
                     arrayType(type),
                     readValues.stream()
                             .map(OrcTester::toHiveList)
-                            .collect(toList()));
+                            .collect(toList()),
+                    orcOptimizedReaderEnabled);
         }
     }
 
-    private void testStructRoundTrip(Type type, List<?> values)
+    private void testStructRoundTrip(Type type, List<?> values, boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         Type rowType = rowType(type, type, type);
@@ -336,7 +347,8 @@ public class OrcTester
                 rowType,
                 values.stream()
                         .map(OrcTester::toHiveStruct)
-                        .collect(toList()));
+                        .collect(toList()),
+                orcOptimizedReaderEnabled);
 
         if (structuralNullTestsEnabled) {
             // values and nulls in simple struct
@@ -344,14 +356,16 @@ public class OrcTester
                     rowType,
                     insertNullEvery(5, values).stream()
                             .map(OrcTester::toHiveStruct)
-                            .collect(toList()));
+                            .collect(toList()),
+                    orcOptimizedReaderEnabled);
 
             // all null values in simple struct
             testRoundTripType(
                     rowType,
                     values.stream()
                             .map(value -> toHiveStruct(null))
-                            .collect(toList()));
+                            .collect(toList()),
+                    orcOptimizedReaderEnabled);
         }
 
         if (missingStructFieldsTestsEnabled) {
@@ -366,11 +380,11 @@ public class OrcTester
                     .map(OrcTester::toHiveStructWithNull)
                     .collect(toList());
 
-            assertRoundTrip(writeType, readType, writeValues, readValues, true);
+            assertRoundTrip(writeType, readType, writeValues, readValues, true, false);
         }
     }
 
-    private void testMapRoundTrip(Type type, List<?> readValues)
+    private void testMapRoundTrip(Type type, List<?> readValues, boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         Type mapType = mapType(type, type);
@@ -383,7 +397,8 @@ public class OrcTester
                 mapType,
                 readValues.stream()
                         .map(value -> toHiveMap(value, readNullKeyValue))
-                        .collect(toList()));
+                        .collect(toList()),
+                orcOptimizedReaderEnabled);
 
         if (structuralNullTestsEnabled) {
             // values and nulls in simple map
@@ -391,18 +406,20 @@ public class OrcTester
                     mapType,
                     insertNullEvery(5, readValues).stream()
                             .map(value -> toHiveMap(value, readNullKeyValue))
-                            .collect(toList()));
+                            .collect(toList()),
+                    orcOptimizedReaderEnabled);
 
             // all null values in simple map
             testRoundTripType(
                     mapType,
                     readValues.stream()
                             .map(value -> toHiveMap(null, readNullKeyValue))
-                            .collect(toList()));
+                            .collect(toList()),
+                    orcOptimizedReaderEnabled);
         }
     }
 
-    private void testListRoundTrip(Type type, List<?> readValues)
+    private void testListRoundTrip(Type type, List<?> readValues, boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         Type arrayType = arrayType(type);
@@ -411,7 +428,8 @@ public class OrcTester
                 arrayType,
                 readValues.stream()
                         .map(OrcTester::toHiveList)
-                        .collect(toList()));
+                        .collect(toList()),
+                orcOptimizedReaderEnabled);
 
         if (structuralNullTestsEnabled) {
             // values and nulls in simple list
@@ -419,52 +437,54 @@ public class OrcTester
                     arrayType,
                     insertNullEvery(5, readValues).stream()
                             .map(OrcTester::toHiveList)
-                            .collect(toList()));
+                            .collect(toList()),
+                    orcOptimizedReaderEnabled);
 
             // all null values in simple list
             testRoundTripType(
                     arrayType,
                     readValues.stream()
                             .map(value -> toHiveList(null))
-                            .collect(toList()));
+                            .collect(toList()),
+                    orcOptimizedReaderEnabled);
         }
     }
 
-    private void testRoundTripType(Type type, List<?> readValues)
+    private void testRoundTripType(Type type, List<?> readValues, boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         // forward order
-        assertRoundTrip(type, readValues);
+        assertRoundTrip(type, readValues, orcOptimizedReaderEnabled);
 
         // reverse order
         if (reverseTestsEnabled) {
-            assertRoundTrip(type, reverse(readValues));
+            assertRoundTrip(type, reverse(readValues), orcOptimizedReaderEnabled);
         }
 
         if (nullTestsEnabled) {
             // forward order with nulls
-            assertRoundTrip(type, insertNullEvery(5, readValues));
+            assertRoundTrip(type, insertNullEvery(5, readValues), orcOptimizedReaderEnabled);
 
             // reverse order with nulls
             if (reverseTestsEnabled) {
-                assertRoundTrip(type, insertNullEvery(5, reverse(readValues)));
+                assertRoundTrip(type, insertNullEvery(5, reverse(readValues)), orcOptimizedReaderEnabled);
             }
         }
     }
 
-    public void assertRoundTrip(Type type, List<?> readValues)
+    public void assertRoundTrip(Type type, List<?> readValues, boolean orcOptimizedReaderEnabled)
             throws Exception
     {
-        assertRoundTrip(type, type, readValues, readValues, true);
+        assertRoundTrip(type, type, readValues, readValues, true, orcOptimizedReaderEnabled);
     }
 
-    public void assertRoundTrip(Type type, List<?> readValues, boolean verifyWithHiveReader)
+    public void assertRoundTrip(Type type, List<?> readValues, boolean verifyWithHiveReader, boolean orcOptimizedReaderEnabled)
             throws Exception
     {
-        assertRoundTrip(type, type, readValues, readValues, verifyWithHiveReader);
+        assertRoundTrip(type, type, readValues, readValues, verifyWithHiveReader, orcOptimizedReaderEnabled);
     }
 
-    private void assertRoundTrip(Type writeType, Type readType, List<?> writeValues, List<?> readValues, boolean verifyWithHiveReader)
+    private void assertRoundTrip(Type writeType, Type readType, List<?> writeValues, List<?> readValues, boolean verifyWithHiveReader, boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         OrcWriterStats stats = new OrcWriterStats();
@@ -481,7 +501,7 @@ public class OrcTester
                 if (hiveSupported) {
                     try (TempFile tempFile = new TempFile()) {
                         writeOrcColumnHive(tempFile.getFile(), format, compression, writeType, writeValues.iterator());
-                        assertFileContentsPresto(readType, tempFile, readValues, false, false, orcEncoding, format, true);
+                        assertFileContentsPresto(readType, tempFile, readValues, false, false, orcEncoding, format, true, orcOptimizedReaderEnabled);
                     }
                 }
 
@@ -493,14 +513,14 @@ public class OrcTester
                         assertFileContentsHive(readType, tempFile, format, readValues);
                     }
 
-                    assertFileContentsPresto(readType, tempFile, readValues, false, false, orcEncoding, format, false);
+                    assertFileContentsPresto(readType, tempFile, readValues, false, false, orcEncoding, format, false, orcOptimizedReaderEnabled);
 
                     if (skipBatchTestsEnabled) {
-                        assertFileContentsPresto(readType, tempFile, readValues, true, false, orcEncoding, format, false);
+                        assertFileContentsPresto(readType, tempFile, readValues, true, false, orcEncoding, format, false, orcOptimizedReaderEnabled);
                     }
 
                     if (skipStripeTestsEnabled) {
-                        assertFileContentsPresto(readType, tempFile, readValues, false, true, orcEncoding, format, false);
+                        assertFileContentsPresto(readType, tempFile, readValues, false, true, orcEncoding, format, false, orcOptimizedReaderEnabled);
                     }
                 }
             }
@@ -517,10 +537,11 @@ public class OrcTester
             boolean skipStripe,
             OrcEncoding orcEncoding,
             Format format,
-            boolean isHiveWriter)
+            boolean isHiveWriter,
+            boolean orcOptimizedReaderEnabled)
             throws IOException
     {
-        try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, orcEncoding, createOrcPredicate(type, expectedValues, format, isHiveWriter), type, MAX_BATCH_SIZE)) {
+        try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, orcEncoding, createOrcPredicate(type, expectedValues, format, isHiveWriter), type, MAX_BATCH_SIZE, orcOptimizedReaderEnabled)) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
 
@@ -633,11 +654,11 @@ public class OrcTester
         }
     }
 
-    static OrcRecordReader createCustomOrcRecordReader(TempFile tempFile, OrcEncoding orcEncoding, OrcPredicate predicate, Type type, int initialBatchSize)
+    static OrcRecordReader createCustomOrcRecordReader(TempFile tempFile, OrcEncoding orcEncoding, OrcPredicate predicate, Type type, int initialBatchSize, boolean orcOptimizedReaderEnabled)
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-        OrcReader orcReader = new OrcReader(orcDataSource, orcEncoding, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), MAX_BLOCK_SIZE);
+        OrcReader orcReader = new OrcReader(orcDataSource, orcEncoding, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), MAX_BLOCK_SIZE, orcOptimizedReaderEnabled);
 
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);

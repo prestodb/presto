@@ -63,14 +63,14 @@ import static org.testng.Assert.assertTrue;
 
 public class TestOrcReaderPositions
 {
-    @Test
-    public void testEntireFile()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testEntireFile(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         try (TempFile tempFile = new TempFile()) {
             createMultiStripeFile(tempFile.getFile());
 
-            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, BIGINT, MAX_BATCH_SIZE)) {
+            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, BIGINT, MAX_BATCH_SIZE, orcOptimizedReaderEnabled)) {
                 assertEquals(reader.getReaderRowCount(), 100);
                 assertEquals(reader.getReaderPosition(), 0);
                 assertEquals(reader.getFileRowCount(), reader.getReaderRowCount());
@@ -90,8 +90,8 @@ public class TestOrcReaderPositions
         }
     }
 
-    @Test
-    public void testStripeSkipping()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testStripeSkipping(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         try (TempFile tempFile = new TempFile()) {
@@ -107,7 +107,7 @@ public class TestOrcReaderPositions
                         ((stats.getMin() == 180) && (stats.getMax() == 237));
             };
 
-            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, ORC, predicate, BIGINT, MAX_BATCH_SIZE)) {
+            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, ORC, predicate, BIGINT, MAX_BATCH_SIZE, orcOptimizedReaderEnabled)) {
                 assertEquals(reader.getFileRowCount(), 100);
                 assertEquals(reader.getReaderRowCount(), 40);
                 assertEquals(reader.getFilePosition(), 0);
@@ -132,8 +132,8 @@ public class TestOrcReaderPositions
         }
     }
 
-    @Test
-    public void testRowGroupSkipping()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testRowGroupSkipping(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         try (TempFile tempFile = new TempFile()) {
@@ -150,7 +150,7 @@ public class TestOrcReaderPositions
                 return (stats.getMin() == 50_000) || (stats.getMin() == 60_000);
             };
 
-            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, ORC, predicate, BIGINT, MAX_BATCH_SIZE)) {
+            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, ORC, predicate, BIGINT, MAX_BATCH_SIZE, orcOptimizedReaderEnabled)) {
                 assertEquals(reader.getFileRowCount(), rowCount);
                 assertEquals(reader.getReaderRowCount(), rowCount);
                 assertEquals(reader.getFilePosition(), 0);
@@ -180,8 +180,8 @@ public class TestOrcReaderPositions
         }
     }
 
-    @Test
-    public void testBatchSizesForVariableWidth()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testBatchSizesForVariableWidth(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         // the test creates a table with one column and 10 row groups (i.e., 100K rows)
@@ -199,7 +199,7 @@ public class TestOrcReaderPositions
             int rowCount = rowsInRowGroup * rowGroupCounts;
             createGrowingSequentialFile(tempFile.getFile(), rowCount, rowsInRowGroup, baseStringBytes);
 
-            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, VARCHAR, MAX_BATCH_SIZE)) {
+            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, VARCHAR, MAX_BATCH_SIZE, orcOptimizedReaderEnabled)) {
                 assertEquals(reader.getFileRowCount(), rowCount);
                 assertEquals(reader.getReaderRowCount(), rowCount);
                 assertEquals(reader.getFilePosition(), 0);
@@ -242,8 +242,8 @@ public class TestOrcReaderPositions
         }
     }
 
-    @Test
-    public void testBatchSizesForFixedWidth()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testBatchSizesForFixedWidth(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         // the test creates a table with one column and 10 row groups
@@ -256,7 +256,7 @@ public class TestOrcReaderPositions
             int rowCount = rowsInRowGroup * rowGroupCounts;
             createSequentialFile(tempFile.getFile(), rowCount);
 
-            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, BIGINT, MAX_BATCH_SIZE)) {
+            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, BIGINT, MAX_BATCH_SIZE, orcOptimizedReaderEnabled)) {
                 assertEquals(reader.getFileRowCount(), rowCount);
                 assertEquals(reader.getReaderRowCount(), rowCount);
                 assertEquals(reader.getFilePosition(), 0);
@@ -285,8 +285,8 @@ public class TestOrcReaderPositions
         }
     }
 
-    @Test
-    public void testReadUserMetadata()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testReadUserMetadata(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         try (TempFile tempFile = new TempFile()) {
@@ -297,22 +297,22 @@ public class TestOrcReaderPositions
             createFileWithOnlyUserMetadata(tempFile.getFile(), metadata);
 
             OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(orcDataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            OrcReader orcReader = new OrcReader(orcDataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), orcOptimizedReaderEnabled);
             Footer footer = orcReader.getFooter();
             Map<String, String> readMetadata = Maps.transformValues(footer.getUserMetadata(), Slice::toStringAscii);
             assertEquals(readMetadata, metadata);
         }
     }
 
-    @Test
-    public void testBatchSizeGrowth()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testBatchSizeGrowth(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         try (TempFile tempFile = new TempFile()) {
             // Create a file with 5 stripes of 20 rows each.
             createMultiStripeFile(tempFile.getFile());
 
-            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, BIGINT, INITIAL_BATCH_SIZE)) {
+            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, BIGINT, INITIAL_BATCH_SIZE, orcOptimizedReaderEnabled)) {
                 assertEquals(reader.getReaderRowCount(), 100);
                 assertEquals(reader.getReaderPosition(), 0);
                 assertEquals(reader.getFileRowCount(), reader.getReaderRowCount());

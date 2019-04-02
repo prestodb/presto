@@ -486,7 +486,7 @@ public class TestOrcFileRewriter
         assertEquals(info.getRowCount(), 4);
         if (useOptimizedOrcWriter) {
             // Optimized writer will keep the only column
-            OrcReader orcReader = new OrcReader(fileOrcDataSource(newFile2), ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            OrcReader orcReader = new OrcReader(fileOrcDataSource(newFile2), ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), false);
             orcReader.getColumnNames().equals(ImmutableList.of("7"));
         }
         else {

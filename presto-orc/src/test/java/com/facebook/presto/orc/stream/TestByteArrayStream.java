@@ -16,6 +16,7 @@ package com.facebook.presto.orc.stream;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.checkpoint.ByteArrayStreamCheckpoint;
+import com.facebook.presto.orc.metadata.CompressionKind;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
@@ -28,7 +29,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
-import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 
 public class TestByteArrayStream
         extends AbstractTestValueStream<Slice, ByteArrayStreamCheckpoint, ByteArrayOutputStream, ByteArrayInputStream>
@@ -53,9 +53,9 @@ public class TestByteArrayStream
     }
 
     @Override
-    protected ByteArrayOutputStream createValueOutputStream()
+    protected ByteArrayOutputStream createValueOutputStream(CompressionKind compressionKind)
     {
-        return new ByteArrayOutputStream(SNAPPY, COMPRESSION_BLOCK_SIZE);
+        return new ByteArrayOutputStream(compressionKind, COMPRESSION_BLOCK_SIZE);
     }
 
     @Override
@@ -65,11 +65,11 @@ public class TestByteArrayStream
     }
 
     @Override
-    protected ByteArrayInputStream createValueStream(Slice slice)
+    protected ByteArrayInputStream createValueStream(Slice slice, boolean orcOptimizedReaderEnabled, CompressionKind compressionKind)
             throws OrcCorruptionException
     {
-        Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
-        return new ByteArrayInputStream(new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext(), slice.getRetainedSize()));
+        Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, compressionKind, COMPRESSION_BLOCK_SIZE);
+        return new ByteArrayInputStream(createOrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext(), slice.getRetainedSize(), orcOptimizedReaderEnabled));
     }
 
     @Override

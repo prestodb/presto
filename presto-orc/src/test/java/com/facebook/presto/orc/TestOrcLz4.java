@@ -38,15 +38,15 @@ public class TestOrcLz4
 {
     private static final DataSize SIZE = new DataSize(1, MEGABYTE);
 
-    @Test
-    public void testReadLz4()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testReadLz4(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         // this file was written with Apache ORC
         // TODO: use Apache ORC library in OrcTester
         byte[] data = toByteArray(getResource("apache-lz4.orc"));
 
-        OrcReader orcReader = new OrcReader(new InMemoryOrcDataSource(data), ORC, SIZE, SIZE, SIZE, SIZE);
+        OrcReader orcReader = new OrcReader(new InMemoryOrcDataSource(data), ORC, SIZE, SIZE, SIZE, SIZE, orcOptimizedReaderEnabled);
 
         assertEquals(orcReader.getCompressionKind(), LZ4);
         assertEquals(orcReader.getFooter().getNumberOfRows(), 10_000);

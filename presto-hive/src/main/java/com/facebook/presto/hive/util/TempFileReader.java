@@ -45,7 +45,7 @@ public class TempFileReader
     private final List<Type> types;
     private final OrcRecordReader reader;
 
-    public TempFileReader(List<Type> types, OrcDataSource dataSource)
+    public TempFileReader(List<Type> types, OrcDataSource dataSource, boolean orcOptimizedReaderEnabled)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
 
@@ -56,7 +56,8 @@ public class TempFileReader
                     new DataSize(1, MEGABYTE),
                     new DataSize(8, MEGABYTE),
                     new DataSize(8, MEGABYTE),
-                    new DataSize(16, MEGABYTE));
+                    new DataSize(16, MEGABYTE),
+                    orcOptimizedReaderEnabled);
 
             Map<Integer, Type> includedColumns = new HashMap<>();
             for (int i = 0; i < types.size(); i++) {

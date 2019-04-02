@@ -16,6 +16,7 @@ package com.facebook.presto.orc.stream;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.checkpoint.FloatStreamCheckpoint;
+import com.facebook.presto.orc.metadata.CompressionKind;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
@@ -26,7 +27,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
-import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 
 public class TestFloatStream
         extends AbstractTestValueStream<Float, FloatStreamCheckpoint, FloatOutputStream, FloatInputStream>
@@ -47,9 +47,9 @@ public class TestFloatStream
     }
 
     @Override
-    protected FloatOutputStream createValueOutputStream()
+    protected FloatOutputStream createValueOutputStream(CompressionKind compressionKind)
     {
-        return new FloatOutputStream(SNAPPY, COMPRESSION_BLOCK_SIZE);
+        return new FloatOutputStream(compressionKind, COMPRESSION_BLOCK_SIZE);
     }
 
     @Override
@@ -59,11 +59,11 @@ public class TestFloatStream
     }
 
     @Override
-    protected FloatInputStream createValueStream(Slice slice)
+    protected FloatInputStream createValueStream(Slice slice, boolean orcOptimizedReaderEnabled, CompressionKind compressionKind)
             throws OrcCorruptionException
     {
-        Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
-        return new FloatInputStream(new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext(), slice.getRetainedSize()));
+        Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, compressionKind, COMPRESSION_BLOCK_SIZE);
+        return new FloatInputStream(createOrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext(), slice.getRetainedSize(), orcOptimizedReaderEnabled));
     }
 
     @Override

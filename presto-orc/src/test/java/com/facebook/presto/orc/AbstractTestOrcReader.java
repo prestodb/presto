@@ -85,46 +85,46 @@ public abstract class AbstractTestOrcReader
         assertEquals(DateTimeZone.getDefault(), HIVE_STORAGE_TIME_ZONE);
     }
 
-    @Test
-    public void testBooleanSequence()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testBooleanSequence(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
-        tester.testRoundTrip(BOOLEAN, newArrayList(limit(cycle(ImmutableList.of(true, false, false)), 30_000)));
+        tester.testRoundTrip(BOOLEAN, newArrayList(limit(cycle(ImmutableList.of(true, false, false)), 30_000)), orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testLongSequence()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testLongSequence(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
-        testRoundTripNumeric(intsBetween(0, 31_234));
+        testRoundTripNumeric(intsBetween(0, 31_234), orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testNegativeLongSequence()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testNegativeLongSequence(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         // A flaw in ORC encoding makes it impossible to represent timestamp
         // between 1969-12-31 23:59:59.000, exclusive, and 1970-01-01 00:00:00.000, exclusive.
         // Therefore, such data won't round trip and are skipped from test.
-        testRoundTripNumeric(intsBetween(-31_234, -999));
+        testRoundTripNumeric(intsBetween(-31_234, -999), orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testLongSequenceWithHoles()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testLongSequenceWithHoles(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
-        testRoundTripNumeric(skipEvery(5, intsBetween(0, 31_234)));
+        testRoundTripNumeric(skipEvery(5, intsBetween(0, 31_234)), orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testLongDirect()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testLongDirect(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
-        testRoundTripNumeric(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000));
+        testRoundTripNumeric(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000), orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testLongDirect2()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testLongDirect2(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         List<Integer> values = new ArrayList<>(31_234);
@@ -132,31 +132,31 @@ public abstract class AbstractTestOrcReader
             values.add(i);
         }
         Collections.shuffle(values, new Random(0));
-        testRoundTripNumeric(values);
+        testRoundTripNumeric(values, orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testLongShortRepeat()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testLongShortRepeat(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
-        testRoundTripNumeric(limit(repeatEach(4, cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17))), 30_000));
+        testRoundTripNumeric(limit(repeatEach(4, cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17))), 30_000), orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testLongPatchedBase()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testLongPatchedBase(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
-        testRoundTripNumeric(limit(cycle(concat(intsBetween(0, 18), intsBetween(0, 18), ImmutableList.of(30_000, 20_000, 400_000, 30_000, 20_000))), 30_000));
+        testRoundTripNumeric(limit(cycle(concat(intsBetween(0, 18), intsBetween(0, 18), ImmutableList.of(30_000, 20_000, 400_000, 30_000, 20_000))), 30_000), orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testLongStrideDictionary()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testLongStrideDictionary(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
-        testRoundTripNumeric(concat(ImmutableList.of(1), nCopies(9999, 123), ImmutableList.of(2), nCopies(9999, 123)));
+        testRoundTripNumeric(concat(ImmutableList.of(1), nCopies(9999, 123), ImmutableList.of(2), nCopies(9999, 123)), orcOptimizedReaderEnabled);
     }
 
-    private void testRoundTripNumeric(Iterable<? extends Number> values)
+    private void testRoundTripNumeric(Iterable<? extends Number> values, boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         List<Long> writeValues = ImmutableList.copyOf(values).stream()
@@ -166,160 +166,168 @@ public abstract class AbstractTestOrcReader
                 TINYINT,
                 writeValues.stream()
                         .map(Long::byteValue) // truncate values to byte range
-                        .collect(toList()));
+                        .collect(toList()),
+                orcOptimizedReaderEnabled);
 
         tester.testRoundTrip(
                 SMALLINT,
                 writeValues.stream()
                         .map(Long::shortValue) // truncate values to short range
-                        .collect(toList()));
+                        .collect(toList()),
+                orcOptimizedReaderEnabled);
 
         tester.testRoundTrip(
                 INTEGER,
                 writeValues.stream()
                         .map(Long::intValue) // truncate values to int range
-                        .collect(toList()));
+                        .collect(toList()),
+                orcOptimizedReaderEnabled);
 
-        tester.testRoundTrip(BIGINT, writeValues);
+        tester.testRoundTrip(BIGINT, writeValues, orcOptimizedReaderEnabled);
 
         tester.testRoundTrip(
                 DATE,
                 writeValues.stream()
                         .map(Long::intValue)
                         .map(SqlDate::new)
-                        .collect(toList()));
+                        .collect(toList()),
+                orcOptimizedReaderEnabled);
 
         tester.testRoundTrip(
                 TIMESTAMP,
                 writeValues.stream()
                         .map(timestamp -> sqlTimestampOf(timestamp, SESSION))
-                        .collect(toList()));
+                        .collect(toList()),
+                orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testFloatSequence()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testFloatSequence(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
-        tester.testRoundTrip(REAL, floatSequence(0.0f, 0.1f, 30_000));
+        tester.testRoundTrip(REAL, floatSequence(0.0f, 0.1f, 30_000), orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testFloatNaNInfinity()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testFloatNaNInfinity(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
-        tester.testRoundTrip(REAL, ImmutableList.of(1000.0f, -1.23f, Float.POSITIVE_INFINITY));
-        tester.testRoundTrip(REAL, ImmutableList.of(-1000.0f, Float.NEGATIVE_INFINITY, 1.23f));
-        tester.testRoundTrip(REAL, ImmutableList.of(0.0f, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY));
+        tester.testRoundTrip(REAL, ImmutableList.of(1000.0f, -1.23f, Float.POSITIVE_INFINITY), orcOptimizedReaderEnabled);
+        tester.testRoundTrip(REAL, ImmutableList.of(-1000.0f, Float.NEGATIVE_INFINITY, 1.23f), orcOptimizedReaderEnabled);
+        tester.testRoundTrip(REAL, ImmutableList.of(0.0f, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY), orcOptimizedReaderEnabled);
 
-        tester.testRoundTrip(REAL, ImmutableList.of(Float.NaN, -0.0f, 1.0f));
-        tester.testRoundTrip(REAL, ImmutableList.of(Float.NaN, -1.0f, Float.POSITIVE_INFINITY));
-        tester.testRoundTrip(REAL, ImmutableList.of(Float.NaN, Float.NEGATIVE_INFINITY, 1.0f));
-        tester.testRoundTrip(REAL, ImmutableList.of(Float.NaN, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY));
+        tester.testRoundTrip(REAL, ImmutableList.of(Float.NaN, -0.0f, 1.0f), false);
+        tester.testRoundTrip(REAL, ImmutableList.of(Float.NaN, -1.0f, Float.POSITIVE_INFINITY), false);
+        tester.testRoundTrip(REAL, ImmutableList.of(Float.NaN, Float.NEGATIVE_INFINITY, 1.0f), false);
+        tester.testRoundTrip(REAL, ImmutableList.of(Float.NaN, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY), orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testDoubleSequence()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testDoubleSequence(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
-        tester.testRoundTrip(DOUBLE, doubleSequence(0, 0.1, 30_000));
+        tester.testRoundTrip(DOUBLE, doubleSequence(0, 0.1, 30_000), orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testDecimalSequence()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testDecimalSequence(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
-        tester.testRoundTrip(DECIMAL_TYPE_PRECISION_2, decimalSequence("-30", "1", 60, 2, 1));
-        tester.testRoundTrip(DECIMAL_TYPE_PRECISION_4, decimalSequence("-3000", "1", 60_00, 4, 2));
-        tester.testRoundTrip(DECIMAL_TYPE_PRECISION_8, decimalSequence("-3000000", "100", 60_000, 8, 4));
-        tester.testRoundTrip(DECIMAL_TYPE_PRECISION_17, decimalSequence("-30000000000", "1000000", 60_000, 17, 8));
-        tester.testRoundTrip(DECIMAL_TYPE_PRECISION_18, decimalSequence("-30000000000", "1000000", 60_000, 18, 8));
-        tester.testRoundTrip(DECIMAL_TYPE_PRECISION_38, decimalSequence("-3000000000000000000", "100000000000000", 60_000, 38, 16));
+        tester.testRoundTrip(DECIMAL_TYPE_PRECISION_2, decimalSequence("-30", "1", 60, 2, 1), orcOptimizedReaderEnabled);
+        tester.testRoundTrip(DECIMAL_TYPE_PRECISION_4, decimalSequence("-3000", "1", 60_00, 4, 2), orcOptimizedReaderEnabled);
+        tester.testRoundTrip(DECIMAL_TYPE_PRECISION_8, decimalSequence("-3000000", "100", 60_000, 8, 4), orcOptimizedReaderEnabled);
+        tester.testRoundTrip(DECIMAL_TYPE_PRECISION_17, decimalSequence("-30000000000", "1000000", 60_000, 17, 8), orcOptimizedReaderEnabled);
+        tester.testRoundTrip(DECIMAL_TYPE_PRECISION_18, decimalSequence("-30000000000", "1000000", 60_000, 18, 8), orcOptimizedReaderEnabled);
+        tester.testRoundTrip(DECIMAL_TYPE_PRECISION_38, decimalSequence("-3000000000000000000", "100000000000000", 60_000, 38, 16), orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testDoubleNaNInfinity()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testDoubleNaNInfinity(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
-        tester.testRoundTrip(DOUBLE, ImmutableList.of(1000.0, -1.0, Double.POSITIVE_INFINITY));
-        tester.testRoundTrip(DOUBLE, ImmutableList.of(-1000.0, Double.NEGATIVE_INFINITY, 1.0));
-        tester.testRoundTrip(DOUBLE, ImmutableList.of(0.0, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY));
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(1000.0, -1.0, Double.POSITIVE_INFINITY), orcOptimizedReaderEnabled);
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(-1000.0, Double.NEGATIVE_INFINITY, 1.0), orcOptimizedReaderEnabled);
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(0.0, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY), orcOptimizedReaderEnabled);
 
-        tester.testRoundTrip(DOUBLE, ImmutableList.of(Double.NaN, -1.0, 1.0));
-        tester.testRoundTrip(DOUBLE, ImmutableList.of(Double.NaN, -1.0, Double.POSITIVE_INFINITY));
-        tester.testRoundTrip(DOUBLE, ImmutableList.of(Double.NaN, Double.NEGATIVE_INFINITY, 1.0));
-        tester.testRoundTrip(DOUBLE, ImmutableList.of(Double.NaN, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY));
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(Double.NaN, -1.0, 1.0), orcOptimizedReaderEnabled);
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(Double.NaN, -1.0, Double.POSITIVE_INFINITY), orcOptimizedReaderEnabled);
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(Double.NaN, Double.NEGATIVE_INFINITY, 1.0), orcOptimizedReaderEnabled);
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(Double.NaN, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY), orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testStringUnicode()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testStringUnicode(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
-        tester.testRoundTrip(VARCHAR, newArrayList(limit(cycle(ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")), 30_000)));
+        tester.testRoundTrip(VARCHAR, newArrayList(limit(cycle(ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")), 30_000)), orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testStringDirectSequence()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testStringDirectSequence(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         tester.testRoundTrip(
                 VARCHAR,
                 intsBetween(0, 30_000).stream()
                         .map(Object::toString)
-                        .collect(toList()));
+                        .collect(toList()),
+                orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testStringDictionarySequence()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testStringDictionarySequence(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         tester.testRoundTrip(
                 VARCHAR,
                 newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000)).stream()
                         .map(Object::toString)
-                        .collect(toList()));
+                        .collect(toList()),
+                orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testStringStrideDictionary()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testStringStrideDictionary(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
-        tester.testRoundTrip(VARCHAR, newArrayList(concat(ImmutableList.of("a"), nCopies(9999, "123"), ImmutableList.of("b"), nCopies(9999, "123"))));
+        tester.testRoundTrip(VARCHAR, newArrayList(concat(ImmutableList.of("a"), nCopies(9999, "123"), ImmutableList.of("b"), nCopies(9999, "123"))), orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testEmptyStringSequence()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testEmptyStringSequence(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
-        tester.testRoundTrip(VARCHAR, newArrayList(limit(cycle(""), 30_000)));
+        tester.testRoundTrip(VARCHAR, newArrayList(limit(cycle(""), 30_000)), orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testCharDirectSequence()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testCharDirectSequence(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         tester.testRoundTrip(
                 CHAR,
                 intsBetween(0, 30_000).stream()
                         .map(this::toCharValue)
-                        .collect(toList()));
+                        .collect(toList()),
+                orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testCharDictionarySequence()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testCharDictionarySequence(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         tester.testRoundTrip(
                 CHAR,
                 newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000)).stream()
                         .map(this::toCharValue)
-                        .collect(toList()));
+                        .collect(toList()), false);
     }
 
-    @Test
-    public void testEmptyCharSequence()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testEmptyCharSequence(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
-        tester.testRoundTrip(CHAR, newArrayList(limit(cycle("          "), 30_000)));
+        tester.testRoundTrip(CHAR, newArrayList(limit(cycle("          "), 30_000)), orcOptimizedReaderEnabled);
     }
 
     private String toCharValue(Object value)
@@ -327,8 +335,8 @@ public abstract class AbstractTestOrcReader
         return Strings.padEnd(value.toString(), CHAR_LENGTH, ' ');
     }
 
-    @Test
-    public void testBinaryDirectSequence()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testBinaryDirectSequence(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         tester.testRoundTrip(
@@ -337,11 +345,12 @@ public abstract class AbstractTestOrcReader
                         .map(Object::toString)
                         .map(string -> string.getBytes(UTF_8))
                         .map(SqlVarbinary::new)
-                        .collect(toList()));
+                        .collect(toList()),
+                orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testBinaryDictionarySequence()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testBinaryDictionarySequence(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         tester.testRoundTrip(
@@ -349,18 +358,19 @@ public abstract class AbstractTestOrcReader
                         .map(Object::toString)
                         .map(string -> string.getBytes(UTF_8))
                         .map(SqlVarbinary::new)
-                        .collect(toList()));
+                        .collect(toList()),
+                orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testEmptyBinarySequence()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testEmptyBinarySequence(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
-        tester.testRoundTrip(VARBINARY, nCopies(30_000, new SqlVarbinary(new byte[0])));
+        tester.testRoundTrip(VARBINARY, nCopies(30_000, new SqlVarbinary(new byte[0])), orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testDwrfInvalidCheckpointsForRowGroupDictionary()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testDwrfInvalidCheckpointsForRowGroupDictionary(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         List<Integer> values = newArrayList(limit(
@@ -371,24 +381,25 @@ public abstract class AbstractTestOrcReader
                         nCopies(1_000_000, null))),
                 200_000));
 
-        tester.assertRoundTrip(INTEGER, values, false);
+        tester.assertRoundTrip(INTEGER, values, false, orcOptimizedReaderEnabled);
 
         tester.assertRoundTrip(
                 VARCHAR,
                 newArrayList(values).stream()
                         .map(value -> value == null ? null : String.valueOf(value))
-                        .collect(toList()));
+                        .collect(toList()), orcOptimizedReaderEnabled);
     }
 
-    @Test
-    public void testDwrfInvalidCheckpointsForStripeDictionary()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testDwrfInvalidCheckpointsForStripeDictionary(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         tester.testRoundTrip(
                 VARCHAR,
                 newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 200_000)).stream()
                         .map(Object::toString)
-                        .collect(toList()));
+                        .collect(toList()),
+                orcOptimizedReaderEnabled);
     }
 
     private static <T> Iterable<T> skipEvery(int n, Iterable<T> iterable)

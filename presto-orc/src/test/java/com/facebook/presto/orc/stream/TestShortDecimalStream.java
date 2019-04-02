@@ -16,6 +16,7 @@ package com.facebook.presto.orc.stream;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.checkpoint.DecimalStreamCheckpoint;
+import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.type.Decimals;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
@@ -28,7 +29,6 @@ import java.util.Random;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
-import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 
 public class TestShortDecimalStream
         extends AbstractTestValueStream<Long, DecimalStreamCheckpoint, DecimalOutputStream, DecimalInputStream>
@@ -51,9 +51,9 @@ public class TestShortDecimalStream
     }
 
     @Override
-    protected DecimalOutputStream createValueOutputStream()
+    protected DecimalOutputStream createValueOutputStream(CompressionKind compressionKind)
     {
-        return new DecimalOutputStream(SNAPPY, COMPRESSION_BLOCK_SIZE);
+        return new DecimalOutputStream(compressionKind, COMPRESSION_BLOCK_SIZE);
     }
 
     @Override
@@ -63,11 +63,11 @@ public class TestShortDecimalStream
     }
 
     @Override
-    protected DecimalInputStream createValueStream(Slice slice)
+    protected DecimalInputStream createValueStream(Slice slice, boolean orcOptimizedReaderEnabled, CompressionKind compressionKind)
             throws OrcCorruptionException
     {
-        Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
-        OrcInputStream input = new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext(), slice.getRetainedSize());
+        Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, compressionKind, COMPRESSION_BLOCK_SIZE);
+        OrcInputStream input = createOrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext(), slice.getRetainedSize(), orcOptimizedReaderEnabled);
         return new DecimalInputStream(input);
     }
 

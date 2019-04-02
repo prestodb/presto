@@ -16,6 +16,7 @@ package com.facebook.presto.orc.stream;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
+import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import io.airlift.slice.DynamicSliceOutput;
@@ -32,7 +33,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
-import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
+import static com.facebook.presto.orc.OrcTester.ORC_OPTIMIZED_READER_ENABLED_VALUES;
 import static org.testng.Assert.assertEquals;
 
 public class TestBooleanStream
@@ -62,54 +63,58 @@ public class TestBooleanStream
     public void testWriteMultiple()
             throws IOException
     {
-        BooleanOutputStream outputStream = createValueOutputStream();
-        for (int i = 0; i < 3; i++) {
-            outputStream.reset();
+        for (CompressionKind compressionKind : CompressionKind.values()) {
+            BooleanOutputStream outputStream = createValueOutputStream(compressionKind);
+            for (boolean orcOptimizedReaderEnabled : ORC_OPTIMIZED_READER_ENABLED_VALUES) {
+                for (int i = 0; i < 3; i++) {
+                    outputStream.reset();
 
-            BooleanList expectedValues = new BooleanArrayList(1024);
-            outputStream.writeBooleans(32, true);
-            expectedValues.addAll(Collections.nCopies(32, true));
-            outputStream.writeBooleans(32, false);
-            expectedValues.addAll(Collections.nCopies(32, false));
+                    BooleanList expectedValues = new BooleanArrayList(1024);
+                    outputStream.writeBooleans(32, true);
+                    expectedValues.addAll(Collections.nCopies(32, true));
+                    outputStream.writeBooleans(32, false);
+                    expectedValues.addAll(Collections.nCopies(32, false));
 
-            outputStream.writeBooleans(1, true);
-            expectedValues.add(true);
-            outputStream.writeBooleans(1, false);
-            expectedValues.add(false);
+                    outputStream.writeBooleans(1, true);
+                    expectedValues.add(true);
+                    outputStream.writeBooleans(1, false);
+                    expectedValues.add(false);
 
-            outputStream.writeBooleans(34, true);
-            expectedValues.addAll(Collections.nCopies(34, true));
-            outputStream.writeBooleans(34, false);
-            expectedValues.addAll(Collections.nCopies(34, false));
+                    outputStream.writeBooleans(34, true);
+                    expectedValues.addAll(Collections.nCopies(34, true));
+                    outputStream.writeBooleans(34, false);
+                    expectedValues.addAll(Collections.nCopies(34, false));
 
-            outputStream.writeBoolean(true);
-            expectedValues.add(true);
-            outputStream.writeBoolean(false);
-            expectedValues.add(false);
+                    outputStream.writeBoolean(true);
+                    expectedValues.add(true);
+                    outputStream.writeBoolean(false);
+                    expectedValues.add(false);
 
-            outputStream.close();
+                    outputStream.close();
 
-            DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1000);
-            StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(33);
-            streamDataOutput.writeData(sliceOutput);
-            Stream stream = streamDataOutput.getStream();
-            assertEquals(stream.getStreamKind(), StreamKind.DATA);
-            assertEquals(stream.getColumn(), 33);
-            assertEquals(stream.getLength(), sliceOutput.size());
+                    DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1000);
+                    StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(33);
+                    streamDataOutput.writeData(sliceOutput);
+                    Stream stream = streamDataOutput.getStream();
+                    assertEquals(stream.getStreamKind(), StreamKind.DATA);
+                    assertEquals(stream.getColumn(), 33);
+                    assertEquals(stream.getLength(), sliceOutput.size());
 
-            BooleanInputStream valueStream = createValueStream(sliceOutput.slice());
-            for (int index = 0; index < expectedValues.size(); index++) {
-                boolean expectedValue = expectedValues.getBoolean(index);
-                boolean actualValue = readValue(valueStream);
-                assertEquals(actualValue, expectedValue);
+                    BooleanInputStream valueStream = createValueStream(sliceOutput.slice(), orcOptimizedReaderEnabled, compressionKind);
+                    for (int index = 0; index < expectedValues.size(); index++) {
+                        boolean expectedValue = expectedValues.getBoolean(index);
+                        boolean actualValue = readValue(valueStream);
+                        assertEquals(actualValue, expectedValue);
+                    }
+                }
             }
         }
     }
 
     @Override
-    protected BooleanOutputStream createValueOutputStream()
+    protected BooleanOutputStream createValueOutputStream(CompressionKind compressionKind)
     {
-        return new BooleanOutputStream(SNAPPY, COMPRESSION_BLOCK_SIZE);
+        return new BooleanOutputStream(compressionKind, COMPRESSION_BLOCK_SIZE);
     }
 
     @Override
@@ -119,11 +124,11 @@ public class TestBooleanStream
     }
 
     @Override
-    protected BooleanInputStream createValueStream(Slice slice)
+    protected BooleanInputStream createValueStream(Slice slice, boolean orcOptimizedReaderEnabled, CompressionKind compressionKind)
             throws OrcCorruptionException
     {
-        Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
-        return new BooleanInputStream(new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext(), slice.getRetainedSize()));
+        Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, compressionKind, COMPRESSION_BLOCK_SIZE);
+        return new BooleanInputStream(createOrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext(), slice.getRetainedSize(), orcOptimizedReaderEnabled));
     }
 
     @Override

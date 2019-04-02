@@ -62,14 +62,14 @@ public class TestOrcReaderMemoryUsage
         new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
     }
 
-    @Test
-    public void testVarcharTypeWithoutNulls()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testVarcharTypeWithoutNulls(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         int rows = 5000;
         OrcRecordReader reader = null;
         try (TempFile tempFile = createSingleColumnVarcharFile(rows, 10)) {
-            reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, VARCHAR, INITIAL_BATCH_SIZE);
+            reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, VARCHAR, INITIAL_BATCH_SIZE, orcOptimizedReaderEnabled);
             assertInitialRetainedSizes(reader, rows);
 
             long stripeReaderRetainedSize = reader.getCurrentStripeRetainedSizeInBytes();
@@ -109,14 +109,14 @@ public class TestOrcReaderMemoryUsage
         assertClosedRetainedSizes(reader);
     }
 
-    @Test
-    public void testBigIntTypeWithNulls()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testBigIntTypeWithNulls(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         int rows = 10000;
         OrcRecordReader reader = null;
         try (TempFile tempFile = createSingleColumnFileWithNullValues(rows)) {
-            reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, BIGINT, INITIAL_BATCH_SIZE);
+            reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, BIGINT, INITIAL_BATCH_SIZE, orcOptimizedReaderEnabled);
             assertInitialRetainedSizes(reader, rows);
 
             long stripeReaderRetainedSize = reader.getCurrentStripeRetainedSizeInBytes();
@@ -156,8 +156,8 @@ public class TestOrcReaderMemoryUsage
         assertClosedRetainedSizes(reader);
     }
 
-    @Test
-    public void testMapTypeWithNulls()
+    @Test(dataProvider = "orcOptimizedReaderEnabledValues", dataProviderClass = OrcTester.class)
+    public void testMapTypeWithNulls(boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         Type keyType = BIGINT;
@@ -180,7 +180,7 @@ public class TestOrcReaderMemoryUsage
         int rows = 10000;
         OrcRecordReader reader = null;
         try (TempFile tempFile = createSingleColumnMapFileWithNullValues(mapType, rows)) {
-            reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, mapType, INITIAL_BATCH_SIZE);
+            reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, mapType, INITIAL_BATCH_SIZE, orcOptimizedReaderEnabled);
             assertInitialRetainedSizes(reader, rows);
 
             long stripeReaderRetainedSize = reader.getCurrentStripeRetainedSizeInBytes();

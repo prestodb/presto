@@ -75,6 +75,7 @@ public class SortingFileWriter
     private final TempFileSinkFactory tempFileSinkFactory;
     private final Queue<TempFile> tempFiles = new PriorityQueue<>(comparing(TempFile::getSize));
     private final AtomicLong nextFileId = new AtomicLong();
+    private final boolean orcOptimizedReaderEnabled;
 
     public SortingFileWriter(
             FileSystem fileSystem,
@@ -86,7 +87,8 @@ public class SortingFileWriter
             List<Integer> sortFields,
             List<SortOrder> sortOrders,
             PageSorter pageSorter,
-            TempFileSinkFactory tempFileSinkFactory)
+            TempFileSinkFactory tempFileSinkFactory,
+            boolean orcOptimizedReaderEnabled)
     {
         checkArgument(maxOpenTempFiles >= 2, "maxOpenTempFiles must be at least two");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
@@ -98,6 +100,7 @@ public class SortingFileWriter
         this.outputWriter = requireNonNull(outputWriter, "outputWriter is null");
         this.sortBuffer = new SortBuffer(maxMemory, types, sortFields, sortOrders, pageSorter);
         this.tempFileSinkFactory = tempFileSinkFactory;
+        this.orcOptimizedReaderEnabled = orcOptimizedReaderEnabled;
     }
 
     @Override
@@ -218,7 +221,7 @@ public class SortingFileWriter
                         fileSystem.open(file),
                         new FileFormatDataSourceStats());
                 closer.register(dataSource);
-                iterators.add(new TempFileReader(types, dataSource));
+                iterators.add(new TempFileReader(types, dataSource, orcOptimizedReaderEnabled));
             }
 
             new MergingPageIterator(iterators, types, sortFields, sortOrders)

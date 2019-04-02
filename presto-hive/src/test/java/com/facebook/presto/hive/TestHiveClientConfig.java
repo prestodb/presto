@@ -127,7 +127,8 @@ public class TestHiveClientConfig
                 .setTemporaryTableSchema("default")
                 .setTemporaryTableStorageFormat(ORC)
                 .setTemporaryTableCompressionCodec(SNAPPY)
-                .setUseRewindableSplitSource(false));
+                .setUseRewindableSplitSource(false)
+                .setOrcOptimizedReaderEnabled(false));
     }
 
     @Test
@@ -219,6 +220,7 @@ public class TestHiveClientConfig
                 .put("hive.temporary-table-storage-format", "DWRF")
                 .put("hive.temporary-table-compression-codec", "NONE")
                 .put("hive.use-rewindable-split-source", "true")
+                .put("hive.orc.optimized-reader.enabled", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -307,7 +309,8 @@ public class TestHiveClientConfig
                 .setTemporaryTableSchema("other")
                 .setTemporaryTableStorageFormat(DWRF)
                 .setTemporaryTableCompressionCodec(NONE)
-                .setUseRewindableSplitSource(true);
+                .setUseRewindableSplitSource(true)
+                .setOrcOptimizedReaderEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

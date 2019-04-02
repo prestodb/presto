@@ -54,6 +54,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
+import static com.facebook.presto.orc.OrcTester.ORC_OPTIMIZED_READER_ENABLED_VALUES;
 import static com.facebook.presto.orc.TestFlatMap.ExpectedValuesBuilder.Frequency.ALL;
 import static com.facebook.presto.orc.TestFlatMap.ExpectedValuesBuilder.Frequency.NONE;
 import static com.facebook.presto.orc.TestFlatMap.ExpectedValuesBuilder.Frequency.SOME;
@@ -365,13 +366,14 @@ public class TestFlatMap
             throws Exception
     {
         List<Map<K, V>> expectedValues = expectedValuesBuilder.build();
-
-        runTest(testOrcFileName, keyType, valueType, expectedValues, false, false);
-        runTest(testOrcFileName, keyType, valueType, expectedValues, true, false);
-        runTest(testOrcFileName, keyType, valueType, expectedValues, false, true);
+        for (boolean orcOptimizedReaderEnabled : ORC_OPTIMIZED_READER_ENABLED_VALUES) {
+            runTest(testOrcFileName, keyType, valueType, expectedValues, false, false, orcOptimizedReaderEnabled);
+            runTest(testOrcFileName, keyType, valueType, expectedValues, true, false, orcOptimizedReaderEnabled);
+            runTest(testOrcFileName, keyType, valueType, expectedValues, false, true, orcOptimizedReaderEnabled);
+        }
     }
 
-    private <K, V> void runTest(String testOrcFileName, Type keyType, Type valueType, List<Map<K, V>> expectedValues, boolean skipFirstBatch, boolean skipFirstStripe)
+    private <K, V> void runTest(String testOrcFileName, Type keyType, Type valueType, List<Map<K, V>> expectedValues, boolean skipFirstBatch, boolean skipFirstStripe, boolean orcOptimizedReaderEnabled)
             throws Exception
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(
@@ -386,7 +388,8 @@ public class TestFlatMap
                 new DataSize(1, MEGABYTE),
                 new DataSize(1, MEGABYTE),
                 new DataSize(1, MEGABYTE),
-                new DataSize(1, DataSize.Unit.MEGABYTE));
+                new DataSize(1, DataSize.Unit.MEGABYTE),
+                orcOptimizedReaderEnabled);
         Type mapType = TYPE_MANAGER.getParameterizedType(
                 StandardTypes.MAP,
                 ImmutableList.of(

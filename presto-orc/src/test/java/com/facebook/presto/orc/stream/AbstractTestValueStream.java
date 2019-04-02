@@ -13,17 +13,23 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSourceId;
+import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
+import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.orc.OrcTester.ORC_OPTIMIZED_READER_ENABLED_VALUES;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -35,7 +41,17 @@ public abstract class AbstractTestValueStream<T, C extends StreamCheckpoint, W e
     protected void testWriteValue(List<List<T>> groups)
             throws IOException
     {
-        W outputStream = createValueOutputStream();
+        for (CompressionKind compressionKind : CompressionKind.values()) {
+            for (boolean orcOptimizedReader : ORC_OPTIMIZED_READER_ENABLED_VALUES) {
+                testWriteValue(groups, orcOptimizedReader, compressionKind);
+            }
+        }
+    }
+
+    private void testWriteValue(List<List<T>> groups, boolean orcOptimizedReaderEnabled, CompressionKind compressionKind)
+            throws IOException
+    {
+        W outputStream = createValueOutputStream(compressionKind);
         for (int i = 0; i < 3; i++) {
             outputStream.reset();
             long retainedBytes = 0;
@@ -59,7 +75,7 @@ public abstract class AbstractTestValueStream<T, C extends StreamCheckpoint, W e
             List<C> checkpoints = outputStream.getCheckpoints();
             assertEquals(checkpoints.size(), groups.size());
 
-            R valueStream = createValueStream(sliceOutput.slice());
+            R valueStream = createValueStream(sliceOutput.slice(), orcOptimizedReaderEnabled, compressionKind);
             for (List<T> group : groups) {
                 int index = 0;
                 for (T expectedValue : group) {
@@ -82,13 +98,23 @@ public abstract class AbstractTestValueStream<T, C extends StreamCheckpoint, W e
         }
     }
 
-    protected abstract W createValueOutputStream();
+    protected abstract W createValueOutputStream(CompressionKind compressionKind);
 
     protected abstract void writeValue(W outputStream, T value);
 
-    protected abstract R createValueStream(Slice slice)
+    protected abstract R createValueStream(Slice slice, boolean orcOptimizedReaderEnabled, CompressionKind compressionKind)
             throws OrcCorruptionException;
 
     protected abstract T readValue(R valueStream)
             throws IOException;
+
+    protected OrcInputStream createOrcInputStream(OrcDataSourceId orcDataSourceId, FixedLengthSliceInput sliceInput, Optional<OrcDecompressor> decompressor, AggregatedMemoryContext systemMemoryContext, long sliceInputRetainedSizeInBytes, boolean orcOptimizedReaderEnabled)
+    {
+        if (orcOptimizedReaderEnabled) {
+            return new OptimizedOrcInputStream(orcDataSourceId, sliceInput, decompressor, systemMemoryContext, sliceInputRetainedSizeInBytes);
+        }
+        else {
+            return new LegacyOrcInputStream(orcDataSourceId, sliceInput, decompressor, systemMemoryContext, sliceInputRetainedSizeInBytes);
+        }
+    }
 }

@@ -54,6 +54,7 @@ public final class HiveSessionProperties
     private static final String ORC_STRING_STATISTICS_LIMIT = "orc_string_statistics_limit";
     private static final String ORC_OPTIMIZED_WRITER_ENABLED = "orc_optimized_writer_enabled";
     private static final String ORC_OPTIMIZED_WRITER_VALIDATE = "orc_optimized_writer_validate";
+    private static final String ORC_OPTIMIZED_READER_ENABLED = "orc_optimized_reader_enabled";
     private static final String ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE = "orc_optimized_writer_validate_percentage";
     private static final String ORC_OPTIMIZED_WRITER_VALIDATE_MODE = "orc_optimized_writer_validate_mode";
     private static final String ORC_OPTIMIZED_WRITER_MIN_STRIPE_SIZE = "orc_optimized_writer_min_stripe_size";
@@ -182,6 +183,11 @@ public final class HiveSessionProperties
                         ORC_OPTIMIZED_WRITER_VALIDATE,
                         "Experimental: ORC: Force all validation for files",
                         hiveClientConfig.getOrcWriterValidationPercentage() > 0.0,
+                        false),
+                booleanProperty(
+                        ORC_OPTIMIZED_READER_ENABLED,
+                        "Experimental: ORC: Enable optimized reader",
+                        hiveClientConfig.isOrcOptimizedReaderEnabled(),
                         false),
                 new PropertyMetadata<>(
                         ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE,
@@ -444,6 +450,11 @@ public final class HiveSessionProperties
         // session property can not force validation when sampling is enabled
         // todo change this if session properties support null
         return ThreadLocalRandom.current().nextDouble(100) < percentage;
+    }
+
+    public static boolean isOrcOptimizedReaderEnabled(ConnectorSession session)
+    {
+        return session.getProperty(ORC_OPTIMIZED_READER_ENABLED, Boolean.class);
     }
 
     public static OrcWriteValidationMode getOrcOptimizedWriterValidateMode(ConnectorSession session)
