@@ -114,6 +114,7 @@ public final class SystemSessionProperties
     public static final String LEGACY_UNNEST = "legacy_unnest";
     public static final String STATISTICS_CPU_TIMER_ENABLED = "statistics_cpu_timer_enabled";
     public static final String ENABLE_STATS_CALCULATOR = "enable_stats_calculator";
+    public static final String PUSHDOWN_SUBFIELDS = "pushdown_subfields";
     public static final String ARIA_SCAN = "aria_scan";
     public static final String ARIA_REUSE_PAGES = "aria_reuse_pages";
     public static final String ARIA_REORDER = "aria_reorder";
@@ -542,6 +543,11 @@ public final class SystemSessionProperties
                         "Maximum number of tasks for a non source distributed stage",
                         taskManagerConfig.getMaxTasksPerStage(),
                         false),
+                booleanProperty(
+                        PUSHDOWN_SUBFIELDS,
+                        "Pushdown subfield pruning into a projection on top of table scan",
+                        false,
+                        false),
                 booleanProperty(ARIA_SCAN,
                                 "Enable Aria Presto! scan operator",
                                 true,
@@ -962,6 +968,11 @@ public final class SystemSessionProperties
     public static boolean isEnableStatsCalculator(Session session)
     {
         return session.getSystemProperty(ENABLE_STATS_CALCULATOR, Boolean.class);
+    }
+
+    public static boolean isPushdownSubfields(Session session)
+    {
+        return session.getSystemProperty(PUSHDOWN_SUBFIELDS, Boolean.class);
     }
 
     public static boolean isAriaScanEnabled(Session session)
