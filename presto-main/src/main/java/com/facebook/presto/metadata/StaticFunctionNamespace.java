@@ -94,6 +94,7 @@ import com.facebook.presto.operator.scalar.DataSizeFunctions;
 import com.facebook.presto.operator.scalar.DateTimeFunctions;
 import com.facebook.presto.operator.scalar.EmptyMapConstructor;
 import com.facebook.presto.operator.scalar.FailureFunction;
+import com.facebook.presto.operator.scalar.FilterBySubscriptPathsFunction;
 import com.facebook.presto.operator.scalar.HmacFunctions;
 import com.facebook.presto.operator.scalar.HyperLogLogFunctions;
 import com.facebook.presto.operator.scalar.JoniRegexpCasts;
@@ -274,6 +275,7 @@ import static com.facebook.presto.operator.scalar.Re2JCastToRegexpFunction.castC
 import static com.facebook.presto.operator.scalar.Re2JCastToRegexpFunction.castVarcharToRe2JRegexp;
 import static com.facebook.presto.operator.scalar.RowDistinctFromOperator.ROW_DISTINCT_FROM;
 import static com.facebook.presto.operator.scalar.RowEqualOperator.ROW_EQUAL;
+import static com.facebook.presto.operator.scalar.RowFilterBySubscriptPathsFunction.ROW_FILTER_BY_SUBSCRIPT_PATHS;
 import static com.facebook.presto.operator.scalar.RowGreaterThanOperator.ROW_GREATER_THAN;
 import static com.facebook.presto.operator.scalar.RowGreaterThanOrEqualOperator.ROW_GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.operator.scalar.RowHashCodeOperator.ROW_HASH_CODE;
@@ -590,6 +592,8 @@ class StaticFunctionNamespace
                 .scalar(MapIndeterminateOperator.class)
                 .scalar(TypeOfFunction.class)
                 .scalar(TryFunction.class)
+                .scalars(FilterBySubscriptPathsFunction.class)
+                .functions(ROW_FILTER_BY_SUBSCRIPT_PATHS)
                 .functions(ZIP_WITH_FUNCTION, MAP_ZIP_WITH_FUNCTION)
                 .functions(ZIP_FUNCTIONS)
                 .functions(ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)
