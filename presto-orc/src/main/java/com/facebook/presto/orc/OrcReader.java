@@ -21,7 +21,7 @@ import com.facebook.presto.orc.metadata.Metadata;
 import com.facebook.presto.orc.metadata.PostScript;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.stream.OrcInputStream;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.SubfieldPath;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
@@ -228,14 +228,14 @@ public class OrcReader
         return createRecordReader(includedColumns, ImmutableMap.of(), predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize);
     }
 
-    public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, Map<Integer, ColumnHandle> includedColumnHandles, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryUsage, int initialBatchSize)
+    public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, Map<Integer, List<SubfieldPath>> includedSubfields, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryUsage, int initialBatchSize)
     {
-        return createRecordReader(includedColumns, includedColumnHandles, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize);
+        return createRecordReader(includedColumns, includedSubfields, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize);
     }
 
     public OrcRecordReader createRecordReader(
             Map<Integer, Type> includedColumns,
-            Map<Integer, ColumnHandle> includedColumnHandles,
+            Map<Integer, List<SubfieldPath>> includedSubfields,
             OrcPredicate predicate,
             long offset,
             long length,
@@ -245,7 +245,7 @@ public class OrcReader
     {
         return new OrcRecordReader(
                 requireNonNull(includedColumns, "includedColumns is null"),
-                requireNonNull(includedColumnHandles, "includedColumnHandles is null"),
+                requireNonNull(includedSubfields, "includedSubfields is null"),
                 requireNonNull(predicate, "predicate is null"),
                 footer.getNumberOfRows(),
                 footer.getStripes(),
