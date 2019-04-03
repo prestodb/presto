@@ -100,7 +100,7 @@ public class MapDirectStreamReader
         ImmutableSet.Builder<Slice> sliceSubscripts = ImmutableSet.builder();
         ImmutableSet.Builder<Long> longSubscripts = ImmutableSet.builder();
         for (SubfieldPath subfield : subfields) {
-            List<PathElement> pathElements = subfield.getPath();
+            List<PathElement> pathElements = subfield.getPathElements();
             PathElement subscript = pathElements.get(depth + 1);
             checkArgument(subscript.isSubscript(), "Map reader needs a PathElement with a subscript");
             if (subscript == allSubscripts()) {

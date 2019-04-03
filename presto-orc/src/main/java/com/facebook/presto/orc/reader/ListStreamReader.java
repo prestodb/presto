@@ -90,7 +90,7 @@ public class ListStreamReader
         ImmutableList.Builder<SubfieldPath> pathsForElement = ImmutableList.builder();
         boolean mayPruneElement = true;
         for (SubfieldPath subfield : subfields) {
-            List<PathElement> pathElements = subfield.getPath();
+            List<PathElement> pathElements = subfield.getPathElements();
             PathElement subscript = pathElements.get(depth + 1);
             checkArgument(subscript instanceof LongSubscript, "List reader needs a PathElement with a subscript");
             if (subscript == allSubscripts()) {
