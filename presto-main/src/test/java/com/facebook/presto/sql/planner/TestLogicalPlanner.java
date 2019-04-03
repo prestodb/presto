@@ -14,7 +14,13 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.operator.scalar.FunctionAssertions;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
@@ -34,7 +40,9 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.tests.QueryTemplate;
 import com.facebook.presto.util.MorePredicates;
 import com.google.common.collect.ImmutableList;
@@ -42,6 +50,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -50,10 +59,13 @@ import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_SORT;
 import static com.facebook.presto.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
+import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS;
 import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.spi.predicate.Domain.singleValue;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
@@ -77,6 +89,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJo
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specification;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.topNRowNumber;
@@ -101,6 +114,7 @@ import static com.facebook.presto.tests.QueryTemplate.queryTemplate;
 import static com.facebook.presto.util.MorePredicates.isInstanceOfAny;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -991,5 +1005,105 @@ public class TestLogicalPlanner
                                         filter(
                                                 "p_comment = '42'",
                                                 tableScan("partsupp", ImmutableMap.of("p_suppkey", "suppkey", "p_partkey", "partkey", "p_comment", "comment")))))));
+    }
+
+    @Test
+    public void testPushdownSubfields()
+    {
+        Session pushdownSubfields = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(PUSHDOWN_SUBFIELDS, "true")
+                .build();
+
+        assertPlanWithSession(
+                "SELECT ints[2] FROM lineitem_ext",
+                pushdownSubfields, false,
+                anyTree(
+                        project(
+                                ImmutableMap.of("ints_filtered", expression(format("filter_by_subscript_paths(ints, %s)[bigint '2']", optimizeExpression("array['ints[2]']", new ArrayType(createVarcharType(7)))))),
+                                tableScan("lineitem_ext", ImmutableMap.of("ints", "ints")))));
+
+        assertPlanWithSession(
+                "SELECT ints[2] + 10 FROM lineitem_ext",
+                pushdownSubfields, false,
+                anyTree(
+                        project(
+                                ImmutableMap.of("ints_filtered", expression(format("filter_by_subscript_paths(ints, %s)[bigint '2'] + bigint '10'", optimizeExpression("array['ints[2]']", new ArrayType(createVarcharType(7)))))),
+                                tableScan("lineitem_ext", ImmutableMap.of("ints", "ints")))));
+
+        assertPlanWithSession(
+                "SELECT power(ints[2], 2) FROM lineitem_ext",
+                pushdownSubfields, false,
+                anyTree(
+                        project(
+                                ImmutableMap.of("ints_filtered", expression(format("power(cast(filter_by_subscript_paths(ints, %s)[bigint '2'] as double), 2e0)", optimizeExpression("array['ints[2]']", new ArrayType(createVarcharType(7)))))),
+                                tableScan("lineitem_ext", ImmutableMap.of("ints", "ints")))));
+
+        assertPlanWithSession(
+                "SELECT ints[2] FROM lineitem_ext WHERE ints[4] > 0",
+                pushdownSubfields, false,
+                anyTree(
+                        project(
+                                ImmutableMap.of("ints_filtered", expression(format("filter_by_subscript_paths(ints, %s)[bigint '2']", optimizeExpression("array['ints[2]', 'ints[4]']", new ArrayType(createVarcharType(7)))))),
+                                filter(format("filter_by_subscript_paths(ints, %s)[bigint '4'] > bigint '0'", optimizeExpression("array['ints[2]', 'ints[4]']", new ArrayType(createVarcharType(7)))),
+                                        tableScan("lineitem_ext", ImmutableMap.of("ints", "ints"))))));
+
+        assertPlanWithSession(
+                "SELECT ints[2] FROM orders o, lineitem_ext l " +
+                        "WHERE o.orderkey = l.orderkey",
+                pushdownSubfields, true,
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("o_orderkey", "l_orderkey")),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey"))),
+                                anyTree(
+                                        project(
+                                                ImmutableMap.of("ints_filtered", expression(format("filter_by_subscript_paths(ints, %s)", optimizeExpression("array['ints[2]']", new ArrayType(createVarcharType(7)))))),
+                                                tableScan("lineitem_ext", ImmutableMap.of("ints", "ints", "l_orderkey", "orderkey")))))));
+
+        assertPlanWithSession(
+                "SELECT shipinfo.shipdate FROM orders o, lineitem_ext l " +
+                        "WHERE o.orderkey = l.orderkey",
+                pushdownSubfields, true,
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("o_orderkey", "l_orderkey")),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey"))),
+                                anyTree(
+                                        project(
+                                                ImmutableMap.of("shipdate_filtered", expression(format("filter_by_subscript_paths(shipinfo, %s)", optimizeExpression("array['shipinfo.shipdate']", new ArrayType(createVarcharType(17)))))),
+                                                tableScan("lineitem_ext", ImmutableMap.of("shipinfo", "shipinfo", "l_orderkey", "orderkey")))))));
+
+        assertPlanWithSession(
+                "SELECT t.ints[2] FROM lineitem_ext CROSS JOIN UNNEST (nested_ints) AS t(ints)",
+                pushdownSubfields, true,
+                anyTree(
+                        project(
+                                ImmutableMap.of("nested_ints_filtered", expression(format("filter_by_subscript_paths(nested_ints, %s)", optimizeExpression("array['nested_ints[*][2]']", new ArrayType(createVarcharType(17)))))),
+                                tableScan("lineitem_ext", ImmutableMap.of("nested_ints", "nested_ints")))));
+
+        // No pushdown
+        assertPlanWithSession(
+                "SELECT cardinality(ints), ints[2] FROM lineitem_ext",
+                pushdownSubfields, false,
+                anyTree(
+                        strictProject(
+                                ImmutableMap.of("int_2", expression("ints[bigint '2']"), "cardinality", expression("cardinality(ints)")),
+                                tableScan("lineitem_ext", ImmutableMap.of("ints", "ints")))));
+    }
+
+    private Expression optimizeExpression(String sql, Type expectedType)
+    {
+        Metadata metadata = getQueryRunner().getMetadata();
+        SqlParser sqlParser = getQueryRunner().getSqlParser();
+        Session session = getQueryRunner().getDefaultSession();
+
+        Expression parsedExpression = FunctionAssertions.createExpression(sql, metadata, TypeProvider.empty());
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, TypeProvider.empty(), parsedExpression, emptyList(), WarningCollector.NOOP);
+        ExpressionInterpreter interpreter = expressionOptimizer(parsedExpression, metadata, session, expressionTypes);
+
+        Object expression = interpreter.evaluateConstantExpression(parsedExpression, expectedType, metadata, session, ImmutableList.of());
+
+        LiteralEncoder literalEncoder = new LiteralEncoder(getQueryRunner().getBlockEncodingManager());
+        return literalEncoder.toExpression(expression, expectedType);
     }
 }

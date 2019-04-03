@@ -114,7 +114,7 @@ import com.facebook.presto.sql.planner.optimizations.OptimizeMixedDistinctAggreg
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
-import com.facebook.presto.sql.planner.optimizations.PushdownSubscripts;
+import com.facebook.presto.sql.planner.optimizations.PushdownSubfields;
 import com.facebook.presto.sql.planner.optimizations.ReplicateSemiJoinInDelete;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.StatsRecordingPlanOptimizer;
@@ -396,6 +396,7 @@ public class PlanOptimizers
                         ImmutableSet.of(new EliminateCrossJoins())), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
                 predicatePushDown,
                 simplifyOptimizer, // Should be always run after PredicatePushDown
+                new PushdownSubfields(),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -472,7 +473,6 @@ public class PlanOptimizers
         builder.add(inlineProjections);
         builder.add(new UnaliasSymbolReferences()); // Run unalias after merging projections to simplify projections more efficiently
         builder.add(new PruneUnreferencedOutputs());
-        builder.add(new PushdownSubscripts());
 
         builder.add(new IterativeOptimizer(
                 ruleStats,

@@ -42,7 +42,7 @@ public class SubfieldUtils
         while (true) {
             if (expression instanceof SymbolReference) {
                 elements.add(new SubfieldPath.NestedField(((SymbolReference) expression).getName()));
-                break;
+                return new SubfieldPath(elements.build().reverse());
             }
 
             if (expression instanceof DereferenceExpression) {
@@ -77,8 +77,6 @@ public class SubfieldUtils
                 return null;
             }
         }
-
-        return new SubfieldPath(elements.build().reverse());
     }
 
     public static Expression getDerefenceOrSubscriptBase(Expression expression)

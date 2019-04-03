@@ -30,13 +30,6 @@ public interface ColumnHandle
         throw new UnsupportedOperationException();
     }
 
-    /* Returns an equivalent ColumnHandle where the connector is free
-     * to leave out any subfields not in the 'paths'. Such a ColumnHandle may occur in the list of projected columns for a PageSource.  */
-    default ColumnHandle createSubfieldPruningColumnHandle(List<SubfieldPath> referencedSubfields)
-    {
-        return this;
-    }
-
     default SubfieldPath getSubfieldPath()
     {
         return null;
