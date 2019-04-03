@@ -234,7 +234,6 @@ public class FloatStreamReader
                     // Non-null row in qualifying set.
                     if (toSkip > 0) {
                         dataStream.skip(toSkip);
-                        toSkip = 0;
                     }
                     float value = dataStream.next();
                     if (filter != null) {
