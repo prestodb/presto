@@ -445,17 +445,17 @@ public class TupleDomainOrcPredicate<C>
             structFilter = new Filters.StructFilter();
             filters.put(ordinal, structFilter);
         }
-        int depth = subfield.getPath().size();
+        int depth = subfield.getPathElements().size();
         for (int i = 1; i < depth; i++) {
-            Filter memberFilter = structFilter.getMember(subfield.getPath().get(i));
+            Filter memberFilter = structFilter.getMember(subfield.getPathElements().get(i));
             if (i == depth - 1) {
                 verify(memberFilter == null);
-                structFilter.addMember(subfield.getPath().get(i), filter);
+                structFilter.addMember(subfield.getPathElements().get(i), filter);
                 return;
             }
             if (memberFilter == null) {
                 memberFilter = new Filters.StructFilter();
-                structFilter.addMember(subfield.getPath().get(i), memberFilter);
+                structFilter.addMember(subfield.getPathElements().get(i), memberFilter);
                 structFilter = (Filters.StructFilter) memberFilter;
             }
             else {

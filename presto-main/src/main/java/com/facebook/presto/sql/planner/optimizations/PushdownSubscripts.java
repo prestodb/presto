@@ -215,7 +215,7 @@ public class PushdownSubscripts
                         if (key.getName().equals(path.getColumnName())) {
                             newPaths.add(new SubfieldPath(ImmutableList.<PathElement>builder()
                                     .add(new NestedField(valueRef.getName()))
-                                    .addAll(path.getPath().subList(1, path.getPath().size()))
+                                    .addAll(path.getPathElements().subList(1, path.getPathElements().size()))
                                     .build()));
                         }
                     }
@@ -229,8 +229,8 @@ public class PushdownSubscripts
                         for (SubfieldPath path : subfieldPaths) {
                             if (key.getName().equals(path.getColumnName())) {
                                 newPaths.add(new SubfieldPath(ImmutableList.<PathElement>builder()
-                                        .addAll(deferenceOrSubscriptExpressionToPath(value).getPath())
-                                        .addAll(path.getPath())
+                                        .addAll(deferenceOrSubscriptExpressionToPath(value).getPathElements())
+                                        .addAll(path.getPathElements())
                                         .build()));
                             }
                         }
@@ -262,7 +262,7 @@ public class PushdownSubscripts
                                         .add(new NestedField(source))
                                         .add(allSubscripts())
                                         .add(new NestedField(member.getName()))
-                                        .addAll(path.getPath())
+                                        .addAll(path.getPathElements())
                                         .build()));
                             }
                         }

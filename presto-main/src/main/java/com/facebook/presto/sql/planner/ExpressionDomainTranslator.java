@@ -125,8 +125,8 @@ public final class ExpressionDomainTranslator
         if (symbol instanceof SymbolWithSubfieldPath) {
             SubfieldPath path = ((SymbolWithSubfieldPath) symbol).getSubfieldPath();
             Expression base = new SymbolReference(symbol.getName());
-            for (int i = 1; i < path.getPath().size(); i++) {
-                SubfieldPath.PathElement element = path.getPath().get(i);
+            for (int i = 1; i < path.getPathElements().size(); i++) {
+                SubfieldPath.PathElement element = path.getPathElements().get(i);
                 if (element instanceof NestedField) {
                     base = new DereferenceExpression(base, new Identifier(((NestedField) element).getName()));
                 }
