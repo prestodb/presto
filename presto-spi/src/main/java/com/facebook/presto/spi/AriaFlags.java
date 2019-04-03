@@ -18,5 +18,4 @@ public class AriaFlags
     private AriaFlags() {}
 
     public static final int noReaderBudget = 16;
-    public static final int pruneSubfields = 64;
 }

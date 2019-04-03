@@ -14,9 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.spi.AriaFlags;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SubfieldPath;
 import com.facebook.presto.spi.SubfieldPath.NestedField;
@@ -50,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.isPushdownSubfields;
 import static com.facebook.presto.spi.SubfieldPath.allSubscripts;
 import static com.facebook.presto.sql.planner.SubfieldUtils.deferenceOrSubscriptExpressionToPath;
 import static com.facebook.presto.sql.planner.SubfieldUtils.isDereferenceOrSubscriptExpression;
@@ -67,7 +66,7 @@ public class PushdownSubscripts
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        if ((SystemSessionProperties.ariaFlags(session) & AriaFlags.pruneSubfields) == 0) {
+        if (!isPushdownSubfields(session)) {
             return plan;
         }
 
