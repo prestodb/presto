@@ -1281,5 +1281,21 @@
                 </plugins>
             </build>
         </profile>
+        <profile>
+            <id>release-with-parallel-build</id>
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <groupId>org.apache.maven.plugins</groupId>
+                            <artifactId>maven-release-plugin</artifactId>
+                            <configuration>
+                                <preparationGoals>clean verify -DskipTests -TC1</preparationGoals>
+                            </configuration>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+            </build>
+        </profile>
     </profiles>
 </project>
