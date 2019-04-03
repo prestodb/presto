@@ -14,10 +14,10 @@
 package com.facebook.presto.spi;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.annotation.JsonValue;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -26,15 +26,6 @@ import static java.util.Objects.requireNonNull;
 
 public class SubfieldPath
 {
-    @JsonTypeInfo(
-            use = JsonTypeInfo.Id.NAME,
-            property = "@type")
-    @JsonSubTypes({
-            @JsonSubTypes.Type(value = NestedField.class, name = "nestedField"),
-            @JsonSubTypes.Type(value = LongSubscript.class, name = "longSubscript"),
-            @JsonSubTypes.Type(value = StringSubscript.class, name = "stringSubscript"),
-            @JsonSubTypes.Type(value = AllSubscripts.class, name = "allSubscripts"),
-    })
     public abstract static class PathElement
     {
         public abstract boolean isSubscript();
@@ -47,7 +38,6 @@ public class SubfieldPath
 
         private AllSubscripts() {}
 
-        @JsonCreator
         public static AllSubscripts getInstance()
         {
             return ALL_SUBSCRIPTS;
@@ -71,13 +61,11 @@ public class SubfieldPath
     {
         private final String name;
 
-        @JsonCreator
-        public NestedField(@JsonProperty("name") String name)
+        public NestedField(String name)
         {
             this.name = requireNonNull(name, "name is null");
         }
 
-        @JsonProperty
         public String getName()
         {
             return name;
@@ -121,13 +109,11 @@ public class SubfieldPath
     {
         private final long index;
 
-        @JsonCreator
-        public LongSubscript(@JsonProperty("index") long index)
+        public LongSubscript(long index)
         {
             this.index = index;
         }
 
-        @JsonProperty
         public long getIndex()
         {
             return index;
@@ -171,13 +157,11 @@ public class SubfieldPath
     {
         private final String index;
 
-        @JsonCreator
-        public StringSubscript(@JsonProperty("index") String index)
+        public StringSubscript(String index)
         {
             this.index = requireNonNull(index, "index is null");
         }
 
-        @JsonProperty
         public String getIndex()
         {
             return index;
@@ -206,7 +190,7 @@ public class SubfieldPath
         @Override
         public String toString()
         {
-            return "[" + index + "]";
+            return "[\"" + index.replace("\"", "\\\"") + "\"]";
         }
 
         @Override
@@ -224,9 +208,22 @@ public class SubfieldPath
         return AllSubscripts.getInstance();
     }
 
-    // TODO Add column name as a separate argument and remove it from the path
     @JsonCreator
-    public SubfieldPath(@JsonProperty("path") List<PathElement> path)
+    public SubfieldPath(String path)
+    {
+        this(Collections.unmodifiableList(parsePath(path)));
+    }
+
+    private static List<PathElement> parsePath(String path)
+    {
+        SubfieldPathTokenizer tokenizer = new SubfieldPathTokenizer(path);
+        List<PathElement> elements = new ArrayList<>();
+        tokenizer.forEachRemaining(elements::add);
+        return elements;
+    }
+
+    // TODO Add column name as a separate argument and remove it from the path
+    public SubfieldPath(List<PathElement> path)
     {
         requireNonNull(path, "path is null");
         checkArgument(path.size() > 1, "path must include at least 2 elements");
@@ -247,7 +244,6 @@ public class SubfieldPath
         return name;
     }
 
-    @JsonProperty("path")
     public List<PathElement> getPathElements()
     {
         return path;
@@ -262,10 +258,18 @@ public class SubfieldPath
         return false;
     }
 
+    @JsonValue
+    public String getPath()
+    {
+        return name + path.subList(1, path.size()).stream()
+                .map(PathElement::toString)
+                .collect(Collectors.joining());
+    }
+
     @Override
     public String toString()
     {
-        return path.stream().map(PathElement::toString).collect(Collectors.joining());
+        return getPath();
     }
 
     @Override
