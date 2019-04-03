@@ -38,6 +38,8 @@ import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.tpch.statistics.ColumnStatisticsData;
@@ -75,6 +77,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.tpch.util.PredicateUtils.convertToPredicate;
 import static com.facebook.presto.tpch.util.PredicateUtils.filterOutColumnFromPredicate;
@@ -119,6 +122,18 @@ public class TpchMetadata
             .map(value -> new NullableValue(getPrestoType(PartColumn.CONTAINER), value))
             .collect(toSet());
 
+    private static final Map<String, List<ColumnMetadata>> EXTRA_TABLES = ImmutableMap.<String, List<ColumnMetadata>>builder()
+                .put(
+                        "lineitem_ext",
+                        ImmutableList.<ColumnMetadata>builder()
+                                .add(new ColumnMetadata("orderkey", BIGINT))
+                                .add(new ColumnMetadata("linenumber", INTEGER))
+                                .add(new ColumnMetadata("ints", new ArrayType(BIGINT)))
+                                .add(new ColumnMetadata("nested_ints", new ArrayType(new ArrayType(BIGINT))))
+                                .add(new ColumnMetadata("shipinfo", RowType.from(ImmutableList.of(RowType.field("shipdate", DATE), RowType.field("shipmode", VARCHAR)))))
+                                .build())
+                .build();
+
     private final String connectorId;
     private final Set<String> tableNames;
     private final ColumnNaming columnNaming;
@@ -137,6 +152,7 @@ public class TpchMetadata
         for (TpchTable<?> tpchTable : TpchTable.getTables()) {
             tableNames.add(tpchTable.getTableName());
         }
+        tableNames.addAll(EXTRA_TABLES.keySet());
         this.tableNames = tableNames.build();
         this.connectorId = connectorId;
         this.columnNaming = columnNaming;
@@ -276,9 +292,13 @@ public class TpchMetadata
     {
         TpchTableHandle tpchTableHandle = (TpchTableHandle) tableHandle;
 
-        TpchTable<?> tpchTable = TpchTable.getTable(tpchTableHandle.getTableName());
         String schemaName = scaleFactorSchemaName(tpchTableHandle.getScaleFactor());
+        String tableName = tpchTableHandle.getTableName();
+        if (EXTRA_TABLES.containsKey(tableName)) {
+            return new ConnectorTableMetadata(new SchemaTableName(schemaName, tableName), EXTRA_TABLES.get(tableName));
+        }
 
+        TpchTable<?> tpchTable = TpchTable.getTable(tableName);
         return getTableMetadata(schemaName, tpchTable, columnNaming);
     }
 
@@ -324,6 +344,11 @@ public class TpchMetadata
     {
         TpchTableHandle tpchTableHandle = (TpchTableHandle) tableHandle;
         String tableName = tpchTableHandle.getTableName();
+
+        if (EXTRA_TABLES.containsKey(tableName)) {
+            return TableStatistics.empty();
+        }
+
         TpchTable<?> tpchTable = TpchTable.getTable(tableName);
         Map<TpchColumn<?>, List<Object>> columnValuesRestrictions = ImmutableMap.of();
         if (predicatePushdownEnabled) {
@@ -465,8 +490,8 @@ public class TpchMetadata
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
         for (String schemaName : getSchemaNames(session, filterSchema)) {
-            for (TpchTable<?> tpchTable : TpchTable.getTables()) {
-                builder.add(new SchemaTableName(schemaName, tpchTable.getTableName()));
+            for (String tableName : tableNames) {
+                builder.add(new SchemaTableName(schemaName, tableName));
             }
         }
         return builder.build();
