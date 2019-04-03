@@ -504,7 +504,7 @@ public class PlanFragmenter
                     constants.put(symbol, expression);
                 }
                 else {
-                    symbol = argumentBinding.getColumn();
+                    symbol = argumentBinding.getSymbol();
                 }
                 symbols.add(symbol);
             }

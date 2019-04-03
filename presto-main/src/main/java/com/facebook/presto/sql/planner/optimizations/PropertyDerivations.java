@@ -436,8 +436,8 @@ public class PropertyDerivations
                         Partitioning nodePartitioning = probeProperties.getNodePartitioning().get();
                         ImmutableList.Builder<Partitioning.ArgumentBinding> outputArguments = ImmutableList.builder();
                         for (Partitioning.ArgumentBinding argument : nodePartitioning.getArguments()) {
-                            if (argument.isVariable()) {
-                                Symbol column = argument.getColumn();
+                            if (argument.isSymbolReference()) {
+                                Symbol column = argument.getSymbol();
                                 for (JoinNode.EquiJoinClause equality : node.getCriteria()) {
                                     if (equality.getLeft().equals(column) || equality.getRight().equals(column)) {
                                         outputArguments.add(expressionBinding(new CoalesceExpression(ImmutableList.of(equality.getLeft().toSymbolReference(), equality.getRight().toSymbolReference()))));
