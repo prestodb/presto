@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.SubfieldPath;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
@@ -110,6 +111,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Map<ColumnHandle, ColumnHandle> pushdownSubfieldPruning(Session session, TableHandle tableHandle, Map<ColumnHandle, List<SubfieldPath>> desiredSubfields)
     {
         throw new UnsupportedOperationException();
     }
