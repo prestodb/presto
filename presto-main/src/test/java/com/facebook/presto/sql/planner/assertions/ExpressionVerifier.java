@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
+import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -36,6 +37,7 @@ import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
@@ -195,6 +197,27 @@ final class ExpressionVerifier
         return false;
     }
 
+    @Override
+    protected Boolean visitArrayConstructor(ArrayConstructor actual, Node expectedExpression)
+    {
+        if (expectedExpression instanceof ArrayConstructor) {
+            ArrayConstructor expected = (ArrayConstructor) expectedExpression;
+            if (actual.getValues().size() != expected.getValues().size()) {
+                return false;
+            }
+
+            for (int i = 0; i < actual.getValues().size(); i++) {
+                if (!process(actual.getValues().get(i), expected.getValues().get(i))) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
     protected Boolean visitGenericLiteral(GenericLiteral actual, Node expected)
     {
         if (expected instanceof GenericLiteral) {
@@ -305,6 +328,17 @@ final class ExpressionVerifier
             return process(actual.getValue(), ((NotExpression) expected).getValue());
         }
         return false;
+    }
+
+    @Override
+    protected Boolean visitSubscriptExpression(SubscriptExpression actual, Node expected)
+    {
+        if (!(expected instanceof SubscriptExpression)) {
+            return false;
+        }
+
+        return process(actual.getBase(), ((SubscriptExpression) expected).getBase()) &&
+                process(actual.getIndex(), ((SubscriptExpression) expected).getIndex());
     }
 
     @Override

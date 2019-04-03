@@ -237,10 +237,4 @@ public class HiveColumnHandle
     {
         return new HiveColumnHandle(name, hiveType, typeName, hiveColumnIndex, columnType, comment, path, null);
     }
-
-    @Override
-    public ColumnHandle createSubfieldPruningColumnHandle(List<SubfieldPath> referencedSubfields)
-    {
-        return new HiveColumnHandle(name, hiveType, typeName, hiveColumnIndex, columnType, comment, null, referencedSubfields);
-    }
 }
