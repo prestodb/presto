@@ -81,6 +81,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PushProjectionThroughUnion
 import com.facebook.presto.sql.planner.iterative.rule.PushRemoteExchangeThroughAssignUniqueId;
 import com.facebook.presto.sql.planner.iterative.rule.PushTableWriteThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushTopNThroughUnion;
+import com.facebook.presto.sql.planner.iterative.rule.PushdownSubfieldsIntoConnector;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveEmptyDelete;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveFullSample;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
@@ -397,6 +398,11 @@ public class PlanOptimizers
                 predicatePushDown,
                 simplifyOptimizer, // Should be always run after PredicatePushDown
                 new PushdownSubfields(),
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        new PushdownSubfieldsIntoConnector(metadata).rules()),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,

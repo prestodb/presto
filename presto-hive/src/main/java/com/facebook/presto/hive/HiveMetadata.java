@@ -51,6 +51,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.SubfieldPath;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
@@ -142,7 +143,6 @@ import static com.facebook.presto.hive.HiveSessionProperties.getHiveStorageForma
 import static com.facebook.presto.hive.HiveSessionProperties.getTemporaryTableCompressionCodec;
 import static com.facebook.presto.hive.HiveSessionProperties.getTemporaryTableSchema;
 import static com.facebook.presto.hive.HiveSessionProperties.getTemporaryTableStorageFormat;
-import static com.facebook.presto.hive.HiveSessionProperties.isAriaScanEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isBucketExecutionEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isCollectColumnStatisticsOnWrite;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedMismatchedBucketCount;
@@ -1736,6 +1736,33 @@ public class HiveMetadata
     }
 
     @Override
+    public Map<ColumnHandle, ColumnHandle> pushdownSubfieldPruning(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            Map<ColumnHandle, List<SubfieldPath>> desiredSubfields)
+    {
+        if (!isAriaScanEnabled(session, table)) {
+            return ImmutableMap.of();
+        }
+
+        ImmutableMap.Builder<ColumnHandle, ColumnHandle> newColumnHandles = ImmutableMap.builder();
+        for (Map.Entry<ColumnHandle, List<SubfieldPath>> entry : desiredSubfields.entrySet()) {
+            HiveColumnHandle columnHandle = (HiveColumnHandle) entry.getKey();
+            newColumnHandles.put(columnHandle, new HiveColumnHandle(
+                    columnHandle.getName(),
+                    columnHandle.getHiveType(),
+                    columnHandle.getTypeSignature(),
+                    columnHandle.getHiveColumnIndex(),
+                    columnHandle.getColumnType(),
+                    columnHandle.getComment(),
+                    null,
+                    entry.getValue()));
+        }
+
+        return newColumnHandles.build();
+    }
+
+    @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
@@ -1749,14 +1776,7 @@ public class HiveMetadata
         }
 
         // TODO Synchronize this flag with engine's aria-enabled
-        boolean ariaScanEnabled = isAriaScanEnabled(session);
-        if (ariaScanEnabled) {
-            HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(getTableMetadata(session, tableHandle).getProperties());
-            if (hiveStorageFormat != HiveStorageFormat.ORC && hiveStorageFormat != HiveStorageFormat.DWRF) {
-                ariaScanEnabled = false;
-                // TODO Make HivePageSourceFactory for RC and Parquet fail if non-partition key predicates are present
-            }
-        }
+        boolean ariaScanEnabled = isAriaScanEnabled(session, tableHandle);
 
         return ImmutableList.of(new ConnectorTableLayoutResult(
                 getTableLayout(
@@ -1770,6 +1790,20 @@ public class HiveMetadata
                                 hivePartitionResult.getBucketHandle(),
                                 hivePartitionResult.getBucketFilter())),
                 ariaScanEnabled ? all() : hivePartitionResult.getUnenforcedConstraint()));
+    }
+
+    private boolean isAriaScanEnabled(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        boolean ariaScanEnabled = HiveSessionProperties.isAriaScanEnabled(session);
+        if (ariaScanEnabled) {
+            HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(getTableMetadata(session, tableHandle).getProperties());
+            if (hiveStorageFormat == HiveStorageFormat.ORC || hiveStorageFormat == HiveStorageFormat.DWRF) {
+                return true;
+            }
+
+            // TODO Make HivePageSourceFactory for RC and Parquet fail if non-partition key predicates are present
+        }
+        return false;
     }
 
     @Override
