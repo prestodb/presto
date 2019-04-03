@@ -237,12 +237,6 @@ public class ScanFilterAndProjectOperator
         }
 
         @Override
-        public boolean isDeterministic()
-        {
-            return filter.isDeterministic();
-        }
-
-        @Override
         public int filter(Page page, int[] outputRows, PageSourceOptions.ErrorSet errorSet)
         {
             int positionCount = page.getPositionCount();
