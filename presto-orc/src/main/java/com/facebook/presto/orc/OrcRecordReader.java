@@ -28,9 +28,9 @@ import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
 import com.facebook.presto.orc.reader.StreamReader;
 import com.facebook.presto.orc.reader.StreamReaders;
 import com.facebook.presto.orc.stream.InputStreamSources;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageSourceOptions;
+import com.facebook.presto.spi.SubfieldPath;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
@@ -128,7 +128,7 @@ public class OrcRecordReader
 
     public OrcRecordReader(
             Map<Integer, Type> includedColumns,
-            Map<Integer, ColumnHandle> includedColumnHandles,
+            Map<Integer, List<SubfieldPath>> includedSubfields,
             OrcPredicate predicate,
             long numberOfRows,
             List<StripeInformation> fileStripes,
@@ -152,7 +152,7 @@ public class OrcRecordReader
             int initialBatchSize)
     {
         requireNonNull(includedColumns, "includedColumns is null");
-        requireNonNull(includedColumnHandles, "includedColumns is null");
+        requireNonNull(includedSubfields, "includedSubfields is null");
         requireNonNull(predicate, "predicate is null");
         requireNonNull(fileStripes, "fileStripes is null");
         requireNonNull(stripeStats, "stripeStats is null");
@@ -253,7 +253,7 @@ public class OrcRecordReader
                 metadataReader,
                 writeValidation);
 
-        streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, presentColumnsAndTypes.build(), includedColumnHandles, streamReadersSystemMemoryContext);
+        streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, presentColumnsAndTypes.build(), includedSubfields, streamReadersSystemMemoryContext);
         maxBytesPerCell = new long[streamReaders.length];
         nextBatchSize = initialBatchSize;
     }
@@ -567,7 +567,7 @@ public class OrcRecordReader
             List<OrcType> types,
             DateTimeZone hiveStorageTimeZone,
             Map<Integer, Type> includedColumns,
-            Map<Integer, ColumnHandle> includedColumnHandles,
+            Map<Integer, List<SubfieldPath>> includedSubfields,
             AggregatedMemoryContext systemMemoryContext)
     {
         List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
@@ -579,9 +579,9 @@ public class OrcRecordReader
                 StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
                 streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
 
-                ColumnHandle columnHandle = includedColumnHandles.get(columnId);
-                if (columnHandle != null && columnHandle.getReferencedSubfields() != null) {
-                    streamReaders[columnId].setReferencedSubfields(columnHandle.getReferencedSubfields(), 0);
+                List<SubfieldPath> subfieldPaths = includedSubfields.get(columnId);
+                if (subfieldPaths != null) {
+                    streamReaders[columnId].setReferencedSubfields(subfieldPaths, 0);
                 }
             }
         }
