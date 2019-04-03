@@ -248,7 +248,7 @@ public class SubfieldPath
     }
 
     @JsonProperty("path")
-    public List<PathElement> getPath()
+    public List<PathElement> getPathElements()
     {
         return path;
     }

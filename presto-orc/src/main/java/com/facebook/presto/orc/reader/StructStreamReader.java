@@ -98,7 +98,7 @@ public class StructStreamReader
         Map<String, List<SubfieldPath>> fieldToPaths = new HashMap();
         referencedFields = new HashSet();
         for (SubfieldPath subfield : subfields) {
-            List<PathElement> pathElements = subfield.getPath();
+            List<PathElement> pathElements = subfield.getPathElements();
             PathElement immediateSubfield = pathElements.get(depth + 1);
             checkArgument(immediateSubfield instanceof NestedField, "Unsupported subfield type: " + immediateSubfield.getClass().getSimpleName());
             String fieldName = ((NestedField) immediateSubfield).getName();
