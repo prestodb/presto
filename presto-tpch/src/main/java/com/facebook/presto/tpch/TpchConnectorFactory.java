@@ -23,8 +23,10 @@ import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 
+import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -104,6 +106,12 @@ public class TpchConnectorFactory
             public ConnectorNodePartitioningProvider getNodePartitioningProvider()
             {
                 return new TpchNodePartitioningProvider(nodeManager, splitsPerNode);
+            }
+
+            @Override
+            public List<PropertyMetadata<?>> getSessionProperties()
+            {
+                return TpchSessionProperties.getSessionProperties();
             }
         };
     }

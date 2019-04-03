@@ -27,6 +27,7 @@ import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SortingProperty;
+import com.facebook.presto.spi.SubfieldPath;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.predicate.Domain;
@@ -70,6 +71,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
@@ -79,8 +81,10 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.tpch.TpchSessionProperties.isSubfieldPushdownEnabled;
 import static com.facebook.presto.tpch.util.PredicateUtils.convertToPredicate;
 import static com.facebook.presto.tpch.util.PredicateUtils.filterOutColumnFromPredicate;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.asMap;
 import static io.airlift.tpch.OrderColumn.ORDER_STATUS;
@@ -196,6 +200,21 @@ public class TpchMetadata
     public ConnectorTableHandle getTableHandleForStatisticsCollection(ConnectorSession session, SchemaTableName tableName, Map<String, Object> analyzeProperties)
     {
         return getTableHandle(session, tableName);
+    }
+
+    @Override
+    public Map<ColumnHandle, ColumnHandle> pushdownSubfieldPruning(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            Map<ColumnHandle, List<SubfieldPath>> desiredSubfields)
+    {
+        if (!isSubfieldPushdownEnabled(session)) {
+            return ImmutableMap.of();
+        }
+
+        return desiredSubfields.keySet().stream()
+                .map(column -> (TpchColumnHandle) column)
+                .collect(toImmutableMap(Function.identity(), column -> new TpchColumnHandle(column.getColumnName(), column.getType(), desiredSubfields.get(column))));
     }
 
     @Override
