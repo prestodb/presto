@@ -16,6 +16,8 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -32,6 +34,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
@@ -42,7 +45,7 @@ public final class Partitioning
     private final PartitioningHandle handle;
     private final List<ArgumentBinding> arguments;
 
-    private Partitioning(PartitioningHandle handle, List<ArgumentBinding> arguments)
+    public Partitioning(PartitioningHandle handle, List<ArgumentBinding> arguments)
     {
         this.handle = requireNonNull(handle, "handle is null");
         this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
@@ -51,7 +54,8 @@ public final class Partitioning
     public static Partitioning create(PartitioningHandle handle, List<Symbol> columns)
     {
         return new Partitioning(handle, columns.stream()
-                .map(ArgumentBinding::columnBinding)
+                .map(Symbol::toSymbolReference)
+                .map(ArgumentBinding::expressionBinding)
                 .collect(toImmutableList()));
     }
 
@@ -160,13 +164,20 @@ public final class Partitioning
 
     public boolean isPartitionedOn(Collection<Symbol> columns, Set<Symbol> knownConstants)
     {
-        // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
-        // can safely ignore all constant columns when comparing partition properties
-        return arguments.stream()
-                .filter(ArgumentBinding::isVariable)
-                .map(ArgumentBinding::getColumn)
-                .filter(symbol -> !knownConstants.contains(symbol))
-                .allMatch(columns::contains);
+        for (ArgumentBinding argument : arguments) {
+            // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
+            // can safely ignore all constant columns when comparing partition properties
+            if (argument.isConstant()) {
+                continue;
+            }
+            if (!argument.isVariable()) {
+                return false;
+            }
+            if (!knownConstants.contains(argument.getColumn()) && !columns.contains(argument.getColumn())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public boolean isEffectivelySinglePartition(Set<Symbol> knownConstants)
@@ -194,11 +205,11 @@ public final class Partitioning
                 .collect(toImmutableList()));
     }
 
-    public Optional<Partitioning> translate(Function<Symbol, Optional<Symbol>> translator, Function<Symbol, Optional<NullableValue>> constants)
+    public Optional<Partitioning> translate(Translator translator)
     {
         ImmutableList.Builder<ArgumentBinding> newArguments = ImmutableList.builder();
         for (ArgumentBinding argument : arguments) {
-            Optional<ArgumentBinding> newArgument = argument.translate(translator, constants);
+            Optional<ArgumentBinding> newArgument = argument.translate(translator);
             if (!newArgument.isPresent()) {
                 return Optional.empty();
             }
@@ -243,24 +254,42 @@ public final class Partitioning
     }
 
     @Immutable
+    public static final class Translator
+    {
+        private final Function<Symbol, Optional<Symbol>> columnTranslator;
+        private final Function<Symbol, Optional<NullableValue>> constantTranslator;
+        private final Function<Expression, Optional<Symbol>> expressionTranslator;
+
+        public Translator(
+                Function<Symbol, Optional<Symbol>> columnTranslator,
+                Function<Symbol, Optional<NullableValue>> constantTranslator,
+                Function<Expression, Optional<Symbol>> expressionTranslator)
+        {
+            this.columnTranslator = requireNonNull(columnTranslator, "columnTranslator is null");
+            this.constantTranslator = requireNonNull(constantTranslator, "constantTranslator is null");
+            this.expressionTranslator = requireNonNull(expressionTranslator, "expressionTranslator is null");
+        }
+    }
+
+    @Immutable
     public static final class ArgumentBinding
     {
-        private final Symbol column;
+        private final Expression expression;
         private final NullableValue constant;
 
         @JsonCreator
         public ArgumentBinding(
-                @JsonProperty("column") Symbol column,
+                @JsonProperty("expression") Expression expression,
                 @JsonProperty("constant") NullableValue constant)
         {
-            this.column = column;
+            this.expression = expression;
             this.constant = constant;
-            checkArgument((column == null) != (constant == null), "Either column or constant must be set");
+            checkArgument((expression == null) != (constant == null), "Either expression or constant must be set");
         }
 
-        public static ArgumentBinding columnBinding(Symbol column)
+        public static ArgumentBinding expressionBinding(Expression expression)
         {
-            return new ArgumentBinding(requireNonNull(column, "column is null"), null);
+            return new ArgumentBinding(requireNonNull(expression, "expression is null"), null);
         }
 
         public static ArgumentBinding constantBinding(NullableValue constant)
@@ -275,13 +304,19 @@ public final class Partitioning
 
         public boolean isVariable()
         {
-            return column != null;
+            return expression instanceof SymbolReference;
+        }
+
+        public Symbol getColumn()
+        {
+            verify(expression instanceof SymbolReference, "Expect the expression to be a SymbolReference");
+            return Symbol.from(expression);
         }
 
         @JsonProperty
-        public Symbol getColumn()
+        public Expression getExpression()
         {
-            return column;
+            return expression;
         }
 
         @JsonProperty
@@ -295,25 +330,31 @@ public final class Partitioning
             if (isConstant()) {
                 return this;
             }
-            return columnBinding(translator.apply(column));
+            return expressionBinding(translator.apply(Symbol.from(expression)).toSymbolReference());
         }
 
-        public Optional<ArgumentBinding> translate(Function<Symbol, Optional<Symbol>> translator, Function<Symbol, Optional<NullableValue>> constants)
+        public Optional<ArgumentBinding> translate(Translator translator)
         {
             if (isConstant()) {
                 return Optional.of(this);
             }
 
-            Optional<ArgumentBinding> newColumn = translator.apply(column)
-                    .map(ArgumentBinding::columnBinding);
+            if (!isVariable()) {
+                return translator.expressionTranslator.apply(expression)
+                        .map(Symbol::toSymbolReference)
+                        .map(ArgumentBinding::expressionBinding);
+            }
+
+            Optional<ArgumentBinding> newColumn = translator.columnTranslator.apply(Symbol.from(expression))
+                    .map(Symbol::toSymbolReference)
+                    .map(ArgumentBinding::expressionBinding);
             if (newColumn.isPresent()) {
                 return newColumn;
             }
-
             // As a last resort, check for a constant mapping for the symbol
             // Note: this MUST be last because we want to favor the symbol representation
             // as it makes further optimizations possible.
-            return constants.apply(column)
+            return translator.constantTranslator.apply(Symbol.from(expression))
                     .map(ArgumentBinding::constantBinding);
         }
 
@@ -323,7 +364,8 @@ public final class Partitioning
             if (constant != null) {
                 return constant.toString();
             }
-            return "\"" + column + "\"";
+
+            return expression.toString();
         }
 
         @Override
@@ -336,14 +378,14 @@ public final class Partitioning
                 return false;
             }
             ArgumentBinding that = (ArgumentBinding) o;
-            return Objects.equals(column, that.column) &&
+            return Objects.equals(expression, that.expression) &&
                     Objects.equals(constant, that.constant);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(column, constant);
+            return Objects.hash(expression, constant);
         }
     }
 }
