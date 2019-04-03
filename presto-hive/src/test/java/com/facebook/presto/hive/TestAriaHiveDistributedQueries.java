@@ -24,6 +24,8 @@ import static com.facebook.presto.SystemSessionProperties.ARIA_FLAGS;
 import static com.facebook.presto.SystemSessionProperties.ARIA_REORDER;
 import static com.facebook.presto.SystemSessionProperties.ARIA_REUSE_PAGES;
 import static com.facebook.presto.SystemSessionProperties.ARIA_SCAN;
+import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS;
+import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.airlift.tpch.TpchTable.getTables;
@@ -186,6 +188,8 @@ public class TestAriaHiveDistributedQueries
                 .setSystemProperty(ARIA_REORDER, "true")
                 .setSystemProperty(ARIA_REUSE_PAGES, "true")
                 .setSystemProperty(ARIA_FLAGS, "127")
+                .setSystemProperty(PUSHDOWN_SUBFIELDS, "true")
+                .setCatalogSessionProperty(HIVE_CATALOG, HiveSessionProperties.ARIA_SCAN_ENABLED, "true")
                 .build();
     }
 

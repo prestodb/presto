@@ -83,7 +83,7 @@ public final class HiveSessionProperties
     public static final String WRITING_STAGING_FILES_ENABLED = "writing_staging_files_enabled";
     private static final String TEMPORARY_TABLE_SCHEMA = "temporary_table_schema";
     private static final String TEMPORARY_TABLE_STORAGE_FORMAT = "temporary_table_storage_format";
-    private static final String ARIA_SCAN_ENABLED = "aria_scan_enabled";
+    public static final String ARIA_SCAN_ENABLED = "aria_scan_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
