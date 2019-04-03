@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.spi;
 
-import java.util.List;
-
 public interface ColumnHandle
 {
     default boolean supportsSubfieldTupleDomain()
@@ -31,11 +29,6 @@ public interface ColumnHandle
     }
 
     default SubfieldPath getSubfieldPath()
-    {
-        return null;
-    }
-
-    default List<SubfieldPath> getReferencedSubfields()
     {
         return null;
     }
