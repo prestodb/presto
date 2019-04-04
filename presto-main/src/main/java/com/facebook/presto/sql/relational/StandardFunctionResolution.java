@@ -86,6 +86,11 @@ public final class StandardFunctionResolution
         return functionManager.getFunctionMetadata(functionHandle).getName().equals(mangleOperatorName(OperatorType.CAST.name()));
     }
 
+    public boolean isBetweenFunction(FunctionHandle functionHandle)
+    {
+        return functionHandle.getSignature().getName().equals(mangleOperatorName(OperatorType.BETWEEN.name()));
+    }
+
     public FunctionHandle arithmeticFunction(ArithmeticBinaryExpression.Operator operator, Type leftType, Type rightType)
     {
         OperatorType operatorType;
