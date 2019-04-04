@@ -301,6 +301,12 @@ public abstract class AbstractMapBlock
     }
 
     @Override
+    public boolean mayHaveNull()
+    {
+        return getMapIsNull() != null;
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);

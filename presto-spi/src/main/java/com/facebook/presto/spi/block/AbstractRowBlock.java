@@ -210,6 +210,12 @@ public abstract class AbstractRowBlock
     }
 
     @Override
+    public boolean mayHaveNull()
+    {
+        return getRowIsNull() != null;
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
