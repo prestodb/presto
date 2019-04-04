@@ -120,14 +120,15 @@ public class TestValidateAggregationsWithDefaultValues
     public void testGloballyDistributedFinalAggregationSeparatedFromPartialAggregationByRemoteHashExchange()
     {
         Symbol symbol = new Symbol("symbol");
+        VariableReferenceExpression variable = new VariableReferenceExpression("symbol", BIGINT);
         PlanNode root = builder.aggregation(
                 af -> af.step(FINAL)
                         .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
                         .source(builder.exchange(e -> e
                                 .type(REPARTITION)
                                 .scope(REMOTE_STREAMING)
-                                .fixedHashDistributionParitioningScheme(ImmutableList.of(symbol), ImmutableList.of(symbol))
-                                .addInputsSet(symbol)
+                                .fixedHashDistributionParitioningScheme(ImmutableList.of(variable), ImmutableList.of(variable))
+                                .addInputsSet(variable)
                                 .addSource(builder.aggregation(ap -> ap
                                         .step(PARTIAL)
                                         .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
@@ -139,14 +140,15 @@ public class TestValidateAggregationsWithDefaultValues
     public void testSingleNodeFinalAggregationSeparatedFromPartialAggregationByLocalHashExchange()
     {
         Symbol symbol = new Symbol("symbol");
+        VariableReferenceExpression variable = new VariableReferenceExpression("symbol", BIGINT);
         PlanNode root = builder.aggregation(
                 af -> af.step(FINAL)
                         .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
                         .source(builder.exchange(e -> e
                                 .type(REPARTITION)
                                 .scope(LOCAL)
-                                .fixedHashDistributionParitioningScheme(ImmutableList.of(symbol), ImmutableList.of(symbol))
-                                .addInputsSet(symbol)
+                                .fixedHashDistributionParitioningScheme(ImmutableList.of(variable), ImmutableList.of(variable))
+                                .addInputsSet(variable)
                                 .addSource(builder.aggregation(ap -> ap
                                         .step(PARTIAL)
                                         .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
@@ -158,6 +160,7 @@ public class TestValidateAggregationsWithDefaultValues
     public void testWithPartialAggregationBelowJoin()
     {
         Symbol symbol = new Symbol("symbol");
+        VariableReferenceExpression variable = new VariableReferenceExpression("symbol", BIGINT);
         PlanNode root = builder.aggregation(
                 af -> af.step(FINAL)
                         .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
@@ -166,8 +169,8 @@ public class TestValidateAggregationsWithDefaultValues
                                 builder.exchange(e -> e
                                         .type(REPARTITION)
                                         .scope(LOCAL)
-                                        .fixedHashDistributionParitioningScheme(ImmutableList.of(symbol), ImmutableList.of(symbol))
-                                        .addInputsSet(symbol)
+                                        .fixedHashDistributionParitioningScheme(ImmutableList.of(variable), ImmutableList.of(variable))
+                                        .addInputsSet(variable)
                                         .addSource(builder.aggregation(ap -> ap
                                                 .step(PARTIAL)
                                                 .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))

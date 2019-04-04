@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution;
 import com.google.common.collect.ImmutableList;
@@ -42,11 +42,11 @@ class StreamPreferredProperties
     private final Optional<StreamDistribution> distribution;
 
     private final boolean exactColumnOrder;
-    private final Optional<List<Symbol>> partitioningColumns; // if missing => any partitioning scheme is acceptable
+    private final Optional<List<VariableReferenceExpression>> partitioningColumns; // if missing => any partitioning scheme is acceptable
 
     private final boolean orderSensitive;
 
-    private StreamPreferredProperties(Optional<StreamDistribution> distribution, Optional<? extends Iterable<Symbol>> partitioningColumns, boolean orderSensitive)
+    private StreamPreferredProperties(Optional<StreamDistribution> distribution, Optional<? extends Iterable<VariableReferenceExpression>> partitioningColumns, boolean orderSensitive)
     {
         this(distribution, false, partitioningColumns, orderSensitive);
     }
@@ -54,7 +54,7 @@ class StreamPreferredProperties
     private StreamPreferredProperties(
             Optional<StreamDistribution> distribution,
             boolean exactColumnOrder,
-            Optional<? extends Iterable<Symbol>> partitioningColumns,
+            Optional<? extends Iterable<VariableReferenceExpression>> partitioningColumns,
             boolean orderSensitive)
     {
         this.distribution = requireNonNull(distribution, "distribution is null");
@@ -105,14 +105,14 @@ class StreamPreferredProperties
         return fixedParallelism();
     }
 
-    public static StreamPreferredProperties exactlyPartitionedOn(Collection<Symbol> partitionSymbols)
+    public static StreamPreferredProperties exactlyPartitionedOn(Collection<VariableReferenceExpression> partitionVariables)
     {
-        if (partitionSymbols.isEmpty()) {
+        if (partitionVariables.isEmpty()) {
             return singleStream();
         }
 
         // this must be the exact partitioning symbols, in the exact order
-        return new StreamPreferredProperties(Optional.of(FIXED), true, Optional.of(ImmutableList.copyOf(partitionSymbols)), false);
+        return new StreamPreferredProperties(Optional.of(FIXED), true, Optional.of(ImmutableList.copyOf(partitionVariables)), false);
     }
 
     public StreamPreferredProperties withoutPreference()
@@ -120,13 +120,13 @@ class StreamPreferredProperties
         return new StreamPreferredProperties(Optional.empty(), Optional.empty(), orderSensitive);
     }
 
-    public StreamPreferredProperties withPartitioning(Collection<Symbol> partitionSymbols)
+    public StreamPreferredProperties withPartitioning(Collection<VariableReferenceExpression> partitionVariables)
     {
-        if (partitionSymbols.isEmpty()) {
+        if (partitionVariables.isEmpty()) {
             return singleStream();
         }
 
-        Iterable<Symbol> desiredPartitioning = partitionSymbols;
+        Iterable<VariableReferenceExpression> desiredPartitioning = partitionVariables;
         if (partitioningColumns.isPresent()) {
             if (exactColumnOrder) {
                 if (partitioningColumns.get().equals(desiredPartitioning)) {
@@ -135,7 +135,7 @@ class StreamPreferredProperties
             }
             else {
                 // If there are common columns between our requirements and the desired partitionSymbols, both can be satisfied in one shot
-                Set<Symbol> common = Sets.intersection(ImmutableSet.copyOf(desiredPartitioning), ImmutableSet.copyOf(partitioningColumns.get()));
+                Set<VariableReferenceExpression> common = Sets.intersection(ImmutableSet.copyOf(desiredPartitioning), ImmutableSet.copyOf(partitioningColumns.get()));
 
                 // If we find common partitioning columns, use them, else use child's partitioning columns
                 if (!common.isEmpty()) {
@@ -206,7 +206,7 @@ class StreamPreferredProperties
         return distribution.isPresent() && distribution.get() != SINGLE;
     }
 
-    public Optional<List<Symbol>> getPartitioningColumns()
+    public Optional<List<VariableReferenceExpression>> getPartitioningColumns()
     {
         return partitioningColumns;
     }
@@ -216,19 +216,19 @@ class StreamPreferredProperties
         return orderSensitive;
     }
 
-    public StreamPreferredProperties translate(Function<Symbol, Optional<Symbol>> translator)
+    public StreamPreferredProperties translate(Function<VariableReferenceExpression, Optional<VariableReferenceExpression>> translator)
     {
         return new StreamPreferredProperties(
                 distribution,
-                partitioningColumns.flatMap(partitioning -> translateSymbols(partitioning, translator)),
+                partitioningColumns.flatMap(partitioning -> translateVariables(partitioning, translator)),
                 orderSensitive);
     }
 
-    private static Optional<List<Symbol>> translateSymbols(Iterable<Symbol> partitioning, Function<Symbol, Optional<Symbol>> translator)
+    private static Optional<List<VariableReferenceExpression>> translateVariables(Iterable<VariableReferenceExpression> partitioning, Function<VariableReferenceExpression, Optional<VariableReferenceExpression>> translator)
     {
-        ImmutableList.Builder<Symbol> newPartitioningColumns = ImmutableList.builder();
-        for (Symbol partitioningColumn : partitioning) {
-            Optional<Symbol> translated = translator.apply(partitioningColumn);
+        ImmutableList.Builder<VariableReferenceExpression> newPartitioningColumns = ImmutableList.builder();
+        for (VariableReferenceExpression partitioningColumn : partitioning) {
+            Optional<VariableReferenceExpression> translated = translator.apply(partitioningColumn);
             if (!translated.isPresent()) {
                 return Optional.empty();
             }
@@ -252,22 +252,22 @@ class StreamPreferredProperties
         return new StreamPreferredProperties(distribution, false, Optional.empty(), true);
     }
 
-    public StreamPreferredProperties constrainTo(Iterable<Symbol> symbols)
+    public StreamPreferredProperties constrainTo(Iterable<VariableReferenceExpression> variables)
     {
         if (!partitioningColumns.isPresent()) {
             return this;
         }
 
-        ImmutableSet<Symbol> availableSymbols = ImmutableSet.copyOf(symbols);
+        ImmutableSet<VariableReferenceExpression> availableVariables = ImmutableSet.copyOf(variables);
         if (exactColumnOrder) {
-            if (availableSymbols.containsAll(partitioningColumns.get())) {
+            if (availableVariables.containsAll(partitioningColumns.get())) {
                 return this;
             }
             return any();
         }
 
-        List<Symbol> common = partitioningColumns.get().stream()
-                .filter(availableSymbols::contains)
+        List<VariableReferenceExpression> common = partitioningColumns.get().stream()
+                .filter(availableVariables::contains)
                 .collect(toImmutableList());
         if (common.isEmpty()) {
             return any();

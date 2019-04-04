@@ -84,6 +84,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -124,6 +125,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.mergingExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.replicatedExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.roundRobinExchange;
+import static com.facebook.presto.sql.relational.Expressions.variable;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -196,7 +198,7 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitProject(ProjectNode node, PreferredProperties preferredProperties)
         {
-            Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments());
+            Map<VariableReferenceExpression, VariableReferenceExpression> identities = computeIdentityTranslations(node.getAssignments(), types);
             PreferredProperties translatedPreferred = preferredProperties.translate(symbol -> Optional.ofNullable(identities.get(symbol)));
 
             return rebaseAndDeriveProperties(node, planChild(node, translatedPreferred));
@@ -209,7 +211,7 @@ public class AddExchanges
 
             if (!child.getProperties().isSingleNode() && isForceSingleNodeOutput(session)) {
                 child = withDerivedProperties(
-                        gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode()),
+                        gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode(), types),
                         child.getProperties());
             }
 
@@ -223,7 +225,7 @@ public class AddExchanges
 
             if (!child.getProperties().isSingleNode()) {
                 child = withDerivedProperties(
-                        gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode()),
+                        gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode(), types),
                         child.getProperties());
             }
 
@@ -233,13 +235,14 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitAggregation(AggregationNode node, PreferredProperties parentPreferredProperties)
         {
-            Set<Symbol> partitioningRequirement = ImmutableSet.copyOf(node.getGroupingKeys());
+            List<VariableReferenceExpression> groupingKeys = toVariableReferences(node.getGroupingKeys(), types);
+            Set<VariableReferenceExpression> partitioningRequirement = ImmutableSet.copyOf(groupingKeys);
 
             boolean preferSingleNode = node.hasSingleNodeExecutionPreference(metadata.getFunctionManager());
             PreferredProperties preferredProperties = preferSingleNode ? PreferredProperties.undistributed() : PreferredProperties.any();
 
             if (!node.getGroupingKeys().isEmpty()) {
-                preferredProperties = PreferredProperties.partitionedWithLocal(partitioningRequirement, grouped(node.getGroupingKeys()))
+                preferredProperties = PreferredProperties.partitionedWithLocal(partitioningRequirement, grouped(groupingKeys))
                         .mergeWithParent(parentPreferredProperties);
             }
 
@@ -252,7 +255,7 @@ public class AddExchanges
 
             if (preferSingleNode) {
                 child = withDerivedProperties(
-                        gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode()),
+                        gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode(), types),
                         child.getProperties());
             }
             else if (!child.getProperties().isStreamPartitionedOn(partitioningRequirement) && !child.getProperties().isNodePartitionedOn(partitioningRequirement)) {
@@ -261,8 +264,9 @@ public class AddExchanges
                                 idAllocator.getNextId(),
                                 selectExchangeScopeForPartitionedRemoteExchange(child.getNode()),
                                 child.getNode(),
-                                createPartitioning(node.getGroupingKeys()),
-                                node.getHashVariable()),
+                                createPartitioning(toVariableReferences(node.getGroupingKeys(), types)),
+                                node.getHashVariable(),
+                                types),
                         child.getProperties());
             }
             return rebaseAndDeriveProperties(node, child);
@@ -271,20 +275,21 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitGroupId(GroupIdNode node, PreferredProperties preferredProperties)
         {
-            PreferredProperties childPreference = preferredProperties.translate(translateGroupIdSymbols(node));
+            PreferredProperties childPreference = preferredProperties.translate(translateGroupIdSymbols(node, types));
             PlanWithProperties child = planChild(node, childPreference);
             return rebaseAndDeriveProperties(node, child);
         }
 
-        private Function<Symbol, Optional<Symbol>> translateGroupIdSymbols(GroupIdNode node)
+        private Function<VariableReferenceExpression, Optional<VariableReferenceExpression>> translateGroupIdSymbols(GroupIdNode node, TypeProvider types)
         {
-            return symbol -> {
+            return variable -> {
+                Symbol symbol = new Symbol(variable.getName());
                 if (node.getAggregationArguments().contains(symbol)) {
-                    return Optional.of(symbol);
+                    return Optional.of(variable);
                 }
 
                 if (node.getCommonGroupingColumns().contains(symbol)) {
-                    return Optional.of(node.getGroupingColumns().get(symbol));
+                    return Optional.of(toVariableReference(node.getGroupingColumns().get(symbol), types));
                 }
 
                 return Optional.empty();
@@ -294,19 +299,21 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitMarkDistinct(MarkDistinctNode node, PreferredProperties preferredProperties)
         {
-            PreferredProperties preferredChildProperties = PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getDistinctSymbols()), grouped(node.getDistinctSymbols()))
+            List<VariableReferenceExpression> distinctVariables = toVariableReferences(node.getDistinctSymbols(), types);
+            PreferredProperties preferredChildProperties = PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(distinctVariables), grouped(distinctVariables))
                     .mergeWithParent(preferredProperties);
             PlanWithProperties child = node.getSource().accept(this, preferredChildProperties);
 
             if (child.getProperties().isSingleNode() ||
-                    !child.getProperties().isStreamPartitionedOn(node.getDistinctSymbols())) {
+                    !child.getProperties().isStreamPartitionedOn(distinctVariables)) {
                 child = withDerivedProperties(
                         partitionedExchange(
                                 idAllocator.getNextId(),
                                 selectExchangeScopeForPartitionedRemoteExchange(child.getNode()),
                                 child.getNode(),
-                                createPartitioning(node.getDistinctSymbols()),
-                                node.getHashVariable()),
+                                createPartitioning(toVariableReferences(node.getDistinctSymbols(), types)),
+                                node.getHashVariable(),
+                                types),
                         child.getProperties());
             }
 
@@ -316,30 +323,31 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitWindow(WindowNode node, PreferredProperties preferredProperties)
         {
-            List<LocalProperty<Symbol>> desiredProperties = new ArrayList<>();
+            List<LocalProperty<VariableReferenceExpression>> desiredProperties = new ArrayList<>();
             if (!node.getPartitionBy().isEmpty()) {
-                desiredProperties.add(new GroupingProperty<>(node.getPartitionBy()));
+                desiredProperties.add(new GroupingProperty<>(toVariableReferences(node.getPartitionBy(), types)));
             }
             node.getOrderingScheme().ifPresent(orderingScheme ->
                     orderingScheme.getOrderBy().stream()
-                            .map(variable -> new SortingProperty<>(new Symbol(variable.getName()), orderingScheme.getOrdering(variable)))
+                            .map(variable -> new SortingProperty<>(variable, orderingScheme.getOrdering(variable)))
                             .forEach(desiredProperties::add));
 
+            List<VariableReferenceExpression> partitionVariables = toVariableReferences(node.getPartitionBy(), types);
             PlanWithProperties child = planChild(
                     node,
-                    PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getPartitionBy()), desiredProperties)
+                    PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(partitionVariables), desiredProperties)
                             .mergeWithParent(preferredProperties));
 
-            if (!child.getProperties().isStreamPartitionedOn(node.getPartitionBy()) &&
-                    !child.getProperties().isNodePartitionedOn(node.getPartitionBy())) {
+            if (!child.getProperties().isStreamPartitionedOn(partitionVariables) &&
+                    !child.getProperties().isNodePartitionedOn(partitionVariables)) {
                 if (node.getPartitionBy().isEmpty()) {
                     child = withDerivedProperties(
-                            gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode()),
+                            gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode(), types),
                             child.getProperties());
                 }
                 else {
                     child = withDerivedProperties(
-                            partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode(), createPartitioning(node.getPartitionBy()), node.getHashVariable()),
+                            partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode(), createPartitioning(toVariableReferences(node.getPartitionBy(), types)), node.getHashVariable(), types),
                             child.getProperties());
                 }
             }
@@ -355,28 +363,30 @@ public class AddExchanges
 
                 if (!child.getProperties().isSingleNode()) {
                     child = withDerivedProperties(
-                            gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode()),
+                            gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode(), types),
                             child.getProperties());
                 }
 
                 return rebaseAndDeriveProperties(node, child);
             }
 
+            List<VariableReferenceExpression> partitionVariables = toVariableReferences(node.getPartitionBy(), types);
             PlanWithProperties child = planChild(
                     node,
-                    PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getPartitionBy()), grouped(node.getPartitionBy()))
+                    PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(partitionVariables), grouped(partitionVariables))
                             .mergeWithParent(preferredProperties));
 
             // TODO: add config option/session property to force parallel plan if child is unpartitioned and window has a PARTITION BY clause
-            if (!child.getProperties().isStreamPartitionedOn(node.getPartitionBy())
-                    && !child.getProperties().isNodePartitionedOn(node.getPartitionBy())) {
+            if (!child.getProperties().isStreamPartitionedOn(partitionVariables)
+                    && !child.getProperties().isNodePartitionedOn(partitionVariables)) {
                 child = withDerivedProperties(
                         partitionedExchange(
                                 idAllocator.getNextId(),
                                 REMOTE_STREAMING,
                                 child.getNode(),
-                                createPartitioning(node.getPartitionBy()),
-                                node.getHashVariable()),
+                                createPartitioning(toVariableReferences(node.getPartitionBy(), types)),
+                                node.getHashVariable(),
+                                types),
                         child.getProperties());
             }
 
@@ -391,19 +401,27 @@ public class AddExchanges
             PreferredProperties preferredChildProperties;
             Function<PlanNode, PlanNode> addExchange;
 
+            List<VariableReferenceExpression> partitionVariables = toVariableReferences(node.getPartitionBy(), types);
+
             if (node.getPartitionBy().isEmpty()) {
                 preferredChildProperties = PreferredProperties.any();
-                addExchange = partial -> gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, partial);
+                addExchange = partial -> gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, partial, types);
             }
             else {
-                preferredChildProperties = PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getPartitionBy()), grouped(node.getPartitionBy()))
+                preferredChildProperties = PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(partitionVariables), grouped(partitionVariables))
                         .mergeWithParent(preferredProperties);
-                addExchange = partial -> partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, partial, createPartitioning(node.getPartitionBy()), node.getHashVariable());
+                addExchange = partial -> partitionedExchange(
+                        idAllocator.getNextId(),
+                        REMOTE_STREAMING,
+                        partial,
+                        createPartitioning(toVariableReferences(node.getPartitionBy(), types)),
+                        node.getHashVariable(),
+                        types);
             }
 
             PlanWithProperties child = planChild(node, preferredChildProperties);
-            if (!child.getProperties().isStreamPartitionedOn(node.getPartitionBy())
-                    && !child.getProperties().isNodePartitionedOn(node.getPartitionBy())) {
+            if (!child.getProperties().isStreamPartitionedOn(partitionVariables)
+                    && !child.getProperties().isNodePartitionedOn(partitionVariables)) {
                 // add exchange + push function to child
                 child = withDerivedProperties(
                         new TopNRowNumberNode(
@@ -432,7 +450,7 @@ public class AddExchanges
                     child = planChild(node, PreferredProperties.undistributed());
                     if (!child.getProperties().isSingleNode()) {
                         child = withDerivedProperties(
-                                gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode()),
+                                gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode(), types),
                                 child.getProperties());
                     }
                     break;
@@ -454,9 +472,9 @@ public class AddExchanges
                 // current plan so far is single node, so local properties are effectively global properties
                 // skip the SortNode if the local properties guarantee ordering on Sort keys
                 // TODO: This should be extracted as a separate optimizer once the planner is able to reason about the ordering of each operator
-                List<LocalProperty<Symbol>> desiredProperties = new ArrayList<>();
+                List<LocalProperty<VariableReferenceExpression>> desiredProperties = new ArrayList<>();
                 for (VariableReferenceExpression variable : node.getOrderingScheme().getOrderBy()) {
-                    desiredProperties.add(new SortingProperty<>(new Symbol(variable.getName()), node.getOrderingScheme().getOrdering(variable)));
+                    desiredProperties.add(new SortingProperty<>(variable, node.getOrderingScheme().getOrdering(variable)));
                 }
 
                 if (LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).stream()
@@ -468,7 +486,7 @@ public class AddExchanges
             if (isDistributedSortEnabled(session)) {
                 child = planChild(node, PreferredProperties.any());
                 // insert round robin exchange to eliminate skewness issues
-                PlanNode source = roundRobinExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode());
+                PlanNode source = roundRobinExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode(), types);
                 return withDerivedProperties(
                         mergingExchange(
                                 idAllocator.getNextId(),
@@ -477,13 +495,14 @@ public class AddExchanges
                                         idAllocator.getNextId(),
                                         source,
                                         node.getOrderingScheme()),
-                                node.getOrderingScheme()),
+                                node.getOrderingScheme(),
+                                types),
                         child.getProperties());
             }
 
             if (!child.getProperties().isSingleNode()) {
                 child = withDerivedProperties(
-                        gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode()),
+                        gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode(), types),
                         child.getProperties());
             }
 
@@ -501,7 +520,7 @@ public class AddExchanges
                         child.getProperties());
 
                 child = withDerivedProperties(
-                        gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode()),
+                        gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode(), types),
                         child.getProperties());
             }
 
@@ -518,7 +537,8 @@ public class AddExchanges
                         gatheringExchange(
                                 idAllocator.getNextId(),
                                 REMOTE_STREAMING,
-                                new DistinctLimitNode(idAllocator.getNextId(), child.getNode(), node.getLimit(), true, node.getDistinctSymbols(), node.getHashVariable())),
+                                new DistinctLimitNode(idAllocator.getNextId(), child.getNode(), node.getLimit(), true, node.getDistinctSymbols(), node.getHashVariable()),
+                                types),
                         child.getProperties());
             }
 
@@ -547,12 +567,13 @@ public class AddExchanges
             PlanWithProperties source = node.getSource().accept(this, preferredProperties);
 
             Optional<PartitioningScheme> partitioningScheme = node.getPartitioningScheme();
+            List<VariableReferenceExpression> outputVariables = toVariableReferences(source.getNode().getOutputSymbols(), types);
             if (!partitioningScheme.isPresent()) {
                 if (scaleWriters) {
-                    partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputSymbols()));
+                    partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), outputVariables));
                 }
                 else if (redistributeWrites) {
-                    partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputSymbols()));
+                    partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), outputVariables));
                 }
             }
 
@@ -566,7 +587,8 @@ public class AddExchanges
                                 idAllocator.getNextId(),
                                 REMOTE_STREAMING,
                                 source.getNode(),
-                                partitioningScheme.get()),
+                                partitioningScheme.get(),
+                                types),
                         source.getProperties());
             }
             return rebaseAndDeriveProperties(node, source);
@@ -601,7 +623,7 @@ public class AddExchanges
 
             // Always add an exchange because ExplainAnalyze should be in its own stage
             child = withDerivedProperties(
-                    gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode()),
+                    gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode(), types),
                     child.getProperties());
 
             return rebaseAndDeriveProperties(node, child);
@@ -619,7 +641,7 @@ public class AddExchanges
 
             if (!child.getProperties().isCoordinatorOnly()) {
                 child = withDerivedProperties(
-                        gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode()),
+                        gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode(), types),
                         child.getProperties());
             }
 
@@ -638,7 +660,7 @@ public class AddExchanges
 
             if (!child.getProperties().isCoordinatorOnly()) {
                 child = withDerivedProperties(
-                        gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode()),
+                        gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode(), types),
                         child.getProperties());
             }
 
@@ -668,15 +690,11 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitJoin(JoinNode node, PreferredProperties preferredProperties)
         {
-            List<Symbol> leftSymbols = node.getCriteria().stream()
+            List<VariableReferenceExpression> leftVariables = node.getCriteria().stream()
                     .map(JoinNode.EquiJoinClause::getLeft)
-                    .map(VariableReferenceExpression::getName)
-                    .map(Symbol::new)
                     .collect(toImmutableList());
-            List<Symbol> rightSymbols = node.getCriteria().stream()
+            List<VariableReferenceExpression> rightVariables = node.getCriteria().stream()
                     .map(JoinNode.EquiJoinClause::getRight)
-                    .map(VariableReferenceExpression::getName)
-                    .map(Symbol::new)
                     .collect(toImmutableList());
 
             JoinNode.DistributionType distributionType = node.getDistributionType().orElseThrow(() -> new IllegalArgumentException("distributionType not yet set"));
@@ -686,26 +704,26 @@ public class AddExchanges
 
                 // use partitioned join if probe side is naturally partitioned on join symbols (e.g: because of aggregation)
                 if (!node.getCriteria().isEmpty()
-                        && left.getProperties().isNodePartitionedOn(leftSymbols) && !left.getProperties().isSingleNode()) {
-                    return planPartitionedJoin(node, leftSymbols, rightSymbols, left);
+                        && left.getProperties().isNodePartitionedOn(leftVariables) && !left.getProperties().isSingleNode()) {
+                    return planPartitionedJoin(node, leftVariables, rightVariables, left);
                 }
 
                 return planReplicatedJoin(node, left);
             }
             else {
-                return planPartitionedJoin(node, leftSymbols, rightSymbols);
+                return planPartitionedJoin(node, leftVariables, rightVariables);
             }
         }
 
-        private PlanWithProperties planPartitionedJoin(JoinNode node, List<Symbol> leftSymbols, List<Symbol> rightSymbols)
+        private PlanWithProperties planPartitionedJoin(JoinNode node, List<VariableReferenceExpression> leftSymbols, List<VariableReferenceExpression> rightSymbols)
         {
             return planPartitionedJoin(node, leftSymbols, rightSymbols, node.getLeft().accept(this, PreferredProperties.partitioned(ImmutableSet.copyOf(leftSymbols))));
         }
 
-        private PlanWithProperties planPartitionedJoin(JoinNode node, List<Symbol> leftSymbols, List<Symbol> rightSymbols, PlanWithProperties left)
+        private PlanWithProperties planPartitionedJoin(JoinNode node, List<VariableReferenceExpression> leftSymbols, List<VariableReferenceExpression> rightSymbols, PlanWithProperties left)
         {
-            SetMultimap<Symbol, Symbol> rightToLeft = createMapping(rightSymbols, leftSymbols);
-            SetMultimap<Symbol, Symbol> leftToRight = createMapping(leftSymbols, rightSymbols);
+            SetMultimap<VariableReferenceExpression, VariableReferenceExpression> rightToLeft = createMapping(rightSymbols, leftSymbols);
+            SetMultimap<VariableReferenceExpression, VariableReferenceExpression> leftToRight = createMapping(leftSymbols, rightSymbols);
 
             PlanWithProperties right;
 
@@ -721,7 +739,8 @@ public class AddExchanges
                                     idAllocator.getNextId(),
                                     selectExchangeScopeForPartitionedRemoteExchange(right.getNode()),
                                     right.getNode(),
-                                    new PartitioningScheme(rightPartitioning, right.getNode().getOutputSymbols())),
+                                    new PartitioningScheme(rightPartitioning, toVariableReferences(right.getNode().getOutputSymbols(), types)),
+                                    types),
                             right.getProperties());
                 }
             }
@@ -735,7 +754,8 @@ public class AddExchanges
                                     idAllocator.getNextId(),
                                     selectExchangeScopeForPartitionedRemoteExchange(left.getNode()),
                                     left.getNode(),
-                                    new PartitioningScheme(leftPartitioning, left.getNode().getOutputSymbols())),
+                                    new PartitioningScheme(leftPartitioning, toVariableReferences(left.getNode().getOutputSymbols(), types)),
+                                    types),
                             left.getProperties());
                 }
                 else {
@@ -745,7 +765,8 @@ public class AddExchanges
                                     selectExchangeScopeForPartitionedRemoteExchange(left.getNode()),
                                     left.getNode(),
                                     createPartitioning(leftSymbols),
-                                    Optional.empty()),
+                                    Optional.empty(),
+                                    types),
                             left.getProperties());
                     right = withDerivedProperties(
                             partitionedExchange(
@@ -753,7 +774,8 @@ public class AddExchanges
                                     selectExchangeScopeForPartitionedRemoteExchange(right.getNode()),
                                     right.getNode(),
                                     createPartitioning(rightSymbols),
-                                    Optional.empty()),
+                                    Optional.empty(),
+                                    types),
                             right.getProperties());
                 }
             }
@@ -769,7 +791,8 @@ public class AddExchanges
                         partitionedExchange(
                                 idAllocator.getNextId(),
                                 selectExchangeScopeForPartitionedRemoteExchange(right.getNode()), right.getNode(),
-                                new PartitioningScheme(rightPartitioning, right.getNode().getOutputSymbols())),
+                                new PartitioningScheme(rightPartitioning, toVariableReferences(right.getNode().getOutputSymbols(), types)),
+                                types),
                         right.getProperties());
             }
 
@@ -785,13 +808,13 @@ public class AddExchanges
                 if (!right.getProperties().isSingleNode() ||
                         (!isColocatedJoinEnabled(session) && hasMultipleTableScans(left.getNode(), right.getNode()))) {
                     right = withDerivedProperties(
-                            gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, right.getNode()),
+                            gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, right.getNode(), types),
                             right.getProperties());
                 }
             }
             else {
                 right = withDerivedProperties(
-                        replicatedExchange(idAllocator.getNextId(), REMOTE_STREAMING, right.getNode()),
+                        replicatedExchange(idAllocator.getNextId(), REMOTE_STREAMING, right.getNode(), types),
                         right.getProperties());
             }
 
@@ -826,22 +849,22 @@ public class AddExchanges
                 if (left.getProperties().isSingleNode()) {
                     if (!right.getProperties().isSingleNode()) {
                         right = withDerivedProperties(
-                                gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, right.getNode()),
+                                gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, right.getNode(), types),
                                 right.getProperties());
                     }
                 }
                 else {
                     right = withDerivedProperties(
-                            replicatedExchange(idAllocator.getNextId(), REMOTE_STREAMING, right.getNode()),
+                            replicatedExchange(idAllocator.getNextId(), REMOTE_STREAMING, right.getNode(), types),
                             right.getProperties());
                 }
             }
             else {
                 left = withDerivedProperties(
-                        partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, left.getNode(), createPartitioning(ImmutableList.of(node.getLeftPartitionSymbol().get())), Optional.empty()),
+                        partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, left.getNode(), createPartitioning(ImmutableList.of(toVariableReference(node.getLeftPartitionSymbol().get(), types))), Optional.empty(), types),
                         left.getProperties());
                 right = withDerivedProperties(
-                        partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, right.getNode(), createPartitioning(ImmutableList.of(node.getRightPartitionSymbol().get())), Optional.empty()),
+                        partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, right.getNode(), createPartitioning(ImmutableList.of(toVariableReference(node.getRightPartitionSymbol().get(), types))), Optional.empty(), types),
                         right.getProperties());
             }
 
@@ -865,15 +888,15 @@ public class AddExchanges
 
             SemiJoinNode.DistributionType distributionType = node.getDistributionType().orElseThrow(() -> new IllegalArgumentException("distributionType not yet set"));
             if (distributionType == SemiJoinNode.DistributionType.PARTITIONED) {
-                List<Symbol> sourceSymbols = ImmutableList.of(node.getSourceJoinSymbol());
-                List<Symbol> filteringSourceSymbols = ImmutableList.of(node.getFilteringSourceJoinSymbol());
+                List<VariableReferenceExpression> sourceVariables = ImmutableList.of(toVariableReference(node.getSourceJoinSymbol(), types));
+                List<VariableReferenceExpression> filteringSourceVariables = ImmutableList.of(toVariableReference(node.getFilteringSourceJoinSymbol(), types));
 
-                SetMultimap<Symbol, Symbol> sourceToFiltering = createMapping(sourceSymbols, filteringSourceSymbols);
-                SetMultimap<Symbol, Symbol> filteringToSource = createMapping(filteringSourceSymbols, sourceSymbols);
+                SetMultimap<VariableReferenceExpression, VariableReferenceExpression> sourceToFiltering = createMapping(sourceVariables, filteringSourceVariables);
+                SetMultimap<VariableReferenceExpression, VariableReferenceExpression> filteringToSource = createMapping(filteringSourceVariables, sourceVariables);
 
-                source = node.getSource().accept(this, PreferredProperties.partitioned(ImmutableSet.copyOf(sourceSymbols)));
+                source = node.getSource().accept(this, PreferredProperties.partitioned(ImmutableSet.copyOf(sourceVariables)));
 
-                if (source.getProperties().isNodePartitionedOn(sourceSymbols) && !source.getProperties().isSingleNode()) {
+                if (source.getProperties().isNodePartitionedOn(sourceVariables) && !source.getProperties().isSingleNode()) {
                     Partitioning filteringPartitioning = source.getProperties().translate(createTranslator(sourceToFiltering)).getNodePartitioning().get();
                     filteringSource = node.getFilteringSource().accept(this, PreferredProperties.partitionedWithNullsAndAnyReplicated(filteringPartitioning));
                     // TODO: Deprecate compatible table partitioning
@@ -883,20 +906,21 @@ public class AddExchanges
                         filteringSource = withDerivedProperties(
                                 partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, filteringSource.getNode(), new PartitioningScheme(
                                         filteringPartitioning,
-                                        filteringSource.getNode().getOutputSymbols(),
+                                        toVariableReferences(filteringSource.getNode().getOutputSymbols(), types),
                                         Optional.empty(),
                                         true,
-                                        Optional.empty())),
+                                        Optional.empty()),
+                                        types),
                                 filteringSource.getProperties());
                     }
                 }
                 else {
-                    filteringSource = node.getFilteringSource().accept(this, PreferredProperties.partitionedWithNullsAndAnyReplicated(ImmutableSet.copyOf(filteringSourceSymbols)));
+                    filteringSource = node.getFilteringSource().accept(this, PreferredProperties.partitionedWithNullsAndAnyReplicated(ImmutableSet.copyOf(filteringSourceVariables)));
 
-                    if (filteringSource.getProperties().isNodePartitionedOn(filteringSourceSymbols, true) && !filteringSource.getProperties().isSingleNode()) {
+                    if (filteringSource.getProperties().isNodePartitionedOn(filteringSourceVariables, true) && !filteringSource.getProperties().isSingleNode()) {
                         Partitioning sourcePartitioning = filteringSource.getProperties().translate(createTranslator(filteringToSource)).getNodePartitioning().get();
                         source = withDerivedProperties(
-                                partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, source.getNode(), new PartitioningScheme(sourcePartitioning, source.getNode().getOutputSymbols())),
+                                partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, source.getNode(), new PartitioningScheme(sourcePartitioning, toVariableReferences(source.getNode().getOutputSymbols(), types)), types),
                                 source.getProperties());
                     }
                     else {
@@ -905,11 +929,12 @@ public class AddExchanges
                                         idAllocator.getNextId(),
                                         REMOTE_STREAMING,
                                         source.getNode(),
-                                        createPartitioning(sourceSymbols),
-                                        Optional.empty()),
+                                        createPartitioning(sourceVariables),
+                                        Optional.empty(),
+                                        types),
                                 source.getProperties());
                         filteringSource = withDerivedProperties(
-                                partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, filteringSource.getNode(), createPartitioning(filteringSourceSymbols), Optional.empty(), true),
+                                partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, filteringSource.getNode(), createPartitioning(filteringSourceVariables), Optional.empty(), types, true),
                                 filteringSource.getProperties());
                     }
                 }
@@ -924,10 +949,11 @@ public class AddExchanges
                     filteringSource = withDerivedProperties(
                             partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, filteringSource.getNode(), new PartitioningScheme(
                                     filteringPartitioning,
-                                    filteringSource.getNode().getOutputSymbols(),
+                                    toVariableReferences(filteringSource.getNode().getOutputSymbols(), types),
                                     Optional.empty(),
                                     true,
-                                    Optional.empty())),
+                                    Optional.empty()),
+                                    types),
                             filteringSource.getProperties());
                 }
             }
@@ -942,13 +968,13 @@ public class AddExchanges
                     if (!filteringSource.getProperties().isSingleNode() ||
                             (!isColocatedJoinEnabled(session) && hasMultipleTableScans(source.getNode(), filteringSource.getNode()))) {
                         filteringSource = withDerivedProperties(
-                                gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, filteringSource.getNode()),
+                                gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, filteringSource.getNode(), types),
                                 filteringSource.getProperties());
                     }
                 }
                 else {
                     filteringSource = withDerivedProperties(
-                            replicatedExchange(idAllocator.getNextId(), REMOTE_STREAMING, filteringSource.getNode()),
+                            replicatedExchange(idAllocator.getNextId(), REMOTE_STREAMING, filteringSource.getNode(), types),
                             filteringSource.getProperties());
                 }
             }
@@ -959,14 +985,12 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitIndexJoin(IndexJoinNode node, PreferredProperties preferredProperties)
         {
-            List<Symbol> joinColumns = node.getCriteria().stream()
+            List<VariableReferenceExpression> joinColumns = node.getCriteria().stream()
                     .map(IndexJoinNode.EquiJoinClause::getProbe)
-                    .map(VariableReferenceExpression::getName)
-                    .map(Symbol::new)
                     .collect(toImmutableList());
 
             // Only prefer grouping on join columns if no parent local property preferences
-            List<LocalProperty<Symbol>> desiredLocalProperties = preferredProperties.getLocalProperties().isEmpty() ? grouped(joinColumns) : ImmutableList.of();
+            List<LocalProperty<VariableReferenceExpression>> desiredLocalProperties = preferredProperties.getLocalProperties().isEmpty() ? grouped(joinColumns) : ImmutableList.of();
 
             PlanWithProperties probeSource = node.getProbeSource().accept(this, PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(joinColumns), desiredLocalProperties)
                     .mergeWithParent(preferredProperties));
@@ -977,7 +1001,7 @@ public class AddExchanges
             // TODO: allow repartitioning if unpartitioned to increase parallelism
             if (shouldRepartitionForIndexJoin(joinColumns, preferredProperties, probeProperties)) {
                 probeSource = withDerivedProperties(
-                        partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, probeSource.getNode(), createPartitioning(joinColumns), node.getProbeHashVariable()),
+                        partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, probeSource.getNode(), createPartitioning(joinColumns), node.getProbeHashVariable(), types),
                         probeProperties);
             }
 
@@ -988,7 +1012,7 @@ public class AddExchanges
             return new PlanWithProperties(result, deriveProperties(result, ImmutableList.of(probeSource.getProperties(), indexSource.getProperties())));
         }
 
-        private boolean shouldRepartitionForIndexJoin(List<Symbol> joinColumns, PreferredProperties parentPreferredProperties, ActualProperties probeProperties)
+        private boolean shouldRepartitionForIndexJoin(List<VariableReferenceExpression> joinColumns, PreferredProperties parentPreferredProperties, ActualProperties probeProperties)
         {
             // See if distributed index joins are enabled
             if (!distributedIndexJoins) {
@@ -1031,9 +1055,9 @@ public class AddExchanges
                             .build());
         }
 
-        private Function<Symbol, Optional<Symbol>> outputToInputTranslator(UnionNode node, int sourceIndex)
+        private Function<VariableReferenceExpression, Optional<VariableReferenceExpression>> outputToInputTranslator(UnionNode node, int sourceIndex, TypeProvider types)
         {
-            return symbol -> Optional.of(node.getSymbolMapping().get(symbol).get(sourceIndex));
+            return variable -> Optional.of(toVariableReference(node.getSymbolMapping().get(new Symbol(variable.getName())).get(sourceIndex), types));
         }
 
         private Partitioning selectUnionPartitioning(UnionNode node, PartitioningProperties parentPreference)
@@ -1046,7 +1070,7 @@ public class AddExchanges
             // Try planning the children to see if any of them naturally produce a partitioning (for now, just select the first)
             boolean nullsAndAnyReplicated = parentPreference.isNullsAndAnyReplicated();
             for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
-                PartitioningProperties childPartitioning = parentPreference.translate(outputToInputTranslator(node, sourceIndex)).get();
+                PreferredProperties.PartitioningProperties childPartitioning = parentPreference.translate(outputToInputTranslator(node, sourceIndex, types)).get();
                 PreferredProperties childPreferred = PreferredProperties.builder()
                         .global(PreferredProperties.Global.distributed(childPartitioning.withNullsAndAnyReplicated(nullsAndAnyReplicated)))
                         .build();
@@ -1055,7 +1079,9 @@ public class AddExchanges
                 // Theoretically, if all children are single partitioned on the same node we could choose a single
                 // partitioning, but as this only applies to a union of two values nodes, it isn't worth the added complexity
                 if (child.getProperties().isNodePartitionedOn(childPartitioning.getPartitioningColumns(), nullsAndAnyReplicated) && !child.getProperties().isSingleNode()) {
-                    Function<Symbol, Optional<Symbol>> childToParent = createTranslator(createMapping(node.sourceOutputSymbolLayout(sourceIndex), node.getOutputSymbols()));
+                    Function<VariableReferenceExpression, Optional<VariableReferenceExpression>> childToParent = createTranslator(createMapping(
+                            node.sourceOutputLayout(sourceIndex),
+                            node.getOutputVariables()));
                     return child.getProperties().translate(childToParent).getNodePartitioning().get();
                 }
             }
@@ -1077,7 +1103,9 @@ public class AddExchanges
                 ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> outputToSourcesMapping = ImmutableListMultimap.builder();
 
                 for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
-                    Partitioning childPartitioning = desiredParentPartitioning.translate(createDirectTranslator(createMapping(node.getOutputSymbols(), node.sourceOutputSymbolLayout(sourceIndex))));
+                    Partitioning childPartitioning = desiredParentPartitioning.translate(createDirectTranslator(createMapping(
+                            node.getOutputVariables(),
+                            node.sourceOutputLayout(sourceIndex))));
 
                     PreferredProperties childPreferred = PreferredProperties.builder()
                             .global(PreferredProperties.Global.distributed(PartitioningProperties.partitioned(childPartitioning)
@@ -1095,10 +1123,11 @@ public class AddExchanges
                                         source.getNode(),
                                         new PartitioningScheme(
                                                 childPartitioning,
-                                                source.getNode().getOutputSymbols(),
+                                                toVariableReferences(source.getNode().getOutputSymbols(), types),
                                                 Optional.empty(),
                                                 nullsAndAnyReplicated,
-                                                Optional.empty())),
+                                                Optional.empty()),
+                                        types),
                                 source.getProperties());
                     }
                     partitionedSources.add(source.getNode());
@@ -1140,13 +1169,6 @@ public class AddExchanges
                 }
             }
 
-            List<List<Symbol>> distributedOutputLayoutSymbols = distributedOutputLayouts.stream()
-                    .map(layout -> layout.stream()
-                                    .map(VariableReferenceExpression::getName)
-                                    .map(Symbol::new)
-                                    .collect(toImmutableList()))
-                    .collect(toImmutableList());
-
             PlanNode result;
             if (!distributedChildren.isEmpty() && singleNodeChildren.isEmpty()) {
                 // parent does not have preference or prefers some partitioning without any explicit partitioning - just use
@@ -1161,9 +1183,9 @@ public class AddExchanges
                         idAllocator.getNextId(),
                         GATHER,
                         REMOTE_STREAMING,
-                        new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
+                        new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), node.getOutputVariables()),
                         distributedChildren,
-                        distributedOutputLayoutSymbols,
+                        distributedOutputLayouts,
                         Optional.empty());
             }
             else if (!singleNodeChildren.isEmpty()) {
@@ -1179,14 +1201,9 @@ public class AddExchanges
                             idAllocator.getNextId(),
                             GATHER,
                             REMOTE_STREAMING,
-                            new PartitioningScheme(
-                                    Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
-                                    exchangeOutputLayout.stream()
-                                            .map(VariableReferenceExpression::getName)
-                                            .map(Symbol::new)
-                                            .collect(toImmutableList())),
+                            new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), exchangeOutputLayout),
                             distributedChildren,
-                            distributedOutputLayoutSymbols,
+                            distributedOutputLayouts,
                             Optional.empty());
 
                     singleNodeChildren.add(result);
@@ -1235,14 +1252,9 @@ public class AddExchanges
                                 idAllocator.getNextId(),
                                 REPARTITION,
                                 REMOTE_STREAMING,
-                                new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
+                                new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), toVariableReferences(node.getOutputSymbols(), types)),
                                 distributedChildren,
-                                distributedOutputLayouts.stream()
-                                        .map(layout -> layout.stream()
-                                                .map(VariableReferenceExpression::getName)
-                                                .map(Symbol::new)
-                                                .collect(toImmutableList()))
-                                        .collect(toImmutableList()),
+                                distributedOutputLayouts,
                                 Optional.empty()));
             }
         }
@@ -1304,7 +1316,7 @@ public class AddExchanges
             return PropertyDerivations.derivePropertiesRecursively(result, metadata, session, types, parser);
         }
 
-        private Partitioning createPartitioning(List<Symbol> partitioningColumns)
+        private Partitioning createPartitioning(List<VariableReferenceExpression> partitioningColumns)
         {
             // TODO: Use SystemTablesMetadata instead of introducing a special case
             if (GlobalSystemConnector.NAME.equals(partitioningProviderCatalog)) {
@@ -1312,7 +1324,7 @@ public class AddExchanges
             }
 
             List<Type> partitioningTypes = partitioningColumns.stream()
-                    .map(column -> symbolAllocator.getTypes().get(column))
+                    .map(VariableReferenceExpression::getType)
                     .collect(toImmutableList());
             PartitioningHandle partitioningHandle = metadata.getPartitioningHandleForExchange(session, partitioningProviderCatalog, hashPartitionCount, partitioningTypes);
             return Partitioning.create(partitioningHandle, partitioningColumns);
@@ -1368,27 +1380,37 @@ public class AddExchanges
                 .allMatch(this::canPushdownPartialMergeThroughLowMemoryOperators);
     }
 
-    private static Map<Symbol, Symbol> computeIdentityTranslations(Assignments assignments)
+    public static Map<VariableReferenceExpression, VariableReferenceExpression> computeIdentityTranslations(Assignments assignments, TypeProvider types)
     {
-        Map<Symbol, Symbol> outputToInput = new HashMap<>();
+        Map<VariableReferenceExpression, VariableReferenceExpression> outputToInput = new HashMap<>();
         for (Map.Entry<Symbol, Expression> assignment : assignments.getMap().entrySet()) {
             if (assignment.getValue() instanceof SymbolReference) {
-                outputToInput.put(assignment.getKey(), Symbol.from(assignment.getValue()));
+                outputToInput.put(toVariableReference(assignment.getKey(), types), toVariableReference(Symbol.from(assignment.getValue()), types));
             }
         }
         return outputToInput;
+    }
+
+    public static VariableReferenceExpression toVariableReference(Symbol symbol, TypeProvider types)
+    {
+        return variable(symbol.getName(), types.get(symbol));
+    }
+
+    public static List<VariableReferenceExpression> toVariableReferences(Collection<Symbol> symbols, TypeProvider types)
+    {
+        return symbols.stream().map(symbol -> variable(symbol.getName(), types.get(symbol))).collect(toImmutableList());
     }
 
     @VisibleForTesting
     static Comparator<ActualProperties> streamingExecutionPreference(PreferredProperties preferred)
     {
         // Calculating the matches can be a bit expensive, so cache the results between comparisons
-        LoadingCache<List<LocalProperty<Symbol>>, List<Optional<LocalProperty<Symbol>>>> matchCache = CacheBuilder.newBuilder()
+        LoadingCache<List<LocalProperty<VariableReferenceExpression>>, List<Optional<LocalProperty<VariableReferenceExpression>>>> matchCache = CacheBuilder.newBuilder()
                 .build(CacheLoader.from(actualProperties -> LocalProperties.match(actualProperties, preferred.getLocalProperties())));
 
         return (actual1, actual2) -> {
-            List<Optional<LocalProperty<Symbol>>> matchLayout1 = matchCache.getUnchecked(actual1.getLocalProperties());
-            List<Optional<LocalProperty<Symbol>>> matchLayout2 = matchCache.getUnchecked(actual2.getLocalProperties());
+            List<Optional<LocalProperty<VariableReferenceExpression>>> matchLayout1 = matchCache.getUnchecked(actual1.getLocalProperties());
+            List<Optional<LocalProperty<VariableReferenceExpression>>> matchLayout2 = matchCache.getUnchecked(actual2.getLocalProperties());
 
             return ComparisonChain.start()
                     .compareTrueFirst(hasLocalOptimization(preferred.getLocalProperties(), matchLayout1), hasLocalOptimization(preferred.getLocalProperties(), matchLayout2))

@@ -420,9 +420,27 @@ public class TestCostCalculator
     {
         TableScanNode ts1 = tableScan("ts1", "orderkey");
         TableScanNode ts2 = tableScan("ts2", "orderkey_0");
-        ExchangeNode remoteExchange1 = systemPartitionedExchange(new PlanNodeId("re1"), REMOTE_STREAMING, ts1, ImmutableList.of(new Symbol("orderkey")), Optional.empty());
-        ExchangeNode remoteExchange2 = systemPartitionedExchange(new PlanNodeId("re2"), REMOTE_STREAMING, ts2, ImmutableList.of(new Symbol("orderkey_0")), Optional.empty());
-        ExchangeNode localExchange = systemPartitionedExchange(new PlanNodeId("le"), LOCAL, remoteExchange2, ImmutableList.of(new Symbol("orderkey_0")), Optional.empty());
+        ExchangeNode remoteExchange1 = systemPartitionedExchange(
+                new PlanNodeId("re1"),
+                REMOTE_STREAMING,
+                ts1,
+                ImmutableList.of(new VariableReferenceExpression("orderkey", VARCHAR)),
+                Optional.empty(),
+                TypeProvider.viewOf(ImmutableMap.of(new Symbol("orderkey"), VARCHAR)));
+        ExchangeNode remoteExchange2 = systemPartitionedExchange(
+                new PlanNodeId("re2"),
+                REMOTE_STREAMING,
+                ts2,
+                ImmutableList.of(new VariableReferenceExpression("orderkey_0", VARCHAR)),
+                Optional.empty(),
+                TypeProvider.viewOf(ImmutableMap.of(new Symbol("orderkey_0"), VARCHAR)));
+        ExchangeNode localExchange = systemPartitionedExchange(
+                new PlanNodeId("le"),
+                LOCAL,
+                remoteExchange2,
+                ImmutableList.of(new VariableReferenceExpression("orderkey_0", VARCHAR)),
+                Optional.empty(),
+                TypeProvider.viewOf(ImmutableMap.of(new Symbol("orderkey_0"), VARCHAR)));
 
         JoinNode join = join("join",
                 remoteExchange1,
@@ -451,8 +469,14 @@ public class TestCostCalculator
     {
         TableScanNode ts1 = tableScan("ts1", "orderkey");
         TableScanNode ts2 = tableScan("ts2", "orderkey_0");
-        ExchangeNode remoteExchange2 = replicatedExchange(new PlanNodeId("re2"), REMOTE_STREAMING, ts2);
-        ExchangeNode localExchange = systemPartitionedExchange(new PlanNodeId("le"), LOCAL, remoteExchange2, ImmutableList.of(new Symbol("orderkey_0")), Optional.empty());
+        ExchangeNode remoteExchange2 = replicatedExchange(new PlanNodeId("re2"), REMOTE_STREAMING, ts2, TypeProvider.viewOf(ImmutableMap.of(new Symbol("orderkey_0"), VARCHAR)));
+        ExchangeNode localExchange = systemPartitionedExchange(
+                new PlanNodeId("le"),
+                LOCAL,
+                remoteExchange2,
+                ImmutableList.of(new VariableReferenceExpression("orderkey_0", VARCHAR)),
+                Optional.empty(),
+                TypeProvider.viewOf(ImmutableMap.of(new Symbol("orderkey_0"), VARCHAR)));
 
         JoinNode join = join("join",
                 ts1,
