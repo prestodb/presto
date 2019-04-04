@@ -40,6 +40,7 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.Expression;
@@ -83,6 +84,7 @@ import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.toBou
 import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.toWindowType;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.groupingSets;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -795,11 +797,22 @@ class QueryPlanner
                 continue;
             }
 
-            Symbol newSymbol = symbolAllocator.newSymbol(rewritten, analysis.getType(windowFunction));
+            Type returnType = analysis.getType(windowFunction);
+            Symbol newSymbol = symbolAllocator.newSymbol(rewritten, returnType);
             outputTranslations.put(windowFunction, newSymbol);
 
+            // TODO: replace arguments with RowExpression once we introduce subquery expression for RowExpression (#12745).
+            // Wrap all arguments in CallExpression to be RawExpression.
+            // The utility that work on the CallExpression should be aware of the RawExpression handling.
+            // The interface will be dirty until we introduce subquery expression for RowExpression.
+            // With subqueries, the translation from Expression to RowExpression can happen here.
             WindowNode.Function function = new WindowNode.Function(
-                    (FunctionCall) rewritten, analysis.getFunctionHandle(windowFunction), frame);
+                    call(
+                            windowFunction.getName().toString(),
+                            analysis.getFunctionHandle(windowFunction),
+                            returnType,
+                            ((FunctionCall) rewritten).getArguments().stream().map(OriginalExpressionUtils::castToRowExpression).collect(toImmutableList())),
+                    frame);
 
             List<Symbol> sourceSymbols = subPlan.getRoot().getOutputSymbols();
             ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();

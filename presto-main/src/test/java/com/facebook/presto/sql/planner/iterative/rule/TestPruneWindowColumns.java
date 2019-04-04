@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
@@ -25,8 +26,6 @@ import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -51,13 +50,15 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.CURRENT_ROW;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
+import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class TestPruneWindowColumns
         extends BaseRuleTest
 {
-    private static final FunctionHandle FUNCTION_HANDLE = createTestMetadataManager().getFunctionManager().lookupFunction("min", fromTypes(BIGINT));
+    private static final String FUNCTION_NAME = "min";
+    private static final FunctionHandle FUNCTION_HANDLE = createTestMetadataManager().getFunctionManager().lookupFunction(FUNCTION_NAME, fromTypes(BIGINT));
 
     private static final List<String> inputSymbolNameList =
             ImmutableList.of("orderKey", "partitionKey", "hash", "startValue1", "startValue2", "endValue1", "endValue2", "input1", "input2", "unused");
@@ -215,8 +216,7 @@ public class TestPruneWindowColumns
                         ImmutableMap.of(
                                 output1,
                                 new WindowNode.Function(
-                                        new FunctionCall(QualifiedName.of("min"), ImmutableList.of(input1.toSymbolReference())),
-                                        FUNCTION_HANDLE,
+                                        call(FUNCTION_NAME, FUNCTION_HANDLE, BIGINT, new VariableReferenceExpression(input1.getName(), BIGINT)),
                                         new WindowNode.Frame(
                                                 RANGE,
                                                 UNBOUNDED_PRECEDING,
@@ -227,8 +227,7 @@ public class TestPruneWindowColumns
                                                 Optional.of(endValue2.toSymbolReference()).map(Expression::toString))),
                                 output2,
                                 new WindowNode.Function(
-                                        new FunctionCall(QualifiedName.of("min"), ImmutableList.of(input2.toSymbolReference())),
-                                        FUNCTION_HANDLE,
+                                        call(FUNCTION_NAME, FUNCTION_HANDLE, BIGINT, new VariableReferenceExpression(input2.getName(), BIGINT)),
                                         new WindowNode.Frame(
                                                 RANGE,
                                                 UNBOUNDED_PRECEDING,

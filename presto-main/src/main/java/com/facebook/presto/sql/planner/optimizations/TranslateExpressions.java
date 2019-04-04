@@ -17,12 +17,16 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.planner.plan.WindowNode.Function;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
@@ -32,12 +36,15 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import static com.facebook.presto.execution.warnings.WarningCollector.NOOP;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.values;
+import static com.facebook.presto.sql.planner.plan.Patterns.window;
+import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Preconditions.checkState;
@@ -59,7 +66,60 @@ public class TranslateExpressions
         // TODO: finish all other PlanNodes that have Expression
         return ImmutableSet.of(
                 new ValuesExpressionTranslation(),
-                new FilterExpressionTranslation());
+                new FilterExpressionTranslation(),
+                new WindowExpressionTranslation());
+    }
+
+    private final class WindowExpressionTranslation
+            implements Rule<WindowNode>
+    {
+        @Override
+        public Pattern<WindowNode> getPattern()
+        {
+            return window();
+        }
+
+        @Override
+        public Result apply(WindowNode windowNode, Captures captures, Context context)
+        {
+            checkState(windowNode.getSource() != null);
+            boolean anyRewritten = false;
+            ImmutableMap.Builder<Symbol, Function> functions = ImmutableMap.builder();
+            for (Entry<Symbol, Function> entry : windowNode.getWindowFunctions().entrySet()) {
+                ImmutableList.Builder<RowExpression> newArguments = ImmutableList.builder();
+                CallExpression callExpression = entry.getValue().getFunctionCall();
+                for (RowExpression argument : callExpression.getArguments()) {
+                    if (isExpression(argument)) {
+                        RowExpression rewritten = toRowExpression(castToExpression(argument), context);
+                        anyRewritten = true;
+                        newArguments.add(rewritten);
+                    }
+                    else {
+                        newArguments.add(argument);
+                    }
+                }
+                functions.put(
+                        entry.getKey(),
+                        new Function(
+                                call(
+                                        callExpression.getDisplayName(),
+                                        callExpression.getFunctionHandle(),
+                                        callExpression.getType(),
+                                        newArguments.build()),
+                                entry.getValue().getFrame()));
+            }
+            if (anyRewritten) {
+                return Result.ofPlanNode(new WindowNode(
+                        windowNode.getId(),
+                        windowNode.getSource(),
+                        windowNode.getSpecification(),
+                        functions.build(),
+                        windowNode.getHashSymbol(),
+                        windowNode.getPrePartitionedInputs(),
+                        windowNode.getPreSortedOrderPrefix()));
+            }
+            return Result.empty();
+        }
     }
 
     private final class FilterExpressionTranslation

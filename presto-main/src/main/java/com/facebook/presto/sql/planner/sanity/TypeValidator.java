@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -148,7 +149,7 @@ public final class TypeValidator
         {
             for (Map.Entry<Symbol, WindowNode.Function> entry : functions.entrySet()) {
                 FunctionHandle functionHandle = entry.getValue().getFunctionHandle();
-                FunctionCall call = entry.getValue().getFunctionCall();
+                CallExpression call = entry.getValue().getFunctionCall();
 
                 checkTypeSignature(entry.getKey(), metadata.getFunctionManager().getFunctionMetadata(functionHandle).getReturnType());
                 checkCall(entry.getKey(), call);
@@ -166,6 +167,13 @@ public final class TypeValidator
             Type expectedType = types.get(symbol);
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, call, emptyList(), warningCollector);
             Type actualType = expressionTypes.get(NodeRef.<Expression>of(call));
+            verifyTypeSignature(symbol, expectedType.getTypeSignature(), actualType.getTypeSignature());
+        }
+
+        private void checkCall(Symbol symbol, CallExpression call)
+        {
+            Type expectedType = types.get(symbol);
+            Type actualType = call.getType();
             verifyTypeSignature(symbol, expectedType.getTypeSignature(), actualType.getTypeSignature());
         }
 

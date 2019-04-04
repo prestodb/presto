@@ -13,14 +13,18 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType;
 import com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Collection;
+import java.util.Set;
 
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.CURRENT_ROW;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.FOLLOWING;
@@ -29,6 +33,9 @@ import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UN
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.ROWS;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 
 public final class WindowNodeUtil
@@ -40,8 +47,7 @@ public final class WindowNodeUtil
         return parent.getPartitionBy().stream().anyMatch(child.getCreatedSymbols()::contains)
                 || (parent.getOrderingScheme().isPresent() && parent.getOrderingScheme().get().getOrderBy().stream().anyMatch(child.getCreatedSymbols()::contains))
                 || parent.getWindowFunctions().values().stream()
-                .map(WindowNode.Function::getFunctionCall)
-                .map(SymbolsExtractor::extractUnique)
+                .map(WindowNodeUtil::extractWindowFunctionUnique)
                 .flatMap(Collection::stream)
                 .anyMatch(child.getCreatedSymbols()::contains);
     }
@@ -74,5 +80,21 @@ public final class WindowNodeUtil
             default:
                 throw new UnsupportedOperationException(format("unrecognized frame bound type %s", type));
         }
+    }
+
+    // Explicitly limit the following functions for WindowNode.
+    // TODO: Once the arguments in CallExpression are pure RowExpressions, move the method to SymbolsExtractor
+    public static Set<Symbol> extractWindowFunctionUnique(WindowNode.Function function)
+    {
+        ImmutableSet.Builder<Symbol> builder = ImmutableSet.builder();
+        for (RowExpression argument : function.getFunctionCall().getArguments()) {
+            if (isExpression(argument)) {
+                builder.addAll(SymbolsExtractor.extractAll(castToExpression(argument)));
+            }
+            else {
+                builder.addAll(SymbolsExtractor.extractAll(argument).stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableSet()));
+            }
+        }
+        return builder.build();
     }
 }

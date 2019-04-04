@@ -40,6 +40,7 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableBiMap;
@@ -351,7 +352,7 @@ public class IndexJoinOptimizer
         public PlanNode visitWindow(WindowNode node, RewriteContext<Context> context)
         {
             if (!node.getWindowFunctions().values().stream()
-                    .map(function -> function.getFunctionCall().getName())
+                    .map(function -> QualifiedName.of(metadata.getFunctionManager().getFunctionMetadata(function.getFunctionCall().getFunctionHandle()).getName()))
                     .allMatch(metadata.getFunctionManager()::isAggregationFunction)) {
                 return node;
             }
