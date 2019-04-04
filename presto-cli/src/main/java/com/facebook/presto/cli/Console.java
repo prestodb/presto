@@ -104,7 +104,7 @@ public class Console
                 throw new RuntimeException("both --execute and --file specified");
             }
             try {
-                query = Files.toString(new File(clientOptions.file), UTF_8);
+                query = Files.asCharSource(new File(clientOptions.file), UTF_8).read();
                 hasQuery = true;
             }
             catch (IOException e) {
