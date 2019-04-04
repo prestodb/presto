@@ -60,6 +60,11 @@ public final class StandardFunctionResolution
         return functionManager.lookupFunction(QualifiedName.of("not"), fromTypes(BOOLEAN));
     }
 
+    public boolean isNotFunction(FunctionHandle functionHandle)
+    {
+        return notFunction().equals(functionHandle);
+    }
+
     public FunctionHandle likeVarcharFunction()
     {
         return functionManager.lookupFunction(QualifiedName.of("LIKE"), fromTypes(VARCHAR, LIKE_PATTERN));

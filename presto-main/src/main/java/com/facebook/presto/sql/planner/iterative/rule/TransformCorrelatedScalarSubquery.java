@@ -45,6 +45,7 @@ import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.sea
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static com.facebook.presto.sql.planner.plan.Patterns.LateralJoin.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 /**
@@ -138,7 +139,7 @@ public class TransformCorrelatedScalarSubquery
         FilterNode filterNode = new FilterNode(
                 context.getIdAllocator().getNextId(),
                 markDistinctNode,
-                new SimpleCaseExpression(
+                castToRowExpression(new SimpleCaseExpression(
                         isDistinct.toSymbolReference(),
                         ImmutableList.of(
                                 new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
@@ -148,7 +149,7 @@ public class TransformCorrelatedScalarSubquery
                                         ImmutableList.of(
                                                 new LongLiteral(Integer.toString(SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode())),
                                                 new StringLiteral("Scalar sub-query has returned multiple rows"))),
-                                BOOLEAN))));
+                                BOOLEAN)))));
 
         return Result.ofPlanNode(new ProjectNode(
                 context.getIdAllocator().getNextId(),

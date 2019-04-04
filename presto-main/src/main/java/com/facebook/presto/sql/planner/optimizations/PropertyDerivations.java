@@ -25,6 +25,7 @@ import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
@@ -68,6 +69,7 @@ import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -95,6 +97,8 @@ import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Glo
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.streamPartitionedOn;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -591,14 +595,18 @@ public class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            ExpressionDomainTranslator.ExtractionResult decomposedPredicate = ExpressionDomainTranslator.fromPredicate(
-                    metadata,
-                    session,
-                    node.getPredicate(),
-                    types);
+            TupleDomain<Symbol> tupleDomain;
+            if (isExpression(node.getPredicate())) {
+                tupleDomain = ExpressionDomainTranslator.fromPredicate(metadata, session, castToExpression(node.getPredicate()), types).getTupleDomain();
+            }
+            else {
+                tupleDomain = RowExpressionDomainTranslator.fromPredicate(metadata, session, node.getPredicate())
+                        .getTupleDomain()
+                        .transform(column -> new Symbol(column.getName()));
+            }
 
             Map<Symbol, NullableValue> constants = new HashMap<>(properties.getConstants());
-            constants.putAll(extractFixedValues(decomposedPredicate.getTupleDomain()).orElse(ImmutableMap.of()));
+            constants.putAll(extractFixedValues(tupleDomain).orElse(ImmutableMap.of()));
 
             return ActualProperties.builderFrom(properties)
                     .constants(constants)

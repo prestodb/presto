@@ -65,6 +65,7 @@ import static com.facebook.presto.sql.ExpressionUtils.or;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.plan.Patterns.Apply.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -350,7 +351,7 @@ public class TransformCorrelatedInPredicateToJoin
                             ImmutableList.<Expression>builder()
                                     .addAll(decorrelated.getCorrelatedPredicates())
                                     // No need to retain uncorrelated conditions, predicate push down will push them back
-                                    .add(node.getPredicate())
+                                    .add(castToExpression(node.getPredicate()))
                                     .build(),
                             decorrelated.getDecorrelatedNode()));
         }

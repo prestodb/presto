@@ -99,7 +99,7 @@ public class ExpressionExtractor
         @Override
         public Void visitFilter(FilterNode node, ImmutableList.Builder<RowExpression> context)
         {
-            context.add(castToRowExpression(node.getPredicate()));
+            context.add(node.getPredicate());
             return super.visitFilter(node, context);
         }
 

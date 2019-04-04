@@ -45,6 +45,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -115,7 +117,7 @@ public class PlanNodeDecorrelator
                 return Optional.empty();
             }
 
-            Expression predicate = node.getPredicate();
+            Expression predicate = castToExpression(node.getPredicate());
             Map<Boolean, List<Expression>> predicates = ExpressionUtils.extractConjuncts(predicate).stream()
                     .collect(Collectors.partitioningBy(PlanNodeDecorrelator.DecorrelatingVisitor.this::isCorrelated));
             List<Expression> correlatedPredicates = ImmutableList.copyOf(predicates.get(true));
@@ -125,7 +127,7 @@ public class PlanNodeDecorrelator
             FilterNode newFilterNode = new FilterNode(
                     idAllocator.getNextId(),
                     childDecorrelationResult.node,
-                    ExpressionUtils.combineConjuncts(uncorrelatedPredicates));
+                    castToRowExpression(ExpressionUtils.combineConjuncts(uncorrelatedPredicates)));
 
             Set<Symbol> symbolsToPropagate = Sets.difference(SymbolsExtractor.extractUnique(correlatedPredicates), ImmutableSet.copyOf(correlation));
             return Optional.of(new DecorrelationResult(

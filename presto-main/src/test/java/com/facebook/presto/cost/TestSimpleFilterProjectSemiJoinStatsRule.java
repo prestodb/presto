@@ -13,9 +13,14 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.Assignments;
+import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.tree.Expression;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -71,27 +76,18 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
 
     private static final PlanNodeId LEFT_SOURCE_ID = new PlanNodeId("left_source_values");
     private static final PlanNodeId RIGHT_SOURCE_ID = new PlanNodeId("right_source_values");
+    private static final TestingRowExpressionTranslator TRANSLATOR = new TestingRowExpressionTranslator(MetadataManager.createTestMetadataManager());
 
-    @Test
-    public void testFilterPositiveSemiJoin()
+    @DataProvider(name = "toRowExpression")
+    public Object[][] toRowExpressionProvider()
     {
-        tester().assertStatsFor(pb -> {
-            Symbol a = pb.symbol("a", BIGINT);
-            Symbol b = pb.symbol("b", BIGINT);
-            Symbol c = pb.symbol("c", BIGINT);
-            Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
-            return pb.filter(
-                    semiJoinOutput.toSymbolReference(),
-                    pb.semiJoin(
-                            pb.values(LEFT_SOURCE_ID, a, b),
-                            pb.values(RIGHT_SOURCE_ID, c),
-                            a,
-                            c,
-                            semiJoinOutput,
-                            Optional.empty(),
-                            Optional.empty(),
-                            Optional.empty()));
-        })
+        return new Object[][] {{true}, {false}};
+    }
+
+    @Test(dataProvider = "toRowExpression")
+    public void testFilterPositiveSemiJoin(boolean toRowExpression)
+    {
+        getStatsCalculatorAssertion(new Symbol("sjo").toSymbolReference(), toRowExpression)
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
                         .addSymbolStatistics(new Symbol("a"), aStats)
@@ -101,35 +97,38 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
                         .setOutputRowCount(2000)
                         .addSymbolStatistics(new Symbol("c"), cStats)
                         .build())
-                .check(check -> {
-                    check.outputRowsCount(180)
+                .check(check -> check.outputRowsCount(180)
                             .symbolStats("a", assertion -> assertion.isEqualTo(expectedAInC))
                             .symbolStats("b", assertion -> assertion.isEqualTo(bStats))
                             .symbolStatsUnknown("c")
-                            .symbolStatsUnknown("sjo");
-                });
+                            .symbolStatsUnknown("sjo"));
     }
 
-    @Test
-    public void testFilterPositiveNarrowingProjectSemiJoin()
+    @Test(dataProvider = "toRowExpression")
+    public void testFilterPositiveNarrowingProjectSemiJoin(boolean toRowExpression)
     {
         tester().assertStatsFor(pb -> {
             Symbol a = pb.symbol("a", BIGINT);
             Symbol b = pb.symbol("b", BIGINT);
             Symbol c = pb.symbol("c", BIGINT);
             Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
-            return pb.filter(
-                    expression("sjo"),
-                    pb.project(Assignments.identity(semiJoinOutput, a),
-                            pb.semiJoin(
-                                    pb.values(LEFT_SOURCE_ID, a, b),
-                                    pb.values(RIGHT_SOURCE_ID, c),
-                                    a,
-                                    c,
-                                    semiJoinOutput,
-                                    Optional.empty(),
-                                    Optional.empty(),
-                                    Optional.empty())));
+
+            PlanNode semiJoinNode = pb.semiJoin(
+                    pb.values(LEFT_SOURCE_ID, a, b),
+                    pb.values(RIGHT_SOURCE_ID, c),
+                    a,
+                    c,
+                    semiJoinOutput,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty());
+
+            if (toRowExpression) {
+                return pb.filter(
+                        TRANSLATOR.translateAndOptimize(expression("sjo"), pb.getTypes()),
+                        pb.project(Assignments.identity(semiJoinOutput, a), semiJoinNode));
+            }
+            return pb.filter(expression("sjo"), pb.project(Assignments.identity(semiJoinOutput, a), semiJoinNode));
         })
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
@@ -140,35 +139,17 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
                         .setOutputRowCount(2000)
                         .addSymbolStatistics(new Symbol("c"), cStats)
                         .build())
-                .check(check -> {
-                    check.outputRowsCount(180)
+                .check(check -> check.outputRowsCount(180)
                             .symbolStats("a", assertion -> assertion.isEqualTo(expectedAInC))
                             .symbolStatsUnknown("b")
                             .symbolStatsUnknown("c")
-                            .symbolStatsUnknown("sjo");
-                });
+                            .symbolStatsUnknown("sjo"));
     }
 
-    @Test
-    public void testFilterPositivePlusExtraConjunctSemiJoin()
+    @Test(dataProvider = "toRowExpression")
+    public void testFilterPositivePlusExtraConjunctSemiJoin(boolean toRowExpression)
     {
-        tester().assertStatsFor(pb -> {
-            Symbol a = pb.symbol("a", BIGINT);
-            Symbol b = pb.symbol("b", BIGINT);
-            Symbol c = pb.symbol("c", BIGINT);
-            Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
-            return pb.filter(
-                    expression("sjo AND a < 8"),
-                    pb.semiJoin(
-                            pb.values(LEFT_SOURCE_ID, a, b),
-                            pb.values(RIGHT_SOURCE_ID, c),
-                            a,
-                            c,
-                            semiJoinOutput,
-                            Optional.empty(),
-                            Optional.empty(),
-                            Optional.empty()));
-        })
+        getStatsCalculatorAssertion(expression("sjo AND a < 8"), toRowExpression)
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
                         .addSymbolStatistics(new Symbol("a"), aStats)
@@ -178,35 +159,17 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
                         .setOutputRowCount(2000)
                         .addSymbolStatistics(new Symbol("c"), cStats)
                         .build())
-                .check(check -> {
-                    check.outputRowsCount(144)
+                .check(check -> check.outputRowsCount(144)
                             .symbolStats("a", assertion -> assertion.isEqualTo(expectedANotInC))
                             .symbolStats("b", assertion -> assertion.isEqualTo(bStats))
                             .symbolStatsUnknown("c")
-                            .symbolStatsUnknown("sjo");
-                });
+                            .symbolStatsUnknown("sjo"));
     }
 
-    @Test
-    public void testFilterNegativeSemiJoin()
+    @Test(dataProvider = "toRowExpression")
+    public void testFilterNegativeSemiJoin(boolean toRowExpression)
     {
-        tester().assertStatsFor(pb -> {
-            Symbol a = pb.symbol("a", BIGINT);
-            Symbol b = pb.symbol("b", BIGINT);
-            Symbol c = pb.symbol("c", BIGINT);
-            Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
-            return pb.filter(
-                    expression("NOT sjo"),
-                    pb.semiJoin(
-                            pb.values(LEFT_SOURCE_ID, a, b),
-                            pb.values(RIGHT_SOURCE_ID, c),
-                            a,
-                            c,
-                            semiJoinOutput,
-                            Optional.empty(),
-                            Optional.empty(),
-                            Optional.empty()));
-        })
+        getStatsCalculatorAssertion(expression("NOT sjo"), toRowExpression)
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
                         .addSymbolStatistics(new Symbol("a"), aStats)
@@ -216,12 +179,35 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
                         .setOutputRowCount(2000)
                         .addSymbolStatistics(new Symbol("c"), cStats)
                         .build())
-                .check(check -> {
-                    check.outputRowsCount(720)
+                .check(check -> check.outputRowsCount(720)
                             .symbolStats("a", assertion -> assertion.isEqualTo(expectedANotInCWithExtraFilter))
                             .symbolStats("b", assertion -> assertion.isEqualTo(bStats))
                             .symbolStatsUnknown("c")
-                            .symbolStatsUnknown("sjo");
-                });
+                            .symbolStatsUnknown("sjo"));
+    }
+
+    private StatsCalculatorAssertion getStatsCalculatorAssertion(Expression expression, boolean toRowExpression)
+    {
+        return tester().assertStatsFor(pb -> {
+            Symbol a = pb.symbol("a", BIGINT);
+            Symbol b = pb.symbol("b", BIGINT);
+            Symbol c = pb.symbol("c", BIGINT);
+            Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
+
+            PlanNode semiJoinNode = pb.semiJoin(
+                    pb.values(LEFT_SOURCE_ID, a, b),
+                    pb.values(RIGHT_SOURCE_ID, c),
+                    a,
+                    c,
+                    semiJoinOutput,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty());
+
+            if (toRowExpression) {
+                return pb.filter(TRANSLATOR.translateAndOptimize(expression, pb.getTypes()), semiJoinNode);
+            }
+            return pb.filter(expression, semiJoinNode);
+        });
     }
 }

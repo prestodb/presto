@@ -72,6 +72,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PAR
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -338,7 +339,7 @@ public class ReorderJoins
                         .forEach(predicates::add);
                 Expression filter = combineConjuncts(predicates.build());
                 if (!TRUE_LITERAL.equals(filter)) {
-                    planNode = new FilterNode(idAllocator.getNextId(), planNode, filter);
+                    planNode = new FilterNode(idAllocator.getNextId(), planNode, castToRowExpression(filter));
                 }
                 return createJoinEnumerationResult(planNode);
             }

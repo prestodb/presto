@@ -550,12 +550,14 @@ public class FilterStatsCalculator
 
                 if (!(left instanceof VariableReferenceExpression) && right instanceof VariableReferenceExpression) {
                     // normalize so that symbol is on the left
-                    return process(call(metadata.getFunctionManager().resolveOperator(flip(operatorType), fromTypes(right.getType(), left.getType())), BOOLEAN, right, left));
+                    OperatorType flippedOperator = flip(operatorType);
+                    return process(call(flippedOperator.name(), metadata.getFunctionManager().resolveOperator(flippedOperator, fromTypes(right.getType(), left.getType())), BOOLEAN, right, left));
                 }
 
                 if (left instanceof ConstantExpression) {
                     // normalize so that literal is on the right
-                    return process(call(metadata.getFunctionManager().resolveOperator(flip(operatorType), fromTypes(right.getType(), left.getType())), BOOLEAN, right, left));
+                    OperatorType flippedOperator = flip(operatorType);
+                    return process(call(flippedOperator.name(), metadata.getFunctionManager().resolveOperator(flippedOperator, fromTypes(right.getType(), left.getType())), BOOLEAN, right, left));
                 }
 
                 if (left instanceof VariableReferenceExpression && left.equals(right)) {
@@ -615,11 +617,13 @@ public class FilterStatsCalculator
 
                 SymbolStatsEstimate valueStats = input.getSymbolStatistics(new Symbol(((VariableReferenceExpression) value).getName()));
                 RowExpression lowerBound = call(
+                        OperatorType.GREATER_THAN_OR_EQUAL.name(),
                         metadata.getFunctionManager().resolveOperator(OperatorType.GREATER_THAN_OR_EQUAL, fromTypes(value.getType(), min.getType())),
                         BOOLEAN,
                         value,
                         min);
                 RowExpression upperBound = call(
+                        OperatorType.LESS_THAN_OR_EQUAL.name(),
                         metadata.getFunctionManager().resolveOperator(OperatorType.LESS_THAN_OR_EQUAL, fromTypes(value.getType(), max.getType())),
                         BOOLEAN,
                         value,
@@ -713,7 +717,7 @@ public class FilterStatsCalculator
         private PlanNodeStatsEstimate estimateIn(RowExpression value, List<RowExpression> candidates)
         {
             ImmutableList<PlanNodeStatsEstimate> equalityEstimates = candidates.stream()
-                    .map(inValue -> process(call(metadata.getFunctionManager().resolveOperator(OperatorType.EQUAL, fromTypes(value.getType(), inValue.getType())), BOOLEAN, value, inValue)))
+                    .map(inValue -> process(call(OperatorType.EQUAL.name(), metadata.getFunctionManager().resolveOperator(OperatorType.EQUAL, fromTypes(value.getType(), inValue.getType())), BOOLEAN, value, inValue)))
                     .collect(toImmutableList());
 
             if (equalityEstimates.stream().anyMatch(PlanNodeStatsEstimate::isOutputRowCountUnknown)) {
@@ -772,7 +776,7 @@ public class FilterStatsCalculator
 
         private RowExpression not(RowExpression expression)
         {
-            return call(functionResolution.notFunction(), expression.getType(), expression);
+            return call("not", functionResolution.notFunction(), expression.getType(), expression);
         }
 
         private ComparisonExpression.Operator getComparisonOperator(OperatorType operator)

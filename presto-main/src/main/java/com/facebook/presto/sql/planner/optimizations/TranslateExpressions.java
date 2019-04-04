@@ -20,9 +20,8 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.iterative.Rule.Context;
+import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
@@ -37,9 +36,11 @@ import java.util.Set;
 
 import static com.facebook.presto.execution.warnings.WarningCollector.NOOP;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.values;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class TranslateExpressions
@@ -57,7 +58,36 @@ public class TranslateExpressions
     {
         // TODO: finish all other PlanNodes that have Expression
         return ImmutableSet.of(
-                new ValuesExpressionTranslation());
+                new ValuesExpressionTranslation(),
+                new FilterExpressionTranslation());
+    }
+
+    private final class FilterExpressionTranslation
+            implements Rule<FilterNode>
+    {
+        @Override
+        public Pattern<FilterNode> getPattern()
+        {
+            return filter();
+        }
+
+        @Override
+        public Result apply(FilterNode filterNode, Captures captures, Context context)
+        {
+            checkState(filterNode.getSource() != null);
+            RowExpression rewritten;
+            if (isExpression(filterNode.getPredicate())) {
+                rewritten = toRowExpression(castToExpression(filterNode.getPredicate()), context);
+            }
+            else {
+                rewritten = filterNode.getPredicate();
+            }
+
+            if (filterNode.getPredicate().equals(rewritten)) {
+                return Result.empty();
+            }
+            return Result.ofPlanNode(new FilterNode(filterNode.getId(), filterNode.getSource(), rewritten));
+        }
     }
 
     private final class ValuesExpressionTranslation
@@ -78,8 +108,7 @@ public class TranslateExpressions
                 ImmutableList.Builder<RowExpression> newRow = ImmutableList.builder();
                 for (RowExpression rowExpression : row) {
                     if (isExpression(rowExpression)) {
-                        Expression expression = castToExpression(rowExpression);
-                        RowExpression rewritten = toRowExpression(expression, context, ImmutableMap.of());
+                        RowExpression rewritten = toRowExpression(castToExpression(rowExpression), context);
                         anyRewritten = true;
                         newRow.add(rewritten);
                     }
@@ -96,7 +125,7 @@ public class TranslateExpressions
         }
     }
 
-    private RowExpression toRowExpression(Expression expression, Context context, Map<Symbol, Integer> sourceLayout)
+    private RowExpression toRowExpression(Expression expression, Rule.Context context)
     {
         Map<NodeRef<Expression>, Type> types = getExpressionTypes(
                 context.getSession(),
@@ -108,6 +137,6 @@ public class TranslateExpressions
                 NOOP,
                 false);
 
-        return SqlToRowExpressionTranslator.translate(expression, types, sourceLayout, metadata.getFunctionManager(), metadata.getTypeManager(), context.getSession(), false);
+        return SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), context.getSession(), false);
     }
 }
