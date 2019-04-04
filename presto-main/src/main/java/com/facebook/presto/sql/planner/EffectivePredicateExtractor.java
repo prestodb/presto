@@ -79,9 +79,9 @@ public class EffectivePredicateExtractor
                 return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, reference, expression);
             };
 
-    private final DomainTranslator domainTranslator;
+    private final ExpressionDomainTranslator domainTranslator;
 
-    public EffectivePredicateExtractor(DomainTranslator domainTranslator)
+    public EffectivePredicateExtractor(ExpressionDomainTranslator domainTranslator)
     {
         this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
     }
@@ -94,9 +94,9 @@ public class EffectivePredicateExtractor
     private static class Visitor
             extends PlanVisitor<Expression, Void>
     {
-        private final DomainTranslator domainTranslator;
+        private final ExpressionDomainTranslator domainTranslator;
 
-        public Visitor(DomainTranslator domainTranslator)
+        public Visitor(ExpressionDomainTranslator domainTranslator)
         {
             this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
         }
