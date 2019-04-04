@@ -148,10 +148,19 @@ public class RowExpressionInterpreter
         return expression.accept(visitor, null);
     }
 
+    public Object optimize()
+    {
+        checkState(optimize, "optimize() not allowed for interpreter");
+        return expression.accept(visitor, null);
+    }
+
+    /**
+     * For test only; convenient to replace symbol with constants. Production code should not replace any symbols; use the interface above
+     */
     @VisibleForTesting
     public Object optimize(SymbolResolver inputs)
     {
-        checkState(optimize, "evaluate(SymbolResolver) not allowed for interpreter");
+        checkState(optimize, "optimize(SymbolResolver) not allowed for interpreter");
         return expression.accept(visitor, inputs);
     }
 

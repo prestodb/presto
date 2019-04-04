@@ -35,6 +35,7 @@ import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.MODULUS;
 import static com.facebook.presto.spi.function.OperatorType.MULTIPLY;
+import static com.facebook.presto.spi.function.OperatorType.NEGATION;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -108,6 +109,11 @@ public final class StandardFunctionResolution
                 throw new IllegalStateException("Unknown arithmetic operator: " + operator);
         }
         return functionManager.resolveOperator(operatorType, fromTypes(leftType, rightType));
+    }
+
+    public boolean isNegateFunction(FunctionHandle functionHandle)
+    {
+        return functionHandle.getSignature().getName().equals(mangleOperatorName(NEGATION.name()));
     }
 
     public FunctionHandle arrayConstructor(List<? extends Type> argumentTypes)
