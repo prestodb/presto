@@ -85,11 +85,12 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 
-public final class DomainTranslator
+@Deprecated
+public final class ExpressionDomainTranslator
 {
     private final LiteralEncoder literalEncoder;
 
-    public DomainTranslator(LiteralEncoder literalEncoder)
+    public ExpressionDomainTranslator(LiteralEncoder literalEncoder)
     {
         this.literalEncoder = requireNonNull(literalEncoder, "literalEncoder is null");
     }
@@ -608,24 +609,20 @@ public final class DomainTranslator
                     if (coercedValueIsGreaterThanOriginal) {
                         return new ComparisonExpression(GREATER_THAN_OR_EQUAL, symbolExpression, coercedLiteral);
                     }
-                    else if (coercedValueIsEqualToOriginal) {
+                    if (coercedValueIsEqualToOriginal) {
                         return new ComparisonExpression(comparisonOperator, symbolExpression, coercedLiteral);
                     }
-                    else if (coercedValueIsLessThanOriginal) {
-                        return new ComparisonExpression(GREATER_THAN, symbolExpression, coercedLiteral);
-                    }
+                    return new ComparisonExpression(GREATER_THAN, symbolExpression, coercedLiteral);
                 }
                 case LESS_THAN_OR_EQUAL:
                 case LESS_THAN: {
                     if (coercedValueIsLessThanOriginal) {
                         return new ComparisonExpression(LESS_THAN_OR_EQUAL, symbolExpression, coercedLiteral);
                     }
-                    else if (coercedValueIsEqualToOriginal) {
+                    if (coercedValueIsEqualToOriginal) {
                         return new ComparisonExpression(comparisonOperator, symbolExpression, coercedLiteral);
                     }
-                    else if (coercedValueIsGreaterThanOriginal) {
-                        return new ComparisonExpression(LESS_THAN, symbolExpression, coercedLiteral);
-                    }
+                    return new ComparisonExpression(LESS_THAN, symbolExpression, coercedLiteral);
                 }
                 case EQUAL: {
                     if (coercedValueIsEqualToOriginal) {
