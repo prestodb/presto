@@ -107,7 +107,7 @@ public class TestEffectivePredicateExtractor
     private static final Expression GE = G.toSymbolReference();
 
     private final Metadata metadata = MetadataManager.createTestMetadataManager();
-    private final EffectivePredicateExtractor effectivePredicateExtractor = new EffectivePredicateExtractor(new DomainTranslator(new LiteralEncoder(metadata.getBlockEncodingSerde())));
+    private final EffectivePredicateExtractor effectivePredicateExtractor = new EffectivePredicateExtractor(new ExpressionDomainTranslator(new LiteralEncoder(metadata.getBlockEncodingSerde())));
 
     private Map<Symbol, ColumnHandle> scanAssignments;
     private TableScanNode baseTableScan;

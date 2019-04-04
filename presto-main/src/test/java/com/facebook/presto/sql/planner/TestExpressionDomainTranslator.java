@@ -21,7 +21,7 @@ import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.planner.DomainTranslator.ExtractionResult;
+import com.facebook.presto.sql.planner.ExpressionDomainTranslator.ExtractionResult;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -94,7 +94,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-public class TestDomainTranslator
+public class TestExpressionDomainTranslator
 {
     private static final Symbol C_BIGINT = new Symbol("c_bigint");
     private static final Symbol C_DOUBLE = new Symbol("c_double");
@@ -155,14 +155,14 @@ public class TestDomainTranslator
 
     private Metadata metadata;
     private LiteralEncoder literalEncoder;
-    private DomainTranslator domainTranslator;
+    private ExpressionDomainTranslator domainTranslator;
 
     @BeforeClass
     public void setup()
     {
         metadata = createTestMetadataManager();
         literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
-        domainTranslator = new DomainTranslator(literalEncoder);
+        domainTranslator = new ExpressionDomainTranslator(literalEncoder);
     }
 
     @AfterClass(alwaysRun = true)
@@ -647,7 +647,7 @@ public class TestDomainTranslator
     void testNonImplictCastOnSymbolSide()
     {
         // we expect TupleDomain.all here().
-        // see comment in DomainTranslator.Visitor.visitComparisonExpression()
+        // see comment in ExpressionDomainTranslator.Visitor.visitComparisonExpression()
         assertUnsupportedPredicate(equal(
                 new Cast(C_TIMESTAMP.toSymbolReference(), DATE.toString()),
                 toExpression(DATE_VALUE, DATE)));
@@ -1169,7 +1169,7 @@ public class TestDomainTranslator
     {
         metadata = createTestMetadataManager(new FeaturesConfig().setLegacyCharToVarcharCoercion(true));
         literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
-        domainTranslator = new DomainTranslator(literalEncoder);
+        domainTranslator = new ExpressionDomainTranslator(literalEncoder);
 
         String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));
 
@@ -1251,7 +1251,7 @@ public class TestDomainTranslator
 
     private ExtractionResult fromPredicate(Expression originalPredicate)
     {
-        return DomainTranslator.fromPredicate(metadata, TEST_SESSION, originalPredicate, TYPES);
+        return ExpressionDomainTranslator.fromPredicate(metadata, TEST_SESSION, originalPredicate, TYPES);
     }
 
     private Expression toPredicate(TupleDomain<Symbol> tupleDomain)
