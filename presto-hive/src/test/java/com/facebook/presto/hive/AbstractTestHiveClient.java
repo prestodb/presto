@@ -250,12 +250,14 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.lang.Thread.sleep;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -2986,6 +2988,18 @@ public abstract class AbstractTestHiveClient
             PartitionStatistics emptyStatistics)
             throws Exception
     {
+        testStorePartitionWithStatistics(columns, statsForAllColumns1, statsForAllColumns2, statsForSubsetOfColumns, emptyStatistics, new Duration(0, SECONDS));
+    }
+
+    protected void testStorePartitionWithStatistics(
+            List<ColumnMetadata> columns,
+            PartitionStatistics statsForAllColumns1,
+            PartitionStatistics statsForAllColumns2,
+            PartitionStatistics statsForSubsetOfColumns,
+            PartitionStatistics emptyStatistics,
+            Duration delayBetweenAlters)
+            throws Exception
+    {
         SchemaTableName tableName = temporaryTable("store_partition_with_statistics");
         try {
             doCreateEmptyTable(tableName, ORC, columns);
@@ -3007,6 +3021,8 @@ public abstract class AbstractTestHiveClient
             assertThat(metastoreClient.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(partitionName)))
                     .isEqualTo(ImmutableMap.of(partitionName, statsForAllColumns1));
 
+            sleep(delayBetweenAlters.toMillis());
+
             // alter the partition into one with other stats
             Partition modifiedPartition = Partition.builder(partition)
                     .withStorage(storage -> storage
@@ -3020,6 +3036,8 @@ public abstract class AbstractTestHiveClient
             assertThat(metastoreClient.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(partitionName)))
                     .isEqualTo(ImmutableMap.of(partitionName, statsForAllColumns2));
 
+            sleep(delayBetweenAlters.toMillis());
+
             // alter the partition into one with stats for only subset of columns
             modifiedPartition = Partition.builder(partition)
                     .withStorage(storage -> storage
@@ -3029,6 +3047,8 @@ public abstract class AbstractTestHiveClient
             metastoreClient.alterPartition(tableName.getSchemaName(), tableName.getTableName(), new PartitionWithStatistics(modifiedPartition, partitionName, statsForSubsetOfColumns));
             assertThat(metastoreClient.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(partitionName)))
                     .isEqualTo(ImmutableMap.of(partitionName, statsForSubsetOfColumns));
+
+            sleep(delayBetweenAlters.toMillis());
 
             // alter the partition into one without stats
             modifiedPartition = Partition.builder(partition)
