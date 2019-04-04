@@ -148,7 +148,6 @@ public class TestQueryStats
             new Duration(31, NANOSECONDS),
             new Duration(41, NANOSECONDS),
             new Duration(7, NANOSECONDS),
-            new Duration(8, NANOSECONDS),
 
             new Duration(100, NANOSECONDS),
             new Duration(200, NANOSECONDS),
@@ -222,7 +221,6 @@ public class TestQueryStats
         assertEquals(actual.getQueuedTime(), new Duration(5, NANOSECONDS));
         assertEquals(actual.getExecutionTime(), new Duration(41, NANOSECONDS));
         assertEquals(actual.getAnalysisTime(), new Duration(7, NANOSECONDS));
-        assertEquals(actual.getDistributedPlanningTime(), new Duration(8, NANOSECONDS));
 
         assertEquals(actual.getTotalPlanningTime(), new Duration(100, NANOSECONDS));
         assertEquals(actual.getFinishingTime(), new Duration(200, NANOSECONDS));

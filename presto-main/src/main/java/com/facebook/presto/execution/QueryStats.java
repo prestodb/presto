@@ -51,7 +51,6 @@ public class QueryStats
     private final Duration executionTime;
     private final Duration resourceWaitingTime;
     private final Duration analysisTime;
-    private final Duration distributedPlanningTime;
     private final Duration totalPlanningTime;
     private final Duration finishingTime;
 
@@ -107,7 +106,6 @@ public class QueryStats
             @JsonProperty("resourceWaitingTime") Duration resourceWaitingTime,
             @JsonProperty("executionTime") Duration executionTime,
             @JsonProperty("analysisTime") Duration analysisTime,
-            @JsonProperty("distributedPlanningTime") Duration distributedPlanningTime,
             @JsonProperty("totalPlanningTime") Duration totalPlanningTime,
             @JsonProperty("finishingTime") Duration finishingTime,
 
@@ -161,7 +159,6 @@ public class QueryStats
         this.resourceWaitingTime = requireNonNull(resourceWaitingTime, "resourceWaitingTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
         this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
-        this.distributedPlanningTime = requireNonNull(distributedPlanningTime, "distributedPlanningTime is null");
         this.totalPlanningTime = requireNonNull(totalPlanningTime, "totalPlanningTime is null");
         this.finishingTime = requireNonNull(finishingTime, "finishingTime is null");
 
@@ -224,7 +221,6 @@ public class QueryStats
                 now,
                 now,
                 now,
-                new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -317,12 +313,6 @@ public class QueryStats
     public Duration getAnalysisTime()
     {
         return analysisTime;
-    }
-
-    @JsonProperty
-    public Duration getDistributedPlanningTime()
-    {
-        return distributedPlanningTime;
     }
 
     @JsonProperty
