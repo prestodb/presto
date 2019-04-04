@@ -15,6 +15,9 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.Symbol;
@@ -35,25 +38,42 @@ import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Map;
+
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static org.testng.Assert.assertEquals;
 
 public class TestScalarStatsCalculator
 {
+    private static final Map<Symbol, Type> DEFAULT_SYMBOL_TYPES = ImmutableMap.of(
+            new Symbol("a"),
+            BIGINT,
+            new Symbol("x"),
+            BIGINT,
+            new Symbol("y"),
+            BIGINT,
+            new Symbol("all_null"),
+            BIGINT);
+
     private ScalarStatsCalculator calculator;
     private Session session;
     private final SqlParser sqlParser = new SqlParser();
+    private TestingRowExpressionTranslator translator;
 
     @BeforeClass
     public void setUp()
     {
         calculator = new ScalarStatsCalculator(MetadataManager.createTestMetadataManager());
         session = testSessionBuilder().build();
+        translator = new TestingRowExpressionTranslator(MetadataManager.createTestMetadataManager());
     }
 
     @Test
@@ -239,7 +259,7 @@ public class TestScalarStatsCalculator
                         .build())
                 .build();
 
-        assertCalculate(new Cast(new SymbolReference("a"), "double"), inputStatistics)
+        assertCalculate(new Cast(new SymbolReference("a"), "double"), inputStatistics, TypeProvider.copyOf(ImmutableMap.of(new Symbol("a"), DOUBLE)))
                 .lowValue(2.0)
                 .highValue(10.0)
                 .distinctValuesCount(4)
@@ -265,12 +285,17 @@ public class TestScalarStatsCalculator
 
     private SymbolStatsAssertion assertCalculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics)
     {
-        return assertCalculate(scalarExpression, inputStatistics, TypeProvider.empty());
+        return assertCalculate(scalarExpression, inputStatistics, TypeProvider.copyOf(DEFAULT_SYMBOL_TYPES));
     }
 
     private SymbolStatsAssertion assertCalculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics, TypeProvider types)
     {
-        return SymbolStatsAssertion.assertThat(calculator.calculate(scalarExpression, inputStatistics, session, types));
+        // assert both visitors yield the same result
+        RowExpression scalarRowExpression = translator.translateAndOptimize(scalarExpression, types);
+        SymbolStatsEstimate expressionSymbolStatsEstimate = calculator.calculate(scalarExpression, inputStatistics, session, types);
+        SymbolStatsEstimate rowExpressionSymbolStatsEstimate = calculator.calculate(scalarRowExpression, inputStatistics, session);
+        assertEquals(expressionSymbolStatsEstimate, rowExpressionSymbolStatsEstimate);
+        return SymbolStatsAssertion.assertThat(expressionSymbolStatsEstimate);
     }
 
     @Test
@@ -313,6 +338,35 @@ public class TestScalarStatsCalculator
                 .lowValue(-20.0)
                 .highValue(50.0)
                 .nullsFraction(0.28)
+                .averageRowSize(2.0);
+    }
+
+    @Test
+    public void tesArithmeticUnaryExpression()
+    {
+        PlanNodeStatsEstimate relationStats = PlanNodeStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol("x"), SymbolStatsEstimate.builder()
+                        .setLowValue(-1)
+                        .setHighValue(10)
+                        .setDistinctValuesCount(4)
+                        .setNullsFraction(0.1)
+                        .setAverageRowSize(2.0)
+                        .build())
+                .setOutputRowCount(10)
+                .build();
+
+        assertCalculate(expression("+x"), relationStats)
+                .distinctValuesCount(4.0)
+                .lowValue(-1.0)
+                .highValue(10.0)
+                .nullsFraction(0.1)
+                .averageRowSize(2.0);
+
+        assertCalculate(expression("-x"), relationStats)
+                .distinctValuesCount(4.0)
+                .lowValue(-10.0)
+                .highValue(1.0)
+                .nullsFraction(0.1)
                 .averageRowSize(2.0);
     }
 
