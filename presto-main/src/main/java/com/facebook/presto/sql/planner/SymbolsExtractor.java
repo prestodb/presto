@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.relational.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
@@ -35,6 +38,7 @@ import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toSet;
 
 public final class SymbolsExtractor
 {
@@ -69,6 +73,12 @@ public final class SymbolsExtractor
         return ImmutableSet.copyOf(extractAll(expression));
     }
 
+    // TODO: return Set<VariableReferenceExpression>
+    public static Set<Symbol> extractUnique(RowExpression expression)
+    {
+        return ImmutableSet.copyOf(extractAll(expression).stream().map(variable -> new Symbol(variable.getName())).collect(toSet()));
+    }
+
     public static Set<Symbol> extractUnique(Iterable<? extends Expression> expressions)
     {
         ImmutableSet.Builder<Symbol> unique = ImmutableSet.builder();
@@ -82,6 +92,13 @@ public final class SymbolsExtractor
     {
         ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
         new SymbolBuilderVisitor().process(expression, builder);
+        return builder.build();
+    }
+
+    public static List<VariableReferenceExpression> extractAll(RowExpression expression)
+    {
+        ImmutableList.Builder<VariableReferenceExpression> builder = ImmutableList.builder();
+        expression.accept(new VariableBuilderVisitor(), builder);
         return builder.build();
     }
 
@@ -114,6 +131,17 @@ public final class SymbolsExtractor
         protected Void visitSymbolReference(SymbolReference node, ImmutableList.Builder<Symbol> builder)
         {
             builder.add(Symbol.from(node));
+            return null;
+        }
+    }
+
+    private static class VariableBuilderVisitor
+            extends DefaultRowExpressionTraversalVisitor<ImmutableList.Builder<VariableReferenceExpression>>
+    {
+        @Override
+        public Void visitVariableReference(VariableReferenceExpression variable, ImmutableList.Builder<VariableReferenceExpression> builder)
+        {
+            builder.add(variable);
             return null;
         }
     }
