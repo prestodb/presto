@@ -642,7 +642,7 @@ public final class SqlToRowExpressionTranslator
 
             checkState(index >= 0, "could not find field name: %s", node.getField());
             Type returnType = getType(node);
-            return specialForm(DEREFERENCE, returnType, process(node.getBase(), context), constant(index, INTEGER));
+            return specialForm(DEREFERENCE, returnType, process(node.getBase(), context), constant((long) index, INTEGER));
         }
 
         @Override

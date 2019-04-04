@@ -513,7 +513,7 @@ public class RowExpressionInterpreter
                     checkArgument(node.getArguments().size() == 2);
 
                     Object base = node.getArguments().get(0).accept(this, context);
-                    int index = (int) node.getArguments().get(1).accept(this, context);
+                    int index = ((Number) node.getArguments().get(1).accept(this, context)).intValue();
 
                     // if the base part is evaluated to be null, the dereference expression should also be null
                     if (base == null) {

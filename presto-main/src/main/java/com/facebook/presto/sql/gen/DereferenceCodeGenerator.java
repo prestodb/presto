@@ -44,7 +44,7 @@ public class DereferenceCodeGenerator
         BytecodeBlock block = new BytecodeBlock().comment("DEREFERENCE").setDescription("DEREFERENCE");
         Variable wasNull = generator.wasNull();
         Variable rowBlock = generator.getScope().createTempVariable(Block.class);
-        int index = (int) ((ConstantExpression) arguments.get(1)).getValue();
+        int index = ((Number) ((ConstantExpression) arguments.get(1)).getValue()).intValue();
 
         // clear the wasNull flag before evaluating the row value
         block.putVariable(wasNull, false);
