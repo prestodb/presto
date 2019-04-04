@@ -34,7 +34,7 @@ import java.util.Map;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static java.util.Collections.emptyList;
 
-class TestingRowExpressionTranslator
+public class TestingRowExpressionTranslator
 {
     private final Metadata metadata;
     private final LiteralEncoder literalEncoder;
@@ -50,17 +50,17 @@ class TestingRowExpressionTranslator
         this(MetadataManager.createTestMetadataManager());
     }
 
-    RowExpression translateAndOptimize(Expression expression)
+    public RowExpression translateAndOptimize(Expression expression)
     {
         return translateAndOptimize(expression, getExpressionTypes(expression, TypeProvider.empty()));
     }
 
-    RowExpression translateAndOptimize(Expression expression, TypeProvider typeProvider)
+    public RowExpression translateAndOptimize(Expression expression, TypeProvider typeProvider)
     {
         return translateAndOptimize(expression, getExpressionTypes(expression, typeProvider));
     }
 
-    RowExpression translate(Expression expression, TypeProvider typeProvider)
+    public RowExpression translate(Expression expression, TypeProvider typeProvider)
     {
         return SqlToRowExpressionTranslator.translate(
                 expression,
@@ -72,7 +72,7 @@ class TestingRowExpressionTranslator
                 false);
     }
 
-    RowExpression translateAndOptimize(Expression expression, Map<NodeRef<Expression>, Type> types)
+    public RowExpression translateAndOptimize(Expression expression, Map<NodeRef<Expression>, Type> types)
     {
         return SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), TEST_SESSION, true);
     }
