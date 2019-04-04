@@ -13,9 +13,15 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.Join;
 
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 
 public final class JoinNodeUtils
@@ -25,5 +31,24 @@ public final class JoinNodeUtils
     public static ComparisonExpression toExpression(EquiJoinClause clause)
     {
         return new ComparisonExpression(EQUAL, clause.getLeft().toSymbolReference(), clause.getRight().toSymbolReference());
+    }
+
+    public static JoinNode.Type typeConvert(Join.Type joinType)
+    {
+        // Omit SEMI join types because they must be inferred by the planner and not part of the SQL parse tree
+        switch (joinType) {
+            case CROSS:
+            case IMPLICIT:
+            case INNER:
+                return INNER;
+            case LEFT:
+                return LEFT;
+            case RIGHT:
+                return RIGHT;
+            case FULL:
+                return FULL;
+            default:
+                throw new UnsupportedOperationException("Unsupported join type: " + joinType);
+        }
     }
 }

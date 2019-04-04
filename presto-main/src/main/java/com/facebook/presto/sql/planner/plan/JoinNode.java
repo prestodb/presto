@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.sql.planner.SortExpressionContext;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Join;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -191,25 +190,6 @@ public class JoinNode
         public String getJoinLabel()
         {
             return joinLabel;
-        }
-
-        public static Type typeConvert(Join.Type joinType)
-        {
-            // Omit SEMI join types because they must be inferred by the planner and not part of the SQL parse tree
-            switch (joinType) {
-                case CROSS:
-                case IMPLICIT:
-                case INNER:
-                    return Type.INNER;
-                case LEFT:
-                    return Type.LEFT;
-                case RIGHT:
-                    return Type.RIGHT;
-                case FULL:
-                    return Type.FULL;
-                default:
-                    throw new UnsupportedOperationException("Unsupported join type: " + joinType);
-            }
         }
     }
 
