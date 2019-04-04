@@ -201,6 +201,12 @@ public abstract class AbstractArrayBlock
     }
 
     @Override
+    public boolean mayHaveNull()
+    {
+        return getValueIsNull() != null;
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
