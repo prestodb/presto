@@ -125,7 +125,7 @@ public class TestJdbcClient
     public void testCreateWithNullableColumns()
     {
         String tableName = randomUUID().toString().toUpperCase(ENGLISH);
-        SchemaTableName schemaTableName = new SchemaTableName("example", tableName);
+        SchemaTableName schemaTableName = new SchemaTableName("schema_for_create_table_tests", tableName);
         List<ColumnMetadata> expectedColumns = ImmutableList.of(
                 new ColumnMetadata("columnA", BigintType.BIGINT, null, null, false),
                 new ColumnMetadata("columnB", BigintType.BIGINT, true, null, null, false, emptyMap()),
@@ -153,7 +153,7 @@ public class TestJdbcClient
     public void testAlterColumns()
     {
         String tableName = randomUUID().toString().toUpperCase(ENGLISH);
-        SchemaTableName schemaTableName = new SchemaTableName("example", tableName);
+        SchemaTableName schemaTableName = new SchemaTableName("schema_for_create_table_tests", tableName);
         List<ColumnMetadata> expectedColumns = ImmutableList.of(
                 new ColumnMetadata("columnA", BigintType.BIGINT, null, null, false));
 
