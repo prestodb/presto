@@ -461,12 +461,7 @@ public class SqlQueryExecution
 
     private void planDistribution(PlanRoot plan)
     {
-        // time distribution planning
-        stateMachine.beginDistributedPlanning();
-
-        // plan the execution on the active nodes
         CloseableSplitSourceProvider splitSourceProvider = new CloseableSplitSourceProvider(splitManager::getSplits);
-        stateMachine.endDistributedPlanning();
 
         // ensure split sources are closed
         stateMachine.addStateChangeListener(state -> {
