@@ -15,9 +15,11 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Expression;
@@ -32,6 +34,7 @@ import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.String.format;
+import static org.testng.Assert.assertEquals;
 
 public class TestFilterStatsCalculator
 {
@@ -49,6 +52,7 @@ public class TestFilterStatsCalculator
     private PlanNodeStatsEstimate standardInputStatistics;
     private TypeProvider standardTypes;
     private Session session;
+    private TestingRowExpressionTranslator translator;
 
     @BeforeClass
     public void setUp()
@@ -136,6 +140,7 @@ public class TestFilterStatsCalculator
         session = testSessionBuilder().build();
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
         statsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata), new StatsNormalizer());
+        translator = new TestingRowExpressionTranslator(MetadataManager.createTestMetadataManager());
     }
 
     @Test
@@ -567,10 +572,12 @@ public class TestFilterStatsCalculator
 
     private PlanNodeStatsAssertion assertExpression(Expression expression)
     {
-        return PlanNodeStatsAssertion.assertThat(statsCalculator.filterStats(
-                standardInputStatistics,
-                expression,
-                session,
-                standardTypes));
+        // assert both visitors yield the same result
+        RowExpression rowExpression = translator.translateAndOptimize(expression, standardTypes);
+        PlanNodeStatsEstimate expressionStatsEstimate = statsCalculator.filterStats(standardInputStatistics, expression, session, standardTypes);
+        PlanNodeStatsEstimate rowExpressionStatsEstimate = statsCalculator.filterStats(standardInputStatistics, rowExpression, session, standardTypes);
+        assertEquals(expressionStatsEstimate, rowExpressionStatsEstimate);
+
+        return PlanNodeStatsAssertion.assertThat(expressionStatsEstimate);
     }
 }
