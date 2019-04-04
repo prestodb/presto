@@ -26,6 +26,7 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
@@ -228,8 +229,8 @@ public class ExpressionRewriteRuleSet
         @Override
         public Result apply(JoinNode joinNode, Captures captures, Context context)
         {
-            Optional<Expression> filter = joinNode.getFilter().map(x -> rewriter.rewrite(x, context));
-            if (!joinNode.getFilter().equals(filter)) {
+            Optional<Expression> filter = joinNode.getFilter().map(x -> rewriter.rewrite(castToExpression(x), context));
+            if (!joinNode.getFilter().map(OriginalExpressionUtils::castToExpression).equals(filter)) {
                 return Result.ofPlanNode(new JoinNode(
                         joinNode.getId(),
                         joinNode.getType(),
@@ -237,7 +238,7 @@ public class ExpressionRewriteRuleSet
                         joinNode.getRight(),
                         joinNode.getCriteria(),
                         joinNode.getOutputSymbols(),
-                        filter,
+                        filter.map(OriginalExpressionUtils::castToRowExpression),
                         joinNode.getLeftHashSymbol(),
                         joinNode.getRightHashSymbol(),
                         joinNode.getDistributionType()));

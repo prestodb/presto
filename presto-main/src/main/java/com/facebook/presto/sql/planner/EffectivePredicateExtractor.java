@@ -32,6 +32,7 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -238,7 +239,7 @@ public class EffectivePredicateExtractor
                             .add(leftPredicate)
                             .add(rightPredicate)
                             .add(combineConjuncts(joinConjuncts))
-                            .add(node.getFilter().orElse(TRUE_LITERAL))
+                            .add(node.getFilter().map(OriginalExpressionUtils::castToExpression).orElse(TRUE_LITERAL))
                             .build()), node.getOutputSymbols());
                 case LEFT:
                     return combineConjuncts(ImmutableList.<Expression>builder()

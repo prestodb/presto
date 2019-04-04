@@ -66,6 +66,7 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupin
 import static com.facebook.presto.sql.planner.plan.Patterns.Apply.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -242,7 +243,7 @@ public class TransformCorrelatedInPredicateToJoin
                         .addAll(probeSide.getOutputSymbols())
                         .addAll(buildSide.getOutputSymbols())
                         .build(),
-                Optional.of(joinExpression),
+                Optional.of(castToRowExpression(joinExpression)),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());

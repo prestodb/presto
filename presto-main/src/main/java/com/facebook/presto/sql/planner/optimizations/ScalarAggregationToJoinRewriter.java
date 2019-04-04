@@ -31,6 +31,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -118,7 +119,7 @@ public class ScalarAggregationToJoinRewriter
                         .addAll(inputWithUniqueColumns.getOutputSymbols())
                         .addAll(scalarAggregationSource.getOutputSymbols())
                         .build(),
-                joinExpression,
+                joinExpression.map(OriginalExpressionUtils::castToRowExpression),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());

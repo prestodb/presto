@@ -108,6 +108,7 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -173,7 +174,6 @@ import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.relational.SymbolToChannelTranslator;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
@@ -1670,6 +1670,22 @@ public class LocalExecutionPlanner
             PlanNode buildNode = node.getRight();
             Set<SymbolReference> buildSymbols = getSymbolReferences(buildNode.getOutputSymbols());
 
+            // This is a translation to fill the gap between Expression in SpatialJoin vs RowExpression in Join.
+            // Once SpatialJoin has RowExpression, the translation can be removed.
+            Optional<RowExpression> filter = Optional.empty();
+            if (filterExpression.isPresent()) {
+                Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
+                        context.getSession(),
+                        metadata,
+                        sqlParser,
+                        context.getTypes(),
+                        filterExpression.get(),
+                        emptyList(),
+                        NOOP,
+                        false);
+                filter = Optional.of(toRowExpression(filterExpression.get(), expressionTypes, ImmutableMap.of()));
+            }
+
             if (probeSymbols.contains(firstSymbol) && buildSymbols.contains(secondSymbol)) {
                 return Optional.of(createSpatialLookupJoin(
                         node,
@@ -1679,7 +1695,7 @@ public class LocalExecutionPlanner
                         Symbol.from(secondSymbol),
                         radius.map(Symbol::from),
                         spatialTest(spatialFunction, true, comparisonOperator),
-                        filterExpression,
+                        filter,
                         context));
             }
             else if (probeSymbols.contains(secondSymbol) && buildSymbols.contains(firstSymbol)) {
@@ -1691,7 +1707,7 @@ public class LocalExecutionPlanner
                         Symbol.from(firstSymbol),
                         radius.map(Symbol::from),
                         spatialTest(spatialFunction, false, comparisonOperator),
-                        filterExpression,
+                        filter,
                         context));
             }
             return Optional.empty();
@@ -1798,7 +1814,7 @@ public class LocalExecutionPlanner
                 Symbol buildSymbol,
                 Optional<Symbol> radiusSymbol,
                 SpatialPredicate spatialRelationshipTest,
-                Optional<Expression> joinFilter,
+                Optional<RowExpression> joinFilter,
                 LocalExecutionPlanContext context)
         {
             // Plan probe
@@ -1861,7 +1877,7 @@ public class LocalExecutionPlanner
                 Optional<Symbol> radiusSymbol,
                 Map<Symbol, Integer> probeLayout,
                 SpatialPredicate spatialRelationshipTest,
-                Optional<Expression> joinFilter,
+                Optional<RowExpression> joinFilter,
                 LocalExecutionPlanContext context)
         {
             LocalExecutionPlanContext buildContext = context.createSubContext();
@@ -1879,9 +1895,7 @@ public class LocalExecutionPlanner
                     .map(filterExpression -> compileJoinFilterFunction(
                             filterExpression,
                             probeLayout,
-                            buildLayout,
-                            context.getTypes(),
-                            context.getSession()));
+                            buildLayout));
 
             Optional<Integer> partitionChannel = node.getRightPartitionSymbol().map(buildChannelGetter::apply);
 
@@ -1973,11 +1987,9 @@ public class LocalExecutionPlanner
                     .map(filterExpression -> compileJoinFilterFunction(
                             filterExpression,
                             probeSource.getLayout(),
-                            buildSource.getLayout(),
-                            context.getTypes(),
-                            context.getSession()));
+                            buildSource.getLayout()));
 
-            Optional<SortExpressionContext> sortExpressionContext = node.getSortExpressionContext();
+            Optional<SortExpressionContext> sortExpressionContext = node.getSortExpressionContext(metadata.getFunctionManager());
 
             Optional<Integer> sortChannel = sortExpressionContext
                     .map(SortExpressionContext::getSortExpression)
@@ -1992,9 +2004,7 @@ public class LocalExecutionPlanner
                             .map(searchExpression -> compileJoinFilterFunction(
                                     searchExpression,
                                     probeSource.getLayout(),
-                                    buildSource.getLayout(),
-                                    context.getTypes(),
-                                    context.getSession()))
+                                    buildSource.getLayout()))
                             .collect(toImmutableList()))
                     .orElse(ImmutableList.of());
 
@@ -2044,37 +2054,23 @@ public class LocalExecutionPlanner
         }
 
         private JoinFilterFunctionFactory compileJoinFilterFunction(
-                Expression filterExpression,
-                Map<Symbol, Integer> probeLayout,
-                Map<Symbol, Integer> buildLayout,
-                TypeProvider types,
-                Session session)
-        {
-            Map<Symbol, Integer> joinSourcesLayout = createJoinSourcesLayout(buildLayout, probeLayout);
-
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
-                    session,
-                    metadata,
-                    sqlParser,
-                    types,
-                    filterExpression,
-                    emptyList(), /* parameters have already been replaced */
-                    NOOP,
-                    false);
-
-            RowExpression translatedFilter = toRowExpression(filterExpression, expressionTypes, joinSourcesLayout);
-            return joinFilterFunctionCompiler.compileJoinFilterFunction(translatedFilter, buildLayout.size());
-        }
-
-        private int sortExpressionAsSortChannel(
-                Expression sortExpression,
+                RowExpression filterExpression,
                 Map<Symbol, Integer> probeLayout,
                 Map<Symbol, Integer> buildLayout)
         {
             Map<Symbol, Integer> joinSourcesLayout = createJoinSourcesLayout(buildLayout, probeLayout);
-            Expression rewrittenSortExpression = new SymbolToInputRewriter(joinSourcesLayout).rewrite(sortExpression);
-            checkArgument(rewrittenSortExpression instanceof FieldReference, "Unsupported expression type [%s]", rewrittenSortExpression);
-            return ((FieldReference) rewrittenSortExpression).getFieldIndex();
+            return joinFilterFunctionCompiler.compileJoinFilterFunction(bindChannels(filterExpression, joinSourcesLayout), buildLayout.size());
+        }
+
+        private int sortExpressionAsSortChannel(
+                RowExpression sortExpression,
+                Map<Symbol, Integer> probeLayout,
+                Map<Symbol, Integer> buildLayout)
+        {
+            Map<Symbol, Integer> joinSourcesLayout = createJoinSourcesLayout(buildLayout, probeLayout);
+            RowExpression rewrittenSortExpression = bindChannels(sortExpression, joinSourcesLayout);
+            checkArgument(rewrittenSortExpression instanceof InputReferenceExpression, "Unsupported expression type [%s]", rewrittenSortExpression);
+            return ((InputReferenceExpression) rewrittenSortExpression).getField();
         }
 
         private OperatorFactory createLookupJoin(

@@ -155,7 +155,7 @@ public class IndexJoinOptimizer
 
                         if (indexJoinNode != null) {
                             if (node.getFilter().isPresent()) {
-                                indexJoinNode = new FilterNode(idAllocator.getNextId(), indexJoinNode, castToRowExpression(node.getFilter().get()));
+                                indexJoinNode = new FilterNode(idAllocator.getNextId(), indexJoinNode, node.getFilter().get());
                             }
 
                             if (!indexJoinNode.getOutputSymbols().equals(node.getOutputSymbols())) {

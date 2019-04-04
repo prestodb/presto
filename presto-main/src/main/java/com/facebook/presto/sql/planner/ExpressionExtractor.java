@@ -113,7 +113,7 @@ public class ExpressionExtractor
         @Override
         public Void visitJoin(JoinNode node, ImmutableList.Builder<RowExpression> context)
         {
-            node.getFilter().map(OriginalExpressionUtils::castToRowExpression).ifPresent(context::add);
+            node.getFilter().ifPresent(context::add);
             return super.visitJoin(node, context);
         }
 

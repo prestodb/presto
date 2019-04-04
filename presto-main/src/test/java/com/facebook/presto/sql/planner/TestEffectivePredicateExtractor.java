@@ -430,7 +430,7 @@ public class TestEffectivePredicateExtractor
                         .addAll(left.getOutputSymbols())
                         .addAll(right.getOutputSymbols())
                         .build(),
-                Optional.of(lessThanOrEqual(BE, EE)),
+                Optional.of(castToRowExpression(lessThanOrEqual(BE, EE))),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
@@ -498,7 +498,7 @@ public class TestEffectivePredicateExtractor
                         .addAll(leftScan.getOutputSymbols())
                         .addAll(rightScan.getOutputSymbols())
                         .build(),
-                Optional.of(FALSE_LITERAL),
+                Optional.of(castToRowExpression(FALSE_LITERAL)),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
