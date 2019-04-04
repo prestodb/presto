@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.Expression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -29,12 +29,12 @@ public class FilterNode
         extends PlanNode
 {
     private final PlanNode source;
-    private final Expression predicate;
+    private final RowExpression predicate;
 
     @JsonCreator
     public FilterNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("predicate") Expression predicate)
+            @JsonProperty("predicate") RowExpression predicate)
     {
         super(id);
 
@@ -43,7 +43,7 @@ public class FilterNode
     }
 
     @JsonProperty("predicate")
-    public Expression getPredicate()
+    public RowExpression getPredicate()
     {
         return predicate;
     }

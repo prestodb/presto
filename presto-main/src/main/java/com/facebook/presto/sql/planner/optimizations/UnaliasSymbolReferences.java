@@ -413,7 +413,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            return new FilterNode(node.getId(), source, canonicalize(node.getPredicate()));
+            return new FilterNode(node.getId(), source, castToRowExpression(canonicalize(castToExpression(node.getPredicate()))));
         }
 
         @Override

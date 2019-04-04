@@ -44,6 +44,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.textIOPlan;
+import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.graphvizDistributedPlan;
+import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.graphvizLogicalPlan;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -142,10 +144,10 @@ public class QueryExplainer
         switch (planType) {
             case LOGICAL:
                 Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
-                return PlanPrinter.graphvizLogicalPlan(plan.getRoot(), plan.getTypes());
+                return graphvizLogicalPlan(plan.getRoot(), plan.getTypes(), session);
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
-                return PlanPrinter.graphvizDistributedPlan(subPlan);
+                return graphvizDistributedPlan(subPlan, session);
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }

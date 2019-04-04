@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import static com.facebook.presto.sql.planner.plan.Patterns.Sample.sampleType;
 import static com.facebook.presto.sql.planner.plan.Patterns.sample;
 import static com.facebook.presto.sql.planner.plan.SampleNode.Type.BERNOULLI;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 
 /**
  * Transforms:
@@ -58,9 +59,9 @@ public class ImplementBernoulliSampleAsFilter
         return Result.ofPlanNode(new FilterNode(
                 sample.getId(),
                 sample.getSource(),
-                new ComparisonExpression(
+                castToRowExpression(new ComparisonExpression(
                         ComparisonExpression.Operator.LESS_THAN,
                         new FunctionCall(QualifiedName.of("rand"), ImmutableList.of()),
-                        new DoubleLiteral(Double.toString(sample.getSampleRatio())))));
+                        new DoubleLiteral(Double.toString(sample.getSampleRatio()))))));
     }
 }

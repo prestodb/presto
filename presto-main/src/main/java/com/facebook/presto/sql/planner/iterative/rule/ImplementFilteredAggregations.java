@@ -33,6 +33,7 @@ import java.util.Optional;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.ExpressionUtils.combineDisjunctsWithDefault;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Verify.verify;
 
@@ -128,7 +129,7 @@ public class ImplementFilteredAggregations
                                         context.getIdAllocator().getNextId(),
                                         aggregation.getSource(),
                                         newAssignments.build()),
-                                predicate),
+                                castToRowExpression(predicate)),
                         aggregations.build(),
                         aggregation.getGroupingSets(),
                         ImmutableList.of(),

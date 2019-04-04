@@ -23,6 +23,8 @@ import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 
 public class MergeFilters
         implements Rule<FilterNode>
@@ -47,6 +49,6 @@ public class MergeFilters
                 new FilterNode(
                         parent.getId(),
                         child.getSource(),
-                        combineConjuncts(child.getPredicate(), parent.getPredicate())));
+                        castToRowExpression(combineConjuncts(castToExpression(child.getPredicate()), castToExpression(parent.getPredicate())))));
     }
 }

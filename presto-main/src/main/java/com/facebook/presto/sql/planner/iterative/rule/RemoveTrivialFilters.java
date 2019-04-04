@@ -22,6 +22,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
@@ -39,7 +40,7 @@ public class RemoveTrivialFilters
     @Override
     public Result apply(FilterNode filterNode, Captures captures, Context context)
     {
-        Expression predicate = filterNode.getPredicate();
+        Expression predicate = castToExpression(filterNode.getPredicate());
 
         if (predicate.equals(TRUE_LITERAL)) {
             return Result.ofPlanNode(filterNode.getSource());
