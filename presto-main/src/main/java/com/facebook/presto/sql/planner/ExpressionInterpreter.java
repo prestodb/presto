@@ -138,6 +138,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+@Deprecated
 public class ExpressionInterpreter
 {
     private final Expression expression;
