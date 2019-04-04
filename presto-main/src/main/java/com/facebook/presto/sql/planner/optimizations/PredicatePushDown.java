@@ -86,6 +86,8 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -166,7 +168,7 @@ public class PredicatePushDown
             PlanNode rewrittenNode = context.defaultRewrite(node, TRUE_LITERAL);
             if (!context.get().equals(TRUE_LITERAL)) {
                 // Drop in a FilterNode b/c we cannot push our predicate down any further
-                rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, context.get());
+                rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, castToRowExpression(context.get()));
             }
             return rewrittenNode;
         }
@@ -227,7 +229,7 @@ public class PredicatePushDown
             PlanNode rewrittenNode = context.defaultRewrite(node, combineConjuncts(conjuncts.get(true)));
 
             if (!conjuncts.get(false).isEmpty()) {
-                rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, combineConjuncts(conjuncts.get(false)));
+                rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, castToRowExpression(combineConjuncts(conjuncts.get(false))));
             }
 
             return rewrittenNode;
@@ -267,7 +269,7 @@ public class PredicatePushDown
             nonInliningConjuncts.addAll(conjuncts.get(false));
 
             if (!nonInliningConjuncts.isEmpty()) {
-                rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, combineConjuncts(nonInliningConjuncts));
+                rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, castToRowExpression(combineConjuncts(nonInliningConjuncts)));
             }
 
             return rewrittenNode;
@@ -310,7 +312,7 @@ public class PredicatePushDown
 
             // All other conjuncts, if any, will be in the filter node.
             if (!conjuncts.get(false).isEmpty()) {
-                rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, combineConjuncts(conjuncts.get(false)));
+                rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, castToRowExpression(combineConjuncts(conjuncts.get(false))));
             }
 
             return rewrittenNode;
@@ -326,7 +328,7 @@ public class PredicatePushDown
             PlanNode rewrittenNode = context.defaultRewrite(node, combineConjuncts(conjuncts.get(true)));
 
             if (!conjuncts.get(false).isEmpty()) {
-                rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, combineConjuncts(conjuncts.get(false)));
+                rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, castToRowExpression(combineConjuncts(conjuncts.get(false))));
             }
             return rewrittenNode;
         }
@@ -363,13 +365,13 @@ public class PredicatePushDown
         @Override
         public PlanNode visitFilter(FilterNode node, RewriteContext<Expression> context)
         {
-            PlanNode rewrittenPlan = context.rewrite(node.getSource(), combineConjuncts(node.getPredicate(), context.get()));
+            PlanNode rewrittenPlan = context.rewrite(node.getSource(), combineConjuncts(castToExpression(node.getPredicate()), context.get()));
             if (!(rewrittenPlan instanceof FilterNode)) {
                 return rewrittenPlan;
             }
 
             FilterNode rewrittenFilterNode = (FilterNode) rewrittenPlan;
-            if (!areExpressionsEquivalent(rewrittenFilterNode.getPredicate(), node.getPredicate())
+            if (!areExpressionsEquivalent(castToExpression(rewrittenFilterNode.getPredicate()), castToExpression(node.getPredicate()))
                     || node.getSource() != rewrittenFilterNode.getSource()) {
                 return rewrittenPlan;
             }
@@ -530,7 +532,7 @@ public class PredicatePushDown
             }
 
             if (!postJoinPredicate.equals(TRUE_LITERAL)) {
-                output = new FilterNode(idAllocator.getNextId(), output, postJoinPredicate);
+                output = new FilterNode(idAllocator.getNextId(), output, castToRowExpression(postJoinPredicate));
             }
 
             if (!node.getOutputSymbols().equals(output.getOutputSymbols())) {
@@ -625,7 +627,7 @@ public class PredicatePushDown
             }
 
             if (!postJoinPredicate.equals(TRUE_LITERAL)) {
-                output = new FilterNode(idAllocator.getNextId(), output, postJoinPredicate);
+                output = new FilterNode(idAllocator.getNextId(), output, castToRowExpression(postJoinPredicate));
             }
 
             return output;
@@ -1048,7 +1050,7 @@ public class PredicatePushDown
                 output = new SemiJoinNode(node.getId(), rewrittenSource, rewrittenFilteringSource, node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput(), node.getSourceHashSymbol(), node.getFilteringSourceHashSymbol(), node.getDistributionType());
             }
             if (!postJoinConjuncts.isEmpty()) {
-                output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(postJoinConjuncts));
+                output = new FilterNode(idAllocator.getNextId(), output, castToRowExpression(combineConjuncts(postJoinConjuncts)));
             }
             return output;
         }
@@ -1136,7 +1138,7 @@ public class PredicatePushDown
                         node.getDistributionType());
             }
             if (!postJoinConjuncts.isEmpty()) {
-                output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(postJoinConjuncts));
+                output = new FilterNode(idAllocator.getNextId(), output, castToRowExpression(combineConjuncts(postJoinConjuncts)));
             }
             return output;
         }
@@ -1201,7 +1203,7 @@ public class PredicatePushDown
                         node.getGroupIdSymbol());
             }
             if (!postAggregationConjuncts.isEmpty()) {
-                output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(postAggregationConjuncts));
+                output = new FilterNode(idAllocator.getNextId(), output, castToRowExpression(combineConjuncts(postAggregationConjuncts)));
             }
             return output;
         }
@@ -1244,7 +1246,7 @@ public class PredicatePushDown
                 output = new UnnestNode(node.getId(), rewrittenSource, node.getReplicateSymbols(), node.getUnnestSymbols(), node.getOrdinalitySymbol());
             }
             if (!postUnnestConjuncts.isEmpty()) {
-                output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(postUnnestConjuncts));
+                output = new FilterNode(idAllocator.getNextId(), output, castToRowExpression(combineConjuncts(postUnnestConjuncts)));
             }
             return output;
         }
@@ -1261,7 +1263,7 @@ public class PredicatePushDown
             Expression predicate = simplifyExpression(context.get());
 
             if (!TRUE_LITERAL.equals(predicate)) {
-                return new FilterNode(idAllocator.getNextId(), node, predicate);
+                return new FilterNode(idAllocator.getNextId(), node, castToRowExpression(predicate));
             }
 
             return node;

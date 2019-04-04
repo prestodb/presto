@@ -311,7 +311,7 @@ public class PlanPrinter
         return builder.toString();
     }
 
-    public static String graphvizLogicalPlan(PlanNode plan, TypeProvider types)
+    public static String graphvizLogicalPlan(PlanNode plan, TypeProvider types, Session session)
     {
         // TODO: This should move to something like GraphvizRenderer
         PlanFragment fragment = new PlanFragment(
@@ -324,12 +324,12 @@ public class PlanPrinter
                 StageExecutionDescriptor.ungroupedExecution(),
                 StatsAndCosts.empty(),
                 Optional.empty());
-        return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
+        return GraphvizPrinter.printLogical(ImmutableList.of(fragment), session);
     }
 
-    public static String graphvizDistributedPlan(SubPlan plan)
+    public static String graphvizDistributedPlan(SubPlan plan, Session session)
     {
-        return GraphvizPrinter.printDistributed(plan);
+        return GraphvizPrinter.printDistributed(plan, session);
     }
 
     private class Visitor
@@ -708,7 +708,7 @@ public class PlanPrinter
             if (filterNode.isPresent()) {
                 operatorName += "Filter";
                 formatString += "filterPredicate = %s, ";
-                arguments.add(filterNode.get().getPredicate());
+                arguments.add(formatter.formatRowExpression(filterNode.get().getPredicate()));
             }
 
             if (formatString.length() > 1) {

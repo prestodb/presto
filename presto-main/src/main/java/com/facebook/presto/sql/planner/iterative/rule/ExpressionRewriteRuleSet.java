@@ -195,7 +195,13 @@ public class ExpressionRewriteRuleSet
         @Override
         public Result apply(FilterNode filterNode, Captures captures, Context context)
         {
-            Expression rewritten = rewriter.rewrite(filterNode.getPredicate(), context);
+            RowExpression rewritten;
+            if (isExpression(filterNode.getPredicate())) {
+                rewritten = castToRowExpression(rewriter.rewrite(castToExpression(filterNode.getPredicate()), context));
+            }
+            else {
+                rewritten = filterNode.getPredicate();
+            }
             if (filterNode.getPredicate().equals(rewritten)) {
                 return Result.empty();
             }

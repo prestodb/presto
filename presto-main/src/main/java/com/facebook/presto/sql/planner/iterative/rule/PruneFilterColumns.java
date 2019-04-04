@@ -25,6 +25,7 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class PruneFilterColumns
@@ -40,7 +41,7 @@ public class PruneFilterColumns
     {
         Set<Symbol> prunedFilterInputs = Streams.concat(
                 referencedOutputs.stream(),
-                SymbolsExtractor.extractUnique(filterNode.getPredicate()).stream())
+                SymbolsExtractor.extractUnique(castToExpression(filterNode.getPredicate())).stream())
                 .collect(toImmutableSet());
 
         return restrictChildOutputs(idAllocator, filterNode, prunedFilterInputs);

@@ -78,6 +78,7 @@ import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.or;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggregation;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static org.testng.Assert.assertEquals;
@@ -720,7 +721,7 @@ public class TestEffectivePredicateExtractor
 
     private static FilterNode filter(PlanNode source, Expression predicate)
     {
-        return new FilterNode(newId(), source, predicate);
+        return new FilterNode(newId(), source, castToRowExpression(predicate));
     }
 
     private static Expression bigintLiteral(long number)

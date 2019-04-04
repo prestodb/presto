@@ -54,6 +54,7 @@ import static com.facebook.presto.sql.ExpressionUtils.expressionOrNullSymbols;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjuncts;
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -128,7 +129,7 @@ public class EffectivePredicateExtractor
         {
             Expression underlyingPredicate = node.getSource().accept(this, context);
 
-            Expression predicate = node.getPredicate();
+            Expression predicate = castToExpression(node.getPredicate());
 
             // Remove non-deterministic conjuncts
             predicate = filterDeterministicConjuncts(predicate);
