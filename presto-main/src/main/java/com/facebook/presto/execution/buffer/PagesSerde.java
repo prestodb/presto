@@ -25,8 +25,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.Optional;
 
-import static com.facebook.presto.execution.buffer.PageCompression.COMPRESSED;
-import static com.facebook.presto.execution.buffer.PageCompression.UNCOMPRESSED;
+import static com.facebook.presto.execution.buffer.PageCodecMarker.COMPRESSED;
 import static com.facebook.presto.execution.buffer.PagesSerdeUtil.readRawPage;
 import static com.facebook.presto.execution.buffer.PagesSerdeUtil.writeRawPage;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -58,7 +57,7 @@ public class PagesSerde
         writeRawPage(page, serializationBuffer, blockEncodingSerde);
 
         if (!compressor.isPresent()) {
-            return new SerializedPage(serializationBuffer.slice(), UNCOMPRESSED, page.getPositionCount(), serializationBuffer.size());
+            return new SerializedPage(serializationBuffer.slice(), PageCodecMarker.none(), page.getPositionCount(), serializationBuffer.size());
         }
 
         int maxCompressedLength = maxCompressedLength(serializationBuffer.size());
@@ -66,12 +65,11 @@ public class PagesSerde
         int actualCompressedLength = compressor.get().compress(serializationBuffer.slice().getBytes(), 0, serializationBuffer.size(), compressionBuffer, 0, maxCompressedLength);
 
         if (((1.0 * actualCompressedLength) / serializationBuffer.size()) > MINIMUM_COMPRESSION_RATIO) {
-            return new SerializedPage(serializationBuffer.slice(), UNCOMPRESSED, page.getPositionCount(), serializationBuffer.size());
+            return new SerializedPage(serializationBuffer.slice(), PageCodecMarker.none(), page.getPositionCount(), serializationBuffer.size());
         }
-
         return new SerializedPage(
                 Slices.copyOf(Slices.wrappedBuffer(compressionBuffer, 0, actualCompressedLength)),
-                COMPRESSED,
+                COMPRESSED.set(PageCodecMarker.none()),
                 page.getPositionCount(),
                 serializationBuffer.size());
     }
@@ -80,7 +78,7 @@ public class PagesSerde
     {
         checkArgument(serializedPage != null, "serializedPage is null");
 
-        if (!decompressor.isPresent() || serializedPage.getCompression() == UNCOMPRESSED) {
+        if (!decompressor.isPresent() || !COMPRESSED.isSet(serializedPage.getPageCodecMarkers())) {
             return readRawPage(serializedPage.getPositionCount(), serializedPage.getSlice().getInput(), blockEncodingSerde);
         }
 
