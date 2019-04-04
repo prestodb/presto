@@ -16,8 +16,7 @@ package com.facebook.presto.execution.buffer;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
-import static com.facebook.presto.execution.buffer.PageCompression.COMPRESSED;
-import static com.facebook.presto.execution.buffer.PageCompression.UNCOMPRESSED;
+import static com.facebook.presto.execution.buffer.PageCodecMarker.COMPRESSED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -25,22 +24,25 @@ import static java.util.Objects.requireNonNull;
 public class SerializedPage
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SerializedPage.class).instanceSize();
-    private static final int PAGE_COMPRESSION_SIZE = ClassLayout.parseClass(PageCompression.class).instanceSize();
 
     private final Slice slice;
-    private final PageCompression compression;
     private final int positionCount;
     private final int uncompressedSizeInBytes;
+    private final byte pageCodecMarkers;
 
-    public SerializedPage(Slice slice, PageCompression compression, int positionCount, int uncompressedSizeInBytes)
+    public SerializedPage(Slice slice, byte pageCodecMarkers, int positionCount, int uncompressedSizeInBytes)
     {
         this.slice = requireNonNull(slice, "slice is null");
-        this.compression = requireNonNull(compression, "compression is null");
         this.positionCount = positionCount;
         checkArgument(uncompressedSizeInBytes >= 0, "uncompressedSizeInBytes is negative");
-        checkArgument(compression == UNCOMPRESSED || uncompressedSizeInBytes > slice.length(), "compressed size must be smaller than uncompressed size when compressed");
-        checkArgument(compression == COMPRESSED || uncompressedSizeInBytes == slice.length(), "uncompressed size must be equal to slice length when uncompressed");
         this.uncompressedSizeInBytes = uncompressedSizeInBytes;
+        if (COMPRESSED.isSet(pageCodecMarkers)) {
+            checkArgument(uncompressedSizeInBytes > slice.length(), "compressed size must be smaller than uncompressed size when compressed");
+        }
+        else {
+            checkArgument(uncompressedSizeInBytes == slice.length(), "uncompressed size must be equal to slice length when uncompressed");
+        }
+        this.pageCodecMarkers = pageCodecMarkers;
     }
 
     public int getSizeInBytes()
@@ -55,7 +57,7 @@ public class SerializedPage
 
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + slice.getRetainedSize() + PAGE_COMPRESSION_SIZE;
+        return INSTANCE_SIZE + slice.getRetainedSize();
     }
 
     public int getPositionCount()
@@ -68,9 +70,9 @@ public class SerializedPage
         return slice;
     }
 
-    public PageCompression getCompression()
+    public byte getPageCodecMarkers()
     {
-        return compression;
+        return pageCodecMarkers;
     }
 
     @Override
@@ -78,7 +80,7 @@ public class SerializedPage
     {
         return toStringHelper(this)
                 .add("positionCount", positionCount)
-                .add("compression", compression)
+                .add("pageCodecMarkers", PageCodecMarker.toSummaryString(pageCodecMarkers))
                 .add("sizeInBytes", slice.length())
                 .add("uncompressedSizeInBytes", uncompressedSizeInBytes)
                 .toString();
