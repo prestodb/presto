@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.OrderingScheme;
@@ -68,7 +68,6 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.Preconditions;
@@ -89,6 +88,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
@@ -198,11 +198,20 @@ public class UnaliasSymbolReferences
             for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 Symbol symbol = entry.getKey();
 
-                FunctionCall canonicalFunctionCall = (FunctionCall) canonicalize(entry.getValue().getFunctionCall());
-                FunctionHandle functionHandle = entry.getValue().getFunctionHandle();
+                // Be aware of the CallExpression handling.
+                CallExpression callExpression = entry.getValue().getFunctionCall();
+                List<RowExpression> rewrittenArguments = canonicalizeCallExpression(callExpression);
                 WindowNode.Frame canonicalFrame = canonicalize(entry.getValue().getFrame());
 
-                functions.put(canonicalize(symbol), new WindowNode.Function(canonicalFunctionCall, functionHandle, canonicalFrame));
+                functions.put(
+                        canonicalize(symbol),
+                        new WindowNode.Function(
+                                call(
+                                        callExpression.getDisplayName(),
+                                        callExpression.getFunctionHandle(),
+                                        callExpression.getType(),
+                                        rewrittenArguments),
+                                canonicalFrame));
             }
 
             return new WindowNode(
@@ -213,6 +222,15 @@ public class UnaliasSymbolReferences
                     canonicalize(node.getHashSymbol()),
                     canonicalize(node.getPrePartitionedInputs()),
                     node.getPreSortedOrderPrefix());
+        }
+
+        private List<RowExpression> canonicalizeCallExpression(CallExpression callExpression)
+        {
+            // TODO: arguments will be pure RowExpression once we introduce subquery expression for RowExpression.
+            return callExpression.getArguments()
+                    .stream()
+                    .map(argument -> castToRowExpression(canonicalize(castToExpression(argument))))
+                    .collect(toImmutableList());
         }
 
         private WindowNode.Frame canonicalize(WindowNode.Frame frame)

@@ -14,9 +14,9 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -336,23 +336,20 @@ public class WindowNode
     @Immutable
     public static final class Function
     {
-        private final FunctionCall functionCall;
-        private final FunctionHandle functionHandle;
+        private final CallExpression functionCall;
         private final Frame frame;
 
         @JsonCreator
         public Function(
-                @JsonProperty("functionCall") FunctionCall functionCall,
-                @JsonProperty("functionHandle") FunctionHandle functionHandle,
+                @JsonProperty("functionCall") CallExpression functionCall,
                 @JsonProperty("frame") Frame frame)
         {
             this.functionCall = requireNonNull(functionCall, "functionCall is null");
-            this.functionHandle = requireNonNull(functionHandle, "Signature is null");
             this.frame = requireNonNull(frame, "Frame is null");
         }
 
         @JsonProperty
-        public FunctionCall getFunctionCall()
+        public CallExpression getFunctionCall()
         {
             return functionCall;
         }
@@ -360,7 +357,7 @@ public class WindowNode
         @JsonProperty
         public FunctionHandle getFunctionHandle()
         {
-            return functionHandle;
+            return functionCall.getFunctionHandle();
         }
 
         @JsonProperty
@@ -372,7 +369,7 @@ public class WindowNode
         @Override
         public int hashCode()
         {
-            return Objects.hash(functionCall, functionHandle, frame);
+            return Objects.hash(functionCall, frame);
         }
 
         @Override
@@ -386,7 +383,6 @@ public class WindowNode
             }
             Function other = (Function) obj;
             return Objects.equals(this.functionCall, other.functionCall) &&
-                    Objects.equals(this.functionHandle, other.functionHandle) &&
                     Objects.equals(this.frame, other.frame);
         }
     }

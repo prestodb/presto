@@ -63,7 +63,6 @@ import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -389,9 +388,7 @@ public class PruneUnreferencedOutputs
                 WindowNode.Function function = entry.getValue();
 
                 if (context.get().contains(symbol)) {
-                    FunctionCall call = function.getFunctionCall();
-                    expectedInputs.addAll(SymbolsExtractor.extractUnique(call));
-
+                    expectedInputs.addAll(WindowNodeUtil.extractWindowFunctionUnique(function));
                     functionsBuilder.put(symbol, entry.getValue());
                 }
             }
