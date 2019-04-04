@@ -222,10 +222,10 @@ public class VariableWidthBlock
     @Override
     public void getContents(BlockDecoder contents)
     {
-        contents.slice = slice;
-        contents.offsets = offsets;
-        contents.valueIsNull = valueIsNull;
-        contents.arrayOffset = arrayOffset;
+        contents.setValues(slice);
+        contents.setOffsets(offsets);
+        contents.setValueIsNull(valueIsNull);
+        contents.setArrayOffset(arrayOffset);
     }
 
     @Override

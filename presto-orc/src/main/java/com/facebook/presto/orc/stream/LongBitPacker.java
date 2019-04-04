@@ -40,7 +40,7 @@ public final class LongBitPacker
     public void unpack(long[] buffer, int offset, int len, int bitSize, InputStream input)
             throws IOException
     {
-        checkArgument(len <= MAX_BUFFERED_POSITIONS, "Expected ORC files to have runs of at most 512 bit packed longs");
+        checkArgument(len <= MAX_BUFFERED_POSITIONS, "Expected ORC files to have runs of at most 512 bit packed array");
         switch (bitSize) {
             case 1:
                 unpack1(buffer, offset, len, input);
@@ -87,7 +87,7 @@ public final class LongBitPacker
     public void unpackAtOffsets(long[] buffer, int offset, int len, int bitSize, int[] offsets, int firstOffset, int numOffsets, int offsetBias, OrcInputStream input)
             throws IOException
     {
-        checkArgument(len <= MAX_BUFFERED_POSITIONS, "Expected ORC files to have runs of at most 512 bit packed longs");
+        checkArgument(len <= MAX_BUFFERED_POSITIONS, "Expected ORC files to have runs of at most 512 bit packed array");
         switch (bitSize) {
             case 1:
                 unpack1(buffer, offset, len, input);

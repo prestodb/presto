@@ -38,7 +38,7 @@ import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 
 /**
  * Elements of {@code nulls} array determine if a value for a corresponding row is null.
- * Elements of {@code longs} array are values for each row. If row is null then value is ignored.
+ * Elements of {@code array} array are values for each row. If row is null then value is ignored.
  */
 @ThriftStruct
 public final class PrestoThriftBigint
@@ -50,7 +50,7 @@ public final class PrestoThriftBigint
     @ThriftConstructor
     public PrestoThriftBigint(
             @ThriftField(name = "nulls") @Nullable boolean[] nulls,
-            @ThriftField(name = "longs") @Nullable long[] longs)
+            @ThriftField(name = "array") @Nullable long[] longs)
     {
         checkArgument(sameSizeIfPresent(nulls, longs), "nulls and values must be of the same size");
         this.nulls = nulls;
