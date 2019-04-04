@@ -20,10 +20,14 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 
+import java.util.List;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 
 public final class NoSubqueryExpressionLeftChecker
@@ -32,7 +36,12 @@ public final class NoSubqueryExpressionLeftChecker
     @Override
     public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
     {
-        for (Expression expression : ExpressionExtractor.extractExpressions(plan)) {
+        List<Expression> expressions = ExpressionExtractor.extractExpressions(plan)
+                .stream()
+                .filter(OriginalExpressionUtils::isExpression)
+                .map(OriginalExpressionUtils::castToExpression)
+                .collect(toImmutableList());
+        for (Expression expression : expressions) {
             new DefaultTraversalVisitor<Void, Void>()
             {
                 @Override
