@@ -58,6 +58,7 @@ import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
@@ -485,7 +486,7 @@ public class SqlQueryExecution
         }
 
         // record output field
-        stateMachine.setColumns(outputStageExecutionPlan.getFieldNames(), outputStageExecutionPlan.getFragment().getTypes());
+        stateMachine.setColumns(((OutputNode) plan.getRoot().getFragment().getRoot()).getColumnNames(), outputStageExecutionPlan.getFragment().getTypes());
 
         PartitioningHandle partitioningHandle = plan.getRoot().getFragment().getPartitioningScheme().getPartitioning().getHandle();
         OutputBuffers rootOutputBuffers = createInitialEmptyOutputBuffers(partitioningHandle)

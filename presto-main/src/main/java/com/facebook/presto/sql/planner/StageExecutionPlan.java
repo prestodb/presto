@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.split.SplitSource;
-import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
@@ -23,7 +22,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class StageExecutionPlan
@@ -31,7 +29,6 @@ public class StageExecutionPlan
     private final PlanFragment fragment;
     private final Map<PlanNodeId, SplitSource> splitSources;
     private final List<StageExecutionPlan> subStages;
-    private final Optional<List<String>> fieldNames;
 
     public StageExecutionPlan(
             PlanFragment fragment,
@@ -41,16 +38,6 @@ public class StageExecutionPlan
         this.fragment = requireNonNull(fragment, "fragment is null");
         this.splitSources = requireNonNull(splitSources, "dataSource is null");
         this.subStages = ImmutableList.copyOf(requireNonNull(subStages, "dependencies is null"));
-
-        fieldNames = (fragment.getRoot() instanceof OutputNode) ?
-                Optional.of(ImmutableList.copyOf(((OutputNode) fragment.getRoot()).getColumnNames())) :
-                Optional.empty();
-    }
-
-    public List<String> getFieldNames()
-    {
-        checkState(fieldNames.isPresent(), "cannot get field names from non-output stage");
-        return fieldNames.get();
     }
 
     public PlanFragment getFragment()
