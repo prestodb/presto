@@ -19,7 +19,9 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.FixedWidthType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -103,6 +105,22 @@ public final class TypeUtils
     public static Type resolveType(TypeSignature typeName, TypeManager typeManager)
     {
         return typeManager.getType(typeName);
+    }
+
+    public static boolean isIntegralType(TypeSignature typeName, TypeManager typeManager)
+    {
+        switch (typeName.getBase()) {
+            case StandardTypes.BIGINT:
+            case StandardTypes.INTEGER:
+            case StandardTypes.SMALLINT:
+            case StandardTypes.TINYINT:
+                return true;
+            case StandardTypes.DECIMAL:
+                DecimalType decimalType = (DecimalType) resolveType(typeName, typeManager);
+                return decimalType.getScale() == 0;
+            default:
+                return false;
+        }
     }
 
     public static List<Type> resolveTypes(List<TypeSignature> typeNames, TypeManager typeManager)
