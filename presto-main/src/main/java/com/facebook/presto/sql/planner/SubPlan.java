@@ -21,6 +21,7 @@ import com.google.common.collect.Multiset;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
@@ -64,6 +65,11 @@ public class SubPlan
         }
 
         return fragments.build();
+    }
+
+    public SubPlan withBucketToPartition(Optional<int[]> bucketToPartition)
+    {
+        return new SubPlan(fragment.withBucketToPartition(bucketToPartition), children);
     }
 
     public void sanityCheck()
