@@ -42,14 +42,14 @@ public class PrecomputedHashGenerator
         Block block = page.getBlock(hashChannel);
         decoder.decodeBlock(block);
         int positionCount = block.getPositionCount();
-        long[] longs = decoder.longs;
-        if (decoder.isIdentityMap) {
+        long[] longs = decoder.getValues(long[].class);
+        if (decoder.isIdentityMap()) {
             for (int i = 0; i < positionCount; i++) {
                 partitionsOut[i] = (int) ((longs[i] & 0x7fffffffffffL) % partitionCount);
             }
         }
         else {
-            int[] map = decoder.rowNumberMap;
+            int[] map = decoder.getRowNumberMap();
             for (int i = 0; i < positionCount; i++) {
                 partitionsOut[i] = (int) ((longs[map[i]] & 0x7fffffffffffL) % partitionCount);
             }

@@ -11,21 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.spi.block;
 
 import java.util.ArrayList;
-import java.util.List;
 
 public class IntArrayAllocator
 {
-    private List<int[]> arrays = new ArrayList();
+    ArrayList arrays = new ArrayList();
 
     public int[] getIntArray(int size)
     {
         if (arrays.isEmpty()) {
             return new int[size];
         }
-        int[] array = arrays.get(arrays.size() - 1);
+        int[] array = (int[]) arrays.get(arrays.size() - 1);
         arrays.remove(arrays.size() - 1);
         if (array.length >= size) {
             return array;

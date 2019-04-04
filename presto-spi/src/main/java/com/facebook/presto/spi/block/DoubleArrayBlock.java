@@ -302,7 +302,8 @@ public class DoubleArrayBlock
     @Override
     public void getContents(BlockDecoder contents)
     {
-        contents.doubles = values;
-        contents.valueIsNull = valueIsNull;
+        contents.setValues(values);
+        contents.setValueIsNull(valueIsNull);
+        contents.setArrayOffset(arrayOffset);
     }
 }

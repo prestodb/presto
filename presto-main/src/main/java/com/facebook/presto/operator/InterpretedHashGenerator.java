@@ -89,11 +89,11 @@ public class InterpretedHashGenerator
             Type type = hashChannelTypes.get(i);
             Block block = page.getBlock(i);
             decoder.decodeBlock(block);
-            Block leafBlock = decoder.leafBlock;
+            Block leafBlock = decoder.getLeafBlock();
             if (leafBlock instanceof LongArrayBlock) {
-                long[] longs = decoder.longs;
-                int[] longsMap = decoder.rowNumberMap;
-                boolean[] nulls = decoder.valueIsNull;
+                long[] longs = decoder.getValues(long[].class);
+                int[] longsMap = decoder.getRowNumberMap();
+                boolean[] nulls = decoder.getValueIsNull();
                 for (int position = 0; position < positionCount; position++) {
                     int valueIdx = longsMap[position];
                     hashes[position] = CombineHashFunction.getHash(hashes[position],

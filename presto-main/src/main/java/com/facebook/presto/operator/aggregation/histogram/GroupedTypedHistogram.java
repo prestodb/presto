@@ -197,7 +197,7 @@ public class GroupedTypedHistogram
     @Override
     public TypedHistogram setGroupId(long groupId)
     {
-        // TODO: should we change all indices into buckets nodePointers to longs?
+        // TODO: should we change all indices into buckets nodePointers to array?
         this.currentGroupId = (int) groupId;
         return this;
     }
