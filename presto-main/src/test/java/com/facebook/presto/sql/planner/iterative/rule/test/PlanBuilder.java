@@ -99,6 +99,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HAS
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.MoreLists.nElements;
@@ -242,6 +243,11 @@ public class PlanBuilder
     }
 
     public FilterNode filter(Expression predicate, PlanNode source)
+    {
+        return new FilterNode(idAllocator.getNextId(), source, castToRowExpression(predicate));
+    }
+
+    public FilterNode filter(RowExpression predicate, PlanNode source)
     {
         return new FilterNode(idAllocator.getNextId(), source, predicate);
     }

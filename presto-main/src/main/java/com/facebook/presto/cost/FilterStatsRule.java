@@ -24,6 +24,8 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.isDefaultFilterFactorEnabled;
 import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 
 public class FilterStatsRule
         extends SimpleStatsRule<FilterNode>
@@ -48,7 +50,13 @@ public class FilterStatsRule
     public Optional<PlanNodeStatsEstimate> doCalculate(FilterNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types)
     {
         PlanNodeStatsEstimate sourceStats = statsProvider.getStats(node.getSource());
-        PlanNodeStatsEstimate estimate = filterStatsCalculator.filterStats(sourceStats, node.getPredicate(), session, types);
+        PlanNodeStatsEstimate estimate;
+        if (isExpression(node.getPredicate())) {
+            estimate = filterStatsCalculator.filterStats(sourceStats, castToExpression(node.getPredicate()), session, types);
+        }
+        else {
+            estimate = filterStatsCalculator.filterStats(sourceStats, node.getPredicate(), session, types);
+        }
         if (isDefaultFilterFactorEnabled(session) && estimate.isOutputRowCountUnknown()) {
             estimate = sourceStats.mapOutputRowCount(sourceRowCount -> sourceStats.getOutputRowCount() * UNKNOWN_FILTER_COEFFICIENT);
         }

@@ -84,6 +84,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
@@ -437,7 +438,7 @@ public class PruneUnreferencedOutputs
         public PlanNode visitFilter(FilterNode node, RewriteContext<Set<Symbol>> context)
         {
             Set<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
-                    .addAll(SymbolsExtractor.extractUnique(node.getPredicate()))
+                    .addAll(SymbolsExtractor.extractUnique(castToExpression(node.getPredicate())))
                     .addAll(context.get())
                     .build();
 

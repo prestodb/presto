@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.ProjectNodeUtils.isIdentity;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -253,7 +254,7 @@ public class JoinGraph
         public JoinGraph visitFilter(FilterNode node, Context context)
         {
             JoinGraph graph = node.getSource().accept(this, context);
-            return graph.withFilter(node.getPredicate());
+            return graph.withFilter(castToExpression(node.getPredicate()));
         }
 
         @Override

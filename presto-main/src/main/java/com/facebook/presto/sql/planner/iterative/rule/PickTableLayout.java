@@ -64,6 +64,8 @@ import static com.facebook.presto.sql.planner.iterative.rule.PreconditionRules.c
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -144,7 +146,7 @@ public class PickTableLayout
         {
             TableScanNode tableScan = captures.get(TABLE_SCAN);
 
-            PlanNode rewritten = planTableScan(tableScan, filterNode.getPredicate(), context.getSession(), context.getSymbolAllocator().getTypes(), context.getIdAllocator(), metadata, parser, domainTranslator);
+            PlanNode rewritten = planTableScan(tableScan, castToExpression(filterNode.getPredicate()), context.getSession(), context.getSymbolAllocator().getTypes(), context.getIdAllocator(), metadata, parser, domainTranslator);
 
             if (arePlansSame(filterNode, tableScan, rewritten)) {
                 return Result.empty();
@@ -336,7 +338,7 @@ public class PickTableLayout
                             decomposedPredicate.getRemainingExpression());
 
                     if (!TRUE_LITERAL.equals(resultingPredicate)) {
-                        return new FilterNode(idAllocator.getNextId(), tableScan, resultingPredicate);
+                        return new FilterNode(idAllocator.getNextId(), tableScan, castToRowExpression(resultingPredicate));
                     }
 
                     return tableScan;
