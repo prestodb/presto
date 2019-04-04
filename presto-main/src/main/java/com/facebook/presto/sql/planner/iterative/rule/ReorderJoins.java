@@ -27,6 +27,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.optimizations.JoinNodeUtils;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.DistributionType;
@@ -524,7 +525,7 @@ public class ReorderJoins
                 flattenNode(joinNode.getLeft(), limit - 1);
                 flattenNode(joinNode.getRight(), limit);
                 joinNode.getCriteria().stream()
-                        .map(EquiJoinClause::toExpression)
+                        .map(JoinNodeUtils::toExpression)
                         .forEach(filters::add);
                 joinNode.getFilter().ifPresent(filters::add);
             }
