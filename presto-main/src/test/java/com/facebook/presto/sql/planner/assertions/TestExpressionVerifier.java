@@ -13,18 +13,30 @@
  */
 package com.facebook.presto.sql.planner.assertions;
 
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestExpressionVerifier
 {
     private final SqlParser parser = new SqlParser();
+    private final Metadata metadata = MetadataManager.createTestMetadataManager();
+    private final TestingRowExpressionTranslator translator = new TestingRowExpressionTranslator(metadata);
 
     @Test
     public void test()
@@ -37,10 +49,11 @@ public class TestExpressionVerifier
                 .build();
 
         ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
-
-        assertTrue(verifier.process(actual, expression("NOT(X = 3 AND Y = 3 AND X < 10)")));
+        RowExpressionVerifier rowExpressionVerifier = new RowExpressionVerifier(symbolAliases, metadata, TEST_SESSION);
+        assertTrue(process(actual, expression("NOT(X = 3 AND Y = 3 AND X < 10)"), symbolAliases, metadata));
         assertThrows(() -> verifier.process(actual, expression("NOT(X = 3 AND Y = 3 AND Z < 10)")));
-        assertFalse(verifier.process(actual, expression("NOT(X = 3 AND X = 3 AND X < 10)")));
+        assertThrows(() -> rowExpressionVerifier.process(expression("NOT(X = 3 AND Y = 3 AND Z < 10)"), translate(actual)));
+        assertFalse(process(actual, expression("NOT(X = 3 AND X = 3 AND X < 10)"), symbolAliases, metadata));
     }
 
     @Test
@@ -50,10 +63,9 @@ public class TestExpressionVerifier
                 .put("X", new SymbolReference("orderkey"))
                 .build();
 
-        ExpressionVerifier verifier = new ExpressionVerifier(aliases);
-        assertTrue(verifier.process(expression("CAST('2' AS varchar)"), expression("CAST('2' AS varchar)")));
-        assertFalse(verifier.process(expression("CAST('2' AS varchar)"), expression("CAST('2' AS bigint)")));
-        assertTrue(verifier.process(expression("CAST(orderkey AS varchar)"), expression("CAST(X AS varchar)")));
+        assertTrue(process(expression("CAST('2' AS varchar)"), expression("CAST('2' AS varchar)"), aliases, metadata));
+        assertFalse(process(expression("CAST('2' AS varchar)"), expression("CAST('2' AS bigint)"), aliases, metadata));
+        assertTrue(process(expression("CAST(orderkey AS varchar)"), expression("CAST(X AS varchar)"), aliases, metadata));
     }
 
     @Test
@@ -64,16 +76,25 @@ public class TestExpressionVerifier
                 .put("Y", new SymbolReference("custkey"))
                 .build();
 
-        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
         // Complete match
-        assertTrue(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("X BETWEEN 1 AND 2")));
+        assertTrue(process(expression("orderkey BETWEEN 1 AND 2"), expression("X BETWEEN 1 AND 2"), symbolAliases, metadata));
         // Different value
-        assertFalse(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("Y BETWEEN 1 AND 2")));
-        assertFalse(verifier.process(expression("custkey BETWEEN 1 AND 2"), expression("X BETWEEN 1 AND 2")));
+        assertFalse(process(expression("orderkey BETWEEN 1 AND 2"), expression("Y BETWEEN 1 AND 2"), symbolAliases, metadata));
+        assertFalse(process(expression("custkey BETWEEN 1 AND 2"), expression("X BETWEEN 1 AND 2"), symbolAliases, metadata));
         // Different min or max
-        assertFalse(verifier.process(expression("orderkey BETWEEN 2 AND 4"), expression("X BETWEEN 1 AND 2")));
-        assertFalse(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("X BETWEEN '1' AND '2'")));
-        assertFalse(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("X BETWEEN 4 AND 7")));
+        assertFalse(process(expression("orderkey BETWEEN 2 AND 4"), expression("X BETWEEN 1 AND 2"), symbolAliases, metadata));
+        assertFalse(process(expression("orderkey BETWEEN 1 AND 2"), expression("X BETWEEN '1' AND '2'"), symbolAliases, metadata));
+        assertFalse(process(expression("orderkey BETWEEN 1 AND 2"), expression("X BETWEEN 4 AND 7"), symbolAliases, metadata));
+    }
+
+    private boolean process(Expression actual, Expression expected, SymbolAliases aliases, Metadata metadata)
+    {
+        ExpressionVerifier expressionVerifier = new ExpressionVerifier(aliases);
+        RowExpressionVerifier rowExpressionVerifier = new RowExpressionVerifier(aliases, metadata, TEST_SESSION);
+        boolean expressionResult = expressionVerifier.process(actual, expected);
+        boolean rowExpressionResult = rowExpressionVerifier.process(expected, translate(actual));
+        assertEquals(expressionResult, rowExpressionResult);
+        return expressionResult;
     }
 
     private Expression expression(String sql)
@@ -89,5 +110,10 @@ public class TestExpressionVerifier
         }
         catch (Exception expected) {
         }
+    }
+
+    private RowExpression translate(Expression expression)
+    {
+        return translator.translate(expression, TypeProvider.copyOf(ImmutableMap.of(new Symbol("orderkey"), BIGINT, new Symbol("custkey"), BIGINT)));
     }
 }
