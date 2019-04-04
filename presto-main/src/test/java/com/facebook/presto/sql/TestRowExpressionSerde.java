@@ -173,6 +173,15 @@ public class TestRowExpressionSerde
     }
 
     @Test
+    public void testDereference()
+    {
+        String sql = "CAST(ROW(1) AS ROW(col1 integer)).col1";
+        RowExpression before = translate(expression(sql, new ParsingOptions(AS_DOUBLE)), false);
+        RowExpression after = getRoundTrip(sql, false);
+        assertEquals(before, after);
+    }
+
+    @Test
     public void testHllLiteral()
     {
         RowExpression rowExpression = getRoundTrip("empty_approx_set()", true);
