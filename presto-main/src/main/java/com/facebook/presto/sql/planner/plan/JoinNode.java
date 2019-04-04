@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.SortExpressionContext;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.Expression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -51,7 +52,7 @@ public class JoinNode
     private final PlanNode right;
     private final List<EquiJoinClause> criteria;
     private final List<Symbol> outputSymbols;
-    private final Optional<Expression> filter;
+    private final Optional<RowExpression> filter;
     private final Optional<Symbol> leftHashSymbol;
     private final Optional<Symbol> rightHashSymbol;
     private final Optional<DistributionType> distributionType;
@@ -63,7 +64,7 @@ public class JoinNode
             @JsonProperty("right") PlanNode right,
             @JsonProperty("criteria") List<EquiJoinClause> criteria,
             @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
-            @JsonProperty("filter") Optional<Expression> filter,
+            @JsonProperty("filter") Optional<RowExpression> filter,
             @JsonProperty("leftHashSymbol") Optional<Symbol> leftHashSymbol,
             @JsonProperty("rightHashSymbol") Optional<Symbol> rightHashSymbol,
             @JsonProperty("distributionType") Optional<DistributionType> distributionType)
@@ -218,15 +219,15 @@ public class JoinNode
     }
 
     @JsonProperty("filter")
-    public Optional<Expression> getFilter()
+    public Optional<RowExpression> getFilter()
     {
         return filter;
     }
 
-    public Optional<SortExpressionContext> getSortExpressionContext()
+    public Optional<SortExpressionContext> getSortExpressionContext(FunctionManager functionManager)
     {
         return filter
-                .flatMap(filter -> extractSortExpression(ImmutableSet.copyOf(right.getOutputSymbols()), filter));
+                .flatMap(filter -> extractSortExpression(ImmutableSet.copyOf(right.getOutputSymbols()), filter, functionManager));
     }
 
     @JsonProperty("leftHashSymbol")

@@ -184,7 +184,7 @@ public class PruneUnreferencedOutputs
             Set<Symbol> expectedFilterInputs = new HashSet<>();
             if (node.getFilter().isPresent()) {
                 expectedFilterInputs = ImmutableSet.<Symbol>builder()
-                        .addAll(SymbolsExtractor.extractUnique(node.getFilter().get()))
+                        .addAll(SymbolsExtractor.extractUnique(castToExpression(node.getFilter().get())))
                         .addAll(context.get())
                         .build();
             }

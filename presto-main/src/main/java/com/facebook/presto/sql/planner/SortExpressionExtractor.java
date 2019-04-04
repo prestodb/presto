@@ -13,12 +13,18 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.tree.AstVisitor;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.InputReferenceExpression;
+import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.RowExpressionVisitor;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.relational.LogicalRowExpressions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -57,14 +63,15 @@ public final class SortExpressionExtractor
      */
     private SortExpressionExtractor() {}
 
-    public static Optional<SortExpressionContext> extractSortExpression(Set<Symbol> buildSymbols, Expression filter)
+    public static Optional<SortExpressionContext> extractSortExpression(Set<Symbol> buildSymbols, RowExpression filter, FunctionManager functionManager)
     {
-        List<Expression> filterConjuncts = ExpressionUtils.extractConjuncts(filter);
-        SortExpressionVisitor visitor = new SortExpressionVisitor(buildSymbols);
+        List<RowExpression> filterConjuncts = LogicalRowExpressions.extractConjuncts(filter);
+        SortExpressionVisitor visitor = new SortExpressionVisitor(buildSymbols, functionManager);
 
+        com.facebook.presto.sql.relational.DeterminismEvaluator determinismEvaluator = new com.facebook.presto.sql.relational.DeterminismEvaluator(functionManager);
         List<SortExpressionContext> sortExpressionCandidates = filterConjuncts.stream()
-                .filter(DeterminismEvaluator::isDeterministic)
-                .map(visitor::process)
+                .filter(determinismEvaluator::isDeterministic)
+                .map(conjunct -> conjunct.accept(visitor, null))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(toMap(SortExpressionContext::getSortExpression, identity(), SortExpressionExtractor::merge))
@@ -82,71 +89,104 @@ public final class SortExpressionExtractor
     private static SortExpressionContext merge(SortExpressionContext left, SortExpressionContext right)
     {
         checkArgument(left.getSortExpression().equals(right.getSortExpression()));
-        ImmutableList.Builder<Expression> searchExpressions = ImmutableList.builder();
+        ImmutableList.Builder<RowExpression> searchExpressions = ImmutableList.builder();
         searchExpressions.addAll(left.getSearchExpressions());
         searchExpressions.addAll(right.getSearchExpressions());
         return new SortExpressionContext(left.getSortExpression(), searchExpressions.build());
     }
 
     private static class SortExpressionVisitor
-            extends AstVisitor<Optional<SortExpressionContext>, Void>
+            implements RowExpressionVisitor<Optional<SortExpressionContext>, Void>
     {
         private final Set<Symbol> buildSymbols;
+        private final FunctionManager functionManager;
 
-        public SortExpressionVisitor(Set<Symbol> buildSymbols)
+        public SortExpressionVisitor(Set<Symbol> buildSymbols, FunctionManager functionManager)
         {
             this.buildSymbols = buildSymbols;
+            this.functionManager = functionManager;
         }
 
         @Override
-        protected Optional<SortExpressionContext> visitExpression(Expression expression, Void context)
+        public Optional<SortExpressionContext> visitCall(CallExpression call, Void context)
         {
-            return Optional.empty();
-        }
+            FunctionMetadata functionMetadata = functionManager.getFunctionMetadata(call.getFunctionHandle());
+            if (!functionMetadata.getOperatorType().map(OperatorType::isComparisonOperator).orElse(false)) {
+                return Optional.empty();
+            }
 
-        @Override
-        protected Optional<SortExpressionContext> visitComparisonExpression(ComparisonExpression comparison, Void context)
-        {
-            switch (comparison.getOperator()) {
+            switch (functionMetadata.getOperatorType().get()) {
                 case GREATER_THAN:
                 case GREATER_THAN_OR_EQUAL:
                 case LESS_THAN:
                 case LESS_THAN_OR_EQUAL:
-                    Optional<SymbolReference> sortChannel = asBuildSymbolReference(buildSymbols, comparison.getRight());
-                    boolean hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, comparison.getLeft());
+                    RowExpression left = call.getArguments().get(0);
+                    RowExpression right = call.getArguments().get(1);
+                    Optional<VariableReferenceExpression> sortChannel = asBuildVariableReference(buildSymbols, right);
+                    boolean hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, left);
                     if (!sortChannel.isPresent()) {
-                        sortChannel = asBuildSymbolReference(buildSymbols, comparison.getLeft());
-                        hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, comparison.getRight());
+                        sortChannel = asBuildVariableReference(buildSymbols, left);
+                        hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, right);
                     }
                     if (sortChannel.isPresent() && !hasBuildReferencesOnOtherSide) {
-                        return sortChannel.map(symbolReference -> new SortExpressionContext(symbolReference, singletonList(comparison)));
+                        return sortChannel.map(variableReference -> new SortExpressionContext(variableReference, singletonList(call)));
                     }
                     return Optional.empty();
                 default:
                     return Optional.empty();
             }
         }
+
+        @Override
+        public Optional<SortExpressionContext> visitInputReference(InputReferenceExpression input, Void context)
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<SortExpressionContext> visitConstant(ConstantExpression literal, Void context)
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<SortExpressionContext> visitLambda(LambdaDefinitionExpression lambda, Void context)
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<SortExpressionContext> visitVariableReference(VariableReferenceExpression reference, Void context)
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<SortExpressionContext> visitSpecialForm(SpecialFormExpression specialForm, Void context)
+        {
+            return Optional.empty();
+        }
     }
 
-    private static Optional<SymbolReference> asBuildSymbolReference(Set<Symbol> buildLayout, Expression expression)
+    private static Optional<VariableReferenceExpression> asBuildVariableReference(Set<Symbol> buildLayout, RowExpression expression)
     {
         // Currently only we support only symbol as sort expression on build side
-        if (expression instanceof SymbolReference) {
-            SymbolReference symbolReference = (SymbolReference) expression;
-            if (buildLayout.contains(new Symbol(symbolReference.getName()))) {
-                return Optional.of(symbolReference);
+        if (expression instanceof VariableReferenceExpression) {
+            VariableReferenceExpression reference = (VariableReferenceExpression) expression;
+            if (buildLayout.contains(new Symbol(reference.getName()))) {
+                return Optional.of(reference);
             }
         }
         return Optional.empty();
     }
 
-    private static boolean hasBuildSymbolReference(Set<Symbol> buildSymbols, Expression expression)
+    private static boolean hasBuildSymbolReference(Set<Symbol> buildSymbols, RowExpression expression)
     {
-        return new BuildSymbolReferenceFinder(buildSymbols).process(expression);
+        return expression.accept(new BuildSymbolReferenceFinder(buildSymbols), null);
     }
 
     private static class BuildSymbolReferenceFinder
-            extends AstVisitor<Boolean, Void>
+            implements RowExpressionVisitor<Boolean, Void>
     {
         private final Set<String> buildSymbols;
 
@@ -158,10 +198,16 @@ public final class SortExpressionExtractor
         }
 
         @Override
-        protected Boolean visitNode(Node node, Void context)
+        public Boolean visitInputReference(InputReferenceExpression input, Void context)
         {
-            for (Node child : node.getChildren()) {
-                if (process(child, context)) {
+            return false;
+        }
+
+        @Override
+        public Boolean visitCall(CallExpression call, Void context)
+        {
+            for (RowExpression argument : call.getArguments()) {
+                if (argument.accept(this, context)) {
                     return true;
                 }
             }
@@ -169,9 +215,32 @@ public final class SortExpressionExtractor
         }
 
         @Override
-        protected Boolean visitSymbolReference(SymbolReference symbolReference, Void context)
+        public Boolean visitConstant(ConstantExpression literal, Void context)
         {
-            return buildSymbols.contains(symbolReference.getName());
+            return false;
+        }
+
+        @Override
+        public Boolean visitLambda(LambdaDefinitionExpression lambda, Void context)
+        {
+            return lambda.getBody().accept(this, context);
+        }
+
+        @Override
+        public Boolean visitVariableReference(VariableReferenceExpression reference, Void context)
+        {
+            return buildSymbols.contains(reference.getName());
+        }
+
+        @Override
+        public Boolean visitSpecialForm(SpecialFormExpression specialForm, Void context)
+        {
+            for (RowExpression argument : specialForm.getArguments()) {
+                if (argument.accept(this, context)) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }

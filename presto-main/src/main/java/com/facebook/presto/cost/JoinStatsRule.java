@@ -15,13 +15,14 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
+import com.facebook.presto.sql.relational.LogicalRowExpressions;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.util.MoreMath;
 import com.google.common.annotations.VisibleForTesting;
 
@@ -35,6 +36,8 @@ import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEF
 import static com.facebook.presto.cost.SymbolStatsEstimate.buildFrom;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -152,7 +155,12 @@ public class JoinStatsRule
                 return crossJoinStats;
             }
             // TODO: this might explode stats
-            return filterStatsCalculator.filterStats(crossJoinStats, node.getFilter().get(), session, types);
+            if (isExpression(node.getFilter().get())) {
+                return filterStatsCalculator.filterStats(crossJoinStats, castToExpression(node.getFilter().get()), session, types);
+            }
+            else {
+                return filterStatsCalculator.filterStats(crossJoinStats, node.getFilter().get(), session, types);
+            }
         }
 
         PlanNodeStatsEstimate equiJoinEstimate = filterByEquiJoinClauses(crossJoinStats, node.getCriteria(), session, types);
@@ -165,7 +173,13 @@ public class JoinStatsRule
             return equiJoinEstimate;
         }
 
-        PlanNodeStatsEstimate filteredEquiJoinEstimate = filterStatsCalculator.filterStats(equiJoinEstimate, node.getFilter().get(), session, types);
+        PlanNodeStatsEstimate filteredEquiJoinEstimate;
+        if (isExpression(node.getFilter().get())) {
+            filteredEquiJoinEstimate = filterStatsCalculator.filterStats(equiJoinEstimate, castToExpression(node.getFilter().get()), session, types);
+        }
+        else {
+            filteredEquiJoinEstimate = filterStatsCalculator.filterStats(equiJoinEstimate, node.getFilter().get(), session, types);
+        }
 
         if (filteredEquiJoinEstimate.isOutputRowCountUnknown()) {
             return normalizer.normalize(equiJoinEstimate.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT), types);
@@ -266,7 +280,7 @@ public class JoinStatsRule
      */
     @VisibleForTesting
     PlanNodeStatsEstimate calculateJoinComplementStats(
-            Optional<Expression> filter,
+            Optional<RowExpression> filter,
             List<JoinNode.EquiJoinClause> criteria,
             PlanNodeStatsEstimate leftStats,
             PlanNodeStatsEstimate rightStats,
@@ -287,7 +301,18 @@ public class JoinStatsRule
         }
 
         // TODO: add support for non-equality conditions (e.g: <=, !=, >)
-        int numberOfFilterClauses = filter.map(expression -> extractConjuncts(expression).size()).orElse(0);
+        int numberOfFilterClauses;
+        if (filter.isPresent()) {
+            if (isExpression(filter.get())) {
+                numberOfFilterClauses = extractConjuncts(castToExpression(filter.get())).size();
+            }
+            else {
+                numberOfFilterClauses = LogicalRowExpressions.extractConjuncts(filter.get()).size();
+            }
+        }
+        else {
+            numberOfFilterClauses = 0;
+        }
 
         // Heuristics: select the most selective criteria for join complement clause.
         // Principals behind this heuristics is the same as in computeInnerJoinStats:

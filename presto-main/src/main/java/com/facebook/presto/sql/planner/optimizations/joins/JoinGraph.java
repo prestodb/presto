@@ -271,7 +271,7 @@ public class JoinGraph
             JoinGraph graph = left.joinWith(right, node.getCriteria(), context, node.getId());
 
             if (node.getFilter().isPresent()) {
-                return graph.withFilter(node.getFilter().get());
+                return graph.withFilter(castToExpression(node.getFilter().get()));
             }
             return graph;
         }

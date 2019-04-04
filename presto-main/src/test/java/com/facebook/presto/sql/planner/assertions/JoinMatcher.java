@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.DistributionType;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -27,6 +28,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -74,8 +77,16 @@ final class JoinMatcher
             if (!joinNode.getFilter().isPresent()) {
                 return NO_MATCH;
             }
-            if (!new ExpressionVerifier(symbolAliases).process(joinNode.getFilter().get(), filter.get())) {
-                return NO_MATCH;
+            RowExpression expression = joinNode.getFilter().get();
+            if (isExpression(expression)) {
+                if (!new ExpressionVerifier(symbolAliases).process(castToExpression(expression), filter.get())) {
+                    return NO_MATCH;
+                }
+            }
+            else {
+                if (!new RowExpressionVerifier(symbolAliases, metadata, session).process(filter.get(), expression)) {
+                    return NO_MATCH;
+                }
             }
         }
         else {

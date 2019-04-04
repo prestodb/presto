@@ -71,6 +71,7 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NullLiteral;
@@ -651,7 +652,7 @@ public class PlanBuilder
             Optional<Symbol> rightHashSymbol,
             Optional<JoinNode.DistributionType> distributionType)
     {
-        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType);
+        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputSymbols, filter.map(OriginalExpressionUtils::castToRowExpression), leftHashSymbol, rightHashSymbol, distributionType);
     }
 
     public PlanNode indexJoin(IndexJoinNode.Type type, TableScanNode probe, TableScanNode index)

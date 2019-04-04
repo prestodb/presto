@@ -352,7 +352,13 @@ public final class ValidateDependenciesChecker
             }
 
             node.getFilter().ifPresent(predicate -> {
-                Set<Symbol> predicateSymbols = SymbolsExtractor.extractUnique(predicate);
+                Set<Symbol> predicateSymbols;
+                if (isExpression(predicate)) {
+                    predicateSymbols = SymbolsExtractor.extractUnique(castToExpression(predicate));
+                }
+                else {
+                    predicateSymbols = SymbolsExtractor.extractUnique(predicate);
+                }
                 checkArgument(
                         allInputs.containsAll(predicateSymbols),
                         "Symbol from filter (%s) not in sources (%s)",

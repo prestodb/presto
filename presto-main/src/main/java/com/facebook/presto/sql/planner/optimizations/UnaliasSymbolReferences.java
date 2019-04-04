@@ -65,6 +65,7 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -510,7 +511,7 @@ public class UnaliasSymbolReferences
             PlanNode right = context.rewrite(node.getRight());
 
             List<JoinNode.EquiJoinClause> canonicalCriteria = canonicalizeJoinCriteria(node.getCriteria());
-            Optional<Expression> canonicalFilter = node.getFilter().map(this::canonicalize);
+            Optional<Expression> canonicalFilter = node.getFilter().map(OriginalExpressionUtils::castToExpression).map(this::canonicalize);
             Optional<Symbol> canonicalLeftHashSymbol = canonicalize(node.getLeftHashSymbol());
             Optional<Symbol> canonicalRightHashSymbol = canonicalize(node.getRightHashSymbol());
 
@@ -521,7 +522,17 @@ public class UnaliasSymbolReferences
                         .forEach(clause -> map(clause.getRight(), clause.getLeft()));
             }
 
-            return new JoinNode(node.getId(), node.getType(), left, right, canonicalCriteria, canonicalizeAndDistinct(node.getOutputSymbols()), canonicalFilter, canonicalLeftHashSymbol, canonicalRightHashSymbol, node.getDistributionType());
+            return new JoinNode(
+                    node.getId(),
+                    node.getType(),
+                    left,
+                    right,
+                    canonicalCriteria,
+                    canonicalizeAndDistinct(node.getOutputSymbols()),
+                    canonicalFilter.map(OriginalExpressionUtils::castToRowExpression),
+                    canonicalLeftHashSymbol,
+                    canonicalRightHashSymbol,
+                    node.getDistributionType());
         }
 
         @Override

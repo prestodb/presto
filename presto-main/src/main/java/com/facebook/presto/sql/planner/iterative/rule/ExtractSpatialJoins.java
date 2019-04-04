@@ -93,6 +93,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialComparisons;
@@ -270,7 +271,7 @@ public class ExtractSpatialJoins
         @Override
         public Result apply(JoinNode joinNode, Captures captures, Context context)
         {
-            Expression filter = joinNode.getFilter().get();
+            Expression filter = OriginalExpressionUtils.castToExpression(joinNode.getFilter().get());
             List<FunctionCall> spatialFunctions = extractSupportedSpatialFunctions(filter);
             for (FunctionCall spatialFunction : spatialFunctions) {
                 Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputSymbols(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager, sqlParser);
@@ -347,7 +348,7 @@ public class ExtractSpatialJoins
                 newRightNode,
                 joinNode.getCriteria(),
                 joinNode.getOutputSymbols(),
-                Optional.of(newFilter),
+                Optional.of(castToRowExpression(newFilter)),
                 joinNode.getLeftHashSymbol(),
                 joinNode.getRightHashSymbol(),
                 joinNode.getDistributionType());

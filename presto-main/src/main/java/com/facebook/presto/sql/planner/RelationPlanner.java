@@ -368,7 +368,7 @@ class RelationPlanner
                             .addAll(leftPlanBuilder.getRoot().getOutputSymbols())
                             .addAll(rightPlanBuilder.getRoot().getOutputSymbols())
                             .build(),
-                    Optional.of(rewrittenFilterCondition),
+                    Optional.of(castToRowExpression(rewrittenFilterCondition)),
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty());
