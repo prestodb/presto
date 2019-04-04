@@ -130,4 +130,9 @@ public final class Expressions
 
         return builder.build();
     }
+
+    public static VariableReferenceExpression variable(String name, Type type)
+    {
+        return new VariableReferenceExpression(name, type);
+    }
 }

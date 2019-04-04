@@ -35,10 +35,10 @@ public class TestExchangeStatsRule
 
         tester().assertStatsFor(pb -> pb
                 .exchange(exchangeBuilder -> exchangeBuilder
-                        .addInputsSet(pb.symbol("i11", BIGINT), pb.symbol("i12", BIGINT), pb.symbol("i13", BIGINT), pb.symbol("i14", BIGINT))
-                        .addInputsSet(pb.symbol("i21", BIGINT), pb.symbol("i22", BIGINT), pb.symbol("i23", BIGINT), pb.symbol("i24", BIGINT))
+                        .addInputsSet(pb.variable("i11", BIGINT), pb.variable("i12", BIGINT), pb.variable("i13", BIGINT), pb.variable("i14", BIGINT))
+                        .addInputsSet(pb.variable("i21", BIGINT), pb.variable("i22", BIGINT), pb.variable("i23", BIGINT), pb.variable("i24", BIGINT))
                         .fixedHashDistributionParitioningScheme(
-                                ImmutableList.of(pb.symbol("o1", BIGINT), pb.symbol("o2", BIGINT), pb.symbol("o3", BIGINT), pb.symbol("o4", BIGINT)),
+                                ImmutableList.of(pb.variable("o1", BIGINT), pb.variable("o2", BIGINT), pb.variable("o3", BIGINT), pb.variable("o4", BIGINT)),
                                 emptyList())
                         .addSource(pb.values(pb.symbol("i11", BIGINT), pb.symbol("i12", BIGINT), pb.symbol("i13", BIGINT), pb.symbol("i14", BIGINT)))
                         .addSource(pb.values(pb.symbol("i21", BIGINT), pb.symbol("i22", BIGINT), pb.symbol("i23", BIGINT), pb.symbol("i24", BIGINT)))))

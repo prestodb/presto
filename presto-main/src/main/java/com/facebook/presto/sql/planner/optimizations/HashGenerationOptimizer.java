@@ -75,6 +75,7 @@ import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperator
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReferences;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
@@ -511,11 +512,10 @@ public class HashGenerationOptimizer
             // rewrite partition function to include new symbols (and precomputed hash
             partitioningScheme = new PartitioningScheme(
                     partitioningScheme.getPartitioning(),
-                    ImmutableList.<Symbol>builder()
+                    ImmutableList.<VariableReferenceExpression>builder()
                             .addAll(partitioningScheme.getOutputLayout())
                             .addAll(hashVariableOrder.stream()
                                     .map(newHashVariables::get)
-                                    .map(variable -> new Symbol(variable.getName()))
                                     .collect(toImmutableList()))
                             .build(),
                     partitionVariables.map(newHashVariables::get),
@@ -527,7 +527,7 @@ public class HashGenerationOptimizer
             ImmutableList.Builder<PlanNode> newSources = ImmutableList.builder();
             for (int sourceId = 0; sourceId < node.getSources().size(); sourceId++) {
                 PlanNode source = node.getSources().get(sourceId);
-                List<Symbol> inputSymbols = node.getInputs().get(sourceId);
+                List<Symbol> inputSymbols = node.getInputs().get(sourceId).stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableList());
 
                 Map<Symbol, Symbol> outputToInputMap = new HashMap<>();
                 for (int symbolId = 0; symbolId < inputSymbols.size(); symbolId++) {
@@ -541,7 +541,7 @@ public class HashGenerationOptimizer
 
                 // add hash symbols to inputs in the required order
                 ImmutableList.Builder<Symbol> newInputSymbols = ImmutableList.builder();
-                newInputSymbols.addAll(node.getInputs().get(sourceId));
+                newInputSymbols.addAll(inputSymbols);
                 for (HashComputation preferredHashSymbol : hashVariableOrder) {
                     HashComputation hashComputation = preferredHashSymbol.translate(outputToInputTranslator).get();
                     newInputSymbols.add(new Symbol(child.getRequiredHashVariable(hashComputation).getName()));
@@ -557,7 +557,7 @@ public class HashGenerationOptimizer
                             node.getScope(),
                             partitioningScheme,
                             newSources.build(),
-                            newInputs.build(),
+                            newInputs.build().stream().map(input -> toVariableReferences(input, symbolAllocator.getTypes())).collect(toImmutableList()),
                             node.getOrderingScheme()),
                     newHashVariables);
         }

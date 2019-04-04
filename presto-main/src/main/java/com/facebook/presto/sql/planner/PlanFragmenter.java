@@ -39,8 +39,8 @@ import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -102,6 +102,8 @@ import static com.facebook.presto.sql.planner.SymbolsExtractor.extractOutputSymb
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReference;
+import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReferences;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
@@ -149,6 +151,7 @@ public class PlanFragmenter
 
     public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
+        SymbolAllocator symbolAllocator = new SymbolAllocator(plan.getTypes().allTypes());
         Fragmenter fragmenter = new Fragmenter(
                 session,
                 metadata,
@@ -160,7 +163,9 @@ public class PlanFragmenter
                 new SymbolAllocator(plan.getTypes().allTypes()),
                 getTableWriterNodeIds(plan.getRoot()));
 
-        FragmentProperties properties = new FragmentProperties(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()));
+        FragmentProperties properties = new FragmentProperties(new PartitioningScheme(
+                Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
+                toVariableReferences(plan.getRoot().getOutputSymbols(), symbolAllocator.getTypes())));
         if (forceSingleNode || isForceSingleNodeOutput(session)) {
             properties = properties.setSingleNodeDistribution();
         }
@@ -497,7 +502,7 @@ public class PlanFragmenter
                     .map(PlanFragment::getId)
                     .collect(toImmutableList());
 
-            return new RemoteSourceNode(exchange.getId(), childrenIds, exchange.getOutputSymbols(), exchange.getOutputVariables(), exchange.getOrderingScheme(), exchange.getType());
+            return new RemoteSourceNode(exchange.getId(), childrenIds, exchange.getOutputVariables(), exchange.getOrderingScheme(), exchange.getType());
         }
 
         private PlanNode createRemoteMaterializedExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
@@ -541,12 +546,14 @@ public class PlanFragmenter
                     temporaryTableHandle,
                     symbolToColumnMap,
                     exchange.getOutputSymbols(),
-                    exchange.getInputs(),
+                    exchange.getInputsAsSymbols(),
                     exchange.getSources(),
                     partitioningSymbolAssignments.getConstants(),
                     partitioningMetadata);
 
-            FragmentProperties writeProperties = new FragmentProperties(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), write.getOutputSymbols()));
+            FragmentProperties writeProperties = new FragmentProperties(new PartitioningScheme(
+                    Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
+                    toVariableReferences(write.getOutputSymbols(), symbolAllocator.getTypes())));
             writeProperties.setCoordinatorOnlyDistribution();
 
             List<SubPlan> children = ImmutableList.of(buildSubPlan(write, writeProperties, context));
@@ -562,7 +569,7 @@ public class PlanFragmenter
             for (ArgumentBinding argumentBinding : partitioning.getArguments()) {
                 Symbol symbol;
                 if (argumentBinding.isConstant()) {
-                    NullableValue constant = argumentBinding.getConstant();
+                    ConstantExpression constant = argumentBinding.getConstant();
                     Expression expression = literalEncoder.toExpression(constant.getValue(), constant.getType());
                     symbol = symbolAllocator.newSymbol(expression, constant.getType());
                     constants.put(symbol, expression);
@@ -674,8 +681,9 @@ public class PlanFragmenter
 
             Map<String, Symbol> columnNameToSymbol = symbolToColumnMap.entrySet().stream()
                     .collect(toImmutableMap(entry -> entry.getValue().getName(), Map.Entry::getKey));
-            List<Symbol> partitioningSymbols = partitionColumns.stream()
+            List<VariableReferenceExpression> partitioningSymbols = partitionColumns.stream()
                     .map(columnNameToSymbol::get)
+                    .map(symbol -> toVariableReference(symbol, symbolAllocator.getTypes()))
                     .collect(toImmutableList());
 
             InsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle);
@@ -706,13 +714,14 @@ public class PlanFragmenter
                                                             REMOTE_STREAMING,
                                                             new PartitioningScheme(
                                                                     Partitioning.create(partitioningHandle, partitioningSymbols),
-                                                                    outputs,
+                                                                    toVariableReferences(outputs, symbolAllocator.getTypes()),
                                                                     Optional.empty(),
                                                                     false,
                                                                     Optional.empty()),
                                                             sources,
-                                                            inputs,
-                                                            Optional.empty())),
+                                                            inputs.stream().map(input -> toVariableReferences(input, symbolAllocator.getTypes())).collect(toImmutableList()),
+                                                            Optional.empty()),
+                                                    symbolAllocator.getTypes()),
                                             insertHandle,
                                             symbolAllocator.newSymbol("partialrows", BIGINT),
                                             symbolAllocator.newSymbol("fragment", VARBINARY),
@@ -721,12 +730,14 @@ public class PlanFragmenter
                                             outputColumnNames,
                                             Optional.of(new PartitioningScheme(
                                                     Partitioning.create(partitioningHandle, partitioningSymbols),
-                                                    outputs,
+                                                    toVariableReferences(outputs, symbolAllocator.getTypes()),
                                                     Optional.empty(),
                                                     false,
                                                     Optional.empty())),
                                             Optional.empty(),
-                                            Optional.empty()))),
+                                            Optional.empty()),
+                                    symbolAllocator.getTypes()),
+                            symbolAllocator.getTypes()),
                     insertHandle,
                     symbolAllocator.newVariable("rows", BIGINT),
                     Optional.empty(),

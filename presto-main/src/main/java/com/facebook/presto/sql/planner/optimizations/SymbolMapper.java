@@ -20,6 +20,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -42,10 +43,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReferences;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.groupingSets;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
@@ -54,11 +58,20 @@ import static java.util.stream.Collectors.toMap;
 public class SymbolMapper
 {
     private final Map<String, String> mapping;
+    private final Optional<TypeProvider> types;
 
     public SymbolMapper(Map<String, String> mapping)
     {
         requireNonNull(mapping, "mapping is null");
         this.mapping = ImmutableMap.copyOf(mapping);
+        this.types = Optional.empty();
+    }
+
+    public SymbolMapper(Map<String, String> mapping, TypeProvider types)
+    {
+        requireNonNull(mapping, "mapping is null");
+        this.mapping = ImmutableMap.copyOf(mapping);
+        this.types = Optional.of(requireNonNull(types, "types is null"));
     }
 
     public Symbol map(Symbol symbol)
@@ -76,7 +89,8 @@ public class SymbolMapper
         while (mapping.containsKey(canonical) && !mapping.get(canonical).equals(canonical)) {
             canonical = mapping.get(canonical);
         }
-        return new VariableReferenceExpression(canonical, variable.getType());
+        String name = canonical;
+        return new VariableReferenceExpression(canonical, types.map(t -> t.get(new Symbol(name))).orElse(variable.getType()));
     }
 
     public Expression map(Expression value)
@@ -219,9 +233,10 @@ public class SymbolMapper
 
     private PartitioningScheme canonicalize(PartitioningScheme scheme, PlanNode source)
     {
+        checkState(types.isPresent(), "Need types to convert symbols to variables");
         return new PartitioningScheme(
                 scheme.getPartitioning().translate(this::map),
-                mapAndDistinctSymbol(source.getOutputSymbols()),
+                toVariableReferences(mapAndDistinctSymbol(source.getOutputSymbols()), types.get()),
                 scheme.getHashColumn().map(this::map),
                 scheme.isReplicateNullsAndAny(),
                 scheme.getBucketToPartition());
@@ -237,13 +252,6 @@ public class SymbolMapper
     private StatisticAggregationsDescriptor<VariableReferenceExpression> map(StatisticAggregationsDescriptor<VariableReferenceExpression> descriptor)
     {
         return descriptor.map(this::map);
-    }
-
-    private List<Symbol> map(List<Symbol> outputs)
-    {
-        return outputs.stream()
-                .map(this::map)
-                .collect(toImmutableList());
     }
 
     private List<Symbol> mapAndDistinctSymbol(List<Symbol> outputs)

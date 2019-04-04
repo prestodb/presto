@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -77,11 +78,16 @@ public class PlanFragment
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
         this.jsonRepresentation = requireNonNull(jsonRepresentation, "jsonRepresentation is null");
 
-        checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(partitioningScheme.getOutputLayout()),
+        checkArgument(root.getOutputSymbols().stream()
+                        .map(Symbol::getName)
+                        .collect(toImmutableList())
+                        .containsAll(partitioningScheme.getOutputLayout().stream()
+                                .map(VariableReferenceExpression::getName)
+                                .collect(toImmutableList())),
                 "Root node outputs (%s) does not include all fragment outputs (%s)", root.getOutputSymbols(), partitioningScheme.getOutputLayout());
 
         types = partitioningScheme.getOutputLayout().stream()
-                .map(symbols::get)
+                .map(VariableReferenceExpression::getType)
                 .collect(toImmutableList());
 
         ImmutableList.Builder<RemoteSourceNode> remoteSourceNodes = ImmutableList.builder();

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -27,6 +28,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 @Deprecated
 public final class ExpressionSymbolInliner
@@ -34,6 +36,11 @@ public final class ExpressionSymbolInliner
     public static Expression inlineSymbols(Map<Symbol, ? extends Expression> mapping, Expression expression)
     {
         return inlineSymbols(mapping::get, expression);
+    }
+
+    public static Expression inlineVariables(Map<VariableReferenceExpression, ? extends Expression> mapping, Expression expression)
+    {
+        return inlineSymbols(mapping.entrySet().stream().collect(toImmutableMap(entry -> new Symbol(entry.getKey().getName()), Map.Entry::getValue)), expression);
     }
 
     public static Expression inlineSymbols(Function<Symbol, Expression> mapping, Expression expression)

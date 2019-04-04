@@ -22,7 +22,6 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -72,8 +71,8 @@ public class TestValidateAggregationsWithDefaultValues
                 TestingTransactionHandle.create(),
                 Optional.of(new TpchTableLayoutHandle(nationTpchTableHandle, TupleDomain.all())));
         TpchColumnHandle nationkeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
-        symbol = new Symbol("nationkey");
-        variable = new VariableReferenceExpression("nationkey", BIGINT);
+        symbol = builder.symbol("nationkey");
+        variable = builder.variable(symbol);
         tableScanNode = builder.tableScan(nationTableHandle, ImmutableList.of(symbol), ImmutableList.of(variable), ImmutableMap.of(symbol, nationkeyColumnHandle));
     }
 
@@ -119,15 +118,14 @@ public class TestValidateAggregationsWithDefaultValues
     @Test
     public void testGloballyDistributedFinalAggregationSeparatedFromPartialAggregationByRemoteHashExchange()
     {
-        Symbol symbol = new Symbol("symbol");
         PlanNode root = builder.aggregation(
                 af -> af.step(FINAL)
                         .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
                         .source(builder.exchange(e -> e
                                 .type(REPARTITION)
                                 .scope(REMOTE_STREAMING)
-                                .fixedHashDistributionParitioningScheme(ImmutableList.of(symbol), ImmutableList.of(symbol))
-                                .addInputsSet(symbol)
+                                .fixedHashDistributionParitioningScheme(ImmutableList.of(variable), ImmutableList.of(variable))
+                                .addInputsSet(variable)
                                 .addSource(builder.aggregation(ap -> ap
                                         .step(PARTIAL)
                                         .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
@@ -138,15 +136,14 @@ public class TestValidateAggregationsWithDefaultValues
     @Test
     public void testSingleNodeFinalAggregationSeparatedFromPartialAggregationByLocalHashExchange()
     {
-        Symbol symbol = new Symbol("symbol");
         PlanNode root = builder.aggregation(
                 af -> af.step(FINAL)
                         .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
                         .source(builder.exchange(e -> e
                                 .type(REPARTITION)
                                 .scope(LOCAL)
-                                .fixedHashDistributionParitioningScheme(ImmutableList.of(symbol), ImmutableList.of(symbol))
-                                .addInputsSet(symbol)
+                                .fixedHashDistributionParitioningScheme(ImmutableList.of(variable), ImmutableList.of(variable))
+                                .addInputsSet(variable)
                                 .addSource(builder.aggregation(ap -> ap
                                         .step(PARTIAL)
                                         .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
@@ -157,7 +154,6 @@ public class TestValidateAggregationsWithDefaultValues
     @Test
     public void testWithPartialAggregationBelowJoin()
     {
-        Symbol symbol = new Symbol("symbol");
         PlanNode root = builder.aggregation(
                 af -> af.step(FINAL)
                         .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
@@ -166,8 +162,8 @@ public class TestValidateAggregationsWithDefaultValues
                                 builder.exchange(e -> e
                                         .type(REPARTITION)
                                         .scope(LOCAL)
-                                        .fixedHashDistributionParitioningScheme(ImmutableList.of(symbol), ImmutableList.of(symbol))
-                                        .addInputsSet(symbol)
+                                        .fixedHashDistributionParitioningScheme(ImmutableList.of(variable), ImmutableList.of(variable))
+                                        .addInputsSet(variable)
                                         .addSource(builder.aggregation(ap -> ap
                                                 .step(PARTIAL)
                                                 .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
@@ -179,7 +175,6 @@ public class TestValidateAggregationsWithDefaultValues
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Final aggregation with default value not separated from partial aggregation by local hash exchange")
     public void testWithPartialAggregationBelowJoinWithoutSeparatingExchange()
     {
-        Symbol symbol = new Symbol("symbol");
         PlanNode root = builder.aggregation(
                 af -> af.step(FINAL)
                         .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
@@ -198,7 +193,7 @@ public class TestValidateAggregationsWithDefaultValues
         getQueryRunner().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            new ValidateAggregationsWithDefaultValues(forceSingleNode).validate(root, session, metadata, SQL_PARSER, TypeProvider.empty(), WarningCollector.NOOP);
+            new ValidateAggregationsWithDefaultValues(forceSingleNode).validate(root, session, metadata, SQL_PARSER, builder.getTypes(), WarningCollector.NOOP);
             return null;
         });
     }

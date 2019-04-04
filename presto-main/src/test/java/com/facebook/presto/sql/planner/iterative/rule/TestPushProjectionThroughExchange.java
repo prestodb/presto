@@ -66,8 +66,8 @@ public class TestPushProjectionThroughExchange
                                     .build(),
                             p.exchange(e -> e
                                     .addSource(p.values(a, b, c))
-                                    .addInputsSet(a, b, c)
-                                    .singleDistributionPartitioningScheme(a, b, c)));
+                                    .addInputsSet(p.variable(a), p.variable(b), p.variable(c))
+                                    .singleDistributionPartitioningScheme(p.variable(a), p.variable(b), p.variable(c))));
                 })
                 .doesNotFire();
     }
@@ -91,9 +91,9 @@ public class TestPushProjectionThroughExchange
                                             p.values(a))
                                     .addSource(
                                             p.values(b))
-                                    .addInputsSet(a)
-                                    .addInputsSet(b)
-                                    .singleDistributionPartitioningScheme(c)));
+                                    .addInputsSet(p.variable(a))
+                                    .addInputsSet(p.variable(b))
+                                    .singleDistributionPartitioningScheme(p.variable(c))));
                 })
                 .matches(
                         exchange(
@@ -128,10 +128,10 @@ public class TestPushProjectionThroughExchange
                             p.exchange(e -> e
                                     .addSource(
                                             p.values(a, b, h))
-                                    .addInputsSet(a, b, h)
+                                    .addInputsSet(p.variable(a), p.variable(b), p.variable(h))
                                     .fixedHashDistributionParitioningScheme(
-                                            ImmutableList.of(a, b, h),
-                                            ImmutableList.of(b),
+                                            ImmutableList.of(p.variable(a), p.variable(b), p.variable(h)),
+                                            ImmutableList.of(p.variable(b)),
                                             p.variable(h))));
                 })
                 .matches(
@@ -173,9 +173,9 @@ public class TestPushProjectionThroughExchange
                             p.exchange(e -> e
                                     .addSource(
                                             p.values(a, b, h, sortSymbol))
-                                    .addInputsSet(a, b, h, sortSymbol)
+                                    .addInputsSet(p.variable(a), p.variable(b), p.variable(h), p.variable(sortSymbol))
                                     .singleDistributionPartitioningScheme(
-                                            ImmutableList.of(a, b, h, sortSymbol))
+                                            ImmutableList.of(p.variable(a), p.variable(b), p.variable(h), p.variable(sortSymbol)))
                                     .orderingScheme(orderingScheme)));
                 })
                 .matches(

@@ -262,19 +262,19 @@ public class UnaliasSymbolReferences
 
             mapExchangeNodeSymbols(node);
 
-            List<List<Symbol>> inputs = new ArrayList<>();
+            List<List<VariableReferenceExpression>> inputs = new ArrayList<>();
             for (int i = 0; i < node.getInputs().size(); i++) {
                 inputs.add(new ArrayList<>());
             }
-            Set<Symbol> addedOutputs = new HashSet<>();
-            ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
-            for (int symbolIndex = 0; symbolIndex < node.getOutputSymbols().size(); symbolIndex++) {
-                Symbol canonicalOutput = canonicalize(node.getOutputSymbols().get(symbolIndex));
+            Set<VariableReferenceExpression> addedOutputs = new HashSet<>();
+            ImmutableList.Builder<VariableReferenceExpression> outputs = ImmutableList.builder();
+            for (int variableIndex = 0; variableIndex < node.getOutputVariables().size(); variableIndex++) {
+                VariableReferenceExpression canonicalOutput = canonicalize(node.getOutputVariables().get(variableIndex));
                 if (addedOutputs.add(canonicalOutput)) {
                     outputs.add(canonicalOutput);
                     for (int i = 0; i < node.getInputs().size(); i++) {
-                        List<Symbol> input = node.getInputs().get(i);
-                        inputs.get(i).add(canonicalize(input.get(symbolIndex)));
+                        List<VariableReferenceExpression> input = node.getInputs().get(i);
+                        inputs.get(i).add(canonicalize(input.get(variableIndex)));
                     }
                 }
             }
@@ -300,12 +300,12 @@ public class UnaliasSymbolReferences
 
             // Mapping from list [node.getInput(0).get(symbolIndex), node.getInput(1).get(symbolIndex), ...] to node.getOutputSymbols(symbolIndex).
             // All symbols are canonical.
-            Map<List<Symbol>, Symbol> inputsToOutputs = new HashMap<>();
+            Map<List<VariableReferenceExpression>, VariableReferenceExpression> inputsToOutputs = new HashMap<>();
             // Map each same list of input symbols [I1, I2, ..., In] to the same output symbol O
             for (int symbolIndex = 0; symbolIndex < node.getOutputSymbols().size(); symbolIndex++) {
-                Symbol canonicalOutput = canonicalize(node.getOutputSymbols().get(symbolIndex));
-                List<Symbol> canonicalInputs = canonicalizeExchangeNodeInputs(node, symbolIndex);
-                Symbol output = inputsToOutputs.get(canonicalInputs);
+                VariableReferenceExpression canonicalOutput = canonicalize(node.getOutputVariables().get(symbolIndex));
+                List<VariableReferenceExpression> canonicalInputs = canonicalizeExchangeNodeInputs(node, symbolIndex);
+                VariableReferenceExpression output = inputsToOutputs.get(canonicalInputs);
 
                 if (output == null || canonicalOutput.equals(output)) {
                     inputsToOutputs.put(canonicalInputs, canonicalOutput);
@@ -320,9 +320,9 @@ public class UnaliasSymbolReferences
         {
             checkState(node.getInputs().size() == 1);
 
-            for (int symbolIndex = 0; symbolIndex < node.getOutputSymbols().size(); symbolIndex++) {
-                Symbol canonicalOutput = canonicalize(node.getOutputSymbols().get(symbolIndex));
-                Symbol canonicalInput = canonicalize(node.getInputs().get(0).get(symbolIndex));
+            for (int variableIndex = 0; variableIndex < node.getOutputVariables().size(); variableIndex++) {
+                VariableReferenceExpression canonicalOutput = canonicalize(node.getOutputVariables().get(variableIndex));
+                VariableReferenceExpression canonicalInput = canonicalize(node.getInputs().get(0).get(variableIndex));
 
                 if (!canonicalOutput.equals(canonicalInput)) {
                     map(canonicalOutput, canonicalInput);
@@ -330,7 +330,7 @@ public class UnaliasSymbolReferences
             }
         }
 
-        private List<Symbol> canonicalizeExchangeNodeInputs(ExchangeNode node, int symbolIndex)
+        private List<VariableReferenceExpression> canonicalizeExchangeNodeInputs(ExchangeNode node, int symbolIndex)
         {
             return node.getInputs().stream()
                     .map(input -> canonicalize(input.get(symbolIndex)))
@@ -343,7 +343,6 @@ public class UnaliasSymbolReferences
             return new RemoteSourceNode(
                     node.getId(),
                     node.getSourceFragmentIds(),
-                    canonicalizeAndDistinct(node.getOutputSymbols()),
                     canonicalizeAndDistinctVariable(node.getOutputVariables()),
                     node.getOrderingScheme().map(this::canonicalizeAndDistinct),
                     node.getExchangeType());
@@ -612,7 +611,7 @@ public class UnaliasSymbolReferences
         public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            SymbolMapper mapper = new SymbolMapper(mapping);
+            SymbolMapper mapper = new SymbolMapper(mapping, types);
             return mapper.map(node, source);
         }
 

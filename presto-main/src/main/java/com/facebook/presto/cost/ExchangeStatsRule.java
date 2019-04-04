@@ -15,6 +15,7 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
@@ -67,14 +68,14 @@ public class ExchangeStatsRule
         return estimate;
     }
 
-    private PlanNodeStatsEstimate mapToOutputSymbols(PlanNodeStatsEstimate estimate, List<Symbol> inputs, List<Symbol> outputs)
+    private PlanNodeStatsEstimate mapToOutputSymbols(PlanNodeStatsEstimate estimate, List<VariableReferenceExpression> inputs, List<Symbol> outputs)
     {
         checkArgument(inputs.size() == outputs.size(), "Input symbols count does not match output symbols count");
         PlanNodeStatsEstimate.Builder mapped = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(estimate.getOutputRowCount());
 
         for (int i = 0; i < inputs.size(); i++) {
-            mapped.addSymbolStatistics(outputs.get(i), estimate.getSymbolStatistics(inputs.get(i)));
+            mapped.addSymbolStatistics(outputs.get(i), estimate.getSymbolStatistics(new Symbol(inputs.get(i).getName())));
         }
 
         return mapped.build();

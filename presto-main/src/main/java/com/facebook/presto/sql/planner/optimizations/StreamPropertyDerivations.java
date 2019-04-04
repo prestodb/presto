@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.LocalProperty;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.Symbol;
@@ -57,8 +58,6 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -77,8 +76,11 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
+import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValuesToConstantExpressions;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.optimizations.AddExchanges.computeIdentityTranslations;
+import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReference;
+import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReferences;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.MULTIPLE;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
@@ -129,14 +131,16 @@ public final class StreamPropertyDerivations
                 types,
                 parser);
 
-        StreamProperties result = node.accept(new Visitor(metadata, session), inputProperties)
+        StreamProperties result = node.accept(new Visitor(metadata, session, types), inputProperties)
                 .withOtherActualProperties(otherProperties);
 
         result.getPartitioningColumns().ifPresent(columns ->
-                verify(node.getOutputSymbols().containsAll(columns), "Stream-level partitioning properties contain columns not present in node's output"));
+                verify(node.getOutputSymbols().containsAll(columns.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet())), "Stream-level partitioning properties contain columns not present in node's output"));
 
         Set<Symbol> localPropertyColumns = result.getLocalProperties().stream()
                 .flatMap(property -> property.getColumns().stream())
+                .map(VariableReferenceExpression::getName)
+                .map(Symbol::new)
                 .collect(Collectors.toSet());
 
         verify(node.getOutputSymbols().containsAll(localPropertyColumns), "Stream-level local properties contain columns not present in node's output");
@@ -149,11 +153,13 @@ public final class StreamPropertyDerivations
     {
         private final Metadata metadata;
         private final Session session;
+        private final TypeProvider types;
 
-        private Visitor(Metadata metadata, Session session)
+        private Visitor(Metadata metadata, Session session, TypeProvider types)
         {
             this.metadata = metadata;
             this.session = session;
+            this.types = types;
         }
 
         @Override
@@ -170,16 +176,17 @@ public final class StreamPropertyDerivations
         public StreamProperties visitJoin(JoinNode node, List<StreamProperties> inputProperties)
         {
             StreamProperties leftProperties = inputProperties.get(0);
+            List<VariableReferenceExpression> outputVariableReferences = toVariableReferences(node.getOutputSymbols(), types);
             boolean unordered = PropertyDerivations.spillPossible(session, node.getType());
 
             switch (node.getType()) {
                 case INNER:
                     return leftProperties
-                            .translate(column -> PropertyDerivations.filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column))
+                            .translate(column -> PropertyDerivations.filterOrRewrite(outputVariableReferences, node.getCriteria(), column))
                             .unordered(unordered);
                 case LEFT:
                     return leftProperties
-                            .translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column))
+                            .translate(column -> PropertyDerivations.filterIfMissing(outputVariableReferences, column))
                             .unordered(unordered);
                 case RIGHT:
                     // since this is a right join, none of the matched output rows will contain nulls
@@ -210,7 +217,7 @@ public final class StreamPropertyDerivations
             switch (node.getType()) {
                 case INNER:
                 case LEFT:
-                    return leftProperties.translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column));
+                    return leftProperties.translate(column -> PropertyDerivations.filterIfMissing(toVariableReferences(node.getOutputSymbols(), types), column));
                 default:
                     throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
             }
@@ -252,12 +259,12 @@ public final class StreamPropertyDerivations
 
             // Globally constant assignments
             Set<ColumnHandle> constants = new HashSet<>();
-            extractFixedValues(node.getCurrentConstraint()).orElse(ImmutableMap.of())
+            extractFixedValuesToConstantExpressions(node.getCurrentConstraint()).orElse(ImmutableMap.of())
                     .entrySet().stream()
                     .filter(entry -> !entry.getValue().isNull())  // TODO consider allowing nulls
                     .forEach(entry -> constants.add(entry.getKey()));
 
-            Optional<Set<Symbol>> streamPartitionSymbols = layout.getStreamPartitioningColumns()
+            Optional<Set<VariableReferenceExpression>> streamPartitionSymbols = layout.getStreamPartitioningColumns()
                     .flatMap(columns -> getNonConstantSymbols(columns, assignments, constants));
 
             // if we are partitioned on empty set, we must say multiple of unknown partitioning, because
@@ -269,20 +276,20 @@ public final class StreamPropertyDerivations
             return new StreamProperties(MULTIPLE, streamPartitionSymbols, false);
         }
 
-        private static Optional<Set<Symbol>> getNonConstantSymbols(Set<ColumnHandle> columnHandles, Map<ColumnHandle, Symbol> assignments, Set<ColumnHandle> globalConstants)
+        private Optional<Set<VariableReferenceExpression>> getNonConstantSymbols(Set<ColumnHandle> columnHandles, Map<ColumnHandle, Symbol> assignments, Set<ColumnHandle> globalConstants)
         {
             // Strip off the constants from the partitioning columns (since those are not required for translation)
             Set<ColumnHandle> constantsStrippedPartitionColumns = columnHandles.stream()
                     .filter(column -> !globalConstants.contains(column))
                     .collect(toImmutableSet());
-            ImmutableSet.Builder<Symbol> builder = ImmutableSet.builder();
+            ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
 
             for (ColumnHandle column : constantsStrippedPartitionColumns) {
                 Symbol translated = assignments.get(column);
                 if (translated == null) {
                     return Optional.empty();
                 }
-                builder.add(translated);
+                builder.add(toVariableReference(translated, types));
             }
 
             return Optional.of(builder.build());
@@ -311,7 +318,7 @@ public final class StreamPropertyDerivations
                     return new StreamProperties(
                             FIXED,
                             Optional.of(node.getPartitioningScheme().getPartitioning().getArguments().stream()
-                                    .map(ArgumentBinding::getColumn)
+                                    .map(ArgumentBinding::getVariableReference)
                                     .collect(toImmutableList())), false);
                 case REPLICATE:
                     return new StreamProperties(MULTIPLE, Optional.empty(), false);
@@ -330,37 +337,27 @@ public final class StreamPropertyDerivations
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
 
             // We can describe properties in terms of inputs that are projected unmodified (i.e., identity projections)
-            Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments().getMap());
-            return properties.translate(column -> Optional.ofNullable(identities.get(column)));
-        }
+            Map<VariableReferenceExpression, VariableReferenceExpression> identities = computeIdentityTranslations(node.getAssignments(), types);
 
-        private static Map<Symbol, Symbol> computeIdentityTranslations(Map<Symbol, Expression> assignments)
-        {
-            Map<Symbol, Symbol> inputToOutput = new HashMap<>();
-            for (Map.Entry<Symbol, Expression> assignment : assignments.entrySet()) {
-                if (assignment.getValue() instanceof SymbolReference) {
-                    inputToOutput.put(Symbol.from(assignment.getValue()), assignment.getKey());
-                }
-            }
-            return inputToOutput;
+            return properties.translate(column -> Optional.ofNullable(identities.get(column)));
         }
 
         @Override
         public StreamProperties visitGroupId(GroupIdNode node, List<StreamProperties> inputProperties)
         {
-            Map<Symbol, Symbol> inputToOutputMappings = new HashMap<>();
+            Map<VariableReferenceExpression, VariableReferenceExpression> inputToOutputMappings = new HashMap<>();
             for (Map.Entry<Symbol, Symbol> setMapping : node.getGroupingColumns().entrySet()) {
                 if (node.getCommonGroupingColumns().contains(setMapping.getKey())) {
                     // TODO: Add support for translating a property on a single column to multiple columns
                     // when GroupIdNode is copying a single input grouping column into multiple output grouping columns (i.e. aliases), this is basically picking one arbitrarily
-                    inputToOutputMappings.putIfAbsent(setMapping.getValue(), setMapping.getKey());
+                    inputToOutputMappings.putIfAbsent(toVariableReference(setMapping.getValue(), types), toVariableReference(setMapping.getKey(), types));
                 }
             }
 
             // TODO: Add support for translating a property on a single column to multiple columns
             // this is deliberately placed after the grouping columns, because preserving properties has a bigger perf impact
             for (Symbol argument : node.getAggregationArguments()) {
-                inputToOutputMappings.putIfAbsent(argument, argument);
+                inputToOutputMappings.putIfAbsent(toVariableReference(argument, types), toVariableReference(argument, types));
             }
 
             return Iterables.getOnlyElement(inputProperties).translate(column -> Optional.ofNullable(inputToOutputMappings.get(column)));
@@ -372,7 +369,7 @@ public final class StreamPropertyDerivations
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
 
             // Only grouped symbols projected symbols are passed through
-            return properties.translate(symbol -> node.getGroupingKeys().contains(symbol) ? Optional.of(symbol) : Optional.empty());
+            return properties.translate(variable -> node.getGroupingKeys().contains(new Symbol(variable.getName())) ? Optional.of(variable) : Optional.empty());
         }
 
         @Override
@@ -415,7 +412,7 @@ public final class StreamPropertyDerivations
             // We can describe properties in terms of inputs that are projected unmodified (i.e., not the unnested symbols)
             Set<Symbol> passThroughInputs = ImmutableSet.copyOf(node.getReplicateSymbols());
             return properties.translate(column -> {
-                if (passThroughInputs.contains(column)) {
+                if (passThroughInputs.contains(new Symbol(column.getName()))) {
                     return Optional.of(column);
                 }
                 return Optional.empty();
@@ -463,7 +460,7 @@ public final class StreamPropertyDerivations
             }
 
             return new StreamProperties(properties.getDistribution(),
-                    Optional.of(ImmutableList.of(node.getIdVariableAsSymbol())),
+                    Optional.of(ImmutableList.of(node.getIdVariable())),
                     properties.isOrdered());
         }
 
@@ -475,7 +472,7 @@ public final class StreamPropertyDerivations
         public StreamProperties visitOutput(OutputNode node, List<StreamProperties> inputProperties)
         {
             return Iterables.getOnlyElement(inputProperties)
-                    .translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column));
+                    .translate(column -> PropertyDerivations.filterIfMissing(toVariableReferences(node.getOutputSymbols(), types), column));
         }
 
         @Override
@@ -577,7 +574,7 @@ public final class StreamPropertyDerivations
 
         private final StreamDistribution distribution;
 
-        private final Optional<List<Symbol>> partitioningColumns; // if missing => partitioned with some unknown scheme
+        private final Optional<List<VariableReferenceExpression>> partitioningColumns; // if missing => partitioned with some unknown scheme
 
         private final boolean ordered;
 
@@ -588,14 +585,14 @@ public final class StreamPropertyDerivations
         // NOTE: Partitioning on zero columns (or effectively zero columns if the columns are constant) indicates that all
         // the rows will be partitioned into a single stream.
 
-        private StreamProperties(StreamDistribution distribution, Optional<? extends Iterable<Symbol>> partitioningColumns, boolean ordered)
+        private StreamProperties(StreamDistribution distribution, Optional<? extends Iterable<VariableReferenceExpression>> partitioningColumns, boolean ordered)
         {
             this(distribution, partitioningColumns, ordered, null);
         }
 
         private StreamProperties(
                 StreamDistribution distribution,
-                Optional<? extends Iterable<Symbol>> partitioningColumns,
+                Optional<? extends Iterable<VariableReferenceExpression>> partitioningColumns,
                 boolean ordered,
                 ActualProperties otherActualProperties)
         {
@@ -615,7 +612,7 @@ public final class StreamPropertyDerivations
             this.otherActualProperties = otherActualProperties;
         }
 
-        public List<LocalProperty<Symbol>> getLocalProperties()
+        public List<LocalProperty<VariableReferenceExpression>> getLocalProperties()
         {
             checkState(otherActualProperties != null, "otherActualProperties not set");
             return otherActualProperties.getLocalProperties();
@@ -664,12 +661,12 @@ public final class StreamPropertyDerivations
             return distribution;
         }
 
-        public boolean isExactlyPartitionedOn(Iterable<Symbol> columns)
+        public boolean isExactlyPartitionedOn(Iterable<VariableReferenceExpression> columns)
         {
             return partitioningColumns.isPresent() && columns.equals(ImmutableList.copyOf(partitioningColumns.get()));
         }
 
-        public boolean isPartitionedOn(Iterable<Symbol> columns)
+        public boolean isPartitionedOn(Iterable<VariableReferenceExpression> columns)
         {
             if (!partitioningColumns.isPresent()) {
                 return false;
@@ -701,14 +698,14 @@ public final class StreamPropertyDerivations
             return new StreamProperties(distribution, partitioningColumns, ordered, actualProperties);
         }
 
-        public StreamProperties translate(Function<Symbol, Optional<Symbol>> translator)
+        public StreamProperties translate(Function<VariableReferenceExpression, Optional<VariableReferenceExpression>> translator)
         {
             return new StreamProperties(
                     distribution,
                     partitioningColumns.flatMap(partitioning -> {
-                        ImmutableList.Builder<Symbol> newPartitioningColumns = ImmutableList.builder();
-                        for (Symbol partitioningColumn : partitioning) {
-                            Optional<Symbol> translated = translator.apply(partitioningColumn);
+                        ImmutableList.Builder<VariableReferenceExpression> newPartitioningColumns = ImmutableList.builder();
+                        for (VariableReferenceExpression partitioningColumn : partitioning) {
+                            Optional<VariableReferenceExpression> translated = translator.apply(partitioningColumn);
                             if (!translated.isPresent()) {
                                 return Optional.empty();
                             }
@@ -719,7 +716,7 @@ public final class StreamPropertyDerivations
                     ordered, otherActualProperties.translate(translator));
         }
 
-        public Optional<List<Symbol>> getPartitioningColumns()
+        public Optional<List<VariableReferenceExpression>> getPartitioningColumns()
         {
             return partitioningColumns;
         }

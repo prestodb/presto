@@ -188,7 +188,7 @@ public class PredicatePushDown
                 for (int index = 0; index < node.getInputs().get(i).size(); index++) {
                     outputsToInputs.put(
                             node.getOutputSymbols().get(index),
-                            node.getInputs().get(i).get(index).toSymbolReference());
+                            node.getInputsAsSymbols().get(i).get(index).toSymbolReference());
                 }
 
                 Expression sourcePredicate = inlineSymbols(outputsToInputs, context.get());

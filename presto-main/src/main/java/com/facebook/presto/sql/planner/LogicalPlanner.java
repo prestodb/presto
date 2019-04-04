@@ -419,16 +419,17 @@ public class LogicalPlanner
             }
         });
 
-        List<Symbol> symbols = plan.getFieldSymbolMappings();
+        List<VariableReferenceExpression> variables = plan.getFieldMappings();
+
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
         if (writeTableLayout.isPresent()) {
-            List<Symbol> partitionFunctionArguments = new ArrayList<>();
+            List<VariableReferenceExpression> partitionFunctionArguments = new ArrayList<>();
             writeTableLayout.get().getPartitionColumns().stream()
                     .mapToInt(columnNames::indexOf)
-                    .mapToObj(symbols::get)
+                    .mapToObj(variables::get)
                     .forEach(partitionFunctionArguments::add);
 
-            List<Symbol> outputLayout = new ArrayList<>(symbols);
+            List<VariableReferenceExpression> outputLayout = new ArrayList<>(variables);
 
             partitioningScheme = Optional.of(new PartitioningScheme(
                     Partitioning.create(writeTableLayout.get().getPartitioning(), partitionFunctionArguments),
@@ -436,7 +437,7 @@ public class LogicalPlanner
         }
 
         if (!statisticsMetadata.isEmpty()) {
-            verify(columnNames.size() == symbols.size(), "columnNames.size() != symbols.size(): %s and %s", columnNames, symbols);
+            verify(columnNames.size() == variables.size(), "columnNames.size() != variables.size(): %s and %s", columnNames, variables);
             Map<String, VariableReferenceExpression> columnToVariableMap = zip(columnNames.stream(), plan.getFieldMappings().stream(), SimpleImmutableEntry::new)
                     .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
@@ -457,7 +458,7 @@ public class LogicalPlanner
                     symbolAllocator.newSymbol("partialrows", BIGINT),
                     symbolAllocator.newSymbol("fragment", VARBINARY),
                     symbolAllocator.newSymbol("tablecommitcontext", VARBINARY),
-                    symbols,
+                    plan.getFieldSymbolMappings(),
                     columnNames,
                     partitioningScheme,
                     Optional.of(partialAggregation),
@@ -483,7 +484,7 @@ public class LogicalPlanner
                         symbolAllocator.newSymbol("partialrows", BIGINT),
                         symbolAllocator.newSymbol("fragment", VARBINARY),
                         symbolAllocator.newSymbol("tablecommitcontext", VARBINARY),
-                        symbols,
+                        plan.getFieldSymbolMappings(),
                         columnNames,
                         partitioningScheme,
                         Optional.empty(),

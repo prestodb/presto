@@ -16,7 +16,6 @@ package com.facebook.presto.util;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.Symbol;
@@ -333,13 +332,13 @@ public final class GraphvizPrinter
         @Override
         public Void visitExchange(ExchangeNode node, Void context)
         {
-            List<ArgumentBinding> symbols = node.getOutputSymbols().stream()
-                    .map(ArgumentBinding::columnBinding)
-                    .collect(toImmutableList());
+            String columns;
             if (node.getType() == REPARTITION) {
-                symbols = node.getPartitioningScheme().getPartitioning().getArguments();
+                columns = Joiner.on(", ").join(node.getPartitioningScheme().getPartitioning().getArguments());
             }
-            String columns = Joiner.on(", ").join(symbols);
+            else {
+                columns = Joiner.on(", ").join(node.getOutputSymbols());
+            }
             printNode(node, format("ExchangeNode[%s]", node.getType()), columns, NODE_COLORS.get(NodeType.EXCHANGE));
             for (PlanNode planNode : node.getSources()) {
                 planNode.accept(this, context);

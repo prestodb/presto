@@ -104,7 +104,7 @@ public class AddIntermediateAggregations
         Session session = context.getSession();
         TypeProvider types = context.getSymbolAllocator().getTypes();
 
-        Optional<PlanNode> rewrittenSource = recurseToPartial(lookup.resolve(aggregation.getSource()), lookup, idAllocator);
+        Optional<PlanNode> rewrittenSource = recurseToPartial(lookup.resolve(aggregation.getSource()), lookup, idAllocator, types);
 
         if (!rewrittenSource.isPresent()) {
             return Result.empty();
@@ -113,7 +113,7 @@ public class AddIntermediateAggregations
         PlanNode source = rewrittenSource.get();
 
         if (getTaskConcurrency(session) > 1) {
-            source = roundRobinExchange(idAllocator.getNextId(), LOCAL, source);
+            source = roundRobinExchange(idAllocator.getNextId(), LOCAL, source, types);
             source = new AggregationNode(
                     idAllocator.getNextId(),
                     source,
@@ -123,7 +123,7 @@ public class AddIntermediateAggregations
                     INTERMEDIATE,
                     aggregation.getHashVariable(),
                     aggregation.getGroupIdSymbol());
-            source = gatheringExchange(idAllocator.getNextId(), LOCAL, source);
+            source = gatheringExchange(idAllocator.getNextId(), LOCAL, source, types);
         }
 
         return Result.ofPlanNode(aggregation.replaceChildren(ImmutableList.of(source)));
@@ -132,10 +132,10 @@ public class AddIntermediateAggregations
     /**
      * Recurse through a series of preceding ExchangeNodes and ProjectNodes to find the preceding PARTIAL aggregation
      */
-    private Optional<PlanNode> recurseToPartial(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator)
+    private Optional<PlanNode> recurseToPartial(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, TypeProvider types)
     {
         if (node instanceof AggregationNode && ((AggregationNode) node).getStep() == PARTIAL) {
-            return Optional.of(addGatheringIntermediate((AggregationNode) node, idAllocator));
+            return Optional.of(addGatheringIntermediate((AggregationNode) node, idAllocator, types));
         }
 
         if (!(node instanceof ExchangeNode) && !(node instanceof ProjectNode)) {
@@ -144,7 +144,7 @@ public class AddIntermediateAggregations
 
         ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
         for (PlanNode source : node.getSources()) {
-            Optional<PlanNode> planNode = recurseToPartial(lookup.resolve(source), lookup, idAllocator);
+            Optional<PlanNode> planNode = recurseToPartial(lookup.resolve(source), lookup, idAllocator, types);
             if (!planNode.isPresent()) {
                 return Optional.empty();
             }
@@ -153,10 +153,10 @@ public class AddIntermediateAggregations
         return Optional.of(node.replaceChildren(builder.build()));
     }
 
-    private PlanNode addGatheringIntermediate(AggregationNode aggregation, PlanNodeIdAllocator idAllocator)
+    private PlanNode addGatheringIntermediate(AggregationNode aggregation, PlanNodeIdAllocator idAllocator, TypeProvider types)
     {
         verify(aggregation.getGroupingKeys().isEmpty(), "Should be an un-grouped aggregation");
-        ExchangeNode gatheringExchange = gatheringExchange(idAllocator.getNextId(), LOCAL, aggregation);
+        ExchangeNode gatheringExchange = gatheringExchange(idAllocator.getNextId(), LOCAL, aggregation, types);
         return new AggregationNode(
                 idAllocator.getNextId(),
                 gatheringExchange,

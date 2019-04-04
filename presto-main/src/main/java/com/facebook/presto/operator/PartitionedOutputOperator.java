@@ -24,7 +24,7 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -54,7 +54,7 @@ public class PartitionedOutputOperator
     {
         private final PartitionFunction partitionFunction;
         private final List<Integer> partitionChannels;
-        private final List<Optional<NullableValue>> partitionConstants;
+        private final List<Optional<ConstantExpression>> partitionConstants;
         private final OutputBuffer outputBuffer;
         private final boolean replicatesAnyRow;
         private final OptionalInt nullChannel;
@@ -63,7 +63,7 @@ public class PartitionedOutputOperator
         public PartitionedOutputFactory(
                 PartitionFunction partitionFunction,
                 List<Integer> partitionChannels,
-                List<Optional<NullableValue>> partitionConstants,
+                List<Optional<ConstantExpression>> partitionConstants,
                 boolean replicatesAnyRow,
                 OptionalInt nullChannel,
                 OutputBuffer outputBuffer,
@@ -111,7 +111,7 @@ public class PartitionedOutputOperator
         private final Function<Page, Page> pagePreprocessor;
         private final PartitionFunction partitionFunction;
         private final List<Integer> partitionChannels;
-        private final List<Optional<NullableValue>> partitionConstants;
+        private final List<Optional<ConstantExpression>> partitionConstants;
         private final boolean replicatesAnyRow;
         private final OptionalInt nullChannel;
         private final OutputBuffer outputBuffer;
@@ -125,7 +125,7 @@ public class PartitionedOutputOperator
                 Function<Page, Page> pagePreprocessor,
                 PartitionFunction partitionFunction,
                 List<Integer> partitionChannels,
-                List<Optional<NullableValue>> partitionConstants,
+                List<Optional<ConstantExpression>> partitionConstants,
                 boolean replicatesAnyRow,
                 OptionalInt nullChannel,
                 OutputBuffer outputBuffer,
@@ -201,7 +201,7 @@ public class PartitionedOutputOperator
             Function<Page, Page> pagePreprocessor,
             PartitionFunction partitionFunction,
             List<Integer> partitionChannels,
-            List<Optional<NullableValue>> partitionConstants,
+            List<Optional<ConstantExpression>> partitionConstants,
             boolean replicatesAnyRow,
             OptionalInt nullChannel,
             OutputBuffer outputBuffer,
@@ -313,7 +313,7 @@ public class PartitionedOutputOperator
         public PagePartitioner(
                 PartitionFunction partitionFunction,
                 List<Integer> partitionChannels,
-                List<Optional<NullableValue>> partitionConstants,
+                List<Optional<ConstantExpression>> partitionConstants,
                 boolean replicatesAnyRow,
                 OptionalInt nullChannel,
                 OutputBuffer outputBuffer,
@@ -325,7 +325,7 @@ public class PartitionedOutputOperator
             this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
             this.partitionChannels = requireNonNull(partitionChannels, "partitionChannels is null");
             this.partitionConstants = requireNonNull(partitionConstants, "partitionConstants is null").stream()
-                    .map(constant -> constant.map(NullableValue::asBlock))
+                    .map(constant -> constant.map(ConstantExpression::getValueBlock))
                     .collect(toImmutableList());
             this.replicatesAnyRow = replicatesAnyRow;
             this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
