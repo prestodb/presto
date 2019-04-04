@@ -725,7 +725,6 @@ public class TestHiveIntegrationSmokeTest
                 3);
 
         verifyPartitionedBucketedTableAsFewRows(storageFormat, tableName);
-
         assertThatThrownBy(() -> assertUpdate(session, "INSERT INTO " + tableName + " VALUES ('a0', 'b0', 'c')", 1))
                 .hasMessage(getExpectedErrorMessageForInsertExistingBucketedTable(
                         getInsertExistingPartitionsBehavior(getConnectorSession(session)),

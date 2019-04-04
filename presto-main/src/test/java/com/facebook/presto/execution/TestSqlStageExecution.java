@@ -162,7 +162,6 @@ public class TestSqlStageExecution
         PlanNode planNode = new RemoteSourceNode(
                 new PlanNodeId("exchange"),
                 ImmutableList.of(new PlanFragmentId(0)),
-                ImmutableList.of(new Symbol("column")),
                 ImmutableList.of(new VariableReferenceExpression("column", VARCHAR)),
                 Optional.empty(),
                 REPARTITION);
@@ -177,7 +176,7 @@ public class TestSqlStageExecution
                 types.build(),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(planNode.getId()),
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputVariables()),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
                 StatsAndCosts.empty(),

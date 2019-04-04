@@ -468,8 +468,8 @@ public class PlanBuilder
                                 deleteRowId,
                                 ImmutableList.of(deleteRowIdSymbol),
                                 ImmutableList.of(deleteRowId)))
-                        .addInputsSet(deleteRowIdSymbol)
-                        .singleDistributionPartitioningScheme(deleteRowIdSymbol)),
+                        .addInputsSet(deleteRowId)
+                        .singleDistributionPartitioningScheme(deleteRowId)),
                 deleteHandle,
                 deleteRowId,
                 Optional.empty(),
@@ -480,9 +480,9 @@ public class PlanBuilder
     {
         return exchange(builder -> builder.type(ExchangeNode.Type.GATHER)
                 .scope(scope)
-                .singleDistributionPartitioningScheme(child.getOutputSymbols())
+                .singleDistributionPartitioningScheme(child.getOutputVariables())
                 .addSource(child)
-                .addInputsSet(child.getOutputSymbols()));
+                .addInputsSet(child.getOutputVariables()));
     }
 
     public SemiJoinNode semiJoin(
@@ -561,7 +561,7 @@ public class PlanBuilder
         private PartitioningScheme partitioningScheme;
         private OrderingScheme orderingScheme;
         private List<PlanNode> sources = new ArrayList<>();
-        private List<List<Symbol>> inputs = new ArrayList<>();
+        private List<List<VariableReferenceExpression>> inputs = new ArrayList<>();
 
         public ExchangeBuilder type(ExchangeNode.Type type)
         {
@@ -575,30 +575,30 @@ public class PlanBuilder
             return this;
         }
 
-        public ExchangeBuilder singleDistributionPartitioningScheme(Symbol... outputSymbols)
+        public ExchangeBuilder singleDistributionPartitioningScheme(VariableReferenceExpression... outputVariables)
         {
-            return singleDistributionPartitioningScheme(Arrays.asList(outputSymbols));
+            return singleDistributionPartitioningScheme(Arrays.asList(outputVariables));
         }
 
-        public ExchangeBuilder singleDistributionPartitioningScheme(List<Symbol> outputSymbols)
+        public ExchangeBuilder singleDistributionPartitioningScheme(List<VariableReferenceExpression> outputVariables)
         {
-            return partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), outputSymbols));
+            return partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), outputVariables));
         }
 
-        public ExchangeBuilder fixedHashDistributionParitioningScheme(List<Symbol> outputSymbols, List<Symbol> partitioningSymbols)
+        public ExchangeBuilder fixedHashDistributionParitioningScheme(List<VariableReferenceExpression> outputVariables, List<VariableReferenceExpression> partitioningVariables)
         {
             return partitioningScheme(new PartitioningScheme(Partitioning.create(
                     FIXED_HASH_DISTRIBUTION,
-                    ImmutableList.copyOf(partitioningSymbols)),
-                    ImmutableList.copyOf(outputSymbols)));
+                    ImmutableList.copyOf(partitioningVariables)),
+                    ImmutableList.copyOf(outputVariables)));
         }
 
-        public ExchangeBuilder fixedHashDistributionParitioningScheme(List<Symbol> outputSymbols, List<Symbol> partitioningSymbols, VariableReferenceExpression hashVariable)
+        public ExchangeBuilder fixedHashDistributionParitioningScheme(List<VariableReferenceExpression> outputVariables, List<VariableReferenceExpression> partitioningVariables, VariableReferenceExpression hashVariable)
         {
             return partitioningScheme(new PartitioningScheme(Partitioning.create(
                     FIXED_HASH_DISTRIBUTION,
-                    ImmutableList.copyOf(partitioningSymbols)),
-                    ImmutableList.copyOf(outputSymbols),
+                    ImmutableList.copyOf(partitioningVariables)),
+                    ImmutableList.copyOf(outputVariables),
                     Optional.of(hashVariable)));
         }
 
@@ -614,12 +614,12 @@ public class PlanBuilder
             return this;
         }
 
-        public ExchangeBuilder addInputsSet(Symbol... inputs)
+        public ExchangeBuilder addInputsSet(VariableReferenceExpression... inputs)
         {
             return addInputsSet(Arrays.asList(inputs));
         }
 
-        public ExchangeBuilder addInputsSet(List<Symbol> inputs)
+        public ExchangeBuilder addInputsSet(List<VariableReferenceExpression> inputs)
         {
             this.inputs.add(inputs);
             return this;

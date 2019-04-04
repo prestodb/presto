@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -33,7 +34,6 @@ public class RemoteSourceNode
         extends PlanNode
 {
     private final List<PlanFragmentId> sourceFragmentIds;
-    private final List<Symbol> outputs;
     private final List<VariableReferenceExpression> outputVariables;
     private final Optional<OrderingScheme> orderingScheme;
     private final ExchangeNode.Type exchangeType; // This is needed to "unfragment" to compute stats correctly.
@@ -42,7 +42,6 @@ public class RemoteSourceNode
     public RemoteSourceNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("sourceFragmentIds") List<PlanFragmentId> sourceFragmentIds,
-            @JsonProperty("outputs") List<Symbol> outputs,
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme,
             @JsonProperty("exchangeType") ExchangeNode.Type exchangeType)
@@ -50,7 +49,6 @@ public class RemoteSourceNode
         super(id);
 
         this.sourceFragmentIds = sourceFragmentIds;
-        this.outputs = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
         this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
         this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
         this.exchangeType = requireNonNull(exchangeType, "exchangeType is null");
@@ -61,12 +59,11 @@ public class RemoteSourceNode
     public RemoteSourceNode(
             PlanNodeId id,
             PlanFragmentId sourceFragmentId,
-            List<Symbol> outputs,
             List<VariableReferenceExpression> outputVariables,
             Optional<OrderingScheme> orderingScheme,
             ExchangeNode.Type exchangeType)
     {
-        this(id, ImmutableList.of(sourceFragmentId), outputs, outputVariables, orderingScheme, exchangeType);
+        this(id, ImmutableList.of(sourceFragmentId), outputVariables, orderingScheme, exchangeType);
     }
 
     @Override
@@ -79,7 +76,10 @@ public class RemoteSourceNode
     @JsonProperty("outputs")
     public List<Symbol> getOutputSymbols()
     {
-        return outputs;
+        return outputVariables.stream()
+                .map(VariableReferenceExpression::getName)
+                .map(Symbol::new)
+                .collect(toImmutableList());
     }
 
     @Override

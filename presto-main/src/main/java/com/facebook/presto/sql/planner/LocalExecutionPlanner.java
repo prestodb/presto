@@ -108,8 +108,8 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -364,7 +364,7 @@ public class LocalExecutionPlanner
             OutputBuffer outputBuffer,
             TaskExchangeClientManager taskExchangeClientManager)
     {
-        List<Symbol> outputLayout = partitioningScheme.getOutputLayout();
+        List<VariableReferenceExpression> outputLayout = partitioningScheme.getOutputLayout();
 
         if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION) ||
                 partitioningScheme.getPartitioning().getHandle().equals(FIXED_ARBITRARY_DISTRIBUTION) ||
@@ -384,10 +384,10 @@ public class LocalExecutionPlanner
 
         // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
         List<Integer> partitionChannels;
-        List<Optional<NullableValue>> partitionConstants;
+        List<Optional<ConstantExpression>> partitionConstants;
         List<Type> partitionChannelTypes;
         if (partitioningScheme.getHashColumn().isPresent()) {
-            partitionChannels = ImmutableList.of(outputLayout.indexOf(new Symbol(partitioningScheme.getHashColumn().get().getName())));
+            partitionChannels = ImmutableList.of(outputLayout.indexOf(partitioningScheme.getHashColumn().get()));
             partitionConstants = ImmutableList.of(Optional.empty());
             partitionChannelTypes = ImmutableList.of(BIGINT);
         }
@@ -397,7 +397,7 @@ public class LocalExecutionPlanner
                         if (argument.isConstant()) {
                             return -1;
                         }
-                        return outputLayout.indexOf(argument.getColumn());
+                        return outputLayout.indexOf(argument.getVariableReference());
                     })
                     .collect(toImmutableList());
             partitionConstants = partitioningScheme.getPartitioning().getArguments().stream()
@@ -405,7 +405,7 @@ public class LocalExecutionPlanner
                         if (argument.isConstant()) {
                             return Optional.of(argument.getConstant());
                         }
-                        return Optional.<NullableValue>empty();
+                        return Optional.<ConstantExpression>empty();
                     })
                     .collect(toImmutableList());
             partitionChannelTypes = partitioningScheme.getPartitioning().getArguments().stream()
@@ -420,7 +420,7 @@ public class LocalExecutionPlanner
 
         PartitionFunction partitionFunction = nodePartitioningManager.getPartitionFunction(taskContext.getSession(), partitioningScheme, partitionChannelTypes);
         OptionalInt nullChannel = OptionalInt.empty();
-        Set<Symbol> partitioningColumns = partitioningScheme.getPartitioning().getColumns();
+        Set<VariableReferenceExpression> partitioningColumns = partitioningScheme.getPartitioning().getVariableReferences();
 
         // partitioningColumns expected to have one column in the normal case, and zero columns when partitioning on a constant
         checkArgument(!partitioningScheme.isReplicateNullsAndAny() || partitioningColumns.size() <= 1);
@@ -450,7 +450,7 @@ public class LocalExecutionPlanner
             TaskContext taskContext,
             StageExecutionDescriptor stageExecutionDescriptor,
             PlanNode plan,
-            List<Symbol> outputLayout,
+            List<VariableReferenceExpression> outputLayout,
             TypeProvider types,
             List<PlanNodeId> partitionedSourceOrder,
             OutputFactory outputOperatorFactory,
@@ -464,7 +464,7 @@ public class LocalExecutionPlanner
         Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(outputLayout, physicalOperation.getLayout());
 
         List<Type> outputTypes = outputLayout.stream()
-                .map(types::get)
+                .map(VariableReferenceExpression::getType)
                 .collect(toImmutableList());
 
         context.addDriverFactory(
@@ -2398,7 +2398,7 @@ public class LocalExecutionPlanner
                     maxLocalExchangeBufferSize);
 
             List<OperatorFactory> operatorFactories = new ArrayList<>(source.getOperatorFactories());
-            List<Symbol> expectedLayout = node.getInputs().get(0);
+            List<VariableReferenceExpression> expectedLayout = node.getInputs().get(0);
             Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(expectedLayout, source.getLayout());
             operatorFactories.add(new LocalExchangeSinkOperatorFactory(
                     exchangeFactory,
@@ -2474,7 +2474,7 @@ public class LocalExecutionPlanner
                 PhysicalOperation source = driverFactoryParameters.getSource();
                 LocalExecutionPlanContext subContext = driverFactoryParameters.getSubContext();
 
-                List<Symbol> expectedLayout = node.getInputs().get(i);
+                List<VariableReferenceExpression> expectedLayout = node.getInputs().get(i);
                 Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(expectedLayout, source.getLayout());
                 List<OperatorFactory> operatorFactories = new ArrayList<>(source.getOperatorFactories());
 
@@ -2810,11 +2810,11 @@ public class LocalExecutionPlanner
         };
     }
 
-    private static Function<Page, Page> enforceLayoutProcessor(List<Symbol> expectedLayout, Map<Symbol, Integer> inputLayout)
+    private static Function<Page, Page> enforceLayoutProcessor(List<VariableReferenceExpression> expectedLayout, Map<Symbol, Integer> inputLayout)
     {
         int[] channels = expectedLayout.stream()
-                .peek(symbol -> checkArgument(inputLayout.containsKey(symbol), "channel not found for symbol: %s", symbol))
-                .mapToInt(inputLayout::get)
+                .peek(variable -> checkArgument(inputLayout.containsKey(new Symbol(variable.getName())), "channel not found for variable: %s", variable))
+                .mapToInt(variable -> inputLayout.get(new Symbol(variable.getName())))
                 .toArray();
 
         if (Arrays.equals(channels, range(0, inputLayout.size()).toArray())) {

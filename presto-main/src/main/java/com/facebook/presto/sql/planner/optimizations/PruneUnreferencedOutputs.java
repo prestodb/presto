@@ -131,22 +131,22 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitExchange(ExchangeNode node, RewriteContext<Set<Symbol>> context)
         {
-            Set<Symbol> expectedOutputSymbols = Sets.newHashSet(context.get());
-            node.getPartitioningScheme().getHashColumn().ifPresent(variable -> expectedOutputSymbols.add(new Symbol(variable.getName())));
-            node.getPartitioningScheme().getPartitioning().getColumns().stream()
-                    .forEach(expectedOutputSymbols::add);
-            node.getOrderingScheme().ifPresent(orderingScheme -> expectedOutputSymbols.addAll(orderingScheme.getOrderBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet())));
+            Set<String> expectedOutputSymbolNames = Sets.newHashSet(context.get().stream().map(Symbol::getName).collect(toImmutableSet()));
+            node.getPartitioningScheme().getHashColumn().ifPresent(variable -> expectedOutputSymbolNames.add(variable.getName()));
+            node.getPartitioningScheme().getPartitioning().getVariableReferences()
+                    .forEach(column -> expectedOutputSymbolNames.add(column.getName()));
+            node.getOrderingScheme().ifPresent(orderingScheme -> expectedOutputSymbolNames.addAll(orderingScheme.getOrderBy().stream().map(VariableReferenceExpression::getName).collect(toImmutableSet())));
 
-            List<List<Symbol>> inputsBySource = new ArrayList<>(node.getInputs().size());
+            List<List<VariableReferenceExpression>> inputsBySource = new ArrayList<>(node.getInputs().size());
             for (int i = 0; i < node.getInputs().size(); i++) {
                 inputsBySource.add(new ArrayList<>());
             }
 
-            List<Symbol> newOutputSymbols = new ArrayList<>(node.getOutputSymbols().size());
-            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-                Symbol outputSymbol = node.getOutputSymbols().get(i);
-                if (expectedOutputSymbols.contains(outputSymbol)) {
-                    newOutputSymbols.add(outputSymbol);
+            List<VariableReferenceExpression> newOutputVariables = new ArrayList<>(node.getOutputVariables().size());
+            for (int i = 0; i < node.getOutputVariables().size(); i++) {
+                VariableReferenceExpression outputVariable = node.getOutputVariables().get(i);
+                if (expectedOutputSymbolNames.contains(outputVariable.getName())) {
+                    newOutputVariables.add(outputVariable);
                     for (int source = 0; source < node.getInputs().size(); source++) {
                         inputsBySource.get(source).add(node.getInputs().get(source).get(i));
                     }
@@ -156,7 +156,7 @@ public class PruneUnreferencedOutputs
             // newOutputSymbols contains all partition, sort and hash symbols so simply swap the output layout
             PartitioningScheme partitioningScheme = new PartitioningScheme(
                     node.getPartitioningScheme().getPartitioning(),
-                    newOutputSymbols,
+                    newOutputVariables,
                     node.getPartitioningScheme().getHashColumn(),
                     node.getPartitioningScheme().isReplicateNullsAndAny(),
                     node.getPartitioningScheme().getBucketToPartition());
@@ -164,7 +164,7 @@ public class PruneUnreferencedOutputs
             ImmutableList.Builder<PlanNode> rewrittenSources = ImmutableList.builder();
             for (int i = 0; i < node.getSources().size(); i++) {
                 ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
-                        .addAll(inputsBySource.get(i));
+                        .addAll(inputsBySource.get(i).stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
 
                 rewrittenSources.add(context.rewrite(
                         node.getSources().get(i),

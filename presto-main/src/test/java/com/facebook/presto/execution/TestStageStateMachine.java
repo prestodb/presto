@@ -323,17 +323,18 @@ public class TestStageStateMachine
     private static PlanFragment createValuesPlan()
     {
         Symbol symbol = new Symbol("column");
+        VariableReferenceExpression variable = new VariableReferenceExpression(symbol.getName(), VARCHAR);
         PlanNodeId valuesNodeId = new PlanNodeId("plan");
         PlanFragment planFragment = new PlanFragment(
                 new PlanFragmentId(0),
                 new ValuesNode(valuesNodeId,
                         ImmutableList.of(symbol),
-                        ImmutableList.of(new VariableReferenceExpression(symbol.getName(), VARCHAR)),
+                        ImmutableList.of(variable),
                         ImmutableList.of(ImmutableList.of(constant("foo", VARCHAR)))),
                 ImmutableMap.of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(valuesNodeId),
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(variable)),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
                 StatsAndCosts.empty(),
