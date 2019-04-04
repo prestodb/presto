@@ -18,6 +18,7 @@ import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
@@ -60,6 +61,8 @@ import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Float.intBitsToFloat;
@@ -94,6 +97,23 @@ public final class LiteralEncoder
         return expressions.build();
     }
 
+    // Unlike toExpression, toRowExpression should be very straightforward given object is serializable
+    public static RowExpression toRowExpression(Object object, Type type)
+    {
+        requireNonNull(type, "type is null");
+
+        if (object instanceof RowExpression) {
+            return (RowExpression) object;
+        }
+
+        if (object == null) {
+            return constantNull(type);
+        }
+
+        return constant(object, type);
+    }
+
+    @Deprecated
     public Expression toExpression(Object object, Type type)
     {
         requireNonNull(type, "type is null");

@@ -78,11 +78,10 @@ import static com.facebook.presto.sql.gen.VarArgsToMapAdapterGenerator.generateV
 import static com.facebook.presto.sql.planner.Interpreters.interpretDereference;
 import static com.facebook.presto.sql.planner.Interpreters.interpretLikePredicate;
 import static com.facebook.presto.sql.planner.LiteralEncoder.isSupportedLiteralType;
+import static com.facebook.presto.sql.planner.LiteralEncoder.toRowExpression;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.SpecialCallResult.changed;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.SpecialCallResult.notChanged;
 import static com.facebook.presto.sql.relational.Expressions.call;
-import static com.facebook.presto.sql.relational.Expressions.constant;
-import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.facebook.presto.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.LikeFunctions.isLikePattern;
@@ -648,19 +647,6 @@ public class RowExpressionInterpreter
         {
             FunctionHandle operatorHandle = metadata.getFunctionManager().resolveOperator(operatorType, fromTypes(argumentTypes));
             return functionInvoker.invoke(operatorHandle, session.toConnectorSession(), argumentValues);
-        }
-
-        private RowExpression toRowExpression(Object object, Type type)
-        {
-            requireNonNull(type, "type is null");
-
-            if (object == null) {
-                return constantNull(type);
-            }
-            if (object instanceof RowExpression) {
-                return (RowExpression) object;
-            }
-            return constant(object, type);
         }
 
         private List<RowExpression> toRowExpressions(List<Object> values, List<Type> types)
