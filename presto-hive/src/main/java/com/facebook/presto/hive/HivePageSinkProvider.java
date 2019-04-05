@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.OptionalInt;
 import java.util.Set;
 
+import static com.facebook.presto.hive.metastore.CachingHiveMetastore.memoizeMetastore;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
@@ -65,6 +66,7 @@ public class HivePageSinkProvider
     private final HiveSessionProperties hiveSessionProperties;
     private final HiveWriterStats hiveWriterStats;
     private final OrcFileWriterFactory orcFileWriterFactory;
+    private final long perTransactionMetastoreCacheMaximumSize;
 
     @Inject
     public HivePageSinkProvider(
@@ -103,6 +105,7 @@ public class HivePageSinkProvider
         this.hiveSessionProperties = requireNonNull(hiveSessionProperties, "hiveSessionProperties is null");
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "stats is null");
         this.orcFileWriterFactory = requireNonNull(orcFileWriterFactory, "orcFileWriterFactory is null");
+        this.perTransactionMetastoreCacheMaximumSize = config.getPerTransactionMetastoreCacheMaximumSize();
     }
 
     @Override
@@ -142,7 +145,9 @@ public class HivePageSinkProvider
                 handle.getLocationHandle(),
                 locationService,
                 handle.getFilePrefix(),
-                new HivePageSinkMetadataProvider(handle.getPageSinkMetadata(), metastore),
+                // The scope of metastore cache is within a single HivePageSink object
+                // TODO: Extend metastore cache scope to the entire transaction
+                new HivePageSinkMetadataProvider(handle.getPageSinkMetadata(), memoizeMetastore(metastore, perTransactionMetastoreCacheMaximumSize)),
                 typeManager,
                 hdfsEnvironment,
                 pageSorter,
