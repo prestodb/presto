@@ -36,6 +36,7 @@ import static com.facebook.presto.cost.SemiJoinStatsCalculator.computeSemiJoin;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
+import static com.facebook.presto.sql.relational.ProjectNodeUtils.isIdentity;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -69,7 +70,7 @@ public class SimpleFilterProjectSemiJoinStatsRule
         SemiJoinNode semiJoinNode;
         if (nodeSource instanceof ProjectNode) {
             ProjectNode projectNode = (ProjectNode) nodeSource;
-            if (!projectNode.isIdentity()) {
+            if (!isIdentity(projectNode)) {
                 return Optional.empty();
             }
             PlanNode projectNodeSource = lookup.resolve(projectNode.getSource());
