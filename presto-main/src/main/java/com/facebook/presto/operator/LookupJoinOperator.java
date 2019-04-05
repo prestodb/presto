@@ -53,12 +53,6 @@ import static java.util.Objects.requireNonNull;
 public class LookupJoinOperator
         implements Operator
 {
-    private enum JoinPushdown {
-        NO_PUSHDOWN,
-        PUSHDOWN_JOIN,
-        UNKNOWN
-    }
-
     private final OperatorContext operatorContext;
     private final List<Type> probeTypes;
     private final JoinProbeFactory joinProbeFactory;
@@ -77,7 +71,6 @@ public class LookupJoinOperator
     private final ListenableFuture<LookupSourceProvider> lookupSourceProviderFuture;
     private LookupSourceProvider lookupSourceProvider;
     private JoinProbe probe;
-    AriaHash.AriaProbe ariaProbe;
 
     private Page outputPage;
 
@@ -102,8 +95,6 @@ public class LookupJoinOperator
     private Optional<Partition<Supplier<LookupSource>>> currentPartition = Optional.empty();
     private Optional<ListenableFuture<Supplier<LookupSource>>> unspilledLookupSource = Optional.empty();
     private Iterator<Page> unspilledInputPages = emptyIterator();
-    private JoinPushdown joinPushdown = JoinPushdown.UNKNOWN;
-    private boolean reusePages;
 
     public LookupJoinOperator(
             OperatorContext operatorContext,
@@ -150,13 +141,7 @@ public class LookupJoinOperator
         if (finishing) {
             return;
         }
-        if (joinPushdown == JoinPushdown.PUSHDOWN_JOIN) {
-            lookupSourceProvider.withLease(lookupSourceLease -> {
-                LookupSource lookupSource = lookupSourceLease.getLookupSource();
-                lookupSource.close();
-                return true;
-            });
-        }
+
         if (!spillInProgress.isDone()) {
             return;
         }
@@ -166,18 +151,10 @@ public class LookupJoinOperator
     }
 
     @Override
-        public boolean isFinished()
+    public boolean isFinished()
     {
-        if (finished || closed) {
-            return true;
-        }
-        boolean finished;
-        if (joinPushdown == JoinPushdown.PUSHDOWN_JOIN) {
-            finished = ariaProbe.isFinished();
-        }
-        else {
-            finished = this.finished && probe == null && pageBuilder.isEmpty() && outputPage == null;
-        }
+        boolean finished = this.finished && probe == null && pageBuilder.isEmpty() && outputPage == null;
+
         // if finished drop references so memory is freed early
         if (finished) {
             close();
@@ -208,7 +185,7 @@ public class LookupJoinOperator
     public boolean needsInput()
     {
         return !finishing
-            && lookupSourceProviderFuture.isDone()
+                && lookupSourceProviderFuture.isDone()
                 && spillInProgress.isDone()
                 && probe == null
                 && outputPage == null;
@@ -275,7 +252,7 @@ public class LookupJoinOperator
         return result.getRetained();
     }
 
-    public LocalPartitionGenerator getPartitionGenerator()
+    private LocalPartitionGenerator getPartitionGenerator()
     {
         if (!partitionGenerator.isPresent()) {
             partitionGenerator = Optional.of(new LocalPartitionGenerator(hashGenerator, lookupSourceFactory.partitions()));
@@ -416,36 +393,6 @@ public class LookupJoinOperator
     {
         verify(probe != null);
 
-        if (joinPushdown != JoinPushdown.NO_PUSHDOWN) {
-            lookupSourceProvider.withLease(lookupSourceLease -> {
-                LookupSource lookupSource = lookupSourceLease.getLookupSource();
-                if (joinPushdown == JoinPushdown.UNKNOWN) {
-                    joinPushdown = lookupSource.isJoinPushedDown() ? JoinPushdown.PUSHDOWN_JOIN : JoinPushdown.NO_PUSHDOWN;
-                }
-                if (joinPushdown == JoinPushdown.NO_PUSHDOWN) {
-                    return null;
-                }
-                if (ariaProbe == null) {
-                    if (!(lookupSource instanceof PartitionedLookupSource)) {
-                        joinPushdown = JoinPushdown.NO_PUSHDOWN;
-                        return null;
-                    }
-                    ariaProbe = ((PartitionedLookupSource) lookupSource).createAriaProbe(operatorContext.getSession(), reusePages);
-                }
-                if (probe.getPosition() == -1) {
-                    ariaProbe.addInput(probe);
-                    probe.advanceNextPosition();
-                }
-                outputPage = ariaProbe.getOutput();
-                if (outputPage == null) {
-                    probe = null;
-                }
-                return Optional.empty();
-            });
-            if (joinPushdown == JoinPushdown.PUSHDOWN_JOIN) {
-                return;
-            }
-        }
         Optional<SpillInfoSnapshot> spillInfoSnapshotIfSpillChanged = lookupSourceProvider.withLease(lookupSourceLease -> {
             if (lookupSourceLease.spillEpoch() == inputPageSpillEpoch) {
                 // Spill state didn't change, so process as usual.
@@ -515,9 +462,6 @@ public class LookupJoinOperator
         verify(probe != null);
 
         DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
-        if (joinPushdown == JoinPushdown.PUSHDOWN_JOIN) {
-            outputPage = ariaProbe.getOutput();
-        }
         while (!yieldSignal.isSet()) {
             if (probe.getPosition() >= 0) {
                 if (!joinCurrentPosition(lookupSource, yieldSignal)) {
@@ -742,17 +686,5 @@ public class LookupJoinOperator
         // Before updating the probe flush the current page
         buildPage();
         probe = null;
-    }
-
-    @Override
-    public boolean retainsInputPages()
-    {
-        return false;
-    }
-
-    @Override
-    public void enableOutputPageReuse()
-    {
-        reusePages = true;
     }
 }

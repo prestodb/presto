@@ -47,9 +47,35 @@ public interface LookupSource
     @Override
     void close();
 
-    // If true, the LookupJoinOperator should forward addInput and getOutput to this.
-    default boolean isJoinPushedDown()
+    default PartitionToLookupSourceSupplier getPartitionToLookupSourceSupplier()
     {
-        return false;
+        return new PartitionToLookupSourceSupplier() {
+            @Override
+            public LookupSource getLookupSource(int partition)
+            {
+                return LookupSource.this;
+            }
+
+            @Override
+            public int getPartition(long hash)
+            {
+                return 0;
+            }
+
+            @Override
+            public int getPartitionCount()
+            {
+                return 1;
+            }
+        };
+    }
+
+    interface PartitionToLookupSourceSupplier
+    {
+        LookupSource getLookupSource(int partition);
+
+        int getPartition(long hash);
+
+        int getPartitionCount();
     }
 }

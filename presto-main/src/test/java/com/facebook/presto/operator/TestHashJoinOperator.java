@@ -1357,7 +1357,7 @@ public class TestHashJoinOperator
         List<HashBuilderOperator> buildOperators = new ArrayList<>();
         for (int i = 0; i < buildSideSetup.getPartitionCount(); i++) {
             DriverContext buildDriverContext = buildPipeline.addDriverContext();
-            HashBuilderOperator buildOperator = buildSideSetup.getBuildOperatorFactory().createOperator(buildDriverContext);
+            HashBuilderOperator buildOperator = (HashBuilderOperator) buildSideSetup.getBuildOperatorFactory().createOperator(buildDriverContext);
             Driver driver = Driver.createDriver(
                     buildDriverContext,
                     buildSideSetup.getBuildSideSourceOperatorFactory().createOperator(buildDriverContext),

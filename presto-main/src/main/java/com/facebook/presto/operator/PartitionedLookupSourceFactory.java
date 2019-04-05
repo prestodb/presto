@@ -433,6 +433,11 @@ public final class PartitionedLookupSourceFactory
         return nonCancellationPropagating(destroyed);
     }
 
+    public List<Type> getHashChannelTypes()
+    {
+        return hashChannelTypes;
+    }
+
     @NotThreadSafe
     private class SpillAwareLookupSourceProvider
             implements LookupSourceProvider
