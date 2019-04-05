@@ -20,13 +20,12 @@ import org.objectweb.asm.ClassReader;
 import org.sonatype.aether.artifact.Artifact;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStreamWriter;
 import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -76,7 +75,7 @@ final class PluginDiscovery
     {
         Path path = root.toPath().resolve(SERVICES_FILE);
         createDirectories(path.getParent());
-        try (Writer out = new OutputStreamWriter(new FileOutputStream(path.toFile()), UTF_8)) {
+        try (Writer out = Files.newBufferedWriter(path, UTF_8)) {
             for (String plugin : plugins) {
                 out.write(plugin + "\n");
             }
