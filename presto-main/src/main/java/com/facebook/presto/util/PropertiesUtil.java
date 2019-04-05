@@ -14,9 +14,9 @@
 package com.facebook.presto.util;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.util.Map;
 import java.util.Properties;
 
@@ -30,7 +30,7 @@ public final class PropertiesUtil
             throws IOException
     {
         Properties properties = new Properties();
-        try (InputStream in = new FileInputStream(file)) {
+        try (InputStream in = Files.newInputStream(file.toPath())) {
             properties.load(in);
         }
         return fromProperties(properties);

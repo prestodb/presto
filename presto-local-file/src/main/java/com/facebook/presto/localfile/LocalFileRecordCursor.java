@@ -29,12 +29,12 @@ import io.airlift.slice.Slices;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -293,8 +293,7 @@ public class LocalFileRecordCursor
                 return null;
             }
             File file = files.next();
-            FileInputStream fileInputStream = new FileInputStream(file);
-
+            InputStream fileInputStream = Files.newInputStream(file.toPath());
             InputStream in = isGZipped(file) ? new GZIPInputStream(fileInputStream) : fileInputStream;
             return new BufferedReader(new InputStreamReader(in));
         }
