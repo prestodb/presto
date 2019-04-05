@@ -124,6 +124,7 @@ public class BenchmarkPartitionedOutputOperator
             PartitionedOutputBuffer buffer = createPartitionedBuffer(
                     buffers.withNoMoreBufferIds(),
                     new DataSize(Long.MAX_VALUE, BYTE)); // don't let output buffer block
+            buffer.registerLifespanCompletionCallback(ignore -> {});
             PartitionedOutputFactory operatorFactory = new PartitionedOutputFactory(
                     partitionFunction,
                     ImmutableList.of(0),
