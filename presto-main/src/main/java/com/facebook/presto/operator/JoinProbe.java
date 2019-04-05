@@ -99,6 +99,16 @@ public class JoinProbe
         return page;
     }
 
+    public Block[] getProbeBlocks()
+    {
+        return probeBlocks;
+    }
+
+    public Block getProbeHashBlock()
+    {
+        return probeHashBlock.isPresent() ? probeHashBlock.get() : null;
+    }
+
     private boolean currentRowContainsNull()
     {
         for (Block probeBlock : probeBlocks) {

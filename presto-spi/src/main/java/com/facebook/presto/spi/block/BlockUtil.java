@@ -191,6 +191,14 @@ final class BlockUtil
         return used;
     }
 
+    static double[] compactArray(double[] array, int index, int length)
+    {
+        if (index == 0 && length == array.length) {
+            return array;
+        }
+        return Arrays.copyOfRange(array, index, index + length);
+    }
+
     /**
      * Returns <tt>true</tt> if the two specified arrays contain the same object in every position.
      * Unlike the {@link Arrays#equals(Object[], Object[])} method, this method compares using reference equals.

@@ -17,7 +17,6 @@ import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
-import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
@@ -27,26 +26,46 @@ import static com.facebook.presto.spi.block.BlockUtil.countUsedPositions;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
 
-public class LongArrayBlock
+public class DoubleArrayBlock
         implements Block
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongArrayBlock.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleArrayBlock.class).instanceSize();
 
-    private final int arrayOffset;
-    private final int positionCount;
+    private int arrayOffset;
+    private int positionCount;
     @Nullable
-    private final boolean[] valueIsNull;
-    private final long[] values;
+    private boolean[] valueIsNull;
+    private double[] values;
 
-    private final long sizeInBytes;
-    private final long retainedSizeInBytes;
+    private long sizeInBytes;
+    private long retainedSizeInBytes;
 
-    public LongArrayBlock(int positionCount, Optional<boolean[]> valueIsNull, long[] values)
+    DoubleArrayBlock(int arrayOffset, int positionCount, boolean[] valueIsNull, double[] values)
     {
-        this(0, positionCount, valueIsNull.orElse(null), values);
+        if (arrayOffset < 0) {
+            throw new IllegalArgumentException("arrayOffset is negative");
+        }
+        this.arrayOffset = arrayOffset;
+        if (positionCount < 0) {
+            throw new IllegalArgumentException("positionCount is negative");
+        }
+        this.positionCount = positionCount;
+
+        if (values.length - arrayOffset < positionCount) {
+            throw new IllegalArgumentException("values length is less than positionCount");
+        }
+        this.values = values;
+
+        if (valueIsNull != null && valueIsNull.length - arrayOffset < positionCount) {
+            throw new IllegalArgumentException("isNull length is less than positionCount");
+        }
+        this.valueIsNull = valueIsNull;
+
+        sizeInBytes = (Long.BYTES + Byte.BYTES) * (long) positionCount;
+        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
     }
 
-    LongArrayBlock(int arrayOffset, int positionCount, boolean[] valueIsNull, long[] values)
+    public void Reset(int arrayOffset, int positionCount, boolean[] valueIsNull, double[] values)
     {
         if (arrayOffset < 0) {
             throw new IllegalArgumentException("arrayOffset is negative");
@@ -124,6 +143,15 @@ public class LongArrayBlock
         if (offset != 0) {
             throw new IllegalArgumentException("offset must be zero");
         }
+        return (long) values[position + arrayOffset];
+    }
+
+    public double getDouble(int position, int offset)
+    {
+        checkReadablePosition(position);
+        if (offset != 0) {
+            throw new IllegalArgumentException("offset must be zero");
+        }
         return values[position + arrayOffset];
     }
 
@@ -136,7 +164,7 @@ public class LongArrayBlock
         if (offset != 0) {
             throw new IllegalArgumentException("offset must be zero");
         }
-        return toIntExact(values[position + arrayOffset]);
+        return toIntExact((long) values[position + arrayOffset]);
     }
 
     @Override
@@ -149,7 +177,7 @@ public class LongArrayBlock
             throw new IllegalArgumentException("offset must be zero");
         }
 
-        short value = (short) (values[position + arrayOffset]);
+        short value = (short) values[position + arrayOffset];
         if (value != values[position + arrayOffset]) {
             throw new ArithmeticException("short overflow");
         }
@@ -190,7 +218,7 @@ public class LongArrayBlock
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         checkReadablePosition(position);
-        blockBuilder.writeLong(values[position + arrayOffset]);
+        blockBuilder.writeLong((long) values[position + arrayOffset]);
         blockBuilder.closeEntry();
     }
 
@@ -198,11 +226,11 @@ public class LongArrayBlock
     public Block getSingleValueBlock(int position)
     {
         checkReadablePosition(position);
-        return new LongArrayBlock(
+        return new DoubleArrayBlock(
                 0,
                 1,
                 isNull(position) ? new boolean[] {true} : null,
-                new long[] {values[position + arrayOffset]});
+                new double[] {values[position + arrayOffset]});
     }
 
     @Override
@@ -214,7 +242,7 @@ public class LongArrayBlock
         if (valueIsNull != null) {
             newValueIsNull = new boolean[length];
         }
-        long[] newValues = new long[length];
+        double[] newValues = new double[length];
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
             checkReadablePosition(position);
@@ -223,7 +251,7 @@ public class LongArrayBlock
             }
             newValues[i] = values[position + arrayOffset];
         }
-        return new LongArrayBlock(0, length, newValueIsNull, newValues);
+        return new DoubleArrayBlock(0, length, newValueIsNull, newValues);
     }
 
     @Override
@@ -231,7 +259,7 @@ public class LongArrayBlock
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
-        return new LongArrayBlock(positionOffset + arrayOffset, length, valueIsNull, values);
+        return new DoubleArrayBlock(positionOffset + arrayOffset, length, valueIsNull, values);
     }
 
     @Override
@@ -241,24 +269,24 @@ public class LongArrayBlock
 
         positionOffset += arrayOffset;
         boolean[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
-        long[] newValues = compactArray(values, positionOffset, length);
+        double[] newValues = compactArray(values, positionOffset, length);
 
         if (newValueIsNull == valueIsNull && newValues == values) {
             return this;
         }
-        return new LongArrayBlock(0, length, newValueIsNull, newValues);
+        return new DoubleArrayBlock(0, length, newValueIsNull, newValues);
     }
 
     @Override
     public String getEncodingName()
     {
-        return LongArrayBlockEncoding.NAME;
+        return DoubleArrayBlockEncoding.NAME;
     }
 
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("LongArrayBlock{");
+        StringBuilder sb = new StringBuilder("DoubleArrayBlock{");
         sb.append("positionCount=").append(getPositionCount());
         sb.append('}');
         return sb.toString();

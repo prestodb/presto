@@ -394,6 +394,16 @@ public class DictionaryBlock
         return Slices.wrappedIntArray(ids, idsOffset, positionCount);
     }
 
+    int[] getIdsArray()
+    {
+        return ids;
+    }
+
+    int getIdsOffset()
+    {
+        return idsOffset;
+    }
+
     public int getId(int position)
     {
         checkValidPosition(position, positionCount);

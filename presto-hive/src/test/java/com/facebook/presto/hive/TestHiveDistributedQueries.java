@@ -52,4 +52,16 @@ public class TestHiveDistributedQueries
     }
 
     // Hive specific tests should normally go in TestHiveIntegrationSmokeTest
+
+    @Test
+    public void testJoins()
+    {
+        // TODO: flags?
+        assertQuery(getSession(), "SELECT\n" +
+                        "    SUM(p.supplycost)\n" +
+                        "FROM lineitem l\n" +
+                        "JOIN partsupp p\n" +
+                        "    ON p.suppkey = l.suppkey AND p.partkey = l.partkey",
+                "VALUES (2.9697163760000087E7)");
+    }
 }

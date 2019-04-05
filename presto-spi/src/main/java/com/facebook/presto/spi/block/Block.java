@@ -295,4 +295,15 @@ public interface Block
     {
         return this;
     }
+
+    /* Initializes @code contents to reference the values of the block.
+     * @code contents will point to null indicators, and value arrays or
+     * Slice/offsets, depending on the block.
+     * This is defined only for blocks that directly hold data, e.g. are not
+     * Dictionaries or RunLengthEncodedBlocks. This is used when flattening
+     * dictionaries and run length encodings. */
+    default void getContents(BlockDecoder contents)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
 }

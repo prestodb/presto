@@ -46,4 +46,36 @@ public interface LookupSource
 
     @Override
     void close();
+
+    default PartitionToLookupSourceSupplier getPartitionToLookupSourceSupplier()
+    {
+        return new PartitionToLookupSourceSupplier() {
+            @Override
+            public LookupSource getLookupSource(int partition)
+            {
+                return LookupSource.this;
+            }
+
+            @Override
+            public int getPartition(long hash)
+            {
+                return 0;
+            }
+
+            @Override
+            public int getPartitionCount()
+            {
+                return 1;
+            }
+        };
+    }
+
+    interface PartitionToLookupSourceSupplier
+    {
+        LookupSource getLookupSource(int partition);
+
+        int getPartition(long hash);
+
+        int getPartitionCount();
+    }
 }

@@ -109,7 +109,7 @@ public class HashBuilderOperator
         }
 
         @Override
-        public HashBuilderOperator createOperator(DriverContext driverContext)
+        public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashBuilderOperator.class.getSimpleName());
@@ -117,6 +117,21 @@ public class HashBuilderOperator
             PartitionedLookupSourceFactory lookupSourceFactory = this.lookupSourceFactoryManager.getJoinBridge(driverContext.getLifespan());
             int partitionIndex = getAndIncrementPartitionIndex(driverContext.getLifespan());
             verify(partitionIndex < lookupSourceFactory.partitions());
+
+            if (AriaHash.supportsLayout(lookupSourceFactory.getTypes(), hashChannels, outputChannels)) {
+                return new AriaHashBuilderOperator(
+                        operatorContext,
+                        lookupSourceFactory,
+                        partitionIndex,
+                        outputChannels,
+                        hashChannels,
+                        preComputedHashChannel,
+                        filterFunctionFactory,
+                        sortChannel,
+                        searchFunctionFactories,
+                        expectedPositions,
+                        pagesIndexFactory);
+            }
             return new HashBuilderOperator(
                     operatorContext,
                     lookupSourceFactory,

@@ -214,6 +214,15 @@ public class VariableWidthBlock
     }
 
     @Override
+    public void getContents(BlockDecoder contents)
+    {
+        contents.setValues(slice);
+        contents.setOffsets(offsets);
+        contents.setValueIsNull(valueIsNull);
+        contents.setArrayOffset(arrayOffset);
+    }
+
+    @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder("VariableWidthBlock{");

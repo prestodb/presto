@@ -341,4 +341,28 @@ public class PartitionedLookupSource
             }
         }
     }
+
+    @Override
+    public PartitionToLookupSourceSupplier getPartitionToLookupSourceSupplier()
+    {
+        return new PartitionToLookupSourceSupplier() {
+            @Override
+            public LookupSource getLookupSource(int partition)
+            {
+                return lookupSources[partition];
+            }
+
+            @Override
+            public int getPartition(long hash)
+            {
+                return partitionGenerator.getPartition(hash);
+            }
+
+            @Override
+            public int getPartitionCount()
+            {
+                return lookupSources.length;
+            }
+        };
+    }
 }
