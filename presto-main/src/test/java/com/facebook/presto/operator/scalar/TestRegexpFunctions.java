@@ -90,6 +90,7 @@ public class TestRegexpFunctions
         assertFunction("REGEXP_LIKE('Hello', '^[a-z]+$')", BOOLEAN, false);
         assertFunction("REGEXP_LIKE('Hello', '^(?i)[a-z]+$')", BOOLEAN, true);
         assertFunction("REGEXP_LIKE('Hello', '^[a-zA-Z]+$')", BOOLEAN, true);
+        assertFunction("REGEXP_LIKE('Hello', 'Hello\\b')", BOOLEAN, true);
     }
 
     @Test
