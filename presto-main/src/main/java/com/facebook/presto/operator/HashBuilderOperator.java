@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.spi.AriaFlags;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spiller.SingleStreamSpiller;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
@@ -111,7 +109,7 @@ public class HashBuilderOperator
         }
 
         @Override
-        public HashBuilderOperator createOperator(DriverContext driverContext)
+        public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashBuilderOperator.class.getSimpleName());
@@ -119,6 +117,20 @@ public class HashBuilderOperator
             PartitionedLookupSourceFactory lookupSourceFactory = this.lookupSourceFactoryManager.getJoinBridge(driverContext.getLifespan());
             int partitionIndex = getAndIncrementPartitionIndex(driverContext.getLifespan());
             verify(partitionIndex < lookupSourceFactory.partitions());
+            if (AriaHash.supportsLayout(lookupSourceFactory.getTypes(), hashChannels, outputChannels)) {
+                return new AriaHashBuilderOperator(
+                        operatorContext,
+                        lookupSourceFactory,
+                        partitionIndex,
+                        outputChannels,
+                        hashChannels,
+                        preComputedHashChannel,
+                        filterFunctionFactory,
+                        sortChannel,
+                        searchFunctionFactories,
+                        expectedPositions,
+                        pagesIndexFactory);
+            }
             return new HashBuilderOperator(
                     operatorContext,
                     lookupSourceFactory,
@@ -227,8 +239,6 @@ public class HashBuilderOperator
 
     private Optional<Runnable> finishMemoryRevoke = Optional.empty();
 
-    private AriaHash.HashBuild ariaBuild;
-
     public HashBuilderOperator(
             OperatorContext operatorContext,
             PartitionedLookupSourceFactory lookupSourceFactory,
@@ -267,12 +277,6 @@ public class HashBuilderOperator
 
         this.spillEnabled = spillEnabled;
         this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory is null");
-
-        if ((SystemSessionProperties.ariaFlags(operatorContext.getSession()) & AriaFlags.hashJoin) != 0) {
-            if (AriaHash.supportsLayout(index.getTypes(), hashChannels, outputChannels)) {
-                ariaBuild = new AriaHash.HashBuild(hashChannels, outputChannels);
-            }
-        }
     }
 
     @Override
@@ -340,10 +344,6 @@ public class HashBuilderOperator
         }
 
         checkState(state == State.CONSUMING_INPUT);
-        if (ariaBuild != null) {
-            ariaBuild.addInput(page);
-            return;
-        }
         updateIndex(page);
     }
 
@@ -600,16 +600,10 @@ public class HashBuilderOperator
 
     private LookupSourceSupplier buildLookupSource()
     {
-        LookupSourceSupplier partition;
-        if (ariaBuild != null) {
-            partition = ariaBuild.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.of(outputChannels));
-        }
-        else {
-            partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.of(outputChannels));
-            hashCollisionsCounter.recordHashCollision(partition.getHashCollisions(), partition.getExpectedHashCollisions());
-            checkState(lookupSourceSupplier == null, "lookupSourceSupplier is already set");
-            this.lookupSourceSupplier = partition;
-        }
+        LookupSourceSupplier partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.of(outputChannels));
+        hashCollisionsCounter.recordHashCollision(partition.getHashCollisions(), partition.getExpectedHashCollisions());
+        checkState(lookupSourceSupplier == null, "lookupSourceSupplier is already set");
+        this.lookupSourceSupplier = partition;
         return partition;
     }
 
@@ -651,12 +645,5 @@ public class HashBuilderOperator
         catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    @Override
-    public boolean retainsInputPages()
-    {
-        // Aria copies build side pages, Presto retains them in index.
-        return ariaBuild == null;
     }
 }

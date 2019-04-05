@@ -141,6 +141,19 @@ public class LookupJoinOperatorFactory
         lookupSourceFactory.setTaskContext(driverContext.getPipelineContext().getTaskContext());
 
         joinBridgeManager.probeOperatorCreated(driverContext.getLifespan());
+
+        if (AriaHash.supportsLayout(lookupSourceFactory)) {
+            return new AriaJoinOperator(
+                    operatorContext,
+                    probeTypes,
+                    buildOutputTypes,
+                    joinType,
+                    lookupSourceFactory,
+                    joinProbeFactory,
+                    () -> joinBridgeManager.probeOperatorClosed(driverContext.getLifespan()),
+                    totalOperatorsCount,
+                    probeHashGenerator);
+        }
         return new LookupJoinOperator(
                 operatorContext,
                 probeTypes,

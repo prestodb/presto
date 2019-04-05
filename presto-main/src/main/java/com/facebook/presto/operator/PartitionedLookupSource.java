@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.operator.exchange.LocalPartitionGenerator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -344,17 +343,26 @@ public class PartitionedLookupSource
     }
 
     @Override
-    public boolean isJoinPushedDown()
+    public PartitionToLookupSourceSupplier getPartitionToLookupSourceSupplier()
     {
-        return lookupSources[0] instanceof AriaHash.AriaLookupSource;
-    }
+        return new PartitionToLookupSourceSupplier() {
+            @Override
+            public LookupSource getLookupSource(int partition)
+            {
+                return lookupSources[partition];
+            }
 
-    public AriaHash.AriaProbe createAriaProbe(Session session, boolean reusePages)
-    {
-        AriaHash.AriaLookupSource[] castLookupSources = new AriaHash.AriaLookupSource[lookupSources.length];
-        for (int i = 0; i < lookupSources.length; i++) {
-            castLookupSources[i] = (AriaHash.AriaLookupSource) lookupSources[i];
-        }
-        return new AriaHash.AriaProbe(castLookupSources, partitionGenerator, reusePages);
+            @Override
+            public int getPartition(long hash)
+            {
+                return partitionGenerator.getPartition(hash);
+            }
+
+            @Override
+            public int getPartitionCount()
+            {
+                return lookupSources.length;
+            }
+        };
     }
 }
