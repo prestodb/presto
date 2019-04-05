@@ -20,8 +20,8 @@ import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -39,14 +39,14 @@ public class TestWarnings
     private static final int STAGE_COUNT_WARNING_THRESHOLD = 20;
     private QueryRunner queryRunner;
 
-    @BeforeMethod
+    @BeforeClass
     public void setUp()
             throws Exception
     {
         queryRunner = createQueryRunner(ImmutableMap.of("query.stage-count-warning-threshold", String.valueOf(STAGE_COUNT_WARNING_THRESHOLD)));
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         queryRunner.close();
