@@ -102,6 +102,7 @@ Password authentication needs to be configured to use LDAP. Create an
     password-authenticator.name=ldap
     ldap.url=ldaps://ldap-server:636
     ldap.user-bind-pattern=<Refer below for usage>
+    ldap.cache-ttl=2h
 
 ======================================================= ======================================================
 Property                                                Description
@@ -113,6 +114,10 @@ Property                                                Description
                                                         must contain the pattern ``${USER}`` which will be
                                                         replaced by the actual username during the password
                                                         authentication. Example: ``${USER}@corp.example.com``.
+``ldap.cache-ttl``                                      The time to cache the password authentication. This
+                                                        property must be specified using a string, Example: 
+                                                        Use ``45s`` to set this property to 45 seconds.
+                                                        Default value is ``1.00h`` (1 hour).
 ======================================================= ======================================================
 
 Based on the LDAP server implementation type, the property
