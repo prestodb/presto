@@ -430,9 +430,10 @@ public class TestAriaHiveDistributedQueries
     public void testJoins()
     {
         assertQuery(ariaSession(), "SELECT\n" +
-                "    p.supplycost\n" +
+                "    SUM(p.supplycost)\n" +
                 "FROM lineitem l\n" +
                 "JOIN partsupp p\n" +
-                "    ON p.suppkey = l.suppkey AND p.partkey = l.partkey");
+                "    ON p.suppkey = l.suppkey AND p.partkey = l.partkey",
+                "VALUES (2.9697163760000087E7)");
     }
 }
