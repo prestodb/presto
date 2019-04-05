@@ -92,6 +92,7 @@ public class LdapConfig
     }
 
     @Config("ldap.cache-ttl")
+    @ConfigDescription("The time to cache the password authentication. Example: 2.00h")
     public LdapConfig setLdapCacheTtl(Duration ldapCacheTtl)
     {
         this.ldapCacheTtl = ldapCacheTtl;
