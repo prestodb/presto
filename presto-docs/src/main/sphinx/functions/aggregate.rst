@@ -277,8 +277,9 @@ Approximate Aggregate Functions
 .. function:: numeric_histogram(buckets, value, weight) -> map<double, double>
 
     Computes an approximate histogram with up to ``buckets`` number of buckets
-    for all ``value``\ s with a per-item weight of ``weight``. The algorithm
-    is based loosely on:
+    for all ``value``\ s with a per-item weight of ``weight``.  The keys of the
+    returned map are roughly the center of the bin, and the entry is the total
+    weight of the bin.  The algorithm is based loosely on:
 
     .. code-block:: none
 
@@ -292,6 +293,7 @@ Approximate Aggregate Functions
     Computes an approximate histogram with up to ``buckets`` number of buckets
     for all ``value``\ s. This function is equivalent to the variant of
     :func:`numeric_histogram` that takes a ``weight``, with a per-item weight of ``1``.
+    In this case, the total weight in the returned map is the count of items in the bin.
 
 Statistical Aggregate Functions
 -------------------------------
