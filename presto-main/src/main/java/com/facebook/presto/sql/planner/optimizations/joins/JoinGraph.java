@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.relational.ProjectNodeUtils.isIdentity;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
@@ -277,7 +278,7 @@ public class JoinGraph
         @Override
         public JoinGraph visitProject(ProjectNode node, Context context)
         {
-            if (node.isIdentity()) {
+            if (isIdentity(node)) {
                 JoinGraph graph = node.getSource().accept(this, context);
                 return graph.withAssignments(node.getAssignments().getMap());
             }
