@@ -13,19 +13,27 @@
  */
 package com.facebook.presto.password;
 
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
-import com.google.common.collect.ImmutableList;
+import io.airlift.configuration.Config;
+import io.airlift.units.Duration;
 
-public class PasswordAuthenticatorPlugin
-        implements Plugin
+import javax.validation.constraints.NotNull;
+
+import java.util.concurrent.TimeUnit;
+
+public class OkeraConfig
 {
-    @Override
-    public Iterable<PasswordAuthenticatorFactory> getPasswordAuthenticatorFactories()
+    private Duration cacheTtl = new Duration(1, TimeUnit.HOURS);
+
+    @NotNull
+    public Duration getCacheTtl()
     {
-        return ImmutableList.<PasswordAuthenticatorFactory>builder()
-                .add(new LdapAuthenticatorFactory())
-                .add(new OkeraAuthenticatorFactory())
-                .build();
+        return cacheTtl;
+    }
+
+    @Config("okera.cache-ttl")
+    public OkeraConfig setCacheTtl(Duration cacheTtl)
+    {
+        this.cacheTtl = cacheTtl;
+        return this;
     }
 }
