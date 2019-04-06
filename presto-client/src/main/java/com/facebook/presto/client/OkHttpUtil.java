@@ -138,13 +138,55 @@ public final class OkHttpUtil
         return InetSocketAddress.createUnresolved(address.getHost(), address.getPort());
     }
 
+    private static void configureAllowSelfSignedCert(OkHttpClient.Builder builder)
+    {
+        try {
+            // load KeyStore if configured and get KeyManagers
+            KeyManager[] keyManagers = null;
+
+            // create TrustManagerFactory
+            TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            trustManagerFactory.init((KeyStore) null);
+
+            TrustManager[] trustAllCerts = new TrustManager[] {
+                new X509TrustManager() {
+                    public java.security.cert.X509Certificate[] getAcceptedIssuers()
+                    {
+                        return new X509Certificate[0];
+                    }
+                    public void checkClientTrusted(
+                            java.security.cert.X509Certificate[] certs, String authType)
+                    {
+                    }
+                    public void checkServerTrusted(
+                            java.security.cert.X509Certificate[] certs, String authType)
+                    {
+                    }
+                }
+            };
+            X509TrustManager trustManager = (X509TrustManager) trustAllCerts[0];
+            SSLContext sslContext = SSLContext.getInstance("SSL");
+            sslContext.init(null, trustAllCerts, null);
+            builder.sslSocketFactory(sslContext.getSocketFactory(), trustManager);
+        }
+        catch (GeneralSecurityException e) {
+            throw new ClientException("Error setting up SSL: " + e.getMessage(), e);
+        }
+    }
+
     public static void setupSsl(
             OkHttpClient.Builder clientBuilder,
+            Optional<Boolean> allowSelfSignedCert,
             Optional<String> keyStorePath,
             Optional<String> keyStorePassword,
             Optional<String> trustStorePath,
             Optional<String> trustStorePassword)
     {
+        if (allowSelfSignedCert.isPresent() && allowSelfSignedCert.get()) {
+            configureAllowSelfSignedCert(clientBuilder);
+            return;
+        }
+
         if (!keyStorePath.isPresent() && !trustStorePath.isPresent()) {
             return;
         }

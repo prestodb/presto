@@ -42,6 +42,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<HostAndPort> HTTP_PROXY = new HttpProxy();
     public static final ConnectionProperty<String> APPLICATION_NAME_PREFIX = new ApplicationNamePrefix();
     public static final ConnectionProperty<Boolean> SSL = new Ssl();
+    public static final ConnectionProperty<Boolean> SSL_ALLOW_SELF_SIGNED_CERT = new SslAllowSelfSignedCert();
     public static final ConnectionProperty<String> SSL_KEY_STORE_PATH = new SslKeyStorePath();
     public static final ConnectionProperty<String> SSL_KEY_STORE_PASSWORD = new SslKeyStorePassword();
     public static final ConnectionProperty<String> SSL_TRUST_STORE_PATH = new SslTrustStorePath();
@@ -62,6 +63,7 @@ final class ConnectionProperties
             .add(HTTP_PROXY)
             .add(APPLICATION_NAME_PREFIX)
             .add(SSL)
+            .add(SSL_ALLOW_SELF_SIGNED_CERT)
             .add(SSL_KEY_STORE_PATH)
             .add(SSL_KEY_STORE_PASSWORD)
             .add(SSL_TRUST_STORE_PATH)
@@ -163,6 +165,15 @@ final class ConnectionProperties
         public Ssl()
         {
             super("SSL", NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class SslAllowSelfSignedCert
+            extends AbstractConnectionProperty<Boolean>
+    {
+        public SslAllowSelfSignedCert()
+        {
+            super("SSLAllowSelfSignedCert", NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 

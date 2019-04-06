@@ -52,6 +52,7 @@ import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_USE_CANONIC
 import static com.facebook.presto.jdbc.ConnectionProperties.PASSWORD;
 import static com.facebook.presto.jdbc.ConnectionProperties.SOCKS_PROXY;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL;
+import static com.facebook.presto.jdbc.ConnectionProperties.SSL_ALLOW_SELF_SIGNED_CERT;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_KEY_STORE_PASSWORD;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_KEY_STORE_PATH;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
@@ -165,6 +166,7 @@ final class PrestoDriverUri
             if (useSecureConnection) {
                 setupSsl(
                         builder,
+                        SSL_ALLOW_SELF_SIGNED_CERT.getValue(properties),
                         SSL_KEY_STORE_PATH.getValue(properties),
                         SSL_KEY_STORE_PASSWORD.getValue(properties),
                         SSL_TRUST_STORE_PATH.getValue(properties),
