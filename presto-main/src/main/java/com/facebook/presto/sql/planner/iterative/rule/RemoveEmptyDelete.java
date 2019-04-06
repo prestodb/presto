@@ -75,6 +75,7 @@ public class RemoveEmptyDelete
                 new ValuesNode(
                         node.getId(),
                         node.getOutputSymbols(),
+                        node.getOutputVariables(),
                         ImmutableList.of(ImmutableList.of(constant(0L, BIGINT)))));
     }
 }
