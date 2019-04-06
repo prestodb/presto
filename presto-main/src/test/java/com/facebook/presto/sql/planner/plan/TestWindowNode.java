@@ -71,6 +71,9 @@ public class TestWindowNode
     private Symbol columnA;
     private Symbol columnB;
     private Symbol columnC;
+    private VariableReferenceExpression variableA;
+    private VariableReferenceExpression variableB;
+    private VariableReferenceExpression variableC;
 
     private final JsonCodec<WindowNode> codec;
 
@@ -88,9 +91,14 @@ public class TestWindowNode
         columnB = symbolAllocator.newSymbol("b", BIGINT);
         columnC = symbolAllocator.newSymbol("c", BIGINT);
 
+        variableA = new VariableReferenceExpression(columnA.getName(), BIGINT);
+        variableB = new VariableReferenceExpression(columnB.getName(), BIGINT);
+        variableC = new VariableReferenceExpression(columnC.getName(), BIGINT);
+
         sourceNode = new ValuesNode(
                 newId(),
                 ImmutableList.of(columnA, columnB, columnC),
+                ImmutableList.of(variableA, variableB, variableC),
                 ImmutableList.of());
     }
 

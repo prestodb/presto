@@ -120,6 +120,7 @@ public class LimitPushDown
             if (count == 0) {
                 return new ValuesNode(idAllocator.getNextId(),
                         node.getOutputSymbols(),
+                        node.getOutputVariables(),
                         ImmutableList.of());
             }
 

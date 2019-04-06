@@ -96,6 +96,7 @@ import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToR
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
@@ -128,7 +129,7 @@ public class UnaliasSymbolReferences
     private static class Rewriter
             extends SimplePlanRewriter<Void>
     {
-        private final Map<Symbol, Symbol> mapping = new HashMap<>();
+        private final Map<String, String> mapping = new HashMap<>();
         private final TypeProvider types;
 
         private Rewriter(TypeProvider types)
@@ -141,7 +142,8 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
             //TODO: use mapper in other methods
-            SymbolMapper mapper = new SymbolMapper(mapping);
+            SymbolMapper mapper = new SymbolMapper(mapping.entrySet().stream()
+                    .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), entry -> new Symbol(entry.getValue()))));
             return mapper.map(node, source);
         }
 
@@ -384,6 +386,7 @@ public class UnaliasSymbolReferences
             return new ValuesNode(
                     node.getId(),
                     canonicalizedOutputSymbols,
+                    canonicalizeAndDistinctVariable(node.getOutputVariables()),
                     canonicalizedRows);
         }
 
@@ -397,7 +400,8 @@ public class UnaliasSymbolReferences
         public PlanNode visitStatisticsWriterNode(StatisticsWriterNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            SymbolMapper mapper = new SymbolMapper(mapping);
+            SymbolMapper mapper = new SymbolMapper(mapping.entrySet().stream()
+                    .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), entry -> new Symbol(entry.getValue()))));
             return mapper.map(node, source);
         }
 
@@ -405,7 +409,8 @@ public class UnaliasSymbolReferences
         public PlanNode visitTableFinish(TableFinishNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            SymbolMapper mapper = new SymbolMapper(mapping);
+            SymbolMapper mapper = new SymbolMapper(mapping.entrySet().stream()
+                    .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), entry -> new Symbol(entry.getValue()))));
             return mapper.map(node, source);
         }
 
@@ -493,7 +498,8 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            SymbolMapper mapper = new SymbolMapper(mapping);
+            SymbolMapper mapper = new SymbolMapper(mapping.entrySet().stream()
+                    .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), entry -> new Symbol(entry.getValue()))));
             return mapper.map(node, source, node.getId());
         }
 
@@ -609,7 +615,8 @@ public class UnaliasSymbolReferences
         public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            SymbolMapper mapper = new SymbolMapper(mapping);
+            SymbolMapper mapper = new SymbolMapper(mapping.entrySet().stream()
+                    .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), entry -> new Symbol(entry.getValue()))));
             return mapper.map(node, source);
         }
 
@@ -622,7 +629,7 @@ public class UnaliasSymbolReferences
         private void map(Symbol symbol, Symbol canonical)
         {
             Preconditions.checkArgument(!symbol.equals(canonical), "Can't map symbol to itself: %s", symbol);
-            mapping.put(symbol, canonical);
+            mapping.put(symbol.getName(), canonical.getName());
         }
 
         private Assignments canonicalize(Assignments oldAssignments)
@@ -670,27 +677,20 @@ public class UnaliasSymbolReferences
 
         private Symbol canonicalize(Symbol symbol)
         {
-            Symbol canonical = symbol;
+            String canonical = symbol.getName();
             while (mapping.containsKey(canonical)) {
                 canonical = mapping.get(canonical);
             }
-            return canonical;
+            return new Symbol(canonical);
         }
 
         private VariableReferenceExpression canonicalize(VariableReferenceExpression variable)
         {
             String canonical = variable.getName();
             while (mapping.containsKey(canonical)) {
-                canonical = mapping.get(new Symbol(canonical)).getName();
+                canonical = mapping.get(canonical);
             }
             return new VariableReferenceExpression(canonical, variable.getType());
-        }
-
-        private List<Expression> canonicalize(List<Expression> values)
-        {
-            return values.stream()
-                    .map(this::canonicalize)
-                    .collect(toImmutableList());
         }
 
         private Expression canonicalize(Expression value)
@@ -712,6 +712,19 @@ public class UnaliasSymbolReferences
             ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
             for (Symbol symbol : outputs) {
                 Symbol canonical = canonicalize(symbol);
+                if (added.add(canonical)) {
+                    builder.add(canonical);
+                }
+            }
+            return builder.build();
+        }
+
+        private List<VariableReferenceExpression> canonicalizeAndDistinctVariable(List<VariableReferenceExpression> outputs)
+        {
+            Set<VariableReferenceExpression> added = new HashSet<>();
+            ImmutableList.Builder<VariableReferenceExpression> builder = ImmutableList.builder();
+            for (VariableReferenceExpression variable : outputs) {
+                VariableReferenceExpression canonical = canonicalize(variable);
                 if (added.add(canonical)) {
                     builder.add(canonical);
                 }

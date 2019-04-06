@@ -773,10 +773,19 @@ public class PruneUnreferencedOutputs
                     }
                 }
             }
+            ImmutableList.Builder<VariableReferenceExpression> rewrittenOutputVariablesBuilder = ImmutableList.builder();
+            Set<String> nameContext = context.get().stream().map(Symbol::getName).collect(toImmutableSet());
+            for (int i = 0; i < node.getOutputVariables().size(); i++) {
+                VariableReferenceExpression outputVariable = node.getOutputVariables().get(i);
+                // If output symbol is used
+                if (nameContext.contains(outputVariable.getName())) {
+                    rewrittenOutputVariablesBuilder.add(outputVariable);
+                }
+            }
             List<List<RowExpression>> rewrittenRows = rowBuilders.stream()
                     .map(ImmutableList.Builder::build)
                     .collect(toImmutableList());
-            return new ValuesNode(node.getId(), rewrittenOutputSymbolsBuilder.build(), rewrittenRows);
+            return new ValuesNode(node.getId(), rewrittenOutputSymbolsBuilder.build(), rewrittenOutputVariablesBuilder.build(), rewrittenRows);
         }
 
         @Override

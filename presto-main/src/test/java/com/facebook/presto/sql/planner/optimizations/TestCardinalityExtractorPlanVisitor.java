@@ -32,11 +32,11 @@ public class TestCardinalityExtractorPlanVisitor
         PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), dummyMetadata());
 
         assertEquals(
-                extractCardinality(planBuilder.limit(3, planBuilder.values(emptyList(), ImmutableList.of(emptyList())))),
+                extractCardinality(planBuilder.limit(3, planBuilder.values(emptyList(), emptyList(), ImmutableList.of(emptyList())))),
                 Range.singleton(1L));
 
         assertEquals(
-                extractCardinality(planBuilder.limit(3, planBuilder.values(emptyList(), ImmutableList.of(emptyList(), emptyList(), emptyList(), emptyList())))),
+                extractCardinality(planBuilder.limit(3, planBuilder.values(emptyList(), emptyList(), ImmutableList.of(emptyList(), emptyList(), emptyList(), emptyList())))),
                 Range.singleton(3L));
     }
 }

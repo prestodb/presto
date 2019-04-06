@@ -72,6 +72,7 @@ public class PruneCountAggregationOverScalar
             return Result.ofPlanNode(new ValuesNode(
                     parent.getId(),
                     parent.getOutputSymbols(),
+                    parent.getOutputVariables(),
                     ImmutableList.of(ImmutableList.of(constant(1L, BIGINT)))));
         }
         return Result.empty();

@@ -18,6 +18,7 @@ import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -327,6 +328,7 @@ public class TestStageStateMachine
                 new PlanFragmentId(0),
                 new ValuesNode(valuesNodeId,
                         ImmutableList.of(symbol),
+                        ImmutableList.of(new VariableReferenceExpression(symbol.getName(), VARCHAR)),
                         ImmutableList.of(ImmutableList.of(constant("foo", VARCHAR)))),
                 ImmutableMap.of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,

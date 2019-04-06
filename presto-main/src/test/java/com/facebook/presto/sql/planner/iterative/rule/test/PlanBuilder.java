@@ -187,20 +187,31 @@ public class PlanBuilder
 
     public ValuesNode values(PlanNodeId id, int rows, Symbol... columns)
     {
+        List<Symbol> symbols = ImmutableList.copyOf(columns);
+        List<VariableReferenceExpression> variables = symbols.stream()
+                .map(symbol -> new VariableReferenceExpression(symbol.getName(), UNKNOWN))
+                .collect(toImmutableList());
         return values(
                 id,
                 ImmutableList.copyOf(columns),
+                variables,
                 nElements(rows, row -> nElements(columns.length, cell -> constantNull(UNKNOWN))));
     }
 
-    public ValuesNode values(List<Symbol> columns, List<List<RowExpression>> rows)
+    public ValuesNode values(List<Symbol> columns, List<VariableReferenceExpression> variables, List<List<RowExpression>> rows)
     {
-        return values(idAllocator.getNextId(), columns, rows);
+        return values(idAllocator.getNextId(), columns, variables, rows);
     }
 
     public ValuesNode values(PlanNodeId id, List<Symbol> columns, List<List<RowExpression>> rows)
     {
-        return new ValuesNode(id, columns, rows);
+        List<VariableReferenceExpression> variables = columns.stream().map(symbol -> new VariableReferenceExpression(symbol.getName(), UNKNOWN)).collect(toImmutableList());
+        return new ValuesNode(id, columns, variables, rows);
+    }
+
+    public ValuesNode values(PlanNodeId id, List<Symbol> columns, List<VariableReferenceExpression> variables, List<List<RowExpression>> rows)
+    {
+        return new ValuesNode(id, columns, variables, rows);
     }
 
     public EnforceSingleRowNode enforceSingleRow(PlanNode source)

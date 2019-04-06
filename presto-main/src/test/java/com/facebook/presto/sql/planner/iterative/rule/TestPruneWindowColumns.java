@@ -202,6 +202,9 @@ public class TestPruneWindowColumns
         List<Symbol> inputs = ImmutableList.of(orderKey, partitionKey, hash, startValue1, startValue2, endValue1, endValue2, input1, input2, unused);
         List<Symbol> outputs = ImmutableList.<Symbol>builder().addAll(inputs).add(output1, output2).build();
 
+        List<Symbol> filteredInputs = inputs.stream().filter(sourceFilter).collect(toImmutableList());
+        List<VariableReferenceExpression> filteredInputVariables = filteredInputs.stream().map(p::variable).collect(toImmutableList());
+
         return p.project(
                 Assignments.identity(
                         outputs.stream()
@@ -238,9 +241,8 @@ public class TestPruneWindowColumns
                                                 Optional.of(endValue2.toSymbolReference()).map(Expression::toString)))),
                         hash,
                         p.values(
-                                inputs.stream()
-                                        .filter(sourceFilter)
-                                        .collect(toImmutableList()),
+                                filteredInputs,
+                                filteredInputVariables,
                                 ImmutableList.of())));
     }
 }

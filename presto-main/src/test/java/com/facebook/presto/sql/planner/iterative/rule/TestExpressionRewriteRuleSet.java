@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
@@ -142,7 +141,8 @@ public class TestExpressionRewriteRuleSet
     {
         tester().assertThat(zeroRewriter.valuesExpressionRewrite())
                 .on(p -> p.values(
-                        ImmutableList.<Symbol>of(p.symbol("a")),
+                        ImmutableList.of(p.symbol("a")),
+                        ImmutableList.of(p.variable(p.symbol("a"))),
                         ImmutableList.of((ImmutableList.of(castToRowExpression(PlanBuilder.expression("1")))))))
                 .matches(
                         values(ImmutableList.of("a"), ImmutableList.of(ImmutableList.of(new LongLiteral("0")))));
@@ -153,7 +153,8 @@ public class TestExpressionRewriteRuleSet
     {
         tester().assertThat(zeroRewriter.valuesExpressionRewrite())
                 .on(p -> p.values(
-                        ImmutableList.<Symbol>of(p.symbol("a")),
+                        ImmutableList.of(p.symbol("a")),
+                        ImmutableList.of(p.variable(p.symbol("a"))),
                         ImmutableList.of((ImmutableList.of(castToRowExpression(PlanBuilder.expression("0")))))))
                 .doesNotFire();
     }

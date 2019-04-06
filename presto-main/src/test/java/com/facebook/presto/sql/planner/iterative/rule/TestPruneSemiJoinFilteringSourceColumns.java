@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
@@ -65,6 +66,9 @@ public class TestPruneSemiJoinFilteringSourceColumns
         Symbol rightKeyHash = p.symbol("rightKeyHash");
         Symbol rightValue = p.symbol("rightValue");
         List<Symbol> filteringSourceSymbols = ImmutableList.of(rightKey, rightKeyHash, rightValue);
+        List<Symbol> filteredSourceSymbols = filteringSourceSymbols.stream().filter(filteringSourceSymbolFilter).collect(toImmutableList());
+        List<VariableReferenceExpression> filteredSourceVariables = filteredSourceSymbols.stream().map(symbol -> p.variable(symbol)).collect(toImmutableList());
+
         return p.semiJoin(
                 leftKey,
                 rightKey,
@@ -73,9 +77,8 @@ public class TestPruneSemiJoinFilteringSourceColumns
                 Optional.of(rightKeyHash),
                 p.values(leftKey),
                 p.values(
-                        filteringSourceSymbols.stream()
-                                .filter(filteringSourceSymbolFilter)
-                                .collect(toImmutableList()),
+                        filteredSourceSymbols,
+                        filteredSourceVariables,
                         ImmutableList.of()));
     }
 }

@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
@@ -28,6 +29,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.plan.Patterns.values;
 import static com.facebook.presto.util.MoreLists.filteredCopy;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class PruneValuesColumns
         extends ProjectOffPushDownRule<ValuesNode>
@@ -42,6 +44,11 @@ public class PruneValuesColumns
     {
         List<Symbol> newOutputs = filteredCopy(valuesNode.getOutputSymbols(), referencedOutputs::contains);
 
+        List<String> referencedOutputNames = referencedOutputs.stream().map(Symbol::getName).collect(toImmutableList());
+        List<VariableReferenceExpression> newOutputVariables = filteredCopy(
+                valuesNode.getOutputVariables(),
+                variable -> referencedOutputNames.contains(variable.getName()));
+
         // for each output of project, the corresponding column in the values node
         int[] mapping = new int[newOutputs.size()];
         for (int i = 0; i < mapping.length; i++) {
@@ -55,6 +62,6 @@ public class PruneValuesColumns
                     .collect(Collectors.toList()));
         }
 
-        return Optional.of(new ValuesNode(valuesNode.getId(), newOutputs, rowsBuilder.build()));
+        return Optional.of(new ValuesNode(valuesNode.getId(), newOutputs, newOutputVariables, rowsBuilder.build()));
     }
 }

@@ -180,7 +180,7 @@ public class MetadataQueryOptimizer
             }
 
             // replace the tablescan node with a values node
-            ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), inputs, rowsBuilder.build());
+            ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), inputs, tableScan.getOutputVariables(), rowsBuilder.build());
             return SimplePlanRewriter.rewriteWith(new Replacer(valuesNode), node);
         }
 

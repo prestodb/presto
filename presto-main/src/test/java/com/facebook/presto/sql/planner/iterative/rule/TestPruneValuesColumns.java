@@ -38,6 +38,7 @@ public class TestPruneValuesColumns
                                 Assignments.of(p.symbol("y"), expression("x")),
                                 p.values(
                                         ImmutableList.of(p.symbol("unused"), p.symbol("x")),
+                                        ImmutableList.of(p.variable(p.symbol("unused")), p.variable(p.symbol("x"))),
                                         ImmutableList.of(
                                                 constantExpressions(BIGINT, 1, 2),
                                                 constantExpressions(BIGINT, 3, 4)))))

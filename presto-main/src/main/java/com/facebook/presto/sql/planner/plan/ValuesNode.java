@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -32,21 +33,25 @@ public class ValuesNode
         extends InternalPlanNode
 {
     private final List<Symbol> outputSymbols;
+    private final List<VariableReferenceExpression> outputVariables;
     private final List<List<RowExpression>> rows;
 
     @JsonCreator
     public ValuesNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
+            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("rows") List<List<RowExpression>> rows)
     {
         super(id);
         this.outputSymbols = ImmutableList.copyOf(outputSymbols);
+        this.outputVariables = ImmutableList.copyOf(outputVariables);
         this.rows = listOfListsCopy(rows);
 
         for (List<RowExpression> row : rows) {
             checkArgument(row.size() == outputSymbols.size() || row.size() == 0,
                     "Expected row to have %s values, but row has %s values", outputSymbols.size(), row.size());
         }
+        validateOutputVariables();
     }
 
     @Override
@@ -54,6 +59,13 @@ public class ValuesNode
     public List<Symbol> getOutputSymbols()
     {
         return outputSymbols;
+    }
+
+    @Override
+    @JsonProperty
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        return outputVariables;
     }
 
     @JsonProperty

@@ -47,7 +47,7 @@ public class RemoveTrivialFilters
         }
 
         if (predicate.equals(FALSE_LITERAL)) {
-            return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), filterNode.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), filterNode.getOutputSymbols(), filterNode.getOutputVariables(), ImmutableList.of()));
         }
 
         return Result.empty();
