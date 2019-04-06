@@ -39,7 +39,7 @@ public class TestValuesNodeStats
         tester().assertStatsFor(pb -> pb
                 .values(ImmutableList.of(pb.symbol("a", BIGINT), pb.symbol("b", DOUBLE)),
                         ImmutableList.of(
-                                ImmutableList.of(call(resolution.arithmeticFunction(ADD, BIGINT, BIGINT), BIGINT, constantExpressions(BIGINT, 3L, 3L)), constant(13.5, DOUBLE)),
+                                ImmutableList.of(call(ADD.name(), resolution.arithmeticFunction(ADD, BIGINT, BIGINT), BIGINT, constantExpressions(BIGINT, 3L, 3L)), constant(13.5, DOUBLE)),
                                 ImmutableList.of(constant(55, BIGINT), constantNull(DOUBLE)),
                                 ImmutableList.of(constant(6L, BIGINT), constant(13.5, DOUBLE)))))
                 .check(outputStats -> outputStats.equalTo(
@@ -95,7 +95,7 @@ public class TestValuesNodeStats
         tester().assertStatsFor(pb -> pb
                 .values(ImmutableList.of(pb.symbol("a", BIGINT)),
                         ImmutableList.of(
-                                ImmutableList.of(call(resolution.arithmeticFunction(ADD, BIGINT, BIGINT), BIGINT, constant(3, BIGINT), constantNull(BIGINT))))))
+                                ImmutableList.of(call(ADD.name(), resolution.arithmeticFunction(ADD, BIGINT, BIGINT), BIGINT, constant(3, BIGINT), constantNull(BIGINT))))))
                 .check(outputStats -> outputStats.equalTo(nullAStats));
 
         tester().assertStatsFor(pb -> pb

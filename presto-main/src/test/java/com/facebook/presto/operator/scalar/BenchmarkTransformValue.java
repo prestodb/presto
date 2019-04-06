@@ -142,12 +142,14 @@ public class BenchmarkTransformValue
             FunctionHandle greaterThan = metadata.getFunctionManager().resolveOperator(
                     GREATER_THAN,
                     fromTypes(elementType, elementType));
-            projectionsBuilder.add(call(functionHandle, returnType, ImmutableList.of(
+            projectionsBuilder.add(call(name, functionHandle, returnType, ImmutableList.of(
                     field(0, mapType),
                     new LambdaDefinitionExpression(
                             ImmutableList.of(elementType, elementType),
                             ImmutableList.of("x", "y"),
-                            call(greaterThan, BOOLEAN, ImmutableList.of(
+                            call(
+                                    GREATER_THAN.name(),
+                                    greaterThan, BOOLEAN, ImmutableList.of(
                                     new VariableReferenceExpression("y", elementType),
                                     constant(compareValue, elementType)))))));
             Block block = createChannel(POSITIONS, mapType, elementType);

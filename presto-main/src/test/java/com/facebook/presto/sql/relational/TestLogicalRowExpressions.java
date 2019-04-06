@@ -112,8 +112,8 @@ public class TestLogicalRowExpressions
     {
         RowExpression a = name("a");
         RowExpression b = name("b");
-        RowExpression nondeterministic = call(functionManager.lookupFunction(QualifiedName.of("random"), fromTypes()), DOUBLE);
-        RowExpression deterministic = call(functionManager.lookupFunction(QualifiedName.of("length"), fromTypes(VARCHAR)), INTEGER);
+        RowExpression nondeterministic = call("random", functionManager.lookupFunction(QualifiedName.of("random"), fromTypes()), DOUBLE);
+        RowExpression deterministic = call("length", functionManager.lookupFunction(QualifiedName.of("length"), fromTypes(VARCHAR)), INTEGER);
 
         RowExpression expression = and(and(a, or(b, nondeterministic)), deterministic);
 

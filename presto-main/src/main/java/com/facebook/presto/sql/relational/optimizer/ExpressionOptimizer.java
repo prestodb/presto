@@ -97,7 +97,7 @@ public class ExpressionOptimizer
                 List<RowExpression> arguments = call.getArguments().stream()
                         .map(argument -> argument.accept(this, null))
                         .collect(toImmutableList());
-                return call(functionHandle, call.getType(), arguments);
+                return call(call.getDisplayName(), functionHandle, call.getType(), arguments);
             }
             if (functionMetadata.getName().equals(CAST.getCastName())) {
                 call = rewriteCast(call);
@@ -140,7 +140,7 @@ public class ExpressionOptimizer
                 }
             }
 
-            return call(functionHandle, call.getType(), arguments);
+            return call(call.getDisplayName(), functionHandle, call.getType(), arguments);
         }
 
         @Override
@@ -230,6 +230,7 @@ public class ExpressionOptimizer
                     TypeSignature returnType = functionManager.getFunctionMetadata(call.getFunctionHandle()).getReturnType();
                     if (returnType.getBase().equals(ARRAY)) {
                         return call(
+                                JSON_TO_ARRAY_CAST.name(),
                                 functionManager.lookupCast(
                                         JSON_TO_ARRAY_CAST,
                                         parseTypeSignature(VARCHAR),
@@ -239,6 +240,7 @@ public class ExpressionOptimizer
                     }
                     if (returnType.getBase().equals(MAP)) {
                         return call(
+                                JSON_TO_MAP_CAST.name(),
                                 functionManager.lookupCast(
                                         JSON_TO_MAP_CAST,
                                         parseTypeSignature(VARCHAR),
@@ -248,6 +250,7 @@ public class ExpressionOptimizer
                     }
                     if (returnType.getBase().equals(ROW)) {
                         return call(
+                                JSON_TO_ROW_CAST.name(),
                                 functionManager.lookupCast(
                                         JSON_TO_ROW_CAST,
                                         parseTypeSignature(VARCHAR),
@@ -259,6 +262,7 @@ public class ExpressionOptimizer
             }
 
             return call(
+                    CAST.name(),
                     functionManager.lookupCast(
                             CAST,
                             call.getArguments().get(0).getType().getTypeSignature(),

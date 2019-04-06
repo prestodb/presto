@@ -45,14 +45,14 @@ public final class Expressions
         return new ConstantExpression(null, type);
     }
 
-    public static CallExpression call(FunctionHandle functionHandle, Type returnType, RowExpression... arguments)
+    public static CallExpression call(String displayName, FunctionHandle functionHandle, Type returnType, RowExpression... arguments)
     {
-        return new CallExpression(functionHandle, returnType, Arrays.asList(arguments));
+        return new CallExpression(displayName, functionHandle, returnType, Arrays.asList(arguments));
     }
 
-    public static CallExpression call(FunctionHandle functionHandle, Type returnType, List<RowExpression> arguments)
+    public static CallExpression call(String displayName, FunctionHandle functionHandle, Type returnType, List<RowExpression> arguments)
     {
-        return new CallExpression(functionHandle, returnType, arguments);
+        return new CallExpression(displayName, functionHandle, returnType, arguments);
     }
 
     public static InputReferenceExpression field(int field, Type type)

@@ -114,6 +114,7 @@ public class BenchmarkEqualsOperator
     private static RowExpression createComparison(FunctionManager functionManager, int leftField, int rightField)
     {
         return call(
+                EQUAL.name(),
                 functionManager.resolveOperator(EQUAL, fromTypes(BIGINT, BIGINT)),
                 BOOLEAN,
                 field(leftField, BIGINT),

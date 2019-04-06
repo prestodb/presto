@@ -57,7 +57,7 @@ public final class RowExpressionFormatter
         @Override
         public String visitCall(CallExpression node, Void context)
         {
-            return node.getFunctionHandle().getSignature().getName() + "(" + String.join(", ", formatRowExpressions(node.getArguments())) + ")";
+            return node.getDisplayName() + "(" + String.join(", ", formatRowExpressions(node.getArguments())) + ")";
         }
 
         @Override

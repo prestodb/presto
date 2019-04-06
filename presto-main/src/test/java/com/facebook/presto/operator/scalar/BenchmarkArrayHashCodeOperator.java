@@ -143,7 +143,7 @@ public class BenchmarkArrayHashCodeOperator
             }
             ArrayType arrayType = new ArrayType(elementType);
             FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(name), fromTypes(arrayType));
-            projectionsBuilder.add(new CallExpression(functionHandle, BIGINT, ImmutableList.of(field(0, arrayType))));
+            projectionsBuilder.add(new CallExpression(name, functionHandle, BIGINT, ImmutableList.of(field(0, arrayType))));
             blocks[0] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();

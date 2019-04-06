@@ -118,12 +118,12 @@ public class BenchmarkArrayTransform
                 ArrayType arrayType = new ArrayType(elementType);
                 FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("transform"), fromTypeSignatures(arrayType.getTypeSignature(), parseTypeSignature("function(bigint,boolean)")));
                 FunctionHandle greaterThan = functionManager.resolveOperator(GREATER_THAN, fromTypes(BIGINT, BIGINT));
-                projectionsBuilder.add(new CallExpression(functionHandle, returnType, ImmutableList.of(
+                projectionsBuilder.add(new CallExpression("transform", functionHandle, returnType, ImmutableList.of(
                         new InputReferenceExpression(0, arrayType),
                         new LambdaDefinitionExpression(
                                 ImmutableList.of(BIGINT),
                                 ImmutableList.of("x"),
-                                new CallExpression(greaterThan, BOOLEAN, ImmutableList.of(new VariableReferenceExpression("x", BIGINT), new ConstantExpression(0L, BIGINT)))))));
+                                new CallExpression(GREATER_THAN.name(), greaterThan, BOOLEAN, ImmutableList.of(new VariableReferenceExpression("x", BIGINT), new ConstantExpression(0L, BIGINT)))))));
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 

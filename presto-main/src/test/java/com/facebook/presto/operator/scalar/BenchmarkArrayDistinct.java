@@ -116,7 +116,7 @@ public class BenchmarkArrayDistinct
                 Type elementType = TYPES.get(i);
                 ArrayType arrayType = new ArrayType(elementType);
                 FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(name), fromTypes(arrayType));
-                projectionsBuilder.add(new CallExpression(functionHandle, arrayType, ImmutableList.of(field(i, arrayType))));
+                projectionsBuilder.add(new CallExpression(name, functionHandle, arrayType, ImmutableList.of(field(i, arrayType))));
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 

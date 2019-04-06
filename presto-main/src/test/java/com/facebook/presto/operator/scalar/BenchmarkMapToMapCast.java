@@ -96,7 +96,7 @@ public class BenchmarkMapToMapCast
             FunctionHandle functionHandle = metadata.getFunctionManager().lookupCast(CAST, mapType(DOUBLE, BIGINT).getTypeSignature(), mapType(BIGINT, DOUBLE).getTypeSignature());
 
             List<RowExpression> projections = ImmutableList.of(
-                    new CallExpression(functionHandle, mapType(BIGINT, DOUBLE), ImmutableList.of(field(0, mapType(DOUBLE, BIGINT)))));
+                    new CallExpression(CAST.name(), functionHandle, mapType(BIGINT, DOUBLE), ImmutableList.of(field(0, mapType(DOUBLE, BIGINT)))));
 
             pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
                     .compilePageProcessor(Optional.empty(), projections)

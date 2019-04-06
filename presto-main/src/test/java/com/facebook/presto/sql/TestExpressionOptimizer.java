@@ -82,7 +82,7 @@ public class TestExpressionOptimizer
         RowExpression expression = constant(1L, BIGINT);
         for (int i = 0; i < 100; i++) {
             FunctionHandle functionHandle = functionManager.resolveOperator(ADD, fromTypes(BIGINT, BIGINT));
-            expression = new CallExpression(functionHandle, BIGINT, ImmutableList.of(expression, constant(1L, BIGINT)));
+            expression = new CallExpression(ADD.name(), functionHandle, BIGINT, ImmutableList.of(expression, constant(1L, BIGINT)));
         }
         optimizer.optimize(expression);
     }
@@ -95,7 +95,7 @@ public class TestExpressionOptimizer
         assertEquals(optimizer.optimize(ifExpression(constant(null, BOOLEAN), 1L, 2L)), constant(2L, BIGINT));
 
         FunctionHandle bigintEquals = functionManager.resolveOperator(EQUAL, fromTypes(BIGINT, BIGINT));
-        RowExpression condition = new CallExpression(bigintEquals, BOOLEAN, ImmutableList.of(constant(3L, BIGINT), constant(3L, BIGINT)));
+        RowExpression condition = new CallExpression(EQUAL.name(), bigintEquals, BOOLEAN, ImmutableList.of(constant(3L, BIGINT), constant(3L, BIGINT)));
         assertEquals(optimizer.optimize(ifExpression(condition, 1L, 2L)), constant(1L, BIGINT));
     }
 
@@ -106,7 +106,7 @@ public class TestExpressionOptimizer
 
         // constant
         FunctionHandle jsonCastFunctionHandle = functionManager.lookupCast(CAST, JSON.getTypeSignature(), parseTypeSignature("array(integer)"));
-        RowExpression jsonCastExpression = new CallExpression(jsonCastFunctionHandle, new ArrayType(INTEGER), ImmutableList.of(call(jsonParseFunctionHandle, JSON, constant(utf8Slice("[1, 2]"), VARCHAR))));
+        RowExpression jsonCastExpression = new CallExpression(CAST.name(), jsonCastFunctionHandle, new ArrayType(INTEGER), ImmutableList.of(call("json_parse", jsonParseFunctionHandle, JSON, constant(utf8Slice("[1, 2]"), VARCHAR))));
         RowExpression resultExpression = optimizer.optimize(jsonCastExpression);
         assertInstanceOf(resultExpression, ConstantExpression.class);
         Object resultValue = ((ConstantExpression) resultExpression).getValue();
@@ -115,27 +115,27 @@ public class TestExpressionOptimizer
 
         // varchar to array
         jsonCastFunctionHandle = functionManager.lookupCast(CAST, JSON.getTypeSignature(), parseTypeSignature("array(varchar)"));
-        jsonCastExpression = call(jsonCastFunctionHandle, new ArrayType(VARCHAR), ImmutableList.of(call(jsonParseFunctionHandle, JSON, field(1, VARCHAR))));
+        jsonCastExpression = call(CAST.name(), jsonCastFunctionHandle, new ArrayType(VARCHAR), ImmutableList.of(call("json_parse", jsonParseFunctionHandle, JSON, field(1, VARCHAR))));
         resultExpression = optimizer.optimize(jsonCastExpression);
         assertEquals(
                 resultExpression,
-                call(functionManager.lookupCast(JSON_TO_ARRAY_CAST, VARCHAR.getTypeSignature(), parseTypeSignature("array(varchar)")), new ArrayType(VARCHAR), field(1, VARCHAR)));
+                call(JSON_TO_ARRAY_CAST.name(), functionManager.lookupCast(JSON_TO_ARRAY_CAST, VARCHAR.getTypeSignature(), parseTypeSignature("array(varchar)")), new ArrayType(VARCHAR), field(1, VARCHAR)));
 
         // varchar to map
         jsonCastFunctionHandle = functionManager.lookupCast(CAST, JSON.getTypeSignature(), parseTypeSignature("map(integer,varchar)"));
-        jsonCastExpression = call(jsonCastFunctionHandle, mapType(INTEGER, VARCHAR), ImmutableList.of(call(jsonParseFunctionHandle, JSON, field(1, VARCHAR))));
+        jsonCastExpression = call(CAST.name(), jsonCastFunctionHandle, mapType(INTEGER, VARCHAR), ImmutableList.of(call("json_parse", jsonParseFunctionHandle, JSON, field(1, VARCHAR))));
         resultExpression = optimizer.optimize(jsonCastExpression);
         assertEquals(
                 resultExpression,
-                call(functionManager.lookupCast(JSON_TO_MAP_CAST, VARCHAR.getTypeSignature(), parseTypeSignature("map(integer, varchar)")), mapType(INTEGER, VARCHAR), field(1, VARCHAR)));
+                call(JSON_TO_MAP_CAST.name(), functionManager.lookupCast(JSON_TO_MAP_CAST, VARCHAR.getTypeSignature(), parseTypeSignature("map(integer, varchar)")), mapType(INTEGER, VARCHAR), field(1, VARCHAR)));
 
         // varchar to row
         jsonCastFunctionHandle = functionManager.lookupCast(CAST, JSON.getTypeSignature(), parseTypeSignature("row(varchar,bigint)"));
-        jsonCastExpression = call(jsonCastFunctionHandle, RowType.anonymous(ImmutableList.of(VARCHAR, BIGINT)), ImmutableList.of(call(jsonParseFunctionHandle, JSON, field(1, VARCHAR))));
+        jsonCastExpression = call(CAST.name(), jsonCastFunctionHandle, RowType.anonymous(ImmutableList.of(VARCHAR, BIGINT)), ImmutableList.of(call("json_parse", jsonParseFunctionHandle, JSON, field(1, VARCHAR))));
         resultExpression = optimizer.optimize(jsonCastExpression);
         assertEquals(
                 resultExpression,
-                call(functionManager.lookupCast(JSON_TO_ROW_CAST, VARCHAR.getTypeSignature(), parseTypeSignature("row(varchar,bigint)")), RowType.anonymous(ImmutableList.of(VARCHAR, BIGINT)), field(1, VARCHAR)));
+                call(JSON_TO_ROW_CAST.name(), functionManager.lookupCast(JSON_TO_ROW_CAST, VARCHAR.getTypeSignature(), parseTypeSignature("row(varchar,bigint)")), RowType.anonymous(ImmutableList.of(VARCHAR, BIGINT)), field(1, VARCHAR)));
     }
 
     private static RowExpression ifExpression(RowExpression condition, long trueValue, long falseValue)

@@ -130,6 +130,7 @@ public class ExpressionEquivalence
         public RowExpression visitCall(CallExpression call, Void context)
         {
             call = new CallExpression(
+                    call.getDisplayName(),
                     call.getFunctionHandle(),
                     call.getType(),
                     call.getArguments().stream()
@@ -141,6 +142,7 @@ public class ExpressionEquivalence
             if (callName.equals(mangleOperatorName(EQUAL)) || callName.equals(mangleOperatorName(NOT_EQUAL)) || callName.equals(mangleOperatorName(IS_DISTINCT_FROM))) {
                 // sort arguments
                 return new CallExpression(
+                        call.getDisplayName(),
                         call.getFunctionHandle(),
                         call.getType(),
                         ROW_EXPRESSION_ORDERING.sortedCopy(call.getArguments()));
@@ -153,6 +155,7 @@ public class ExpressionEquivalence
                         callName.equals(mangleOperatorName(GREATER_THAN)) ? LESS_THAN : LESS_THAN_OR_EQUAL,
                         swapPair(fromTypes(call.getArguments().stream().map(RowExpression::getType).collect(toImmutableList()))));
                 return new CallExpression(
+                        call.getDisplayName(),
                         functionHandle,
                         call.getType(),
                         swapPair(call.getArguments()));

@@ -56,6 +56,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.metadata.CastType.CAST;
+import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.BIND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
@@ -225,7 +226,7 @@ public class RowExpressionInterpreter
 
             // do not optimize non-deterministic functions
             if (optimize && (!functionMetadata.isDeterministic() || hasUnresolvedValue(argumentValues) || functionMetadata.getName().equals("fail"))) {
-                return call(functionHandle, node.getType(), toRowExpressions(argumentValues, argumentTypes));
+                return call(node.getDisplayName(), functionHandle, node.getType(), toRowExpressions(argumentValues, argumentTypes));
             }
             return functionInvoker.invoke(functionHandle, session.toConnectorSession(), argumentValues);
         }
@@ -304,7 +305,7 @@ public class RowExpressionInterpreter
 
                     // cast(first as <common type>) == cast(second as <common type>)
                     boolean equal = Boolean.TRUE.equals(invokeOperator(
-                            OperatorType.EQUAL,
+                            EQUAL,
                             ImmutableList.of(commonType, commonType),
                             ImmutableList.of(
                                     functionInvoker.invoke(firstCast, session.toConnectorSession(), left),
@@ -478,7 +479,7 @@ public class RowExpressionInterpreter
                             hasNullValue = true;
                         }
                         else {
-                            Boolean result = (Boolean) invokeOperator(OperatorType.EQUAL, ImmutableList.of(targetType, valueType), ImmutableList.of(target, value));
+                            Boolean result = (Boolean) invokeOperator(EQUAL, ImmutableList.of(targetType, valueType), ImmutableList.of(target, value));
                             if (result == null) {
                                 hasNullValue = true;
                             }
@@ -576,7 +577,7 @@ public class RowExpressionInterpreter
                         }
                         else if (operandValue != null) {
                             Boolean isEqual = (Boolean) invokeOperator(
-                                    OperatorType.EQUAL,
+                                    EQUAL,
                                     ImmutableList.of(node.getArguments().get(0).getType(), operand.getType()),
                                     ImmutableList.of(value, operandValue));
                             if (isEqual != null && isEqual) {
@@ -629,7 +630,7 @@ public class RowExpressionInterpreter
             FunctionHandle failureFunction = metadata.getFunctionManager().resolveFunction(session, QualifiedName.of("fail"), fromTypes(JSON));
             FunctionHandle cast = metadata.getFunctionManager().lookupCast(CAST, UNKNOWN.getTypeSignature(), type.getTypeSignature());
 
-            return call(cast, type, call(failureFunction, UNKNOWN, toRowExpression(json, JSON)));
+            return call(CAST.name(), cast, type, call("fail", failureFunction, UNKNOWN, toRowExpression(json, JSON)));
         }
 
         private boolean hasUnresolvedValue(Object... values)
@@ -698,12 +699,12 @@ public class RowExpressionInterpreter
                 if (targetType.equals(sourceType)) {
                     return changed(value);
                 }
-                return changed(call(callExpression.getFunctionHandle(), callExpression.getType(), toRowExpression(value, sourceType)));
+                return changed(call(callExpression.getDisplayName(), callExpression.getFunctionHandle(), callExpression.getType(), toRowExpression(value, sourceType)));
             }
 
             // TODO: still there is limitation for RowExpression. Example types could be Regex
             if (optimize && !isSupportedLiteralType(targetType)) {
-                return changed(call(callExpression.getFunctionHandle(), callExpression.getType(), toRowExpression(value, sourceType)));
+                return changed(call(callExpression.getDisplayName(), callExpression.getFunctionHandle(), callExpression.getType(), toRowExpression(value, sourceType)));
             }
             return notChanged();
         }
@@ -770,14 +771,14 @@ public class RowExpressionInterpreter
                 Type superType = commonSuperType.get();
                 if (!valueType.equals(superType)) {
                     FunctionHandle cast = metadata.getFunctionManager().lookupCast(CAST, valueType.getTypeSignature(), superType.getTypeSignature());
-                    valueExpression = call(cast, superType, valueExpression);
+                    valueExpression = call(CAST.name(), cast, superType, valueExpression);
                 }
                 if (!patternType.equals(superType)) {
                     FunctionHandle cast = metadata.getFunctionManager().lookupCast(CAST, patternType.getTypeSignature(), superType.getTypeSignature());
-                    patternExpression = call(cast, superType, patternExpression);
+                    patternExpression = call(CAST.name(), cast, superType, patternExpression);
                 }
-                FunctionHandle equal = metadata.getFunctionManager().resolveOperator(OperatorType.EQUAL, fromTypes(superType, superType));
-                return changed(call(equal, BOOLEAN, valueExpression, patternExpression).accept(this, context));
+                FunctionHandle equal = metadata.getFunctionManager().resolveOperator(EQUAL, fromTypes(superType, superType));
+                return changed(call(EQUAL.name(), equal, BOOLEAN, valueExpression, patternExpression).accept(this, context));
             }
             return notChanged();
         }

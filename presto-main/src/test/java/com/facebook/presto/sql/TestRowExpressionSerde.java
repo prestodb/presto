@@ -147,9 +147,11 @@ public class TestRowExpressionSerde
     public void testArrayGet()
     {
         assertEquals(getRoundTrip("(ARRAY [1, 2, 3])[1]", false),
-                call(operator(SUBSCRIPT, new ArrayType(INTEGER), BIGINT),
+                call(SUBSCRIPT.name(),
+                        operator(SUBSCRIPT, new ArrayType(INTEGER), BIGINT),
                         INTEGER,
-                        call(function("array_constructor", INTEGER, INTEGER, INTEGER),
+                        call("array_constructor",
+                                function("array_constructor", INTEGER, INTEGER, INTEGER),
                                 new ArrayType(INTEGER),
                                 constant(1L, INTEGER),
                                 constant(2L, INTEGER),

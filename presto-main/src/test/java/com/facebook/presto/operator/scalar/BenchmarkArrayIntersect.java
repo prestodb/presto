@@ -126,7 +126,7 @@ public class BenchmarkArrayIntersect
             FunctionManager functionManager = metadata.getFunctionManager();
             FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(name), fromTypes(arrayType, arrayType));
             ImmutableList<RowExpression> projections = ImmutableList.of(
-                    new CallExpression(functionHandle, arrayType, ImmutableList.of(field(0, arrayType), field(1, arrayType))));
+                    new CallExpression(name, functionHandle, arrayType, ImmutableList.of(field(0, arrayType), field(1, arrayType))));
 
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();

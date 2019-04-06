@@ -41,6 +41,7 @@ public class TestDeterminismEvaluator
         DeterminismEvaluator determinismEvaluator = new DeterminismEvaluator(functionManager);
 
         CallExpression random = new CallExpression(
+                "random",
                 functionManager.lookupFunction(QualifiedName.of("random"), fromTypes(BIGINT)),
                 BIGINT,
                 singletonList(constant(10L, BIGINT)));
@@ -49,10 +50,10 @@ public class TestDeterminismEvaluator
         InputReferenceExpression col0 = field(0, BIGINT);
         FunctionHandle lessThan = functionManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
 
-        CallExpression lessThanExpression = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(col0, constant(10L, BIGINT)));
+        CallExpression lessThanExpression = new CallExpression(LESS_THAN.name(), lessThan, BOOLEAN, ImmutableList.of(col0, constant(10L, BIGINT)));
         assertTrue(determinismEvaluator.isDeterministic(lessThanExpression));
 
-        CallExpression lessThanRandomExpression = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(col0, random));
+        CallExpression lessThanRandomExpression = new CallExpression(LESS_THAN.name(), lessThan, BOOLEAN, ImmutableList.of(col0, random));
         assertFalse(determinismEvaluator.isDeterministic(lessThanRandomExpression));
     }
 }

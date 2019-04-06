@@ -45,6 +45,7 @@ import static org.testng.Assert.fail;
 public class TestPageFunctionCompiler
 {
     private static final CallExpression ADD_10_EXPRESSION = call(
+            ADD.name(),
             createTestMetadataManager().getFunctionManager().resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
             BIGINT,
             field(0, BIGINT),

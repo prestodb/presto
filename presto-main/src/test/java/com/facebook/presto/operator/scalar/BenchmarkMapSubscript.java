@@ -150,6 +150,7 @@ public class BenchmarkMapSubscript
             FunctionHandle functionHandle = metadata.getFunctionManager().resolveOperator(SUBSCRIPT, fromTypes(mapType, mapType.getKeyType()));
             for (int i = 0; i < mapSize; i++) {
                 projectionsBuilder.add(new CallExpression(
+                        SUBSCRIPT.name(),
                         functionHandle,
                         mapType.getValueType(),
                         ImmutableList.of(field(0, mapType), constant(utf8Slice(keys.get(i)), createUnboundedVarcharType()))));

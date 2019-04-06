@@ -117,7 +117,7 @@ public class BenchmarkJsonToArrayCast
             FunctionHandle functionHandle = functionManager.lookupCast(CAST, JSON.getTypeSignature(), (new ArrayType(elementType)).getTypeSignature());
 
             List<RowExpression> projections = ImmutableList.of(
-                    new CallExpression(functionHandle, new ArrayType(elementType), ImmutableList.of(field(0, JSON))));
+                    new CallExpression(CAST.name(), functionHandle, new ArrayType(elementType), ImmutableList.of(field(0, JSON))));
 
             pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
                     .compilePageProcessor(Optional.empty(), projections)

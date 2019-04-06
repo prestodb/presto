@@ -138,6 +138,7 @@ public class BenchmarkArraySubscript
             FunctionHandle functionHandle = metadata.getFunctionManager().resolveOperator(SUBSCRIPT, fromTypes(arrayType, BIGINT));
             for (int i = 0; i < arraySize; i++) {
                 projectionsBuilder.add(new CallExpression(
+                        SUBSCRIPT.name(),
                         functionHandle,
                         arrayType.getElementType(),
                         ImmutableList.of(field(0, arrayType), constant((long) i + 1, BIGINT))));

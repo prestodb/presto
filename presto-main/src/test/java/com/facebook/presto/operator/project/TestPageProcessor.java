@@ -386,6 +386,7 @@ public class TestPageProcessor
     {
         MetadataManager metadata = createTestMetadataManager();
         CallExpression add10Expression = call(
+                ADD.name(),
                 metadata.getFunctionManager().resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
                 BIGINT,
                 field(0, BIGINT),

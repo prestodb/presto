@@ -96,7 +96,7 @@ public class BenchmarkArrayJoin
             FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("array_join"), fromTypes(new ArrayType(BIGINT), VARCHAR));
 
             List<RowExpression> projections = ImmutableList.of(
-                    new CallExpression(functionHandle, VARCHAR, ImmutableList.of(
+                    new CallExpression("array_join", functionHandle, VARCHAR, ImmutableList.of(
                             field(0, new ArrayType(BIGINT)),
                             constant(Slices.wrappedBuffer(",".getBytes(UTF_8)), VARCHAR))));
 

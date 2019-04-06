@@ -52,6 +52,7 @@ public class TestInCodeGenerator
         values.add(constant(null, INTEGER));
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
         values.add(new CallExpression(
+                CAST.name(),
                 functionManager.lookupCast(CAST, DOUBLE.getTypeSignature(), INTEGER.getTypeSignature()),
                 INTEGER,
                 Collections.singletonList(constant(12345678901234.0, DOUBLE))));
@@ -79,6 +80,7 @@ public class TestInCodeGenerator
         values.add(constant(null, BIGINT));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
         values.add(new CallExpression(
+                CAST.name(),
                 functionManager.lookupCast(CAST, DOUBLE.getTypeSignature(), BIGINT.getTypeSignature()),
                 BIGINT,
                 Collections.singletonList(constant(12345678901234.0, DOUBLE))));

@@ -141,6 +141,7 @@ public class BenchmarkMapConcat
 
             FunctionHandle functionHandle = metadata.getFunctionManager().lookupFunction(QualifiedName.of(name), fromTypes(mapType, mapType));
             projectionsBuilder.add(new CallExpression(
+                    name,
                     functionHandle,
                     mapType,
                     ImmutableList.of(field(0, mapType), field(1, mapType))));

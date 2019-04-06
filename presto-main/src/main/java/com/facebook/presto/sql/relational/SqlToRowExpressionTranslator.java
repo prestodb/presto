@@ -300,12 +300,14 @@ public final class SqlToRowExpressionTranslator
 
             if (JSON.equals(type)) {
                 return call(
+                        "json_parse",
                         functionManager.lookupFunction(QualifiedName.of("json_parse"), fromTypes(VARCHAR)),
                         getType(node),
                         constant(utf8Slice(node.getValue()), VARCHAR));
             }
 
             return call(
+                    CAST.name(),
                     functionManager.lookupCast(CAST, VARCHAR.getTypeSignature(), getType(node).getTypeSignature()),
                     getType(node),
                     constant(utf8Slice(node.getValue()), VARCHAR));
@@ -363,6 +365,7 @@ public final class SqlToRowExpressionTranslator
             RowExpression right = process(node.getRight(), context);
 
             return call(
+                    node.getOperator().name(),
                     standardFunctionResolution.comparisonFunction(node.getOperator(), left.getType(), right.getType()),
                     BOOLEAN,
                     left,
@@ -382,7 +385,7 @@ public final class SqlToRowExpressionTranslator
                     .map(TypeSignatureProvider::new)
                     .collect(toImmutableList());
 
-            return call(functionManager.resolveFunction(session, node.getName(), argumentTypes), getType(node), arguments);
+            return call(node.getName().toString(), functionManager.resolveFunction(session, node.getName(), argumentTypes), getType(node), arguments);
         }
 
         @Override
@@ -435,6 +438,7 @@ public final class SqlToRowExpressionTranslator
             RowExpression right = process(node.getRight(), context);
 
             return call(
+                    node.getOperator().name(),
                     standardFunctionResolution.arithmeticFunction(node.getOperator(), left.getType(), right.getType()),
                     getType(node),
                     left,
@@ -451,6 +455,7 @@ public final class SqlToRowExpressionTranslator
                     return expression;
                 case MINUS:
                     return call(
+                            NEGATION.name(),
                             functionManager.resolveOperator(NEGATION, fromTypes(expression.getType())),
                             getType(node),
                             expression);
@@ -486,10 +491,10 @@ public final class SqlToRowExpressionTranslator
             }
 
             if (node.isSafe()) {
-                return call(functionManager.lookupCast(TRY_CAST, value.getType().getTypeSignature(), getType(node).getTypeSignature()), getType(node), value);
+                return call(TRY_CAST.name(), functionManager.lookupCast(TRY_CAST, value.getType().getTypeSignature(), getType(node).getTypeSignature()), getType(node), value);
             }
 
-            return call(functionManager.lookupCast(CAST, value.getType().getTypeSignature(), getType(node).getTypeSignature()), getType(node), value);
+            return call(CAST.name(), functionManager.lookupCast(CAST, value.getType().getTypeSignature(), getType(node).getTypeSignature()), getType(node), value);
         }
 
         private static RowExpression changeType(RowExpression value, Type targetType)
@@ -511,7 +516,7 @@ public final class SqlToRowExpressionTranslator
             @Override
             public RowExpression visitCall(CallExpression call, Void context)
             {
-                return new CallExpression(call.getFunctionHandle(), targetType, call.getArguments());
+                return new CallExpression(call.getDisplayName(), call.getFunctionHandle(), targetType, call.getArguments());
             }
 
             @Override
@@ -666,7 +671,7 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitTryExpression(TryExpression node, Void context)
         {
-            return call(standardFunctionResolution.tryFunction(getType(node)), getType(node), process(node.getInnerExpression(), context));
+            return call("TRY", standardFunctionResolution.tryFunction(getType(node)), getType(node), process(node.getInnerExpression(), context));
         }
 
         @Override
@@ -688,6 +693,7 @@ public final class SqlToRowExpressionTranslator
             RowExpression expression = process(node.getValue(), context);
 
             return call(
+                    "not",
                     standardFunctionResolution.notFunction(),
                     BOOLEAN,
                     specialForm(IS_NULL, BOOLEAN, ImmutableList.of(expression)));
@@ -704,7 +710,7 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitNotExpression(NotExpression node, Void context)
         {
-            return call(standardFunctionResolution.notFunction(), BOOLEAN, process(node.getValue(), context));
+            return call("not", standardFunctionResolution.notFunction(), BOOLEAN, process(node.getValue(), context));
         }
 
         @Override
@@ -724,6 +730,7 @@ public final class SqlToRowExpressionTranslator
             RowExpression max = process(node.getMax(), context);
 
             return call(
+                    BETWEEN.name(),
                     functionManager.resolveOperator(BETWEEN, fromTypes(value.getType(), min.getType(), max.getType())),
                     BOOLEAN,
                     value,
@@ -739,20 +746,20 @@ public final class SqlToRowExpressionTranslator
 
             if (node.getEscape().isPresent()) {
                 RowExpression escape = process(node.getEscape().get(), context);
-                return likeFunctionCall(value, call(standardFunctionResolution.likePatternFunction(), LIKE_PATTERN, pattern, escape));
+                return likeFunctionCall(value, call("LIKE_PATTERN", standardFunctionResolution.likePatternFunction(), LIKE_PATTERN, pattern, escape));
             }
 
-            return likeFunctionCall(value, call(functionManager.lookupCast(CAST, VARCHAR.getTypeSignature(), LIKE_PATTERN.getTypeSignature()), LIKE_PATTERN, pattern));
+            return likeFunctionCall(value, call(CAST.name(), functionManager.lookupCast(CAST, VARCHAR.getTypeSignature(), LIKE_PATTERN.getTypeSignature()), LIKE_PATTERN, pattern));
         }
 
         private RowExpression likeFunctionCall(RowExpression value, RowExpression pattern)
         {
             if (value.getType() instanceof VarcharType) {
-                return call(standardFunctionResolution.likeVarcharFunction(), BOOLEAN, value, pattern);
+                return call("LIKE", standardFunctionResolution.likeVarcharFunction(), BOOLEAN, value, pattern);
             }
 
             checkState(value.getType() instanceof CharType, "LIKE value type is neither VARCHAR or CHAR");
-            return call(standardFunctionResolution.likeCharFunction(value.getType()), BOOLEAN, value, pattern);
+            return call("LIKE", standardFunctionResolution.likeCharFunction(value.getType()), BOOLEAN, value, pattern);
         }
 
         @Override
@@ -762,6 +769,7 @@ public final class SqlToRowExpressionTranslator
             RowExpression index = process(node.getIndex(), context);
 
             return call(
+                    SUBSCRIPT.name(),
                     functionManager.resolveOperator(SUBSCRIPT, fromTypes(base.getType(), index.getType())),
                     getType(node),
                     base,
@@ -777,7 +785,7 @@ public final class SqlToRowExpressionTranslator
             List<Type> argumentTypes = arguments.stream()
                     .map(RowExpression::getType)
                     .collect(toImmutableList());
-            return call(standardFunctionResolution.arrayConstructor(argumentTypes), getType(node), arguments);
+            return call("ARRAY", standardFunctionResolution.arrayConstructor(argumentTypes), getType(node), arguments);
         }
 
         @Override
