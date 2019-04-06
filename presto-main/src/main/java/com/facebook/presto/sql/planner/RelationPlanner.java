@@ -630,9 +630,11 @@ class RelationPlanner
     {
         Scope scope = analysis.getScope(node);
         ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
+        ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
         for (Field field : scope.getRelationType().getVisibleFields()) {
             Symbol symbol = symbolAllocator.newSymbol(field);
             outputSymbolsBuilder.add(symbol);
+            outputVariablesBuilder.add(new VariableReferenceExpression(symbol.getName(), field.getType()));
         }
 
         ImmutableList.Builder<List<RowExpression>> rowsBuilder = ImmutableList.builder();
@@ -652,7 +654,7 @@ class RelationPlanner
             rowsBuilder.add(values.build());
         }
 
-        ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), outputSymbolsBuilder.build(), rowsBuilder.build());
+        ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), outputSymbolsBuilder.build(), outputVariablesBuilder.build(), rowsBuilder.build());
         return new RelationPlan(valuesNode, scope, outputSymbolsBuilder.build());
     }
 
@@ -669,6 +671,7 @@ class RelationPlanner
 
         // If we got here, then we must be unnesting a constant, and not be in a join (where there could be column references)
         ImmutableList.Builder<Symbol> argumentSymbols = ImmutableList.builder();
+        ImmutableList.Builder<VariableReferenceExpression> argumentVariables = ImmutableList.builder();
         ImmutableList.Builder<RowExpression> values = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, List<Symbol>> unnestSymbols = ImmutableMap.builder();
         Iterator<Symbol> unnestedSymbolsIterator = unnestedSymbols.iterator();
@@ -679,6 +682,7 @@ class RelationPlanner
             values.add(castToRowExpression(rewritten));
             Symbol inputSymbol = symbolAllocator.newSymbol(rewritten, type);
             argumentSymbols.add(inputSymbol);
+            argumentVariables.add(new VariableReferenceExpression(inputSymbol.getName(), type));
             if (type instanceof ArrayType) {
                 Type elementType = ((ArrayType) type).getElementType();
                 if (!SystemSessionProperties.isLegacyUnnest(session) && elementType instanceof RowType) {
@@ -701,7 +705,7 @@ class RelationPlanner
         }
         Optional<Symbol> ordinalitySymbol = node.isWithOrdinality() ? Optional.of(unnestedSymbolsIterator.next()) : Optional.empty();
         checkState(!unnestedSymbolsIterator.hasNext(), "Not all output symbols were matched with input symbols");
-        ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), argumentSymbols.build(), ImmutableList.of(values.build()));
+        ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), argumentSymbols.build(), argumentVariables.build(), ImmutableList.of(values.build()));
 
         UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), valuesNode, ImmutableList.of(), unnestSymbols.build(), ordinalitySymbol);
         return new RelationPlan(unnestNode, scope, unnestedSymbols);

@@ -298,7 +298,7 @@ public class PickTableLayout
                         .collect(toImmutableSet())));
 
         if (layouts.isEmpty()) {
-            return ImmutableList.of(new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of()));
+            return ImmutableList.of(new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), node.getOutputVariables(), ImmutableList.of()));
         }
 
         // Filter out layouts that cannot supply all the required columns
@@ -308,7 +308,7 @@ public class PickTableLayout
         checkState(!layouts.isEmpty(), "No usable layouts for %s", node);
 
         if (layouts.stream().anyMatch(layout -> layout.getLayout().getPredicate().isNone())) {
-            return ImmutableList.of(new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of()));
+            return ImmutableList.of(new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), node.getOutputVariables(), ImmutableList.of()));
         }
 
         return layouts.stream()

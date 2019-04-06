@@ -18,6 +18,7 @@ import com.facebook.presto.server.SliceSerializer;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.Serialization;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.OrderingScheme;
@@ -26,6 +27,7 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
@@ -56,6 +58,9 @@ public class TestWindowNode
     private Symbol columnA;
     private Symbol columnB;
     private Symbol columnC;
+    private VariableReferenceExpression variableA;
+    private VariableReferenceExpression variableB;
+    private VariableReferenceExpression variableC;
 
     private final ObjectMapper objectMapper;
 
@@ -70,7 +75,8 @@ public class TestWindowNode
         provider.setJsonDeserializers(ImmutableMap.of(
                 Slice.class, new SliceDeserializer(),
                 Expression.class, new Serialization.ExpressionDeserializer(sqlParser),
-                FunctionCall.class, new Serialization.FunctionCallDeserializer(sqlParser)));
+                FunctionCall.class, new Serialization.FunctionCallDeserializer(sqlParser),
+                Type.class, new TypeDeserializer(new TypeRegistry())));
         provider.setKeySerializers(ImmutableMap.of(
                 VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionSerializer()));
         provider.setKeyDeserializers(ImmutableMap.of(
@@ -86,9 +92,14 @@ public class TestWindowNode
         columnB = symbolAllocator.newSymbol("b", BIGINT);
         columnC = symbolAllocator.newSymbol("c", BIGINT);
 
+        variableA = new VariableReferenceExpression(columnA.getName(), BIGINT);
+        variableB = new VariableReferenceExpression(columnB.getName(), BIGINT);
+        variableC = new VariableReferenceExpression(columnC.getName(), BIGINT);
+
         sourceNode = new ValuesNode(
                 newId(),
                 ImmutableList.of(columnA, columnB, columnC),
+                ImmutableList.of(variableA, variableB, variableC),
                 ImmutableList.of());
     }
 

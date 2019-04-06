@@ -90,7 +90,7 @@ public class TranslateExpressions
                 rows.add(newRow.build());
             }
             if (anyRewritten) {
-                return Result.ofPlanNode(new ValuesNode(valuesNode.getId(), valuesNode.getOutputSymbols(), rows.build()));
+                return Result.ofPlanNode(new ValuesNode(valuesNode.getId(), valuesNode.getOutputSymbols(), valuesNode.getOutputVariables(), rows.build()));
             }
             return Result.empty();
         }

@@ -18,6 +18,7 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -271,17 +272,21 @@ public class PushAggregationThroughOuterJoin
         // to symbol references for the new values node.
         NullLiteral nullLiteral = new NullLiteral();
         ImmutableList.Builder<Symbol> nullSymbols = ImmutableList.builder();
+        ImmutableList.Builder<VariableReferenceExpression> nullVariables = ImmutableList.builder();
         ImmutableList.Builder<RowExpression> nullLiterals = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, SymbolReference> sourcesSymbolMappingBuilder = ImmutableMap.builder();
         for (Symbol sourceSymbol : referenceAggregation.getSource().getOutputSymbols()) {
             nullLiterals.add(castToRowExpression(nullLiteral));
             Symbol nullSymbol = symbolAllocator.newSymbol(nullLiteral, symbolAllocator.getTypes().get(sourceSymbol));
             nullSymbols.add(nullSymbol);
+            // TODO The type should be from sourceVariable.getType
+            nullVariables.add(new VariableReferenceExpression(nullSymbol.getName(), symbolAllocator.getTypes().get(sourceSymbol)));
             sourcesSymbolMappingBuilder.put(sourceSymbol, nullSymbol.toSymbolReference());
         }
         ValuesNode nullRow = new ValuesNode(
                 idAllocator.getNextId(),
                 nullSymbols.build(),
+                nullVariables.build(),
                 ImmutableList.of(nullLiterals.build()));
         Map<Symbol, SymbolReference> sourcesSymbolMapping = sourcesSymbolMappingBuilder.build();
 
