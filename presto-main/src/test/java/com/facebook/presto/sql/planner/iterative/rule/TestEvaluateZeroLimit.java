@@ -48,6 +48,7 @@ public class TestEvaluateZeroLimit
                                         expression("b > 5"),
                                         p.values(
                                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
+                                                ImmutableList.of(p.variable(p.symbol("a")), p.variable(p.symbol("b"))),
                                                 ImmutableList.of(
                                                         constantExpressions(BIGINT, 1, 10),
                                                         constantExpressions(BIGINT, 2, 11))))))

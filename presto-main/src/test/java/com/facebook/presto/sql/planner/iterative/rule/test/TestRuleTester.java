@@ -38,6 +38,7 @@ public class TestRuleTester
                                     Assignments.of(p.symbol("y"), expression("x")),
                                     p.values(
                                             ImmutableList.of(p.symbol("x")),
+                                            ImmutableList.of(p.variable(p.symbol("x"))),
                                             ImmutableList.of(constantExpressions(BIGINT, 1)))))
                     .matches(
                             values(ImmutableList.of("different"), ImmutableList.of()));
