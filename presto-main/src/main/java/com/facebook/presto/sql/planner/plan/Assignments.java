@@ -17,7 +17,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Predicate;
@@ -119,13 +118,6 @@ public class Assignments
         return assignments.entrySet().stream()
                 .filter(entry -> predicate.apply(entry.getKey()))
                 .collect(toAssignments());
-    }
-
-    public boolean isIdentity(Symbol output)
-    {
-        Expression expression = assignments.get(output);
-
-        return expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(output.getName());
     }
 
     private Collector<Entry<Symbol, Expression>, Builder, Assignments> toAssignments()

@@ -37,6 +37,7 @@ import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
+import static com.facebook.presto.sql.relational.ProjectNodeUtils.isIdentity;
 import static java.util.stream.Collectors.toSet;
 
 /**
@@ -155,7 +156,7 @@ public class InlineProjections
         Set<Symbol> singletons = dependencies.entrySet().stream()
                 .filter(entry -> entry.getValue() == 1) // reference appears just once across all expressions in parent project node
                 .filter(entry -> !tryArguments.contains(entry.getKey())) // they are not inputs to TRY. Otherwise, inlining might change semantics
-                .filter(entry -> !child.getAssignments().isIdentity(entry.getKey())) // skip identities, otherwise, this rule will keep firing forever
+                .filter(entry -> !isIdentity(child, entry.getKey())) // skip identities, otherwise, this rule will keep firing forever
                 .map(Map.Entry::getKey)
                 .collect(toSet());
 

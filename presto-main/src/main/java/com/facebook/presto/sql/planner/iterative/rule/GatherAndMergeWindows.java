@@ -46,6 +46,7 @@ import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.depen
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.window;
+import static com.facebook.presto.sql.relational.ProjectNodeUtils.isIdentity;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
@@ -140,7 +141,7 @@ public class GatherAndMergeWindows
                 // The target node, when hoisted above the projections, will provide the symbols directly.
                 Map<Symbol, Expression> assignmentsWithoutTargetOutputIdentities = Maps.filterKeys(
                         project.getAssignments().getMap(),
-                        output -> !(project.getAssignments().isIdentity(output) && targetOutputs.contains(output)));
+                        output -> !(isIdentity(project, output) && targetOutputs.contains(output)));
 
                 if (targetInputs.stream().anyMatch(assignmentsWithoutTargetOutputIdentities::containsKey)) {
                     // Redefinition of an input to the target -- can't handle this case.

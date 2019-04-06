@@ -18,21 +18,24 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 
-import java.util.Map;
-
 public class ProjectNodeUtils
 {
     private ProjectNodeUtils() {}
 
     public static boolean isIdentity(ProjectNode projectNode)
     {
-        for (Map.Entry<Symbol, Expression> entry : projectNode.getAssignments().entrySet()) {
-            Expression expression = entry.getValue();
-            Symbol symbol = entry.getKey();
-            if (!(expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(symbol.getName()))) {
+        for (Symbol symbol : projectNode.getAssignments().getSymbols()) {
+            if (!isIdentity(projectNode, symbol)) {
                 return false;
             }
         }
         return true;
+    }
+
+    public static boolean isIdentity(ProjectNode projectNode, Symbol output)
+    {
+        Expression expression = projectNode.getAssignments().get(output);
+
+        return expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(output.getName());
     }
 }
