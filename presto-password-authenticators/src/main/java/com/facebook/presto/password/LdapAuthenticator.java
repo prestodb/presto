@@ -194,12 +194,12 @@ public class LdapAuthenticator
         }
     }
 
-    private static class Credentials
+    public static final class Credentials
     {
         private final String user;
         private final String password;
 
-        private Credentials(String user, String password)
+        public Credentials(String user, String password)
         {
             this.user = requireNonNull(user);
             this.password = requireNonNull(password);
