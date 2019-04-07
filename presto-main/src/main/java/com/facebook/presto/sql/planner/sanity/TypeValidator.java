@@ -18,6 +18,7 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -144,13 +145,13 @@ public final class TypeValidator
             return null;
         }
 
-        private void checkWindowFunctions(Map<Symbol, WindowNode.Function> functions)
+        private void checkWindowFunctions(Map<VariableReferenceExpression, WindowNode.Function> functions)
         {
-            for (Map.Entry<Symbol, WindowNode.Function> entry : functions.entrySet()) {
+            for (Map.Entry<VariableReferenceExpression, WindowNode.Function> entry : functions.entrySet()) {
                 FunctionHandle functionHandle = entry.getValue().getFunctionHandle();
                 CallExpression call = entry.getValue().getFunctionCall();
 
-                checkTypeSignature(entry.getKey(), metadata.getFunctionManager().getFunctionMetadata(functionHandle).getReturnType());
+                verifyTypeSignature(entry.getKey(), metadata.getFunctionManager().getFunctionMetadata(functionHandle).getReturnType());
                 checkCall(entry.getKey(), call);
             }
         }
@@ -161,11 +162,10 @@ public final class TypeValidator
             verifyTypeSignature(symbol, expectedTypeSignature, actualTypeSignature);
         }
 
-        private void checkCall(Symbol symbol, CallExpression call)
+        private void checkCall(VariableReferenceExpression variable, CallExpression call)
         {
-            Type expectedType = types.get(symbol);
             Type actualType = call.getType();
-            verifyTypeSignature(symbol, expectedType.getTypeSignature(), actualType.getTypeSignature());
+            verifyTypeSignature(variable, actualType.getTypeSignature());
         }
 
         private void checkFunctionSignature(Map<Symbol, Aggregation> aggregations)
@@ -193,6 +193,15 @@ public final class TypeValidator
             TypeManager typeManager = metadata.getTypeManager();
             if (!actual.equals(UNKNOWN.getTypeSignature()) && !typeManager.isTypeOnlyCoercion(typeManager.getType(actual), typeManager.getType(expected))) {
                 checkArgument(expected.equals(actual), "type of symbol '%s' is expected to be %s, but the actual type is %s", symbol, expected, actual);
+            }
+        }
+
+        private void verifyTypeSignature(VariableReferenceExpression variable, TypeSignature actual)
+        {
+            // UNKNOWN should be considered as a wildcard type, which matches all the other types
+            TypeManager typeManager = metadata.getTypeManager();
+            if (!actual.equals(UNKNOWN.getTypeSignature()) && !typeManager.isTypeOnlyCoercion(typeManager.getType(actual), variable.getType())) {
+                checkArgument(variable.getType().getTypeSignature().equals(actual), "type of variable '%s' is expected to be %s, but the actual type is %s", variable.getName(), variable.getType(), actual);
             }
         }
     }

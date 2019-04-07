@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -71,7 +72,7 @@ public class WindowFunctionMatcher
         FunctionCall expectedCall = callMaker.getExpectedValue(symbolAliases);
         Optional<WindowNode.Frame> expectedFrame = frameMaker.map(maker -> maker.getExpectedValue(symbolAliases));
 
-        List<Symbol> matchedOutputs = windowNode.getWindowFunctions().entrySet().stream()
+        List<VariableReferenceExpression> matchedOutputs = windowNode.getWindowFunctions().entrySet().stream()
                 .filter(assignment -> {
                     if (!expectedCall.getName().equals(QualifiedName.of(metadata.getFunctionManager().getFunctionMetadata(assignment.getValue().getFunctionCall().getFunctionHandle()).getName()))) {
                         return false;
@@ -113,7 +114,7 @@ public class WindowFunctionMatcher
         if (matchedOutputs.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(matchedOutputs.get(0));
+        return Optional.of(new Symbol(matchedOutputs.get(0).getName()));
     }
 
     @Override
