@@ -16,12 +16,15 @@ package com.facebook.presto.raptor;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -39,6 +42,7 @@ public class RaptorSplit
     private final List<HostAddress> addresses;
     private final TupleDomain<RaptorColumnHandle> effectivePredicate;
     private final OptionalLong transactionId;
+    private final Optional<Map<String, Type>> columnTypes;
 
     @JsonCreator
     public RaptorSplit(
@@ -46,9 +50,10 @@ public class RaptorSplit
             @JsonProperty("shardUuids") Set<UUID> shardUuids,
             @JsonProperty("bucketNumber") OptionalInt bucketNumber,
             @JsonProperty("effectivePredicate") TupleDomain<RaptorColumnHandle> effectivePredicate,
-            @JsonProperty("transactionId") OptionalLong transactionId)
+            @JsonProperty("transactionId") OptionalLong transactionId,
+            @JsonProperty("columnTypes") Optional<Map<String, Type>> columnTypes)
     {
-        this(connectorId, shardUuids, bucketNumber, ImmutableList.of(), effectivePredicate, transactionId);
+        this(connectorId, shardUuids, bucketNumber, ImmutableList.of(), effectivePredicate, transactionId, columnTypes);
     }
 
     public RaptorSplit(
@@ -56,9 +61,10 @@ public class RaptorSplit
             UUID shardUuid,
             List<HostAddress> addresses,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
-            OptionalLong transactionId)
+            OptionalLong transactionId,
+            Optional<Map<String, Type>> columnTypes)
     {
-        this(connectorId, ImmutableSet.of(shardUuid), OptionalInt.empty(), addresses, effectivePredicate, transactionId);
+        this(connectorId, ImmutableSet.of(shardUuid), OptionalInt.empty(), addresses, effectivePredicate, transactionId, columnTypes);
     }
 
     public RaptorSplit(
@@ -67,9 +73,10 @@ public class RaptorSplit
             int bucketNumber,
             HostAddress address,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
-            OptionalLong transactionId)
+            OptionalLong transactionId,
+            Optional<Map<String, Type>> columnTypes)
     {
-        this(connectorId, shardUuids, OptionalInt.of(bucketNumber), ImmutableList.of(address), effectivePredicate, transactionId);
+        this(connectorId, shardUuids, OptionalInt.of(bucketNumber), ImmutableList.of(address), effectivePredicate, transactionId, columnTypes);
     }
 
     private RaptorSplit(
@@ -78,7 +85,8 @@ public class RaptorSplit
             OptionalInt bucketNumber,
             List<HostAddress> addresses,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
-            OptionalLong transactionId)
+            OptionalLong transactionId,
+            Optional<Map<String, Type>> columnTypes)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.shardUuids = ImmutableSet.copyOf(requireNonNull(shardUuids, "shardUuid is null"));
@@ -86,6 +94,7 @@ public class RaptorSplit
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
         this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
+        this.columnTypes = requireNonNull(columnTypes, "columnTypes is null");
     }
 
     @Override
@@ -128,6 +137,12 @@ public class RaptorSplit
     public OptionalLong getTransactionId()
     {
         return transactionId;
+    }
+
+    @JsonProperty
+    public Optional<Map<String, Type>> getColumnTypes()
+    {
+        return columnTypes;
     }
 
     @Override

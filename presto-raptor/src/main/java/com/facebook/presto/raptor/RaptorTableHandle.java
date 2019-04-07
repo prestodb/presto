@@ -14,9 +14,11 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -39,6 +41,7 @@ public final class RaptorTableHandle
     private final OptionalInt bucketCount;
     private final boolean organized;
     private final OptionalLong transactionId;
+    private final Optional<Map<String, Type>> columnTypes;
     private final boolean delete;
 
     @JsonCreator
@@ -52,6 +55,7 @@ public final class RaptorTableHandle
             @JsonProperty("bucketCount") OptionalInt bucketCount,
             @JsonProperty("organized") boolean organized,
             @JsonProperty("transactionId") OptionalLong transactionId,
+            @JsonProperty("columnTypes") Optional<Map<String, Type>> columnTypes,
             @JsonProperty("delete") boolean delete)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
@@ -66,6 +70,7 @@ public final class RaptorTableHandle
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
         this.organized = organized;
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
+        this.columnTypes = requireNonNull(columnTypes, "columnTypes is null");
 
         this.delete = delete;
     }
@@ -127,6 +132,12 @@ public final class RaptorTableHandle
     public OptionalLong getTransactionId()
     {
         return transactionId;
+    }
+
+    @JsonProperty
+    public Optional<Map<String, Type>> getColumnTypes()
+    {
+        return columnTypes;
     }
 
     @JsonProperty

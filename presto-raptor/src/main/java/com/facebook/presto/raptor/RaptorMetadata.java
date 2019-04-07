@@ -75,6 +75,7 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongConsumer;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.raptor.RaptorBucketFunction.validateBucketType;
 import static com.facebook.presto.raptor.RaptorColumnHandle.BUCKET_NUMBER_COLUMN_NAME;
@@ -188,6 +189,7 @@ public class RaptorMetadata
                 table.getBucketCount(),
                 table.isOrganized(),
                 OptionalLong.empty(),
+                Optional.empty(),
                 false);
     }
 
@@ -775,6 +777,8 @@ public class RaptorMetadata
 
         setTransactionId(transactionId);
 
+        Map<String, Type> columnTypes = dao.listTableColumns(handle.getTableId()).stream().collect(Collectors.toMap(k -> String.valueOf(k.getColumnId()), TableColumn::getDataType));
+
         return new RaptorTableHandle(
                 connectorId,
                 handle.getSchemaName(),
@@ -785,6 +789,7 @@ public class RaptorMetadata
                 handle.getBucketCount(),
                 handle.isOrganized(),
                 OptionalLong.of(transactionId),
+                Optional.of(columnTypes),
                 true);
     }
 
