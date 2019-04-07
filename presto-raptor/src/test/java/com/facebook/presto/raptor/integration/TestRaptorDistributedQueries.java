@@ -11,29 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor;
+package com.facebook.presto.raptor.integration;
 
+import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.Test;
 
 import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
 
-public class TestRaptorIntegrationSmokeTestBucketed
-        extends TestRaptorIntegrationSmokeTest
+public class TestRaptorDistributedQueries
+        extends AbstractTestDistributedQueries
 {
-    public TestRaptorIntegrationSmokeTestBucketed()
+    @SuppressWarnings("unused")
+    public TestRaptorDistributedQueries()
     {
-        super(() -> createRaptorQueryRunner(ImmutableMap.of(), true, true));
+        this(() -> createRaptorQueryRunner(ImmutableMap.of(), true, false, ImmutableMap.of("storage.orc.optimized-writer-stage", "ENABLED_AND_VALIDATED")));
     }
 
-    @Test
-    public void testShardsSystemTableBucketNumber()
+    protected TestRaptorDistributedQueries(QueryRunnerSupplier supplier)
     {
-        assertQuery("" +
-                        "SELECT count(DISTINCT bucket_number)\n" +
-                        "FROM system.shards\n" +
-                        "WHERE table_schema = 'tpch'\n" +
-                        "  AND table_name = 'orders'",
-                "SELECT 25");
+        super(supplier);
+    }
+
+    @Override
+    protected boolean supportsNotNullColumns()
+    {
+        return false;
     }
 }

@@ -11,30 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor;
+package com.facebook.presto.raptor.integration;
 
-import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
 
 import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
 
-public class TestRaptorDistributedQueries
-        extends AbstractTestDistributedQueries
+public class TestRaptorIntegrationSmokeTestWithOptimizedWriter
+        extends TestRaptorIntegrationSmokeTest
 {
     @SuppressWarnings("unused")
-    public TestRaptorDistributedQueries()
+    public TestRaptorIntegrationSmokeTestWithOptimizedWriter()
     {
-        this(() -> createRaptorQueryRunner(ImmutableMap.of(), true, false));
+        this(() -> createRaptorQueryRunner(ImmutableMap.of(), true, false, ImmutableMap.of("storage.orc.optimized-writer-stage", "ENABLED_AND_VALIDATED")));
     }
 
-    protected TestRaptorDistributedQueries(QueryRunnerSupplier supplier)
+    protected TestRaptorIntegrationSmokeTestWithOptimizedWriter(QueryRunnerSupplier supplier)
     {
         super(supplier);
-    }
-
-    @Override
-    protected boolean supportsNotNullColumns()
-    {
-        return false;
     }
 }

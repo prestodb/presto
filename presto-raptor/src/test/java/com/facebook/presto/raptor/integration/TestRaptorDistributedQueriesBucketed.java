@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor;
+package com.facebook.presto.raptor.integration;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -22,7 +22,7 @@ public class TestRaptorDistributedQueriesBucketed
 {
     public TestRaptorDistributedQueriesBucketed()
     {
-        super(() -> createRaptorQueryRunner(ImmutableMap.of(), true, true));
+        super(() -> createRaptorQueryRunner(ImmutableMap.of(), true, true, ImmutableMap.of("storage.orc.optimized-writer-stage", "ENABLED_AND_VALIDATED")));
     }
 
     @Override
