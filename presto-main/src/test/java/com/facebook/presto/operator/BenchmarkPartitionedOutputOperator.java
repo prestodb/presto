@@ -45,6 +45,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
+import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -212,12 +213,20 @@ public class BenchmarkPartitionedOutputOperator
         }
     }
 
+    @Test
+    public void verify()
+    {
+        BenchmarkData data = new BenchmarkData();
+        new BenchmarkPartitionedOutputOperator().addPage(data);
+    }
+
     public static void main(String[] args)
             throws RunnerException
     {
         // assure the benchmarks are valid before running
         BenchmarkData data = new BenchmarkData();
         new BenchmarkPartitionedOutputOperator().addPage(data);
+
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
                 .jvmArgs("-Xmx10g")
