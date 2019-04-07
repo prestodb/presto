@@ -24,6 +24,8 @@ import javax.validation.constraints.NotNull;
 import java.io.File;
 import java.util.Map;
 
+import static com.facebook.presto.raptor.storage.StorageManagerConfig.OrcOptimizedWriterStage.DISABLED;
+import static com.facebook.presto.raptor.storage.StorageManagerConfig.OrcOptimizedWriterStage.ENABLED_AND_VALIDATED;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
@@ -52,6 +54,7 @@ public class TestStorageManagerConfig
                 .setOrcStreamBufferSize(new DataSize(8, MEGABYTE))
                 .setOrcTinyStripeThreshold(new DataSize(8, MEGABYTE))
                 .setOrcLazyReadSmallRanges(true)
+                .setOrcOptimizedWriterStage(DISABLED)
                 .setDeletionThreads(max(1, getRuntime().availableProcessors() / 2))
                 .setShardRecoveryTimeout(new Duration(30, SECONDS))
                 .setMissingShardDiscoveryInterval(new Duration(5, MINUTES))
@@ -81,6 +84,7 @@ public class TestStorageManagerConfig
                 .put("storage.orc.stream-buffer-size", "16kB")
                 .put("storage.orc.tiny-stripe-threshold", "15kB")
                 .put("storage.orc.lazy-read-small-ranges", "false")
+                .put("storage.orc.optimized-writer-stage", "ENABLED_AND_VALIDATED")
                 .put("storage.max-deletion-threads", "999")
                 .put("storage.shard-recovery-timeout", "1m")
                 .put("storage.missing-shard-discovery-interval", "4m")
@@ -107,6 +111,7 @@ public class TestStorageManagerConfig
                 .setOrcStreamBufferSize(new DataSize(16, KILOBYTE))
                 .setOrcTinyStripeThreshold(new DataSize(15, KILOBYTE))
                 .setOrcLazyReadSmallRanges(false)
+                .setOrcOptimizedWriterStage(ENABLED_AND_VALIDATED)
                 .setDeletionThreads(999)
                 .setShardRecoveryTimeout(new Duration(1, MINUTES))
                 .setMissingShardDiscoveryInterval(new Duration(4, MINUTES))

@@ -19,6 +19,7 @@ import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcRecordReader;
+import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.metadata.OrcType;
@@ -32,6 +33,7 @@ import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardRecorder;
 import com.facebook.presto.raptor.storage.OrcFileRewriter.OrcFileInfo;
+import com.facebook.presto.raptor.storage.StorageManagerConfig.OrcOptimizedWriterStage;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Page;
@@ -55,6 +57,7 @@ import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.joda.time.DateTimeZone;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -99,6 +102,8 @@ import static com.facebook.presto.raptor.storage.OrcPageSource.NULL_COLUMN;
 import static com.facebook.presto.raptor.storage.OrcPageSource.ROWID_COLUMN;
 import static com.facebook.presto.raptor.storage.OrcPageSource.SHARD_UUID_COLUMN;
 import static com.facebook.presto.raptor.storage.ShardStats.computeColumnStats;
+import static com.facebook.presto.raptor.storage.StorageManagerConfig.OrcOptimizedWriterStage.ENABLED;
+import static com.facebook.presto.raptor.storage.StorageManagerConfig.OrcOptimizedWriterStage.ENABLED_AND_VALIDATED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.CharType.createCharType;
@@ -151,9 +156,11 @@ public class OrcStorageManager
     private final long maxShardRows;
     private final DataSize maxShardSize;
     private final DataSize minAvailableSpace;
+    private final OrcOptimizedWriterStage orcOptimizedWriterStage;
     private final TypeManager typeManager;
     private final ExecutorService deletionExecutor;
     private final ExecutorService commitExecutor;
+    private final OrcWriterStats stats = new OrcWriterStats();
 
     @Inject
     public OrcStorageManager(
@@ -181,7 +188,8 @@ public class OrcStorageManager
                 config.getShardRecoveryTimeout(),
                 config.getMaxShardRows(),
                 config.getMaxShardSize(),
-                config.getMinAvailableSpace());
+                config.getMinAvailableSpace(),
+                config.getOrcOptimizedWriterStage());
     }
 
     public OrcStorageManager(
@@ -198,7 +206,8 @@ public class OrcStorageManager
             Duration shardRecoveryTimeout,
             long maxShardRows,
             DataSize maxShardSize,
-            DataSize minAvailableSpace)
+            DataSize minAvailableSpace,
+            OrcOptimizedWriterStage orcOptimizedWriterStage)
     {
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.storageService = requireNonNull(storageService, "storageService is null");
@@ -217,6 +226,7 @@ public class OrcStorageManager
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.deletionExecutor = newFixedThreadPool(deletionThreads, daemonThreadsNamed("raptor-delete-" + connectorId + "-%s"));
         this.commitExecutor = newCachedThreadPool(daemonThreadsNamed("raptor-commit-" + connectorId + "-%s"));
+        this.orcOptimizedWriterStage = requireNonNull(orcOptimizedWriterStage, "orcOptimizedWriterStage is null");
     }
 
     @PreDestroy
@@ -573,7 +583,11 @@ public class OrcStorageManager
         private FileWriter writer;
         private UUID shardUuid;
 
-        public OrcStoragePageSink(long transactionId, List<Long> columnIds, List<Type> columnTypes, OptionalInt bucketNumber)
+        public OrcStoragePageSink(
+                long transactionId,
+                List<Long> columnIds,
+                List<Type> columnTypes,
+                OptionalInt bucketNumber)
         {
             this.transactionId = transactionId;
             this.columnIds = ImmutableList.copyOf(requireNonNull(columnIds, "columnIds is null"));
@@ -688,7 +702,12 @@ public class OrcStorageManager
                 File stagingFile = storageService.getStagingFile(shardUuid);
                 storageService.createParents(stagingFile);
                 stagingFiles.add(stagingFile);
-                writer = new OrcRecordWriter(columnIds, columnTypes, stagingFile);
+                if (orcOptimizedWriterStage.ordinal() >= ENABLED.ordinal()) {
+                    writer = new OrcFileWriter(columnIds, columnTypes, stagingFile, orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED), stats, typeManager);
+                }
+                else {
+                    writer = new OrcRecordWriter(columnIds, columnTypes, stagingFile);
+                }
             }
         }
     }

@@ -18,6 +18,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.VarbinaryType;
@@ -295,6 +296,9 @@ public class OrcRecordWriter
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
             return StorageType.decimal(decimalType.getPrecision(), decimalType.getScale());
+        }
+        if (type instanceof TimestampWithTimeZoneType) {
+            throw new PrestoException(NOT_SUPPORTED, "The current ORC writer does not support type: " + type);
         }
         Class<?> javaType = type.getJavaType();
         if (javaType == boolean.class) {

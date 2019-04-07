@@ -18,9 +18,13 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.RowType;
+import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlTime;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -31,22 +35,34 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
+import org.joda.time.DateTime;
+import org.joda.time.Days;
+import org.joda.time.chrono.ISOChronology;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.List;
 
+import static com.facebook.presto.raptor.storage.OrcTestingUtil.createFileWriter;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.createReader;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.createReaderNoRows;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.fileOrcDataSource;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.octets;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.tests.StructuralTestUtil.arrayBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.arrayBlocksEqual;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
@@ -57,15 +73,25 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestShardWriter
 {
     private File directory;
 
     private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
+
+    @DataProvider(name = "useOptimizedOrcWriter")
+    public static Object[][] useOptimizedOrcWriter()
+    {
+        return new Object[][] {{true}, {false}};
+    }
 
     @BeforeClass
     public void setup()
@@ -80,33 +106,37 @@ public class TestShardWriter
         deleteRecursively(directory.toPath(), ALLOW_INSECURE);
     }
 
-    @Test
-    public void testWriter()
+    @Test(dataProvider = "useOptimizedOrcWriter")
+    public void testWriter(boolean useOptimizedOrcWriter)
             throws Exception
     {
         TypeManager typeManager = new TypeRegistry();
         // associate typeManager with a function manager
         new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
 
-        List<Long> columnIds = ImmutableList.of(1L, 2L, 4L, 6L, 7L, 8L, 9L, 10L);
+        List<Long> columnIds = ImmutableList.of(1L, 2L, 4L, 6L, 7L, 8L, 9L, 10L, 11L, 12L, 13L);
         ArrayType arrayType = new ArrayType(BIGINT);
         ArrayType arrayOfArrayType = new ArrayType(arrayType);
         Type mapType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.of(createVarcharType(10).getTypeSignature()),
                 TypeSignatureParameter.of(BOOLEAN.getTypeSignature())));
-        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10), VARBINARY, DOUBLE, BOOLEAN, arrayType, mapType, arrayOfArrayType);
+        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10), VARBINARY, DOUBLE, BOOLEAN, arrayType, mapType, arrayOfArrayType, TIMESTAMP, TIME, DATE);
         File file = new File(directory, System.nanoTime() + ".orc");
 
         byte[] bytes1 = octets(0x00, 0xFE, 0xFF);
         byte[] bytes3 = octets(0x01, 0x02, 0x19, 0x80);
 
+        long timestampValue = sqlTimestampOf(2002, 4, 6, 7, 8, 9, 0, UTC, UTC_KEY, SESSION).getMillisUtc();
+        long timeValue = new SqlTime(NANOSECONDS.toMillis(new DateTime(2004, 11, 29, 0, 0, 0, 0, UTC).toLocalTime().getMillisOfDay())).getMillis();
+        DateTime date = new DateTime(2001, 11, 22, 0, 0, 0, 0, UTC);
+        int dateValue = new SqlDate(Days.daysBetween(new DateTime(0, ISOChronology.getInstanceUTC()), date).getDays()).getDays();
         RowPagesBuilder rowPagesBuilder = RowPagesBuilder.rowPagesBuilder(columnTypes)
-                .row(123L, "hello", wrappedBuffer(bytes1), 123.456, true, arrayBlockOf(BIGINT, 1, 2), mapBlockOf(createVarcharType(5), BOOLEAN, "k1", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5)))
-                .row(null, "world", null, Double.POSITIVE_INFINITY, null, arrayBlockOf(BIGINT, 3, null), mapBlockOf(createVarcharType(5), BOOLEAN, "k2", null), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 6, 7)))
-                .row(456L, "bye \u2603", wrappedBuffer(bytes3), Double.NaN, false, arrayBlockOf(BIGINT), mapBlockOf(createVarcharType(5), BOOLEAN, "k3", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT)));
+                .row(123L, "hello", wrappedBuffer(bytes1), 123.456, true, arrayBlockOf(BIGINT, 1, 2), mapBlockOf(createVarcharType(5), BOOLEAN, "k1", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5)), timestampValue, timeValue, dateValue)
+                .row(null, "world", null, Double.POSITIVE_INFINITY, null, arrayBlockOf(BIGINT, 3, null), mapBlockOf(createVarcharType(5), BOOLEAN, "k2", null), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 6, 7)), timestampValue, timeValue, dateValue)
+                .row(456L, "bye \u2603", wrappedBuffer(bytes3), Double.NaN, false, arrayBlockOf(BIGINT), mapBlockOf(createVarcharType(5), BOOLEAN, "k3", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT)), timestampValue, timeValue, dateValue);
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(new EmptyClassLoader());
-                FileWriter writer = new OrcRecordWriter(columnIds, columnTypes, file)) {
+                FileWriter writer = createFileWriter(columnIds, columnTypes, file, useOptimizedOrcWriter)) {
             writer.appendPages(rowPagesBuilder.build());
         }
 
@@ -176,6 +206,21 @@ public class TestShardWriter
             assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column7, 1), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 6, 7))));
             assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column7, 2), arrayBlockOf(arrayType, arrayBlockOf(BIGINT))));
 
+            Block column8 = reader.readBlock(TIMESTAMP, 8);
+            assertEquals(TIMESTAMP.getLong(column8, 0), timestampValue);
+            assertEquals(TIMESTAMP.getLong(column8, 1), timestampValue);
+            assertEquals(TIMESTAMP.getLong(column8, 2), timestampValue);
+
+            Block column9 = reader.readBlock(TIME, 9);
+            assertEquals(TIME.getLong(column9, 0), timeValue);
+            assertEquals(TIME.getLong(column9, 1), timeValue);
+            assertEquals(TIME.getLong(column9, 2), timeValue);
+
+            Block column10 = reader.readBlock(DATE, 10);
+            assertEquals(DATE.getLong(column10, 0), dateValue);
+            assertEquals(DATE.getLong(column10, 1), dateValue);
+            assertEquals(DATE.getLong(column10, 2), dateValue);
+
             assertEquals(reader.nextBatch(), -1);
             assertEquals(reader.getReaderPosition(), 3);
             assertEquals(reader.getFilePosition(), reader.getFilePosition());
@@ -190,11 +235,25 @@ public class TestShardWriter
                     .put(8L, arrayType.getTypeSignature())
                     .put(9L, mapType.getTypeSignature())
                     .put(10L, arrayOfArrayType.getTypeSignature())
+                    .put(11L, TIMESTAMP.getTypeSignature())
+                    .put(12L, TIME.getTypeSignature())
+                    .put(13L, DATE.getTypeSignature())
                     .build()));
         }
 
         File crcFile = new File(file.getParentFile(), "." + file.getName() + ".crc");
         assertFalse(crcFile.exists());
+
+        // Test unsupported types
+        for (Type type : ImmutableList.of(TIMESTAMP_WITH_TIME_ZONE, RowType.anonymous(ImmutableList.of(BIGINT, DOUBLE)))) {
+            try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(new EmptyClassLoader())) {
+                createFileWriter(ImmutableList.of(1L), ImmutableList.of(type), file, useOptimizedOrcWriter);
+                fail();
+            }
+            catch (PrestoException e) {
+                assertTrue(e.getMessage().toLowerCase(ENGLISH).contains("type"));
+            }
+        }
     }
 
     @SuppressWarnings("EmptyTryBlock")
@@ -207,12 +266,25 @@ public class TestShardWriter
 
         File file = new File(directory, System.nanoTime() + ".orc");
 
-        try (OrcRecordWriter ignored = new OrcRecordWriter(columnIds, columnTypes, file)) {
+        try (FileWriter ignored = createFileWriter(columnIds, columnTypes, file, false)) {
             // no rows
         }
 
         try (OrcDataSource dataSource = fileOrcDataSource(file)) {
             OrcRecordReader reader = createReaderNoRows(dataSource);
+            assertEquals(reader.getReaderRowCount(), 0);
+            assertEquals(reader.getReaderPosition(), 0);
+
+            assertEquals(reader.nextBatch(), -1);
+        }
+
+        // optimized ORC writer will flush metadata on close
+        try (FileWriter ignored = createFileWriter(columnIds, columnTypes, file, true)) {
+            // no rows
+        }
+
+        try (OrcDataSource dataSource = fileOrcDataSource(file)) {
+            OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
             assertEquals(reader.getReaderRowCount(), 0);
             assertEquals(reader.getReaderPosition(), 0);
 

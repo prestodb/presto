@@ -33,6 +33,7 @@ import java.io.File;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.raptor.storage.StorageManagerConfig.OrcOptimizedWriterStage.DISABLED;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.max;
@@ -53,6 +54,7 @@ public class StorageManagerConfig
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcTinyStripeThreshold = new DataSize(8, MEGABYTE);
     private boolean orcLazyReadSmallRanges = true;
+    private OrcOptimizedWriterStage orcOptimizedWriterStage = DISABLED;
     private int deletionThreads = max(1, getRuntime().availableProcessors() / 2);
     private int recoveryThreads = 10;
     private int organizationThreads = 5;
@@ -158,6 +160,23 @@ public class StorageManagerConfig
     public StorageManagerConfig setOrcLazyReadSmallRanges(boolean orcLazyReadSmallRanges)
     {
         this.orcLazyReadSmallRanges = orcLazyReadSmallRanges;
+        return this;
+    }
+
+    public enum OrcOptimizedWriterStage
+    {
+        DISABLED, ENABLED, ENABLED_AND_VALIDATED
+    }
+
+    public OrcOptimizedWriterStage getOrcOptimizedWriterStage()
+    {
+        return orcOptimizedWriterStage;
+    }
+
+    @Config("storage.orc.optimized-writer-stage")
+    public StorageManagerConfig setOrcOptimizedWriterStage(OrcOptimizedWriterStage orcOptimizedWriterStage)
+    {
+        this.orcOptimizedWriterStage = orcOptimizedWriterStage;
         return this;
     }
 
