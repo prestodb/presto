@@ -317,6 +317,7 @@ public class PickTableLayout
                             node.getId(),
                             node.getTable(),
                             node.getOutputSymbols(),
+                            node.getOutputVariables(),
                             node.getAssignments(),
                             Optional.of(layout.getLayout().getHandle()),
                             layout.getLayout().getPredicate(),

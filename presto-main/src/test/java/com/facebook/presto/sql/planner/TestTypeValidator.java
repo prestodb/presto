@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -47,6 +48,7 @@ import com.google.common.collect.ListMultimap;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -91,6 +93,13 @@ public class TestTypeValidator
         columnD = symbolAllocator.newSymbol("d", DATE);
         columnE = symbolAllocator.newSymbol("e", VarcharType.createVarcharType(3));  // varchar(3), to test type only coercion
 
+        List<VariableReferenceExpression> variables = ImmutableList.of(
+                new VariableReferenceExpression(columnA.getName(), BIGINT),
+                new VariableReferenceExpression(columnB.getName(), INTEGER),
+                new VariableReferenceExpression(columnC.getName(), DOUBLE),
+                new VariableReferenceExpression(columnD.getName(), DATE),
+                new VariableReferenceExpression(columnE.getName(), VarcharType.createVarcharType(3)));
+
         Map<Symbol, ColumnHandle> assignments = ImmutableMap.<Symbol, ColumnHandle>builder()
                 .put(columnA, new TestingColumnHandle("a"))
                 .put(columnB, new TestingColumnHandle("b"))
@@ -103,6 +112,7 @@ public class TestTypeValidator
                 newId(),
                 TEST_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
+                variables,
                 assignments,
                 Optional.empty(),
                 TupleDomain.all(),

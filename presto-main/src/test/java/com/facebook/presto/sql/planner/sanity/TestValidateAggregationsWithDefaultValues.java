@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -56,6 +57,7 @@ public class TestValidateAggregationsWithDefaultValues
     private Metadata metadata;
     private PlanBuilder builder;
     private Symbol symbol;
+    private VariableReferenceExpression variable;
     private TableScanNode tableScanNode;
 
     @BeforeClass
@@ -72,7 +74,8 @@ public class TestValidateAggregationsWithDefaultValues
                 new TpchTableLayoutHandle((TpchTableHandle) nationTableHandle.getConnectorHandle(), TupleDomain.all()));
         TpchColumnHandle nationkeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
         symbol = new Symbol("nationkey");
-        tableScanNode = builder.tableScan(nationTableHandle, ImmutableList.of(symbol), ImmutableMap.of(symbol, nationkeyColumnHandle), Optional.of(nationTableLayoutHandle));
+        variable = new VariableReferenceExpression("nationkey", BIGINT);
+        tableScanNode = builder.tableScan(nationTableHandle, ImmutableList.of(symbol), ImmutableList.of(variable), ImmutableMap.of(symbol, nationkeyColumnHandle), Optional.of(nationTableLayoutHandle));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Final aggregation with default value not separated from partial aggregation by remote hash exchange")

@@ -17,6 +17,7 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.StageExecutionDescriptor;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -43,6 +44,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -182,10 +184,12 @@ public class TestPhasedExecutionSchedule
     private static PlanFragment createBroadcastJoinPlanFragment(String name, PlanFragment buildFragment)
     {
         Symbol symbol = new Symbol("column");
+        VariableReferenceExpression variable = new VariableReferenceExpression("column", BIGINT);
         PlanNode tableScan = new TableScanNode(
                 new PlanNodeId(name),
                 new TableHandle(new ConnectorId("test"), new TestingTableHandle()),
                 ImmutableList.of(symbol),
+                ImmutableList.of(variable),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")));
 
         RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), Optional.empty(), REPLICATE);
@@ -232,10 +236,12 @@ public class TestPhasedExecutionSchedule
     private static PlanFragment createTableScanPlanFragment(String name)
     {
         Symbol symbol = new Symbol("column");
+        VariableReferenceExpression variable = new VariableReferenceExpression("column", BIGINT);
         PlanNode planNode = new TableScanNode(
                 new PlanNodeId(name),
                 new TableHandle(new ConnectorId("test"), new TestingTableHandle()),
                 ImmutableList.of(symbol),
+                ImmutableList.of(variable),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")));
 
         return createFragment(planNode);

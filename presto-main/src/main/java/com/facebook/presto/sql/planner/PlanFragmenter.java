@@ -41,6 +41,7 @@ import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
@@ -465,6 +466,7 @@ public class PlanFragmenter
             TableScanNode scan = createTemporaryTableScan(
                     temporaryTableHandle,
                     exchange.getOutputSymbols(),
+                    exchange.getOutputVariables(),
                     symbolToColumnMap,
                     partitioningMetadata);
 
@@ -526,6 +528,7 @@ public class PlanFragmenter
         private TableScanNode createTemporaryTableScan(
                 TableHandle tableHandle,
                 List<Symbol> outputSymbols,
+                List<VariableReferenceExpression> outputVariables,
                 Map<Symbol, ColumnMetadata> symbolToColumnMap,
                 PartitioningMetadata expectedPartitioningMetadata)
         {
@@ -557,6 +560,7 @@ public class PlanFragmenter
                     idAllocator.getNextId(),
                     tableHandle,
                     outputSymbols,
+                    outputVariables,
                     assignments,
                     Optional.of(layoutHandle),
                     TupleDomain.all(),
@@ -1071,6 +1075,7 @@ public class PlanFragmenter
                     node.getId(),
                     node.getTable(),
                     node.getOutputSymbols(),
+                    node.getOutputVariables(),
                     node.getAssignments(),
                     Optional.of(newTableLayoutHandle),
                     node.getCurrentConstraint(),

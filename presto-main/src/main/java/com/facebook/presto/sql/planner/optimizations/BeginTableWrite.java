@@ -209,6 +209,7 @@ public class BeginTableWrite
                         scan.getId(),
                         handle,
                         scan.getOutputSymbols(),
+                        scan.getOutputVariables(),
                         scan.getAssignments(),
                         Optional.of(layoutResult.getLayout().getHandle()),
                         layoutResult.getLayout().getPredicate(),

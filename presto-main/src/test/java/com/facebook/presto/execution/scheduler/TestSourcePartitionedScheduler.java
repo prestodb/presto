@@ -38,6 +38,7 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.split.ConnectorAwareSplitSource;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.Partitioning;
@@ -77,6 +78,7 @@ import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEm
 import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -452,12 +454,14 @@ public class TestSourcePartitionedScheduler
     private static SubPlan createPlan()
     {
         Symbol symbol = new Symbol("column");
+        VariableReferenceExpression variable = new VariableReferenceExpression("column", BIGINT);
 
         // table scan with splitCount splits
         TableScanNode tableScan = new TableScanNode(
                 TABLE_SCAN_NODE_ID,
                 new TableHandle(CONNECTOR_ID, new TestingTableHandle()),
                 ImmutableList.of(symbol),
+                ImmutableList.of(variable),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")));
 
         RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("remote_id"), new PlanFragmentId(0), ImmutableList.of(), Optional.empty(), GATHER);

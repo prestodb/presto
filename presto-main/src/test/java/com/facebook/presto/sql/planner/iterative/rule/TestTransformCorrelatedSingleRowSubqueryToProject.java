@@ -15,6 +15,8 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -45,19 +47,22 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
     public void testRewrite()
     {
         tester().assertThat(new TransformCorrelatedSingleRowSubqueryToProject())
-                .on(p ->
-                        p.lateral(
-                                ImmutableList.of(p.symbol("l_nationkey")),
-                                p.tableScan(new TableHandle(
-                                                new ConnectorId("local"),
-                                                new TpchTableHandle("nation", TINY_SCALE_FACTOR)), ImmutableList.of(p.symbol("l_nationkey")),
-                                        ImmutableMap.of(p.symbol("l_nationkey"), new TpchColumnHandle("nationkey",
-                                                BIGINT))),
-                                p.project(
-                                        Assignments.of(p.symbol("l_expr2"), expression("l_nationkey + 1")),
-                                        p.values(
-                                                ImmutableList.of(),
-                                                ImmutableList.of(ImmutableList.of())))))
+                .on(p -> {
+                    Symbol nationkey = p.symbol("l_nationkey");
+                    VariableReferenceExpression nationkeyVariable = p.variable(nationkey);
+                    return p.lateral(
+                            ImmutableList.of(p.symbol("l_nationkey")),
+                            p.tableScan(
+                                    new TableHandle(new ConnectorId("local"), new TpchTableHandle("nation", TINY_SCALE_FACTOR)),
+                                    ImmutableList.of(nationkey),
+                                    ImmutableList.of(nationkeyVariable),
+                                    ImmutableMap.of(p.symbol("l_nationkey"), new TpchColumnHandle("nationkey", BIGINT))),
+                            p.project(
+                                    Assignments.of(p.symbol("l_expr2"), expression("l_nationkey + 1")),
+                                    p.values(
+                                            ImmutableList.of(),
+                                            ImmutableList.of(ImmutableList.of()))));
+                })
                 .matches(project(
                         ImmutableMap.of(
                                 ("l_expr2"), PlanMatchPattern.expression("l_nationkey + 1"),

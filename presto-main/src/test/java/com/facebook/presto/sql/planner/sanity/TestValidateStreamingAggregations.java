@@ -76,6 +76,7 @@ public class TestValidateStreamingAggregations
                                         p.tableScan(
                                                 nationTableHandle,
                                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                                ImmutableList.of(p.variable(p.symbol("nationkey", BIGINT))),
                                                 ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
                                                 Optional.of(nationTableLayoutHandle)))));
 
@@ -89,6 +90,7 @@ public class TestValidateStreamingAggregations
                                                 p.tableScan(
                                                         nationTableHandle,
                                                         ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                                        ImmutableList.of(p.variable(p.symbol("nationkey", BIGINT))),
                                                         ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
                                                         Optional.of(nationTableLayoutHandle))))));
     }
@@ -105,6 +107,7 @@ public class TestValidateStreamingAggregations
                                         p.tableScan(
                                                 nationTableHandle,
                                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                                ImmutableList.of(p.variable(p.symbol("nationkey", BIGINT))),
                                                 ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
                                                 Optional.of(nationTableLayoutHandle)))));
     }

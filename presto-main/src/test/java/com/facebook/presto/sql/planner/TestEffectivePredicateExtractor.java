@@ -23,6 +23,7 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -98,6 +99,13 @@ public class TestEffectivePredicateExtractor
     private static final Symbol E = new Symbol("e");
     private static final Symbol F = new Symbol("f");
     private static final Symbol G = new Symbol("g");
+    private static final VariableReferenceExpression AV = new VariableReferenceExpression("a", BIGINT);
+    private static final VariableReferenceExpression BV = new VariableReferenceExpression("b", BIGINT);
+    private static final VariableReferenceExpression CV = new VariableReferenceExpression("c", BIGINT);
+    private static final VariableReferenceExpression DV = new VariableReferenceExpression("d", BIGINT);
+    private static final VariableReferenceExpression EV = new VariableReferenceExpression("e", BIGINT);
+    private static final VariableReferenceExpression FV = new VariableReferenceExpression("f", BIGINT);
+    private static final VariableReferenceExpression GV = new VariableReferenceExpression("g", BIGINT);
     private static final Expression AE = A.toSymbolReference();
     private static final Expression BE = B.toSymbolReference();
     private static final Expression CE = C.toSymbolReference();
@@ -130,6 +138,7 @@ public class TestEffectivePredicateExtractor
                 newId(),
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
+                ImmutableList.of(AV, BV, CV, DV, EV, FV),
                 assignments);
 
         expressionNormalizer = new ExpressionIdentityNormalizer();
@@ -325,6 +334,7 @@ public class TestEffectivePredicateExtractor
                 newId(),
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
+                ImmutableList.of(AV, BV, CV, DV),
                 assignments);
         Expression effectivePredicate = effectivePredicateExtractor.extract(node);
         assertEquals(effectivePredicate, BooleanLiteral.TRUE_LITERAL);
@@ -333,6 +343,7 @@ public class TestEffectivePredicateExtractor
                 newId(),
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
+                ImmutableList.of(AV, BV, CV, DV),
                 assignments,
                 Optional.of(TESTING_TABLE_LAYOUT),
                 TupleDomain.none(),
@@ -344,6 +355,7 @@ public class TestEffectivePredicateExtractor
                 newId(),
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
+                ImmutableList.of(AV, BV, CV, DV),
                 assignments,
                 Optional.of(TESTING_TABLE_LAYOUT),
                 TupleDomain.withColumnDomains(ImmutableMap.of(scanAssignments.get(A), Domain.singleValue(BIGINT, 1L))),
@@ -355,6 +367,7 @@ public class TestEffectivePredicateExtractor
                 newId(),
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
+                ImmutableList.of(AV, BV, CV, DV),
                 assignments,
                 Optional.of(TESTING_TABLE_LAYOUT),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -368,6 +381,7 @@ public class TestEffectivePredicateExtractor
                 newId(),
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
+                ImmutableList.of(AV, BV, CV, DV),
                 assignments,
                 Optional.empty(),
                 TupleDomain.all(),
@@ -707,6 +721,7 @@ public class TestEffectivePredicateExtractor
                 newId(),
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(scanAssignments.keySet()),
+                ImmutableList.of(AV, BV, CV, DV, EV, FV),
                 scanAssignments,
                 Optional.empty(),
                 TupleDomain.all(),

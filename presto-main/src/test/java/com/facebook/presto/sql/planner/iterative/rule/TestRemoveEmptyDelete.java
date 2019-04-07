@@ -37,6 +37,7 @@ public class TestRemoveEmptyDelete
                         p.tableScan(
                                 new TableHandle(CONNECTOR_ID, new TpchTableHandle("nation", 1.0)),
                                 ImmutableList.of(),
+                                ImmutableList.of(),
                                 ImmutableMap.of()),
                         p.symbol("a", BigintType.BIGINT)))
                 .doesNotFire();
