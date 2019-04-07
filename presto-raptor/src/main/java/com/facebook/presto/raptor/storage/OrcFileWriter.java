@@ -51,8 +51,8 @@ import static java.util.Objects.requireNonNull;
 public class OrcFileWriter
         implements FileWriter
 {
+    public static final OrcWriterOptions DEFAULT_OPTION = new OrcWriterOptions();
     private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
-    private static final OrcWriterOptions DEFAULT_OPTION = new OrcWriterOptions();
 
     private final OrcWriter orcWriter;
 

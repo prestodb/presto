@@ -16,10 +16,14 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.orc.OrcDataSource;
+import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.OrcWriterStats;
+import com.facebook.presto.raptor.metadata.TableColumn;
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -31,7 +35,11 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Files;
 import io.airlift.json.JsonCodec;
+import io.airlift.units.DataSize;
+import org.skife.jdbi.v2.DBI;
+import org.skife.jdbi.v2.Handle;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -41,13 +49,22 @@ import java.io.File;
 import java.math.BigDecimal;
 import java.util.BitSet;
 import java.util.List;
+import java.util.Map;
+import java.util.OptionalInt;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.orc.OrcEncoding.ORC;
+import static com.facebook.presto.raptor.storage.FileStorageService.getFileSystemPath;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.createReader;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.fileOrcDataSource;
+import static com.facebook.presto.raptor.storage.TestOrcStorageManager.createOrcStorageManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.tests.StructuralTestUtil.arrayBlockOf;
@@ -59,15 +76,19 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.testing.Assertions.assertBetweenInclusive;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.nio.file.Files.readAllBytes;
 import static java.util.UUID.randomUUID;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestOrcFileRewriter
 {
+    private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
     private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
 
     private File temporary;
@@ -204,9 +225,9 @@ public class TestOrcFileRewriter
         rowsToDelete.set(4);
 
         File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = new OrcRecordFileRewriter().rewrite(file, newFile, rowsToDelete);
+        OrcFileInfo info = createFileRewriter(useOptimizedOrcWriter).rewrite(getColumnTypes(columnIds, columnTypes), file, newFile, rowsToDelete);
         assertEquals(info.getRowCount(), 2);
-        assertEquals(info.getUncompressedSize(), 94);
+        assertBetweenInclusive(info.getUncompressedSize(), 94L, 94L * 2);
 
         try (OrcDataSource dataSource = fileOrcDataSource(newFile)) {
             OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
@@ -319,9 +340,9 @@ public class TestOrcFileRewriter
         rowsToDelete.set(1);
 
         File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = new OrcRecordFileRewriter().rewrite(file, newFile, rowsToDelete);
+        OrcFileInfo info = createFileRewriter(useOptimizedOrcWriter).rewrite(getColumnTypes(columnIds, columnTypes), file, newFile, rowsToDelete);
         assertEquals(info.getRowCount(), 1);
-        assertEquals(info.getUncompressedSize(), 13);
+        assertBetweenInclusive(info.getUncompressedSize(), 13L, 13L * 2);
 
         try (OrcDataSource dataSource = fileOrcDataSource(newFile)) {
             OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
@@ -363,7 +384,7 @@ public class TestOrcFileRewriter
         rowsToDelete.set(1);
 
         File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = new OrcRecordFileRewriter().rewrite(file, newFile, rowsToDelete);
+        OrcFileInfo info = createFileRewriter(useOptimizedOrcWriter).rewrite(getColumnTypes(columnIds, columnTypes), file, newFile, rowsToDelete);
         assertEquals(info.getRowCount(), 0);
         assertEquals(info.getUncompressedSize(), 0);
 
@@ -385,14 +406,10 @@ public class TestOrcFileRewriter
         BitSet rowsToDelete = new BitSet();
 
         File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = new OrcRecordFileRewriter().rewrite(file, newFile, rowsToDelete);
+        OrcFileInfo info = createFileRewriter(useOptimizedOrcWriter).rewrite(getColumnTypes(columnIds, columnTypes), file, newFile, rowsToDelete);
         assertEquals(info.getRowCount(), 2);
-        assertEquals(info.getUncompressedSize(), 16);
-
-        // TODO: enable check for optimized ORC writer once the rewriter uses the optimized ORC writer as well
-        if (!useOptimizedOrcWriter) {
-            assertEquals(readAllBytes(newFile.toPath()), readAllBytes(file.toPath()));
-        }
+        assertBetweenInclusive(info.getUncompressedSize(), 16L, 16L * 2);
+        assertEquals(readAllBytes(newFile.toPath()), readAllBytes(file.toPath()));
     }
 
     @Test(dataProvider = "useOptimizedOrcWriter")
@@ -413,9 +430,258 @@ public class TestOrcFileRewriter
         }
 
         File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = new OrcRecordFileRewriter().rewrite(file, newFile, new BitSet());
+        OrcFileInfo info = createFileRewriter(useOptimizedOrcWriter).rewrite(getColumnTypes(columnIds, columnTypes), file, newFile, new BitSet());
         assertEquals(info.getRowCount(), 3);
-        assertEquals(info.getUncompressedSize(), 55);
+        assertBetweenInclusive(info.getUncompressedSize(), 55L, 55L * 2);
+    }
+
+    /**
+     * The following test add or drop different columns
+     */
+    @Test(dataProvider = "useOptimizedOrcWriter")
+    public void testRewriterDropThenAddDifferentColumns(boolean useOptimizedOrcWriter)
+            throws Exception
+    {
+        TypeRegistry typeRegistry = new TypeRegistry();
+        DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
+        Handle dummyHandle = dbi.open();
+        File dataDir = Files.createTempDir();
+
+        StorageManager storageManager = createOrcStorageManager(dbi, dataDir, useOptimizedOrcWriter);
+
+        List<Long> columnIds = ImmutableList.of(3L, 7L);
+        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20));
+
+        File file = new File(temporary, randomUUID().toString());
+        try (FileWriter writer = createFileWriter(columnIds, columnTypes, file, false, useOptimizedOrcWriter)) {
+            List<Page> pages = rowPagesBuilder(columnTypes)
+                    .row(1L, "1")
+                    .row(2L, "2")
+                    .row(3L, "3")
+                    .row(4L, "4")
+                    .build();
+            writer.appendPages(pages);
+        }
+
+        // Add a column
+        File newFile1 = new File(temporary, randomUUID().toString());
+        OrcFileInfo info = createFileRewriter(useOptimizedOrcWriter).rewrite(
+                getColumnTypes(ImmutableList.of(3L, 7L, 10L), ImmutableList.of(BIGINT, createVarcharType(20), DOUBLE)),
+                file,
+                newFile1,
+                new BitSet(5));
+        assertEquals(info.getRowCount(), 4);
+        assertEquals(readAllBytes(file.toPath()), readAllBytes(newFile1.toPath()));
+
+        // Drop a column
+        File newFile2 = new File(temporary, randomUUID().toString());
+        info = createFileRewriter(useOptimizedOrcWriter).rewrite(
+                getColumnTypes(ImmutableList.of(7L, 10L), ImmutableList.of(createVarcharType(20), DOUBLE)),
+                newFile1,
+                newFile2,
+                new BitSet(5));
+        assertEquals(info.getRowCount(), 4);
+        if (useOptimizedOrcWriter) {
+            // Optimized writer will keep the only column
+            OrcReader orcReader = new OrcReader(fileOrcDataSource(newFile2), ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            orcReader.getColumnNames().equals(ImmutableList.of("7"));
+        }
+        else {
+            // Apache writer does not drop columns
+            assertEquals(readAllBytes(newFile1.toPath()), readAllBytes(newFile2.toPath()));
+        }
+
+        // Add a column with the different ID with different type
+        File newFile3 = new File(temporary, randomUUID().toString());
+        info = createFileRewriter(useOptimizedOrcWriter).rewrite(
+                getColumnTypes(ImmutableList.of(7L, 10L, 13L), ImmutableList.of(createVarcharType(20), DOUBLE, createVarcharType(5))),
+                newFile2,
+                newFile3,
+                new BitSet(5));
+        assertEquals(info.getRowCount(), 4);
+        assertEquals(readAllBytes(newFile2.toPath()), readAllBytes(newFile3.toPath()));
+
+        // Get prepared for the final file; make sure it is accessible from storage manager
+        UUID uuid = randomUUID();
+        File newFile4 = getFileSystemPath(new File(dataDir, "data/storage"), uuid);
+        if (useOptimizedOrcWriter) {
+            // Apache ORC writer creates the file itself
+            newFile4.getParentFile().mkdirs();
+            newFile4.createNewFile();
+        }
+
+        // Drop a column and add a column; also delete 3 rows
+        BitSet rowsToDelete = new BitSet(5);
+        rowsToDelete.set(0);
+        rowsToDelete.set(1);
+        rowsToDelete.set(3);
+        info = createFileRewriter(useOptimizedOrcWriter).rewrite(
+                getColumnTypes(ImmutableList.of(7L, 13L, 18L), ImmutableList.of(createVarcharType(20), createVarcharType(5), INTEGER)),
+                newFile3,
+                newFile4,
+                rowsToDelete);
+        assertEquals(info.getRowCount(), 1);
+
+        ConnectorPageSource source = storageManager.getPageSource(
+                uuid,
+                OptionalInt.empty(),
+                ImmutableList.of(13L, 7L, 18L),
+                ImmutableList.of(createVarcharType(5), createVarcharType(20), INTEGER),
+                TupleDomain.all(),
+                READER_ATTRIBUTES);
+
+        Page page = null;
+        while (page == null) {
+            page = source.getNextPage();
+        }
+        assertEquals(page.getPositionCount(), 1);
+
+        // Column 13L
+        Block column0 = page.getBlock(0);
+        assertTrue(column0.isNull(0));
+
+        // Column 7L
+        Block column1 = page.getBlock(1);
+        assertEquals(createVarcharType(20).getSlice(column1, 0), utf8Slice("3"));
+
+        // Column 8L
+        Block column2 = page.getBlock(2);
+        assertTrue(column2.isNull(0));
+
+        // Remove all the columns
+        File newFile5 = new File(temporary, randomUUID().toString());
+        info = createFileRewriter(useOptimizedOrcWriter).rewrite(
+                getColumnTypes(ImmutableList.of(13L, 18L), ImmutableList.of(createVarcharType(5), INTEGER)),
+                newFile4,
+                newFile5,
+                new BitSet(5));
+        if (useOptimizedOrcWriter) {
+            // Optimized writer will drop the file
+            assertEquals(info.getRowCount(), 0);
+            assertFalse(newFile5.exists());
+        }
+        else {
+            assertEquals(info.getRowCount(), 1);
+            assertEquals(readAllBytes(newFile4.toPath()), readAllBytes(newFile5.toPath()));
+        }
+
+        dummyHandle.close();
+        deleteRecursively(dataDir.toPath(), ALLOW_INSECURE);
+    }
+
+    /**
+     * The following test drop and add the same columns; the legacy ORC rewriter will fail due to unchanged schema.
+     * However, if we enforce the newly added column to always have the largest ID, this won't happen.
+     */
+    @Test(dataProvider = "useOptimizedOrcWriter")
+    public void testRewriterDropThenAddSameColumns(boolean useOptimizedOrcWriter)
+            throws Exception
+    {
+        TypeRegistry typeRegistry = new TypeRegistry();
+        DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
+        Handle dummyHandle = dbi.open();
+        File dataDir = Files.createTempDir();
+
+        StorageManager storageManager = createOrcStorageManager(dbi, dataDir, useOptimizedOrcWriter);
+
+        List<Long> columnIds = ImmutableList.of(3L, 7L);
+        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20));
+
+        File file = new File(temporary, randomUUID().toString());
+        try (FileWriter writer = createFileWriter(columnIds, columnTypes, file, false, useOptimizedOrcWriter)) {
+            List<Page> pages = rowPagesBuilder(columnTypes)
+                    .row(2L, "2")
+                    .build();
+            writer.appendPages(pages);
+        }
+
+        // Add a column
+        File newFile1 = new File(temporary, randomUUID().toString());
+        OrcFileInfo info = createFileRewriter(useOptimizedOrcWriter).rewrite(
+                getColumnTypes(ImmutableList.of(3L, 7L, 10L), ImmutableList.of(BIGINT, createVarcharType(20), DOUBLE)),
+                file,
+                newFile1,
+                new BitSet(5));
+        assertEquals(info.getRowCount(), 1);
+
+        // Drop a column
+        File newFile2 = new File(temporary, randomUUID().toString());
+        info = createFileRewriter(useOptimizedOrcWriter).rewrite(
+                getColumnTypes(ImmutableList.of(7L, 10L), ImmutableList.of(createVarcharType(20), DOUBLE)),
+                newFile1,
+                newFile2,
+                new BitSet(5));
+        assertEquals(info.getRowCount(), 1);
+
+        // Add a column with the same ID but different type
+        File newFile3 = new File(temporary, randomUUID().toString());
+        info = createFileRewriter(useOptimizedOrcWriter).rewrite(
+                getColumnTypes(ImmutableList.of(7L, 10L, 3L), ImmutableList.of(createVarcharType(20), DOUBLE, createVarcharType(5))),
+                newFile2,
+                newFile3,
+                new BitSet(5));
+        assertEquals(info.getRowCount(), 1);
+
+        // Get prepared for the final file; make sure it is accessible from storage manager
+        UUID uuid = randomUUID();
+        File newFile4 = getFileSystemPath(new File(dataDir, "data/storage"), uuid);
+        if (useOptimizedOrcWriter) {
+            // Apache ORC writer creates the file itself
+            newFile4.getParentFile().mkdirs();
+            newFile4.createNewFile();
+        }
+
+        // Drop a column and add a column
+        info = createFileRewriter(useOptimizedOrcWriter).rewrite(
+                getColumnTypes(ImmutableList.of(7L, 3L, 8L), ImmutableList.of(createVarcharType(20), createVarcharType(5), INTEGER)),
+                newFile3,
+                newFile4,
+                new BitSet(5));
+        assertEquals(info.getRowCount(), 1);
+
+        ConnectorPageSource source = storageManager.getPageSource(
+                uuid,
+                OptionalInt.empty(),
+                ImmutableList.of(3L, 7L, 8L),
+                ImmutableList.of(createVarcharType(5), createVarcharType(20), INTEGER),
+                 TupleDomain.all(),
+                READER_ATTRIBUTES);
+
+        Page page = null;
+        while (page == null) {
+            page = source.getNextPage();
+        }
+        assertEquals(page.getPositionCount(), 1);
+
+        try {
+            // Column 3L
+            Block column0 = page.getBlock(0);
+            assertTrue(column0.isNull(0));
+
+            // Column 7L
+            Block column1 = page.getBlock(1);
+            assertEquals(createVarcharType(20).getSlice(column1, 0), utf8Slice("2"));
+
+            // Column 8L
+            Block column2 = page.getBlock(2);
+            assertTrue(column2.isNull(0));
+
+            dummyHandle.close();
+            deleteRecursively(dataDir.toPath(), ALLOW_INSECURE);
+
+            if (!useOptimizedOrcWriter) {
+                // Apache ORC rewriter will not respect the schema
+                fail();
+            }
+        }
+        catch (UnsupportedOperationException e) {
+            if (useOptimizedOrcWriter) {
+                // Optimized ORC rewriter will respect the schema
+                fail();
+            }
+        }
     }
 
     private static FileWriter createFileWriter(List<Long> columnIds, List<Type> columnTypes, File file, boolean writeMetadata, boolean useOptimizedOrcWriter)
@@ -424,5 +690,20 @@ public class TestOrcFileRewriter
             return new OrcFileWriter(columnIds, columnTypes, file, writeMetadata, true, new OrcWriterStats(), new TypeRegistry());
         }
         return new OrcRecordWriter(columnIds, columnTypes, file, writeMetadata);
+    }
+
+    private static FileRewriter createFileRewriter(boolean useOptimizedOrcWriter)
+    {
+        if (useOptimizedOrcWriter) {
+            TypeRegistry typeManager = new TypeRegistry();
+            new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+            return new OrcPageFileRewriter(READER_ATTRIBUTES, true, new OrcWriterStats(), typeManager);
+        }
+        return new OrcRecordFileRewriter();
+    }
+
+    private static Map<String, Type> getColumnTypes(List<Long> columnIds, List<Type> columnTypes)
+    {
+        return IntStream.range(0, columnIds.size()).boxed().collect(Collectors.toMap(index -> String.valueOf(columnIds.get(index)), columnTypes::get));
     }
 }

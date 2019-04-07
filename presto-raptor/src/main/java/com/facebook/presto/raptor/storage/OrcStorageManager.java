@@ -137,11 +137,11 @@ public class OrcStorageManager
     // In order to be consistent, we still enforce the conversion.
     // The following DEFAULT_STORAGE_TIMEZONE is not used by the optimized ORC read/writer given we never read/write timestamp types.
     public static final DateTimeZone DEFAULT_STORAGE_TIMEZONE = UTC;
+    // TODO: do not limit the max size of blocks to read for now; enable the limit when the Hive connector is ready
+    public static final DataSize HUGE_MAX_READ_BLOCK_SIZE = new DataSize(1, PETABYTE);
     private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
 
     private static final long MAX_ROWS = 1_000_000_000;
-    // TODO: do not limit the max size of blocks to read for now; enable the limit when the Hive connector is ready
-    private static final DataSize HUGE_MAX_READ_BLOCK_SIZE = new DataSize(1, PETABYTE);
     private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
 
     private final String nodeId;
@@ -228,8 +228,7 @@ public class OrcStorageManager
         this.commitExecutor = newCachedThreadPool(daemonThreadsNamed("raptor-commit-" + connectorId + "-%s"));
         this.orcOptimizedWriterStage = requireNonNull(orcOptimizedWriterStage, "orcOptimizedWriterStage is null");
         if (orcOptimizedWriterStage.ordinal() >= ENABLED.ordinal()) {
-            // TODO: add new rewriter.
-            this.fileRewriter = null;
+            this.fileRewriter = new OrcPageFileRewriter(readerAttributes, orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED), stats, typeManager);
         }
         else {
             this.fileRewriter = new OrcRecordFileRewriter();
@@ -251,7 +250,8 @@ public class OrcStorageManager
             List<Type> columnTypes,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
             ReaderAttributes readerAttributes,
-            OptionalLong transactionId)
+            OptionalLong transactionId,
+            Optional<Map<String, Type>> allColumnTypes)
     {
         OrcDataSource dataSource = openShard(shardUuid, readerAttributes);
 
@@ -286,7 +286,8 @@ public class OrcStorageManager
 
             Optional<ShardRewriter> shardRewriter = Optional.empty();
             if (transactionId.isPresent()) {
-                shardRewriter = Optional.of(createShardRewriter(transactionId.getAsLong(), bucketNumber, shardUuid));
+                checkState(allColumnTypes.isPresent());
+                shardRewriter = Optional.of(createShardRewriter(transactionId.getAsLong(), bucketNumber, shardUuid, allColumnTypes.get()));
             }
 
             return new OrcPageSource(shardRewriter, recordReader, dataSource, columnIds, columnTypes, columnIndexes.build(), shardUuid, bucketNumber, systemMemoryUsage);
@@ -324,13 +325,13 @@ public class OrcStorageManager
         return new OrcStoragePageSink(transactionId, columnIds, columnTypes, bucketNumber);
     }
 
-    private ShardRewriter createShardRewriter(long transactionId, OptionalInt bucketNumber, UUID shardUuid)
+    private ShardRewriter createShardRewriter(long transactionId, OptionalInt bucketNumber, UUID shardUuid, Map<String, Type> columns)
     {
         return rowsToDelete -> {
             if (rowsToDelete.isEmpty()) {
                 return completedFuture(ImmutableList.of());
             }
-            return supplyAsync(() -> rewriteShard(transactionId, bucketNumber, shardUuid, rowsToDelete), deletionExecutor);
+            return supplyAsync(() -> rewriteShard(transactionId, bucketNumber, shardUuid, columns, rowsToDelete), deletionExecutor);
         };
     }
 
@@ -414,7 +415,7 @@ public class OrcStorageManager
     }
 
     @VisibleForTesting
-    Collection<Slice> rewriteShard(long transactionId, OptionalInt bucketNumber, UUID shardUuid, BitSet rowsToDelete)
+    Collection<Slice> rewriteShard(long transactionId, OptionalInt bucketNumber, UUID shardUuid, Map<String, Type> columns, BitSet rowsToDelete)
     {
         if (rowsToDelete.isEmpty()) {
             return ImmutableList.of();
@@ -424,7 +425,7 @@ public class OrcStorageManager
         File input = storageService.getStorageFile(shardUuid);
         File output = storageService.getStagingFile(newShardUuid);
 
-        OrcFileInfo info = rewriteFile(input, output, rowsToDelete);
+        OrcFileInfo info = rewriteFile(columns, input, output, rowsToDelete);
         long rowCount = info.getRowCount();
 
         if (rowCount == 0) {
@@ -453,10 +454,10 @@ public class OrcStorageManager
         return ImmutableList.of(Slices.wrappedBuffer(SHARD_DELTA_CODEC.toJsonBytes(delta)));
     }
 
-    private OrcFileInfo rewriteFile(File input, File output, BitSet rowsToDelete)
+    private OrcFileInfo rewriteFile(Map<String, Type> columns, File input, File output, BitSet rowsToDelete)
     {
         try {
-            return fileRewriter.rewrite(input, output, rowsToDelete);
+            return fileRewriter.rewrite(columns, input, output, rowsToDelete);
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to rewrite shard file: " + input, e);
