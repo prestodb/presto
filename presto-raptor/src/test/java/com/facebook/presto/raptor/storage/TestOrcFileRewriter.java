@@ -103,7 +103,7 @@ public class TestOrcFileRewriter
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20), arrayType, mapType, arrayOfArrayType, decimalType);
 
         File file = new File(temporary, randomUUID().toString());
-        try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
+        try (FileWriter writer = new OrcRecordWriter(columnIds, columnTypes, file)) {
             List<Page> pages = rowPagesBuilder(columnTypes)
                     .row(123L, "hello", arrayBlockOf(BIGINT, 1, 2), mapBlockOf(createVarcharType(5), BOOLEAN, "k1", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5)), new BigDecimal("2.3"))
                     .row(777L, "sky", arrayBlockOf(BIGINT, 3, 4), mapBlockOf(createVarcharType(5), BOOLEAN, "k2", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 6)), new BigDecimal("2.3"))
@@ -272,7 +272,7 @@ public class TestOrcFileRewriter
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20));
 
         File file = new File(temporary, randomUUID().toString());
-        try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file, false)) {
+        try (FileWriter writer = new OrcRecordWriter(columnIds, columnTypes, file, false)) {
             List<Page> pages = rowPagesBuilder(columnTypes)
                     .row(123L, "hello")
                     .row(777L, "sky")
@@ -347,7 +347,7 @@ public class TestOrcFileRewriter
         List<Type> columnTypes = ImmutableList.of(BIGINT);
 
         File file = new File(temporary, randomUUID().toString());
-        try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
+        try (FileWriter writer = new OrcRecordWriter(columnIds, columnTypes, file)) {
             writer.appendPages(rowPagesBuilder(columnTypes).row(123L).row(456L).build());
         }
 
@@ -371,7 +371,7 @@ public class TestOrcFileRewriter
         List<Type> columnTypes = ImmutableList.of(BIGINT);
 
         File file = new File(temporary, randomUUID().toString());
-        try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
+        try (FileWriter writer = new OrcRecordWriter(columnIds, columnTypes, file)) {
             writer.appendPages(rowPagesBuilder(columnTypes).row(123L).row(456L).build());
         }
 
@@ -393,7 +393,7 @@ public class TestOrcFileRewriter
         List<Type> columnTypes = ImmutableList.of(BOOLEAN, BIGINT, DOUBLE, createVarcharType(10), VARBINARY);
 
         File file = new File(temporary, randomUUID().toString());
-        try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
+        try (FileWriter writer = new OrcRecordWriter(columnIds, columnTypes, file)) {
             List<Page> pages = rowPagesBuilder(columnTypes)
                     .row(true, 123L, 98.7, "hello", utf8Slice("abc"))
                     .row(false, 456L, 65.4, "world", utf8Slice("xyz"))

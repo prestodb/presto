@@ -106,7 +106,7 @@ public class TestShardWriter
                 .row(456L, "bye \u2603", wrappedBuffer(bytes3), Double.NaN, false, arrayBlockOf(BIGINT), mapBlockOf(createVarcharType(5), BOOLEAN, "k3", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT)));
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(new EmptyClassLoader());
-                OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
+                FileWriter writer = new OrcRecordWriter(columnIds, columnTypes, file)) {
             writer.appendPages(rowPagesBuilder.build());
         }
 
@@ -207,7 +207,7 @@ public class TestShardWriter
 
         File file = new File(directory, System.nanoTime() + ".orc");
 
-        try (OrcFileWriter ignored = new OrcFileWriter(columnIds, columnTypes, file)) {
+        try (OrcRecordWriter ignored = new OrcRecordWriter(columnIds, columnTypes, file)) {
             // no rows
         }
 

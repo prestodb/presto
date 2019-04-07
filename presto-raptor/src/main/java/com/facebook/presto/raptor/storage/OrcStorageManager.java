@@ -564,7 +564,7 @@ public class OrcStorageManager
         private final List<CompletableFuture<?>> futures = new ArrayList<>();
 
         private boolean committed;
-        private OrcFileWriter writer;
+        private FileWriter writer;
         private UUID shardUuid;
 
         public OrcStoragePageSink(long transactionId, List<Long> columnIds, List<Type> columnTypes, OptionalInt bucketNumber)
@@ -602,7 +602,12 @@ public class OrcStorageManager
         public void flush()
         {
             if (writer != null) {
-                writer.close();
+                try {
+                    writer.close();
+                }
+                catch (IOException e) {
+                    throw new PrestoException(RAPTOR_ERROR, "Failed to close writer", e);
+                }
 
                 shardRecorder.recordCreatedShard(transactionId, shardUuid);
 
@@ -642,8 +647,15 @@ public class OrcStorageManager
         {
             try {
                 if (writer != null) {
-                    writer.close();
-                    writer = null;
+                    try {
+                        writer.close();
+                    }
+                    catch (IOException e) {
+                        throw new PrestoException(RAPTOR_ERROR, "Failed to close writer", e);
+                    }
+                    finally {
+                        writer = null;
+                    }
                 }
             }
             finally {
@@ -670,7 +682,7 @@ public class OrcStorageManager
                 File stagingFile = storageService.getStagingFile(shardUuid);
                 storageService.createParents(stagingFile);
                 stagingFiles.add(stagingFile);
-                writer = new OrcFileWriter(columnIds, columnTypes, stagingFile);
+                writer = new OrcRecordWriter(columnIds, columnTypes, stagingFile);
             }
         }
     }
