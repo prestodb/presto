@@ -84,6 +84,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.relation.DomainTranslator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
@@ -103,6 +104,8 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.Serialization.ExpressionDeserializer;
 import com.facebook.presto.sql.Serialization.ExpressionSerializer;
 import com.facebook.presto.sql.Serialization.FunctionCallDeserializer;
+import com.facebook.presto.sql.Serialization.VariableReferenceExpressionDeserializer;
+import com.facebook.presto.sql.Serialization.VariableReferenceExpressionSerializer;
 import com.facebook.presto.sql.SqlEnvironmentConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
@@ -368,6 +371,10 @@ public class ServerMainModule
         binder.bind(TypeManager.class).to(TypeRegistry.class).in(Scopes.SINGLETON);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         newSetBinder(binder, Type.class);
+
+        // plan
+        jsonBinder(binder).addKeySerializerBinding(VariableReferenceExpression.class).to(VariableReferenceExpressionSerializer.class);
+        jsonBinder(binder).addKeyDeserializerBinding(VariableReferenceExpression.class).to(VariableReferenceExpressionDeserializer.class);
 
         // split manager
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
