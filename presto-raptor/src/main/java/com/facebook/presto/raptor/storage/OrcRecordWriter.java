@@ -45,7 +45,6 @@ import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 
-import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
@@ -82,8 +81,8 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFacto
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveJavaObjectInspector;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getPrimitiveTypeInfo;
 
-public class OrcFileWriter
-        implements Closeable
+public class OrcRecordWriter
+        implements FileWriter
 {
     private static final Configuration CONFIGURATION = new Configuration();
     private static final Constructor<? extends RecordWriter> WRITER_CONSTRUCTOR = getOrcWriterConstructor();
@@ -101,13 +100,13 @@ public class OrcFileWriter
     private long rowCount;
     private long uncompressedSize;
 
-    public OrcFileWriter(List<Long> columnIds, List<Type> columnTypes, File target)
+    public OrcRecordWriter(List<Long> columnIds, List<Type> columnTypes, File target)
     {
         this(columnIds, columnTypes, target, true);
     }
 
     @VisibleForTesting
-    OrcFileWriter(List<Long> columnIds, List<Type> columnTypes, File target, boolean writeMetadata)
+    OrcRecordWriter(List<Long> columnIds, List<Type> columnTypes, File target, boolean writeMetadata)
     {
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         checkArgument(columnIds.size() == columnTypes.size(), "ids and types mismatch");
@@ -129,6 +128,7 @@ public class OrcFileWriter
         orcRow = tableInspector.create();
     }
 
+    @Override
     public void appendPages(List<Page> pages)
     {
         for (Page page : pages) {
@@ -138,6 +138,7 @@ public class OrcFileWriter
         }
     }
 
+    @Override
     public void appendPages(List<Page> inputPages, int[] pageIndexes, int[] positionIndexes)
     {
         checkArgument(pageIndexes.length == positionIndexes.length, "pageIndexes and positionIndexes do not match");
@@ -145,6 +146,30 @@ public class OrcFileWriter
             Page page = inputPages.get(pageIndexes[i]);
             appendRow(extractRow(page, positionIndexes[i], columnTypes));
         }
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        if (closed) {
+            return;
+        }
+        closed = true;
+
+        recordWriter.close(false);
+    }
+
+    @Override
+    public long getRowCount()
+    {
+        return rowCount;
+    }
+
+    @Override
+    public long getUncompressedSize()
+    {
+        return uncompressedSize;
     }
 
     private void appendRow(Row row)
@@ -162,32 +187,6 @@ public class OrcFileWriter
         }
         rowCount++;
         uncompressedSize += row.getSizeInBytes();
-    }
-
-    @Override
-    public void close()
-    {
-        if (closed) {
-            return;
-        }
-        closed = true;
-
-        try {
-            recordWriter.close(false);
-        }
-        catch (IOException e) {
-            throw new PrestoException(RAPTOR_ERROR, "Failed to close writer", e);
-        }
-    }
-
-    public long getRowCount()
-    {
-        return rowCount;
-    }
-
-    public long getUncompressedSize()
-    {
-        return uncompressedSize;
     }
 
     private static OrcSerde createSerializer(Properties properties)
@@ -258,7 +257,7 @@ public class OrcFileWriter
         return types.stream()
                 .map(StorageType::getHiveTypeName)
                 .map(TypeInfoUtils::getTypeInfoFromTypeString)
-                .map(OrcFileWriter::getJavaObjectInspector)
+                .map(OrcRecordWriter::getJavaObjectInspector)
                 .collect(toList());
     }
 
@@ -288,7 +287,7 @@ public class OrcFileWriter
 
     private static List<StorageType> toStorageTypes(List<Type> columnTypes)
     {
-        return columnTypes.stream().map(OrcFileWriter::toStorageType).collect(toList());
+        return columnTypes.stream().map(OrcRecordWriter::toStorageType).collect(toList());
     }
 
     private static StorageType toStorageType(Type type)
