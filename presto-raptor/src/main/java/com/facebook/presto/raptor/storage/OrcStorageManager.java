@@ -127,6 +127,12 @@ import static org.joda.time.DateTimeZone.UTC;
 public class OrcStorageManager
         implements StorageManager
 {
+    // Raptor does not store time-related data types as they are in ORC.
+    // They will be casted to BIGINT or INTEGER to avoid timezone conversion.
+    // This is due to the historical reason of using the legacy ORC read/writer that does not support timestamp types.
+    // In order to be consistent, we still enforce the conversion.
+    // The following DEFAULT_STORAGE_TIMEZONE is not used by the optimized ORC read/writer given we never read/write timestamp types.
+    public static final DateTimeZone DEFAULT_STORAGE_TIMEZONE = UTC;
     private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
 
     private static final long MAX_ROWS = 1_000_000_000;
@@ -259,7 +265,7 @@ public class OrcStorageManager
 
             OrcPredicate predicate = getPredicate(effectivePredicate, indexMap);
 
-            OrcRecordReader recordReader = reader.createRecordReader(includedColumns.build(), predicate, UTC, systemMemoryUsage, INITIAL_BATCH_SIZE);
+            OrcRecordReader recordReader = reader.createRecordReader(includedColumns.build(), predicate, DEFAULT_STORAGE_TIMEZONE, systemMemoryUsage, INITIAL_BATCH_SIZE);
 
             Optional<ShardRewriter> shardRewriter = Optional.empty();
             if (transactionId.isPresent()) {
