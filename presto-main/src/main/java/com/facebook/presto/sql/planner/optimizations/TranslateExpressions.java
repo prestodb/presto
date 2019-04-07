@@ -19,9 +19,9 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -170,8 +170,8 @@ public class TranslateExpressions
         {
             checkState(windowNode.getSource() != null);
             boolean anyRewritten = false;
-            ImmutableMap.Builder<Symbol, Function> functions = ImmutableMap.builder();
-            for (Entry<Symbol, Function> entry : windowNode.getWindowFunctions().entrySet()) {
+            ImmutableMap.Builder<VariableReferenceExpression, Function> functions = ImmutableMap.builder();
+            for (Entry<VariableReferenceExpression, Function> entry : windowNode.getWindowFunctions().entrySet()) {
                 ImmutableList.Builder<RowExpression> newArguments = ImmutableList.builder();
                 CallExpression callExpression = entry.getValue().getFunctionCall();
                 for (RowExpression argument : callExpression.getArguments()) {
@@ -200,7 +200,7 @@ public class TranslateExpressions
                         windowNode.getSource(),
                         windowNode.getSpecification(),
                         functions.build(),
-                        windowNode.getHashSymbol(),
+                        windowNode.getHashVariable(),
                         windowNode.getPrePartitionedInputs(),
                         windowNode.getPreSortedOrderPrefix()));
             }

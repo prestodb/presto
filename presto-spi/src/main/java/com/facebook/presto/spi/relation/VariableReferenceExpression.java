@@ -32,8 +32,8 @@ public final class VariableReferenceExpression
 
     @JsonCreator
     public VariableReferenceExpression(
-            @JsonProperty String name,
-            @JsonProperty Type type)
+            @JsonProperty("name") String name,
+            @JsonProperty("type") Type type)
     {
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");

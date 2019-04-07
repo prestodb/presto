@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -35,7 +36,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -46,7 +47,7 @@ public class WindowNode
     private final Set<Symbol> prePartitionedInputs;
     private final Specification specification;
     private final int preSortedOrderPrefix;
-    private final Map<Symbol, Function> windowFunctions;
+    private final Map<VariableReferenceExpression, Function> windowFunctions;
     private final Optional<Symbol> hashSymbol;
 
     @JsonCreator
@@ -54,7 +55,7 @@ public class WindowNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("specification") Specification specification,
-            @JsonProperty("windowFunctions") Map<Symbol, Function> windowFunctions,
+            @JsonProperty("windowFunctions") Map<VariableReferenceExpression, Function> windowFunctions,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
             @JsonProperty("prePartitionedInputs") Set<Symbol> prePartitionedInputs,
             @JsonProperty("preSortedOrderPrefix") int preSortedOrderPrefix)
@@ -87,12 +88,24 @@ public class WindowNode
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.copyOf(concat(source.getOutputSymbols(), windowFunctions.keySet()));
+        return ImmutableList.<Symbol>builder()
+                .addAll(source.getOutputSymbols())
+                .addAll(windowFunctions.keySet().stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableList()))
+                .build();
+    }
+
+    @Override
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        return ImmutableList.<VariableReferenceExpression>builder()
+                .addAll(source.getOutputVariables())
+                .addAll(windowFunctions.keySet())
+                .build();
     }
 
     public Set<Symbol> getCreatedSymbols()
     {
-        return ImmutableSet.copyOf(windowFunctions.keySet());
+        return windowFunctions.keySet().stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableSet());
     }
 
     @JsonProperty
@@ -118,7 +131,7 @@ public class WindowNode
     }
 
     @JsonProperty
-    public Map<Symbol, Function> getWindowFunctions()
+    public Map<VariableReferenceExpression, Function> getWindowFunctions()
     {
         return windowFunctions;
     }

@@ -811,6 +811,7 @@ class QueryPlanner
 
             Type returnType = analysis.getType(windowFunction);
             Symbol newSymbol = symbolAllocator.newSymbol(rewritten, returnType);
+            VariableReferenceExpression newVariable = new VariableReferenceExpression(newSymbol.getName(), returnType);
             outputTranslations.put(windowFunction, newSymbol);
 
             // TODO: replace arguments with RowExpression once we introduce subquery expression for RowExpression (#12745).
@@ -842,7 +843,7 @@ class QueryPlanner
                             new WindowNode.Specification(
                                     partitionBySymbols.build(),
                                     orderingScheme),
-                            ImmutableMap.of(newSymbol, function),
+                            ImmutableMap.of(newVariable, function),
                             Optional.empty(),
                             ImmutableSet.of(),
                             0),

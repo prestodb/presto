@@ -722,7 +722,7 @@ public class PlanBuilder
         return symbol;
     }
 
-    public WindowNode window(WindowNode.Specification specification, Map<Symbol, WindowNode.Function> functions, PlanNode source)
+    public WindowNode window(WindowNode.Specification specification, Map<VariableReferenceExpression, WindowNode.Function> functions, PlanNode source)
     {
         return new WindowNode(
                 idAllocator.getNextId(),
@@ -734,7 +734,7 @@ public class PlanBuilder
                 0);
     }
 
-    public WindowNode window(WindowNode.Specification specification, Map<Symbol, WindowNode.Function> functions, Symbol hashSymbol, PlanNode source)
+    public WindowNode window(WindowNode.Specification specification, Map<VariableReferenceExpression, WindowNode.Function> functions, Symbol hashSymbol, PlanNode source)
     {
         return new WindowNode(
                 idAllocator.getNextId(),

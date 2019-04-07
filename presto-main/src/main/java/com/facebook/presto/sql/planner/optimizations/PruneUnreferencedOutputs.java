@@ -392,20 +392,19 @@ public class PruneUnreferencedOutputs
                 expectedInputs.add(node.getHashSymbol().get());
             }
 
-            ImmutableMap.Builder<Symbol, WindowNode.Function> functionsBuilder = ImmutableMap.builder();
-            for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
-                Symbol symbol = entry.getKey();
+            ImmutableMap.Builder<VariableReferenceExpression, WindowNode.Function> functionsBuilder = ImmutableMap.builder();
+            for (Map.Entry<VariableReferenceExpression, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
+                VariableReferenceExpression variable = entry.getKey();
                 WindowNode.Function function = entry.getValue();
-
-                if (context.get().contains(symbol)) {
+                if (context.get().contains(new Symbol(variable.getName()))) {
                     expectedInputs.addAll(WindowNodeUtil.extractWindowFunctionUnique(function));
-                    functionsBuilder.put(symbol, entry.getValue());
+                    functionsBuilder.put(variable, entry.getValue());
                 }
             }
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
-            Map<Symbol, WindowNode.Function> functions = functionsBuilder.build();
+            Map<VariableReferenceExpression, WindowNode.Function> functions = functionsBuilder.build();
 
             if (functions.size() == 0) {
                 return source;

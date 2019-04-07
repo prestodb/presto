@@ -196,9 +196,9 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            ImmutableMap.Builder<Symbol, WindowNode.Function> functions = ImmutableMap.builder();
-            for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
-                Symbol symbol = entry.getKey();
+            ImmutableMap.Builder<VariableReferenceExpression, WindowNode.Function> functions = ImmutableMap.builder();
+            for (Map.Entry<VariableReferenceExpression, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
+                VariableReferenceExpression symbol = entry.getKey();
 
                 // Be aware of the CallExpression handling.
                 CallExpression callExpression = entry.getValue().getFunctionCall();

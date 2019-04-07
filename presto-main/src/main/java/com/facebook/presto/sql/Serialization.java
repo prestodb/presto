@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -21,6 +23,7 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.KeyDeserializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 
 import javax.inject.Inject;
@@ -28,7 +31,9 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static java.lang.String.format;
 
 public final class Serialization
 {
@@ -80,6 +85,40 @@ public final class Serialization
                 throws IOException
         {
             return (FunctionCall) rewriteIdentifiersToSymbolReferences(sqlParser.createExpression(jsonParser.getText()));
+        }
+    }
+
+    public static class VariableReferenceExpressionSerializer
+            extends JsonSerializer<VariableReferenceExpression>
+    {
+        @Override
+        public void serialize(VariableReferenceExpression value, JsonGenerator jsonGenerator, SerializerProvider serializers)
+                throws IOException
+        {
+            jsonGenerator.writeFieldName(format("%s(%s)", value.getName(), value.getType()));
+        }
+    }
+
+    public static class VariableReferenceExpressionDeserializer
+            extends KeyDeserializer
+    {
+        private final TypeManager typeManager;
+
+        @Inject
+        public VariableReferenceExpressionDeserializer(TypeManager typeManager)
+        {
+            this.typeManager = typeManager;
+        }
+
+        @Override
+        public Object deserializeKey(String key, DeserializationContext ctxt)
+                throws IOException
+        {
+            int p = key.indexOf("(");
+            if (p <= 0 || key.charAt(key.length() - 1) != ')') {
+                throw new IllegalArgumentException(format("Expect key to be of format 'name(type)', found %s", key));
+            }
+            return new VariableReferenceExpression(key.substring(0, p), typeManager.getType(parseTypeSignature(key.substring(p + 1, key.length() - 1))));
         }
     }
 }

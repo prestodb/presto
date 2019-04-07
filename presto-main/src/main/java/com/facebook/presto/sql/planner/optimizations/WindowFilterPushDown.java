@@ -24,6 +24,7 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
@@ -117,7 +118,7 @@ public class WindowFilterPushDown
                 return new RowNumberNode(idAllocator.getNextId(),
                         rewrittenSource,
                         node.getPartitionBy(),
-                        getOnlyElement(node.getWindowFunctions().keySet()),
+                        getOnlyElement(node.getCreatedSymbols()),
                         Optional.empty(),
                         Optional.empty());
             }
@@ -172,7 +173,7 @@ public class WindowFilterPushDown
             }
             else if (source instanceof WindowNode && canOptimizeWindowFunction((WindowNode) source, metadata.getFunctionManager()) && isOptimizeTopNRowNumber(session)) {
                 WindowNode windowNode = (WindowNode) source;
-                Symbol rowNumberSymbol = getOnlyElement(windowNode.getWindowFunctions().entrySet()).getKey();
+                Symbol rowNumberSymbol = getOnlyElement(windowNode.getCreatedSymbols());
                 OptionalInt upperBound = extractUpperBound(tupleDomain, rowNumberSymbol);
 
                 if (upperBound.isPresent()) {
@@ -264,7 +265,7 @@ public class WindowFilterPushDown
             return new TopNRowNumberNode(idAllocator.getNextId(),
                     windowNode.getSource(),
                     windowNode.getSpecification(),
-                    getOnlyElement(windowNode.getWindowFunctions().keySet()),
+                    getOnlyElement(windowNode.getCreatedSymbols()),
                     limit,
                     false,
                     Optional.empty());
@@ -280,8 +281,8 @@ public class WindowFilterPushDown
             if (node.getWindowFunctions().size() != 1) {
                 return false;
             }
-            Symbol rowNumberSymbol = getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
-            return isRowNumberMetadata(functionManager.getFunctionMetadata(node.getWindowFunctions().get(rowNumberSymbol).getFunctionHandle()));
+            VariableReferenceExpression rowNumberVariable = getOnlyElement(node.getWindowFunctions().keySet());
+            return isRowNumberMetadata(functionManager.getFunctionMetadata(node.getWindowFunctions().get(rowNumberVariable).getFunctionHandle()));
         }
 
         private static boolean isRowNumberMetadata(FunctionMetadata functionMetadata)
