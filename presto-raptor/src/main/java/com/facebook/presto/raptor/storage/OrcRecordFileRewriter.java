@@ -16,6 +16,7 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.raptor.util.Closer;
 import com.facebook.presto.raptor.util.SyncingFileSystem;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.type.Type;
 import io.airlift.log.Logger;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -68,7 +69,7 @@ public final class OrcRecordFileRewriter
     private static final Configuration CONFIGURATION = new Configuration();
 
     @Override
-    public OrcFileInfo rewrite(File input, File output, BitSet rowsToDelete)
+    public OrcFileInfo rewrite(Map<String, Type> columns, File input, File output, BitSet rowsToDelete)
             throws IOException
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader());
