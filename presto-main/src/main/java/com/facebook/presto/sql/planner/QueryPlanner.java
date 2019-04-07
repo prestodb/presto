@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
@@ -206,11 +207,13 @@ class QueryPlanner
 
         // add table columns
         ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
+        ImmutableList.Builder<VariableReferenceExpression> outputVariables = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (Field field : descriptor.getAllFields()) {
             Symbol symbol = symbolAllocator.newSymbol(field.getName().get(), field.getType());
             outputSymbols.add(symbol);
+            outputVariables.add(new VariableReferenceExpression(symbol.getName(), field.getType()));
             columns.put(symbol, analysis.getColumn(field));
             fields.add(field);
         }
@@ -219,11 +222,12 @@ class QueryPlanner
         Field rowIdField = Field.newUnqualified(Optional.empty(), rowIdType);
         Symbol rowIdSymbol = symbolAllocator.newSymbol("$rowId", rowIdField.getType());
         outputSymbols.add(rowIdSymbol);
+        outputVariables.add(new VariableReferenceExpression(rowIdSymbol.getName(), rowIdField.getType()));
         columns.put(rowIdSymbol, rowIdHandle);
         fields.add(rowIdField);
 
         // create table scan
-        PlanNode tableScan = new TableScanNode(idAllocator.getNextId(), handle, outputSymbols.build(), columns.build());
+        PlanNode tableScan = new TableScanNode(idAllocator.getNextId(), handle, outputSymbols.build(), outputVariables.build(), columns.build());
         Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields.build())).build();
         RelationPlan relationPlan = new RelationPlan(tableScan, scope, outputSymbols.build());
 

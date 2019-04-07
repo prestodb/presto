@@ -33,6 +33,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
@@ -264,12 +265,14 @@ public class LogicalPlanner
         // Plan table scan
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTable);
         ImmutableList.Builder<Symbol> tableScanOutputs = ImmutableList.builder();
+        ImmutableList.Builder<VariableReferenceExpression> tableScanOutputVariables = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, ColumnHandle> symbolToColumnHandle = ImmutableMap.builder();
         ImmutableMap.Builder<String, Symbol> columnNameToSymbol = ImmutableMap.builder();
         TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTable);
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             Symbol symbol = symbolAllocator.newSymbol(column.getName(), column.getType());
             tableScanOutputs.add(symbol);
+            tableScanOutputVariables.add(new VariableReferenceExpression(symbol.getName(), column.getType()));
             symbolToColumnHandle.put(symbol, columnHandles.get(column.getName()));
             columnNameToSymbol.put(column.getName(), symbol);
         }
@@ -287,7 +290,7 @@ public class LogicalPlanner
                 idAllocator.getNextId(),
                 new AggregationNode(
                         idAllocator.getNextId(),
-                        new TableScanNode(idAllocator.getNextId(), targetTable, tableScanOutputs.build(), symbolToColumnHandle.build()),
+                        new TableScanNode(idAllocator.getNextId(), targetTable, tableScanOutputs.build(), tableScanOutputVariables.build(), symbolToColumnHandle.build()),
                         statisticAggregations.getAggregations(),
                         singleGroupingSet(groupingSymbols),
                         ImmutableList.of(),

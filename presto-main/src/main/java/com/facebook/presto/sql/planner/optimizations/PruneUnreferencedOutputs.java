@@ -18,6 +18,7 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -426,6 +427,12 @@ public class PruneUnreferencedOutputs
             List<Symbol> newOutputs = node.getOutputSymbols().stream()
                     .filter(context.get()::contains)
                     .collect(toImmutableList());
+            Set<String> contextSymbols = context.get().stream()
+                    .map(Symbol::getName)
+                    .collect(toImmutableSet());
+            List<VariableReferenceExpression> newVariables = node.getOutputVariables().stream()
+                    .filter(variable -> contextSymbols.contains(variable.getName()))
+                    .collect(toImmutableList());
 
             Map<Symbol, ColumnHandle> newAssignments = newOutputs.stream()
                     .collect(Collectors.toMap(Function.identity(), node.getAssignments()::get));
@@ -434,6 +441,7 @@ public class PruneUnreferencedOutputs
                     node.getId(),
                     node.getTable(),
                     newOutputs,
+                    newVariables,
                     newAssignments,
                     node.getCurrentConstraint(),
                     node.getEnforcedConstraint());

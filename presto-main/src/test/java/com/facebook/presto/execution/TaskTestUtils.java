@@ -34,6 +34,7 @@ import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.TestingTypeManager;
 import com.facebook.presto.spiller.GenericSpillerFactory;
 import com.facebook.presto.split.PageSinkManager;
@@ -91,12 +92,15 @@ public final class TaskTestUtils
 
     public static final Symbol SYMBOL = new Symbol("column");
 
+    public static final VariableReferenceExpression VARIABLE = new VariableReferenceExpression("column", BIGINT);
+
     public static final PlanFragment PLAN_FRAGMENT = new PlanFragment(
             new PlanFragmentId(0),
             new TableScanNode(
                     TABLE_SCAN_NODE_ID,
                     new TableHandle(CONNECTOR_ID, new TestingTableHandle(), TRANSACTION_HANDLE, Optional.empty()),
                     ImmutableList.of(SYMBOL),
+                    ImmutableList.of(VARIABLE),
                     ImmutableMap.of(SYMBOL, new TestingColumnHandle("column", 0, BIGINT))),
             ImmutableMap.of(SYMBOL, VARCHAR),
             SOURCE_DISTRIBUTION,

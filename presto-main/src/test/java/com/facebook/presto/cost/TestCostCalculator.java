@@ -30,6 +30,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -735,6 +736,9 @@ public class TestCostCalculator
     private TableScanNode tableScan(String id, String... symbols)
     {
         List<Symbol> symbolsList = Arrays.stream(symbols).map(Symbol::new).collect(toImmutableList());
+        List<VariableReferenceExpression> variables = Arrays.stream(symbols)
+                .map(symbol -> new VariableReferenceExpression(symbol, BIGINT))
+                .collect(toImmutableList());
         ImmutableMap.Builder<Symbol, ColumnHandle> assignments = ImmutableMap.builder();
 
         for (Symbol symbol : symbolsList) {
@@ -750,6 +754,7 @@ public class TestCostCalculator
                         TpchTransactionHandle.INSTANCE,
                         Optional.of(new TpchTableLayoutHandle(tableHandle, TupleDomain.all()))),
                 symbolsList,
+                variables,
                 assignments.build(),
                 TupleDomain.all(),
                 TupleDomain.all());

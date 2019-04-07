@@ -26,6 +26,7 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
@@ -383,27 +384,25 @@ public class PlanBuilder
         return new LateralJoinNode(idAllocator.getNextId(), input, subquery, correlation, LateralJoinNode.Type.INNER, "");
     }
 
-    public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
+    public TableScanNode tableScan(List<Symbol> symbols, List<VariableReferenceExpression> variables, Map<Symbol, ColumnHandle> assignments)
     {
         TableHandle tableHandle = new TableHandle(
                 new ConnectorId("testConnector"),
                 new TestingTableHandle(),
                 TestingTransactionHandle.create(),
                 Optional.empty());
-        return tableScan(tableHandle, symbols, assignments, TupleDomain.all(), TupleDomain.all());
+        return tableScan(tableHandle, symbols, variables, assignments, TupleDomain.all(), TupleDomain.all());
     }
 
-    public TableScanNode tableScan(
-            TableHandle tableHandle,
-            List<Symbol> symbols,
-            Map<Symbol, ColumnHandle> assignments)
+    public TableScanNode tableScan(TableHandle tableHandle, List<Symbol> symbols, List<VariableReferenceExpression> variables, Map<Symbol, ColumnHandle> assignments)
     {
-        return tableScan(tableHandle, symbols, assignments, TupleDomain.all(), TupleDomain.all());
+        return tableScan(tableHandle, symbols, variables, assignments, TupleDomain.all(), TupleDomain.all());
     }
 
     public TableScanNode tableScan(
             TableHandle tableHandle,
             List<Symbol> symbols,
+            List<VariableReferenceExpression> variables,
             Map<Symbol, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> currentConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint)
@@ -412,6 +411,7 @@ public class PlanBuilder
                 idAllocator.getNextId(),
                 tableHandle,
                 symbols,
+                variables,
                 assignments,
                 currentConstraint,
                 enforcedConstraint);
@@ -694,6 +694,11 @@ public class PlanBuilder
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
+    }
+
+    public VariableReferenceExpression variable(Symbol symbol)
+    {
+        return new VariableReferenceExpression(symbol.getName(), symbols.get(symbol));
     }
 
     public Symbol symbol(String name)

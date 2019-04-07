@@ -14,12 +14,16 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -54,6 +58,11 @@ public abstract class PlanNode
      */
     public abstract List<Symbol> getOutputSymbols();
 
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        return ImmutableList.of();
+    }
+
     /**
      * Alter the upstream PlanNodes of the current PlanNode.
      */
@@ -65,5 +74,16 @@ public abstract class PlanNode
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitPlan(this, context);
+    }
+
+    protected void validateOutputVariables()
+    {
+        List<VariableReferenceExpression> outputVariables = getOutputVariables();
+        if (outputVariables.isEmpty()) {
+            return;
+        }
+        List<String> outputSymbolNames = getOutputSymbols().stream().map(Symbol::getName).collect(toImmutableList());
+        checkState(outputSymbolNames.size() == outputVariables.size(), "outputVariables has different size from outputSymbols.");
+        checkState(outputVariables.stream().map(VariableReferenceExpression::getName).allMatch(outputSymbolNames::contains), "outputVariables is not consistent with outputSymbols");
     }
 }

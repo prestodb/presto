@@ -57,6 +57,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                                                 TestingTransactionHandle.create(),
                                                 Optional.empty()),
                                         ImmutableList.of(p.symbol("l_nationkey")),
+                                        ImmutableList.of(p.variable(p.symbol("l_nationkey"))),
                                         ImmutableMap.of(p.symbol("l_nationkey"), new TpchColumnHandle("nationkey",
                                                 BIGINT))),
                                 p.project(
