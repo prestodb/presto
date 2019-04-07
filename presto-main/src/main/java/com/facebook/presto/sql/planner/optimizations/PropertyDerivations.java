@@ -193,7 +193,7 @@ public class PropertyDerivations
 
             ImmutableList.Builder<LocalProperty<Symbol>> newLocalProperties = ImmutableList.builder();
             newLocalProperties.addAll(properties.getLocalProperties());
-            newLocalProperties.add(new GroupingProperty<>(ImmutableList.of(node.getIdColumn())));
+            newLocalProperties.add(new GroupingProperty<>(ImmutableList.of(node.getIdVariableAsSymbol())));
             node.getSource().getOutputSymbols().stream()
                     .forEach(column -> newLocalProperties.add(new ConstantProperty<>(column)));
 
@@ -205,7 +205,7 @@ public class PropertyDerivations
             }
 
             return ActualProperties.builderFrom(properties)
-                    .global(partitionedOn(ARBITRARY_DISTRIBUTION, ImmutableList.of(node.getIdColumn()), Optional.empty()))
+                    .global(partitionedOn(ARBITRARY_DISTRIBUTION, ImmutableList.of(node.getIdVariableAsSymbol()), Optional.empty()))
                     .local(newLocalProperties.build())
                     .build();
         }

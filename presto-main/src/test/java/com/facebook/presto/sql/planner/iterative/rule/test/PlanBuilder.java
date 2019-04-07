@@ -373,9 +373,9 @@ public class PlanBuilder
         return new ApplyNode(idAllocator.getNextId(), input, subquery, subqueryAssignments, correlation, "");
     }
 
-    public AssignUniqueId assignUniqueId(Symbol unique, PlanNode source)
+    public AssignUniqueId assignUniqueId(VariableReferenceExpression variable, PlanNode source)
     {
-        return new AssignUniqueId(idAllocator.getNextId(), source, unique);
+        return new AssignUniqueId(idAllocator.getNextId(), source, variable);
     }
 
     public LateralJoinNode lateral(List<Symbol> correlation, PlanNode input, PlanNode subquery)

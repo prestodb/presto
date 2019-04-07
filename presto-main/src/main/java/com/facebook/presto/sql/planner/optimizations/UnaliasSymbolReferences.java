@@ -464,7 +464,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            return new AssignUniqueId(node.getId(), source, node.getIdColumn());
+            return new AssignUniqueId(node.getId(), source, node.getIdVariable());
         }
 
         @Override
