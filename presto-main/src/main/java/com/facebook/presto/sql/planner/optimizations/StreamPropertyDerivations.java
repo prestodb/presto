@@ -465,7 +465,7 @@ public final class StreamPropertyDerivations
             }
 
             return new StreamProperties(properties.getDistribution(),
-                    Optional.of(ImmutableList.of(node.getIdColumn())),
+                    Optional.of(ImmutableList.of(node.getIdVariableAsSymbol())),
                     properties.isOrdered());
         }
 

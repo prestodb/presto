@@ -62,7 +62,7 @@ public final class PushRemoteExchangeThroughAssignUniqueId
 
         AssignUniqueId assignUniqueId = captures.get(ASSIGN_UNIQUE_ID);
         PartitioningScheme partitioningScheme = node.getPartitioningScheme();
-        if (partitioningScheme.getPartitioning().getColumns().contains(assignUniqueId.getIdColumn())) {
+        if (partitioningScheme.getPartitioning().getColumns().contains(assignUniqueId.getIdVariableAsSymbol())) {
             // The column produced by the AssignUniqueId is used in the partitioning scheme of the exchange.
             // Hence, AssignUniqueId node has to stay below the exchange node.
             return Result.empty();
@@ -76,14 +76,14 @@ public final class PushRemoteExchangeThroughAssignUniqueId
                         node.getScope(),
                         new PartitioningScheme(
                                 partitioningScheme.getPartitioning(),
-                                removeSymbol(partitioningScheme.getOutputLayout(), assignUniqueId.getIdColumn()),
+                                removeSymbol(partitioningScheme.getOutputLayout(), assignUniqueId.getIdVariableAsSymbol()),
                                 partitioningScheme.getHashColumn(),
                                 partitioningScheme.isReplicateNullsAndAny(),
                                 partitioningScheme.getBucketToPartition()),
                         ImmutableList.of(assignUniqueId.getSource()),
-                        ImmutableList.of(removeSymbol(getOnlyElement(node.getInputs()), assignUniqueId.getIdColumn())),
+                        ImmutableList.of(removeSymbol(getOnlyElement(node.getInputs()), assignUniqueId.getIdVariableAsSymbol())),
                         Optional.empty()),
-                assignUniqueId.getIdColumn()));
+                assignUniqueId.getIdVariable()));
     }
 
     private static List<Symbol> removeSymbol(List<Symbol> symbols, Symbol symbolToRemove)
