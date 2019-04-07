@@ -130,10 +130,11 @@ public class TransformCorrelatedScalarSubquery
                 lateralJoinNode.getOriginSubqueryError());
 
         Symbol isDistinct = context.getSymbolAllocator().newSymbol("is_distinct", BooleanType.BOOLEAN);
+        VariableReferenceExpression isDistinctVariable = new VariableReferenceExpression(isDistinct.getName(), BooleanType.BOOLEAN);
         MarkDistinctNode markDistinctNode = new MarkDistinctNode(
                 context.getIdAllocator().getNextId(),
                 rewrittenLateralJoinNode,
-                isDistinct,
+                isDistinctVariable,
                 rewrittenLateralJoinNode.getInput().getOutputSymbols(),
                 Optional.empty());
 
