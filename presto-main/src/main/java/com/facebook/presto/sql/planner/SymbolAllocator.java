@@ -65,13 +65,18 @@ public class SymbolAllocator
 
     public VariableReferenceExpression newVariable(String nameHint, Type type)
     {
-        Symbol symbol = newSymbol(nameHint, type);
-        return new VariableReferenceExpression(symbol.getName(), type);
+        return newVariable(nameHint, type, null);
     }
 
     public Symbol newHashSymbol()
     {
         return newSymbol("$hashValue", BigintType.BIGINT);
+    }
+
+    public VariableReferenceExpression newVariable(String nameHint, Type type, String suffix)
+    {
+        Symbol symbol = newSymbol(nameHint, type, suffix);
+        return new VariableReferenceExpression(symbol.getName(), type);
     }
 
     public Symbol newSymbol(String nameHint, Type type, String suffix)

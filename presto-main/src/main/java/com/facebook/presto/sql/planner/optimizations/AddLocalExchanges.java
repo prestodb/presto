@@ -389,7 +389,7 @@ public class AddLocalExchanges
             MarkDistinctNode result = new MarkDistinctNode(
                     node.getId(),
                     child.getNode(),
-                    node.getMarkerSymbol(),
+                    node.getMarkerVariable(),
                     pruneMarkDistinctSymbols(node, child.getProperties().getLocalProperties()),
                     node.getHashSymbol());
 
