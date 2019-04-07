@@ -646,7 +646,7 @@ public class PlanPrinter
             NodeRepresentation nodeOutput = addNode(node,
                     "RowNumber",
                     format("[%s]%s", Joiner.on(", ").join(args), formatHash(node.getHashSymbol())));
-            nodeOutput.appendDetailsLine("%s := %s", node.getRowNumberSymbol(), "row_number()");
+            nodeOutput.appendDetailsLine("%s := %s", node.getRowNumberVariable(), "row_number()");
 
             return processChildren(node, context);
         }

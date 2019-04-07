@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -25,7 +26,6 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.collect.Iterables.concat;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -35,7 +35,7 @@ public final class RowNumberNode
     private final PlanNode source;
     private final List<Symbol> partitionBy;
     private final Optional<Integer> maxRowCountPerPartition;
-    private final Symbol rowNumberSymbol;
+    private final VariableReferenceExpression rowNumberVariable;
     private final Optional<Symbol> hashSymbol;
 
     @JsonCreator
@@ -43,7 +43,7 @@ public final class RowNumberNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("partitionBy") List<Symbol> partitionBy,
-            @JsonProperty("rowNumberSymbol") Symbol rowNumberSymbol,
+            @JsonProperty("rowNumberVariable") VariableReferenceExpression rowNumberVariable,
             @JsonProperty("maxRowCountPerPartition") Optional<Integer> maxRowCountPerPartition,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
     {
@@ -51,13 +51,13 @@ public final class RowNumberNode
 
         requireNonNull(source, "source is null");
         requireNonNull(partitionBy, "partitionBy is null");
-        requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
+        requireNonNull(rowNumberVariable, "rowNumberVariable is null");
         requireNonNull(maxRowCountPerPartition, "maxRowCountPerPartition is null");
         requireNonNull(hashSymbol, "hashSymbol is null");
 
         this.source = source;
         this.partitionBy = ImmutableList.copyOf(partitionBy);
-        this.rowNumberSymbol = rowNumberSymbol;
+        this.rowNumberVariable = rowNumberVariable;
         this.maxRowCountPerPartition = maxRowCountPerPartition;
         this.hashSymbol = hashSymbol;
     }
@@ -71,7 +71,19 @@ public final class RowNumberNode
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.copyOf(concat(source.getOutputSymbols(), ImmutableList.of(rowNumberSymbol)));
+        return ImmutableList.<Symbol>builder()
+                .addAll(source.getOutputSymbols())
+                .add(new Symbol(rowNumberVariable.getName()))
+                .build();
+    }
+
+    @Override
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        return ImmutableList.<VariableReferenceExpression>builder()
+                .addAll(source.getOutputVariables())
+                .add(rowNumberVariable)
+                .build();
     }
 
     @JsonProperty
@@ -86,10 +98,15 @@ public final class RowNumberNode
         return partitionBy;
     }
 
-    @JsonProperty
     public Symbol getRowNumberSymbol()
     {
-        return rowNumberSymbol;
+        return new Symbol(rowNumberVariable.getName());
+    }
+
+    @JsonProperty
+    public VariableReferenceExpression getRowNumberVariable()
+    {
+        return rowNumberVariable;
     }
 
     @JsonProperty
@@ -113,6 +130,6 @@ public final class RowNumberNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new RowNumberNode(getId(), Iterables.getOnlyElement(newChildren), partitionBy, rowNumberSymbol, maxRowCountPerPartition, hashSymbol);
+        return new RowNumberNode(getId(), Iterables.getOnlyElement(newChildren), partitionBy, rowNumberVariable, maxRowCountPerPartition, hashSymbol);
     }
 }

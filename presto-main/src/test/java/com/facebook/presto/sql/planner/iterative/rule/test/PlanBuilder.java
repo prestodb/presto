@@ -746,13 +746,13 @@ public class PlanBuilder
                 0);
     }
 
-    public RowNumberNode rowNumber(List<Symbol> partitionBy, Optional<Integer> maxRowCountPerPartition, Symbol rowNumberSymbol, PlanNode source)
+    public RowNumberNode rowNumber(List<Symbol> partitionBy, Optional<Integer> maxRowCountPerPartition, Symbol rowNumberSymbol, VariableReferenceExpression rownNumberVariable, PlanNode source)
     {
         return new RowNumberNode(
                 idAllocator.getNextId(),
                 source,
                 partitionBy,
-                rowNumberSymbol,
+                rownNumberVariable,
                 maxRowCountPerPartition,
                 Optional.empty());
     }
