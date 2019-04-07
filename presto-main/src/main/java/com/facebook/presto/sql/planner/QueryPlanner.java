@@ -799,6 +799,7 @@ class QueryPlanner
             }
 
             Symbol newSymbol = symbolAllocator.newSymbol(rewritten, analysis.getType(windowFunction));
+            VariableReferenceExpression newVariable = new VariableReferenceExpression(newSymbol.getName(), analysis.getType(windowFunction));
             outputTranslations.put(windowFunction, newSymbol);
 
             WindowNode.Function function = new WindowNode.Function(
@@ -820,7 +821,7 @@ class QueryPlanner
                             new WindowNode.Specification(
                                     partitionBySymbols.build(),
                                     orderingScheme),
-                            ImmutableMap.of(newSymbol, function),
+                            ImmutableMap.of(newVariable, function),
                             Optional.empty(),
                             ImmutableSet.of(),
                             0),

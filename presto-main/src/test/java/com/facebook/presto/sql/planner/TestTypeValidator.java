@@ -158,6 +158,7 @@ public class TestTypeValidator
     public void testValidWindow()
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
+        VariableReferenceExpression windowVariable = new VariableReferenceExpression(windowSymbol.getName(), DOUBLE);
         FunctionHandle functionHandle = FUNCTION_MANAGER.lookupFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
         FunctionCall functionCall = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference()));
 
@@ -178,7 +179,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 specification,
-                ImmutableMap.of(windowSymbol, function),
+                ImmutableMap.of(windowVariable, function),
                 Optional.empty(),
                 ImmutableSet.of(),
                 0);
@@ -279,10 +280,11 @@ public class TestTypeValidator
         assertTypesValid(node);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of variable 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint")
     public void testInvalidWindowFunctionCall()
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
+        VariableReferenceExpression windowVariable = new VariableReferenceExpression(windowSymbol.getName(), DOUBLE);
         FunctionHandle functionHandle = FUNCTION_MANAGER.lookupFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
         FunctionCall functionCall = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnA.toSymbolReference())); // should be columnC
 
@@ -303,7 +305,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 specification,
-                ImmutableMap.of(windowSymbol, function),
+                ImmutableMap.of(windowVariable, function),
                 Optional.empty(),
                 ImmutableSet.of(),
                 0);
@@ -311,10 +313,11 @@ public class TestTypeValidator
         assertTypesValid(node);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of variable 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint")
     public void testInvalidWindowFunctionSignature()
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
+        VariableReferenceExpression windowVariable = new VariableReferenceExpression(windowSymbol.getName(), DOUBLE);
         FunctionHandle functionHandle = FUNCTION_MANAGER.lookupFunction(QualifiedName.of("sum"), fromTypes(BIGINT)); // should be DOUBLE
         FunctionCall functionCall = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference()));
 
@@ -335,7 +338,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 specification,
-                ImmutableMap.of(windowSymbol, function),
+                ImmutableMap.of(windowVariable, function),
                 Optional.empty(),
                 ImmutableSet.of(),
                 0);

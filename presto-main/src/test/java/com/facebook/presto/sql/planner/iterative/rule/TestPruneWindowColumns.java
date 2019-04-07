@@ -214,7 +214,7 @@ public class TestPruneWindowColumns
                                         ImmutableList.of(orderKey),
                                         ImmutableMap.of(orderKey, SortOrder.ASC_NULLS_FIRST)))),
                         ImmutableMap.of(
-                                output1,
+                                p.variable(output1),
                                 new WindowNode.Function(
                                         new FunctionCall(QualifiedName.of("min"), ImmutableList.of(input1.toSymbolReference())),
                                         FUNCTION_HANDLE,
@@ -226,7 +226,7 @@ public class TestPruneWindowColumns
                                                 Optional.of(endValue1),
                                                 Optional.of(startValue1.toSymbolReference()).map(Expression::toString),
                                                 Optional.of(endValue2.toSymbolReference()).map(Expression::toString))),
-                                output2,
+                                p.variable(output2),
                                 new WindowNode.Function(
                                         new FunctionCall(QualifiedName.of("min"), ImmutableList.of(input2.toSymbolReference())),
                                         FUNCTION_HANDLE,

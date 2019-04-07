@@ -109,6 +109,7 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.FunctionType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.PartitioningSpillerFactory;
@@ -899,8 +900,8 @@ public class LocalExecutionPlanner
             }
 
             ImmutableList.Builder<WindowFunctionDefinition> windowFunctionsBuilder = ImmutableList.builder();
-            ImmutableList.Builder<Symbol> windowFunctionOutputSymbolsBuilder = ImmutableList.builder();
-            for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
+            ImmutableList.Builder<VariableReferenceExpression> windowFunctionOutputVariablesBuilder = ImmutableList.builder();
+            for (Map.Entry<VariableReferenceExpression, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 Optional<Integer> frameStartChannel = Optional.empty();
                 Optional<Integer> frameEndChannel = Optional.empty();
 
@@ -921,15 +922,15 @@ public class LocalExecutionPlanner
                     Symbol argumentSymbol = Symbol.from(argument);
                     arguments.add(source.getLayout().get(argumentSymbol));
                 }
-                Symbol symbol = entry.getKey();
+                VariableReferenceExpression variable = entry.getKey();
                 FunctionManager functionManager = metadata.getFunctionManager();
                 WindowFunctionSupplier windowFunctionSupplier = functionManager.getWindowFunctionImplementation(functionHandle);
                 Type type = metadata.getType(functionManager.getFunctionMetadata(functionHandle).getReturnType());
                 windowFunctionsBuilder.add(window(windowFunctionSupplier, type, frameInfo, arguments.build()));
-                windowFunctionOutputSymbolsBuilder.add(symbol);
+                windowFunctionOutputVariablesBuilder.add(variable);
             }
 
-            List<Symbol> windowFunctionOutputSymbols = windowFunctionOutputSymbolsBuilder.build();
+            List<VariableReferenceExpression> windowFunctionOutputVariables = windowFunctionOutputVariablesBuilder.build();
 
             // compute the layout of the output from the window operator
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
@@ -939,8 +940,8 @@ public class LocalExecutionPlanner
 
             // window functions go in remaining channels starting after the last channel from the source operator, one per channel
             int channel = source.getTypes().size();
-            for (Symbol symbol : windowFunctionOutputSymbols) {
-                outputMappings.put(symbol, channel);
+            for (VariableReferenceExpression variable : windowFunctionOutputVariables) {
+                outputMappings.put(new Symbol(variable.getName()), channel);
                 channel++;
             }
 

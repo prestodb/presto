@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
@@ -27,6 +28,7 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
 import static com.facebook.presto.sql.planner.plan.Patterns.window;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class PruneWindowColumns
         extends ProjectOffPushDownRule<WindowNode>
@@ -39,9 +41,10 @@ public class PruneWindowColumns
     @Override
     protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, WindowNode windowNode, Set<Symbol> referencedOutputs)
     {
-        Map<Symbol, WindowNode.Function> referencedFunctions = Maps.filterKeys(
+        Set<String> referencedOutputNames = referencedOutputs.stream().map(Symbol::getName).collect(toImmutableSet());
+        Map<VariableReferenceExpression, WindowNode.Function> referencedFunctions = Maps.filterKeys(
                 windowNode.getWindowFunctions(),
-                referencedOutputs::contains);
+                variable -> referencedOutputNames.contains(variable.getName()));
 
         if (referencedFunctions.isEmpty()) {
             return Optional.of(windowNode.getSource());
