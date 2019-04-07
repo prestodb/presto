@@ -18,7 +18,6 @@ import com.facebook.presto.SequencePageBuilder;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.ShardInfo;
-import com.facebook.presto.raptor.storage.OrcStorageManager;
 import com.facebook.presto.raptor.storage.ReaderAttributes;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.storage.StoragePageSink;
@@ -38,6 +37,7 @@ import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -74,19 +74,22 @@ public class TestShardCompactor
     private static final PagesIndexPageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
     private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
 
-    private OrcStorageManager storageManager;
-    private ShardCompactor compactor;
     private File temporary;
+    private IDBI dbi;
     private Handle dummyHandle;
+
+    @DataProvider(name = "useOptimizedOrcWriter")
+    public static Object[][] useOptimizedOrcWriter()
+    {
+        return new Object[][] {{true}, {false}};
+    }
 
     @BeforeMethod
     public void setup()
     {
         temporary = createTempDir();
-        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
-        storageManager = createOrcStorageManager(dbi, temporary, MAX_SHARD_ROWS);
-        compactor = new ShardCompactor(storageManager, READER_ATTRIBUTES);
     }
 
     @AfterMethod(alwaysRun = true)
@@ -99,10 +102,11 @@ public class TestShardCompactor
         deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
     }
 
-    @Test
-    public void testShardCompactor()
+    @Test(dataProvider = "useOptimizedOrcWriter")
+    public void testShardCompactor(boolean useOptimizedOrcWriter)
             throws Exception
     {
+        StorageManager storageManager = createOrcStorageManager(dbi, temporary, MAX_SHARD_ROWS, useOptimizedOrcWriter);
         List<Long> columnIds = ImmutableList.of(3L, 7L, 2L, 1L, 5L);
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20), DOUBLE, DATE, TIMESTAMP);
 
@@ -117,17 +121,19 @@ public class TestShardCompactor
         Set<UUID> inputUuids = inputShards.stream().map(ShardInfo::getShardUuid).collect(toSet());
 
         long transactionId = 1;
+        ShardCompactor compactor = new ShardCompactor(storageManager, READER_ATTRIBUTES);
         List<ShardInfo> outputShards = compactor.compact(transactionId, OptionalInt.empty(), inputUuids, getColumnInfo(columnIds, columnTypes));
         assertEquals(outputShards.size(), expectedOutputShards);
 
         Set<UUID> outputUuids = outputShards.stream().map(ShardInfo::getShardUuid).collect(toSet());
-        assertShardEqualsIgnoreOrder(inputUuids, outputUuids, columnIds, columnTypes);
+        assertShardEqualsIgnoreOrder(storageManager, inputUuids, outputUuids, columnIds, columnTypes);
     }
 
-    @Test
-    public void testShardCompactorSorted()
+    @Test(dataProvider = "useOptimizedOrcWriter")
+    public void testShardCompactorSorted(boolean useOptimizedOrcWriter)
             throws Exception
     {
+        StorageManager storageManager = createOrcStorageManager(dbi, temporary, MAX_SHARD_ROWS, useOptimizedOrcWriter);
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20), DATE, TIMESTAMP, DOUBLE);
         List<Long> columnIds = ImmutableList.of(3L, 7L, 2L, 1L, 5L);
         List<Long> sortColumnIds = ImmutableList.of(1L, 2L, 3L, 5L, 7L);
@@ -145,13 +151,14 @@ public class TestShardCompactor
         Set<UUID> inputUuids = inputShards.stream().map(ShardInfo::getShardUuid).collect(toSet());
 
         long transactionId = 1;
+        ShardCompactor compactor = new ShardCompactor(storageManager, READER_ATTRIBUTES);
         List<ShardInfo> outputShards = compactor.compactSorted(transactionId, OptionalInt.empty(), inputUuids, getColumnInfo(columnIds, columnTypes), sortColumnIds, sortOrders);
         List<UUID> outputUuids = outputShards.stream()
                 .map(ShardInfo::getShardUuid)
                 .collect(toList());
         assertEquals(outputShards.size(), expectedOutputShards);
 
-        assertShardEqualsSorted(inputUuids, outputUuids, columnIds, columnTypes, sortIndexes, sortOrders);
+        assertShardEqualsSorted(storageManager, inputUuids, outputUuids, columnIds, columnTypes, sortIndexes, sortOrders);
     }
 
     private static long computeExpectedOutputShards(long totalRows)
@@ -159,23 +166,23 @@ public class TestShardCompactor
         return ((totalRows % MAX_SHARD_ROWS) != 0) ? ((totalRows / MAX_SHARD_ROWS) + 1) : (totalRows / MAX_SHARD_ROWS);
     }
 
-    private void assertShardEqualsIgnoreOrder(Set<UUID> inputUuids, Set<UUID> outputUuids, List<Long> columnIds, List<Type> columnTypes)
+    private void assertShardEqualsIgnoreOrder(StorageManager storageManager, Set<UUID> inputUuids, Set<UUID> outputUuids, List<Long> columnIds, List<Type> columnTypes)
             throws IOException
     {
-        MaterializedResult inputRows = getMaterializedRows(ImmutableList.copyOf(inputUuids), columnIds, columnTypes);
-        MaterializedResult outputRows = getMaterializedRows(ImmutableList.copyOf(outputUuids), columnIds, columnTypes);
+        MaterializedResult inputRows = getMaterializedRows(storageManager, ImmutableList.copyOf(inputUuids), columnIds, columnTypes);
+        MaterializedResult outputRows = getMaterializedRows(storageManager, ImmutableList.copyOf(outputUuids), columnIds, columnTypes);
 
         assertEqualsIgnoreOrder(outputRows, inputRows);
     }
 
-    private void assertShardEqualsSorted(Set<UUID> inputUuids, List<UUID> outputUuids, List<Long> columnIds, List<Type> columnTypes, List<Integer> sortIndexes, List<SortOrder> sortOrders)
+    private void assertShardEqualsSorted(StorageManager storageManager, Set<UUID> inputUuids, List<UUID> outputUuids, List<Long> columnIds, List<Type> columnTypes, List<Integer> sortIndexes, List<SortOrder> sortOrders)
             throws IOException
     {
-        List<Page> inputPages = getPages(inputUuids, columnIds, columnTypes);
+        List<Page> inputPages = getPages(storageManager, inputUuids, columnIds, columnTypes);
         List<Type> sortTypes = sortIndexes.stream().map(columnTypes::get).collect(toList());
 
         MaterializedResult inputRowsSorted = sortAndMaterialize(inputPages, columnTypes, sortIndexes, sortOrders, sortTypes);
-        MaterializedResult outputRows = extractColumns(getMaterializedRows(outputUuids, columnIds, columnTypes), sortIndexes, sortTypes);
+        MaterializedResult outputRows = extractColumns(getMaterializedRows(storageManager, outputUuids, columnIds, columnTypes), sortIndexes, sortTypes);
 
         assertEquals(outputRows, inputRowsSorted);
     }
@@ -223,12 +230,12 @@ public class TestShardCompactor
         return resultBuilder.build();
     }
 
-    private List<Page> getPages(Set<UUID> uuids, List<Long> columnIds, List<Type> columnTypes)
+    private List<Page> getPages(StorageManager storageManager, Set<UUID> uuids, List<Long> columnIds, List<Type> columnTypes)
             throws IOException
     {
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         for (UUID uuid : uuids) {
-            try (ConnectorPageSource pageSource = getPageSource(columnIds, columnTypes, uuid)) {
+            try (ConnectorPageSource pageSource = getPageSource(storageManager, columnIds, columnTypes, uuid)) {
                 while (!pageSource.isFinished()) {
                     Page outputPage = pageSource.getNextPage();
                     if (outputPage == null) {
@@ -241,12 +248,12 @@ public class TestShardCompactor
         return pages.build();
     }
 
-    private MaterializedResult getMaterializedRows(List<UUID> uuids, List<Long> columnIds, List<Type> columnTypes)
+    private MaterializedResult getMaterializedRows(StorageManager storageManager, List<UUID> uuids, List<Long> columnIds, List<Type> columnTypes)
             throws IOException
     {
         MaterializedResult.Builder rows = MaterializedResult.resultBuilder(SESSION, columnTypes);
         for (UUID uuid : uuids) {
-            try (ConnectorPageSource pageSource = getPageSource(columnIds, columnTypes, uuid)) {
+            try (ConnectorPageSource pageSource = getPageSource(storageManager, columnIds, columnTypes, uuid)) {
                 MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
                 rows.rows(result.getMaterializedRows());
             }
@@ -254,7 +261,7 @@ public class TestShardCompactor
         return rows.build();
     }
 
-    private ConnectorPageSource getPageSource(List<Long> columnIds, List<Type> columnTypes, UUID uuid)
+    private ConnectorPageSource getPageSource(StorageManager storageManager, List<Long> columnIds, List<Type> columnTypes, UUID uuid)
     {
         return storageManager.getPageSource(uuid, OptionalInt.empty(), columnIds, columnTypes, TupleDomain.all(), READER_ATTRIBUTES);
     }

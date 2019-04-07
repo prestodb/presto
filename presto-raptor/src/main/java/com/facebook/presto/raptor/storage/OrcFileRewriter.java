@@ -27,10 +27,16 @@ import org.apache.hadoop.hive.ql.io.orc.OrcWriterOptions;
 import org.apache.hadoop.hive.ql.io.orc.Reader;
 import org.apache.hadoop.hive.ql.io.orc.RecordReader;
 import org.apache.hadoop.hive.ql.io.orc.Writer;
+import org.apache.hadoop.hive.serde2.io.DateWritable;
 import org.apache.hadoop.hive.serde2.io.DoubleWritable;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
+import org.apache.hadoop.hive.serde2.io.HiveVarcharWritable;
+import org.apache.hadoop.hive.serde2.io.ShortWritable;
 import org.apache.hadoop.io.BooleanWritable;
+import org.apache.hadoop.io.ByteWritable;
 import org.apache.hadoop.io.BytesWritable;
+import org.apache.hadoop.io.FloatWritable;
+import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 
@@ -45,7 +51,10 @@ import java.util.Map;
 import static com.facebook.presto.raptor.util.Closer.closer;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.Math.toIntExact;
 import static org.apache.hadoop.hive.ql.io.orc.OrcFile.createReader;
@@ -165,6 +174,24 @@ public final class OrcFileRewriter
         }
         if (object instanceof BytesWritable) {
             return ((BytesWritable) object).getLength();
+        }
+        if (object instanceof ByteWritable) {
+            return SIZE_OF_BYTE;
+        }
+        if (object instanceof HiveVarcharWritable) {
+            return ((HiveVarcharWritable) object).getTextValue().getLength();
+        }
+        if (object instanceof DateWritable) {
+            return SIZE_OF_INT;
+        }
+        if (object instanceof IntWritable) {
+            return SIZE_OF_INT;
+        }
+        if (object instanceof ShortWritable) {
+            return SIZE_OF_SHORT;
+        }
+        if (object instanceof FloatWritable) {
+            return SIZE_OF_FLOAT;
         }
         if (object instanceof List<?>) {
             int size = 0;

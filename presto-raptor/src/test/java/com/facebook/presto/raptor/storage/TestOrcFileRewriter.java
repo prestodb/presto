@@ -17,6 +17,7 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
+import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.raptor.storage.OrcFileRewriter.OrcFileInfo;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -34,6 +35,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -71,6 +73,12 @@ public class TestOrcFileRewriter
 
     private File temporary;
 
+    @DataProvider(name = "useOptimizedOrcWriter")
+    public static Object[][] useOptimizedOrcWriter()
+    {
+        return new Object[][] {{true}, {false}};
+    }
+
     @BeforeClass
     public void setup()
     {
@@ -84,8 +92,8 @@ public class TestOrcFileRewriter
         deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
     }
 
-    @Test
-    public void testRewrite()
+    @Test(dataProvider = "useOptimizedOrcWriter")
+    public void testRewrite(boolean useOptimizedOrcWriter)
             throws Exception
     {
         TypeManager typeManager = new TypeRegistry();
@@ -103,7 +111,7 @@ public class TestOrcFileRewriter
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20), arrayType, mapType, arrayOfArrayType, decimalType);
 
         File file = new File(temporary, randomUUID().toString());
-        try (FileWriter writer = new OrcRecordWriter(columnIds, columnTypes, file)) {
+        try (FileWriter writer = OrcTestingUtil.createFileWriter(columnIds, columnTypes, file, useOptimizedOrcWriter)) {
             List<Page> pages = rowPagesBuilder(columnTypes)
                     .row(123L, "hello", arrayBlockOf(BIGINT, 1, 2), mapBlockOf(createVarcharType(5), BOOLEAN, "k1", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5)), new BigDecimal("2.3"))
                     .row(777L, "sky", arrayBlockOf(BIGINT, 3, 4), mapBlockOf(createVarcharType(5), BOOLEAN, "k2", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 6)), new BigDecimal("2.3"))
@@ -264,15 +272,15 @@ public class TestOrcFileRewriter
         }
     }
 
-    @Test
-    public void testRewriteWithoutMetadata()
+    @Test(dataProvider = "useOptimizedOrcWriter")
+    public void testRewriteWithoutMetadata(boolean useOptimizedOrcWriter)
             throws Exception
     {
         List<Long> columnIds = ImmutableList.of(3L, 7L);
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20));
 
         File file = new File(temporary, randomUUID().toString());
-        try (FileWriter writer = new OrcRecordWriter(columnIds, columnTypes, file, false)) {
+        try (FileWriter writer = createFileWriter(columnIds, columnTypes, file, false, useOptimizedOrcWriter)) {
             List<Page> pages = rowPagesBuilder(columnTypes)
                     .row(123L, "hello")
                     .row(777L, "sky")
@@ -339,15 +347,15 @@ public class TestOrcFileRewriter
         }
     }
 
-    @Test
-    public void testRewriteAllRowsDeleted()
+    @Test(dataProvider = "useOptimizedOrcWriter")
+    public void testRewriteAllRowsDeleted(boolean useOptimizedOrcWriter)
             throws Exception
     {
         List<Long> columnIds = ImmutableList.of(3L);
         List<Type> columnTypes = ImmutableList.of(BIGINT);
 
         File file = new File(temporary, randomUUID().toString());
-        try (FileWriter writer = new OrcRecordWriter(columnIds, columnTypes, file)) {
+        try (FileWriter writer = OrcTestingUtil.createFileWriter(columnIds, columnTypes, file, useOptimizedOrcWriter)) {
             writer.appendPages(rowPagesBuilder(columnTypes).row(123L).row(456L).build());
         }
 
@@ -363,15 +371,15 @@ public class TestOrcFileRewriter
         assertFalse(newFile.exists());
     }
 
-    @Test
-    public void testRewriteNoRowsDeleted()
+    @Test(dataProvider = "useOptimizedOrcWriter")
+    public void testRewriteNoRowsDeleted(boolean useOptimizedOrcWriter)
             throws Exception
     {
         List<Long> columnIds = ImmutableList.of(3L);
         List<Type> columnTypes = ImmutableList.of(BIGINT);
 
         File file = new File(temporary, randomUUID().toString());
-        try (FileWriter writer = new OrcRecordWriter(columnIds, columnTypes, file)) {
+        try (FileWriter writer = OrcTestingUtil.createFileWriter(columnIds, columnTypes, file, useOptimizedOrcWriter)) {
             writer.appendPages(rowPagesBuilder(columnTypes).row(123L).row(456L).build());
         }
 
@@ -382,18 +390,21 @@ public class TestOrcFileRewriter
         assertEquals(info.getRowCount(), 2);
         assertEquals(info.getUncompressedSize(), 16);
 
-        assertEquals(readAllBytes(newFile.toPath()), readAllBytes(file.toPath()));
+        // TODO: enable check for optimized ORC writer once the rewriter uses the optimized ORC writer as well
+        if (!useOptimizedOrcWriter) {
+            assertEquals(readAllBytes(newFile.toPath()), readAllBytes(file.toPath()));
+        }
     }
 
-    @Test
-    public void testUncompressedSize()
+    @Test(dataProvider = "useOptimizedOrcWriter")
+    public void testUncompressedSize(boolean useOptimizedOrcWriter)
             throws Exception
     {
         List<Long> columnIds = ImmutableList.of(1L, 2L, 3L, 4L, 5L);
         List<Type> columnTypes = ImmutableList.of(BOOLEAN, BIGINT, DOUBLE, createVarcharType(10), VARBINARY);
 
         File file = new File(temporary, randomUUID().toString());
-        try (FileWriter writer = new OrcRecordWriter(columnIds, columnTypes, file)) {
+        try (FileWriter writer = OrcTestingUtil.createFileWriter(columnIds, columnTypes, file, useOptimizedOrcWriter)) {
             List<Page> pages = rowPagesBuilder(columnTypes)
                     .row(true, 123L, 98.7, "hello", utf8Slice("abc"))
                     .row(false, 456L, 65.4, "world", utf8Slice("xyz"))
@@ -406,5 +417,13 @@ public class TestOrcFileRewriter
         OrcFileInfo info = OrcFileRewriter.rewrite(file, newFile, new BitSet());
         assertEquals(info.getRowCount(), 3);
         assertEquals(info.getUncompressedSize(), 55);
+    }
+
+    private static FileWriter createFileWriter(List<Long> columnIds, List<Type> columnTypes, File file, boolean writeMetadata, boolean useOptimizedOrcWriter)
+    {
+        if (useOptimizedOrcWriter) {
+            return new OrcFileWriter(columnIds, columnTypes, file, writeMetadata, true, new OrcWriterStats(), new TypeRegistry());
+        }
+        return new OrcRecordWriter(columnIds, columnTypes, file, writeMetadata);
     }
 }

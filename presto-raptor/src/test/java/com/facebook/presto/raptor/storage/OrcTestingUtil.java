@@ -18,7 +18,9 @@ import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcRecordReader;
+import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
@@ -95,5 +97,13 @@ final class OrcTestingUtil
     {
         checkArgument((b >= 0) && (b <= 0xFF), "octet not in range: %s", b);
         return (byte) b;
+    }
+
+    public static FileWriter createFileWriter(List<Long> columnIds, List<Type> columnTypes, File file, boolean useOptimizedOrcWriter)
+    {
+        if (useOptimizedOrcWriter) {
+            return new OrcFileWriter(columnIds, columnTypes, file, true, true, new OrcWriterStats(), new TypeRegistry());
+        }
+        return new OrcRecordWriter(columnIds, columnTypes, file, true);
     }
 }
