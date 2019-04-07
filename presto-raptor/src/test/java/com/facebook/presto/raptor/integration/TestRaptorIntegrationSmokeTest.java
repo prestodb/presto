@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor;
+package com.facebook.presto.raptor.integration;
 
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.testing.MaterializedResult;
@@ -60,7 +60,7 @@ public class TestRaptorIntegrationSmokeTest
     @SuppressWarnings("unused")
     public TestRaptorIntegrationSmokeTest()
     {
-        this(() -> createRaptorQueryRunner(ImmutableMap.of(), true, false));
+        this(() -> createRaptorQueryRunner(ImmutableMap.of(), true, false, ImmutableMap.of("storage.orc.optimized-writer-stage", "DISABLED")));
     }
 
     protected TestRaptorIntegrationSmokeTest(QueryRunnerSupplier supplier)
