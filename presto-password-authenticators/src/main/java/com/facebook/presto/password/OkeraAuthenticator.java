@@ -146,6 +146,7 @@ public class OkeraAuthenticator
 
     private String authenticateRestServer(String user, String passwordOrToken) throws IOException
     {
+        user = user.trim();
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         if (timeoutMs > 0) {
             conn.setConnectTimeout((int) timeoutMs);
@@ -154,7 +155,7 @@ public class OkeraAuthenticator
         conn.setRequestProperty("Accept", "application/json");
 
         // Determine if this user specified a password or token
-        if (isLikelyToken(passwordOrToken) || user.isEmpty()) {
+        if (isLikelyToken(passwordOrToken)) {
             conn.setRequestProperty("Authorization", "Bearer " + passwordOrToken);
         }
         else {
@@ -205,7 +206,16 @@ public class OkeraAuthenticator
             throw new IOException("Server returned invalid response. Missing 'user'");
         }
         String sub = json.substring(idx + userKey.length());
-        return sub.substring(0, sub.indexOf("\"")).trim();
+        String authenticatedUser = sub.substring(0, sub.indexOf("\"")).trim();
+
+        // Verify that the authenticated user matches what was specified. In the case of JWT tokens
+        // in particular, they can be mismatched. While we could handle this (have the token one
+        // superceded, this confuses presto - the UI shows the specified user for example).
+        if (!user.equals(authenticatedUser)) {
+            LOG.warn("Authentication error for user [%s]. Specified username did not match.", user);
+            throw new AccessDeniedException("Authentication error for user: " + user + ". If using token based authentication, username must match user in token.");
+        }
+        return authenticatedUser;
     }
 
     private static synchronized void configureRestServerSsl() throws KeyManagementException, NoSuchAlgorithmException
