@@ -29,6 +29,8 @@ import javax.inject.Inject;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
@@ -56,14 +58,15 @@ public class RaptorPageSourceProvider
         TupleDomain<RaptorColumnHandle> predicate = raptorSplit.getEffectivePredicate();
         ReaderAttributes attributes = ReaderAttributes.from(session);
         OptionalLong transactionId = raptorSplit.getTransactionId();
+        Optional<Map<String, Type>> columnTypes = raptorSplit.getColumnTypes();
 
         if (raptorSplit.getShardUuids().size() == 1) {
             UUID shardUuid = raptorSplit.getShardUuids().iterator().next();
-            return createPageSource(shardUuid, bucketNumber, columns, predicate, attributes, transactionId);
+            return createPageSource(shardUuid, bucketNumber, columns, predicate, attributes, transactionId, columnTypes);
         }
 
         Iterator<ConnectorPageSource> iterator = raptorSplit.getShardUuids().stream()
-                .map(shardUuid -> createPageSource(shardUuid, bucketNumber, columns, predicate, attributes, transactionId))
+                .map(shardUuid -> createPageSource(shardUuid, bucketNumber, columns, predicate, attributes, transactionId, columnTypes))
                 .iterator();
 
         return new ConcatPageSource(iterator);
@@ -75,12 +78,13 @@ public class RaptorPageSourceProvider
             List<ColumnHandle> columns,
             TupleDomain<RaptorColumnHandle> predicate,
             ReaderAttributes attributes,
-            OptionalLong transactionId)
+            OptionalLong transactionId,
+            Optional<Map<String, Type>> allColumnTypes)
     {
         List<RaptorColumnHandle> columnHandles = columns.stream().map(RaptorColumnHandle.class::cast).collect(toList());
         List<Long> columnIds = columnHandles.stream().map(RaptorColumnHandle::getColumnId).collect(toList());
         List<Type> columnTypes = columnHandles.stream().map(RaptorColumnHandle::getColumnType).collect(toList());
 
-        return storageManager.getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, predicate, attributes, transactionId);
+        return storageManager.getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, predicate, attributes, transactionId, allColumnTypes);
     }
 }
