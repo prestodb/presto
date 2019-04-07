@@ -147,7 +147,7 @@ public class OrcFileWriter
         }
     }
 
-    public void appendRow(Row row)
+    private void appendRow(Row row)
     {
         List<Object> columns = row.getColumns();
         checkArgument(columns.size() == columnTypes.size());
