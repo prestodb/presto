@@ -23,6 +23,7 @@ import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
@@ -74,6 +75,7 @@ public final class ShardStats
         }
         if (type.equals(BigintType.BIGINT) ||
                 type.equals(DateType.DATE) ||
+                type.equals(TimeType.TIME) ||
                 type.equals(TimestampType.TIMESTAMP)) {
             return indexLong(type, reader, columnIndex, columnId);
         }

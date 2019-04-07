@@ -18,6 +18,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.Nullable;
 
+import java.util.Objects;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class ColumnStats
@@ -66,5 +68,26 @@ public class ColumnStats
                 .add("max", max)
                 .omitNullValues()
                 .toString();
+    }
+
+    @Override
+    public boolean equals(Object other)
+    {
+        if (this == other) {
+            return true;
+        }
+        if (other == null || getClass() != other.getClass()) {
+            return false;
+        }
+        ColumnStats that = (ColumnStats) other;
+        return Objects.equals(columnId, that.columnId) &&
+                Objects.equals(min, that.min) &&
+                Objects.equals(max, that.max);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(columnId, min, max);
     }
 }
