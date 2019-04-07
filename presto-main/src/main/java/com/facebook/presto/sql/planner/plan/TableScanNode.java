@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -38,6 +39,7 @@ public class TableScanNode
 {
     private final TableHandle table;
     private final List<Symbol> outputSymbols;
+    private final List<VariableReferenceExpression> outputVariables;
     private final Map<Symbol, ColumnHandle> assignments; // symbol -> column
 
     // Used during predicate refinement over multiple passes of predicate pushdown
@@ -53,6 +55,7 @@ public class TableScanNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("table") TableHandle table,
             @JsonProperty("outputSymbols") List<Symbol> outputs,
+            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
             @JsonProperty("temporaryTable") boolean temporaryTable)
     {
@@ -60,6 +63,7 @@ public class TableScanNode
         super(id);
         this.table = requireNonNull(table, "table is null");
         this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
+        this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
         checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
         this.temporaryTable = temporaryTable;
@@ -71,26 +75,29 @@ public class TableScanNode
             PlanNodeId id,
             TableHandle table,
             List<Symbol> outputs,
+            List<VariableReferenceExpression> outputVariables,
             Map<Symbol, ColumnHandle> assignments)
     {
-        this(id, table, outputs, assignments, TupleDomain.all(), TupleDomain.all(), false);
+        this(id, table, outputs, outputVariables, assignments, TupleDomain.all(), TupleDomain.all(), false);
     }
 
     public TableScanNode(
             PlanNodeId id,
             TableHandle table,
             List<Symbol> outputs,
+            List<VariableReferenceExpression> outputVariables,
             Map<Symbol, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> currentConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint)
     {
-        this(id, table, outputs, assignments, currentConstraint, enforcedConstraint, false);
+        this(id, table, outputs, outputVariables, assignments, currentConstraint, enforcedConstraint, false);
     }
 
     public TableScanNode(
             PlanNodeId id,
             TableHandle table,
             List<Symbol> outputs,
+            List<VariableReferenceExpression> outputVariables,
             Map<Symbol, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> currentConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint,
@@ -99,6 +106,7 @@ public class TableScanNode
         super(id);
         this.table = requireNonNull(table, "table is null");
         this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
+        this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
         checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
         this.currentConstraint = requireNonNull(currentConstraint, "currentConstraint is null");
@@ -107,6 +115,7 @@ public class TableScanNode
         if (!currentConstraint.isAll() || !enforcedConstraint.isAll()) {
             checkArgument(table.getLayout().isPresent(), "tableLayout must be present when currentConstraint or enforcedConstraint is non-trivial");
         }
+        validateOutputVariables();
     }
 
     @JsonProperty("table")
@@ -120,6 +129,13 @@ public class TableScanNode
     public List<Symbol> getOutputSymbols()
     {
         return outputSymbols;
+    }
+
+    @Override
+    @JsonProperty("outputVariables")
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        return outputVariables;
     }
 
     @JsonProperty("assignments")

@@ -23,6 +23,7 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
 import static com.facebook.presto.util.MoreLists.filteredCopy;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.filterKeys;
 
 public class PruneTableScanColumns
@@ -41,6 +42,12 @@ public class PruneTableScanColumns
                         tableScanNode.getId(),
                         tableScanNode.getTable(),
                         filteredCopy(tableScanNode.getOutputSymbols(), referencedOutputs::contains),
+                        filteredCopy(
+                                tableScanNode.getOutputVariables(),
+                                variable -> referencedOutputs.stream()
+                                        .map(Symbol::getName)
+                                        .collect(toImmutableList())
+                                        .contains(variable.getName())),
                         filterKeys(tableScanNode.getAssignments(), referencedOutputs::contains),
                         tableScanNode.getCurrentConstraint(),
                         tableScanNode.getEnforcedConstraint()));

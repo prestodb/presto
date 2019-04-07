@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
@@ -153,16 +154,19 @@ class RelationPlanner
         TableHandle handle = analysis.getTableHandle(node);
 
         ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
+        ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
         for (Field field : scope.getRelationType().getAllFields()) {
             Symbol symbol = symbolAllocator.newSymbol(field.getName().get(), field.getType());
-
             outputSymbolsBuilder.add(symbol);
             columns.put(symbol, analysis.getColumn(field));
+
+            VariableReferenceExpression variable = new VariableReferenceExpression(symbol.getName(), field.getType());
+            outputVariablesBuilder.add(variable);
         }
 
         List<Symbol> outputSymbols = outputSymbolsBuilder.build();
-        PlanNode root = new TableScanNode(idAllocator.getNextId(), handle, outputSymbols, columns.build());
+        PlanNode root = new TableScanNode(idAllocator.getNextId(), handle, outputSymbols, outputVariablesBuilder.build(), columns.build());
         return new RelationPlan(root, scope, outputSymbols);
     }
 
