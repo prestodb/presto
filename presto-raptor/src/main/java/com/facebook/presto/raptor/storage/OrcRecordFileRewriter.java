@@ -61,14 +61,14 @@ import static org.apache.hadoop.hive.ql.io.orc.OrcFile.createReader;
 import static org.apache.hadoop.hive.ql.io.orc.OrcFile.createWriter;
 import static org.apache.hadoop.hive.ql.io.orc.OrcUtil.getFieldValue;
 
-public final class OrcFileRewriter
+public final class OrcRecordFileRewriter
+        implements FileRewriter
 {
-    private static final Logger log = Logger.get(OrcFileRewriter.class);
+    private static final Logger log = Logger.get(OrcRecordFileRewriter.class);
     private static final Configuration CONFIGURATION = new Configuration();
 
-    private OrcFileRewriter() {}
-
-    public static OrcFileInfo rewrite(File input, File output, BitSet rowsToDelete)
+    @Override
+    public OrcFileInfo rewrite(File input, File output, BitSet rowsToDelete)
             throws IOException
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader());
@@ -209,27 +209,5 @@ public final class OrcFileRewriter
             return size;
         }
         throw new IOException("Unhandled ORC object: " + object.getClass().getName());
-    }
-
-    public static class OrcFileInfo
-    {
-        private final long rowCount;
-        private final long uncompressedSize;
-
-        public OrcFileInfo(long rowCount, long uncompressedSize)
-        {
-            this.rowCount = rowCount;
-            this.uncompressedSize = uncompressedSize;
-        }
-
-        public long getRowCount()
-        {
-            return rowCount;
-        }
-
-        public long getUncompressedSize()
-        {
-            return uncompressedSize;
-        }
     }
 }
