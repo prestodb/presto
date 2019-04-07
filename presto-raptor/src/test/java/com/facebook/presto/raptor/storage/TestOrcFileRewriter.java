@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.OrcWriterStats;
-import com.facebook.presto.raptor.storage.OrcFileRewriter.OrcFileInfo;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.ArrayType;
@@ -205,7 +204,7 @@ public class TestOrcFileRewriter
         rowsToDelete.set(4);
 
         File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = OrcFileRewriter.rewrite(file, newFile, rowsToDelete);
+        OrcFileInfo info = new OrcRecordFileRewriter().rewrite(file, newFile, rowsToDelete);
         assertEquals(info.getRowCount(), 2);
         assertEquals(info.getUncompressedSize(), 94);
 
@@ -320,7 +319,7 @@ public class TestOrcFileRewriter
         rowsToDelete.set(1);
 
         File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = OrcFileRewriter.rewrite(file, newFile, rowsToDelete);
+        OrcFileInfo info = new OrcRecordFileRewriter().rewrite(file, newFile, rowsToDelete);
         assertEquals(info.getRowCount(), 1);
         assertEquals(info.getUncompressedSize(), 13);
 
@@ -364,7 +363,7 @@ public class TestOrcFileRewriter
         rowsToDelete.set(1);
 
         File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = OrcFileRewriter.rewrite(file, newFile, rowsToDelete);
+        OrcFileInfo info = new OrcRecordFileRewriter().rewrite(file, newFile, rowsToDelete);
         assertEquals(info.getRowCount(), 0);
         assertEquals(info.getUncompressedSize(), 0);
 
@@ -386,7 +385,7 @@ public class TestOrcFileRewriter
         BitSet rowsToDelete = new BitSet();
 
         File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = OrcFileRewriter.rewrite(file, newFile, rowsToDelete);
+        OrcFileInfo info = new OrcRecordFileRewriter().rewrite(file, newFile, rowsToDelete);
         assertEquals(info.getRowCount(), 2);
         assertEquals(info.getUncompressedSize(), 16);
 
@@ -414,7 +413,7 @@ public class TestOrcFileRewriter
         }
 
         File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = OrcFileRewriter.rewrite(file, newFile, new BitSet());
+        OrcFileInfo info = new OrcRecordFileRewriter().rewrite(file, newFile, new BitSet());
         assertEquals(info.getRowCount(), 3);
         assertEquals(info.getUncompressedSize(), 55);
     }

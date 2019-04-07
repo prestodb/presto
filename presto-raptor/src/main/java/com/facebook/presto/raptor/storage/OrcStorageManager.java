@@ -32,7 +32,6 @@ import com.facebook.presto.raptor.metadata.ColumnStats;
 import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardRecorder;
-import com.facebook.presto.raptor.storage.OrcFileRewriter.OrcFileInfo;
 import com.facebook.presto.raptor.storage.StorageManagerConfig.OrcOptimizedWriterStage;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.NodeManager;
@@ -160,6 +159,7 @@ public class OrcStorageManager
     private final TypeManager typeManager;
     private final ExecutorService deletionExecutor;
     private final ExecutorService commitExecutor;
+    private final FileRewriter fileRewriter;
     private final OrcWriterStats stats = new OrcWriterStats();
 
     @Inject
@@ -227,6 +227,13 @@ public class OrcStorageManager
         this.deletionExecutor = newFixedThreadPool(deletionThreads, daemonThreadsNamed("raptor-delete-" + connectorId + "-%s"));
         this.commitExecutor = newCachedThreadPool(daemonThreadsNamed("raptor-commit-" + connectorId + "-%s"));
         this.orcOptimizedWriterStage = requireNonNull(orcOptimizedWriterStage, "orcOptimizedWriterStage is null");
+        if (orcOptimizedWriterStage.ordinal() >= ENABLED.ordinal()) {
+            // TODO: add new rewriter.
+            this.fileRewriter = null;
+        }
+        else {
+            this.fileRewriter = new OrcRecordFileRewriter();
+        }
     }
 
     @PreDestroy
@@ -446,10 +453,10 @@ public class OrcStorageManager
         return ImmutableList.of(Slices.wrappedBuffer(SHARD_DELTA_CODEC.toJsonBytes(delta)));
     }
 
-    private static OrcFileInfo rewriteFile(File input, File output, BitSet rowsToDelete)
+    private OrcFileInfo rewriteFile(File input, File output, BitSet rowsToDelete)
     {
         try {
-            return OrcFileRewriter.rewrite(input, output, rowsToDelete);
+            return fileRewriter.rewrite(input, output, rowsToDelete);
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to rewrite shard file: " + input, e);
