@@ -82,7 +82,8 @@ public class TestValidateStreamingAggregations
                                 .singleGroupingSet(p.symbol("unique"), p.symbol("nationkey"))
                                 .preGroupedSymbols(p.symbol("unique"), p.symbol("nationkey"))
                                 .source(
-                                        p.assignUniqueId(p.symbol("unique"),
+                                        p.assignUniqueId(
+                                                p.variable(p.symbol("unique")),
                                                 p.tableScan(
                                                         nationTableHandle,
                                                         ImmutableList.of(p.symbol("nationkey", BIGINT)),

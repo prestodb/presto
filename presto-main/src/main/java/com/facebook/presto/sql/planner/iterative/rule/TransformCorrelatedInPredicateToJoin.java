@@ -170,7 +170,7 @@ public class TransformCorrelatedInPredicateToJoin
         AssignUniqueId probeSide = new AssignUniqueId(
                 idAllocator.getNextId(),
                 apply.getInput(),
-                symbolAllocator.newSymbol("unique", BIGINT));
+                symbolAllocator.newVariable("unique", BIGINT));
 
         Symbol buildSideKnownNonNull = symbolAllocator.newSymbol("buildSideKnownNonNull", BIGINT);
         ProjectNode buildSide = new ProjectNode(

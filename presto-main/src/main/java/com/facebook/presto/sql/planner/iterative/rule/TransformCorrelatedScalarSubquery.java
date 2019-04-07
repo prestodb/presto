@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -40,6 +40,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.matching.Pattern.nonEmpty;
 import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
@@ -115,7 +116,7 @@ public class TransformCorrelatedScalarSubquery
                     lateralJoinNode.getOriginSubqueryError()));
         }
 
-        Symbol unique = context.getSymbolAllocator().newSymbol("unique", BigintType.BIGINT);
+        VariableReferenceExpression unique = context.getSymbolAllocator().newVariable("unique", BIGINT);
 
         LateralJoinNode rewrittenLateralJoinNode = new LateralJoinNode(
                 context.getIdAllocator().getNextId(),

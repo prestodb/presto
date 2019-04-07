@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Field;
@@ -60,6 +61,12 @@ public class SymbolAllocator
     public Symbol newSymbol(String nameHint, Type type)
     {
         return newSymbol(nameHint, type, null);
+    }
+
+    public VariableReferenceExpression newVariable(String nameHint, Type type)
+    {
+        Symbol symbol = newSymbol(nameHint, type);
+        return new VariableReferenceExpression(symbol.getName(), type);
     }
 
     public Symbol newHashSymbol()

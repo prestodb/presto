@@ -35,7 +35,7 @@ public class AssignUniqueIdMatcher
 
         AssignUniqueId assignUniqueIdNode = (AssignUniqueId) node;
 
-        return Optional.of(assignUniqueIdNode.getIdColumn());
+        return Optional.of(assignUniqueIdNode.getIdVariableAsSymbol());
     }
 
     @Override

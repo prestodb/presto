@@ -1289,7 +1289,7 @@ public class PredicatePushDown
         public PlanNode visitAssignUniqueId(AssignUniqueId node, RewriteContext<Expression> context)
         {
             Set<Symbol> predicateSymbols = SymbolsExtractor.extractUnique(context.get());
-            checkState(!predicateSymbols.contains(node.getIdColumn()), "UniqueId in predicate is not yet supported");
+            checkState(!predicateSymbols.contains(node.getIdVariableAsSymbol()), "UniqueId in predicate is not yet supported");
             return context.defaultRewrite(node, context.get());
         }
     }

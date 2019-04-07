@@ -821,7 +821,7 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitAssignUniqueId(AssignUniqueId node, RewriteContext<Set<Symbol>> context)
         {
-            if (!context.get().contains(node.getIdColumn())) {
+            if (!context.get().contains(node.getIdVariableAsSymbol())) {
                 return context.rewrite(node.getSource(), context.get());
             }
             return context.defaultRewrite(node, context.get());
