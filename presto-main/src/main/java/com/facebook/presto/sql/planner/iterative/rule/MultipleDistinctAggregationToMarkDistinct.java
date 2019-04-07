@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -112,7 +113,7 @@ public class MultipleDistinctAggregationToMarkDistinct
         }
 
         // the distinct marker for the given set of input columns
-        Map<Set<Symbol>, Symbol> markers = new HashMap<>();
+        Map<Set<Symbol>, VariableReferenceExpression> markers = new HashMap<>();
 
         Map<Symbol, Aggregation> newAggregations = new HashMap<>();
         PlanNode subPlan = parent.getSource();
@@ -125,9 +126,9 @@ public class MultipleDistinctAggregationToMarkDistinct
                         .map(Symbol::from)
                         .collect(toSet());
 
-                Symbol marker = markers.get(inputs);
+                VariableReferenceExpression marker = markers.get(inputs);
                 if (marker == null) {
-                    marker = context.getSymbolAllocator().newSymbol(Iterables.getLast(inputs).getName(), BOOLEAN, "distinct");
+                    marker = context.getSymbolAllocator().newVariable(Iterables.getLast(inputs).getName(), BOOLEAN, "distinct");
                     markers.put(inputs, marker);
 
                     ImmutableSet.Builder<Symbol> distinctSymbols = ImmutableSet.<Symbol>builder()
@@ -151,7 +152,7 @@ public class MultipleDistinctAggregationToMarkDistinct
                                 aggregation.getFilter(),
                                 aggregation.getOrderBy(),
                                 false,
-                                Optional.of(marker)));
+                                Optional.of(new Symbol(marker.getName()))));
             }
             else {
                 newAggregations.put(entry.getKey(), aggregation);

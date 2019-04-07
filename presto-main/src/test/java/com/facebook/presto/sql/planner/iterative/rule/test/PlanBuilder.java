@@ -235,14 +235,14 @@ public class PlanBuilder
         return new ProjectNode(idAllocator.getNextId(), source, assignments);
     }
 
-    public MarkDistinctNode markDistinct(Symbol markerSymbol, List<Symbol> distinctSymbols, PlanNode source)
+    public MarkDistinctNode markDistinct(VariableReferenceExpression markerVariable, List<Symbol> distinctSymbols, PlanNode source)
     {
-        return new MarkDistinctNode(idAllocator.getNextId(), source, markerSymbol, distinctSymbols, Optional.empty());
+        return new MarkDistinctNode(idAllocator.getNextId(), source, markerVariable, distinctSymbols, Optional.empty());
     }
 
-    public MarkDistinctNode markDistinct(Symbol markerSymbol, List<Symbol> distinctSymbols, Symbol hashSymbol, PlanNode source)
+    public MarkDistinctNode markDistinct(VariableReferenceExpression markerVariable, List<Symbol> distinctSymbols, Symbol hashSymbol, PlanNode source)
     {
-        return new MarkDistinctNode(idAllocator.getNextId(), source, markerSymbol, distinctSymbols, Optional.of(hashSymbol));
+        return new MarkDistinctNode(idAllocator.getNextId(), source, markerVariable, distinctSymbols, Optional.of(hashSymbol));
     }
 
     public FilterNode filter(Expression predicate, PlanNode source)

@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -33,7 +34,7 @@ public class MarkDistinctNode
         extends InternalPlanNode
 {
     private final PlanNode source;
-    private final Symbol markerSymbol;
+    private final VariableReferenceExpression markerVariable;
 
     private final Optional<Symbol> hashSymbol;
     private final List<Symbol> distinctSymbols;
@@ -41,13 +42,13 @@ public class MarkDistinctNode
     @JsonCreator
     public MarkDistinctNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("markerSymbol") Symbol markerSymbol,
+            @JsonProperty("markerVariable") VariableReferenceExpression markerVariable,
             @JsonProperty("distinctSymbols") List<Symbol> distinctSymbols,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
     {
         super(id);
         this.source = source;
-        this.markerSymbol = markerSymbol;
+        this.markerVariable = markerVariable;
         this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
         requireNonNull(distinctSymbols, "distinctSymbols is null");
         checkArgument(!distinctSymbols.isEmpty(), "distinctSymbols cannot be empty");
@@ -59,7 +60,16 @@ public class MarkDistinctNode
     {
         return ImmutableList.<Symbol>builder()
                 .addAll(source.getOutputSymbols())
-                .add(markerSymbol)
+                .add(new Symbol(markerVariable.getName()))
+                .build();
+    }
+
+    @Override
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        return ImmutableList.<VariableReferenceExpression>builder()
+                .addAll(source.getOutputVariables())
+                .add(markerVariable)
                 .build();
     }
 
@@ -75,10 +85,15 @@ public class MarkDistinctNode
         return source;
     }
 
-    @JsonProperty
     public Symbol getMarkerSymbol()
     {
-        return markerSymbol;
+        return new Symbol(markerVariable.getName());
+    }
+
+    @JsonProperty
+    public VariableReferenceExpression getMarkerVariable()
+    {
+        return markerVariable;
     }
 
     @JsonProperty
@@ -102,6 +117,6 @@ public class MarkDistinctNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new MarkDistinctNode(getId(), Iterables.getOnlyElement(newChildren), markerSymbol, distinctSymbols, hashSymbol);
+        return new MarkDistinctNode(getId(), Iterables.getOnlyElement(newChildren), markerVariable, distinctSymbols, hashSymbol);
     }
 }

@@ -508,7 +508,7 @@ public class PruneUnreferencedOutputs
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
-            return new MarkDistinctNode(node.getId(), source, node.getMarkerSymbol(), node.getDistinctSymbols(), node.getHashSymbol());
+            return new MarkDistinctNode(node.getId(), source, node.getMarkerVariable(), node.getDistinctSymbols(), node.getHashSymbol());
         }
 
         @Override

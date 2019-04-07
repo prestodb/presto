@@ -543,7 +543,7 @@ public class PlanPrinter
         {
             addNode(node,
                     "MarkDistinct",
-                    format("[distinct=%s marker=%s]%s", formatOutputs(types, node.getDistinctSymbols()), node.getMarkerSymbol(), formatHash(node.getHashSymbol())));
+                    format("[distinct=%s marker=%s]%s", formatOutputs(types, node.getDistinctSymbols()), node.getMarkerVariable(), formatHash(node.getHashSymbol())));
 
             return processChildren(node, context);
         }

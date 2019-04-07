@@ -19,6 +19,7 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -176,7 +177,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
             List<Symbol> symbols = canonicalizeAndDistinct(node.getDistinctSymbols());
-            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerSymbol()), symbols, canonicalize(node.getHashSymbol()));
+            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerVariable()), symbols, canonicalize(node.getHashSymbol()));
         }
 
         @Override
@@ -674,6 +675,15 @@ public class UnaliasSymbolReferences
                 canonical = mapping.get(canonical);
             }
             return canonical;
+        }
+
+        private VariableReferenceExpression canonicalize(VariableReferenceExpression variable)
+        {
+            String canonical = variable.getName();
+            while (mapping.containsKey(canonical)) {
+                canonical = mapping.get(new Symbol(canonical)).getName();
+            }
+            return new VariableReferenceExpression(canonical, variable.getType());
         }
 
         private List<Expression> canonicalize(List<Expression> values)
