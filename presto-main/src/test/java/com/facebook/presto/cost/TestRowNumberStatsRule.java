@@ -42,6 +42,7 @@ public class TestRowNumberStatsRule
                         ImmutableList.of(pb.symbol("x", BIGINT)),
                         Optional.empty(),
                         pb.symbol("z", BIGINT),
+                        pb.variable(pb.symbol("z", BIGINT)),
                         pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
@@ -64,6 +65,7 @@ public class TestRowNumberStatsRule
                         ImmutableList.of(pb.symbol("x", BIGINT)),
                         Optional.of(1),
                         pb.symbol("z", BIGINT),
+                        pb.variable(pb.symbol("z", BIGINT)),
                         pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
@@ -84,6 +86,7 @@ public class TestRowNumberStatsRule
                         ImmutableList.of(pb.symbol("y", BIGINT)),
                         Optional.empty(),
                         pb.symbol("z", BIGINT),
+                        pb.variable(pb.symbol("z", BIGINT)),
                         pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(60)
@@ -104,6 +107,7 @@ public class TestRowNumberStatsRule
                         ImmutableList.of(pb.symbol("x", BIGINT)),
                         Optional.of(1),
                         pb.symbol("z", BIGINT),
+                        pb.variable(pb.symbol("z", BIGINT)),
                         pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .addSymbolStatistics(new Symbol("x"), xStats)
@@ -121,6 +125,7 @@ public class TestRowNumberStatsRule
                         ImmutableList.of(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT)),
                         Optional.empty(),
                         pb.symbol("z", BIGINT),
+                        pb.variable(pb.symbol("z", BIGINT)),
                         pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(60)
@@ -141,6 +146,7 @@ public class TestRowNumberStatsRule
                         ImmutableList.of(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT)),
                         Optional.empty(),
                         pb.symbol("z", BIGINT),
+                        pb.variable(pb.symbol("z", BIGINT)),
                         pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(20)
@@ -161,6 +167,7 @@ public class TestRowNumberStatsRule
                         ImmutableList.of(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT)),
                         Optional.empty(),
                         pb.symbol("z", BIGINT),
+                        pb.variable(pb.symbol("z", BIGINT)),
                         pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(20)
