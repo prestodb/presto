@@ -17,6 +17,7 @@ import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.OutputStreamOrcDataSink;
+import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
@@ -39,7 +40,6 @@ import java.util.Map;
 
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.HASHED;
-import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_WRITER_DATA_ERROR;
 import static com.facebook.presto.raptor.storage.OrcStorageManager.DEFAULT_STORAGE_TIMEZONE;
@@ -60,9 +60,9 @@ public class OrcFileWriter
     private long rowCount;
     private long uncompressedSize;
 
-    public OrcFileWriter(List<Long> columnIds, List<Type> columnTypes, File target, boolean validate, OrcWriterStats stats, TypeManager typeManager)
+    public OrcFileWriter(List<Long> columnIds, List<Type> columnTypes, File target, boolean validate, OrcWriterStats stats, TypeManager typeManager, CompressionKind compression)
     {
-        this(columnIds, columnTypes, target, true, validate, stats, typeManager);
+        this(columnIds, columnTypes, target, true, validate, stats, typeManager, compression);
     }
 
     @VisibleForTesting
@@ -73,7 +73,8 @@ public class OrcFileWriter
             boolean writeMetadata,
             boolean validate,
             OrcWriterStats stats,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            CompressionKind compression)
     {
         checkArgument(requireNonNull(columnIds, "columnIds is null").size() == requireNonNull(columnTypes, "columnTypes is null").size(), "ids and types mismatch");
         checkArgument(isUnique(columnIds), "ids must be unique");
@@ -99,7 +100,7 @@ public class OrcFileWriter
                     columnNames,
                     storageTypes,
                     ORC,
-                    SNAPPY,
+                    requireNonNull(compression, "compression is null"),
                     DEFAULT_OPTION,
                     userMetadata,
                     DEFAULT_STORAGE_TIMEZONE,

@@ -19,6 +19,7 @@ import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.OutputStreamOrcDataSink;
+import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.raptor.util.Closer;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -48,7 +49,6 @@ import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcPredicate.TRUE;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.HASHED;
-import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.raptor.storage.OrcFileWriter.DEFAULT_OPTION;
 import static com.facebook.presto.raptor.storage.OrcStorageManager.DEFAULT_STORAGE_TIMEZONE;
 import static com.facebook.presto.raptor.storage.OrcStorageManager.HUGE_MAX_READ_BLOCK_SIZE;
@@ -70,17 +70,20 @@ public final class OrcPageFileRewriter
     private final boolean validate;
     private final OrcWriterStats stats;
     private final TypeManager typeManager;
+    private final CompressionKind compression;
 
     OrcPageFileRewriter(
             ReaderAttributes readerAttributes,
             boolean validate,
             OrcWriterStats stats,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            CompressionKind compression)
     {
         this.readerAttributes = requireNonNull(readerAttributes, "readerAttributes is null");
         this.validate = validate;
         this.stats = requireNonNull(stats, "stats is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.compression = requireNonNull(compression, "compression is null");
     }
 
     @Override
@@ -159,7 +162,7 @@ public final class OrcPageFileRewriter
                             writerColumnIds,
                             writerStorageTypes,
                             ORC,
-                            SNAPPY,
+                            compression,
                             DEFAULT_OPTION,
                             userMetadata,
                             DEFAULT_STORAGE_TIMEZONE,
