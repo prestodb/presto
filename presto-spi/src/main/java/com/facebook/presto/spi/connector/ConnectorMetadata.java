@@ -134,6 +134,40 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Partitioning <code>a = {a_1, ... a_n}</code> is considered as a refined partitioning over
+     * partitioning <code>b = {b_1, ... b_m}</code> if:
+     * <ul>
+     * <li> n >= m </li>
+     * <li> For every partition <code>b_i</code> in partitioning <code>b</code>,
+     *      the rows it contains is the same as union of a set of partitions <code>a_{i_1}, a_{i_2}, ... a_{i_k}</code>
+     *      in partitioning <code>a</code>, i.e.
+     *      <p>
+     *          <code>b_i = a_{i_1} + a_{i_2} + ... + a_{i_k}</code>
+     * <li> Connector can transparently convert partitioning <code>a</code> to partitioning <code>b</code>
+     *      associated with the provided table layout handle.
+     * </ul>
+     *
+     * <p>
+     * For example, consider two partitioning over <code>order</code> table:
+     * <ul>
+     * <li> partitioning <code>a</code> has 256 partitions by <code>orderkey % 256</code>
+     * <li> partitioning <code>b</code> has 128 partitions by <code>orderkey % 128</code>
+     * </ul>
+     *
+     * <p>
+     * Partitioning <code>a</code> is a refined partitioning over <code>b</code> if Connector supports
+     * transparently convert <code>a</code> to <code>b</code>.
+     * <p>
+     * Refined-over relation is reflexive.
+     * <p>
+     * This SPI is unstable and subject to change in the future.
+     */
+    default boolean isRefinedPartitioningOver(ConnectorSession session, ConnectorPartitioningHandle left, ConnectorPartitioningHandle right)
+    {
+        return left.equals(right);
+    }
+
+    /**
      * Provides partitioning handle for exchange.
      */
     default ConnectorPartitioningHandle getPartitioningHandleForExchange(ConnectorSession session, int partitionCount, List<Type> partitionTypes)

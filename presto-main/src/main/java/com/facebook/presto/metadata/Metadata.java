@@ -18,6 +18,7 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
@@ -25,6 +26,7 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
@@ -91,6 +93,18 @@ public interface Metadata
      * Return a partitioning handle which the connector can transparently convert both {@code left} and {@code right} into.
      */
     Optional<PartitioningHandle> getCommonPartitioning(Session session, PartitioningHandle left, PartitioningHandle right);
+
+    /**
+     * Return whether {@code left} is a refined partitioning over {@code right}.
+     * See
+     * {@link com.facebook.presto.spi.connector.ConnectorMetadata#isRefinedPartitioningOver(ConnectorSession, ConnectorPartitioningHandle, ConnectorPartitioningHandle)}
+     * for details about refined partitioning.
+     * <p>
+     * Refined-over relation is reflexive.
+     * <p>
+     * This SPI is unstable and subject to change in the future.
+     */
+    boolean isRefinedPartitioningOver(Session session, PartitioningHandle a, PartitioningHandle b);
 
     /**
      * Provides partitioning handle for exchange.

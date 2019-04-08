@@ -1839,6 +1839,25 @@ public class HiveMetadata
                 maxCompatibleBucketCount));
     }
 
+    @Override
+    public boolean isRefinedPartitioningOver(ConnectorSession session, ConnectorPartitioningHandle left, ConnectorPartitioningHandle right)
+    {
+        HivePartitioningHandle leftHandle = (HivePartitioningHandle) left;
+        HivePartitioningHandle rightHandle = (HivePartitioningHandle) right;
+
+        if (!leftHandle.getHiveTypes().equals(rightHandle.getHiveTypes())) {
+            return false;
+        }
+
+        int leftBucketCount = leftHandle.getBucketCount();
+        int rightBucketCount = rightHandle.getBucketCount();
+        return leftBucketCount == rightBucketCount || // must be evenly divisible
+                (leftBucketCount % rightBucketCount == 0 &&
+                        // ratio must be power of two
+                        // TODO: this can be relaxed
+                        Integer.bitCount(leftBucketCount / rightBucketCount) == 1);
+    }
+
     private static OptionalInt min(OptionalInt left, OptionalInt right)
     {
         if (!left.isPresent()) {

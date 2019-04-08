@@ -437,6 +437,24 @@ public class MetadataManager
     }
 
     @Override
+    public boolean isRefinedPartitioningOver(Session session, PartitioningHandle left, PartitioningHandle right)
+    {
+        Optional<ConnectorId> leftConnectorId = left.getConnectorId();
+        Optional<ConnectorId> rightConnectorId = right.getConnectorId();
+        if (!leftConnectorId.isPresent() || !rightConnectorId.isPresent() || !leftConnectorId.equals(rightConnectorId)) {
+            return false;
+        }
+        if (!left.getTransactionHandle().equals(right.getTransactionHandle())) {
+            return false;
+        }
+        ConnectorId connectorId = leftConnectorId.get();
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+
+        return metadata.isRefinedPartitioningOver(session.toConnectorSession(connectorId), left.getConnectorHandle(), right.getConnectorHandle());
+    }
+
+    @Override
     public PartitioningHandle getPartitioningHandleForExchange(Session session, String catalogName, int partitionCount, List<Type> partitionTypes)
     {
         CatalogMetadata catalogMetadata = getOptionalCatalogMetadata(session, catalogName)
