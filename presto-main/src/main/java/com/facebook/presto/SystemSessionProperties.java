@@ -22,6 +22,7 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -87,6 +88,7 @@ public final class SystemSessionProperties
     public static final String CONCURRENT_LIFESPANS_PER_NODE = "concurrent_lifespans_per_task";
     public static final String REORDER_JOINS = "reorder_joins";
     public static final String JOIN_REORDERING_STRATEGY = "join_reordering_strategy";
+    public static final String PARTIAL_MERGE_PUSHDOWN_STRATEGY = "partial_merge_pushdown_strategy";
     public static final String MAX_REORDERED_JOINS = "max_reordered_joins";
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
@@ -369,6 +371,18 @@ public final class SystemSessionProperties
                         false,
                         value -> JoinReorderingStrategy.valueOf(((String) value).toUpperCase()),
                         JoinReorderingStrategy::name),
+                new PropertyMetadata<>(
+                        PARTIAL_MERGE_PUSHDOWN_STRATEGY,
+                        format("Experimental: Partial merge pushdown strategy to use. Optionas are %s",
+                                Stream.of(PartialMergePushdownStrategy.values())
+                                        .map(PartialMergePushdownStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        PartialMergePushdownStrategy.class,
+                        featuresConfig.getPartialMergePushdownStrategy(),
+                        false,
+                        value -> PartialMergePushdownStrategy.valueOf(((String) value).toUpperCase()),
+                        PartialMergePushdownStrategy::name),
                 new PropertyMetadata<>(
                         MAX_REORDERED_JOINS,
                         "The maximum number of joins to reorder as one group in cost-based join reordering",
@@ -748,6 +762,11 @@ public final class SystemSessionProperties
             return ELIMINATE_CROSS_JOINS;
         }
         return session.getSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.class);
+    }
+
+    public static PartialMergePushdownStrategy getPartialMergePushdownStrategy(Session session)
+    {
+        return session.getSystemProperty(PARTIAL_MERGE_PUSHDOWN_STRATEGY, PartialMergePushdownStrategy.class);
     }
 
     public static int getMaxReorderedJoins(Session session)

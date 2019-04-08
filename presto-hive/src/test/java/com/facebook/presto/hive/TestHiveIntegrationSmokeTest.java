@@ -32,6 +32,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.ColumnConstraint;
@@ -70,6 +71,7 @@ import static com.facebook.presto.SystemSessionProperties.CONCURRENT_LIFESPANS_P
 import static com.facebook.presto.SystemSessionProperties.DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION_FOR_AGGREGATION;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
@@ -100,6 +102,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy.PUSH_THROUGH_LOW_MEMORY_OPERATORS;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
@@ -2509,6 +2512,112 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate(session, "DROP TABLE IF EXISTS test_mismatch_bucketingN");
             assertUpdate(session, "DROP TABLE IF EXISTS test_mismatch_bucketing_out32");
             assertUpdate(session, "DROP TABLE IF EXISTS test_mismatch_bucketing_out8");
+        }
+    }
+
+    @Test
+    public void testPartialMergePushdown()
+    {
+        testPartialMergePushdown(getSession());
+        testPartialMergePushdown(materializeExchangesSession);
+    }
+
+    public void testPartialMergePushdown(Session session)
+    {
+        try {
+            assertUpdate(
+                    "CREATE TABLE test_partial_merge_pushdown_16buckets\n" +
+                            "WITH (bucket_count = 16, bucketed_by = ARRAY['key16']) AS\n" +
+                            "SELECT orderkey key16, comment value16 FROM orders",
+                    15000);
+            assertUpdate(
+                    "CREATE TABLE test_partial_merge_pushdown_32buckets\n" +
+                            "WITH (bucket_count = 32, bucketed_by = ARRAY['key32']) AS\n" +
+                            "SELECT orderkey key32, comment value32 FROM orders",
+                    15000);
+            assertUpdate(
+                    "CREATE TABLE test_partial_merge_pushdown_nobucket AS\n" +
+                            "SELECT orderkey key_nobucket, comment value_nobucket FROM orders",
+                    15000);
+
+            Session withPartialMergePushdownOptimization = Session.builder(session)
+                    .setSystemProperty(COLOCATED_JOIN, "true")
+                    .setSystemProperty(PARTIAL_MERGE_PUSHDOWN_STRATEGY, PUSH_THROUGH_LOW_MEMORY_OPERATORS.name())
+                    .build();
+            Session withoutPartialMergePushdownOptimization = Session.builder(session)
+                    .setSystemProperty(COLOCATED_JOIN, "true")
+                    .setSystemProperty(PARTIAL_MERGE_PUSHDOWN_STRATEGY, PartialMergePushdownStrategy.NONE.name())
+                    .build();
+
+            //
+            // join and write to bucketed table
+            // ================================
+            @Language("SQL") String joinAndWriteToTableWithSameBuckets = "CREATE TABLE test_partial_merge_pushdown_out16\n" +
+                    "WITH (bucket_count = 16, bucketed_by = ARRAY['key16'])\n" +
+                    "AS\n" +
+                    "SELECT key16, value16, key32, value32, key_nobucket, value_nobucket\n" +
+                    "FROM\n" +
+                    "  test_partial_merge_pushdown_16buckets\n" +
+                    "JOIN\n" +
+                    "  test_partial_merge_pushdown_32buckets\n" +
+                    "ON key16=key32\n" +
+                    "JOIN\n" +
+                    "  test_partial_merge_pushdown_nobucket\n" +
+                    "ON key16=key_nobucket";
+            @Language("SQL") String joinAndWriteToTableWithFewerBuckets = "CREATE TABLE test_partial_merge_pushdown_out8\n" +
+                    "WITH (bucket_count = 8, bucketed_by = ARRAY['key16'])\n" +
+                    "AS\n" +
+                    "SELECT key16, value16, key32, value32, key_nobucket, value_nobucket\n" +
+                    "FROM\n" +
+                    "  test_partial_merge_pushdown_16buckets\n" +
+                    "JOIN\n" +
+                    "  test_partial_merge_pushdown_32buckets\n" +
+                    "ON key16=key32\n" +
+                    "JOIN\n" +
+                    "  test_partial_merge_pushdown_nobucket\n" +
+                    "ON key16=key_nobucket";
+
+            assertUpdate(withoutPartialMergePushdownOptimization, joinAndWriteToTableWithSameBuckets, 15000, assertRemoteExchangesCount(3));
+            assertQuery("SELECT * FROM test_partial_merge_pushdown_out16", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
+            assertUpdate("DROP TABLE IF EXISTS test_partial_merge_pushdown_out16");
+
+            assertUpdate(withPartialMergePushdownOptimization, joinAndWriteToTableWithSameBuckets, 15000, assertRemoteExchangesCount(2));
+            assertQuery("SELECT * FROM test_partial_merge_pushdown_out16", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
+            assertUpdate("DROP TABLE IF EXISTS test_partial_merge_pushdown_out16");
+
+            assertUpdate(withoutPartialMergePushdownOptimization, joinAndWriteToTableWithFewerBuckets, 15000, assertRemoteExchangesCount(4));
+            assertQuery("SELECT * FROM test_partial_merge_pushdown_out8", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
+            assertUpdate("DROP TABLE IF EXISTS test_partial_merge_pushdown_out8");
+
+            // cannot pushdown the partial merge for TableWrite
+            assertUpdate(withPartialMergePushdownOptimization, joinAndWriteToTableWithFewerBuckets, 15000, assertRemoteExchangesCount(3));
+            assertQuery("SELECT * FROM test_partial_merge_pushdown_out8", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
+            assertUpdate("DROP TABLE IF EXISTS test_partial_merge_pushdown_out8");
+
+            //
+            // read and write to bucketed table
+            // =====================================
+            @Language("SQL") String readAndWriteToTableWithFewerBuckets = "CREATE TABLE test_partial_merge_pushdown_out8\n" +
+                    "WITH (bucket_count = 8, bucketed_by = ARRAY['key16'])\n" +
+                    "AS\n" +
+                    "SELECT key16, value16\n" +
+                    "FROM\n" +
+                    "  test_partial_merge_pushdown_16buckets";
+
+            assertUpdate(withoutPartialMergePushdownOptimization, readAndWriteToTableWithFewerBuckets, 15000, assertRemoteExchangesCount(2));
+            assertQuery("SELECT * FROM test_partial_merge_pushdown_out8", "SELECT orderkey, comment from orders");
+            assertUpdate("DROP TABLE IF EXISTS test_partial_merge_pushdown_out8");
+
+            assertUpdate(withPartialMergePushdownOptimization, readAndWriteToTableWithFewerBuckets, 15000, assertRemoteExchangesCount(1));
+            assertQuery("SELECT * FROM test_partial_merge_pushdown_out8", "SELECT orderkey, comment from orders");
+            assertUpdate("DROP TABLE IF EXISTS test_partial_merge_pushdown_out8");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_partial_merge_pushdown_16buckets");
+            assertUpdate("DROP TABLE IF EXISTS test_partial_merge_pushdown_32buckets");
+            assertUpdate("DROP TABLE IF EXISTS test_partial_merge_pushdown_nobucket");
+            assertUpdate("DROP TABLE IF EXISTS test_partial_merge_pushdown_out16");
+            assertUpdate("DROP TABLE IF EXISTS test_partial_merge_pushdown_out8");
         }
     }
 

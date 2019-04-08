@@ -123,6 +123,46 @@ public final class Partitioning
         return true;
     }
 
+    //  Refined-over relation is reflexive.
+    public boolean isRefinedPartitioningOver(
+            Partitioning right,
+            Metadata metadata,
+            Session session)
+    {
+        if (!handle.equals(right.handle) && !metadata.isRefinedPartitioningOver(session, handle, right.handle)) {
+            return false;
+        }
+
+        return arguments.equals(right.arguments);
+    }
+
+    //  Refined-over relation is reflexive.
+    public boolean isRefinedPartitioningOver(
+            Partitioning right,
+            Function<Symbol, Set<Symbol>> leftToRightMappings,
+            Function<Symbol, Optional<NullableValue>> leftConstantMapping,
+            Function<Symbol, Optional<NullableValue>> rightConstantMapping,
+            Metadata metadata,
+            Session session)
+    {
+        if (!metadata.isRefinedPartitioningOver(session, handle, right.handle)) {
+            return false;
+        }
+        if (arguments.size() != right.arguments.size()) {
+            return false;
+        }
+
+        for (int i = 0; i < arguments.size(); i++) {
+            ArgumentBinding leftArgument = arguments.get(i);
+            ArgumentBinding rightArgument = right.arguments.get(i);
+
+            if (!isPartitionedWith(leftArgument, leftConstantMapping, rightArgument, rightConstantMapping, leftToRightMappings)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private static boolean isPartitionedWith(
             ArgumentBinding leftArgument,
             Function<Symbol, Optional<NullableValue>> leftConstantMapping,
