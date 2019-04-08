@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.raptor.util.SyncingFileSystem;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
@@ -56,6 +57,7 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
+import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_UNSUPPORTED_COMPRESSION_KIND;
 import static com.facebook.presto.raptor.storage.Row.extractRow;
 import static com.facebook.presto.raptor.storage.StorageType.arrayOf;
 import static com.facebook.presto.raptor.storage.StorageType.mapOf;
@@ -72,7 +74,9 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
 import static org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
+import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.NONE;
 import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.SNAPPY;
+import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.ZLIB;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.LIST;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.MAP;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.PRIMITIVE;
@@ -101,13 +105,13 @@ public class OrcRecordWriter
     private long rowCount;
     private long uncompressedSize;
 
-    public OrcRecordWriter(List<Long> columnIds, List<Type> columnTypes, File target)
+    public OrcRecordWriter(List<Long> columnIds, List<Type> columnTypes, File target, CompressionKind compression)
     {
-        this(columnIds, columnTypes, target, true);
+        this(columnIds, columnTypes, target, compression, true);
     }
 
     @VisibleForTesting
-    OrcRecordWriter(List<Long> columnIds, List<Type> columnTypes, File target, boolean writeMetadata)
+    OrcRecordWriter(List<Long> columnIds, List<Type> columnTypes, File target, CompressionKind compression, boolean writeMetadata)
     {
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         checkArgument(columnIds.size() == columnTypes.size(), "ids and types mismatch");
@@ -122,7 +126,7 @@ public class OrcRecordWriter
         properties.setProperty(META_TABLE_COLUMN_TYPES, Joiner.on(':').join(hiveTypeNames));
 
         serializer = createSerializer(properties);
-        recordWriter = createRecordWriter(new Path(target.toURI()), columnIds, columnTypes, writeMetadata);
+        recordWriter = createRecordWriter(new Path(target.toURI()), columnIds, columnTypes, requireNonNull(compression, "compression is null"), writeMetadata);
 
         tableInspector = getStandardStructObjectInspector(columnNames, getJavaObjectInspectors(storageTypes));
         structFields = ImmutableList.copyOf(tableInspector.getAllStructFieldRefs());
@@ -197,14 +201,14 @@ public class OrcRecordWriter
         return serde;
     }
 
-    private static RecordWriter createRecordWriter(Path target, List<Long> columnIds, List<Type> columnTypes, boolean writeMetadata)
+    private static RecordWriter createRecordWriter(Path target, List<Long> columnIds, List<Type> columnTypes, CompressionKind compression, boolean writeMetadata)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader());
                 FileSystem fileSystem = new SyncingFileSystem(CONFIGURATION)) {
             OrcFile.WriterOptions options = new OrcWriterOptions(CONFIGURATION)
                     .memory(new NullMemoryManager(CONFIGURATION))
                     .fileSystem(fileSystem)
-                    .compress(SNAPPY);
+                    .compress(toCompressionKind(compression));
 
             if (writeMetadata) {
                 options.callback(createFileMetadataCallback(columnIds, columnTypes));
@@ -214,6 +218,20 @@ public class OrcRecordWriter
         }
         catch (ReflectiveOperationException | IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to create writer", e);
+        }
+    }
+
+    private static org.apache.hadoop.hive.ql.io.orc.CompressionKind toCompressionKind(CompressionKind compression)
+    {
+        switch (compression) {
+            case NONE:
+                return NONE;
+            case SNAPPY:
+                return SNAPPY;
+            case ZLIB:
+                return ZLIB;
+            default:
+                throw new PrestoException(RAPTOR_UNSUPPORTED_COMPRESSION_KIND, "Found unsupported compression kind: " + compression);
         }
     }
 

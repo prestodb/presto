@@ -57,6 +57,8 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
+import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
+import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static com.facebook.presto.raptor.storage.FileStorageService.getFileSystemPath;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.createReader;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.fileOrcDataSource;
@@ -687,9 +689,9 @@ public class TestOrcFileRewriter
     private static FileWriter createFileWriter(List<Long> columnIds, List<Type> columnTypes, File file, boolean writeMetadata, boolean useOptimizedOrcWriter)
     {
         if (useOptimizedOrcWriter) {
-            return new OrcFileWriter(columnIds, columnTypes, file, writeMetadata, true, new OrcWriterStats(), new TypeRegistry());
+            return new OrcFileWriter(columnIds, columnTypes, file, writeMetadata, true, new OrcWriterStats(), new TypeRegistry(), ZSTD);
         }
-        return new OrcRecordWriter(columnIds, columnTypes, file, writeMetadata);
+        return new OrcRecordWriter(columnIds, columnTypes, file, SNAPPY, writeMetadata);
     }
 
     private static FileRewriter createFileRewriter(boolean useOptimizedOrcWriter)
@@ -697,7 +699,7 @@ public class TestOrcFileRewriter
         if (useOptimizedOrcWriter) {
             TypeRegistry typeManager = new TypeRegistry();
             new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-            return new OrcPageFileRewriter(READER_ATTRIBUTES, true, new OrcWriterStats(), typeManager);
+            return new OrcPageFileRewriter(READER_ATTRIBUTES, true, new OrcWriterStats(), typeManager, ZSTD);
         }
         return new OrcRecordFileRewriter();
     }

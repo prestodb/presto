@@ -38,6 +38,8 @@ import java.util.Map;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
+import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
+import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
@@ -107,8 +109,8 @@ final class OrcTestingUtil
         if (useOptimizedOrcWriter) {
             TypeRegistry typeManager = new TypeRegistry();
             new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-            return new OrcFileWriter(columnIds, columnTypes, file, true, true, new OrcWriterStats(), typeManager);
+            return new OrcFileWriter(columnIds, columnTypes, file, true, true, new OrcWriterStats(), typeManager, ZSTD);
         }
-        return new OrcRecordWriter(columnIds, columnTypes, file, true);
+        return new OrcRecordWriter(columnIds, columnTypes, file, SNAPPY, true);
     }
 }

@@ -22,6 +22,7 @@ import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
+import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.RaptorConnectorId;
@@ -155,6 +156,7 @@ public class OrcStorageManager
     private final long maxShardRows;
     private final DataSize maxShardSize;
     private final DataSize minAvailableSpace;
+    private final CompressionKind compression;
     private final OrcOptimizedWriterStage orcOptimizedWriterStage;
     private final TypeManager typeManager;
     private final ExecutorService deletionExecutor;
@@ -189,6 +191,7 @@ public class OrcStorageManager
                 config.getMaxShardRows(),
                 config.getMaxShardSize(),
                 config.getMinAvailableSpace(),
+                config.getOrcCompressionKind(),
                 config.getOrcOptimizedWriterStage());
     }
 
@@ -207,6 +210,7 @@ public class OrcStorageManager
             long maxShardRows,
             DataSize maxShardSize,
             DataSize minAvailableSpace,
+            CompressionKind compression,
             OrcOptimizedWriterStage orcOptimizedWriterStage)
     {
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
@@ -226,9 +230,10 @@ public class OrcStorageManager
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.deletionExecutor = newFixedThreadPool(deletionThreads, daemonThreadsNamed("raptor-delete-" + connectorId + "-%s"));
         this.commitExecutor = newCachedThreadPool(daemonThreadsNamed("raptor-commit-" + connectorId + "-%s"));
+        this.compression = requireNonNull(compression, "compression is null");
         this.orcOptimizedWriterStage = requireNonNull(orcOptimizedWriterStage, "orcOptimizedWriterStage is null");
         if (orcOptimizedWriterStage.ordinal() >= ENABLED.ordinal()) {
-            this.fileRewriter = new OrcPageFileRewriter(readerAttributes, orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED), stats, typeManager);
+            this.fileRewriter = new OrcPageFileRewriter(readerAttributes, orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED), stats, typeManager, compression);
         }
         else {
             this.fileRewriter = new OrcRecordFileRewriter();
@@ -711,10 +716,10 @@ public class OrcStorageManager
                 storageService.createParents(stagingFile);
                 stagingFiles.add(stagingFile);
                 if (orcOptimizedWriterStage.ordinal() >= ENABLED.ordinal()) {
-                    writer = new OrcFileWriter(columnIds, columnTypes, stagingFile, orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED), stats, typeManager);
+                    writer = new OrcFileWriter(columnIds, columnTypes, stagingFile, orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED), stats, typeManager, compression);
                 }
                 else {
-                    writer = new OrcRecordWriter(columnIds, columnTypes, stagingFile);
+                    writer = new OrcRecordWriter(columnIds, columnTypes, stagingFile, compression);
                 }
             }
         }

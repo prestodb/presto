@@ -71,6 +71,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.facebook.presto.raptor.storage.OrcStorageManager.xxhash64;
@@ -648,6 +649,7 @@ public class TestOrcStorageManager
                 maxShardRows,
                 maxFileSize,
                 new DataSize(0, BYTE),
+                SNAPPY,
                 useOptimizedWriter ? ENABLED_AND_VALIDATED : DISABLED);
     }
 
