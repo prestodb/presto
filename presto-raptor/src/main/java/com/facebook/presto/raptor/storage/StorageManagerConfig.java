@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
@@ -33,6 +34,7 @@ import java.io.File;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.raptor.storage.StorageManagerConfig.OrcOptimizedWriterStage.DISABLED;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -55,6 +57,7 @@ public class StorageManagerConfig
     private DataSize orcTinyStripeThreshold = new DataSize(8, MEGABYTE);
     private boolean orcLazyReadSmallRanges = true;
     private OrcOptimizedWriterStage orcOptimizedWriterStage = DISABLED;
+    private CompressionKind orcCompressionKind = SNAPPY;
     private int deletionThreads = max(1, getRuntime().availableProcessors() / 2);
     private int recoveryThreads = 10;
     private int organizationThreads = 5;
@@ -177,6 +180,18 @@ public class StorageManagerConfig
     public StorageManagerConfig setOrcOptimizedWriterStage(OrcOptimizedWriterStage orcOptimizedWriterStage)
     {
         this.orcOptimizedWriterStage = orcOptimizedWriterStage;
+        return this;
+    }
+
+    public CompressionKind getOrcCompressionKind()
+    {
+        return orcCompressionKind;
+    }
+
+    @Config("storage.orc.compression-kind")
+    public StorageManagerConfig setOrcCompressionKind(CompressionKind orcCompressionKind)
+    {
+        this.orcCompressionKind = orcCompressionKind;
         return this;
     }
 
