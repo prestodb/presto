@@ -13,10 +13,17 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
+
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 
 public class ProjectNodeUtils
 {
@@ -37,5 +44,21 @@ public class ProjectNodeUtils
         Expression expression = projectNode.getAssignments().get(output);
 
         return expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(output.getName());
+    }
+
+    public static Map<Symbol, Expression> getAsExpression(Map<Symbol, RowExpression> assignments)
+    {
+        return assignments.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> castToExpression(entry.getValue())));
+    }
+
+    public static Map<Symbol, RowExpression> getAsRowExpression(Map<Symbol, Expression> assignments)
+    {
+        return assignments.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> castToRowExpression(entry.getValue())));
     }
 }

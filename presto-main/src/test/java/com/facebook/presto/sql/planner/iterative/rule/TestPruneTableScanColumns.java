@@ -31,6 +31,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 
 public class TestPruneTableScanColumns
@@ -45,7 +46,7 @@ public class TestPruneTableScanColumns
                     Symbol orderdate = p.symbol("orderdate", DATE);
                     Symbol totalprice = p.symbol("totalprice", DOUBLE);
                     return p.project(
-                            Assignments.of(p.symbol("x"), totalprice.toSymbolReference()),
+                            Assignments.of(p.symbol("x"), castToRowExpression(totalprice.toSymbolReference())),
                             p.tableScan(
                                     new TableHandle(
                                             new ConnectorId("local"),
@@ -67,7 +68,7 @@ public class TestPruneTableScanColumns
         tester().assertThat(new PruneTableScanColumns())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("y"), expression("x")),
+                                Assignments.of(p.symbol("y"), castToRowExpression(expression("x"))),
                                 p.tableScan(
                                         ImmutableList.of(p.symbol("x")),
                                         ImmutableMap.of(p.symbol("x"), new TestingColumnHandle("x")))))

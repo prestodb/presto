@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 
 public class TestRemoveUnreferencedScalarApplyNodes
         extends BaseRuleTest
@@ -29,7 +30,7 @@ public class TestRemoveUnreferencedScalarApplyNodes
     {
         tester().assertThat(new RemoveUnreferencedScalarApplyNodes())
                 .on(p -> p.apply(
-                        Assignments.of(p.symbol("z"), p.expression("x IN (y)")),
+                        Assignments.of(p.symbol("z"), castToRowExpression(p.expression("x IN (y)"))),
                         ImmutableList.of(),
                         p.values(p.symbol("x")),
                         p.values(p.symbol("y"))))

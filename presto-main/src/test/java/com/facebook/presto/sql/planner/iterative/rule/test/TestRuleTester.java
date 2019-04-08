@@ -25,6 +25,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 
 public class TestRuleTester
 {
@@ -35,7 +36,7 @@ public class TestRuleTester
             tester.assertThat(new DummyReplaceNodeRule())
                     .on(p ->
                             p.project(
-                                    Assignments.of(p.symbol("y"), expression("x")),
+                                    Assignments.of(p.symbol("y"), castToRowExpression(expression("x"))),
                                     p.values(
                                             ImmutableList.of(p.symbol("x")),
                                             ImmutableList.of(constantExpressions(BIGINT, 1)))))

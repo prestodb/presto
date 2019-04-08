@@ -47,6 +47,7 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggrega
 import static com.facebook.presto.sql.planner.plan.LateralJoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.LateralJoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static com.google.common.base.Preconditions.checkState;
@@ -130,7 +131,7 @@ public class TransformExistsApplyToLateralNode
                         applyNode.getSubquery(),
                         1L,
                         false),
-                Assignments.of(subqueryTrue, TRUE_LITERAL));
+                Assignments.of(subqueryTrue, castToRowExpression(TRUE_LITERAL)));
 
         PlanNodeDecorrelator decorrelator = new PlanNodeDecorrelator(context.getIdAllocator(), context.getLookup());
         if (!decorrelator.decorrelateFilters(subquery, applyNode.getCorrelation()).isPresent()) {
@@ -153,6 +154,7 @@ public class TransformExistsApplyToLateralNode
         Symbol count = context.getSymbolAllocator().newSymbol(COUNT.toString(), BIGINT);
         Symbol exists = getOnlyElement(parent.getSubqueryAssignments().getSymbols());
 
+        final ComparisonExpression comparisonExpression = new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), BIGINT.toString()));
         return new LateralJoinNode(
                 parent.getId(),
                 parent.getInput(),
@@ -170,7 +172,7 @@ public class TransformExistsApplyToLateralNode
                                 AggregationNode.Step.SINGLE,
                                 Optional.empty(),
                                 Optional.empty()),
-                        Assignments.of(exists, new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), BIGINT.toString())))),
+                        Assignments.of(exists, castToRowExpression(comparisonExpression))),
                 parent.getCorrelation(),
                 INNER,
                 parent.getOriginSubquery());

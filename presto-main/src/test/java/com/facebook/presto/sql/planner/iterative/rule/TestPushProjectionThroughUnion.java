@@ -27,6 +27,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expres
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.union;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 
 public class TestPushProjectionThroughUnion
         extends BaseRuleTest
@@ -37,7 +38,7 @@ public class TestPushProjectionThroughUnion
         tester().assertThat(new PushProjectionThroughUnion())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("x"), new LongLiteral("3")),
+                                Assignments.of(p.symbol("x"), castToRowExpression(new LongLiteral("3"))),
                                 p.values(p.symbol("a"))))
                 .doesNotFire();
     }
@@ -51,8 +52,9 @@ public class TestPushProjectionThroughUnion
                     Symbol b = p.symbol("b");
                     Symbol c = p.symbol("c");
                     Symbol cTimes3 = p.symbol("c_times_3");
+                    final ArithmeticBinaryExpression arithmeticBinaryExpression = new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, c.toSymbolReference(), new LongLiteral("3"));
                     return p.project(
-                            Assignments.of(cTimes3, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, c.toSymbolReference(), new LongLiteral("3"))),
+                            Assignments.of(cTimes3, castToRowExpression(arithmeticBinaryExpression)),
                             p.union(
                                     ImmutableListMultimap.<Symbol, Symbol>builder()
                                             .put(c, a)

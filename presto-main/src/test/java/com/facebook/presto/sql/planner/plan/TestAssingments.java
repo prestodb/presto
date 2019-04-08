@@ -17,12 +17,13 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableCollection;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static org.testng.Assert.assertTrue;
 
 public class TestAssingments
 {
-    private final Assignments assignments = Assignments.of(new Symbol("test"), TRUE_LITERAL);
+    private final Assignments assignments = Assignments.of(new Symbol("test"), castToRowExpression(TRUE_LITERAL));
 
     @Test
     public void testOutputsImmutable()

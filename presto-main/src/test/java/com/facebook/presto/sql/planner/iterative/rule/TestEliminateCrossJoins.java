@@ -42,6 +42,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins.getJoinOrder;
 import static com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins.isOriginalOrder;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -250,7 +251,7 @@ public class TestEliminateCrossJoins
         return new ProjectNode(
                 idAllocator.getNextId(),
                 source,
-                Assignments.of(new Symbol(symbol), expression));
+                Assignments.of(new Symbol(symbol), castToRowExpression(expression)));
     }
 
     private String symbol(String name)

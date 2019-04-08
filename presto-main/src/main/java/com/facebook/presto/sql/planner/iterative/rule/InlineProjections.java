@@ -37,6 +37,7 @@ import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
+import static com.facebook.presto.sql.relational.ProjectNodeUtils.getAsRowExpression;
 import static com.facebook.presto.sql.relational.ProjectNodeUtils.isIdentity;
 import static java.util.stream.Collectors.toSet;
 
@@ -106,7 +107,7 @@ public class InlineProjections
                                 child.getId(),
                                 child.getSource(),
                                 childAssignments.build()),
-                        Assignments.copyOf(parentAssignments)));
+                        Assignments.copyOf(getAsRowExpression(parentAssignments))));
     }
 
     private Expression inlineReferences(Expression expression, Assignments assignments)

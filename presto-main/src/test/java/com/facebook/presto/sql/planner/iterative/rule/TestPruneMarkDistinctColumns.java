@@ -24,6 +24,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expres
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 
 public class TestPruneMarkDistinctColumns
         extends BaseRuleTest
@@ -39,7 +40,7 @@ public class TestPruneMarkDistinctColumns
                     Symbol mark = p.symbol("mark");
                     Symbol unused = p.symbol("unused");
                     return p.project(
-                            Assignments.of(key2, key.toSymbolReference()),
+                            Assignments.of(key2, castToRowExpression(key.toSymbolReference())),
                             p.markDistinct(mark, ImmutableList.of(key), p.values(key, unused)));
                 })
                 .matches(

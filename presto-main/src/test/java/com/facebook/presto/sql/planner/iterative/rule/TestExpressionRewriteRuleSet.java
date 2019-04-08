@@ -58,7 +58,7 @@ public class TestExpressionRewriteRuleSet
     {
         tester().assertThat(zeroRewriter.projectExpressionRewrite())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("y"), PlanBuilder.expression("x IS NOT NULL")),
+                        Assignments.of(p.symbol("y"), castToRowExpression(PlanBuilder.expression("x IS NOT NULL"))),
                         p.values(p.symbol("x"))))
                 .matches(
                         project(ImmutableMap.of("y", expression("0")), values("x")));
@@ -69,7 +69,7 @@ public class TestExpressionRewriteRuleSet
     {
         tester().assertThat(zeroRewriter.projectExpressionRewrite())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("y"), PlanBuilder.expression("0")),
+                        Assignments.of(p.symbol("y"), castToRowExpression(PlanBuilder.expression("0"))),
                         p.values(p.symbol("x"))))
                 .doesNotFire();
     }
@@ -152,11 +152,11 @@ public class TestExpressionRewriteRuleSet
                 .on(p -> p.apply(
                         Assignments.of(
                                 p.symbol("a", BIGINT),
-                                new InPredicate(
+                                castToRowExpression(new InPredicate(
                                         new LongLiteral("1"),
                                         new InListExpression(ImmutableList.of(
                                                 new LongLiteral("1"),
-                                                new LongLiteral("2"))))),
+                                                new LongLiteral("2")))))),
                         ImmutableList.of(),
                         p.values(),
                         p.values()))
@@ -175,11 +175,11 @@ public class TestExpressionRewriteRuleSet
                 .on(p -> p.apply(
                         Assignments.of(
                                 p.symbol("a", BIGINT),
-                                new InPredicate(
+                                castToRowExpression(new InPredicate(
                                         new LongLiteral("0"),
                                         new InListExpression(ImmutableList.of(
                                                 new LongLiteral("1"),
-                                                new LongLiteral("2"))))),
+                                                new LongLiteral("2")))))),
                         ImmutableList.of(),
                         p.values(),
                         p.values()))

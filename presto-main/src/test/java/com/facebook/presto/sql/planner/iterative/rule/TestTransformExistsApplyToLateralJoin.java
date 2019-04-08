@@ -30,6 +30,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 
 public class TestTransformExistsApplyToLateralJoin
         extends BaseRuleTest
@@ -56,7 +57,7 @@ public class TestTransformExistsApplyToLateralJoin
         tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata().getFunctionManager()))
                 .on(p ->
                         p.apply(
-                                Assignments.of(p.symbol("b", BOOLEAN), expression("EXISTS(SELECT TRUE)")),
+                                Assignments.of(p.symbol("b", BOOLEAN), castToRowExpression(expression("EXISTS(SELECT TRUE)"))),
                                 ImmutableList.of(),
                                 p.values(),
                                 p.values()))
@@ -75,7 +76,7 @@ public class TestTransformExistsApplyToLateralJoin
         tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata().getFunctionManager()))
                 .on(p ->
                         p.apply(
-                                Assignments.of(p.symbol("b", BOOLEAN), expression("EXISTS(SELECT TRUE)")),
+                                Assignments.of(p.symbol("b", BOOLEAN), castToRowExpression(expression("EXISTS(SELECT TRUE)"))),
                                 ImmutableList.of(p.symbol("corr")),
                                 p.values(p.symbol("corr")),
                                 p.project(Assignments.of(),

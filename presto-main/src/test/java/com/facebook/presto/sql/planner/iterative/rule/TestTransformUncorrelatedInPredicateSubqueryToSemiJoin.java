@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static java.util.Collections.emptyList;
 
 public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
@@ -46,7 +47,8 @@ public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
     {
         tester().assertThat(new TransformUncorrelatedInPredicateSubqueryToSemiJoin())
                 .on(p -> p.apply(
-                        Assignments.of(p.symbol("x"), new ExistsPredicate(new LongLiteral("1"))),
+                        Assignments.of(p.symbol("x"),
+                                castToRowExpression(new ExistsPredicate(new LongLiteral("1")))),
                         emptyList(),
                         p.values(),
                         p.values()))
@@ -60,9 +62,9 @@ public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
                 .on(p -> p.apply(
                         Assignments.of(
                                 p.symbol("x"),
-                                new InPredicate(
+                                castToRowExpression(new InPredicate(
                                         new SymbolReference("y"),
-                                        new SymbolReference("z"))),
+                                        new SymbolReference("z")))),
                         emptyList(),
                         p.values(p.symbol("y")),
                         p.values(p.symbol("z"))))

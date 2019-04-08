@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -34,6 +35,8 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collector;
 
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.ProjectNodeUtils.getAsExpression;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
@@ -55,10 +58,10 @@ public class Assignments
         return builder().putIdentities(symbols).build();
     }
 
-    public static Assignments copyOf(Map<Symbol, Expression> assignments)
+    public static Assignments copyOf(Map<Symbol, RowExpression> assignments)
     {
         return builder()
-                .putAll(assignments)
+                .putAll(getAsExpression(assignments))
                 .build();
     }
 
@@ -67,14 +70,14 @@ public class Assignments
         return builder().build();
     }
 
-    public static Assignments of(Symbol symbol, Expression expression)
+    public static Assignments of(Symbol symbol, RowExpression expression)
     {
-        return builder().put(symbol, expression).build();
+        return builder().put(symbol, castToExpression(expression)).build();
     }
 
-    public static Assignments of(Symbol symbol1, Expression expression1, Symbol symbol2, Expression expression2)
+    public static Assignments of(Symbol symbol1, RowExpression expression1, Symbol symbol2, RowExpression expression2)
     {
-        return builder().put(symbol1, expression1).put(symbol2, expression2).build();
+        return builder().put(symbol1, castToExpression(expression1)).put(symbol2, castToExpression(expression2)).build();
     }
 
     private final Map<Symbol, Expression> assignments;

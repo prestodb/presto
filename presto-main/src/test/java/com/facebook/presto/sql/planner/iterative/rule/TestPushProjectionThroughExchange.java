@@ -32,6 +32,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.FIRST;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 
@@ -44,7 +45,7 @@ public class TestPushProjectionThroughExchange
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("x"), new LongLiteral("3")),
+                                Assignments.of(p.symbol("x"), castToRowExpression(new LongLiteral("3"))),
                                 p.values(p.symbol("a"))))
                 .doesNotFire();
     }
@@ -83,8 +84,8 @@ public class TestPushProjectionThroughExchange
                     Symbol x = p.symbol("x");
                     return p.project(
                             Assignments.of(
-                                    x, new LongLiteral("3"),
-                                    c2, new SymbolReference("c")),
+                                    x, castToRowExpression(new LongLiteral("3")),
+                                    c2, castToRowExpression(new SymbolReference("c"))),
                             p.exchange(e -> e
                                     .addSource(
                                             p.values(a))
