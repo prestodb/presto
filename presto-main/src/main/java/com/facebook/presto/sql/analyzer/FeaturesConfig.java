@@ -72,6 +72,7 @@ public class FeaturesConfig
     private boolean spatialJoinsEnabled = true;
     private boolean fastInequalityJoins = true;
     private JoinReorderingStrategy joinReorderingStrategy = ELIMINATE_CROSS_JOINS;
+    private PartialMergePushdownStrategy partialMergePushdownStrategy = PartialMergePushdownStrategy.NONE;
     private int maxReorderedJoins = 9;
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
@@ -151,6 +152,12 @@ public class FeaturesConfig
         {
             return this == BROADCAST || this == AUTOMATIC;
         }
+    }
+
+    public enum PartialMergePushdownStrategy
+    {
+        NONE,
+        PUSH_THROUGH_LOW_MEMORY_OPERATORS
     }
 
     public double getCpuCostWeight()
@@ -399,6 +406,18 @@ public class FeaturesConfig
     public FeaturesConfig setJoinReorderingStrategy(JoinReorderingStrategy joinReorderingStrategy)
     {
         this.joinReorderingStrategy = joinReorderingStrategy;
+        return this;
+    }
+
+    public PartialMergePushdownStrategy getPartialMergePushdownStrategy()
+    {
+        return partialMergePushdownStrategy;
+    }
+
+    @Config("experimental.optimizer.partial-merge-pushdown-strategy")
+    public FeaturesConfig setPartialMergePushdownStrategy(PartialMergePushdownStrategy partialMergePushdownStrategy)
+    {
+        this.partialMergePushdownStrategy = partialMergePushdownStrategy;
         return this;
     }
 

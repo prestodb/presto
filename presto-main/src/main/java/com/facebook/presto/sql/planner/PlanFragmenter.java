@@ -747,6 +747,10 @@ public class PlanFragmenter
                 return this;
             }
 
+            if (metadata.isRefinedPartitioningOver(session, distribution, currentPartitioning)) {
+                return this;
+            }
+
             throw new IllegalStateException(format(
                     "Cannot set distribution to %s. Already set to %s",
                     distribution,

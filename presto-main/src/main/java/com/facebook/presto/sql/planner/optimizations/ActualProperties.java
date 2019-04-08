@@ -135,6 +135,22 @@ public class ActualProperties
                 session);
     }
 
+    public boolean isRefinedPartitioningOver(Partitioning partitioning, boolean nullsAndAnyReplicated, Metadata metadata, Session session)
+    {
+        return global.isRefinedPartitioningOver(partitioning, nullsAndAnyReplicated, metadata, session);
+    }
+
+    public boolean isRefinedPartitioningOver(ActualProperties other, Function<Symbol, Set<Symbol>> symbolMappings, Metadata metadata, Session session)
+    {
+        return global.isRefinedPartitioningOver(
+                other.global,
+                symbolMappings,
+                symbol -> Optional.ofNullable(constants.get(symbol)),
+                symbol -> Optional.ofNullable(other.constants.get(symbol)),
+                metadata,
+                session);
+    }
+
     /**
      * @return true if all the data will effectively land in a single stream
      */
@@ -413,6 +429,31 @@ public class ActualProperties
             return nodePartitioning.isPresent() &&
                     other.nodePartitioning.isPresent() &&
                     nodePartitioning.get().isCompatibleWith(
+                            other.nodePartitioning.get(),
+                            symbolMappings,
+                            leftConstantMapping,
+                            rightConstantMapping,
+                            metadata,
+                            session) &&
+                    nullsAndAnyReplicated == other.nullsAndAnyReplicated;
+        }
+
+        private boolean isRefinedPartitioningOver(Partitioning partitioning, boolean nullsAndAnyReplicated, Metadata metadata, Session session)
+        {
+            return nodePartitioning.isPresent() && nodePartitioning.get().isRefinedPartitioningOver(partitioning, metadata, session) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
+        }
+
+        private boolean isRefinedPartitioningOver(
+                Global other,
+                Function<Symbol, Set<Symbol>> symbolMappings,
+                Function<Symbol, Optional<NullableValue>> leftConstantMapping,
+                Function<Symbol, Optional<NullableValue>> rightConstantMapping,
+                Metadata metadata,
+                Session session)
+        {
+            return nodePartitioning.isPresent() &&
+                    other.nodePartitioning.isPresent() &&
+                    nodePartitioning.get().isRefinedPartitioningOver(
                             other.nodePartitioning.get(),
                             symbolMappings,
                             leftConstantMapping,
