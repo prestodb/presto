@@ -60,6 +60,7 @@ public class TestExchangeClient
 {
     private ScheduledExecutorService scheduler;
     private ExecutorService pageBufferClientCallbackExecutor;
+    private ExecutorService testingHttpClientExecutor;
 
     private static final PagesSerde PAGES_SERDE = testingPagesSerde();
 
@@ -68,6 +69,7 @@ public class TestExchangeClient
     {
         scheduler = newScheduledThreadPool(4, daemonThreadsNamed("test-%s"));
         pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
+        testingHttpClientExecutor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
     }
 
     @AfterClass(alwaysRun = true)
@@ -77,9 +79,15 @@ public class TestExchangeClient
             scheduler.shutdownNow();
             scheduler = null;
         }
+
         if (pageBufferClientCallbackExecutor != null) {
             pageBufferClientCallbackExecutor.shutdownNow();
             pageBufferClientCallbackExecutor = null;
+        }
+
+        if (testingHttpClientExecutor != null) {
+            testingHttpClientExecutor.shutdownNow();
+            testingHttpClientExecutor = null;
         }
     }
 
@@ -141,7 +149,7 @@ public class TestExchangeClient
                 1,
                 new Duration(1, MINUTES),
                 true,
-                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
+                new TestingHttpClient(processor, testingHttpClientExecutor),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
@@ -213,7 +221,7 @@ public class TestExchangeClient
                 1,
                 new Duration(1, MINUTES),
                 true,
-                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
+                new TestingHttpClient(processor, testingHttpClientExecutor),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
@@ -295,7 +303,7 @@ public class TestExchangeClient
                 1,
                 new Duration(1, MINUTES),
                 true,
-                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
+                new TestingHttpClient(processor, testingHttpClientExecutor),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
@@ -343,7 +351,7 @@ public class TestExchangeClient
                 1,
                 new Duration(1, MINUTES),
                 true,
-                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
+                new TestingHttpClient(processor, testingHttpClientExecutor),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
