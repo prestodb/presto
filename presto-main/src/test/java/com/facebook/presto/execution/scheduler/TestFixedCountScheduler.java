@@ -18,7 +18,7 @@ import com.facebook.presto.execution.MockRemoteTaskFactory;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.metadata.PrestoNode;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.Node;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
@@ -94,7 +94,7 @@ public class TestFixedCountScheduler
     private static List<Node> generateRandomNodes(int count)
     {
         return IntStream.range(0, count)
-                .mapToObj(i -> new PrestoNode("other " + i, URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false))
+                .mapToObj(i -> new InternalNode("other " + i, URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false))
                 .collect(toImmutableList());
     }
 }
