@@ -139,6 +139,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public boolean isRefinedPartitioningOver(Session session, PartitioningHandle a, PartitioningHandle b)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public PartitioningHandle getPartitioningHandleForExchange(Session session, String catalogName, int partitionCount, List<Type> partitionTypes)
     {
         throw new UnsupportedOperationException();
