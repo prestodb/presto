@@ -15,7 +15,7 @@ package com.facebook.presto.connector.system;
 
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.metadata.PrestoNode;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
@@ -95,8 +95,8 @@ public class NodeSystemTable
 
     private static String getNodeVersion(Node node)
     {
-        if (node instanceof PrestoNode) {
-            return ((PrestoNode) node).getNodeVersion().toString();
+        if (node instanceof InternalNode) {
+            return ((InternalNode) node).getNodeVersion().toString();
         }
         return "";
     }
