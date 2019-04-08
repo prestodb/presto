@@ -27,7 +27,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * A node is a server in a cluster than can process queries.
  */
-public class PrestoNode
+public class InternalNode
         implements Node
 {
     private final String nodeIdentifier;
@@ -35,7 +35,7 @@ public class PrestoNode
     private final NodeVersion nodeVersion;
     private final boolean coordinator;
 
-    public PrestoNode(String nodeIdentifier, URI httpUri, NodeVersion nodeVersion, boolean coordinator)
+    public InternalNode(String nodeIdentifier, URI httpUri, NodeVersion nodeVersion, boolean coordinator)
     {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
         this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null or empty");
@@ -88,7 +88,7 @@ public class PrestoNode
         if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
-        PrestoNode o = (PrestoNode) obj;
+        InternalNode o = (InternalNode) obj;
         return nodeIdentifier.equals(o.nodeIdentifier);
     }
 

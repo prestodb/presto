@@ -51,7 +51,7 @@ public class InMemoryNodeManager
 
     public InMemoryNodeManager(URI localUri)
     {
-        localNode = new PrestoNode("local", localUri, NodeVersion.UNKNOWN, false);
+        localNode = new InternalNode("local", localUri, NodeVersion.UNKNOWN, false);
     }
 
     public void addCurrentNodeConnector(ConnectorId connectorId)

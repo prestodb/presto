@@ -14,7 +14,7 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.metadata.PrestoNode;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
@@ -97,8 +97,8 @@ public class TestAssignmentLimiter
         TestingTicker ticker = new TestingTicker();
 
         HashSet<Node> nodes = new HashSet<>();
-        Node node1 = new PrestoNode("node1", new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, false);
-        Node node2 = new PrestoNode("node2", new URI("http://127.0.0.2/"), NodeVersion.UNKNOWN, false);
+        Node node1 = new InternalNode("node1", new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, false);
+        Node node2 = new InternalNode("node2", new URI("http://127.0.0.2/"), NodeVersion.UNKNOWN, false);
         nodes.add(node1);
         nodes.add(node2);
 
