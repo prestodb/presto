@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -42,7 +43,7 @@ public class FilterNode
         this.predicate = predicate;
     }
 
-    @JsonProperty("predicate")
+    @JsonProperty
     public RowExpression getPredicate()
     {
         return predicate;
@@ -55,12 +56,18 @@ public class FilterNode
     }
 
     @Override
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        return source.getOutputVariables();
+    }
+
+    @Override
     public List<PlanNode> getSources()
     {
         return ImmutableList.of(source);
     }
 
-    @JsonProperty("source")
+    @JsonProperty
     public PlanNode getSource()
     {
         return source;
