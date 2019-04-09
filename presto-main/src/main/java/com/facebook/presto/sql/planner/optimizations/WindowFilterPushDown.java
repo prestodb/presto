@@ -265,7 +265,7 @@ public class WindowFilterPushDown
             return new TopNRowNumberNode(idAllocator.getNextId(),
                     windowNode.getSource(),
                     windowNode.getSpecification(),
-                    getOnlyElement(windowNode.getCreatedSymbols()),
+                    getOnlyElement(windowNode.getCreatedVariable()),
                     limit,
                     false,
                     Optional.empty());
