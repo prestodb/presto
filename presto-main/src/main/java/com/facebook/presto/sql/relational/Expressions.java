@@ -35,6 +35,11 @@ public final class Expressions
     {
     }
 
+    public static VariableReferenceExpression variable(String name, Type type)
+    {
+        return new VariableReferenceExpression(name, type);
+    }
+
     public static ConstantExpression constant(Object value, Type type)
     {
         return new ConstantExpression(value, type);
