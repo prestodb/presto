@@ -409,7 +409,7 @@ public class AddExchanges
                                 idAllocator.getNextId(),
                                 child.getNode(),
                                 node.getSpecification(),
-                                node.getRowNumberSymbol(),
+                                node.getRowNumberVariable(),
                                 node.getMaxRowCountPerPartition(),
                                 true,
                                 node.getHashSymbol()),

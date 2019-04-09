@@ -613,7 +613,7 @@ public class PlanPrinter
                     "TopNRowNumber",
                     format("[%s limit %s]%s", Joiner.on(", ").join(args), node.getMaxRowCountPerPartition(), formatHash(node.getHashSymbol())));
 
-            nodeOutput.appendDetailsLine("%s := %s", node.getRowNumberSymbol(), "row_number()");
+            nodeOutput.appendDetailsLine("%s := %s", node.getRowNumberVariable(), "row_number()");
 
             return processChildren(node, context);
         }
