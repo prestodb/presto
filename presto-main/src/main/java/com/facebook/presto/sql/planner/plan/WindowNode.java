@@ -108,6 +108,11 @@ public class WindowNode
         return windowFunctions.keySet().stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableSet());
     }
 
+    public Set<VariableReferenceExpression> getCreatedVariable()
+    {
+        return windowFunctions.keySet();
+    }
+
     @JsonProperty
     public PlanNode getSource()
     {

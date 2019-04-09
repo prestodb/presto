@@ -623,7 +623,7 @@ public class PruneUnreferencedOutputs
             return new TopNRowNumberNode(node.getId(),
                     source,
                     node.getSpecification(),
-                    node.getRowNumberSymbol(),
+                    node.getRowNumberVariable(),
                     node.getMaxRowCountPerPartition(),
                     node.isPartial(),
                     node.getHashSymbol());

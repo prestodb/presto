@@ -422,7 +422,7 @@ public class UnaliasSymbolReferences
                     node.getId(),
                     context.rewrite(node.getSource()),
                     canonicalizeAndDistinct(node.getSpecification()),
-                    canonicalize(node.getRowNumberSymbol()),
+                    canonicalize(node.getRowNumberVariable()),
                     node.getMaxRowCountPerPartition(),
                     node.isPartial(),
                     canonicalize(node.getHashSymbol()));
