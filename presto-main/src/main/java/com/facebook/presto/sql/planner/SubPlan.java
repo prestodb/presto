@@ -13,15 +13,10 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
-import com.google.common.graph.Traverser;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -30,7 +25,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
-import static com.google.common.collect.Streams.stream;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -91,17 +85,6 @@ public class SubPlan
                 .collect(toImmutableMultiset());
 
         checkState(childrenIds.containsAll(remoteSourceIds), "child fragments must include all remote source fragments (%s vs %s)", remoteSourceIds, childrenIds);
-        long tableWriteCount = stream(Traverser.forTree(PlanNode::getSources).depthFirstPreOrder(fragment.getRoot()))
-                .filter(TableWriterNode.class::isInstance)
-                .count();
-        checkState(tableWriteCount <= 1, "Fragment cannot contain more than one TableWriterNode");
-        if (tableWriteCount == 1) {
-            if (!(fragment.getRoot() instanceof OutputNode || fragment.getRoot() instanceof TableWriterNode)) {
-                // Root can be OutputNode when forceSingleNode is enabled.
-                // In that case the whole plan has single fragment.
-                throw new VerifyException("For a fragment contains TableWriteNode, the root has to be either OutputNode or TableWriterNode");
-            }
-        }
 
         for (SubPlan child : children) {
             child.sanityCheck();
