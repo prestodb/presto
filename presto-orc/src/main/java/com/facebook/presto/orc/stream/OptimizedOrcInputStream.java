@@ -22,7 +22,9 @@ import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Arrays;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
@@ -48,6 +50,7 @@ public final class OptimizedOrcInputStream
     private int position;
     private int length;
     private int uncompressedOffset;
+    private Buffer bufferContainer = new Buffer();
 
     private final LocalMemoryContext bufferMemoryUsage;
 
@@ -247,6 +250,7 @@ public final class OptimizedOrcInputStream
             position = 0;
             length = 0;
             uncompressedOffset = 0;
+            bufferContainer = null;
             return;
         }
 
@@ -264,6 +268,10 @@ public final class OptimizedOrcInputStream
         }
 
         Slice chunk = compressedSliceInput.readSlice(chunkLength);
+
+        if (bufferContainer == null) {
+            bufferContainer = new Buffer();
+        }
 
         if (isUncompressed) {
             buffer = (byte[]) chunk.getBase();
@@ -299,6 +307,51 @@ public final class OptimizedOrcInputStream
             position = 0;
         }
         uncompressedOffset = position;
+    }
+
+    @Override
+    public boolean hasNext()
+    {
+        return buffer != null;
+    }
+
+    @Override
+    public Buffer next()
+    {
+        if (buffer == null) {
+            throw new NoSuchElementException();
+        }
+        try {
+            if (decompressor.isPresent()) {
+                advance();
+                if (buffer == null) {
+                    currentCompressedBlockOffset = toIntExact(compressedSliceInput.position());
+                }
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        bufferContainer.setBuffer(buffer);
+        bufferContainer.setPosition(position);
+        bufferContainer.setLength(length);
+
+        return bufferContainer;
+    }
+
+    @Override
+    public void remove()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Buffer peek()
+    {
+        bufferContainer.setBuffer(buffer);
+        bufferContainer.setPosition(position);
+        bufferContainer.setLength(length);
+        return bufferContainer;
     }
 
     @Override

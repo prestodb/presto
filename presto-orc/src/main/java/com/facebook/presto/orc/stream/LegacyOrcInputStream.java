@@ -278,6 +278,30 @@ public final class LegacyOrcInputStream
     }
 
     @Override
+    public boolean hasNext()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Buffer next()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Buffer peek()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void remove()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public String toString()
     {
         return toStringHelper(this)

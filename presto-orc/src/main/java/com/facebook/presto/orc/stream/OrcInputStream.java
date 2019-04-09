@@ -14,12 +14,13 @@
 package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.OrcDataSourceId;
+import com.google.common.collect.PeekingIterator;
 
 import java.io.IOException;
 import java.io.InputStream;
 
 public abstract class OrcInputStream
-        extends InputStream
+        extends InputStream implements PeekingIterator<Buffer>
 {
     @Override
     public void close()
