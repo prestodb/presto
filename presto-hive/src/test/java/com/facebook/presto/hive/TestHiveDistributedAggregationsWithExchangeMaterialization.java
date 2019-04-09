@@ -47,18 +47,6 @@ public class TestHiveDistributedAggregationsWithExchangeMaterialization
     }
 
     @Override
-    public void testApproximateCountDistinctGroupBy()
-    {
-        // Unsupported Hive type: HyperLogLog
-    }
-
-    @Override
-    public void testApproximateCountDistinctGroupByWithStandardError()
-    {
-        // Unsupported Hive type: HyperLogLog
-    }
-
-    @Override
     public void testAggregationPushedBelowOuterJoin()
     {
         // Anonymous row type is not supported in Hive

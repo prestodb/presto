@@ -19,7 +19,7 @@ import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.stats.cardinality.HyperLogLog;
 
-import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 
 public class HyperLogLogStateSerializer
         implements AccumulatorStateSerializer<HyperLogLogState>
@@ -27,7 +27,7 @@ public class HyperLogLogStateSerializer
     @Override
     public Type getSerializedType()
     {
-        return HYPER_LOG_LOG;
+        return VARBINARY;
     }
 
     @Override
@@ -37,13 +37,13 @@ public class HyperLogLogStateSerializer
             out.appendNull();
         }
         else {
-            HYPER_LOG_LOG.writeSlice(out, state.getHyperLogLog().serialize());
+            VARBINARY.writeSlice(out, state.getHyperLogLog().serialize());
         }
     }
 
     @Override
     public void deserialize(Block block, int index, HyperLogLogState state)
     {
-        state.setHyperLogLog(HyperLogLog.newInstance(HYPER_LOG_LOG.getSlice(block, index)));
+        state.setHyperLogLog(HyperLogLog.newInstance(VARBINARY.getSlice(block, index)));
     }
 }
