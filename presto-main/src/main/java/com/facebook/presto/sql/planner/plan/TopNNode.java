@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -82,6 +83,12 @@ public class TopNNode
     public List<Symbol> getOutputSymbols()
     {
         return source.getOutputSymbols();
+    }
+
+    @Override
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        return source.getOutputVariables();
     }
 
     @JsonProperty("count")
