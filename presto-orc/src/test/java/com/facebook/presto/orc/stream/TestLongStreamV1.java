@@ -31,7 +31,7 @@ import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 
 public class TestLongStreamV1
-        extends AbstractTestValueStream<Long, LongStreamCheckpoint, LongOutputStreamV1, LongInputStreamV1>
+        extends AbstractTestValueStream<Long, LongStreamCheckpoint, LongOutputStreamV1, LongInputStream>
 {
     @Test
     public void test()
@@ -81,16 +81,21 @@ public class TestLongStreamV1
     }
 
     @Override
-    protected LongInputStreamV1 createValueStream(Slice slice, boolean orcOptimizedReaderEnabled, CompressionKind compressionKind)
+    protected LongInputStream createValueStream(Slice slice, boolean orcOptimizedReaderEnabled, CompressionKind compressionKind)
             throws OrcCorruptionException
     {
         Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, compressionKind, COMPRESSION_BLOCK_SIZE);
         OrcInputStream input = createOrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext(), slice.getRetainedSize(), orcOptimizedReaderEnabled);
-        return new LongInputStreamV1(input, true);
+        if (orcOptimizedReaderEnabled) {
+            return new OptimizedLongInputStreamV1(input, true);
+        }
+        else {
+            return new LongInputStreamV1(input, true);
+        }
     }
 
     @Override
-    protected Long readValue(LongInputStreamV1 valueStream)
+    protected Long readValue(LongInputStream valueStream)
             throws IOException
     {
         return valueStream.next();

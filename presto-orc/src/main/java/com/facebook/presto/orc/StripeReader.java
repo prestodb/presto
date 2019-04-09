@@ -305,7 +305,7 @@ public class StripeReader
             OrcInputStream inputStream = streamsData.get(streamId);
             OrcTypeKind columnType = types.get(stream.getColumn()).getOrcTypeKind();
 
-            valueStreams.put(streamId, ValueStreams.createValueStreams(streamId, inputStream, columnType, columnEncoding, stream.isUseVInts()));
+            valueStreams.put(streamId, ValueStreams.createValueStreams(streamId, inputStream, columnType, columnEncoding, stream.isUseVInts(), orcOptimizedReaderEnabled));
         }
         return valueStreams.build();
     }

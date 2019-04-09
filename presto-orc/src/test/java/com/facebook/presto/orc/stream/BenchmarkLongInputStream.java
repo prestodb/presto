@@ -151,11 +151,21 @@ public class BenchmarkLongInputStream
         }
         switch (encoding) {
             case V1:
-                return new LongInputStreamV1(input, true);
+                if (orcOptimizedReaderEnabled) {
+                    return new OptimizedLongInputStreamV1(input, true);
+                }
+                else {
+                    return new LongInputStreamV1(input, true);
+                }
             case V2:
                 return new LongInputStreamV2(input, true, true);
             case DWRF:
-                return new LongInputStreamDwrf(input, LONG, true, true);
+                if (orcOptimizedReaderEnabled) {
+                    return new OptimizedLongInputStreamDwrf(input, LONG, true, true);
+                }
+                else {
+                    return new LongInputStreamDwrf(input, LONG, true, true);
+                }
             default:
                 throw new IllegalStateException();
         }

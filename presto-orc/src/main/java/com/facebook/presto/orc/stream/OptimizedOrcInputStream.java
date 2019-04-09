@@ -195,7 +195,6 @@ public final class OptimizedOrcInputStream
                 throw new OrcCorruptionException(orcDataSourceId, "Reset stream has a compressed block offset but stream is not compressed");
             }
             compressedSliceInput.setPosition(compressedBlockOffset);
-            //TODO: verify this is ok - buffer = new byte[0];
             position = 0;
             length = 0;
             uncompressedOffset = 0;

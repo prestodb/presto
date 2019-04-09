@@ -47,7 +47,8 @@ public final class ValueStreams
             OrcInputStream inputStream,
             OrcTypeKind type,
             ColumnEncodingKind encoding,
-            boolean usesVInt)
+            boolean usesVInt,
+            boolean orcOptimizedReaderEnabled)
     {
         if (streamId.getStreamKind() == PRESENT || streamId.getStreamKind() == IN_MAP) {
             return new BooleanInputStream(inputStream);
@@ -55,7 +56,7 @@ public final class ValueStreams
 
         // dictionary length and data streams are unsigned int streams
         if ((encoding == DICTIONARY || encoding == DICTIONARY_V2) && (streamId.getStreamKind() == LENGTH || streamId.getStreamKind() == DATA)) {
-            return createLongStream(inputStream, encoding, INT, false, usesVInt);
+            return createLongStream(inputStream, encoding, INT, false, usesVInt, orcOptimizedReaderEnabled);
         }
 
         if (streamId.getStreamKind() == DATA) {
@@ -68,7 +69,7 @@ public final class ValueStreams
                 case INT:
                 case LONG:
                 case DATE:
-                    return createLongStream(inputStream, encoding, type, true, usesVInt);
+                    return createLongStream(inputStream, encoding, type, true, usesVInt, orcOptimizedReaderEnabled);
                 case FLOAT:
                     return new FloatInputStream(inputStream);
                 case DOUBLE:
@@ -79,7 +80,7 @@ public final class ValueStreams
                 case BINARY:
                     return new ByteArrayInputStream(inputStream);
                 case TIMESTAMP:
-                    return createLongStream(inputStream, encoding, type, true, usesVInt);
+                    return createLongStream(inputStream, encoding, type, true, usesVInt, orcOptimizedReaderEnabled);
                 case DECIMAL:
                     return new DecimalInputStream(inputStream);
             }
@@ -94,7 +95,7 @@ public final class ValueStreams
                 case BINARY:
                 case MAP:
                 case LIST:
-                    return createLongStream(inputStream, encoding, type, false, usesVInt);
+                    return createLongStream(inputStream, encoding, type, false, usesVInt, orcOptimizedReaderEnabled);
             }
         }
 
@@ -127,7 +128,7 @@ public final class ValueStreams
 
         // length (nanos) of a timestamp column
         if (type == TIMESTAMP && streamId.getStreamKind() == SECONDARY) {
-            return createLongStream(inputStream, encoding, type, false, usesVInt);
+            return createLongStream(inputStream, encoding, type, false, usesVInt, orcOptimizedReaderEnabled);
         }
 
         // scale of a decimal column
@@ -135,7 +136,7 @@ public final class ValueStreams
             // specification (https://orc.apache.org/docs/encodings.html) says scale stream is unsigned,
             // however Hive writer stores scale as signed integer (org.apache.hadoop.hive.ql.io.orc.WriterImpl.DecimalTreeWriter)
             // BUG link: https://issues.apache.org/jira/browse/HIVE-13229
-            return createLongStream(inputStream, encoding, type, true, usesVInt);
+            return createLongStream(inputStream, encoding, type, true, usesVInt, orcOptimizedReaderEnabled);
         }
 
         if (streamId.getStreamKind() == DICTIONARY_DATA) {
@@ -143,7 +144,7 @@ public final class ValueStreams
                 case SHORT:
                 case INT:
                 case LONG:
-                    return createLongStream(inputStream, DWRF_DIRECT, INT, true, usesVInt);
+                    return createLongStream(inputStream, DWRF_DIRECT, INT, true, usesVInt, orcOptimizedReaderEnabled);
                 case STRING:
                 case VARCHAR:
                 case CHAR:
@@ -160,16 +161,27 @@ public final class ValueStreams
             ColumnEncodingKind encoding,
             OrcTypeKind type,
             boolean signed,
-            boolean usesVInt)
+            boolean usesVInt,
+            boolean orcOptimizedReaderEnabled)
     {
         if (encoding == DIRECT_V2 || encoding == DICTIONARY_V2) {
             return new LongInputStreamV2(inputStream, signed, false);
         }
         else if (encoding == DIRECT || encoding == DICTIONARY) {
-            return new LongInputStreamV1(inputStream, signed);
+            if (orcOptimizedReaderEnabled) {
+                return new OptimizedLongInputStreamV1(inputStream, signed);
+            }
+            else {
+                return new LongInputStreamV1(inputStream, signed);
+            }
         }
         else if (encoding == DWRF_DIRECT) {
-            return new LongInputStreamDwrf(inputStream, type, signed, usesVInt);
+            if (orcOptimizedReaderEnabled) {
+                return new OptimizedLongInputStreamDwrf(inputStream, type, signed, usesVInt);
+            }
+            else {
+                return new LongInputStreamDwrf(inputStream, type, signed, usesVInt);
+            }
         }
         else {
             throw new IllegalArgumentException("Unsupported encoding for long stream: " + encoding);
