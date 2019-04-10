@@ -22,9 +22,11 @@ import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
 import static com.facebook.presto.spi.function.OperatorType.ADD;
+import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
 import static com.facebook.presto.spi.function.OperatorType.DIVIDE;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
@@ -92,7 +94,7 @@ public final class StandardFunctionResolution
 
     public boolean isBetweenFunction(FunctionHandle functionHandle)
     {
-        return functionHandle.getSignature().getName().equals(mangleOperatorName(OperatorType.BETWEEN.name()));
+        return functionManager.getFunctionMetadata(functionHandle).getOperatorType().equals(Optional.of(BETWEEN));
     }
 
     public FunctionHandle arithmeticFunction(ArithmeticBinaryExpression.Operator operator, Type leftType, Type rightType)
@@ -122,7 +124,7 @@ public final class StandardFunctionResolution
 
     public boolean isNegateFunction(FunctionHandle functionHandle)
     {
-        return functionHandle.getSignature().getName().equals(mangleOperatorName(NEGATION.name()));
+        return functionManager.getFunctionMetadata(functionHandle).getOperatorType().equals(Optional.of(NEGATION));
     }
 
     public FunctionHandle arrayConstructor(List<? extends Type> argumentTypes)
@@ -165,5 +167,10 @@ public final class StandardFunctionResolution
     public FunctionHandle tryFunction(Type returnType)
     {
         return functionManager.lookupFunction("TRY", fromTypes(returnType));
+    }
+
+    public boolean isTryFunction(FunctionHandle functionHandle)
+    {
+        return functionManager.getFunctionMetadata(functionHandle).getName().equals("TRY");
     }
 }

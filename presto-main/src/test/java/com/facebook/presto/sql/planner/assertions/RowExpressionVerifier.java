@@ -110,7 +110,7 @@ final class RowExpressionVerifier
     @Override
     protected Boolean visitTryExpression(TryExpression expected, RowExpression actual)
     {
-        if (!(actual instanceof CallExpression) || !((CallExpression) actual).getFunctionHandle().getSignature().getName().equals("TRY")) {
+        if (!(actual instanceof CallExpression) || !functionResolution.isTryFunction(((CallExpression) actual).getFunctionHandle())) {
             return false;
         }
 
@@ -473,7 +473,7 @@ final class RowExpressionVerifier
         }
         CallExpression actualFunction = (CallExpression) actual;
 
-        if (!expected.getName().equals(QualifiedName.of(actualFunction.getFunctionHandle().getSignature().getName()))) {
+        if (!expected.getName().equals(QualifiedName.of(metadata.getFunctionManager().getFunctionMetadata(actualFunction.getFunctionHandle()).getName()))) {
             return false;
         }
 

@@ -71,7 +71,7 @@ public class TestStaticFunctionNamespace
         TypeRegistry typeManager = new TypeRegistry();
         StaticFunctionNamespace staticFunctionNamespace = createStaticFunctionNamespace(typeManager);
         FunctionHandle exactOperator = staticFunctionNamespace.lookupCast(CastType.CAST, HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature());
-        assertEquals(exactOperator, new FunctionHandle(new Signature(mangleOperatorName(CAST.name()), SCALAR, HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature())));
+        assertEquals(exactOperator, new StaticFunctionHandle(new Signature(mangleOperatorName(CAST.name()), SCALAR, HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature())));
     }
 
     @Test
@@ -91,7 +91,7 @@ public class TestStaticFunctionNamespace
             if (function.getSignature().getArgumentTypes().stream().anyMatch(TypeSignature::isCalculated)) {
                 continue;
             }
-            FunctionHandle exactOperator = staticFunctionNamespace.resolveOperator(operatorType, fromTypeSignatures(function.getSignature().getArgumentTypes()));
+            StaticFunctionHandle exactOperator = (StaticFunctionHandle) staticFunctionNamespace.resolveOperator(operatorType, fromTypeSignatures(function.getSignature().getArgumentTypes()));
             assertEquals(exactOperator.getSignature(), function.getSignature());
             foundOperator = true;
         }
@@ -108,7 +108,7 @@ public class TestStaticFunctionNamespace
 
         TypeRegistry typeManager = new TypeRegistry();
         StaticFunctionNamespace staticFunctionNamespace = createStaticFunctionNamespace(typeManager);
-        FunctionHandle functionHandle = staticFunctionNamespace.resolveFunction(QualifiedName.of(signature.getName()), fromTypeSignatures(signature.getArgumentTypes()));
+        StaticFunctionHandle functionHandle = (StaticFunctionHandle) staticFunctionNamespace.resolveFunction(QualifiedName.of(signature.getName()), fromTypeSignatures(signature.getArgumentTypes()));
         assertEquals(staticFunctionNamespace.getFunctionMetadata(functionHandle).getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
     }
@@ -372,7 +372,7 @@ public class TestStaticFunctionNamespace
 
         public ResolveFunctionAssertion returns(SignatureBuilder functionSignature)
         {
-            FunctionHandle expectedFunction = new FunctionHandle(functionSignature.name(TEST_FUNCTION_NAME).build());
+            FunctionHandle expectedFunction = new StaticFunctionHandle(functionSignature.name(TEST_FUNCTION_NAME).build());
             FunctionHandle actualFunction = resolveFunctionHandle();
             assertEquals(expectedFunction, actualFunction);
             return this;
