@@ -81,11 +81,9 @@ public interface LongInputStream
 
     interface ResultsConsumer
     {
-        boolean consume(int offsetIndex, long value)
-                throws IOException;
+        boolean consume(int offsetIndex, long value);
 
-        int consumeRepeated(int offsetIndex, long value, int count)
-                throws IOException;
+        int consumeRepeated(int offsetIndex, long value, int count);
     }
 
     // Applies filter to enumerated positions in this stream. The

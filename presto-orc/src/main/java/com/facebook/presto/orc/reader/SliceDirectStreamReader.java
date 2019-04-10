@@ -39,6 +39,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.orc.ResizedArrays.newByteArrayForReuse;
+import static com.facebook.presto.orc.ResizedArrays.resize;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
@@ -374,7 +376,7 @@ public class SliceDirectStreamReader
                         if (buffer == null) {
                             // The value to test is not fully contained in the buffer. Read it to tempBytes.
                             if (tempBytes == null || tempBytes.length < length) {
-                                tempBytes = new byte[(int) (length * 1.2)];
+                                tempBytes = newByteArrayForReuse(length);
                             }
                             buffer = tempBytes;
                             dataStream.next(tempBytes, 0, length);
@@ -491,13 +493,13 @@ public class SliceDirectStreamReader
     private void ensureResultsCapacity(int count, int totalSize, boolean includeNulls)
     {
         if (bytes.length < totalSize) {
-            bytes = Arrays.copyOf(bytes, Math.max(bytes.length * 2, totalSize));
+            bytes = resize(bytes, totalSize);
         }
 
         if (resultOffsets.length < count) {
-            resultOffsets = Arrays.copyOf(resultOffsets, Math.max(count + 10, resultOffsets.length * 2));
+            resultOffsets = resize(resultOffsets, count);
             if (valueIsNull != null) {
-                valueIsNull = Arrays.copyOf(valueIsNull, resultOffsets.length);
+                valueIsNull = resize(valueIsNull, count);
             }
         }
         if (includeNulls && valueIsNull == null) {

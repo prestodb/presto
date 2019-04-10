@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.orc.ResizedArrays.resize;
 import static com.google.common.base.Verify.verify;
 
 abstract class NullWrappingColumnReader
@@ -91,18 +92,12 @@ abstract class NullWrappingColumnReader
 
     protected void addNullToKeep(int position, int inputIndex)
     {
-        if (nullsToAdd == null) {
-            nullsToAdd = new int[100];
-        }
-        else if (nullsToAdd.length <= numNullsToAdd) {
-            nullsToAdd = Arrays.copyOf(nullsToAdd, nullsToAdd.length * 2);
+        if (nullsToAdd == null || nullsToAdd.length <= numNullsToAdd) {
+            nullsToAdd = resize(nullsToAdd, numNullsToAdd);
         }
 
-        if (nullsToAddIndexes == null) {
-            nullsToAddIndexes = new int[nullsToAdd.length];
-        }
-        else if (nullsToAddIndexes.length < nullsToAdd.length) {
-            nullsToAddIndexes = Arrays.copyOf(nullsToAddIndexes, nullsToAdd.length);
+        if (nullsToAddIndexes == null || nullsToAddIndexes.length <= nullsToAdd.length) {
+            nullsToAddIndexes = resize(nullsToAddIndexes, numNullsToAdd);
         }
 
         nullsToAdd[numNullsToAdd] = position;
@@ -118,11 +113,8 @@ abstract class NullWrappingColumnReader
 
     private void ensureValueIsNullCapacity(int capacity)
     {
-        if (valueIsNull == null) {
-            valueIsNull = new boolean[capacity];
-        }
-        else if (valueIsNull.length < capacity) {
-            valueIsNull = Arrays.copyOf(valueIsNull, capacity);
+        if (valueIsNull == null || valueIsNull.length < capacity) {
+            valueIsNull = resize(valueIsNull, capacity);
         }
     }
 

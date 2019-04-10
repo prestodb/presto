@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.orc.ResizedArrays.resize;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
@@ -317,13 +318,10 @@ public class DoubleStreamReader
     @Override
     protected void ensureValuesCapacity(int capacity, boolean includeNulls)
     {
-        if (values == null) {
-            values = new long[capacity];
-        }
-        else if (values.length < capacity) {
-            values = Arrays.copyOf(values, Math.max(capacity + 10, values.length * 2));
+        if (values == null || values.length < capacity) {
+            values = resize(values, capacity);
             if (valueIsNull != null) {
-                valueIsNull = Arrays.copyOf(valueIsNull, values.length);
+                valueIsNull = resize(valueIsNull, capacity);
             }
         }
         if (includeNulls && valueIsNull == null) {

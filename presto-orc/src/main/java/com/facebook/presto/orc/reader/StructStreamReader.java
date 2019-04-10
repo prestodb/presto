@@ -48,6 +48,8 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 
+import static com.facebook.presto.orc.ResizedArrays.newIntArrayForReuse;
+import static com.facebook.presto.orc.ResizedArrays.resize;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.StreamReaders.createStreamReader;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
@@ -406,7 +408,7 @@ public class StructStreamReader
         if (outputChannelSet) {
             check();
             if (fieldSurviving == null || fieldSurviving.length < numSurviving) {
-                fieldSurviving = new int[numSurviving];
+                fieldSurviving = newIntArrayForReuse(numSurviving);
             }
             int fieldBase = fieldBlockOffset[base];
             int initialFieldBase = fieldBase;
@@ -541,18 +543,15 @@ public class StructStreamReader
 
     void ensureOutput(int numAdded)
     {
-        int newSize = numValues + numAdded * 2;
-        if (presentStream != null && valueIsNull == null) {
-            valueIsNull = new boolean[newSize];
-        }
         if (valueIsNull != null && valueIsNull.length < numValues + numAdded) {
-            valueIsNull = Arrays.copyOf(valueIsNull, newSize);
+            valueIsNull = resize(valueIsNull, numValues + numAdded);
         }
-        if (fieldBlockOffset == null) {
-            fieldBlockOffset = new int[newSize];
+        else if (presentStream != null && valueIsNull == null) {
+            valueIsNull = resize(valueIsNull, numValues + numAdded);
         }
-        else if (fieldBlockOffset.length < numValues + numAdded + 1) {
-            fieldBlockOffset = Arrays.copyOf(fieldBlockOffset, newSize);
+
+        if (fieldBlockOffset == null || fieldBlockOffset.length < numValues + numAdded + 1) {
+            fieldBlockOffset = resize(fieldBlockOffset, numValues + numAdded + 1);
         }
     }
 
@@ -564,7 +563,7 @@ public class StructStreamReader
             if (fieldBlockOffset[i] != innerFirstRows) {
                 throw new IllegalArgumentException("Struct nulls and block field indices inconsistent");
             }
-            if (valueIsNull == null || !valueIsNull[i]) {
+            if (presentStream == null || !valueIsNull[i]) {
                 innerFirstRows++;
             }
         }
@@ -574,7 +573,7 @@ public class StructStreamReader
         Block[] blocks = reader.getBlocks(innerFirstRows, mayReuse, true);
         blocks = fillUnreferencedWithNulls(blocks, innerFirstRows);
         int[] offsets = mayReuse ? fieldBlockOffset : Arrays.copyOf(fieldBlockOffset, numFirstRows + 1);
-        boolean[] nulls = valueIsNull == null ? null
+        boolean[] nulls = presentStream == null ? null
             : mayReuse ? valueIsNull : Arrays.copyOf(valueIsNull, numFirstRows);
         return RowBlock.createRowBlockInternal(0, numFirstRows, nulls, offsets, blocks);
     }
@@ -621,5 +620,11 @@ public class StructStreamReader
     {
         stopCallCount = stop;
         callCount = cc;
+    }
+
+    @Override
+    public boolean mustExtractValuesBeforeScan(boolean isNewStripe)
+    {
+        return reader != null && reader.mustExtractValuesBeforeScan(isNewStripe);
     }
 }

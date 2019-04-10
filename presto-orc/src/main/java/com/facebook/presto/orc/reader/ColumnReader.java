@@ -24,9 +24,10 @@ import com.facebook.presto.spi.type.Type;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.orc.ResizedArrays.newBooleanArrayForReuse;
+import static com.facebook.presto.orc.ResizedArrays.resize;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -205,7 +206,7 @@ abstract class ColumnReader
         }
         else {
             if (present == null || present.length < rowsInRange) {
-                present = new boolean[rowsInRange];
+                present = newBooleanArrayForReuse(rowsInRange);
             }
             if (numPresent > 0 && rowsInRange > numPresent) {
                 throw new IllegalArgumentException("The present stream should be read in full the first time");
@@ -226,11 +227,8 @@ abstract class ColumnReader
             return;
         }
 
-        if (lengths == null) {
-            lengths = new int[neededLengths];
-        }
-        else if (lengths.length < neededLengths) {
-            lengths = Arrays.copyOf(lengths, neededLengths + 100);
+        if (lengths == null || lengths.length < neededLengths) {
+            lengths = resize(lengths, neededLengths);
         }
         lengthStream.nextIntVector(neededLengths - numLengths, lengths, numLengths);
         numLengths = neededLengths;

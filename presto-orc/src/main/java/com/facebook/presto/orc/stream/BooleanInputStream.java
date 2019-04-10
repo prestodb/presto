@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.Type;
 import java.io.IOException;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 
 @SuppressWarnings("NarrowingCompoundAssignment")
 public class BooleanInputStream
@@ -132,11 +133,66 @@ public class BooleanInputStream
             throws IOException
     {
         int count = 0;
-        for (int i = 0; i < batchSize; i++) {
+        int bitsInFirstByte = Math.min(batchSize, bitsInData);
+        for (int i = 0; i < bitsInFirstByte; i++) {
+            vector[i] = nextBit();
+            count += vector[i] ? 1 : 0;
+        }
+        verify(bitsInData == 0);
+        int wholeBytes = (batchSize - bitsInFirstByte) / 8;
+        int numFilled = bitsInFirstByte;
+        for (int i = 0; i < wholeBytes; i++) {
+            byte data = byteStream.next();
+            count += Integer.bitCount(data);
+            vector[numFilled] = (data & 0x80) != 0;
+            vector[numFilled + 1] = (data & 0x40) != 0;
+            vector[numFilled + 2] = (data & 0x20) != 0;
+            vector[numFilled + 3] = (data & 0x10) != 0;
+            vector[numFilled + 4] = (data & 0x08) != 0;
+            vector[numFilled + 5] = (data & 0x04) != 0;
+            vector[numFilled + 6] = (data & 0x02) != 0;
+            vector[numFilled + 7] = (data & 0x01) != 0;
+            numFilled += 8;
+        }
+        for (int i = numFilled; i < batchSize; i++) {
             vector[i] = nextBit();
             count += vector[i] ? 1 : 0;
         }
         return count;
+    }
+
+    /**
+     * vector[i] is set to the bit at offsets[i] - offsetBase for i
+     * from 0 to numOffsets. The offset[i] - offsetBase values are
+     * relative to the current position of the stream. 0 would mean
+     * the value returned by a call to next(). The stream is advanced
+     * by numBits. The offset values are increasing and non-repeating.
+     */
+    public void getSetBits(int[] offsets, int numOffsets, int offsetBase, int numBits, boolean[] vector)
+            throws IOException
+    {
+        if (offsets[0] == offsetBase && offsets[numOffsets - 1] == offsetBase + numOffsets - 1) {
+            // No gaps in offsets.
+            getSetBits(numOffsets, vector);
+            if (numBits > numOffsets) {
+                skip(numBits - numOffsets);
+            }
+            return;
+        }
+
+        int previousOffset = offsetBase;
+        for (int i = 0; i < numOffsets; i++) {
+            int delta = offsets[i] - previousOffset;
+            if (delta > 0) {
+                skip(delta);
+                previousOffset += delta;
+            }
+            vector[i] = nextBit();
+            previousOffset++;
+        }
+        if (numBits > previousOffset - offsetBase) {
+            skip(numBits - (previousOffset - offsetBase));
+        }
     }
 
     /**
