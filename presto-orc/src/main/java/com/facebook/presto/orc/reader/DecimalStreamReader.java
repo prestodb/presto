@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.orc.ResizedArrays.resize;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
@@ -402,13 +403,10 @@ public class DecimalStreamReader
     protected void ensureValuesCapacity(int capacity, boolean includeNulls)
     {
         int scaledCapacity = capacity * numLongsPerValue;
-        if (values == null) {
-            values = new long[scaledCapacity];
-        }
-        else if (values.length < scaledCapacity) {
-            values = Arrays.copyOf(values, Math.max(scaledCapacity + 10, values.length * 2));
+        if (values == null || values.length < scaledCapacity) {
+            values = resize(values, scaledCapacity);
             if (valueIsNull != null) {
-                valueIsNull = Arrays.copyOf(valueIsNull, values.length);
+                valueIsNull = resize(valueIsNull, capacity);
             }
         }
         if (includeNulls && valueIsNull == null) {

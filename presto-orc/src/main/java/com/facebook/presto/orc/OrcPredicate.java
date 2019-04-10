@@ -14,6 +14,7 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
@@ -25,6 +26,11 @@ public interface OrcPredicate
         public boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByColumnIndex)
         {
             return true;
+        }
+
+        public Map<Integer, Filter> getFilters()
+        {
+            return ImmutableMap.of();
         }
     };
 

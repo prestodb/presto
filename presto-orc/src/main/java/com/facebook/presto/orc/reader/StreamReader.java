@@ -68,14 +68,6 @@ public interface StreamReader
         throw new UnsupportedOperationException("setFilterAndChannel is not supported by " + this.getClass().getSimpleName());
     }
 
-    /* True if the extracted values depend on a row group
-     * dictionary. Cannot move to the next row group without losing
-     * the dictionary encoding .*/
-    default boolean mustReturnAfterRowGroup()
-    {
-        return false;
-    }
-
     default int getChannel()
     {
         return -1;
@@ -164,4 +156,17 @@ public interface StreamReader
     void close();
 
     long getRetainedSizeInBytes();
+
+    /**
+     * Returns true if the reader must flush accumulated results
+     * before proceeding to a new row group. This is called at the
+     * beginning of a stripe/row group, after success return of
+     * advanceToNextRowGroup().
+     * @param isNewStripe must be true on the first call after
+     * advancing to a new stripe and false otherwise.
+     */
+    default boolean mustExtractValuesBeforeScan(boolean isNewStripe)
+    {
+        return false;
+    }
 }

@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.orc.ResizedArrays.newBooleanArrayForReuse;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
@@ -52,7 +53,7 @@ import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStr
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
-import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -109,7 +110,9 @@ public class SliceDictionaryStreamReader
 
     private int[] values;
     private ResultsProcessor resultsProcessor = new ResultsProcessor();
-    private int averageResultSize = SIZE_OF_DOUBLE;
+    private int averageResultSize = SIZE_OF_INT;
+    private boolean[] inDictionaryFlags;
+    private boolean hasRowGroupDictionaries;
 
     public SliceDictionaryStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
     {
@@ -291,6 +294,7 @@ public class SliceDictionaryStreamReader
             ByteArrayInputStream dictionaryDataStream = rowGroupDictionaryDataStreamSource.openStream();
             readDictionary(dictionaryDataStream, rowGroupDictionarySize, rowGroupDictionaryLength, stripeDictionarySize, rowGroupDictionaryData, rowGroupDictionaryOffsetVector, type);
             setDictionaryBlockData(rowGroupDictionaryData, rowGroupDictionaryOffsetVector, stripeDictionarySize + rowGroupDictionarySize + 1);
+            hasRowGroupDictionaries = true;
         }
         else {
             // there is no row group dictionary so use the stripe dictionary
@@ -372,6 +376,7 @@ public class SliceDictionaryStreamReader
         dataStream = null;
 
         rowGroupOpen = false;
+        hasRowGroupDictionaries = false;
     }
 
     @Override
@@ -427,13 +432,21 @@ public class SliceDictionaryStreamReader
         makeInnerQualifyingSet();
 
         QualifyingSet input = hasNulls ? innerQualifyingSet : inputQualifyingSet;
+        int numInput = input.getPositionCount();
+        if (inDictionaryStream != null) {
+            if (inDictionaryFlags == null || inDictionaryFlags.length < numInput) {
+                inDictionaryFlags = newBooleanArrayForReuse(numInput);
+            }
+            int begin = hasNulls ? innerPosInRowGroup : posInRowGroup;
+            int end = input.getEnd();
+            inDictionaryStream.getSetBits(input.getPositions(), numInput, begin, end - begin, inDictionaryFlags);
+        }
         if (filter != null) {
-            outputQualifyingSet.reset(input.getPositionCount());
+            outputQualifyingSet.reset(numInput);
         }
 
-        if (input.getPositionCount() > 0) {
+        if (numInput > 0) {
             if (filter != null) {
-                int numInput = input.getPositionCount();
                 outputQualifyingSet.reset(numInput);
                 resultsProcessor.reset();
                 numInnerResults = dataStream.scan(input.getPositions(), 0, numInput, input.getEnd(), resultsProcessor);
@@ -441,30 +454,9 @@ public class SliceDictionaryStreamReader
             }
             else {
                 resultsProcessor.reset();
-                numInnerResults = dataStream.scan(input.getPositions(), 0, input.getPositionCount(), input.getEnd(), resultsProcessor);
+                numInnerResults = dataStream.scan(input.getPositions(), 0, numInput, input.getEnd(), resultsProcessor);
             }
         }
-
-        if (inDictionaryStream != null) {
-            int[] positions;
-            if (filter != null) {
-                positions = outputQualifyingSet.getPositions();
-            }
-            else if (hasNulls) {
-                positions = innerQualifyingSet.getPositions();
-            }
-            else {
-                positions = inputQualifyingSet.getPositions();
-            }
-            int prevPosition = hasNulls ? innerPosInRowGroup : posInRowGroup;
-            for (int i = 0; i < numInnerResults; i++) {
-                inDictionaryStream.skip(positions[i] - prevPosition);
-                if (inDictionaryStream.nextBit()) {
-                    values[i] += stripeDictionarySize;
-                }
-            }
-        }
-
         if (hasNulls) {
             innerPosInRowGroup = innerQualifyingSet.getEnd();
         }
@@ -474,10 +466,10 @@ public class SliceDictionaryStreamReader
         }
         if (outputChannelSet) {
             if (numValues > 0) {
-                averageResultSize = SIZE_OF_DOUBLE + toIntExact(dictionaryBlock.getSizeInBytes() / numValues);
+                averageResultSize = SIZE_OF_INT + toIntExact(dictionaryBlock.getSizeInBytes() / numValues);
             }
             else {
-                averageResultSize = SIZE_OF_DOUBLE;
+                averageResultSize = SIZE_OF_INT;
             }
         }
         endScan(presentStream);
@@ -512,9 +504,16 @@ public class SliceDictionaryStreamReader
             }
         }
 
-        private boolean test(long value)
+        private int adjustValue(long value, int offsetIndex)
         {
-            int dictionaryPosition = toIntExact(value);
+            if (inDictionaryStream != null && !inDictionaryFlags[offsetIndex]) {
+                return toIntExact(value + stripeDictionarySize);
+            }
+            return toIntExact(value);
+        }
+
+        private boolean test(int dictionaryPosition)
+        {
             if (!deterministicFilter) {
                 return evaluateFilter(dictionaryPosition);
             }
@@ -532,44 +531,42 @@ public class SliceDictionaryStreamReader
             return filter.testBytes(slice.getBytes(), 0, slice.length());
         }
 
-        private int adjustValue(long value)
-                throws IOException
-        {
-            int intValue = toIntExact(value);
-            if (inDictionaryStream != null && inDictionaryStream.nextBit()) {
-                intValue += stripeDictionarySize;
-            }
-            return intValue;
-        }
-
         @Override
         public boolean consume(int offsetIndex, long value)
-                throws IOException
         {
-            int intValue = adjustValue(value);
-            if (filter != null && !test(intValue)) {
+            int dictionaryPosition = adjustValue(value, offsetIndex);
+            if (filter != null && !test(dictionaryPosition)) {
                 return false;
             }
 
-            addResult(offsetIndex, intValue);
+            addResult(offsetIndex, dictionaryPosition);
             return true;
         }
 
         @Override
         public int consumeRepeated(int offsetIndex, long value, int count)
-                throws IOException
         {
-            int intValue = adjustValue(value);
-            if (filter != null && deterministicFilter && !test(intValue)) {
-                return 0;
+            if (inDictionaryStream == null && (deterministicFilter || filter == null)) {
+                // Common case: One filter and one translation
+                // from value to dictionary id is enough if there
+                // are no row group dictionaries and the filter is
+                // null or deterministic.
+                int dictionaryPosition = toIntExact(value);
+                if (filter != null && !test(dictionaryPosition)) {
+                    return 0;
+                }
+                for (int i = 0; i < count; i++) {
+                    addResult(offsetIndex + i, dictionaryPosition);
+                }
+                return count;
             }
-
             int added = 0;
             for (int i = 0; i < count; i++) {
-                if (filter != null && !deterministicFilter && !test(intValue)) {
+                int dictionaryPosition = adjustValue(value, offsetIndex + i);
+                if (filter != null && !test(dictionaryPosition)) {
                     continue;
                 }
-                addResult(offsetIndex + i, intValue);
+                addResult(offsetIndex + i, dictionaryPosition);
                 added++;
             }
             return added;
@@ -599,7 +596,7 @@ public class SliceDictionaryStreamReader
     @Override
     public int getResultSizeInBytes()
     {
-        return numValues * SIZE_OF_DOUBLE + toIntExact(dictionaryBlock.getSizeInBytes());
+        return numValues * SIZE_OF_INT + toIntExact(dictionaryBlock.getSizeInBytes());
     }
 
     @Override
@@ -676,5 +673,11 @@ public class SliceDictionaryStreamReader
     protected void writeNull(int position)
     {
         values[position] = dictionaryBlock.getPositionCount() - 1;
+    }
+
+    @Override
+    public boolean mustExtractValuesBeforeScan(boolean isNewStripe)
+    {
+        return outputChannelSet && (isNewStripe || hasRowGroupDictionaries);
     }
 }
