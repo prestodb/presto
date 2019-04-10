@@ -90,7 +90,7 @@ public final class TaskTestUtils
     public static final Symbol SYMBOL = new Symbol("column");
 
     public static final PlanFragment PLAN_FRAGMENT = new PlanFragment(
-            new PlanFragmentId("fragment"),
+            new PlanFragmentId(0),
             new TableScanNode(
                     TABLE_SCAN_NODE_ID,
                     new TableHandle(CONNECTOR_ID, new TestingTableHandle()),

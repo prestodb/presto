@@ -18,26 +18,28 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import javax.annotation.concurrent.Immutable;
 
-import static java.util.Objects.requireNonNull;
-
 @Immutable
 public class PlanFragmentId
         implements Comparable<PlanFragmentId>
 {
-    private final String id;
+    private final int id;
 
     @JsonCreator
-    public PlanFragmentId(String id)
+    public PlanFragmentId(int id)
     {
-        requireNonNull(id, "id is null");
         this.id = id;
     }
 
-    @Override
     @JsonValue
-    public String toString()
+    public int getId()
     {
         return id;
+    }
+
+    @Override
+    public String toString()
+    {
+        return Integer.toString(id);
     }
 
     @Override
@@ -52,27 +54,18 @@ public class PlanFragmentId
 
         PlanFragmentId that = (PlanFragmentId) o;
 
-        if (!id.equals(that.id)) {
-            return false;
-        }
-
-        return true;
+        return id == that.id;
     }
 
     @Override
     public int hashCode()
     {
-        return id.hashCode();
+        return Integer.hashCode(id);
     }
 
     @Override
     public int compareTo(PlanFragmentId o)
     {
-        try {
-            return Integer.compare(Integer.parseInt(id), Integer.parseInt(o.id));
-        }
-        catch (NumberFormatException e) {
-            return id.compareTo(o.id);
-        }
+        return Integer.compare(id, o.id);
     }
 }
