@@ -33,7 +33,6 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.google.common.base.Predicates.not;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -75,11 +74,9 @@ public final class LogicalRowExpressions
     {
         if (expression instanceof SpecialFormExpression && ((SpecialFormExpression) expression).getForm() == form) {
             SpecialFormExpression specialFormExpression = (SpecialFormExpression) expression;
-            verify(specialFormExpression.getArguments().size() == 2, "logical binary expression requires exactly 2 operands");
-            return ImmutableList.<RowExpression>builder()
-                    .addAll(extractPredicates(form, specialFormExpression.getArguments().get(0)))
-                    .addAll(extractPredicates(form, specialFormExpression.getArguments().get(1)))
-                    .build();
+            return specialFormExpression.getArguments().stream()
+                    .flatMap(argument -> extractPredicates(form, argument).stream())
+                    .collect(toImmutableList());
         }
 
         return ImmutableList.of(expression);

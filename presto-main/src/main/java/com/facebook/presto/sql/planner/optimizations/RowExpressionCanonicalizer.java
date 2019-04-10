@@ -34,6 +34,7 @@ import io.airlift.slice.Slice;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
@@ -49,10 +50,12 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IN;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.relational.RowExpressionUtils.inlineExpressions;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Integer.min;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 public class RowExpressionCanonicalizer
 {
@@ -67,6 +70,15 @@ public class RowExpressionCanonicalizer
     public RowExpression canonicalize(RowExpression input)
     {
         return input.accept(canonicalizationVisitor, null);
+    }
+
+    public RowExpression inline(RowExpression input, Map<RowExpression, RowExpression> assignments)
+    {
+        return inlineExpressions(canonicalize(input),
+                assignments.entrySet().stream()
+                        .collect(toMap(
+                                entry -> canonicalize(entry.getKey()),
+                                entry -> canonicalize(entry.getValue()))));
     }
 
     private static class CanonicalizationVisitor
