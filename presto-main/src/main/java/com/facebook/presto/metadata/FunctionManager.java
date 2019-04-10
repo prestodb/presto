@@ -61,11 +61,6 @@ public class FunctionManager
         return staticFunctionNamespace.listFunctions();
     }
 
-    public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
-    {
-        return staticFunctionNamespace.getFunctionMetadata(functionHandle);
-    }
-
     /**
      * Resolves a function using the SQL path, and implicit type coercions.
      *
@@ -79,6 +74,11 @@ public class FunctionManager
         // SQL path. As a result, session is not used here. We still add this to distinguish the two versions of resolveFunction
         // while the refactoring is on-going.
         return staticFunctionNamespace.resolveFunction(name, parameterTypes);
+    }
+
+    public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
+    {
+        return staticFunctionNamespace.getFunctionMetadata(functionHandle);
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)

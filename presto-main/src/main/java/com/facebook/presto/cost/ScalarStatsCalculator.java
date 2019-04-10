@@ -68,6 +68,7 @@ import static java.lang.Double.NaN;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.abs;
+import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
@@ -239,7 +240,7 @@ public class ScalarStatsCalculator
                         .setHighValue(-stats.getLowValue())
                         .build();
             }
-            throw new IllegalStateException("Unexpected sign: " + call.getFunctionHandle().getSignature());
+            throw new IllegalStateException(format("Unexpected sign: %s(%s)" + call.getDisplayName(), call.getFunctionHandle()));
         }
 
         private SymbolStatsEstimate computeArithmeticBinaryStatistics(CallExpression call, Void context)

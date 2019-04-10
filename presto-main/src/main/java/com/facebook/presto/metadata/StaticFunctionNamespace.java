@@ -358,6 +358,7 @@ import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
 class StaticFunctionNamespace
+        implements FunctionNamespace
 {
     private final TypeManager typeManager;
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
@@ -664,6 +665,7 @@ class StaticFunctionNamespace
         addFunctions(builder.getFunctions());
     }
 
+    @Override
     public final synchronized void addFunctions(List<? extends SqlFunction> functions)
     {
         for (SqlFunction function : functions) {
@@ -674,6 +676,7 @@ class StaticFunctionNamespace
         this.functions = new FunctionMap(this.functions, functions);
     }
 
+    @Override
     public List<SqlFunction> listFunctions()
     {
         return functions.list().stream()
@@ -686,18 +689,20 @@ class StaticFunctionNamespace
         return Iterables.any(functions.get(name), function -> function.getSignature().getKind() == AGGREGATE);
     }
 
+    @Override
     public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
     {
+        checkArgument(functionHandle instanceof StaticFunctionHandle, "Expect StaticFunctionHandle");
+        Signature signature = ((StaticFunctionHandle) functionHandle).getSignature();
         SpecializedFunctionKey functionKey;
         try {
-            functionKey = specializedFunctionKeyCache.getUnchecked(functionHandle.getSignature());
+            functionKey = specializedFunctionKeyCache.getUnchecked(signature);
         }
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
             throw e;
         }
         SqlFunction function = functionKey.getFunction();
-        Signature signature = functionHandle.getSignature();
         Optional<OperatorType> operatorType = tryGetOperatorType(signature.getName());
         if (operatorType.isPresent()) {
             return new FunctionMetadata(
@@ -728,7 +733,7 @@ class StaticFunctionNamespace
 
         Optional<Signature> match = matchFunctionExact(exactCandidates, parameterTypes);
         if (match.isPresent()) {
-            return new FunctionHandle(match.get());
+            return new StaticFunctionHandle(match.get());
         }
 
         List<SqlFunction> genericCandidates = allCandidates.stream()
@@ -737,12 +742,13 @@ class StaticFunctionNamespace
 
         match = matchFunctionExact(genericCandidates, parameterTypes);
         if (match.isPresent()) {
-            return new FunctionHandle(match.get());
+            return new StaticFunctionHandle(match.get());
         }
 
         throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(name, parameterTypes, allCandidates));
     }
 
+    @Override
     public FunctionHandle resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         try {
@@ -757,7 +763,7 @@ class StaticFunctionNamespace
         Collection<SqlFunction> allCandidates = functions.get(name);
         Optional<Signature> match = matchFunctionWithCoercion(allCandidates, parameterTypes);
         if (match.isPresent()) {
-            return new FunctionHandle(match.get());
+            return new StaticFunctionHandle(match.get());
         }
 
         if (name.getSuffix().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
@@ -770,7 +776,7 @@ class StaticFunctionNamespace
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
 
-            return new FunctionHandle(getMagicLiteralFunctionSignature(type));
+            return new StaticFunctionHandle(getMagicLiteralFunctionSignature(type));
         }
 
         throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(name, parameterTypes, allCandidates));
@@ -964,7 +970,7 @@ class StaticFunctionNamespace
             Type parameterType = parameterTypes.get(i);
             if (parameterType.equals(UNKNOWN)) {
                 // TODO: This still doesn't feel right. Need to understand function resolution logic better to know what's the right way.
-                FunctionHandle functionHandle = new FunctionHandle(boundSignature);
+                StaticFunctionHandle functionHandle = new StaticFunctionHandle(boundSignature);
                 if (getFunctionMetadata(functionHandle).isCalledOnNullInput()) {
                     return false;
                 }
@@ -975,7 +981,8 @@ class StaticFunctionNamespace
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
     {
-        Signature signature = functionHandle.getSignature();
+        checkArgument(functionHandle instanceof StaticFunctionHandle, "Expect StaticFunctionHandle");
+        Signature signature = ((StaticFunctionHandle) functionHandle).getSignature();
         checkArgument(signature.getKind() == WINDOW || signature.getKind() == AGGREGATE, "%s is not a window function", signature);
         checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
 
@@ -990,7 +997,8 @@ class StaticFunctionNamespace
 
     public InternalAggregationFunction getAggregateFunctionImplementation(FunctionHandle functionHandle)
     {
-        Signature signature = functionHandle.getSignature();
+        checkArgument(functionHandle instanceof StaticFunctionHandle, "Expect StaticFunctionHandle");
+        Signature signature = ((StaticFunctionHandle) functionHandle).getSignature();
         checkArgument(signature.getKind() == AGGREGATE, "%s is not an aggregate function", signature);
         checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
 
@@ -1005,7 +1013,8 @@ class StaticFunctionNamespace
 
     public ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle)
     {
-        return getScalarFunctionImplementation(functionHandle.getSignature());
+        checkArgument(functionHandle instanceof StaticFunctionHandle, "Expect StaticFunctionHandle");
+        return getScalarFunctionImplementation(((StaticFunctionHandle) functionHandle).getSignature());
     }
 
     public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)
@@ -1147,7 +1156,7 @@ class StaticFunctionNamespace
             }
             throw e;
         }
-        return new FunctionHandle(signature);
+        return new StaticFunctionHandle(signature);
     }
 
     private static Optional<List<Type>> toTypes(List<TypeSignatureProvider> typeSignatureProviders, TypeManager typeManager)

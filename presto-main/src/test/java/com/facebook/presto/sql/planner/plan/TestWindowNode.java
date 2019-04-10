@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.server.SliceDeserializer;
 import com.facebook.presto.server.SliceSerializer;
 import com.facebook.presto.spi.block.SortOrder;
@@ -25,11 +26,15 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.ObjectMapperProvider;
+import com.google.inject.Injector;
+import com.google.inject.Key;
+import com.google.inject.Module;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonModule;
 import io.airlift.slice.Slice;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -45,6 +50,8 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
+import static io.airlift.json.JsonBinder.jsonBinder;
+import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static org.testng.Assert.assertEquals;
 
 public class TestWindowNode
@@ -55,21 +62,12 @@ public class TestWindowNode
     private Symbol columnB;
     private Symbol columnC;
 
-    private final ObjectMapper objectMapper;
+    private final JsonCodec<WindowNode> codec;
 
     public TestWindowNode()
+            throws Exception
     {
-        // dependencies copied from ServerMainModule.java to avoid depending on whole ServerMainModule here
-        SqlParser sqlParser = new SqlParser();
-        ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setJsonSerializers(ImmutableMap.of(
-                Slice.class, new SliceSerializer(),
-                Expression.class, new Serialization.ExpressionSerializer()));
-        provider.setJsonDeserializers(ImmutableMap.of(
-                Slice.class, new SliceDeserializer(),
-                Expression.class, new Serialization.ExpressionDeserializer(sqlParser),
-                FunctionCall.class, new Serialization.FunctionCallDeserializer(sqlParser)));
-        objectMapper = provider.get();
+        codec = getJsonCodec();
     }
 
     @BeforeClass
@@ -120,9 +118,9 @@ public class TestWindowNode
                 prePartitionedInputs,
                 0);
 
-        String json = objectMapper.writeValueAsString(windowNode);
+        String json = codec.toJson(windowNode);
 
-        WindowNode actualNode = objectMapper.readValue(json, WindowNode.class);
+        WindowNode actualNode = codec.fromJson(json);
 
         assertEquals(actualNode.getId(), windowNode.getId());
         assertEquals(actualNode.getSpecification(), windowNode.getSpecification());
@@ -136,5 +134,29 @@ public class TestWindowNode
     private static PlanNodeId newId()
     {
         return new PlanNodeId(UUID.randomUUID().toString());
+    }
+
+    private JsonCodec<WindowNode> getJsonCodec()
+            throws Exception
+    {
+        Module module = binder -> {
+            SqlParser sqlParser = new SqlParser();
+            binder.install(new JsonModule());
+            binder.install(new HandleJsonModule());
+            binder.bind(SqlParser.class).toInstance(sqlParser);
+            jsonBinder(binder).addSerializerBinding(Slice.class).to(SliceSerializer.class);
+            jsonBinder(binder).addDeserializerBinding(Slice.class).to(SliceDeserializer.class);
+            jsonBinder(binder).addSerializerBinding(Expression.class).to(Serialization.ExpressionSerializer.class);
+            jsonBinder(binder).addDeserializerBinding(Expression.class).to(Serialization.ExpressionDeserializer.class);
+            jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(Serialization.FunctionCallDeserializer.class);
+            jsonCodecBinder(binder).bindJsonCodec(WindowNode.class);
+        };
+        Bootstrap app = new Bootstrap(ImmutableList.of(module));
+        Injector injector = app
+                .strictConfig()
+                .doNotInitializeLogging()
+                .quiet()
+                .initialize();
+        return injector.getInstance(new Key<JsonCodec<WindowNode>>() {});
     }
 }

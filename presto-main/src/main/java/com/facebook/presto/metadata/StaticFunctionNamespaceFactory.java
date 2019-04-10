@@ -13,14 +13,18 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.function.FunctionHandle;
-
-public class StaticFunctionNamespaceHandleResolver
-        implements FunctionHandleResolver
+public class StaticFunctionNamespaceFactory
+        implements FunctionNamespaceFactory
 {
     @Override
-    public Class<? extends FunctionHandle> getFunctionHandleClass()
+    public String getName()
     {
-        return StaticFunctionHandle.class;
+        return "$static";
+    }
+
+    @Override
+    public FunctionHandleResolver getHandleResolver()
+    {
+        return new StaticFunctionNamespaceHandleResolver();
     }
 }
