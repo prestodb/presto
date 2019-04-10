@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.orc.BatchTooLargeException;
 import com.facebook.presto.orc.Filter;
 import com.facebook.presto.orc.QualifyingSet;
 import com.facebook.presto.orc.stream.BooleanInputStream;
@@ -46,10 +47,6 @@ abstract class ColumnReader
     protected boolean deterministicFilter;
     protected int columnIndex;
     protected Type type;
-    // First row number in row group that is not processed due to
-    // reaching target size. This must occur as a position in
-    // inputQualifyingSet. -1 if all inputQualifyingSet is processed.
-    protected int truncationRow = -1;
 
     protected boolean rowGroupOpen;
 
@@ -167,12 +164,6 @@ abstract class ColumnReader
     }
 
     @Override
-    public int getTruncationRow()
-    {
-        return truncationRow;
-    }
-
-    @Override
     public int getResultSizeInBytes()
     {
         if (fixedValueSize.isPresent()) {
@@ -204,7 +195,6 @@ abstract class ColumnReader
             throws IOException
     {
         numResults = 0;
-        truncationRow = -1;
         if (filter != null && outputQualifyingSet == null) {
             outputQualifyingSet = new QualifyingSet();
         }
@@ -283,11 +273,10 @@ abstract class ColumnReader
 
     protected void endScan(BooleanInputStream presentStream)
     {
-        // The reader is positioned at inputQualifyingSet.end() or
-        // truncationRow. posInRowGroup is where the calling scan()
-        // started.
+        // The reader is positioned at inputQualifyingSet.end()
+        //  posInRowGroup is where the calling scan() started.
         int initialPosInRowGroup = posInRowGroup;
-        posInRowGroup = truncationRow != -1 ? truncationRow : inputQualifyingSet.getEnd();
+        posInRowGroup = inputQualifyingSet.getEnd();
         if (presentStream != null) {
             int numAdvanced = posInRowGroup - initialPosInRowGroup;
             if (numAdvanced < numPresent) {
@@ -333,6 +322,11 @@ abstract class ColumnReader
             }
         }
         return count;
+    }
+
+    protected BatchTooLargeException batchTooLarge()
+    {
+        return new BatchTooLargeException();
     }
 
     protected void checkEnoughValues(int numFirstRows)

@@ -353,9 +353,6 @@ public class SliceDirectStreamReader
         int toSkip = 0;
         for (int i = 0; i < rowsInRange; i++) {
             if (i + posInRowGroup == nextActive) {
-                if (truncationRow == nextActive) {
-                    break;
-                }
                 if (presentStream != null && !present[i]) {
                     if (filter == null || filter.testNull()) {
                         if (filter != null) {
@@ -415,7 +412,7 @@ public class SliceDirectStreamReader
                 }
                 nextActive = inputPositions[activeIdx];
                 if (bytesToGo <= 0) {
-                    truncationRow = input.truncateAndReturnTruncationRow(activeIdx);
+                    throw batchTooLarge();
                 }
                 continue;
             }
