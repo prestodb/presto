@@ -454,12 +454,7 @@ public class Filters
                 if (length != lower.length) {
                     return false;
                 }
-                for (int i = 0; i < length; i++) {
-                    if (buffer[i + offset] != lower[i]) {
-                        return false;
-                    }
-                    return true;
-                }
+                return memcmp(buffer, offset, length, upper, 0, upper.length) == 0;
             }
             if (lower != null) {
                 int lowerCmp = memcmp(buffer, offset, length, lower, 0, lower.length);
