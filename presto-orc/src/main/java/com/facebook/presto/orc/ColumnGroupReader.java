@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.orc.OrcRecordReader.UNLIMITED_BUDGET;
+import static com.facebook.presto.orc.ResizedArrays.newIntArrayForReuse;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -450,7 +451,7 @@ public class ColumnGroupReader
                 blocks[channelIdx] = makeFilterFunctionInputBlock(channelIdx, streamIdx, numRows, function);
             }
             if (filterResults == null || filterResults.length < numRows) {
-                filterResults = new int[numRows + 100];
+                filterResults = newIntArrayForReuse(numRows);
             }
             StreamReader reader = sortedStreamReaders[streamIdx];
             qualifyingSet = reader.getOrCreateOutputQualifyingSet();
@@ -555,7 +556,7 @@ public class ColumnGroupReader
     {
         int[] map = maps[mapIdx];
         if (map == null || map.length < size) {
-            maps[mapIdx] = new int[size + 100];
+            maps[mapIdx] = newIntArrayForReuse(size);
             return maps[mapIdx];
         }
         return map;
@@ -688,7 +689,7 @@ public class ColumnGroupReader
         // left in place, the input numbers are rewritten to be
         // consecutive from 0 onwards.
         if (survivingRows == null || survivingRows.length < numSurviving) {
-            survivingRows = new int[numSurviving + 100];
+            survivingRows = newIntArrayForReuse(numSurviving);
         }
         // Copy the surviving to a local array because this may need to
         // get resized if we have readers that have more data then the
@@ -725,6 +726,16 @@ public class ColumnGroupReader
         numRowsInResult = base + initialNumSurviving;
         // Check.
         // getBlocks(numRowsInResult, true, false);
+    }
+
+    public boolean mustExtractValuesBeforeScan(boolean isNewStripe)
+    {
+        for (StreamReader reader : sortedStreamReaders) {
+            if (reader.mustExtractValuesBeforeScan(isNewStripe)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public String toString()
