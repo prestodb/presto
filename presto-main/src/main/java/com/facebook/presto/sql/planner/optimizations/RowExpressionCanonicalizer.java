@@ -200,7 +200,9 @@ public class RowExpressionCanonicalizer
     private static class RowExpressionComparator
             implements Comparator<RowExpression>
     {
-        private final Comparator<Object> classComparator = Ordering.arbitrary();
+        private final Comparator<Object> classComparator = Ordering.explicit(
+                ImmutableList.of(InputReferenceExpression.class, VariableReferenceExpression.class, ConstantExpression.class,
+                        SpecialFormExpression.class, CallExpression.class, LambdaDefinitionExpression.class));
         private final ListComparator<RowExpression> argumentComparator = new ListComparator<>(this);
 
         @Override
