@@ -28,11 +28,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.orc.OrcRecordReader.UNLIMITED_BUDGET;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnGroupReader
 {
+    private static final int BUDGET_HARD_LIMIT_MULTIPLIER = 4;
+    private static final int MIN_READER_BUDGET = 8000;
+
     // Number of complete rows in result Blocks in StreamReaders.
     private int numRowsInResult;
 
@@ -49,16 +53,15 @@ public class ColumnGroupReader
     private boolean reorderFilters;
     private Block[] reusedPageBlocks;
 
-    private int lastTruncatedStreamIdx = -1;
     private int maxOutputChannel = -1;
-    private int targetResultBytes;
+    private long targetResultBytes;
     // The number of leading elements in sortedStreamReaders that is subject to reordering.
     private int numFilters;
     private int firstNonFilter;
     // Temporary array for compacting results that have been decimated
     // by subsequent filters.
     private int[] survivingRows;
-    private int[] readerBudget;
+    private long[] readerBudget;
     private FilterFunction[] filterFunctions;
     private int[] filterResults;
     private Map<Integer, StreamReader> channelToStreamReader;
@@ -116,7 +119,7 @@ public class ColumnGroupReader
 
     public void setResultSizeBudget(long bytes)
     {
-        targetResultBytes = (int) bytes;
+        targetResultBytes = bytes;
     }
 
     private static int compareReaders(StreamReader a, StreamReader b)
@@ -166,7 +169,7 @@ public class ColumnGroupReader
             reorderFilters = false;
         }
         setupFilterFunctions();
-        readerBudget = new int[sortedStreamReaders.length];
+        readerBudget = new long[sortedStreamReaders.length];
     }
 
     private void installFilterFunction(int idx, FilterFunction function)
@@ -282,68 +285,61 @@ public class ColumnGroupReader
 
     // Divides the space available in the result Page between the
     // streams at firstStreamIdx and to the right of at.
-    boolean makeResultBudget(int firstStreamIdx, int numRows, boolean mayReturn)
+    private void makeResultBudget(int numRows)
     {
-        int bytesSoFar = 0;
-        double selectivity = 1;
-        int totalAsk = 0;
-        if ((ariaFlags & AriaFlags.noReaderBudget) != 0) {
-            for (int i = firstStreamIdx; i < sortedStreamReaders.length; i++) {
+        if (targetResultBytes == UNLIMITED_BUDGET || (ariaFlags & AriaFlags.noReaderBudget) != 0) {
+            for (int i = 0; i < sortedStreamReaders.length; i++) {
                 StreamReader reader = sortedStreamReaders[i];
                 if (reader.getChannel() != -1) {
-                    // Arbitrarily large but no Long overflow
-                    reader.setResultSizeBudget(0x7fffffff);
+                    reader.setResultSizeBudget(UNLIMITED_BUDGET);
                 }
             }
-            return false;
+            return;
         }
+        long bytesSoFar = 0;
+        double selectivity = 1;
+        long totalAsk = 0;
         for (int i = 0; i < sortedStreamReaders.length; i++) {
             StreamReader reader = sortedStreamReaders[i];
             bytesSoFar += reader.getResultSizeInBytes();
-            if (i >= firstStreamIdx) {
-                Filter filter = reader.getFilter();
-                int channel = reader.getChannel();
-                if (filter != null) {
-                    selectivity *= filter.getSelectivity();
-                }
-                if (channel != -1) {
-                    int avgSize = reader.getAverageResultSize();
-                    readerBudget[i] = Math.max(8000, (int) (numRows * selectivity * avgSize));
-                    totalAsk += readerBudget[i];
-                    // A filter function can only be at the position
-                    // of a reader with a channel since they are
-                    // placed at the latest position that reads an
-                    // input.
-                    if (i < filterFunctionOrder.length && filterFunctionOrder[i] != null) {
-                        for (FilterFunction function : filterFunctionOrder[i]) {
-                            selectivity *= function.getSelectivity();
-                        }
+            Filter filter = reader.getFilter();
+            if (filter != null) {
+                selectivity *= filter.getSelectivity();
+            }
+            if (reader.getChannel() != -1) {
+                readerBudget[i] = Math.max(MIN_READER_BUDGET, (long) (numRows * selectivity * reader.getAverageResultSize()));
+                totalAsk += readerBudget[i];
+                // A filter function can only be at the position
+                // of a reader with a channel since they are
+                // placed at the latest position that reads an
+                // input.
+                if (i < filterFunctionOrder.length && filterFunctionOrder[i] != null) {
+                    for (FilterFunction function : filterFunctionOrder[i]) {
+                        selectivity *= function.getSelectivity();
                     }
                 }
-                else {
-                    readerBudget[i] = 0;
-                }
+            }
+            else {
+                readerBudget[i] = 0;
             }
         }
         if (totalAsk == 0) {
-            return false;
+            return;
         }
-        int available = targetResultBytes - bytesSoFar;
-        if (available < targetResultBytes / 10 && mayReturn) {
-            return true;
+        long available = targetResultBytes - bytesSoFar;
+        if (available < MIN_READER_BUDGET) {
+            available = MIN_READER_BUDGET * sortedStreamReaders.length;
         }
-        if (available < 10000) {
-            available = 10000;
-        }
-        double grantedFraction = (double) available / totalAsk;
-        for (int i = firstStreamIdx; i < sortedStreamReaders.length; i++) {
+        double grantedFraction = available < totalAsk ? (double) available / totalAsk : 1.0;
+        for (int i = 0; i < sortedStreamReaders.length; i++) {
             StreamReader reader = sortedStreamReaders[i];
             if (reader.getChannel() != -1) {
-                int budget = (int) (readerBudget[i] * grantedFraction);
-                reader.setResultSizeBudget(budget);
+                // Set hard limit to multiple of budget. Only large
+                // overruns should trigger exceptions, smaller will be
+                // dealt with by scaling down the batch without retry.
+                reader.setResultSizeBudget((long) (readerBudget[i] * grantedFraction) * BUDGET_HARD_LIMIT_MULTIPLIER);
             }
         }
-        return false;
     }
 
     public Block[] getBlocks(int numFirstRows, boolean reuseBlocks, boolean fillAbsentWithNulls)
@@ -377,8 +373,7 @@ public class ColumnGroupReader
     }
 
     // Removes the first numValues values from all reader and
-    // QualifyingSets. If the last batch was truncated, some of the
-    // readers may hold values from last batch.
+    // QualifyingSets.
     public void newBatch(int numValues)
     {
         numRowsInResult -= numValues;
@@ -390,45 +385,24 @@ public class ColumnGroupReader
         }
     }
 
-    public boolean hasUnfetchedRows()
-    {
-        return findLastTruncatedStreamIdx() != -1;
-    }
-
     public void advance()
             throws IOException
     {
-        int firstStreamIdx;
-        lastTruncatedStreamIdx = findLastTruncatedStreamIdx();
-        QualifyingSet qualifyingSet;
-        if (lastTruncatedStreamIdx == -1) {
-            firstStreamIdx = 0;
-            makeResultBudget(0, inputQualifyingSet.getPositionCount(), false);
-            qualifyingSet = inputQualifyingSet;
+        if (sortedStreamReaders.length == 0) {
+            numRowsInResult += inputQualifyingSet.getPositionCount();
+            inputQualifyingSet.eraseBelowRow(inputQualifyingSet.getEnd());
+            return;
         }
-        else {
-            firstStreamIdx = lastTruncatedStreamIdx;
-            StreamReader reader = sortedStreamReaders[firstStreamIdx];
-            // The last call to compactSparseBlocks() has removed
-            // returned rows from the set. If there is a truncation to
-            // the left of this truncation, the end of the
-            // qualifyingSet that we resume is set to reflect that so
-            // we do not read past a truncate of a previous column.
-            qualifyingSet = reader.getInputQualifyingSet();
-            setNewTruncation(firstStreamIdx, qualifyingSet);
-            makeResultBudget(firstStreamIdx, qualifyingSet.getPositionCount(), false);
-        }
+        QualifyingSet qualifyingSet = inputQualifyingSet;
+        makeResultBudget(qualifyingSet.getPositionCount());
         int numStreams = sortedStreamReaders.length;
-        for (int streamIdx = firstStreamIdx; streamIdx < numStreams; ++streamIdx) {
+        for (int streamIdx = 0; streamIdx < numStreams; ++streamIdx) {
             long startTime = 0;
             StreamReader reader = sortedStreamReaders[streamIdx];
             Filter filter = reader.getFilter();
             // Link this qualifying set to the input of this reader so
             // that for nested structs we know what rows correspond to
             // top level row boundaries.
-            if (qualifyingSet != inputQualifyingSet) {
-                qualifyingSet.setFirstOfLevel(inputQualifyingSet);
-            }
             reader.setInputQualifyingSet(qualifyingSet);
             if (!hasFilter(streamIdx)) {
                 reader.setOutputQualifyingSet(null);
@@ -455,7 +429,7 @@ public class ColumnGroupReader
             }
         }
 
-        // Number of rows surviving all truncations/filters.
+        // Number of rows surviving all filters.
         int numAdded = qualifyingSet.getPositionCount();
         if (sortedStreamReaders.length > 0) {
             alignResultsAndRemoveFromQualifyingSet(numAdded, sortedStreamReaders.length - 1);
@@ -486,13 +460,6 @@ public class ColumnGroupReader
             function.updateStats(numRows, numHits, System.nanoTime() - start);
             if (reader.getFilter() == null && isFirstFunction) {
                 qualifyingSet.copyFrom(reader.getInputQualifyingSet());
-                int end = qualifyingSet.getEnd();
-                // If the reader stopped because of space budget, the
-                // truncation is recorded in the reader, the output qset
-                // just has the output that was produced and ends at the
-                // truncation row of the end of the input qset.
-                qualifyingSet.clearTruncationPosition();
-                qualifyingSet.setEnd(end);
                 // inputNumbers[i] is the offset of the qualifying row within the input qualifying set.
                 int[] inputNumbers = qualifyingSet.getMutableInputNumbers(numHits);
                 System.arraycopy(filterResults, 0, inputNumbers, 0, numHits);
@@ -595,32 +562,6 @@ public class ColumnGroupReader
         return map;
     }
 
-    private void setNewTruncation(int streamIdx, QualifyingSet set)
-    {
-        // Do not read past the end of a column to the left. The new truncation is the end of the closest truncated to the left or the closest filter.
-        if (streamIdx == 0) {
-            // If leftmost column is truncated, inputQualifyingSet has
-            // the new truncation, which is set by the caller. The top
-            // level reader always clears the truncation, a struct
-            // reader sets it according to the truncation in its input
-            // QualifyingSet.
-            return;
-        }
-        int newEnd = -1;
-        for (int i = streamIdx - 1; i >= 0; i--) {
-            StreamReader reader = sortedStreamReaders[i];
-            if (hasFilter(i)) {
-                break;
-            }
-            int row = reader.getTruncationRow();
-            if (row != -1) {
-                newEnd = row;
-                break;
-            }
-        }
-        set.setTruncationRow(newEnd);
-    }
-
     private boolean hasFilter(int i)
     {
         return sortedStreamReaders[i].getFilter() != null || (filterFunctionOrder.length > i && filterFunctionOrder[i] != null);
@@ -641,9 +582,7 @@ public class ColumnGroupReader
             }
             QualifyingSet output = reader.getOutputQualifyingSet();
             QualifyingSet input = reader.getInputQualifyingSet();
-            int truncationRow = reader.getTruncationRow();
-            if (truncationRow == -1 &&
-                    (output == null || output.getPositionCount() == input.getPositionCount() && !output.hasErrors())) {
+            if (output == null || (output.getPositionCount() == input.getPositionCount() && !output.hasErrors())) {
                 continue;
             }
             if (streamIdx == 0 && outputQualifyingSet == null) {
@@ -675,9 +614,6 @@ public class ColumnGroupReader
                     resultInputNumbers[i] = i;
                 }
             }
-            if (truncationRow != -1 && streamIdx > 0) {
-                numSurviving = addUnusedInputToSurviving(reader, numSurviving, 0);
-            }
         }
         // Record the input rows that made it into the output qualifying set.
         if (outputQualifyingSet != null) {
@@ -702,75 +638,19 @@ public class ColumnGroupReader
         }
 
         StreamReader lastReader = sortedStreamReaders[lastStreamIdx];
-        int endRow = getCurrentRow(lastReader);
+        int endRow = lastReader.getPosition();
         QualifyingSet lastOutput = lastReader.getOutputQualifyingSet();
         if (lastOutput != null) {
             // Signals errors if any left.
             lastOutput.eraseBelowRow(endRow);
         }
-        lastReader.getInputQualifyingSet().clearTruncationPosition();
         for (int streamIdx = lastStreamIdx - 1; streamIdx >= 0; --streamIdx) {
             StreamReader reader = sortedStreamReaders[streamIdx];
             if (hasFilter(streamIdx)) {
-                reader.getOutputQualifyingSet().clearTruncationPosition();
                 reader.getOutputQualifyingSet().eraseBelowRow(endRow);
             }
         }
         inputQualifyingSet.eraseBelowRow(endRow);
-    }
-
-    private static int getCurrentRow(StreamReader reader)
-    {
-        int row = reader.getTruncationRow();
-        if (row != -1) {
-            return row;
-        }
-        return reader.getPosition();
-    }
-
-    private int addUnusedInputToSurviving(StreamReader reader, int numSurviving, int offset)
-    {
-        int truncationRow = reader.getTruncationRow();
-        QualifyingSet input = reader.getInputQualifyingSet();
-        int numIn = input.getTotalPositionCount();
-        int[] rows = input.getPositions();
-        // Find the place of the truncation row in the input and add
-        // this and all above this to surviving.
-        for (int i = 0; i < numIn; i++) {
-            if (rows[i] == truncationRow) {
-                int numAdded = numIn - i;
-                if (survivingRows == null) {
-                    survivingRows = new int[numSurviving + numAdded];
-                }
-                if (survivingRows.length < numSurviving + numAdded) {
-                    survivingRows = Arrays.copyOf(survivingRows, numSurviving + numAdded + 100);
-                }
-                for (int counter = 0; counter < numAdded; counter++) {
-                    survivingRows[numSurviving + counter] = i + counter + offset;
-                }
-                return numSurviving + numAdded;
-            }
-        }
-        throw new IllegalArgumentException("Truncation row was not in the input QualifyingSet");
-    }
-
-    private int findLastTruncatedStreamIdx()
-    {
-        for (int i = sortedStreamReaders.length - 1; i >= 0; i--) {
-            if (sortedStreamReaders[i].getTruncationRow() != -1) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    public int getTruncationRow()
-    {
-        int idx = findLastTruncatedStreamIdx();
-        if (idx == -1) {
-            return -1;
-        }
-        return sortedStreamReaders[idx].getTruncationRow();
     }
 
     public int getResultSizeInBytes()
@@ -842,10 +722,6 @@ public class ColumnGroupReader
             if (streamIdx == 0) {
                 break;
             }
-            int truncated = reader.getTruncationRow();
-            if (truncated != -1) {
-                numSurviving = addUnusedInputToSurviving(reader, numSurviving, numRowsInResult);
-            }
         }
         numRowsInResult = base + initialNumSurviving;
         // Check.
@@ -860,10 +736,6 @@ public class ColumnGroupReader
                 .append(getResultSizeInBytes());
         for (StreamReader reader : sortedStreamReaders) {
             builder.append("C ").append(reader.getColumnIndex());
-            int row = reader.getTruncationRow();
-            if (row != -1) {
-                builder.append("trunc: ").append(row);
-            }
         }
         return builder.toString();
     }

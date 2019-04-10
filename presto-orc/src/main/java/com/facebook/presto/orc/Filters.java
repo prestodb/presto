@@ -18,6 +18,7 @@ import com.facebook.presto.spi.SubfieldPath;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import static com.facebook.presto.spi.block.ByteArrayUtils.memcmp;
@@ -34,7 +35,7 @@ public class Filters
 
     private Filters() {}
 
-    private static class AlwaysFalse
+    public static class AlwaysFalse
             extends Filter
     {
         public AlwaysFalse()
@@ -49,7 +50,7 @@ public class Filters
         }
     }
 
-    private static class IsNull
+    public static class IsNull
             extends Filter
     {
         public IsNull()
@@ -64,7 +65,7 @@ public class Filters
         }
     }
 
-    private static class IsNotNull
+    public static class IsNotNull
             extends Filter
     {
         public IsNotNull()
@@ -186,7 +187,7 @@ public class Filters
         private final long lower;
         private final long upper;
 
-        BigintRange(long lower, long upper, boolean nullAllowed)
+        public BigintRange(long lower, long upper, boolean nullAllowed)
         {
             super(nullAllowed);
             checkArgument(lower <= upper, "lower must be <= upper");
@@ -493,7 +494,7 @@ public class Filters
     public static class StructFilter
             extends Filter
     {
-        private final HashMap<SubfieldPath.PathElement, Filter> filters = new HashMap();
+        private final Map<SubfieldPath.PathElement, Filter> filters = new HashMap();
 
         StructFilter()
         {
