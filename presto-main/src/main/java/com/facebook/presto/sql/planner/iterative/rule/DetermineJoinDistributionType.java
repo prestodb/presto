@@ -116,7 +116,8 @@ public class DetermineJoinDistributionType
         if (!mustPartition(joinNode) && canReplicate(joinNode, context)) {
             possibleJoinNodes.add(getJoinNodeWithCost(context, joinNode.withDistributionType(REPLICATED)));
         }
-        if (!mustReplicate(joinNode, context)) {
+        // don't consider partitioned inequality joins because they execute on a single node.
+        if (!mustReplicate(joinNode, context) && !joinNode.getCriteria().isEmpty()) {
             possibleJoinNodes.add(getJoinNodeWithCost(context, joinNode.withDistributionType(PARTITIONED)));
         }
     }

@@ -623,6 +623,71 @@ public class TestDetermineJoinDistributionType
                         values(ImmutableMap.of("B1", 0))));
     }
 
+    @Test
+    public void testChoosesLeftWhenCriteriaEmpty()
+    {
+        int aRows = 1_000__00;
+        int bRows = 1_0;
+        assertDetermineJoinDistributionType(new CostComparator(75, 10, 15))
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(aRows)
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(bRows)
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build())
+                .on(p ->
+                        p.join(
+                                RIGHT,
+                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
+                                ImmutableList.of(),
+                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                Optional.empty()))
+                .matches(join(
+                        LEFT,
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.of(REPLICATED),
+                        values(ImmutableMap.of("B1", 0)),
+                        values(ImmutableMap.of("A1", 0))));
+    }
+
+    @Test
+    public void testChoosesRightWhenFallsBackToSyntactic()
+    {
+        int aRows = 1_000__00;
+        int bRows = 1_0;
+        assertDetermineJoinDistributionType(new CostComparator(75, 10, 15))
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(aRows)
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(bRows)
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build())
+                .on(p ->
+                        p.join(
+                                RIGHT,
+                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
+                                ImmutableList.of(),
+                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                Optional.empty()))
+                .matches(join(
+                        RIGHT,
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.of(PARTITIONED),
+                        values(ImmutableMap.of("B1", 0)),
+                        values(ImmutableMap.of("A1", 0))));
+    }
+
     private RuleAssert assertDetermineJoinDistributionType()
     {
         return assertDetermineJoinDistributionType(COST_COMPARATOR);
