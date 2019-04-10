@@ -161,7 +161,7 @@ public class TestSqlStageExecution
     {
         PlanNode planNode = new RemoteSourceNode(
                 new PlanNodeId("exchange"),
-                ImmutableList.of(new PlanFragmentId("source")),
+                ImmutableList.of(new PlanFragmentId(0)),
                 ImmutableList.of(new Symbol("column")),
                 Optional.empty(),
                 REPARTITION);
@@ -171,7 +171,7 @@ public class TestSqlStageExecution
             types.put(symbol, VARCHAR);
         }
         return new PlanFragment(
-                new PlanFragmentId("exchange_fragment_id"),
+                new PlanFragmentId(0),
                 planNode,
                 types.build(),
                 SOURCE_DISTRIBUTION,

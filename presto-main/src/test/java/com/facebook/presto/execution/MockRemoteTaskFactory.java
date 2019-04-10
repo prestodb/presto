@@ -107,7 +107,7 @@ public class MockRemoteTaskFactory
         Symbol symbol = new Symbol("column");
         PlanNodeId sourceId = new PlanNodeId("sourceId");
         PlanFragment testFragment = new PlanFragment(
-                new PlanFragmentId("test"),
+                new PlanFragmentId(0),
                 new TableScanNode(
                         sourceId,
                         new TableHandle(new ConnectorId("test"), new TestingTableHandle()),

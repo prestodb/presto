@@ -315,7 +315,7 @@ public class PlanPrinter
     {
         // TODO: This should move to something like GraphvizRenderer
         PlanFragment fragment = new PlanFragment(
-                new PlanFragmentId("graphviz_plan"),
+                new PlanFragmentId(0),
                 plan,
                 types.allTypes(),
                 SINGLE_DISTRIBUTION,

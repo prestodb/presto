@@ -67,7 +67,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -199,7 +198,6 @@ public class SqlQueryScheduler
         OutputBufferId rootBufferId = Iterables.getOnlyElement(rootOutputBuffers.getBuffers().keySet());
         List<SqlStageExecution> stages = createStages(
                 (fragmentId, tasks, noMoreExchangeLocations) -> updateQueryOutputLocations(queryStateMachine, rootBufferId, tasks, noMoreExchangeLocations),
-                new AtomicInteger(),
                 locationFactory,
                 plan.withBucketToPartition(Optional.of(new int[1])),
                 nodeScheduler,
@@ -292,7 +290,6 @@ public class SqlQueryScheduler
 
     private List<SqlStageExecution> createStages(
             ExchangeLocationsConsumer parent,
-            AtomicInteger nextStageId,
             LocationFactory locationFactory,
             SubPlan plan,
             NodeScheduler nodeScheduler,
@@ -311,7 +308,8 @@ public class SqlQueryScheduler
     {
         ImmutableList.Builder<SqlStageExecution> stages = ImmutableList.builder();
 
-        StageId stageId = new StageId(queryStateMachine.getQueryId(), nextStageId.getAndIncrement());
+        PlanFragmentId fragmentId = plan.getFragment().getId();
+        StageId stageId = new StageId(queryStateMachine.getQueryId(), fragmentId.getId());
         SqlStageExecution stage = createSqlStageExecution(
                 stageId,
                 locationFactory.createStageLocation(stageId),
@@ -421,7 +419,6 @@ public class SqlQueryScheduler
         for (SubPlan subStagePlan : plan.getChildren()) {
             List<SqlStageExecution> subTree = createStages(
                     stage::addExchangeLocations,
-                    nextStageId,
                     locationFactory,
                     subStagePlan.withBucketToPartition(bucketToPartition),
                     nodeScheduler,
@@ -449,7 +446,7 @@ public class SqlQueryScheduler
             }
         });
 
-        stageLinkages.put(stageId, new StageLinkage(plan.getFragment().getId(), parent, childStages));
+        stageLinkages.put(stageId, new StageLinkage(fragmentId, parent, childStages));
 
         if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
             Supplier<Collection<TaskStatus>> sourceTasksProvider = () -> childStages.stream()

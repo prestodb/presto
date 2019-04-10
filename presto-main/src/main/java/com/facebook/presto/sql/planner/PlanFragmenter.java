@@ -290,12 +290,12 @@ public class PlanFragmenter
 
         public SubPlan buildRootFragment(PlanNode root, FragmentProperties properties)
         {
-            return buildFragment(root, properties, new PlanFragmentId(String.valueOf(ROOT_FRAGMENT_ID)));
+            return buildFragment(root, properties, new PlanFragmentId(ROOT_FRAGMENT_ID));
         }
 
         private PlanFragmentId nextFragmentId()
         {
-            return new PlanFragmentId(String.valueOf(nextFragmentId++));
+            return new PlanFragmentId(nextFragmentId++);
         }
 
         private SubPlan buildFragment(PlanNode root, FragmentProperties properties, PlanFragmentId fragmentId)

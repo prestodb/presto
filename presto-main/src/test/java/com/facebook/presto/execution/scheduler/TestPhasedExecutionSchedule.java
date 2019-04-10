@@ -40,6 +40,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -55,6 +56,8 @@ import static org.testng.Assert.assertEquals;
 
 public class TestPhasedExecutionSchedule
 {
+    private static final AtomicInteger nextPlanFragmentId = new AtomicInteger();
+
     @Test
     public void testExchange()
     {
@@ -245,7 +248,7 @@ public class TestPhasedExecutionSchedule
             types.put(symbol, VARCHAR);
         }
         return new PlanFragment(
-                new PlanFragmentId(planNode.getId() + "_fragment_id"),
+                new PlanFragmentId(nextPlanFragmentId.incrementAndGet()),
                 planNode,
                 types.build(),
                 SOURCE_DISTRIBUTION,

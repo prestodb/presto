@@ -324,7 +324,7 @@ public class TestStageStateMachine
         Symbol symbol = new Symbol("column");
         PlanNodeId valuesNodeId = new PlanNodeId("plan");
         PlanFragment planFragment = new PlanFragment(
-                new PlanFragmentId("plan"),
+                new PlanFragmentId(0),
                 new ValuesNode(valuesNodeId,
                         ImmutableList.of(symbol),
                         ImmutableList.of(ImmutableList.of(constant("foo", VARCHAR)))),
