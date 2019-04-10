@@ -815,6 +815,9 @@ public class OrcRecordReader
                         reader.maybeReorderFilters();
                     }
                 }
+                if (numResults > 0 && reader.mustExtractValuesBeforeScan(currentRowGroup == 0)) {
+                    return resultPage();
+                }
             }
             if (qualifyingSet.isEmpty()) {
                 qualifyingSet.setRange(qualifyingSet.getEnd(), Math.min(qualifyingSet.getEnd() + ariaBatchRows, currentGroupRowCount));
