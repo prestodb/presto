@@ -18,6 +18,7 @@ import com.facebook.presto.spi.SubfieldPath;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import static com.facebook.presto.spi.block.ByteArrayUtils.memcmp;
@@ -186,7 +187,7 @@ public class Filters
         private final long lower;
         private final long upper;
 
-        BigintRange(long lower, long upper, boolean nullAllowed)
+        public BigintRange(long lower, long upper, boolean nullAllowed)
         {
             super(nullAllowed);
             checkArgument(lower <= upper, "lower must be <= upper");
@@ -493,7 +494,7 @@ public class Filters
     public static class StructFilter
             extends Filter
     {
-        private final HashMap<SubfieldPath.PathElement, Filter> filters = new HashMap();
+        private final Map<SubfieldPath.PathElement, Filter> filters = new HashMap();
 
         StructFilter()
         {

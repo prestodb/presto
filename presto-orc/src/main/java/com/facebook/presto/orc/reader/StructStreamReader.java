@@ -51,7 +51,6 @@ import java.util.Set;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.StreamReaders.createStreamReader;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
-import static com.facebook.presto.spi.block.RowBlock.createRowBlockInternal;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -79,8 +78,7 @@ public class StructStreamReader
     int fieldBlockSize;
     int[] fieldBlockOffset;
     int[] fieldSurviving;
-    // Copy of inputQualifyingSet. Needed when continuing after
-    // truncation since the original input may have been changed.
+    // Copy of inputQualifyingSet.
     QualifyingSet inputCopy;
     StreamReader[] streamReaders;
 
@@ -328,6 +326,11 @@ public class StructStreamReader
         if (!outputChannelSet) {
             // If the struct is not projected out, none of its members is either.
             Arrays.fill(fieldChannels, -1);
+            for (int i = 0; i < numFields; i++) {
+                if (filters.get(i) == null) {
+                    streamReaders[i] = null;
+                }
+            }
         }
         reader = new ColumnGroupReader(streamReaders,
                                        null,
@@ -347,14 +350,16 @@ public class StructStreamReader
         if (reader == null) {
             setupForScan();
         }
-        reader.setResultSizeBudget(bytes);
+        if (reader != null) {
+            reader.setResultSizeBudget(bytes);
+        }
     }
 
     @Override
     public void erase(int end)
     {
         // Without a reader there is nothing to erase, even if the struct is all nulls.
-        if (reader == null || !outputChannelSet) {
+        if (numValues == 0 || reader == null || !outputChannelSet) {
             return;
         }
         int fieldEnd;
@@ -394,6 +399,10 @@ public class StructStreamReader
     @Override
     public void compactValues(int[] surviving, int base, int numSurviving)
     {
+        if (fieldBlockOffset == null) {
+            // No values.
+            return;
+        }
         if (outputChannelSet) {
             check();
             if (fieldSurviving == null || fieldSurviving.length < numSurviving) {
@@ -452,64 +461,33 @@ public class StructStreamReader
         if (reader == null) {
             setupForScan();
         }
+
         if (!rowGroupOpen) {
             openRowGroup();
         }
-        callCount++;
-        if (stopCallCount != -1 && callCount >= stopCallCount) {
-            System.out.println("break");
-        }
-        check();
         beginScan(presentStream, null);
         int initialFieldResults = reader.getNumResults();
-        if (reader.hasUnfetchedRows()) {
-            // posInRowGroup is the first unprocessed enclosing level
-            // row, by definition part of the input qualifying set.
-            setInnerTruncation();
-            int originalTarget = innerQualifyingSet.getEnd();
-            reader.advance();
-            int newTruncation = reader.getTruncationRow();
-            if (newTruncation != -1) {
-                innerPosInRowGroup = newTruncation;
-                truncationRow = innerToOuterRow(newTruncation);
-                inputQualifyingSet.setTruncationRow(truncationRow);
-            }
-            else {
-                innerPosInRowGroup = originalTarget;
-            }
+        if (inputCopy == null) {
+            inputCopy = new QualifyingSet();
+        }
+        inputCopy.copyFrom(inputQualifyingSet);
+        makeInnerQualifyingSet();
+        if (hasNulls) {
+            innerQualifyingSet.setTranslateResultToParentRows(true);
+            innerQualifyingSet.setParent(inputQualifyingSet);
         }
         else {
-            if (inputCopy == null) {
-                inputCopy = new QualifyingSet();
+            // There are no nulls
+            if (innerQualifyingSet == null) {
+                innerQualifyingSet = new QualifyingSet();
             }
-            inputCopy.copyFrom(inputQualifyingSet);
-            makeInnerQualifyingSet();
-            if (hasNulls) {
-                innerQualifyingSet.setParent(inputQualifyingSet);
-                innerQualifyingSet.setTranslateResultToParentRows(true);
-            }
-            else {
-                // There are no nulls
-                if (innerQualifyingSet == null) {
-                    innerQualifyingSet = new QualifyingSet();
-                }
-                innerQualifyingSet.copyFrom(inputQualifyingSet);
-                innerQualifyingSet.setTranslateResultToParentRows(false);
-            }
-            reader.setQualifyingSets(innerQualifyingSet, outputQualifyingSet);
-            if (innerQualifyingSet.getPositionCount() > 0) {
-                reader.advance();
-                int truncated = reader.getTruncationRow();
-                if (truncated != -1) {
-                    innerPosInRowGroup = truncated;
-                    truncationRow = innerToOuterRow(truncated);
-                    inputQualifyingSet.setTruncationRow(truncationRow);
-                }
-                else {
-                    truncationRow = -1;
-                    innerPosInRowGroup = innerQualifyingSet.getEnd();
-                }
-            }
+            innerQualifyingSet.copyFrom(inputQualifyingSet);
+            innerQualifyingSet.setTranslateResultToParentRows(false);
+        }
+        reader.setQualifyingSets(innerQualifyingSet, outputQualifyingSet);
+        if (innerQualifyingSet.getPositionCount() > 0) {
+            reader.advance();
+            innerPosInRowGroup = innerQualifyingSet.getEnd();
         }
         ensureOutput(numInnerRows + numNullsToAdd);
         // The outputQualifyingSet is written by advance.
@@ -518,7 +496,7 @@ public class StructStreamReader
             addStructResult();
         }
         int lastFieldOffset = fieldBlockSize == 0 ? 0 : fieldBlockOffset[fieldBlockSize];
-        addNullsAfterScan(filter != null ? outputQualifyingSet : inputQualifyingSet, truncationRow != -1 ? truncationRow : inputQualifyingSet.getEnd());
+        addNullsAfterScan(filter != null ? outputQualifyingSet : inputQualifyingSet, inputQualifyingSet.getEnd());
         if (numResults > numInnerResults) {
             // Fill null positions in fieldBlockOffset  with the offset of the next non-null.
             fieldBlockOffset[numValues + numResults] = lastFieldOffset;
@@ -561,23 +539,6 @@ public class StructStreamReader
         fieldBlockOffset[position] = -1;
     }
 
-    // Returns the enclosing row number for a field column row number.
-    int innerToOuterRow(int inner)
-    {
-        if (!hasNulls) {
-            return inner;
-        }
-        int[] innerRows = innerQualifyingSet.getPositions();
-        int numRows = innerQualifyingSet.getPositionCount();
-        for (int i = 0; i < numRows; i++) {
-            if (inner == innerRows[i]) {
-                int[] innerToOuter = innerQualifyingSet.getInputNumbers();
-                return inputCopy.getPositions()[innerToOuter[i]];
-            }
-        }
-        throw new IllegalArgumentException("Can't translate from struct truncation row to enclosing truncation row");
-    }
-
     void ensureOutput(int numAdded)
     {
         int newSize = numValues + numAdded * 2;
@@ -615,7 +576,7 @@ public class StructStreamReader
         int[] offsets = mayReuse ? fieldBlockOffset : Arrays.copyOf(fieldBlockOffset, numFirstRows + 1);
         boolean[] nulls = valueIsNull == null ? null
             : mayReuse ? valueIsNull : Arrays.copyOf(valueIsNull, numFirstRows);
-        return createRowBlockInternal(0, numFirstRows, nulls, offsets, blocks);
+        return RowBlock.createRowBlockInternal(0, numFirstRows, nulls, offsets, blocks);
     }
 
     private Block[] fillUnreferencedWithNulls(Block[] blocks, int numRows)
@@ -651,7 +612,9 @@ public class StructStreamReader
         if (numValues > 0 && (fieldBlockOffset[numValues] != innerFirstRows || fieldBlockSize != numValues)) {
             throw new IllegalArgumentException("Last fieldBlockOffset inconsistent");
         }
-        reader.getBlocks(innerFirstRows, true, false);
+        if (reader != null) {
+            reader.getBlocks(innerFirstRows, true, false);
+        }
     }
 
     void setcc(int cc, int stop)

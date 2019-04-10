@@ -105,7 +105,7 @@ public class StripeReader
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
     }
 
-    public Stripe readStripe(StripeInformation stripe, AggregatedMemoryContext systemMemoryUsage)
+    public Stripe readStripe(StripeInformation stripe, AggregatedMemoryContext systemMemoryUsage, boolean alwaysUseCheckpoints)
             throws IOException
     {
         // read the stripe footer
@@ -139,7 +139,7 @@ public class StripeReader
 
         // handle stripes with more than one row group or a dictionary
         boolean invalidCheckPoint = false;
-        if ((stripe.getNumberOfRows() > rowsInRowGroup) || hasRowGroupDictionary) {
+        if ((stripe.getNumberOfRows() > rowsInRowGroup) || alwaysUseCheckpoints || hasRowGroupDictionary) {
             // determine ranges of the stripe to read
             Map<StreamId, DiskRange> diskRanges = getDiskRanges(stripeFooter.getStreams());
             diskRanges = Maps.filterKeys(diskRanges, Predicates.in(streams.keySet()));

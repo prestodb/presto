@@ -294,9 +294,6 @@ public class DecimalStreamReader
         int toSkip = 0;
         for (int i = 0; i < rowsInRange; i++) {
             if (i + posInRowGroup == nextActive) {
-                if (nextActive == truncationRow) {
-                    break;
-                }
                 if (presentStream != null && !present[i]) {
                     if (filter == null || filter.testNull()) {
                         if (filter != null) {
@@ -351,7 +348,7 @@ public class DecimalStreamReader
                 }
                 nextActive = inputPositions[activeIdx];
                 if (outputChannelSet && numResults * numLongsPerValue > resultSizeBudget) {
-                    truncationRow = inputQualifyingSet.truncateAndReturnTruncationRow(activeIdx);
+                    throw batchTooLarge();
                 }
                 continue;
             }

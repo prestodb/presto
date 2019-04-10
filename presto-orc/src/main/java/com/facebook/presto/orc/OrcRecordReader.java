@@ -63,6 +63,7 @@ import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
 import static com.facebook.presto.orc.OrcWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.multiplyExact;
@@ -74,6 +75,12 @@ public class OrcRecordReader
         implements Closeable
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcRecordReader.class).instanceSize();
+    public static final long UNLIMITED_BUDGET = Long.MAX_VALUE;
+    private static final int MIN_BATCH_ROWS = 4;
+    private static final int ROW_GROUP_REVIEW_INTERVAL = 1;
+    private static final int BATCH_HARD_SHRINK_FACTOR = 16;
+    private static final int BATCH_SOFT_SHRINK_FACTOR = 16;
+    private static final int BATCH_GROW_FACTOR = 2;
 
     private final OrcDataSource orcDataSource;
 
@@ -104,7 +111,8 @@ public class OrcRecordReader
 
     private Iterator<RowGroup> rowGroups = ImmutableList.<RowGroup>of().iterator();
     private int currentRowGroup = -1;
-    private long currentGroupRowCount;
+    private RowGroup currentRowGroupObject;
+    private int currentGroupRowCount;
     private long nextRowInGroup;
 
     private final Map<String, Slice> userMetadata;
@@ -125,6 +133,9 @@ public class OrcRecordReader
     private int targetResultRows = 30000;
     private boolean reorderFilters;
     private boolean reuseBlocks;
+    private int ariaBatchRows = 1000;
+    private long numAriaBytes;
+    private long numAriaRows;
 
     public OrcRecordReader(
             Map<Integer, Type> includedColumns,
@@ -468,24 +479,29 @@ public class OrcRecordReader
         }
 
         currentRowGroup++;
-        RowGroup currentRowGroup = rowGroups.next();
-        currentGroupRowCount = currentRowGroup.getRowCount();
-        if (currentRowGroup.getMinAverageRowBytes() > 0) {
-            maxBatchSize = toIntExact(min(maxBatchSize, max(1, maxBlockBytes / currentRowGroup.getMinAverageRowBytes())));
+        currentRowGroupObject = rowGroups.next();
+        currentGroupRowCount = toIntExact(currentRowGroupObject.getRowCount());
+        if (currentRowGroupObject.getMinAverageRowBytes() > 0) {
+            maxBatchSize = toIntExact(min(maxBatchSize, max(1, maxBlockBytes / currentRowGroupObject.getMinAverageRowBytes())));
         }
 
-        currentPosition = currentStripePosition + currentRowGroup.getRowOffset();
-        filePosition = stripeFilePositions.get(currentStripe) + currentRowGroup.getRowOffset();
+        setReadersToCurrentRowGroup();
+        return true;
+    }
+
+    private void setReadersToCurrentRowGroup()
+            throws IOException
+    {
+        currentPosition = currentStripePosition + currentRowGroupObject.getRowOffset();
+        filePosition = stripeFilePositions.get(currentStripe) + currentRowGroupObject.getRowOffset();
 
         // give reader data streams from row group
-        InputStreamSources rowGroupStreamSources = currentRowGroup.getStreamSources();
+        InputStreamSources rowGroupStreamSources = currentRowGroupObject.getStreamSources();
         for (StreamReader column : streamReaders) {
             if (column != null) {
                 column.startRowGroup(rowGroupStreamSources);
             }
         }
-
-        return true;
     }
 
     private void advanceToNextStripe()
@@ -516,7 +532,7 @@ public class OrcRecordReader
         StripeInformation stripeInformation = stripes.get(currentStripe);
         validateWriteStripe(stripeInformation.getNumberOfRows());
 
-        Stripe stripe = stripeReader.readStripe(stripeInformation, currentStripeSystemMemoryContext);
+        Stripe stripe = stripeReader.readStripe(stripeInformation, currentStripeSystemMemoryContext, true);
         if (stripe != null) {
             // Give readers access to dictionary streams
             InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
@@ -763,11 +779,17 @@ public class OrcRecordReader
         reader.newBatch(numResults);
         numResults = 0;
         for (; ; ) {
-            if (currentRowGroup == -1 || qualifyingSet == null || (qualifyingSet.isEmpty() && !reader.hasUnfetchedRows())) {
+            if (currentRowGroup == -1 || qualifyingSet == null || (qualifyingSet.isEmpty() && qualifyingSet.getEnd() == currentGroupRowCount)) {
                 if (currentPosition == totalRowCount) {
                     return null;
                 }
                 if (!advanceToNextRowGroup()) {
+                    if (reorderFilters && currentRowGroup < ROW_GROUP_REVIEW_INTERVAL * 2) {
+                        // If file ends before 2 reorder checks, do
+                        // one more. Subsequent splits may start with
+                        // the adaptation from the previous one.
+                        reader.maybeReorderFilters();
+                    }
                     filePosition = fileRowCount;
                     currentPosition = totalRowCount;
                     return resultPage();
@@ -775,20 +797,91 @@ public class OrcRecordReader
                 if (qualifyingSet == null) {
                     qualifyingSet = new QualifyingSet();
                 }
-                qualifyingSet.setRange((int) currentGroupRowCount);
+                qualifyingSet.setRange(0, Math.min(ariaBatchRows, currentGroupRowCount));
                 reader.setQualifyingSets(qualifyingSet, null);
-                if (reorderFilters && (currentRowGroup & 0x3) != 0 && currentRowGroup != 0) {
-                    // Reconsider filter order every 4 row groups.
-                    reader.maybeReorderFilters();
+                if (currentRowGroup != 0 && (currentRowGroup % ROW_GROUP_REVIEW_INTERVAL == 0)) {
+                    // Decay row size stats and reconsider filter
+                    // order every ROW_GROUP_REVIEW_INTERVAL row
+                    // groups.
+                    numAriaRows /= 2;
+                    numAriaBytes /= 2;
+                    if (reorderFilters) {
+                        reader.maybeReorderFilters();
+                    }
                 }
             }
-            qualifyingSet.clearTruncationPosition();
-            reader.advance();
-            numResults = reader.getNumResults();
-            if (numResults > targetResultRows || reader.getResultSizeInBytes() > targetResultBytes * 8 / 10) {
+            if (qualifyingSet.isEmpty()) {
+                qualifyingSet.setRange(qualifyingSet.getEnd(), Math.min(qualifyingSet.getEnd() + ariaBatchRows, currentGroupRowCount));
+            }
+            long bytesBeforeAdvance = reader.getResultSizeInBytes();
+            int numResultsBeforeAdvance = reader.getNumResults();
+            try {
+                reader.advance();
+            }
+            catch (BatchTooLargeException e) {
+                // The reader ran out of budget. Retry with a smaller
+                // input qualifying set. First remove any values added
+                // by the last advance.  The input qualifying set is
+                // unaltered when the reader throws this exception.
+                // If we are at minimum batch size we must also have unlimited budget. Check that this path is not taken with minimum batch size.
+                int batchSize = qualifyingSet.getEnd() - qualifyingSet.getPositions()[0];
+                verify(batchSize > MIN_BATCH_ROWS, "Running out of unlimited budget with minimum batch size");
+                reader.compactValues(new int[0], numResultsBeforeAdvance, 0);
+                ariaBatchRows = Math.max(MIN_BATCH_ROWS, ariaBatchRows / BATCH_HARD_SHRINK_FACTOR);
+                int[] rows = qualifyingSet.getPositions();
+                int numRows = Math.min(ariaBatchRows, batchSize);
+                qualifyingSet.setPositionCount(numRows);
+                // The first row not in scope is 1 above the last in scope.
+                qualifyingSet.setEnd(rows[numRows - 1] + 1);
+                setReadersToCurrentRowGroup();
+                if (reader.getNumResults() > 0) {
+                    setReaderBudget();
+                    return resultPage();
+                }
+                continue;
+            }
+            if (adjustAndCheckIfFullBatch(numResultsBeforeAdvance, bytesBeforeAdvance)) {
                 return resultPage();
             }
         }
+    }
+
+    private boolean adjustAndCheckIfFullBatch(int numResultsBeforeAdvance, long bytesBeforeAdvance)
+    {
+        numResults = reader.getNumResults();
+        long readerBytes = reader.getResultSizeInBytes();
+        long bytesInLastBatch = readerBytes - bytesBeforeAdvance;
+        numAriaBytes += bytesInLastBatch;
+        numAriaRows += numResults - numResultsBeforeAdvance;
+        if (bytesInLastBatch > targetResultBytes && ariaBatchRows > MIN_BATCH_ROWS) {
+            // Make batch smaller if not already at minimum.
+            ariaBatchRows = Math.max(ariaBatchRows / BATCH_SOFT_SHRINK_FACTOR, MIN_BATCH_ROWS);
+        }
+        else if (bytesInLastBatch == 0 && numAriaRows > 0) {
+            // If skipping over no hits, do not make the batch
+            // size too much larger than the number of hits that
+            // fit in a batch so as to avoid a retry.
+            long averageRowSize = numAriaBytes / (1 + numAriaRows);
+            int averageNumHitsInBatch = toIntExact(targetResultBytes / (1 + averageRowSize));
+            ariaBatchRows = Math.min(averageNumHitsInBatch * 2, ariaBatchRows * BATCH_SOFT_SHRINK_FACTOR);
+        }
+        else if (bytesInLastBatch < targetResultBytes / 8) {
+            // If filled less than 1/8 of the quota, can have
+            // larger batch next time.
+            ariaBatchRows = Math.min(ariaBatchRows * BATCH_GROW_FACTOR, currentGroupRowCount);
+        }
+        setReaderBudget();
+        // The result is full if there would not be room for another
+        // batch of the same size as the last. The cap on row count
+        // causes the scan to periodically return even if it does not
+        // project out column values so that the caller can check for yield
+        // and interruptions.
+        return numResults > targetResultRows || readerBytes > targetResultBytes - bytesInLastBatch;
+    }
+
+    private void setReaderBudget()
+    {
+        reader.setResultSizeBudget(ariaBatchRows <= MIN_BATCH_ROWS ? UNLIMITED_BUDGET : targetResultBytes);
     }
 
     private Page resultPage()
