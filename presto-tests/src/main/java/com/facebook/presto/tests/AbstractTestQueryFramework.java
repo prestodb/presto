@@ -48,6 +48,7 @@ import org.weakref.jmx.testing.TestingMBeanServer;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.UUID;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
@@ -145,6 +146,26 @@ public abstract class AbstractTestQueryFramework
     {
         checkArgument(queryRunner instanceof DistributedQueryRunner, "pattern assertion is only supported for DistributedQueryRunner");
         QueryAssertions.assertQuery(queryRunner, session, actual, h2QueryRunner, expected, false, false, planAssertion);
+    }
+
+    protected void assertQueryWithMaterialization(@Language("SQL") String sql)
+    {
+        assertQueryWithMaterialization(getSession(), sql, sql);
+    }
+
+    protected void assertQueryWithMaterialization(@Language("SQL") String actual, @Language("SQL") String expected)
+    {
+        assertQueryWithMaterialization(getSession(), actual, expected);
+    }
+
+    protected void assertQueryWithMaterialization(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
+    {
+        assertQuery(session, actual, expected);
+
+        String tempTableName = "tmp" + UUID.randomUUID().toString().replaceAll("-", "_");
+        assertUpdate(session, "CREATE TABLE " + tempTableName + " AS " + actual, "SELECT COUNT(*) FROM (" + expected + ")");
+        assertQuery(session, "SELECT * FROM " + tempTableName, expected);
+        assertUpdate("DROP TABLE " + tempTableName);
     }
 
     public void assertQueryOrdered(@Language("SQL") String sql)
