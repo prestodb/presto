@@ -24,6 +24,8 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionRewriter;
 import com.facebook.presto.sql.relational.RowExpressionTreeRewriter;
 import com.facebook.presto.type.TypeRegistry;
+import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.function.OperatorType.ADD;
@@ -34,17 +36,24 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.TestRowExpressionRewriter.NegationExpressionRewriter.rewrite;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.relational.RowExpressionNodeInliner.replaceExpression;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestRowExpressionRewriter
 {
+    private FunctionManager functionManager;
+
+    @BeforeClass
+    public void setup()
+    {
+        TypeRegistry typeManager = new TypeRegistry();
+        this.functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+    }
+
     @Test
     public void testSimple()
     {
-        TypeRegistry typeManager = new TypeRegistry();
-        FunctionManager functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-
         // successful rewrite
         RowExpression predicate = call(
                 GREATER_THAN.name(),
@@ -69,6 +78,28 @@ public class TestRowExpressionRewriter
                 constant(2L, BIGINT));
 
         RowExpression samePredicate = rewrite(nonPredicate);
+        assertEquals(samePredicate, nonPredicate);
+    }
+
+    @Test
+    public void testInliner()
+    {
+        RowExpression predicate = call(
+                GREATER_THAN.name(),
+                functionManager.resolveOperator(GREATER_THAN, fromTypes(BIGINT, BIGINT)),
+                BOOLEAN,
+                constant(1L, BIGINT),
+                constant(2L, BIGINT));
+
+        // no rewrite
+        RowExpression nonPredicate = call(
+                ADD.name(),
+                functionManager.resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
+                BIGINT,
+                constant(1L, BIGINT),
+                constant(2L, BIGINT));
+
+        RowExpression samePredicate = replaceExpression(predicate, ImmutableMap.of(predicate, nonPredicate));
         assertEquals(samePredicate, nonPredicate);
     }
 
