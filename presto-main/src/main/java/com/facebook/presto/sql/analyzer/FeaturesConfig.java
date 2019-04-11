@@ -118,6 +118,7 @@ public class FeaturesConfig
     private boolean useMarkDistinct = true;
     private boolean preferPartialAggregation = true;
     private boolean optimizeTopNRowNumber = true;
+    private boolean pushLimitThroughOuterJoin = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
 
@@ -939,5 +940,17 @@ public class FeaturesConfig
     public boolean isJsonSerdeCodeGenerationEnabled()
     {
         return jsonSerdeCodeGenerationEnabled;
+    }
+
+    @Config("optimizer.push-limit-through-outer-join")
+    public FeaturesConfig setPushLimitThroughOuterJoin(boolean pushLimitThroughOuterJoin)
+    {
+        this.pushLimitThroughOuterJoin = pushLimitThroughOuterJoin;
+        return this;
+    }
+
+    public boolean isPushLimitThroughOuterJoin()
+    {
+        return pushLimitThroughOuterJoin;
     }
 }
