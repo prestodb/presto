@@ -38,12 +38,12 @@ import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.verifier.framework.QueryException.Type.CLUSTER_CONNECTION;
 import static com.facebook.presto.verifier.framework.QueryException.Type.PRESTO;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.MAIN;
 import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.CONTROL;
+import static com.facebook.presto.verifier.framework.QueryOrigin.forMain;
 
 public class TestPrestoExceptionClassifier
 {
-    private static final QueryOrigin QUERY_ORIGIN = new QueryOrigin(CONTROL, MAIN);
+    private static final QueryOrigin QUERY_ORIGIN = forMain(CONTROL);
     private static final QueryStats QUERY_STATS = new QueryStats("id", "", false, false, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, Optional.empty());
 
     private final SqlExceptionClassifier classifier = new PrestoExceptionClassifier(ImmutableSet.of(), ImmutableSet.of());

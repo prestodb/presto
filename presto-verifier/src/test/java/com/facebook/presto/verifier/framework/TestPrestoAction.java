@@ -40,6 +40,7 @@ import static com.facebook.presto.verifier.VerifierTestUtil.setupPresto;
 import static com.facebook.presto.verifier.framework.QueryException.Type.PRESTO;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.MAIN;
 import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.CONTROL;
+import static com.facebook.presto.verifier.framework.QueryOrigin.forMain;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -49,7 +50,7 @@ import static org.testng.Assert.fail;
 
 public class TestPrestoAction
 {
-    private static final QueryOrigin QUERY_ORIGIN = new QueryOrigin(CONTROL, MAIN);
+    private static final QueryOrigin QUERY_ORIGIN = forMain(CONTROL);
     private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
     private static StandaloneQueryRunner queryRunner;
 

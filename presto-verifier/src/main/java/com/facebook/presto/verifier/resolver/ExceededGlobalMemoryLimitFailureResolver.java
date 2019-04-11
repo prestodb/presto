@@ -15,20 +15,19 @@ package com.facebook.presto.verifier.resolver;
 
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.verifier.framework.QueryOrigin;
 
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.MAIN;
 import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.TEST;
+import static com.facebook.presto.verifier.framework.QueryOrigin.forMain;
 
 public class ExceededGlobalMemoryLimitFailureResolver
         extends AbstractPrestoQueryFailureResolver
 {
     public ExceededGlobalMemoryLimitFailureResolver()
     {
-        super(new QueryOrigin(TEST, MAIN));
+        super(forMain(TEST));
     }
 
     @Override

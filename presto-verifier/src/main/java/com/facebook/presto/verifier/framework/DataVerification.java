@@ -34,11 +34,11 @@ import static com.facebook.presto.verifier.framework.MatchResult.MatchType.COLUM
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.MATCH;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.ROW_COUNT_MISMATCH;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.SCHEMA_MISMATCH;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.CHECKSUM;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.DESCRIBE;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.MAIN;
 import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.CONTROL;
 import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.TEST;
+import static com.facebook.presto.verifier.framework.QueryOrigin.forChecksum;
+import static com.facebook.presto.verifier.framework.QueryOrigin.forDescribe;
+import static com.facebook.presto.verifier.framework.QueryOrigin.forMain;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -118,7 +118,7 @@ public class DataVerification
     private QueryStats setupAndRun(QueryBundle control, TargetCluster cluster)
     {
         setup(control, cluster);
-        return getPrestoAction().execute(control.getQuery(), getConfiguration(cluster), new QueryOrigin(cluster, MAIN), getVerificationContext());
+        return getPrestoAction().execute(control.getQuery(), getConfiguration(cluster), forMain(cluster), getVerificationContext());
     }
 
     private MatchResult match(
@@ -163,7 +163,7 @@ public class DataVerification
                 .execute(
                         new ShowColumns(tableName),
                         getConfiguration(cluster),
-                        new QueryOrigin(cluster, DESCRIBE),
+                        forDescribe(),
                         getVerificationContext(),
                         Column::fromResultSet)
                 .getResults();
@@ -175,7 +175,7 @@ public class DataVerification
         QueryResult<ChecksumResult> queryResult = getPrestoAction().execute(
                 checksumQuery,
                 getConfiguration(cluster),
-                new QueryOrigin(cluster, CHECKSUM),
+                forChecksum(),
                 getVerificationContext(),
                 ChecksumResult::fromResultSet);
         return new ChecksumQueryAndResult(
