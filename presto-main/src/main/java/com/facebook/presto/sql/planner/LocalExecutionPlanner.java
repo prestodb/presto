@@ -669,13 +669,13 @@ public class LocalExecutionPlanner
     public static class LocalExecutionPlan
     {
         private final List<DriverFactory> driverFactories;
-        private final List<PlanNodeId> partitionedSourceOrder;
+        private final List<PlanNodeId> tableScanSourceOrder;
         private final StageExecutionDescriptor stageExecutionDescriptor;
 
-        public LocalExecutionPlan(List<DriverFactory> driverFactories, List<PlanNodeId> partitionedSourceOrder, StageExecutionDescriptor stageExecutionDescriptor)
+        public LocalExecutionPlan(List<DriverFactory> driverFactories, List<PlanNodeId> tableScanSourceOrder, StageExecutionDescriptor stageExecutionDescriptor)
         {
             this.driverFactories = ImmutableList.copyOf(requireNonNull(driverFactories, "driverFactories is null"));
-            this.partitionedSourceOrder = ImmutableList.copyOf(requireNonNull(partitionedSourceOrder, "partitionedSourceOrder is null"));
+            this.tableScanSourceOrder = ImmutableList.copyOf(requireNonNull(tableScanSourceOrder, "tableScanSourceOrder is null"));
             this.stageExecutionDescriptor = requireNonNull(stageExecutionDescriptor, "stageExecutionDescriptor is null");
         }
 
@@ -684,9 +684,9 @@ public class LocalExecutionPlanner
             return driverFactories;
         }
 
-        public List<PlanNodeId> getPartitionedSourceOrder()
+        public List<PlanNodeId> getTableScanSourceOrder()
         {
-            return partitionedSourceOrder;
+            return tableScanSourceOrder;
         }
 
         public StageExecutionDescriptor getStageExecutionDescriptor()
