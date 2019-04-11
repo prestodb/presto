@@ -28,6 +28,8 @@ import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.airlift.tpch.TpchTable.getTables;
 import static io.airlift.units.Duration.nanosSince;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestAriaHiveDistributedQueries
         extends AbstractTestQueryFramework
@@ -426,6 +428,47 @@ public class TestAriaHiveDistributedQueries
                 "    l.partkey = p.partkey\n" +
                 "    AND l.suppkey = p.suppkey\n" +
                 "    AND p.availqty < 1000");
+    }
+
+    @Test
+    public void testSchemaEvolution()
+    {
+        assertUpdate("CREATE TABLE test_schema_evolution AS SELECT * FROM nation", 25);
+        assertUpdate("ALTER TABLE test_schema_evolution ADD COLUMN nation_plus_region BIGINT");
+        assertUpdate("INSERT INTO test_schema_evolution SELECT *, nationkey + regionkey FROM nation", 25);
+        assertUpdate("ALTER TABLE test_schema_evolution ADD COLUMN nation_minus_region BIGINT");
+        assertUpdate("INSERT INTO test_schema_evolution SELECT *, nationkey + regionkey, nationkey - regionkey FROM nation", 25);
+
+        String cte = "WITH test_schema_evolution AS (" +
+                "SELECT *, null AS nation_plus_region, null AS nation_minus_region FROM nation " +
+                "UNION ALL SELECT *, nationkey + regionkey, null FROM nation " +
+                "UNION ALL SELECT *, nationkey + regionkey, nationkey - regionkey FROM nation)";
+
+        assertQueryUsingH2Cte("SELECT * FROM test_schema_evolution", cte);
+        assertQueryUsingH2Cte("SELECT * FROM test_schema_evolution WHERE nation_plus_region IS NULL", cte);
+        assertQueryUsingH2Cte("SELECT * FROM test_schema_evolution WHERE nation_plus_region > 10", cte);
+        assertQueryUsingH2Cte("SELECT * FROM test_schema_evolution WHERE nation_plus_region + 1 > 10", cte);
+        assertQueryUsingH2Cte("SELECT * FROM test_schema_evolution WHERE nation_plus_region + nation_minus_region > 20", cte);
+
+        assertUpdate("DROP TABLE test_schema_evolution");
+    }
+
+    private void assertQueryUsingH2Cte(String query, String cte)
+    {
+        assertQuery(ariaSession(), query, cte + " " + query);
+    }
+
+    @Test
+    public void testNonDeterministicConstantFilters()
+    {
+        int count = computeActual(ariaSession(), "SELECT * FROM nation WHERE random(10) < 5").getRowCount();
+        assertTrue(count > 0 && count < 25);
+
+        count = computeActual(ariaSession(), "SELECT * FROM nation WHERE random(10) < 0").getRowCount();
+        assertEquals(count, 0);
+
+        count = computeActual(ariaSession(), "SELECT * FROM nation WHERE random(10) < 10").getRowCount();
+        assertEquals(count, 25);
     }
 
     @Test

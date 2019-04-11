@@ -30,6 +30,9 @@ import com.facebook.presto.orc.reader.StreamReaders;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageSourceOptions;
+import com.facebook.presto.spi.PageSourceOptions.ErrorSet;
+import com.facebook.presto.spi.PageSourceOptions.FilterFunction;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SubfieldPath;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
@@ -49,6 +52,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -62,6 +66,7 @@ import static com.facebook.presto.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
 import static com.facebook.presto.orc.OrcWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static java.lang.Math.max;
@@ -131,7 +136,7 @@ public class OrcRecordReader
     private OrcPredicate predicate;
     // For getNextPage interface.
     private ColumnGroupReader reader;
-    private QualifyingSet qualifyingSet;
+    private QualifyingSet qualifyingSet = new QualifyingSet();
     private int numResults;
     private int targetResultBytes;
     private int targetResultRows = 30000;
@@ -139,6 +144,10 @@ public class OrcRecordReader
     private int ariaBatchRows = 1000;
     private long numAriaBytes;
     private long numAriaRows;
+    private boolean constantFilterIsFalse;
+    private Throwable constantError;
+    private Block[] constantBlocks;
+    private List<FilterFunction> nonDeterministicConstantFilters;
 
     public OrcRecordReader(
             Map<Integer, Type> includedColumns,
@@ -761,9 +770,48 @@ public class OrcRecordReader
         }
     }
 
-    public void pushdownFilterAndProjection(PageSourceOptions options, int[] channelColumns, List<Type> types)
+    public void pushdownFilterAndProjection(PageSourceOptions options, int[] channelColumns, List<Type> types, Block[] constantBlocks)
     {
         reuseBlocks = options.getReusePages();
+        this.constantBlocks = requireNonNull(constantBlocks, "constantBlocks is null");
+        verify(currentRowGroup == -1, "Should not call pushdownFilterAndProjection() after getNextPage()");
+        Map<Integer, Filter> filters = predicate.getFilters();
+        for (int i = 0; i < channelColumns.length; i++) {
+            if (constantBlocks[i] != null) {
+                Filter filter = filters.get(channelColumns[i]);
+                if (filter != null) {
+                    verify(constantBlocks[i].isNull(0), "Non-null constant blocks are not supported");
+                    if (!filter.testNull()) {
+                        constantFilterIsFalse = true;
+                        return;
+                    }
+                }
+            }
+        }
+        FilterFunction[] filterFunctions = options.getFilterFunctions();
+        boolean anyConstantFilterFunctions = false;
+        ImmutableList.Builder<FilterFunction> nonDeterministicBuilder = ImmutableList.builder();
+        for (FilterFunction filter : filterFunctions) {
+            if (isConstantFilterFunction(filter, constantBlocks)) {
+                if (filter.isDeterministic()) {
+                    qualifyingSet.setRange(0, 1);
+                    evaluateConstantFilterFunction(filter, constantBlocks, qualifyingSet);
+                    if (qualifyingSet.isEmpty()) {
+                        constantFilterIsFalse = true;
+                        return;
+                    }
+                    ErrorSet errors = qualifyingSet.getOrCreateErrorSet();
+                    if (!errors.isEmpty()) {
+                        constantError = errors.getFirstError(1);
+                    }
+                }
+                else {
+                    nonDeterministicBuilder.add(filter);
+                }
+                anyConstantFilterFunctions = true;
+            }
+        }
+        nonDeterministicConstantFilters = nonDeterministicBuilder.build();
         reader = new ColumnGroupReader(
                 streamReaders,
                 presentColumns,
@@ -771,21 +819,42 @@ public class OrcRecordReader
                 types,
                 options.getInternalChannels(),
                 options.getOutputChannels(),
-                predicate.getFilters(),
-                options.getFilterFunctions(),
+                filters,
+                anyConstantFilterFunctions ? Arrays.stream(filterFunctions).filter(f -> !isConstantFilterFunction(f, constantBlocks)).toArray(FilterFunction[]::new) : filterFunctions,
                 enforceMemoryBudget,
-                reorderFilters);
+                constantBlocks);
         targetResultBytes = options.getTargetBytes();
         reader.setResultSizeBudget(targetResultBytes);
+    }
+
+    private static boolean isConstantFilterFunction(FilterFunction filter, Block[] constantBlocks)
+    {
+        return Arrays.stream(filter.getInputChannels()).allMatch(channel -> constantBlocks[channel] != null);
+    }
+
+    private static void evaluateConstantFilterFunction(FilterFunction filter, Block[] constantBlocks, QualifyingSet qualifyingSet)
+    {
+        int[] channels = filter.getInputChannels();
+        Block[] inputs = new Block[channels.length];
+        for (int i = 0; i < channels.length; i++) {
+            inputs[i] = constantBlocks[channels[i]];
+        }
+        int[] filterResults = new int[qualifyingSet.getPositionCount()];
+        PageSourceOptions.ErrorSet errors = qualifyingSet.getOrCreateErrorSet();
+        int numHits = filter.filter(new Page(qualifyingSet.getPositionCount(), inputs), filterResults, errors);
+        qualifyingSet.compactPositionsAndErrors(filterResults, numHits);
     }
 
     public Page getNextPage()
             throws IOException
     {
+        if (constantFilterIsFalse) {
+            return null;
+        }
         reader.newBatch(numResults);
         numResults = 0;
         for (; ; ) {
-            if (currentRowGroup == -1 || qualifyingSet == null || (qualifyingSet.isEmpty() && qualifyingSet.getEnd() == currentGroupRowCount)) {
+            if (currentRowGroup == -1 || (qualifyingSet.isEmpty() && qualifyingSet.getEnd() == currentGroupRowCount)) {
                 if (currentPosition == totalRowCount) {
                     return null;
                 }
@@ -799,9 +868,6 @@ public class OrcRecordReader
                     filePosition = fileRowCount;
                     currentPosition = totalRowCount;
                     return resultPage();
-                }
-                if (qualifyingSet == null) {
-                    qualifyingSet = new QualifyingSet();
                 }
                 qualifyingSet.setRange(0, Math.min(ariaBatchRows, currentGroupRowCount));
                 reader.setQualifyingSets(qualifyingSet, null);
@@ -824,6 +890,12 @@ public class OrcRecordReader
             }
             long bytesBeforeAdvance = reader.getResultSizeInBytes();
             int numResultsBeforeAdvance = reader.getNumResults();
+            // Decimates qualifyingSet by any column-independent
+            // nondeterministic filters.
+            applyNonDeterministicConstantFilters();
+            if (qualifyingSet.isEmpty()) {
+                continue;
+            }
             try {
                 reader.advance();
             }
@@ -898,6 +970,16 @@ public class OrcRecordReader
         if (numResults == 0) {
             return null;
         }
+        if (constantError != null) {
+            throw new PrestoException(GENERIC_USER_ERROR, constantError);
+        }
         return new Page(numResults, reader.getBlocks(numResults, reuseBlocks, false));
+    }
+
+    private void applyNonDeterministicConstantFilters()
+    {
+        for (FilterFunction filter : nonDeterministicConstantFilters) {
+            evaluateConstantFilterFunction(filter, constantBlocks, qualifyingSet);
+        }
     }
 }

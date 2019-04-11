@@ -79,7 +79,7 @@ public class TestDwrfDictionaries
                         true,
                         new FilterFunction[0],
                         512 * 1024);
-            recordReader.pushdownFilterAndProjection(options, new int[] {0}, ImmutableList.of(type));
+            recordReader.pushdownFilterAndProjection(options, new int[] {0}, ImmutableList.of(type), new Block[1]);
 
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);

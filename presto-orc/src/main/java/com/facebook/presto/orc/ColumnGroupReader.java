@@ -18,6 +18,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageSourceOptions.FilterFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 
 import java.io.IOException;
@@ -36,6 +37,10 @@ public class ColumnGroupReader
 {
     private static final int BUDGET_HARD_LIMIT_MULTIPLIER = 4;
     private static final int MIN_READER_BUDGET = 8000;
+
+    private final FilterFunction[] filterFunctions;
+    private final int[] outputChannels;
+    private final Block[] constantBlocks;
 
     // Number of complete rows in result Blocks in StreamReaders.
     private int numRowsInResult;
@@ -62,10 +67,8 @@ public class ColumnGroupReader
     // by subsequent filters.
     private int[] survivingRows;
     private long[] readerBudget;
-    private FilterFunction[] filterFunctions;
     private int[] filterResults;
     private Map<Integer, StreamReader> channelToStreamReader;
-    private int[] outputChannels;
 
     public ColumnGroupReader(
             StreamReader[] streamReaders,
@@ -76,12 +79,13 @@ public class ColumnGroupReader
             int[] outputChannels,
             Map<Integer, Filter> filters,
             FilterFunction[] filterFunctions,
-            boolean reorderFilters,
-            boolean enforceMemoryBudget)
+            boolean enforceMemoryBudget,
+            Block[] constantBlocks)
     {
-        this.reorderFilters = reorderFilters;
+        this.reorderFilters = true;
         this.enforceMemoryBudget = enforceMemoryBudget;
         this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
+        this.constantBlocks = requireNonNull(constantBlocks, "constantBlocks is null");
         channelToStreamReader = new HashMap();
         for (int i = 0; i < channelColumns.length; i++) {
             int columnIndex = channelColumns[i];
@@ -221,6 +225,9 @@ public class ColumnGroupReader
         int functionIdx = 0;
         int[] channels = function.getInputChannels();
         for (int channel : channels) {
+            if (constantBlocks[channel] != null) {
+                continue;
+            }
             int idx = findChannelIdx(channel);
             if (idx > firstNonFilter) {
                 // Move this to position firstNonFilter.
@@ -364,6 +371,10 @@ public class ColumnGroupReader
             if (channel == -1) {
                 continue;
             }
+            if (constantBlocks[channel] != null) {
+                blocks[channel] = new RunLengthEncodedBlock(constantBlocks[channel].getRegion(0, 1), numFirstRows);
+                continue;
+            }
             StreamReader reader = channelToStreamReader.get(i);
             if (reader != null) {
                 blocks[channel] = reader.getBlock(numFirstRows, reuseBlocks);
@@ -479,6 +490,9 @@ public class ColumnGroupReader
     private Block makeFilterFunctionInputBlock(int channelIdx, int streamIdx, int numRows, FilterFunction function)
     {
         int channel = function.getInputChannels()[channelIdx];
+        if (constantBlocks[channel] != null) {
+            return new RunLengthEncodedBlock(constantBlocks[channel].getRegion(0, 1), numRows);
+        }
         int[][] rowNumberMaps = function.getChannelRowNumberMaps();
         boolean mustCopyMap = false;
         int[] map = null;
