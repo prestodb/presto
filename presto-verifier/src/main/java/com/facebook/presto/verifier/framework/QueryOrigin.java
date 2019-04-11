@@ -15,6 +15,13 @@ package com.facebook.presto.verifier.framework;
 
 import java.util.Objects;
 
+import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.CHECKSUM;
+import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.DESCRIBE;
+import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.MAIN;
+import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.REWRITE;
+import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.SETUP;
+import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.TEARDOWN;
+import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.CONTROL;
 import static java.util.Objects.requireNonNull;
 
 public class QueryOrigin
@@ -27,10 +34,10 @@ public class QueryOrigin
 
     public enum QueryStage
     {
-        REWRITE,
         SETUP,
         MAIN,
         TEARDOWN,
+        REWRITE,
         DESCRIBE,
         CHECKSUM,
     }
@@ -38,10 +45,40 @@ public class QueryOrigin
     private final TargetCluster cluster;
     private final QueryStage stage;
 
-    public QueryOrigin(TargetCluster cluster, QueryStage stage)
+    private QueryOrigin(TargetCluster cluster, QueryStage stage)
     {
         this.cluster = requireNonNull(cluster, "cluster is null");
         this.stage = requireNonNull(stage, "stage is null");
+    }
+
+    public static QueryOrigin forSetup(TargetCluster group)
+    {
+        return new QueryOrigin(group, SETUP);
+    }
+
+    public static QueryOrigin forMain(TargetCluster group)
+    {
+        return new QueryOrigin(group, MAIN);
+    }
+
+    public static QueryOrigin forTeardown(TargetCluster group)
+    {
+        return new QueryOrigin(group, TEARDOWN);
+    }
+
+    public static QueryOrigin forRewrite()
+    {
+        return new QueryOrigin(CONTROL, REWRITE);
+    }
+
+    public static QueryOrigin forDescribe()
+    {
+        return new QueryOrigin(CONTROL, DESCRIBE);
+    }
+
+    public static QueryOrigin forChecksum()
+    {
+        return new QueryOrigin(CONTROL, CHECKSUM);
     }
 
     public TargetCluster getCluster()

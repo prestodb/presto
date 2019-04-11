@@ -40,9 +40,9 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.tree.LikeClause.PropertiesOption.INCLUDING;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.DESCRIBE;
 import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.CONTROL;
 import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.TEST;
+import static com.facebook.presto.verifier.framework.QueryOrigin.forRewrite;
 import static com.facebook.presto.verifier.framework.QueryType.Category.DATA_PRODUCING;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static java.lang.String.format;
@@ -120,7 +120,7 @@ public class QueryRewriter
                             false,
                             ImmutableList.of(),
                             true,
-                            Optional.of(generateStorageColumnAliases((Query) statement, cluster, controlConfiguration, context)),
+                            Optional.of(generateStorageColumnAliases((Query) statement, controlConfiguration, context)),
                             Optional.empty()),
                     ImmutableList.of(new DropTable(temporaryTableName, true)));
         }
@@ -141,12 +141,12 @@ public class QueryRewriter
         return QualifiedName.of(parts);
     }
 
-    private List<Identifier> generateStorageColumnAliases(Query query, TargetCluster cluster, QueryConfiguration configuration, VerificationContext context)
+    private List<Identifier> generateStorageColumnAliases(Query query, QueryConfiguration configuration, VerificationContext context)
     {
         ImmutableList.Builder<Identifier> aliases = ImmutableList.builder();
         Set<String> usedAliases = new HashSet<>();
 
-        for (String columnName : getColumnNames(query, cluster, configuration, context)) {
+        for (String columnName : getColumnNames(query, configuration, context)) {
             columnName = sanitizeColumnName(columnName);
             String alias = columnName;
             int postfix = 1;
@@ -160,7 +160,7 @@ public class QueryRewriter
         return aliases.build();
     }
 
-    private List<String> getColumnNames(Query query, TargetCluster cluster, QueryConfiguration configuration, VerificationContext context)
+    private List<String> getColumnNames(Query query, QueryConfiguration configuration, VerificationContext context)
     {
         Query zeroRowQuery;
         if (query.getQueryBody() instanceof QuerySpecification) {
@@ -181,7 +181,7 @@ public class QueryRewriter
         else {
             zeroRowQuery = new Query(query.getWith(), query.getQueryBody(), Optional.empty(), Optional.of("0"));
         }
-        return prestoAction.execute(zeroRowQuery, configuration, new QueryOrigin(cluster, DESCRIBE), context, ResultSetConverter.DEFAULT).getColumnNames();
+        return prestoAction.execute(zeroRowQuery, configuration, forRewrite(), context, ResultSetConverter.DEFAULT).getColumnNames();
     }
 
     private static String sanitizeColumnName(String columnName)
