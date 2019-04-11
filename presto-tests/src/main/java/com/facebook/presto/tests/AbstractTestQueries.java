@@ -1064,6 +1064,34 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testLimitWithJoin()
+    {
+        MaterializedResult actual = computeActual("SELECT o1.orderkey, o2.orderkey FROM orders o1 JOIN orders o2 on o1.orderkey = o2.orderkey LIMIT 10");
+        MaterializedResult all = computeActual("SELECT o1.orderkey, o2.orderkey FROM orders o1 JOIN  orders o2 on o1.orderkey = o2.orderkey");
+
+        assertEquals(actual.getMaterializedRows().size(), 10);
+        assertContains(all, actual);
+
+        actual = computeActual("SELECT o1.orderkey, o2.orderkey FROM orders o1 LEFT OUTER JOIN orders o2 on o1.orderkey = o2.orderkey LIMIT 10");
+        all = computeActual("SELECT o1.orderkey, o2.orderkey FROM orders o1 LEFT OUTER JOIN orders o2 on o1.orderkey = o2.orderkey");
+
+        assertEquals(actual.getMaterializedRows().size(), 10);
+        assertContains(all, actual);
+
+        actual = computeActual("SELECT o1.orderkey, o2.orderkey FROM orders o1 RIGHT OUTER JOIN orders o2 on o1.orderkey = o2.orderkey LIMIT 10");
+        all = computeActual("SELECT o1.orderkey, o2.orderkey FROM orders o1 RIGHT OUTER JOIN orders o2 on o1.orderkey = o2.orderkey");
+
+        assertEquals(actual.getMaterializedRows().size(), 10);
+        assertContains(all, actual);
+
+        actual = computeActual("SELECT o1.orderkey, o2.orderkey FROM orders o1 FULL OUTER JOIN orders o2 on o1.orderkey = o2.orderkey LIMIT 10");
+        all = computeActual("SELECT o1.orderkey, o2.orderkey FROM orders o1 FULL OUTER JOIN orders o2 on o1.orderkey = o2.orderkey");
+
+        assertEquals(actual.getMaterializedRows().size(), 10);
+        assertContains(all, actual);
+    }
+
+    @Test
     public void testCountAll()
     {
         assertQuery("SELECT COUNT(*) FROM orders");

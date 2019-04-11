@@ -53,7 +53,7 @@ public class TestPushLimitThroughOuterJoin
     }
 
     @Test
-    public void testPushLimitThroughFullOuterJoin()
+    public void testDoesNotPushThroughFullOuterJoin()
     {
         tester().assertThat(new PushLimitThroughOuterJoin())
                 .on(p -> {
@@ -66,13 +66,7 @@ public class TestPushLimitThroughOuterJoin
                                     p.values(5, rightKey),
                                     new EquiJoinClause(leftKey, rightKey)));
                 })
-                .matches(
-                        limit(1,
-                                join(
-                                        FULL,
-                                        ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
-                                        limit(1, true, values("leftKey")),
-                                        limit(1, true, values("rightKey")))));
+                .doesNotFire();
     }
 
     @Test
