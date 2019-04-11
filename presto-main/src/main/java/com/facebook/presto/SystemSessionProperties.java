@@ -121,6 +121,7 @@ public final class SystemSessionProperties
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
     public static final String MAX_TASKS_PER_STAGE = "max_tasks_per_stage";
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
+    public static final String PUSH_LIMIT_THROUGH_OUTER_JOIN = "push_limit_through_outer_join";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -575,6 +576,11 @@ public final class SystemSessionProperties
                         DEFAULT_FILTER_FACTOR_ENABLED,
                         "use a default filter factor for unknown filters in a filter node",
                         featuresConfig.isDefaultFilterFactorEnabled(),
+                        false),
+                booleanProperty(
+                        PUSH_LIMIT_THROUGH_OUTER_JOIN,
+                        "push limits to the outer side of an outer join",
+                        featuresConfig.isPushLimitThroughOuterJoin(),
                         false));
     }
 
@@ -976,5 +982,10 @@ public final class SystemSessionProperties
     public static boolean isDefaultFilterFactorEnabled(Session session)
     {
         return session.getSystemProperty(DEFAULT_FILTER_FACTOR_ENABLED, Boolean.class);
+    }
+
+    public static boolean isPushLimitThroughOuterJoin(Session session)
+    {
+        return session.getSystemProperty(PUSH_LIMIT_THROUGH_OUTER_JOIN, Boolean.class);
     }
 }

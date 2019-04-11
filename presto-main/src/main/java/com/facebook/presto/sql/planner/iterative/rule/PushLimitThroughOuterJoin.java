@@ -19,15 +19,14 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.JoinNode.Type;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 
+import static com.facebook.presto.SystemSessionProperties.isPushLimitThroughOuterJoin;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.planner.plan.Patterns.Join.type;
@@ -62,7 +61,7 @@ public class PushLimitThroughOuterJoin
             limit()
                     .with(source().matching(
                             join()
-                                    .with(type().matching(type -> isLeftOrFullOuter(type) || isRightOrFullOuter(type)))
+                                    .with(type().matching(type -> type == LEFT || type == RIGHT))
                                     .capturedAs(CHILD)));
 
     @Override
@@ -74,15 +73,19 @@ public class PushLimitThroughOuterJoin
     @Override
     public Result apply(LimitNode parent, Captures captures, Context context)
     {
+        if (!isPushLimitThroughOuterJoin(context.getSession())) {
+            return Result.empty();
+        }
+
         JoinNode joinNode = captures.get(CHILD);
         PlanNode left = joinNode.getLeft();
         PlanNode right = joinNode.getRight();
 
-        if (isLeftOrFullOuter(joinNode.getType()) && !isLimited(left, context.getLookup(), parent.getCount())) {
+        if (joinNode.getType() == LEFT && !isLimited(left, context.getLookup(), parent.getCount())) {
             left = new LimitNode(context.getIdAllocator().getNextId(), left, parent.getCount(), true);
         }
 
-        if (isRightOrFullOuter(joinNode.getType()) && !isLimited(right, context.getLookup(), parent.getCount())) {
+        if (joinNode.getType() == RIGHT && !isLimited(right, context.getLookup(), parent.getCount())) {
             right = new LimitNode(context.getIdAllocator().getNextId(), right, parent.getCount(), true);
         }
 
@@ -99,15 +102,5 @@ public class PushLimitThroughOuterJoin
     {
         Range<Long> cardinality = extractCardinality(node, lookup);
         return cardinality.hasUpperBound() && cardinality.upperEndpoint() <= limit;
-    }
-
-    private static boolean isLeftOrFullOuter(Type type)
-    {
-        return type == LEFT || type == FULL;
-    }
-
-    private static boolean isRightOrFullOuter(Type type)
-    {
-        return type == RIGHT || type == FULL;
     }
 }
