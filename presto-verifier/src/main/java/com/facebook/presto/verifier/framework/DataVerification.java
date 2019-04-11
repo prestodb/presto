@@ -21,7 +21,7 @@ import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.checksum.ColumnMatchResult;
 import com.facebook.presto.verifier.framework.MatchResult.MatchType;
-import com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup;
+import com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster;
 import com.facebook.presto.verifier.resolver.FailureResolver;
 import com.google.common.collect.ImmutableMap;
 
@@ -34,11 +34,11 @@ import static com.facebook.presto.verifier.framework.MatchResult.MatchType.COLUM
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.MATCH;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.ROW_COUNT_MISMATCH;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.SCHEMA_MISMATCH;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.CONTROL;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.TEST;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.CHECKSUM;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.DESCRIBE;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.MAIN;
+import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.CONTROL;
+import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.TEST;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -115,10 +115,10 @@ public class DataVerification
         }
     }
 
-    private QueryStats setupAndRun(QueryBundle control, QueryGroup group)
+    private QueryStats setupAndRun(QueryBundle control, TargetCluster cluster)
     {
-        setup(control, group);
-        return getPrestoAction().execute(control.getQuery(), getConfiguration(group), new QueryOrigin(group, MAIN), getVerificationContext());
+        setup(control, cluster);
+        return getPrestoAction().execute(control.getQuery(), getConfiguration(cluster), new QueryOrigin(cluster, MAIN), getVerificationContext());
     }
 
     private MatchResult match(
@@ -157,25 +157,25 @@ public class DataVerification
                 mismatchedColumns);
     }
 
-    private List<Column> getColumns(QualifiedName tableName, QueryGroup group)
+    private List<Column> getColumns(QualifiedName tableName, TargetCluster cluster)
     {
         return getPrestoAction()
                 .execute(
                         new ShowColumns(tableName),
-                        getConfiguration(group),
-                        new QueryOrigin(group, DESCRIBE),
+                        getConfiguration(cluster),
+                        new QueryOrigin(cluster, DESCRIBE),
                         getVerificationContext(),
                         Column::fromResultSet)
                 .getResults();
     }
 
-    private ChecksumQueryAndResult computeChecksum(QueryBundle bundle, List<Column> columns, QueryGroup group)
+    private ChecksumQueryAndResult computeChecksum(QueryBundle bundle, List<Column> columns, TargetCluster cluster)
     {
         Query checksumQuery = checksumValidator.generateChecksumQuery(bundle.getTableName(), columns);
         QueryResult<ChecksumResult> queryResult = getPrestoAction().execute(
                 checksumQuery,
-                getConfiguration(group),
-                new QueryOrigin(group, CHECKSUM),
+                getConfiguration(cluster),
+                new QueryOrigin(cluster, CHECKSUM),
                 getVerificationContext(),
                 ChecksumResult::fromResultSet);
         return new ChecksumQueryAndResult(

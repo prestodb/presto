@@ -22,7 +22,7 @@ import com.facebook.presto.verifier.event.QueryInfo;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
 import com.facebook.presto.verifier.framework.MatchResult.MatchType;
-import com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup;
+import com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster;
 import com.facebook.presto.verifier.resolver.FailureResolver;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -37,11 +37,11 @@ import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED_RESOLVED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SKIPPED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SUCCEEDED;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.CONTROL;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.TEST;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.MAIN;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.SETUP;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.TEARDOWN;
+import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.CONTROL;
+import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.TEST;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -66,7 +66,7 @@ public abstract class AbstractVerification
 
     private final VerificationContext verificationContext = new VerificationContext();
 
-    private Map<QueryGroup, QueryStats> queryStats = new EnumMap<>(QueryGroup.class);
+    private Map<TargetCluster, QueryStats> queryStats = new EnumMap<>(TargetCluster.class);
 
     public AbstractVerification(
             PrestoAction prestoAction,
@@ -93,10 +93,10 @@ public abstract class AbstractVerification
         return verificationContext;
     }
 
-    protected void setQueryStats(QueryStats queryStats, QueryGroup group)
+    protected void setQueryStats(QueryStats queryStats, TargetCluster cluster)
     {
-        checkState(!this.queryStats.containsKey(group), "%sQueryStats has already been set", group.name().toLowerCase(ENGLISH));
-        this.queryStats.put(group, queryStats);
+        checkState(!this.queryStats.containsKey(cluster), "%sQueryStats has already been set", cluster.name().toLowerCase(ENGLISH));
+        this.queryStats.put(cluster, queryStats);
     }
 
     @Override
@@ -168,27 +168,27 @@ public abstract class AbstractVerification
         return sourceQuery;
     }
 
-    protected QueryConfiguration getConfiguration(QueryGroup group)
+    protected QueryConfiguration getConfiguration(TargetCluster cluster)
     {
-        checkState(group == CONTROL || group == TEST, "Unexpected QueryGroup %s", group);
-        return group == CONTROL ? sourceQuery.getControlConfiguration() : sourceQuery.getTestConfiguration();
+        checkState(cluster == CONTROL || cluster == TEST, "Unexpected TargetCluster %s", cluster);
+        return cluster == CONTROL ? sourceQuery.getControlConfiguration() : sourceQuery.getTestConfiguration();
     }
 
-    protected void setup(QueryBundle control, QueryGroup group)
+    protected void setup(QueryBundle control, TargetCluster cluster)
     {
         for (Statement setupQuery : control.getSetupQueries()) {
-            prestoAction.execute(setupQuery, getConfiguration(group), new QueryOrigin(group, SETUP), getVerificationContext());
+            prestoAction.execute(setupQuery, getConfiguration(cluster), new QueryOrigin(cluster, SETUP), getVerificationContext());
         }
     }
 
-    protected void teardownSafely(QueryBundle control, QueryGroup group)
+    protected void teardownSafely(QueryBundle control, TargetCluster cluster)
     {
         for (Statement teardownQuery : control.getTeardownQueries()) {
             try {
-                prestoAction.execute(teardownQuery, getConfiguration(group), new QueryOrigin(group, TEARDOWN), getVerificationContext());
+                prestoAction.execute(teardownQuery, getConfiguration(cluster), new QueryOrigin(cluster, TEARDOWN), getVerificationContext());
             }
             catch (Throwable t) {
-                log.warn("Failed to teardown %s: %s", group.name().toLowerCase(ENGLISH), formatSql(teardownQuery));
+                log.warn("Failed to teardown %s: %s", cluster.name().toLowerCase(ENGLISH), formatSql(teardownQuery));
             }
         }
     }
@@ -340,12 +340,12 @@ public abstract class AbstractVerification
         return millis.map(value -> new Duration(value, MILLISECONDS).getValue(SECONDS));
     }
 
-    private static QueryState getQueryState(Optional<QueryStats> statsFromResult, Optional<QueryException> queryException, QueryGroup group)
+    private static QueryState getQueryState(Optional<QueryStats> statsFromResult, Optional<QueryException> queryException, TargetCluster cluster)
     {
         if (statsFromResult.isPresent()) {
             return QueryState.SUCCEEDED;
         }
-        if (!queryException.isPresent() || queryException.get().getQueryOrigin().getGroup() != group) {
+        if (!queryException.isPresent() || queryException.get().getQueryOrigin().getCluster() != cluster) {
             return QueryState.NOT_RUN;
         }
         if (queryException.get().getQueryOrigin().getStage() == SETUP) {
