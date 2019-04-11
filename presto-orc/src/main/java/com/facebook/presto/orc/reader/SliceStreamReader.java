@@ -273,4 +273,9 @@ public class SliceStreamReader
     {
         return currentReader.mustExtractValuesBeforeScan(isNewStripe);
     }
+
+    StreamReader getCurrentReader()
+    {
+        return currentReader;
+    }
 }

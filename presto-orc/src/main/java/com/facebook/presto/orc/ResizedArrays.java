@@ -82,7 +82,7 @@ public class ResizedArrays
         return Arrays.copyOf(array, Math.max(size + MIN_INCREMENT, array.length * 2));
     }
 
-    private static int roundupSize(int size)
+    public static int roundupSize(int size)
     {
         return size + size / 4;
     }

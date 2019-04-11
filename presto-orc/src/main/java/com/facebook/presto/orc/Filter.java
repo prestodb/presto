@@ -80,4 +80,20 @@ public class Filter
     {
         return false;
     }
+
+    // Informs the filter that it will be called for the row numbers
+    // in rows[rowIndices[i]], where the first numRows elements are
+    // valid. This has an effect on a positional filter for a list/map
+    // value column where different filters apply to different
+    // positions. The rows must be a subset of the qualifying set
+    // initially associated to the positional filter. If rowIndices is
+    // null, this works as if rowIndices were {0,...numRows - 1}.
+    public void setScanRows(int[] rows, int[] rowIndices, int numRows)
+    {
+    }
+
+    public Filter nextFilter()
+    {
+        return this;
+    }
 }

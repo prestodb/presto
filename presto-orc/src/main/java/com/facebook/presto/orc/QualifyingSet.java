@@ -143,6 +143,17 @@ public class QualifyingSet
         positionCount++;
     }
 
+    public void appendRange(int position, int inputIndex, int numPositions)
+    {
+        int end = positionCount + numPositions;
+        int currentPosition = position;
+        for (int i = positionCount; i < end; i++) {
+            positions[i] = currentPosition++;
+        }
+        Arrays.fill(inputNumbers, positionCount, end, inputIndex);
+        positionCount = end;
+    }
+
     public void insert(int[] newPositions, int[] newInputIndexes, int newCount)
     {
         int originalIndex = positionCount - 1;

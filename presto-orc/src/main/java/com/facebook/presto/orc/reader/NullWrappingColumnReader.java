@@ -61,6 +61,7 @@ abstract class NullWrappingColumnReader
             return;
         }
         hasNulls = true;
+        boolean nonDeterministic = filter != null && !deterministicFilter;
         if (innerQualifyingSet == null) {
             innerQualifyingSet = new QualifyingSet();
         }
@@ -71,11 +72,11 @@ abstract class NullWrappingColumnReader
         int prevRow = 0;
         int prevInner = innerPosInRowGroup;
         numNullsToAdd = 0;
-        boolean keepNulls = filter == null || (deterministicFilter && filter.testNull());
+        boolean keepNulls = filter == null || (!nonDeterministic && filter.testNull());
         for (int activeIdx = 0; activeIdx < numActive; activeIdx++) {
             int row = inputRows[activeIdx] - posInRowGroup;
             if (!present[row]) {
-                if (keepNulls) {
+                if (keepNulls || (nonDeterministic && testNullAt(row + posInRowGroup))) {
                     addNullToKeep(inputRows[activeIdx], activeIdx);
                 }
             }
@@ -88,6 +89,20 @@ abstract class NullWrappingColumnReader
         numInnerRows = innerQualifyingSet.getPositionCount();
         int skip = countPresent(prevRow, inputQualifyingSet.getEnd() - posInRowGroup);
         innerQualifyingSet.setEnd(skip + prevInner);
+        if (nonDeterministic) {
+            // The filter will be called on non-null rows in sequence.
+            filter.setScanRows(inputQualifyingSet.getPositions(), innerQualifyingSet.getInputNumbers(), innerQualifyingSet.getPositionCount());
+        }
+    }
+
+    protected boolean testNullAt(int row)
+    {
+        if (tempInt == null) {
+            tempInt = new int[1];
+        }
+        tempInt[0] = row;
+        filter.setScanRows(tempInt, null, 1);
+        return filter.testNull();
     }
 
     protected void addNullToKeep(int position, int inputIndex)

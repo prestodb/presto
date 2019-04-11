@@ -96,6 +96,9 @@ abstract class ColumnReader
     public void setInputQualifyingSet(QualifyingSet qualifyingSet)
     {
         inputQualifyingSet = qualifyingSet;
+        if (filter != null) {
+            filter.setScanRows(qualifyingSet.getPositions(), null, qualifyingSet.getPositionCount());
+        }
     }
 
     public QualifyingSet getOutputQualifyingSet()

@@ -1055,6 +1055,21 @@ public class TestLogicalPlanner
                         strictProject(
                                 ImmutableMap.of("int_2", expression("ints[bigint '2']"), "cardinality", expression("cardinality(ints)")),
                                 tableScan("lineitem_ext", ImmutableMap.of("ints", "ints")))));
+
+        assertPlanWithSession(
+                              "SELECT string_to_int_map['foo'] FROM lineitem_ext",
+                              pushdownSubfields, false,
+                              anyTree(
+                                      project(
+                                              ImmutableMap.of("map_filtered", expression(format("filter_by_subscript_paths(string_to_int_map, %s)[cast('foo' as varchar)]", optimizeExpression("array['string_to_int_map[\"foo\"]']", new ArrayType(createVarcharType(24)))))),
+                                              tableScan("lineitem_ext", ImmutableMap.of("string_to_int_map", "string_to_int_map")))));
+
+        assertPlanWithSession(
+                              "SELECT ints[orderkey] FROM lineitem_ext",
+                              pushdownSubfields, false,
+                              anyTree(
+                                      project(ImmutableMap.of("int_at_orderkey", expression("ints[orderkey]")),
+                                              tableScan("lineitem_ext", ImmutableMap.of("ints", "ints", "orderkey", "orderkey")))));
     }
 
     @Test

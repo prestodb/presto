@@ -920,8 +920,8 @@ public class OrcRecordReader
                 // The first row not in scope is 1 above the last in scope.
                 qualifyingSet.setEnd(rows[numRows - 1] + 1);
                 setReadersToCurrentRowGroup();
+                setReaderBudget();
                 if (reader.getNumResults() > 0) {
-                    setReaderBudget();
                     return resultPage();
                 }
                 continue;

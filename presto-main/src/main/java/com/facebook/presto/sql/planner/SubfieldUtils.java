@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.SubfieldPath;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.GenericLiteral;
@@ -53,6 +54,16 @@ public class SubfieldUtils
             else if (expression instanceof SubscriptExpression) {
                 SubscriptExpression subscript = (SubscriptExpression) expression;
                 Expression index = subscript.getIndex();
+                if (index instanceof Cast) {
+                    // map['str'] can be represented as a
+                    // SubscriptExpression with an index of cast of a
+                    // string literal to a varchar(xx).
+                    Cast cast = (Cast) index;
+                    index = cast.getExpression();
+                    if (!(index instanceof StringLiteral) || !cast.getType().startsWith("varchar")) {
+                        return null;
+                    }
+                }
                 if (index instanceof LongLiteral) {
                     elements.add(new SubfieldPath.LongSubscript(((LongLiteral) index).getValue()));
                 }

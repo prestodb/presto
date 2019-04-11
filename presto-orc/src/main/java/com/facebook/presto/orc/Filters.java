@@ -14,6 +14,7 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.spi.SubfieldPath;
+import com.google.common.collect.ImmutableList;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -25,6 +26,7 @@ import static com.facebook.presto.spi.block.ByteArrayUtils.memcmp;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.compare;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class Filters
@@ -455,12 +457,7 @@ public class Filters
                 if (length != lower.length) {
                     return false;
                 }
-                for (int i = 0; i < length; i++) {
-                    if (buffer[i + offset] != lower[i]) {
-                        return false;
-                    }
-                    return true;
-                }
+                return memcmp(buffer, offset, length, upper, 0, upper.length) == 0;
             }
             if (lower != null) {
                 int lowerCmp = memcmp(buffer, offset, length, lower, 0, lower.length);
@@ -495,6 +492,7 @@ public class Filters
             extends Filter
     {
         private final Map<SubfieldPath.PathElement, Filter> filters = new HashMap();
+        private int ordinal;
 
         StructFilter()
         {
@@ -508,7 +506,27 @@ public class Filters
 
         public void addMember(SubfieldPath.PathElement member, Filter filter)
         {
+            verify(filters.get(member) == null, "Adding duplicate member filter" + member.toString());
             filters.put(member, filter);
+            if (filter instanceof StructFilter) {
+                // If nested struct filters, give each child a
+                // distinct ordinal number, starting at 1 for
+                // first. This is useful with positional filters where
+                // different filters apply to different structs
+                // depending on their position in a list/map.
+                StructFilter childFilter = (StructFilter) filter;
+                childFilter.ordinal = filters.size();
+            }
+        }
+
+        public Map<SubfieldPath.PathElement, Filter> getFilters()
+        {
+            return filters;
+        }
+
+        public int getOrdinal()
+        {
+            return ordinal;
         }
     }
 
@@ -713,5 +731,265 @@ public class Filters
         else {
             return new MultiRange(filters, nullAllowed);
         }
+    }
+
+    public static class PositionalFilter
+            extends Filter
+    {
+        // The set of row numbers for which this specifies a Filter.
+        private int[] positions;
+        // The position of the array/map that corresponds to the
+        // matching element in positions.  filters with the same value
+        // here refer to the same array/map. The first to fail will
+        // disqualify the rest of the array/map.
+        private int[] inputNumbers;
+        // Number of valid entries in positions/inputNumbers.
+        private int numPositions;
+        //Filter for each position. A null element means that the position has no filter.
+        private Filter[] filters;
+
+        // Subset of positions for which the filter will be
+        // evaluated. This is an ascending set of indices into
+        // positions/filters.
+        private int[] selectedPositionIndexes;
+        // Count of valid elements in filters/selectedPositionIndexes.
+        private int numSelectedPositions;
+        // True if applying all filters in sequence. selectedPositionIndexes is not used if this is true.
+        private boolean scanAllPositions;
+
+        // Last used index in filters/selectedPositionIndexes. -1 after initialization.
+        private int filterIndex;
+        // Count of upcoming testXx calls to fail. Suppose an array of
+        // 4 elements with a failed filter at the first element. There
+        // would be 3 elements to go that are in any case
+        // disqualifuied, so the failing filter on the first element
+        // would set this to 3.
+        private int numNextPositionsToFail;
+
+        // The StructFilter from which the positional filters are derived.
+        private StructFilter parent;
+
+        public PositionalFilter(StructFilter parent)
+        {
+            super(false);
+            this.parent = requireNonNull(parent, "parent is null");
+        }
+
+        // Sets the filters to apply. elementFilters corresponds pairwise to the rows in qualifyingSet.
+        public void setFilters(QualifyingSet rows, Filter[] elementFilters)
+        {
+            requireNonNull(rows, "rows is null");
+            requireNonNull(elementFilters, "elementFilters is null");
+            checkArgument(elementFilters.length >= rows.getPositionCount(), "Not enough filters");
+            positions = rows.getPositions();
+            inputNumbers = rows.getInputNumbers();
+            numPositions = rows.getPositionCount();
+            numSelectedPositions = rows.getPositionCount();
+            filters = elementFilters;
+            filterIndex = -1;
+        }
+
+        @Override
+        public boolean isDeterministic()
+        {
+            return false;
+        }
+
+        @Override
+        public void setScanRows(int[] rows, int[] rowIndices, int numRows)
+        {
+            checkArgument(numRows <= rows.length);
+            checkArgument(numRows <= numPositions);
+            filterIndex = -1;
+            numNextPositionsToFail = 0;
+            if (numRows == numPositions) {
+                scanAllPositions = true;
+                numSelectedPositions = numPositions;
+            }
+            else {
+                scanAllPositions = false;
+                numSelectedPositions = numRows;
+                if (numSelectedPositions == 0) {
+                    return;
+                }
+                if (selectedPositionIndexes == null || selectedPositionIndexes.length < numRows) {
+                    selectedPositionIndexes = new int[numRows];
+                }
+                int row = rowIndices != null ? rows[rowIndices[0]] : rows[0];
+                int first = Arrays.binarySearch(positions, 0, numPositions, row);
+                verify(first >= 0, "Filter row not in defined row set for PositionalFilter");
+                selectedPositionIndexes[0] = first;
+                for (int i = 1; i < numRows; i++) {
+                    row = rowIndices != null ? rows[rowIndices[i]] : rows[i];
+                    boolean found = false;
+                    for (int j = selectedPositionIndexes[i - 1] + 1; j < numPositions; j++) {
+                        if (positions[j] == row) {
+                            selectedPositionIndexes[i] = j;
+                            found = true;
+                            break;
+                        }
+                        if (positions[j] > row) {
+                            break;
+                        }
+                    }
+                    verify(found, "Row not found in PositionalFilter " + row);
+                }
+            }
+        }
+
+        @Override
+        public boolean testNull()
+        {
+            if (numNextPositionsToFail > 0) {
+                filterIndex++;
+                numNextPositionsToFail--;
+                return false;
+            }
+            Filter filter = nextFilter();
+            if (filter != null) {
+                return processResult(filter.testNull());
+            }
+            return true;
+        }
+
+        @Override
+        public boolean testLong(long value)
+        {
+            if (numNextPositionsToFail > 0) {
+                filterIndex++;
+                numNextPositionsToFail--;
+                return false;
+            }
+            Filter filter = nextFilter();
+            if (filter != null) {
+                return processResult(filter.testLong(value));
+            }
+            return true;
+        }
+
+        @Override
+        public boolean testDouble(double value)
+        {
+            if (numNextPositionsToFail > 0) {
+                filterIndex++;
+                numNextPositionsToFail--;
+                return false;
+            }
+            Filter filter = nextFilter();
+            if (filter != null) {
+                return processResult(filter.testDouble(value));
+            }
+            return true;
+        }
+
+        @Override
+        public boolean testFloat(float value)
+        {
+            if (numNextPositionsToFail > 0) {
+                filterIndex++;
+                numNextPositionsToFail--;
+                return false;
+            }
+            Filter filter = nextFilter();
+            if (filter != null) {
+                return processResult(filter.testFloat(value));
+            }
+            return true;
+        }
+
+        @Override
+        public boolean testDecimal(long low, long high)
+        {
+            if (numNextPositionsToFail > 0) {
+                filterIndex++;
+                numNextPositionsToFail--;
+                return false;
+            }
+            Filter filter = nextFilter();
+            if (filter != null) {
+                return processResult(filter.testDecimal(low, high));
+            }
+            return true;
+        }
+
+        @Override
+        public boolean testBoolean(boolean value)
+        {
+            if (numNextPositionsToFail > 0) {
+                filterIndex++;
+                numNextPositionsToFail--;
+                return false;
+            }
+            Filter filter = nextFilter();
+            if (filter != null) {
+                return processResult(filter.testBoolean(value));
+            }
+            return true;
+        }
+
+        @Override
+        public boolean testBytes(byte[] value, int offset, int length)
+        {
+            if (numNextPositionsToFail > 0) {
+                filterIndex++;
+                numNextPositionsToFail--;
+                return false;
+            }
+            Filter filter = nextFilter();
+            if (filter != null) {
+                return processResult(filter.testBytes(value, offset, length));
+            }
+            return true;
+        }
+
+        @Override
+        public Filter nextFilter()
+        {
+            filterIndex++;
+            verify(filterIndex < numSelectedPositions);
+            return scanAllPositions ? filters[filterIndex] : filters[selectedPositionIndexes[filterIndex]];
+        }
+
+        private boolean processResult(boolean result)
+        {
+            if (result == false) {
+                // The remaining elements of the containing array/map will also be disqualified.
+                if (scanAllPositions) {
+                    int inputNumber = inputNumbers[filterIndex];
+                    for (int i = filterIndex + 1; i < numSelectedPositions; i++) {
+                        if (inputNumbers[i] != inputNumber) {
+                            break;
+                        }
+                        numNextPositionsToFail++;
+                    }
+                }
+                else {
+                    int inputNumber = inputNumbers[selectedPositionIndexes[filterIndex]];
+                    for (int i = filterIndex + 1; i < numSelectedPositions; i++) {
+                        if (inputNumbers[selectedPositionIndexes[i]] != inputNumber) {
+                            break;
+                        }
+                        numNextPositionsToFail++;
+                    }
+                }
+            }
+            return result;
+        }
+
+        public StructFilter getParent()
+        {
+            return parent;
+        }
+    }
+
+    public static List<Filter> getDistinctPositionFilters(Filter filter)
+    {
+        if (filter == null) {
+            return ImmutableList.of();
+        }
+        if (filter instanceof PositionalFilter) {
+            return ImmutableList.copyOf(((PositionalFilter) filter).getParent().getFilters().values());
+        }
+        return ImmutableList.of(filter);
     }
 }

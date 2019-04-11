@@ -76,12 +76,22 @@ public class TestAriaHiveDistributedQueries
                 "    ARRAY[ARRAY[orderkey, partkey, suppkey]] AS order_part_supp_array\n" +
                 "FROM tpch.tiny.lineitem");
 
-        createTable(queryRunner, noAria, "lineitem_aria_nulls", "CREATE TABLE lineitem_aria_nulls AS\n" +
+        createTable(queryRunner, noAria, "lineitem_aria_nulls",
+                "CREATE TABLE lineitem_aria_nulls AS\n" +
                 "SELECT *,\n" +
-                "   IF(have_complex_nulls, null, map(array[1, 2, 3], array[orderkey, partkey, suppkey])) as order_part_supp_map,\n" +
-                "   IF(have_complex_nulls, null, array[orderkey, partkey, suppkey]) as order_part_supp_array\n" +
+                "  IF(have_complex_nulls, null, if (returnflag = 'N', \n" +
+                "    map(array[1, 2, 3], array[orderkey, partkey, suppkey]),\n" +
+                "    map(array[1, 2, 3, 4], array[orderkey, partkey, suppkey, if (returnflag = 'A', 1, 2)])))\n" +
+                "  as order_part_supp_map,\n" +
+                "  IF(have_complex_nulls, null, if (returnflag = 'N', \n" +
+                "    array[orderkey, partkey, suppkey], array[orderkey, partkey, suppkey, if (returnflag = 'A', 1, 2)]))\n" +
+                "  as order_part_supp_array,\n" +
+                "  IF(have_complex_nulls, null, IF (returnflag = 'N', \n" +
+                "    map(array['shipmode', 'shipinstruct', 'comment'],\n" +
+                "    array[shipmode, shipinstruct, comment])))\n" +
+                "  as string_map\n" +
                 "FROM (\n" +
-                "   SELECT \n" +
+                "  SELECT \n" +
                 "       orderkey,\n" +
                 "       linenumber,\n" +
                 "       have_simple_nulls and mod(orderkey + linenumber, 5) = 0 AS have_complex_nulls,\n" +
@@ -92,8 +102,10 @@ public class TestAriaHiveDistributedQueries
                 "       IF(have_simple_nulls and mod (orderkey + linenumber, 23) = 0, null, shipmode) as shipmode,\n" +
                 "       IF(have_simple_nulls and mod (orderkey + linenumber, 7) = 0, null, comment) as comment,\n" +
                 "       IF(have_simple_nulls and mod(orderkey + linenumber, 31) = 0, null, returnflag = 'R') as is_returned,\n" +
-                "       IF(have_simple_nulls and mod(orderkey + linenumber, 37) = 0, null, CAST(quantity + 1 as real)) as float_quantity\n" +
-                "   FROM (SELECT mod(orderkey, 198000) > 99000 as have_simple_nulls, * from tpch.tiny.lineitem))\n");
+                "       IF(have_simple_nulls and mod(orderkey + linenumber, 11) = 0, null, returnflag) as returnflag,\n" +
+                "       IF(have_simple_nulls and mod(orderkey + linenumber, 37) = 0, null, CAST(quantity + 1 as real)) as float_quantity,\n" +
+                "       IF(have_simple_nulls and mod (orderkey + linenumber, 23) = 0, null, shipinstruct) as shipinstruct\n" +
+                "  FROM (SELECT mod(orderkey, 32000) > 16000 as have_simple_nulls, * from tpch.tiny.lineitem))");
 
         createTable(queryRunner, noAria, "lineitem_aria_strings", "CREATE TABLE lineitem_aria_strings AS\n" +
                 "SELECT\n" +
@@ -483,5 +495,80 @@ public class TestAriaHiveDistributedQueries
                 "FROM lineitem l\n" +
                 "JOIN partsupp p\n" +
                 "    ON p.suppkey = l.suppkey AND p.partkey = l.partkey");
+    }
+
+    @Test
+    public void testRepeated()
+    {
+        assertQuery(ariaSession(),
+                "SELECT orderkey, linenumber, order_part_supp_array\n" +
+                "FROM lineitem_aria_nulls\n", noAriaSession());
+        assertQuery(ariaSession(),
+                "SELECT orderkey, linenumber, order_part_supp_array\n" +
+                "FROM lineitem_aria_nulls\n" +
+                "WHERE order_part_supp_array[2] between 10 AND 500\n" +
+                "AND order_part_supp_array[3] between 10 AND 1000\n", noAriaSession());
+        assertQuery(ariaSession(),
+                "SELECT orderkey, linenumber, order_part_supp_array\n" +
+                "FROM lineitem_aria_nulls\n" +
+                "WHERE cardinality(order_part_supp_array) > 3\n" +
+                "AND order_part_supp_array[2] between 10 AND 500\n" +
+                "AND order_part_supp_array[3] between 10 AND 1000\n" +
+                "AND order_part_supp_array[4] = 2\n", noAriaSession());
+        assertQuery(ariaSession(),
+                "SELECT orderkey, linenumber, order_part_supp_array\n" +
+                "FROM lineitem_aria_nulls\n" +
+                "WHERE linenumber = 1\n" +
+                "AND cardinality(order_part_supp_array) > 3\n" +
+                "AND order_part_supp_array[2] between 10 AND 500\n" +
+                "AND order_part_supp_array[3] between 10 AND 1000\n" +
+                "AND order_part_supp_array[4] = 2\n", noAriaSession());
+        assertQuery(ariaSession(),
+                "SELECT orderkey, linenumber, order_part_supp_map[1]\n" +
+                "FROM lineitem_aria_nulls\n", noAriaSession());
+        assertQuery(ariaSession(),
+                "SELECT orderkey, linenumber, order_part_supp_map[1]\n" +
+                "FROM lineitem_aria_nulls\n" +
+                "WHERE order_part_supp_map[2] between 10 AND 500\n" +
+                "AND order_part_supp_map[3] between 10 AND 1000\n", noAriaSession());
+        assertQuery(ariaSession(),
+                "SELECT orderkey, linenumber, order_part_supp_map[1]\n" +
+                "FROM lineitem_aria_nulls\n" +
+                "WHERE cardinality(order_part_supp_map) > 3\n" +
+                "AND order_part_supp_map[2] between 10 AND 500\n" +
+                "AND order_part_supp_map[3] between 10 AND 1000\n" +
+                "AND order_part_supp_map[4] = 2\n", noAriaSession());
+        assertQuery(ariaSession(),
+                "SELECT orderkey, linenumber, order_part_supp_map[1]\n" +
+                "FROM lineitem_aria_nulls\n" +
+                "WHERE linenumber = 1\n" +
+                "AND cardinality(order_part_supp_map) > 3\n" +
+                "AND order_part_supp_map[2] between 10 AND 500\n" +
+                "AND order_part_supp_map[3] between 10 AND 1000\n" +
+                "AND order_part_supp_map[4] = 2\n", noAriaSession());
+        assertQuery(ariaSession(),
+                "SELECT orderkey, linenumber, string_map['comment']\n" +
+                "FROM lineitem_aria_nulls\n", noAriaSession());
+        assertQuery(ariaSession(),
+                "SELECT orderkey, linenumber, string_map['comment']\n" +
+                "FROM lineitem_aria_nulls\n" +
+                "WHERE string_map['shipmode'] in ('AIR', 'REG AIR')\n" +
+                "AND string_map['comment'] between 'f' AND 'h'\n", noAriaSession());
+        assertQuery(ariaSession(),
+                "SELECT orderkey, linenumber, string_map['comment']\n" +
+                "FROM lineitem_aria_nulls\n" +
+                "WHERE linenumber = 1\n" +
+                "AND string_map['shipmode'] in ('AIR', 'REG AIR')\n" +
+                "AND string_map['comment'] between 'f' AND 'h'\n", noAriaSession());
+        assertQuery(ariaSession(),
+                "SELECT orderkey, linenumber, string_map['comment'], order_part_supp_map[1]\n" +
+                "FROM lineitem_aria_nulls\n" +
+                "WHERE linenumber = 1\n" +
+                "AND string_map['shipmode'] in ('AIR', 'REG AIR')\n" +
+                "AND order_part_supp_map[2] < 1000 \n", noAriaSession());
+        assertQuery(ariaSession(),
+                "SELECT orderkey, linenumber, string_map['comment'], order_part_supp_map[2]\n" +
+                "FROM lineitem_aria_nulls\n" +
+                "WHERE linenumber = 1\n", noAriaSession());
     }
 }

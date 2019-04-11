@@ -40,6 +40,7 @@ import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
@@ -74,6 +75,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -134,8 +136,15 @@ public class TpchMetadata
                                 .add(new ColumnMetadata("linenumber", INTEGER))
                                 .add(new ColumnMetadata("ints", new ArrayType(BIGINT)))
                                 .add(new ColumnMetadata("nested_ints", new ArrayType(new ArrayType(BIGINT))))
-                                .add(new ColumnMetadata("shipinfo", RowType.from(ImmutableList.of(RowType.field("shipdate", DATE), RowType.field("shipmode", VARCHAR)))))
-                                .build())
+                        .add(new ColumnMetadata("shipinfo", RowType.from(ImmutableList.of(RowType.field("shipdate", DATE), RowType.field("shipmode", VARCHAR)))))
+                        .add(new ColumnMetadata("string_to_int_map", new MapType(
+                                        VARCHAR,
+                                        BIGINT,
+                                        methodHandle(TpchMetadata.class, "throwUnsupportedOperation"),
+                                        methodHandle(TpchMetadata.class, "throwUnsupportedOperation"),
+                                        methodHandle(TpchMetadata.class, "throwUnsupportedOperation"),
+                                        methodHandle(TpchMetadata.class, "throwUnsupportedOperation"))))
+                        .build())
                 .build();
 
     private final String connectorId;
@@ -587,5 +596,10 @@ public class TpchMetadata
             throw new IllegalArgumentException("Total rows is larger than 2^64");
         }
         return (long) totalRows;
+    }
+
+    public void throwUnsupportedOperation()
+    {
+        throw new UnsupportedOperationException("This MapType exists only for metadata and should not have content");
     }
 }

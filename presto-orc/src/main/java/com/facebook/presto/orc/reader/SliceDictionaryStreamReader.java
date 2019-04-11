@@ -680,4 +680,49 @@ public class SliceDictionaryStreamReader
     {
         return outputChannelSet && (isNewStripe || hasRowGroupDictionaries);
     }
+
+    // Returns the id used in the DictionaryBlock from getBlock() for
+    // a particular value and -1 if not found. The dictionary may
+    // consist of two concatenated sorted arrays, hence finding the
+    // value with the block alone is not efficient.
+    public int getIdForValue(Slice value)
+    {
+        int id = searchDictionary(value, 0, stripeDictionarySize);
+        if (id == -1) {
+            int end = dictionaryBlock.getPositionCount() - 1;
+            if (end > stripeDictionarySize) {
+                id = searchDictionary(value, stripeDictionarySize, end);
+            }
+        }
+        return id;
+    }
+
+    private int searchDictionary(Slice value, int begin, int end)
+    {
+        while (true) {
+            if (begin == end - 1) {
+                if (compare(begin, value) == 0) {
+                    return begin;
+                }
+                return -1;
+            }
+            int guess = (begin + end) / 2;
+            int result = compare(guess, value);
+            if (result == 0) {
+                return guess;
+            }
+            if (result < 0) {
+                begin = guess + 1;
+            }
+            else {
+                end = guess;
+            }
+        }
+    }
+
+    private int compare(int id, Slice value)
+    {
+        int length = dictionaryBlock.getSliceLength(id);
+        return dictionaryBlock.bytesCompare(id, 0, length, value, 0, value.length());
+    }
 }

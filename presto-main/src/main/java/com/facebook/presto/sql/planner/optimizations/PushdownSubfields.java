@@ -327,7 +327,12 @@ public class PushdownSubfields
                     Expression base = SubfieldUtils.getDerefenceOrSubscriptBase(value);
                     if (base instanceof SymbolReference) {
                         if (fullColumnUses.contains(key)) {
-                            subfieldPaths.add(deferenceOrSubscriptExpressionToPath(value));
+                            SubfieldPath path = deferenceOrSubscriptExpressionToPath(value);
+                            // Not all paths are representable, e.g. ones with non-constant subscripts.
+                            if (path == null) {
+                                continue;
+                            }
+                            subfieldPaths.add(path);
                         }
                         for (SubfieldPath path : subfieldPaths) {
                             if (key.getName().equals(path.getColumnName())) {
