@@ -14,14 +14,13 @@
 package com.facebook.presto.verifier.resolver;
 
 import com.facebook.presto.verifier.framework.QueryException;
-import com.facebook.presto.verifier.framework.QueryOrigin;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.MAIN;
 import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.TEST;
+import static com.facebook.presto.verifier.framework.QueryOrigin.forMain;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -43,7 +42,7 @@ public class TestExceededTimeLimitFailureResolver
                         Optional.of(EXCEEDED_TIME_LIMIT),
                         false,
                         Optional.of(createQueryStats(CONTROL_CPU_TIME_MILLIS * 2, CONTROL_PEAK_MEMORY_BYTES)),
-                        new QueryOrigin(TEST, MAIN)))
+                        forMain(TEST)))
                 .isPresent());
     }
 
@@ -58,7 +57,7 @@ public class TestExceededTimeLimitFailureResolver
                                 Optional.of(EXCEEDED_TIME_LIMIT),
                                 false,
                                 Optional.of(createQueryStats(CONTROL_CPU_TIME_MILLIS / 2, CONTROL_PEAK_MEMORY_BYTES)),
-                                new QueryOrigin(TEST, MAIN))),
+                                forMain(TEST))),
                 Optional.of("Auto Resolved: Test cluster has less computing resource"));
     }
 }

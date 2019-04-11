@@ -42,6 +42,9 @@ import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.SETU
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.TEARDOWN;
 import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.CONTROL;
 import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.TEST;
+import static com.facebook.presto.verifier.framework.QueryOrigin.forMain;
+import static com.facebook.presto.verifier.framework.QueryOrigin.forSetup;
+import static com.facebook.presto.verifier.framework.QueryOrigin.forTeardown;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -177,7 +180,7 @@ public abstract class AbstractVerification
     protected void setup(QueryBundle control, TargetCluster cluster)
     {
         for (Statement setupQuery : control.getSetupQueries()) {
-            prestoAction.execute(setupQuery, getConfiguration(cluster), new QueryOrigin(cluster, SETUP), getVerificationContext());
+            prestoAction.execute(setupQuery, getConfiguration(cluster), forSetup(cluster), getVerificationContext());
         }
     }
 
@@ -185,7 +188,7 @@ public abstract class AbstractVerification
     {
         for (Statement teardownQuery : control.getTeardownQueries()) {
             try {
-                prestoAction.execute(teardownQuery, getConfiguration(cluster), new QueryOrigin(cluster, TEARDOWN), getVerificationContext());
+                prestoAction.execute(teardownQuery, getConfiguration(cluster), forTeardown(cluster), getVerificationContext());
             }
             catch (Throwable t) {
                 log.warn("Failed to teardown %s: %s", cluster.name().toLowerCase(ENGLISH), formatSql(teardownQuery));
@@ -234,10 +237,10 @@ public abstract class AbstractVerification
             status = resolveMessage.isPresent() ? FAILED_RESOLVED : FAILED;
         }
 
-        controlStats = queryException.isPresent() && queryException.get().getQueryOrigin().equals(new QueryOrigin(CONTROL, MAIN)) ?
+        controlStats = queryException.isPresent() && queryException.get().getQueryOrigin().equals(forMain(CONTROL)) ?
                 queryException.get().getQueryStats() :
                 controlStats;
-        testStats = queryException.isPresent() && queryException.get().getQueryOrigin().equals(new QueryOrigin(TEST, MAIN)) ?
+        testStats = queryException.isPresent() && queryException.get().getQueryOrigin().equals(forMain(TEST)) ?
                 queryException.get().getQueryStats() :
                 testStats;
 
