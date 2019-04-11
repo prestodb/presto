@@ -295,6 +295,7 @@ import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
+import static com.facebook.presto.spi.function.OperatorType.tryGetOperatorType;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.LiteralEncoder.MAGIC_LITERAL_FUNCTION_PREFIX;
@@ -697,7 +698,25 @@ class StaticFunctionNamespace
         }
         SqlFunction function = functionKey.getFunction();
         Signature signature = functionHandle.getSignature();
-        return new FunctionMetadata(signature.getName(), signature.getArgumentTypes(), signature.getReturnType(), signature.getKind(), function.isDeterministic(), function.isCalledOnNullInput());
+        Optional<OperatorType> operatorType = tryGetOperatorType(signature.getName());
+        if (operatorType.isPresent()) {
+            return new FunctionMetadata(
+                    operatorType.get(),
+                    signature.getArgumentTypes(),
+                    signature.getReturnType(),
+                    signature.getKind(),
+                    function.isDeterministic(),
+                    function.isCalledOnNullInput());
+        }
+        else {
+            return new FunctionMetadata(
+                    signature.getName(),
+                    signature.getArgumentTypes(),
+                    signature.getReturnType(),
+                    signature.getKind(),
+                    function.isDeterministic(),
+                    function.isCalledOnNullInput());
+        }
     }
 
     public FunctionHandle lookupFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
