@@ -633,10 +633,10 @@ public class RowExpressionInterpreter
             requireNonNull(exception, "Exception is null");
 
             String failureInfo = JsonCodec.jsonCodec(FailureInfo.class).toJson(Failures.toFailure(exception).toFailureInfo());
-            FunctionHandle jsonParse = metadata.getFunctionManager().resolveFunction(session, QualifiedName.of("json_parse"), fromTypes(VARCHAR));
+            FunctionHandle jsonParse = metadata.getFunctionManager().lookupFunction(QualifiedName.of("json_parse"), fromTypes(VARCHAR));
             Object json = functionInvoker.invoke(jsonParse, session.toConnectorSession(), utf8Slice(failureInfo));
 
-            FunctionHandle failureFunction = metadata.getFunctionManager().resolveFunction(session, QualifiedName.of("fail"), fromTypes(JSON));
+            FunctionHandle failureFunction = metadata.getFunctionManager().lookupFunction(QualifiedName.of("fail"), fromTypes(JSON));
             FunctionHandle cast = metadata.getFunctionManager().lookupCast(CAST, UNKNOWN.getTypeSignature(), type.getTypeSignature());
 
             return call(CAST.name(), cast, type, call("fail", failureFunction, UNKNOWN, toRowExpression(json, JSON)));

@@ -39,7 +39,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -58,7 +57,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 public class TestPruneWindowColumns
         extends BaseRuleTest
 {
-    private static final FunctionHandle FUNCTION_HANDLE = createTestMetadataManager().getFunctionManager().resolveFunction(TEST_SESSION, QualifiedName.of("min"), fromTypes(BIGINT));
+    private static final FunctionHandle FUNCTION_HANDLE = createTestMetadataManager().getFunctionManager().lookupFunction(QualifiedName.of("min"), fromTypes(BIGINT));
 
     private static final List<String> inputSymbolNameList =
             ImmutableList.of("orderKey", "partitionKey", "hash", "startValue1", "startValue2", "endValue1", "endValue2", "input1", "input2", "unused");
