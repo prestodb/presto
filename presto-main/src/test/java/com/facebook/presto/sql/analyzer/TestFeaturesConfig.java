@@ -109,7 +109,8 @@ public class TestFeaturesConfig
                 .setDistributedSortEnabled(true)
                 .setMaxGroupingSets(2048)
                 .setLegacyUnnestArrayRows(false)
-                .setJsonSerdeCodeGenerationEnabled(false));
+                .setJsonSerdeCodeGenerationEnabled(false)
+                .setPushLimitThroughOuterJoin(true));
     }
 
     @Test
@@ -179,6 +180,7 @@ public class TestFeaturesConfig
                 .put("analyzer.max-grouping-sets", "2047")
                 .put("deprecated.legacy-unnest-array-rows", "true")
                 .put("experimental.json-serde-codegen-enabled", "true")
+                .put("optimizer.push-limit-through-outer-join", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -244,7 +246,8 @@ public class TestFeaturesConfig
                 .setMaxGroupingSets(2047)
                 .setLegacyUnnestArrayRows(true)
                 .setDefaultFilterFactorEnabled(true)
-                .setJsonSerdeCodeGenerationEnabled(true);
+                .setJsonSerdeCodeGenerationEnabled(true)
+                .setPushLimitThroughOuterJoin(false);
         assertFullMapping(properties, expected);
     }
 
