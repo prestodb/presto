@@ -119,7 +119,7 @@ public class OrcPageSource
     @Override
     public boolean pushdownFilterAndProjection(PageSourceOptions options)
     {
-        recordReader.pushdownFilterAndProjection(options, hiveColumnIndexes, types);
+        recordReader.pushdownFilterAndProjection(options, hiveColumnIndexes, types, constantBlocks);
         useAriaScan = true;
         return true;
     }
@@ -150,19 +150,8 @@ public class OrcPageSource
                 Page page = recordReader.getNextPage();
                 if (page == null) {
                     close();
-                    return null;
                 }
-
-                Block[] blocks = new Block[page.getChannelCount()];
-                for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
-                    if (constantBlocks[fieldId] != null) {
-                        blocks[fieldId] = constantBlocks[fieldId].getRegion(0, page.getPositionCount());
-                    }
-                    else {
-                        blocks[fieldId] = page.getBlock(fieldId);
-                    }
-                }
-                return new Page(page.getPositionCount(), blocks);
+                return page;
             }
             batchId++;
             int batchSize = recordReader.nextBatch();
