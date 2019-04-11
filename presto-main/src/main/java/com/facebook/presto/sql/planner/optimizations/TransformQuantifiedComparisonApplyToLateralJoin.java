@@ -148,19 +148,19 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     ImmutableMap.of(
                             minValue, new Aggregation(
                                     new FunctionCall(MIN, outputColumnReferences),
-                                    functionManager.lookupFunction(MIN, outputColumnTypeSignatures),
+                                    functionManager.lookupFunction(MIN.getSuffix(), outputColumnTypeSignatures),
                                     Optional.empty()),
                             maxValue, new Aggregation(
                                     new FunctionCall(MAX, outputColumnReferences),
-                                    functionManager.lookupFunction(MAX, outputColumnTypeSignatures),
+                                    functionManager.lookupFunction(MAX.getSuffix(), outputColumnTypeSignatures),
                                     Optional.empty()),
                             countAllValue, new Aggregation(
                                     new FunctionCall(COUNT, emptyList()),
-                                    functionManager.lookupFunction(COUNT, emptyList()),
+                                    functionManager.lookupFunction(COUNT.getSuffix(), emptyList()),
                                     Optional.empty()),
                             countNonNullValue, new Aggregation(
                                     new FunctionCall(COUNT, outputColumnReferences),
-                                    functionManager.lookupFunction(COUNT, outputColumnTypeSignatures),
+                                    functionManager.lookupFunction(COUNT.getSuffix(), outputColumnTypeSignatures),
                                     Optional.empty())),
                     globalAggregation(),
                     ImmutableList.of(),

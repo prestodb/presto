@@ -80,9 +80,9 @@ public class StatisticsAggregationPlanner
             if (type != ROW_COUNT) {
                 throw new PrestoException(NOT_SUPPORTED, "Table-wide statistic type not supported: " + type);
             }
-            QualifiedName count = QualifiedName.of("count");
+            String count = "count";
             AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
-                    new FunctionCall(count, ImmutableList.of()),
+                    new FunctionCall(QualifiedName.of(count), ImmutableList.of()),
                     functionManager.lookupFunction(count, ImmutableList.of()),
                     Optional.empty());
             Symbol symbol = symbolAllocator.newSymbol("rowCount", BIGINT);
@@ -111,25 +111,25 @@ public class StatisticsAggregationPlanner
     {
         switch (statisticType) {
             case MIN_VALUE:
-                return createAggregation(QualifiedName.of("min"), input.toSymbolReference(), inputType, inputType);
+                return createAggregation("min", input.toSymbolReference(), inputType, inputType);
             case MAX_VALUE:
-                return createAggregation(QualifiedName.of("max"), input.toSymbolReference(), inputType, inputType);
+                return createAggregation("max", input.toSymbolReference(), inputType, inputType);
             case NUMBER_OF_DISTINCT_VALUES:
-                return createAggregation(QualifiedName.of("approx_distinct"), input.toSymbolReference(), inputType, BIGINT);
+                return createAggregation("approx_distinct", input.toSymbolReference(), inputType, BIGINT);
             case NUMBER_OF_NON_NULL_VALUES:
-                return createAggregation(QualifiedName.of("count"), input.toSymbolReference(), inputType, BIGINT);
+                return createAggregation("count", input.toSymbolReference(), inputType, BIGINT);
             case NUMBER_OF_TRUE_VALUES:
-                return createAggregation(QualifiedName.of("count_if"), input.toSymbolReference(), BOOLEAN, BIGINT);
+                return createAggregation("count_if", input.toSymbolReference(), BOOLEAN, BIGINT);
             case TOTAL_SIZE_IN_BYTES:
-                return createAggregation(QualifiedName.of(SumDataSizeForStats.NAME), input.toSymbolReference(), inputType, BIGINT);
+                return createAggregation(SumDataSizeForStats.NAME, input.toSymbolReference(), inputType, BIGINT);
             case MAX_VALUE_SIZE_IN_BYTES:
-                return createAggregation(QualifiedName.of(MaxDataSizeForStats.NAME), input.toSymbolReference(), inputType, BIGINT);
+                return createAggregation(MaxDataSizeForStats.NAME, input.toSymbolReference(), inputType, BIGINT);
             default:
                 throw new IllegalArgumentException("Unsupported statistic type: " + statisticType);
         }
     }
 
-    private ColumnStatisticsAggregation createAggregation(QualifiedName functionName, SymbolReference input, Type inputType, Type outputType)
+    private ColumnStatisticsAggregation createAggregation(String functionName, SymbolReference input, Type inputType, Type outputType)
     {
         FunctionManager functionManager = metadata.getFunctionManager();
         FunctionHandle functionHandle = functionManager.lookupFunction(functionName, TypeSignatureProvider.fromTypes(ImmutableList.of(inputType)));
@@ -137,7 +137,7 @@ public class StatisticsAggregationPlanner
         verify(resolvedType.equals(inputType), "resolved function input type does not match the input type: %s != %s", resolvedType, inputType);
         return new ColumnStatisticsAggregation(
                 new AggregationNode.Aggregation(
-                        new FunctionCall(functionName, ImmutableList.of(input)),
+                        new FunctionCall(QualifiedName.of(functionName), ImmutableList.of(input)),
                         functionHandle,
                         Optional.empty()),
                 outputType);

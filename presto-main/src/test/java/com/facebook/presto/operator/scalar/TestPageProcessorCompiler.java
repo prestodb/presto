@@ -28,7 +28,6 @@ import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.relational.DeterminismEvaluator;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -83,7 +82,7 @@ public class TestPageProcessorCompiler
         FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
         ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
         ArrayType arrayType = new ArrayType(VARCHAR);
-        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("concat"), fromTypes(arrayType, arrayType));
+        FunctionHandle functionHandle = functionManager.lookupFunction("concat", fromTypes(arrayType, arrayType));
         projectionsBuilder.add(new CallExpression("concat", functionHandle, arrayType, ImmutableList.of(field(0, arrayType), field(1, arrayType))));
 
         ImmutableList<RowExpression> projections = projectionsBuilder.build();
@@ -123,7 +122,7 @@ public class TestPageProcessorCompiler
     {
         FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
         CallExpression lengthVarchar = new CallExpression(
-                "length", functionManager.lookupFunction(QualifiedName.of("length"), fromTypes(VARCHAR)), BIGINT, ImmutableList.of(field(0, VARCHAR)));
+                "length", functionManager.lookupFunction("length", fromTypes(VARCHAR)), BIGINT, ImmutableList.of(field(0, VARCHAR)));
         FunctionHandle lessThan = functionManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(LESS_THAN.name(), lessThan, BOOLEAN, ImmutableList.of(lengthVarchar, constant(10L, BIGINT)));
 
@@ -211,7 +210,7 @@ public class TestPageProcessorCompiler
         FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
         FunctionHandle lessThan = functionManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
         CallExpression random = new CallExpression(
-                "random", functionManager.lookupFunction(QualifiedName.of("random"), fromTypes(BIGINT)), BIGINT, singletonList(constant(10L, BIGINT)));
+                "random", functionManager.lookupFunction("random", fromTypes(BIGINT)), BIGINT, singletonList(constant(10L, BIGINT)));
         InputReferenceExpression col0 = field(0, BIGINT);
         CallExpression lessThanRandomExpression = new CallExpression(LESS_THAN.name(), lessThan, BOOLEAN, ImmutableList.of(col0, random));
 

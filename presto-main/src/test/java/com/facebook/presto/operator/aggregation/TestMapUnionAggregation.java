@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -46,7 +45,7 @@ public class TestMapUnionAggregation
     public void testSimpleWithDuplicates()
     {
         MapType mapType = mapType(DOUBLE, VARCHAR);
-        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(mapType));
+        FunctionHandle functionHandle = functionManager.lookupFunction(NAME, fromTypes(mapType));
         InternalAggregationFunction aggFunc = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 aggFunc,
@@ -57,7 +56,7 @@ public class TestMapUnionAggregation
                         mapBlockOf(DOUBLE, VARCHAR, ImmutableMap.of(43.0, "ccc", 53.0, "ddd", 13.0, "eee"))));
 
         mapType = mapType(DOUBLE, BIGINT);
-        functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(mapType));
+        functionHandle = functionManager.lookupFunction(NAME, fromTypes(mapType));
         aggFunc = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 aggFunc,
@@ -68,7 +67,7 @@ public class TestMapUnionAggregation
                         mapBlockOf(DOUBLE, BIGINT, ImmutableMap.of(1.0, 44L, 2.0, 44L, 4.0, 44L))));
 
         mapType = mapType(BOOLEAN, BIGINT);
-        functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(mapType));
+        functionHandle = functionManager.lookupFunction(NAME, fromTypes(mapType));
         aggFunc = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 aggFunc,
@@ -83,7 +82,7 @@ public class TestMapUnionAggregation
     public void testSimpleWithNulls()
     {
         MapType mapType = mapType(DOUBLE, VARCHAR);
-        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(mapType));
+        FunctionHandle functionHandle = functionManager.lookupFunction(NAME, fromTypes(mapType));
         InternalAggregationFunction aggFunc = functionManager.getAggregateFunctionImplementation(functionHandle);
 
         Map<Object, Object> expected = mapOf(23.0, "aaa", 33.0, null, 43.0, "ccc", 53.0, "ddd");
@@ -102,7 +101,7 @@ public class TestMapUnionAggregation
     public void testStructural()
     {
         MapType mapType = mapType(DOUBLE, new ArrayType(VARCHAR));
-        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(mapType));
+        FunctionHandle functionHandle = functionManager.lookupFunction(NAME, fromTypes(mapType));
         InternalAggregationFunction aggFunc = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 aggFunc,
@@ -135,7 +134,7 @@ public class TestMapUnionAggregation
                                         ImmutableList.of("w", "z")))));
 
         mapType = mapType(DOUBLE, mapType(VARCHAR, VARCHAR));
-        functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(mapType));
+        functionHandle = functionManager.lookupFunction(NAME, fromTypes(mapType));
         aggFunc = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 aggFunc,
@@ -161,7 +160,7 @@ public class TestMapUnionAggregation
                                         ImmutableMap.of("e", "f")))));
 
         mapType = mapType(new ArrayType(VARCHAR), DOUBLE);
-        functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(mapType));
+        functionHandle = functionManager.lookupFunction(NAME, fromTypes(mapType));
         aggFunc = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 aggFunc,

@@ -21,7 +21,6 @@ import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -578,11 +577,11 @@ public class TestMinMaxByAggregation
 
     private InternalAggregationFunction getMinByAggregation(Type... arguments)
     {
-        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction(QualifiedName.of("min_by"), fromTypes(arguments)));
+        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction("min_by", fromTypes(arguments)));
     }
 
     private InternalAggregationFunction getMaxByAggregation(Type... arguments)
     {
-        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction(QualifiedName.of("max_by"), fromTypes(arguments)));
+        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction("max_by", fromTypes(arguments)));
     }
 }

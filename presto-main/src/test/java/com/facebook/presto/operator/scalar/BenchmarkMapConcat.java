@@ -26,7 +26,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -139,7 +138,7 @@ public class BenchmarkMapConcat
 
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
 
-            FunctionHandle functionHandle = metadata.getFunctionManager().lookupFunction(QualifiedName.of(name), fromTypes(mapType, mapType));
+            FunctionHandle functionHandle = metadata.getFunctionManager().lookupFunction(name, fromTypes(mapType, mapType));
             projectionsBuilder.add(new CallExpression(
                     name,
                     functionHandle,

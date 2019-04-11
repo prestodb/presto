@@ -169,10 +169,9 @@ public class OptimizeMixedDistinctAggregations
                 else {
                     // Aggregations on non-distinct are already done by new node, just extract the non-null value
                     Symbol argument = aggregateInfo.getNewNonDistinctAggregateSymbols().get(entry.getKey());
-                    QualifiedName arbitraryFunctionName = QualifiedName.of("arbitrary");
                     Aggregation aggregation = new Aggregation(
-                            new FunctionCall(arbitraryFunctionName, functionCall.getWindow(), false, ImmutableList.of(argument.toSymbolReference())),
-                            metadata.getFunctionManager().lookupFunction(arbitraryFunctionName, ImmutableList.of(new TypeSignatureProvider(symbolAllocator.getTypes().get(argument).getTypeSignature()))),
+                            new FunctionCall(QualifiedName.of("arbitrary"), functionCall.getWindow(), false, ImmutableList.of(argument.toSymbolReference())),
+                            metadata.getFunctionManager().lookupFunction("arbitrary", ImmutableList.of(new TypeSignatureProvider(symbolAllocator.getTypes().get(argument).getTypeSignature()))),
                             Optional.empty());
                     String functionName = functionCall.getName().getSuffix();
                     if (functionName.equals("count") || functionName.equals("count_if") || functionName.equals("approx_distinct")) {

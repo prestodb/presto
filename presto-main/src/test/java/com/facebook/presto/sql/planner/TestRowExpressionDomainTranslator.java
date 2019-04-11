@@ -30,7 +30,6 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator.ExtractionResult;
 import com.facebook.presto.sql.relational.StandardFunctionResolution;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
@@ -902,7 +901,7 @@ public class TestRowExpressionDomainTranslator
     @Test
     public void testExpressionConstantFolding()
     {
-        FunctionHandle hex = metadata.getFunctionManager().lookupFunction(QualifiedName.of("from_hex"), fromTypes(VARCHAR));
+        FunctionHandle hex = metadata.getFunctionManager().lookupFunction("from_hex", fromTypes(VARCHAR));
         RowExpression originalExpression = greaterThan(C_VARBINARY, call("from_hex", hex, VARBINARY, stringLiteral("123456")));
         ExtractionResult result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE);
@@ -1308,7 +1307,7 @@ public class TestRowExpressionDomainTranslator
 
     private RowExpression randPredicate(VariableReferenceExpression expression)
     {
-        RowExpression random = call("random", metadata.getFunctionManager().lookupFunction(QualifiedName.of("random"), fromTypes()), DOUBLE);
+        RowExpression random = call("random", metadata.getFunctionManager().lookupFunction("random", fromTypes()), DOUBLE);
         return greaterThan(
                 expression,
                 call(CastType.CAST.name(), metadata.getFunctionManager().lookupCast(CastType.CAST, DOUBLE.getTypeSignature(), expression.getType().getTypeSignature()), expression.getType(), random));

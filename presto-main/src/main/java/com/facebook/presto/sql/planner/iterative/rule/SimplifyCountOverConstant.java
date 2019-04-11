@@ -77,7 +77,7 @@ public class SimplifyCountOverConstant
                 changed = true;
                 aggregations.put(symbol, new AggregationNode.Aggregation(
                         new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
-                        functionManager.lookupFunction(QualifiedName.of("count"), ImmutableList.of()),
+                        functionManager.lookupFunction("count", ImmutableList.of()),
                         aggregation.getMask()));
             }
         }

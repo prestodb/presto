@@ -57,7 +57,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 public class TestPruneWindowColumns
         extends BaseRuleTest
 {
-    private static final FunctionHandle FUNCTION_HANDLE = createTestMetadataManager().getFunctionManager().lookupFunction(QualifiedName.of("min"), fromTypes(BIGINT));
+    private static final FunctionHandle FUNCTION_HANDLE = createTestMetadataManager().getFunctionManager().lookupFunction("min", fromTypes(BIGINT));
 
     private static final List<String> inputSymbolNameList =
             ImmutableList.of("orderKey", "partitionKey", "hash", "startValue1", "startValue2", "endValue1", "endValue2", "input1", "input2", "unused");

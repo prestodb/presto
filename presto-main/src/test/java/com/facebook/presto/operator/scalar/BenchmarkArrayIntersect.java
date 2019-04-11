@@ -27,7 +27,6 @@ import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -124,7 +123,7 @@ public class BenchmarkArrayIntersect
             ArrayType arrayType = new ArrayType(elementType);
             MetadataManager metadata = createTestMetadataManager();
             FunctionManager functionManager = metadata.getFunctionManager();
-            FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(name), fromTypes(arrayType, arrayType));
+            FunctionHandle functionHandle = functionManager.lookupFunction(name, fromTypes(arrayType, arrayType));
             ImmutableList<RowExpression> projections = ImmutableList.of(
                     new CallExpression(name, functionHandle, arrayType, ImmutableList.of(field(0, arrayType), field(1, arrayType))));
 

@@ -29,7 +29,6 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import org.testng.annotations.BeforeClass;
@@ -98,7 +97,7 @@ public class TestSpatialPartitioningInternalAggregation
     {
         FunctionManager functionManager = functionAssertions.getMetadata().getFunctionManager();
         return functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction(QualifiedName.of("spatial_partitioning"), fromTypes(GEOMETRY, INTEGER)));
+                functionManager.lookupFunction("spatial_partitioning", fromTypes(GEOMETRY, INTEGER)));
     }
 
     private List<OGCGeometry> makeGeometries()

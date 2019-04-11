@@ -22,7 +22,6 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.plugin.geospatial.GeoPlugin;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.tree.QualifiedName;
 import io.airlift.slice.Slice;
 import org.testng.annotations.BeforeClass;
 
@@ -52,7 +51,7 @@ public abstract class AbstractTestGeoAggregationFunctions
         functionAssertions.getMetadata().addFunctions(extractFunctions(plugin.getFunctions()));
         FunctionManager functionManager = functionAssertions.getMetadata().getFunctionManager();
         function = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction(QualifiedName.of(getFunctionName()), fromTypes(GEOMETRY)));
+                functionManager.lookupFunction(getFunctionName(), fromTypes(GEOMETRY)));
     }
 
     protected void assertAggregatedGeometries(String testDescription, String expectedWkt, String... wkts)

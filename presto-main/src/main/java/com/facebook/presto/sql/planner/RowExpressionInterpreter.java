@@ -37,7 +37,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.planner.Interpreters.LambdaSymbolResolver;
 import com.facebook.presto.sql.relational.StandardFunctionResolution;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.util.Failures;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -633,10 +632,10 @@ public class RowExpressionInterpreter
             requireNonNull(exception, "Exception is null");
 
             String failureInfo = JsonCodec.jsonCodec(FailureInfo.class).toJson(Failures.toFailure(exception).toFailureInfo());
-            FunctionHandle jsonParse = metadata.getFunctionManager().lookupFunction(QualifiedName.of("json_parse"), fromTypes(VARCHAR));
+            FunctionHandle jsonParse = metadata.getFunctionManager().lookupFunction("json_parse", fromTypes(VARCHAR));
             Object json = functionInvoker.invoke(jsonParse, session.toConnectorSession(), utf8Slice(failureInfo));
 
-            FunctionHandle failureFunction = metadata.getFunctionManager().lookupFunction(QualifiedName.of("fail"), fromTypes(JSON));
+            FunctionHandle failureFunction = metadata.getFunctionManager().lookupFunction("fail", fromTypes(JSON));
             FunctionHandle cast = metadata.getFunctionManager().lookupCast(CAST, UNKNOWN.getTypeSignature(), type.getTypeSignature());
 
             return call(CAST.name(), cast, type, call("fail", failureFunction, UNKNOWN, toRowExpression(json, JSON)));

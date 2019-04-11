@@ -26,7 +26,6 @@ import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
@@ -102,7 +101,7 @@ public class TestExpressionOptimizer
     @Test
     public void testCastWithJsonParseOptimization()
     {
-        FunctionHandle jsonParseFunctionHandle = functionManager.lookupFunction(QualifiedName.of("json_parse"), fromTypes(VARCHAR));
+        FunctionHandle jsonParseFunctionHandle = functionManager.lookupFunction("json_parse", fromTypes(VARCHAR));
 
         // constant
         FunctionHandle jsonCastFunctionHandle = functionManager.lookupCast(CAST, JSON.getTypeSignature(), parseTypeSignature("array(integer)"));

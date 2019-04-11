@@ -39,7 +39,6 @@ import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -233,7 +232,7 @@ public class TestRowExpressionSerde
 
     private FunctionHandle function(String name, Type... types)
     {
-        return metadata.getFunctionManager().lookupFunction(QualifiedName.of(name), fromTypes(types));
+        return metadata.getFunctionManager().lookupFunction(name, fromTypes(types));
     }
 
     private JsonCodec<RowExpression> getJsonCodec()

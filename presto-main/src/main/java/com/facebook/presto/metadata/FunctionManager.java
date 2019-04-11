@@ -67,16 +67,6 @@ public class FunctionManager
     }
 
     /**
-     * Lookup up a function with a fully qualified name and fully bound types.
-     *
-     * @throws PrestoException if function could not be found
-     */
-    public FunctionHandle lookupFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
-    {
-        return staticFunctionNamespace.lookupFunction(name, parameterTypes);
-    }
-
-    /**
      * Resolves a function using the SQL path, and implicit type coercions.
      *
      * @throws PrestoException if there are no matches or multiple matches
@@ -114,6 +104,17 @@ public class FunctionManager
     public FunctionHandle resolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)
     {
         return staticFunctionNamespace.resolveOperator(operatorType, argumentTypes);
+    }
+
+    /**
+     * Lookup up a function with name and fully bound types. This can only be used for builtin functions. {@link #resolveFunction(Session, QualifiedName, List)}
+     * should be used for dynamically registered functions.
+     *
+     * @throws PrestoException if function could not be found
+     */
+    public FunctionHandle lookupFunction(String name, List<TypeSignatureProvider> parameterTypes)
+    {
+        return staticFunctionNamespace.lookupFunction(QualifiedName.of(name), parameterTypes);
     }
 
     public FunctionHandle lookupCast(CastType castType, TypeSignature fromType, TypeSignature toType)

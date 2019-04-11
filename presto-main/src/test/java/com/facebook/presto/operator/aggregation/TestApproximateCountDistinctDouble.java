@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.tree.QualifiedName;
 
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -28,7 +27,7 @@ public class TestApproximateCountDistinctDouble
     public InternalAggregationFunction getAggregationFunction()
     {
         return functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction(QualifiedName.of("approx_distinct"), fromTypes(DOUBLE, DOUBLE)));
+                functionManager.lookupFunction("approx_distinct", fromTypes(DOUBLE, DOUBLE)));
     }
 
     @Override

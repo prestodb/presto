@@ -30,7 +30,6 @@ import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.joda.time.DateTime;
@@ -390,7 +389,7 @@ public class TestHistogram
     private InternalAggregationFunction getAggregation(Type... arguments)
     {
         FunctionManager functionManager = getFunctionManager(NEW);
-        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(arguments)));
+        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction(NAME, fromTypes(arguments)));
     }
 
     public FunctionManager getFunctionManager()

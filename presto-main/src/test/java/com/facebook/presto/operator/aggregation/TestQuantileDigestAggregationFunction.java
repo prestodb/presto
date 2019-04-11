@@ -21,7 +21,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Joiner;
 import com.google.common.primitives.Floats;
 import io.airlift.stats.QuantileDigest;
@@ -168,7 +167,7 @@ public class TestQuantileDigestAggregationFunction
     {
         FunctionManager functionManager = METADATA.getFunctionManager();
         return functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction(QualifiedName.of("qdigest_agg"), fromTypes(type)));
+                functionManager.lookupFunction("qdigest_agg", fromTypes(type)));
     }
 
     private void testAggregationBigint(Block inputBlock, Block weightsBlock, double maxError, long... inputs)

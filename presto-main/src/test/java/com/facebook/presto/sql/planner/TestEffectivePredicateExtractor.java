@@ -140,7 +140,7 @@ public class TestEffectivePredicateExtractor
     public void testAggregation()
     {
         FunctionCall functionCall = new FunctionCall(QualifiedName.of("count"), ImmutableList.of());
-        FunctionHandle functionHandle = metadata.getFunctionManager().lookupFunction(QualifiedName.of("count"), ImmutableList.of());
+        FunctionHandle functionHandle = metadata.getFunctionManager().lookupFunction("count", ImmutableList.of());
         PlanNode node = new AggregationNode(newId(),
                 filter(baseTableScan,
                         and(

@@ -78,8 +78,8 @@ public class TransformExistsApplyToLateralNode
 {
     private static final Pattern<ApplyNode> PATTERN = applyNode();
 
-    private static final QualifiedName COUNT = QualifiedName.of("count");
-    private static final FunctionCall COUNT_CALL = new FunctionCall(COUNT, ImmutableList.of());
+    private static final String COUNT = "count";
+    private static final FunctionCall COUNT_CALL = new FunctionCall(QualifiedName.of(COUNT), ImmutableList.of());
 
     private final FunctionManager functionManager;
 
@@ -150,7 +150,7 @@ public class TransformExistsApplyToLateralNode
 
     private PlanNode rewriteToDefaultAggregation(ApplyNode parent, Context context)
     {
-        Symbol count = context.getSymbolAllocator().newSymbol(COUNT.toString(), BIGINT);
+        Symbol count = context.getSymbolAllocator().newSymbol(COUNT, BIGINT);
         Symbol exists = getOnlyElement(parent.getSubqueryAssignments().getSymbols());
 
         return new LateralJoinNode(
