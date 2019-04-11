@@ -348,7 +348,8 @@ public class QueryStateMachine
                 queryStats,
                 errorCode == null ? null : errorCode.getType(),
                 errorCode,
-                queryType);
+                queryType,
+                warningCollector.getWarnings());
     }
 
     @VisibleForTesting
