@@ -26,7 +26,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -93,7 +92,7 @@ public class BenchmarkArrayJoin
         {
             MetadataManager metadata = createTestMetadataManager();
             FunctionManager functionManager = metadata.getFunctionManager();
-            FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("array_join"), fromTypes(new ArrayType(BIGINT), VARCHAR));
+            FunctionHandle functionHandle = functionManager.lookupFunction("array_join", fromTypes(new ArrayType(BIGINT), VARCHAR));
 
             List<RowExpression> projections = ImmutableList.of(
                     new CallExpression("array_join", functionHandle, VARCHAR, ImmutableList.of(

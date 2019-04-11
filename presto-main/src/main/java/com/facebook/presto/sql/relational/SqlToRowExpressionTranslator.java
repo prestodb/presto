@@ -72,7 +72,6 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
@@ -301,7 +300,7 @@ public final class SqlToRowExpressionTranslator
             if (JSON.equals(type)) {
                 return call(
                         "json_parse",
-                        functionManager.lookupFunction(QualifiedName.of("json_parse"), fromTypes(VARCHAR)),
+                        functionManager.lookupFunction("json_parse", fromTypes(VARCHAR)),
                         getType(node),
                         constant(utf8Slice(node.getValue()), VARCHAR));
             }

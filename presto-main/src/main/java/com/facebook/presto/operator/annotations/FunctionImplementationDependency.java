@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.InvocationConvention;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -45,7 +44,7 @@ public final class FunctionImplementationDependency
     @Override
     protected FunctionHandle getFunctionHandle(BoundVariables boundVariables, FunctionManager functionManager)
     {
-        return functionManager.lookupFunction(QualifiedName.of(name), fromTypeSignatures(applyBoundVariables(argumentTypes, boundVariables)));
+        return functionManager.lookupFunction(name, fromTypeSignatures(applyBoundVariables(argumentTypes, boundVariables)));
     }
 
     @Override

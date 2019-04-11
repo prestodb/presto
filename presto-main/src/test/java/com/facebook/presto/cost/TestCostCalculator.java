@@ -766,7 +766,7 @@ public class TestCostCalculator
     {
         AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
                 new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
-                metadata.getFunctionManager().lookupFunction(QualifiedName.of("count"), ImmutableList.of()),
+                metadata.getFunctionManager().lookupFunction("count", ImmutableList.of()),
                 Optional.empty());
 
         return new AggregationNode(

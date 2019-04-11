@@ -21,7 +21,6 @@ import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -45,7 +44,7 @@ public class TestEvaluateClassifierPredictions
     {
         metadata.addFunctions(extractFunctions(new MLPlugin().getFunctions()));
         InternalAggregationFunction aggregation = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction(QualifiedName.of("evaluate_classifier_predictions"), fromTypes(BIGINT, BIGINT)));
+                functionManager.lookupFunction("evaluate_classifier_predictions", fromTypes(BIGINT, BIGINT)));
         Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.empty()).createAccumulator();
         accumulator.addInput(getPage());
         BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(null, 1);

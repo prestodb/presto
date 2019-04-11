@@ -29,7 +29,6 @@ import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -135,7 +134,7 @@ public class BenchmarkTransformValue
             MapType mapType = mapType(elementType, elementType);
             MapType returnType = mapType(elementType, BOOLEAN);
             FunctionHandle functionHandle = functionManager.lookupFunction(
-                    QualifiedName.of(name),
+                    name,
                     fromTypeSignatures(
                             mapType.getTypeSignature(),
                             parseTypeSignature(format("function(%s, %s, boolean)", type, type))));

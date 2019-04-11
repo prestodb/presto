@@ -27,7 +27,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -66,7 +65,7 @@ public class TestTableFinishOperator
 {
     private static final FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
     private static final InternalAggregationFunction LONG_MAX = functionManager.getAggregateFunctionImplementation(
-            functionManager.lookupFunction(QualifiedName.of("max"), fromTypes(BIGINT)));
+            functionManager.lookupFunction("max", fromTypes(BIGINT)));
 
     private ScheduledExecutorService scheduledExecutor;
 

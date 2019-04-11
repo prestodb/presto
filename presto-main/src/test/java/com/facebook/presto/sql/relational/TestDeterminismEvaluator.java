@@ -17,7 +17,6 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -42,7 +41,7 @@ public class TestDeterminismEvaluator
 
         CallExpression random = new CallExpression(
                 "random",
-                functionManager.lookupFunction(QualifiedName.of("random"), fromTypes(BIGINT)),
+                functionManager.lookupFunction("random", fromTypes(BIGINT)),
                 BIGINT,
                 singletonList(constant(10L, BIGINT)));
         assertFalse(determinismEvaluator.isDeterministic(random));

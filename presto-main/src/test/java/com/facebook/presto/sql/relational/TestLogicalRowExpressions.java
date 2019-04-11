@@ -20,7 +20,6 @@ import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
@@ -112,8 +111,8 @@ public class TestLogicalRowExpressions
     {
         RowExpression a = name("a");
         RowExpression b = name("b");
-        RowExpression nondeterministic = call("random", functionManager.lookupFunction(QualifiedName.of("random"), fromTypes()), DOUBLE);
-        RowExpression deterministic = call("length", functionManager.lookupFunction(QualifiedName.of("length"), fromTypes(VARCHAR)), INTEGER);
+        RowExpression nondeterministic = call("random", functionManager.lookupFunction("random", fromTypes()), DOUBLE);
+        RowExpression deterministic = call("length", functionManager.lookupFunction("length", fromTypes(VARCHAR)), INTEGER);
 
         RowExpression expression = and(and(a, or(b, nondeterministic)), deterministic);
 

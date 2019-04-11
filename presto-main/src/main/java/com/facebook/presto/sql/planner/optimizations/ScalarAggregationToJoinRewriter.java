@@ -183,7 +183,7 @@ public class ScalarAggregationToJoinRewriter
                                 COUNT,
                                 ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference())),
                         functionManager.lookupFunction(
-                                COUNT,
+                                COUNT.getSuffix(),
                                 fromTypeSignatures(scalarAggregationSourceTypeSignatures)),
                         entry.getValue().getMask()));
             }

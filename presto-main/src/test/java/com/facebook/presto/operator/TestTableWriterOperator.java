@@ -37,7 +37,6 @@ import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.testng.annotations.AfterClass;
@@ -202,7 +201,7 @@ public class TestTableWriterOperator
                 .addDriverContext();
         FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
         InternalAggregationFunction longMaxFunction = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction(QualifiedName.of("max"), fromTypes(BIGINT)));
+                functionManager.lookupFunction("max", fromTypes(BIGINT)));
         TableWriterOperator operator = (TableWriterOperator) createTableWriterOperator(
                 pageSinkManager,
                 new AggregationOperatorFactory(

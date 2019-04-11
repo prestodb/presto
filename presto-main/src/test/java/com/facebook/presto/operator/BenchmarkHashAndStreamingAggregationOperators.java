@@ -26,7 +26,6 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -84,9 +83,9 @@ public class BenchmarkHashAndStreamingAggregationOperators
     private static final FunctionManager functionManager = metadata.getFunctionManager();
 
     private static final InternalAggregationFunction LONG_SUM = functionManager.getAggregateFunctionImplementation(
-            functionManager.lookupFunction(QualifiedName.of("sum"), fromTypes(BIGINT)));
+            functionManager.lookupFunction("sum", fromTypes(BIGINT)));
     private static final InternalAggregationFunction COUNT = functionManager.getAggregateFunctionImplementation(
-            functionManager.lookupFunction(QualifiedName.of("count"), ImmutableList.of()));
+            functionManager.lookupFunction("count", ImmutableList.of()));
 
     @State(Thread)
     public static class Context
