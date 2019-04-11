@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.resolver.FailureResolver;
@@ -22,7 +21,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
+import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -54,7 +53,7 @@ public class VerificationFactory
 
     public Verification get(SourceQuery sourceQuery)
     {
-        QueryType queryType = QueryType.of(sqlParser.createStatement(sourceQuery.getControlQuery(), new ParsingOptions(AS_DOUBLE)));
+        QueryType queryType = QueryType.of(sqlParser.createStatement(sourceQuery.getControlQuery(), PARSING_OPTIONS));
         switch (queryType.getCategory()) {
             case DATA_PRODUCING:
                 return new DataVerification(prestoAction, sourceQuery, queryRewriter, failureResolvers, config, checksumValidator);

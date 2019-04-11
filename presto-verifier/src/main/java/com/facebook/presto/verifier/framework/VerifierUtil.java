@@ -13,13 +13,18 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.tree.Identifier;
+
+import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 
 public class VerifierUtil
 {
     private VerifierUtil()
     {
     }
+
+    public static final ParsingOptions PARSING_OPTIONS = ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build();
 
     public static Identifier delimitedIdentifier(String name)
     {
