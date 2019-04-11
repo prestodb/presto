@@ -38,8 +38,8 @@ import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.verifier.framework.QueryException.Type.CLUSTER_CONNECTION;
 import static com.facebook.presto.verifier.framework.QueryException.Type.PRESTO;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.CONTROL;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.MAIN;
+import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.CONTROL;
 
 public class TestPrestoExceptionClassifier
 {

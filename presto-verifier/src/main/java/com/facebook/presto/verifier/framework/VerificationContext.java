@@ -15,7 +15,7 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.verifier.event.FailureInfo;
-import com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup;
+import com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster;
 
 import java.util.EnumMap;
 import java.util.LinkedHashSet;
@@ -23,14 +23,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.CONTROL;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.TEST;
+import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.CONTROL;
+import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.TEST;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class VerificationContext
 {
-    private Map<QueryGroup, Set<QueryException>> failures = new EnumMap<>(QueryGroup.class);
+    private Map<TargetCluster, Set<QueryException>> failures = new EnumMap<>(TargetCluster.class);
 
     public VerificationContext()
     {
@@ -40,12 +40,12 @@ public class VerificationContext
 
     public void recordFailure(QueryException exception)
     {
-        failures.get(exception.getQueryOrigin().getGroup()).add(exception);
+        failures.get(exception.getQueryOrigin().getCluster()).add(exception);
     }
 
-    public List<FailureInfo> getAllFailures(QueryGroup group)
+    public List<FailureInfo> getAllFailures(TargetCluster cluster)
     {
-        return failures.get(group).stream()
+        return failures.get(cluster).stream()
                 .map(exception -> new FailureInfo(
                         exception.getQueryOrigin().getStage(),
                         exception.getErrorCode(),

@@ -19,7 +19,7 @@ import static java.util.Objects.requireNonNull;
 
 public class QueryOrigin
 {
-    public enum QueryGroup
+    public enum TargetCluster
     {
         CONTROL,
         TEST,
@@ -35,18 +35,18 @@ public class QueryOrigin
         CHECKSUM,
     }
 
-    private final QueryGroup group;
+    private final TargetCluster cluster;
     private final QueryStage stage;
 
-    public QueryOrigin(QueryGroup group, QueryStage stage)
+    public QueryOrigin(TargetCluster cluster, QueryStage stage)
     {
-        this.group = requireNonNull(group, "group is null");
+        this.cluster = requireNonNull(cluster, "cluster is null");
         this.stage = requireNonNull(stage, "stage is null");
     }
 
-    public QueryGroup getGroup()
+    public TargetCluster getCluster()
     {
-        return group;
+        return cluster;
     }
 
     public QueryStage getStage()
@@ -64,13 +64,13 @@ public class QueryOrigin
             return false;
         }
         QueryOrigin o = (QueryOrigin) obj;
-        return Objects.equals(group, o.group) &&
+        return Objects.equals(cluster, o.cluster) &&
                 Objects.equals(stage, o.stage);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(group, stage);
+        return Objects.hash(cluster, stage);
     }
 }

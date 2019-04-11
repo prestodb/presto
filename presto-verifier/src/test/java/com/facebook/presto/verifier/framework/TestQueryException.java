@@ -20,8 +20,8 @@ import java.sql.SQLException;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.CONTROL;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.MAIN;
+import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.CONTROL;
 import static org.testng.Assert.assertEquals;
 
 public class TestQueryException
