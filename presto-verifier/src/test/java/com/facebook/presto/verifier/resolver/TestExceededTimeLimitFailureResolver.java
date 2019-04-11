@@ -20,8 +20,8 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.TEST;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.MAIN;
+import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.TEST;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 

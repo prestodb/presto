@@ -21,8 +21,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.CONTROL;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.MAIN;
+import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.CONTROL;
 import static org.testng.Assert.assertEquals;
 
 public class TestVerificationContext
