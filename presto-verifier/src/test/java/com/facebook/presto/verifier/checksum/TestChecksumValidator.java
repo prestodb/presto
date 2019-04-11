@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -43,10 +42,10 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
-import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.facebook.presto.verifier.framework.Column.Category.FLOATING_POINT;
 import static com.facebook.presto.verifier.framework.Column.Category.ORDERABLE_ARRAY;
 import static com.facebook.presto.verifier.framework.Column.Category.SIMPLE;
+import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -117,7 +116,7 @@ public class TestChecksumValidator
                         ", \"checksum\"(\"map_array\") \"map_array_checksum\"\n" +
                         "FROM\n" +
                         "  test:di",
-                new ParsingOptions(AS_DOUBLE));
+                PARSING_OPTIONS);
         assertEquals(checksumQuery, expectedChecksumQuery, "Actual: " + formatSql(checksumQuery, Optional.empty()));
     }
 

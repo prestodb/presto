@@ -14,7 +14,6 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.sql.parser.ParsingException;
-import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
@@ -40,13 +39,13 @@ import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED_RESOLVED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SKIPPED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SUCCEEDED;
 import static com.facebook.presto.verifier.framework.JdbcDriverUtil.initializeDrivers;
 import static com.facebook.presto.verifier.framework.QueryType.Category.DATA_PRODUCING;
+import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Thread.currentThread;
 import static java.util.Objects.requireNonNull;
@@ -202,8 +201,8 @@ public class VerificationManager
         ImmutableList.Builder<SourceQuery> selected = ImmutableList.builder();
         for (SourceQuery sourceQuery : sourceQueries) {
             try {
-                QueryType controlQueryType = QueryType.of(sqlParser.createStatement(sourceQuery.getControlQuery(), new ParsingOptions(AS_DOUBLE)));
-                QueryType testQueryType = QueryType.of(sqlParser.createStatement(sourceQuery.getTestQuery(), new ParsingOptions(AS_DOUBLE)));
+                QueryType controlQueryType = QueryType.of(sqlParser.createStatement(sourceQuery.getControlQuery(), PARSING_OPTIONS));
+                QueryType testQueryType = QueryType.of(sqlParser.createStatement(sourceQuery.getTestQuery(), PARSING_OPTIONS));
                 if (controlQueryType == testQueryType && controlQueryType.getCategory() == DATA_PRODUCING) {
                     selected.add(sourceQuery);
                 }
