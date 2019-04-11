@@ -1102,7 +1102,7 @@ public class AddExchanges
                                 .withReplicatedNulls(parentPartitioningProperties.isNullsAndAnyReplicated()));
             }
 
-            // first, classify children into partitioned and unpartitioned
+            // first, classify children into single node and distributed
             List<PlanNode> singleNodeChildren = new ArrayList<>();
             List<List<Symbol>> singleNodeOutputLayouts = new ArrayList<>();
 
