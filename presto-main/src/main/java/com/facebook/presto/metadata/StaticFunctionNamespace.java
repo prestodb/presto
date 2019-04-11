@@ -192,6 +192,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
@@ -354,10 +355,12 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.stream.Collectors.toMap;
 
 @ThreadSafe
 class StaticFunctionNamespace
 {
+    private static final Map<String, OperatorType> OPERATOR_TYPES = ImmutableMap.copyOf(Arrays.stream(OperatorType.values()).collect(toMap(OperatorSignatureUtils::mangleOperatorName, x -> x)));
     private final TypeManager typeManager;
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
     private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
@@ -697,7 +700,14 @@ class StaticFunctionNamespace
         }
         SqlFunction function = functionKey.getFunction();
         Signature signature = functionHandle.getSignature();
-        return new FunctionMetadata(signature.getName(), signature.getArgumentTypes(), signature.getReturnType(), signature.getKind(), function.isDeterministic(), function.isCalledOnNullInput());
+        return new FunctionMetadata(
+                signature.getName(),
+                signature.getArgumentTypes(),
+                signature.getReturnType(),
+                signature.getKind(),
+                tryGetOperatorType(functionHandle),
+                function.isDeterministic(),
+                function.isCalledOnNullInput());
     }
 
     public FunctionHandle lookupFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
@@ -1129,6 +1139,11 @@ class StaticFunctionNamespace
             throw e;
         }
         return new FunctionHandle(signature);
+    }
+
+    private static Optional<OperatorType> tryGetOperatorType(FunctionHandle functionHandle)
+    {
+        return Optional.ofNullable(OPERATOR_TYPES.get(functionHandle.getSignature().getName()));
     }
 
     private static Optional<List<Type>> toTypes(List<TypeSignatureProvider> typeSignatureProviders, TypeManager typeManager)
