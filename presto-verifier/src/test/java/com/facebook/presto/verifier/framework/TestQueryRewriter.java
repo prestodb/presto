@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.Statement;
@@ -33,11 +32,11 @@ import java.util.Optional;
 
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
-import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.facebook.presto.verifier.VerifierTestUtil.CATALOG;
 import static com.facebook.presto.verifier.VerifierTestUtil.SCHEMA;
 import static com.facebook.presto.verifier.VerifierTestUtil.setupPresto;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.CONTROL;
+import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -183,7 +182,7 @@ public class TestQueryRewriter
     {
         return templates.stream()
                 .map(template -> format(template, tableName))
-                .map(query -> sqlParser.createStatement(query, new ParsingOptions(AS_DOUBLE)))
+                .map(query -> sqlParser.createStatement(query, PARSING_OPTIONS))
                 .collect(toImmutableList());
     }
 

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -40,12 +39,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.facebook.presto.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.CONTROL;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.TEST;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.DESCRIBE;
 import static com.facebook.presto.verifier.framework.QueryType.Category.DATA_PRODUCING;
+import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -69,7 +68,7 @@ public class QueryRewriter
 
     public QueryBundle rewriteQuery(@Language("SQL") String query, QueryGroup group, QueryConfiguration controlConfiguration, VerificationContext context)
     {
-        Statement statement = sqlParser.createStatement(query, new ParsingOptions(AS_DOUBLE));
+        Statement statement = sqlParser.createStatement(query, PARSING_OPTIONS);
         if (QueryType.of(statement).getCategory() != DATA_PRODUCING) {
             return new QueryBundle(Optional.empty(), ImmutableList.of(), statement, ImmutableList.of());
         }
