@@ -13,6 +13,13 @@
  */
 package com.facebook.presto.spi.function;
 
+import java.util.Arrays;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
+
+import static java.util.stream.Collectors.toMap;
+
 public enum OperatorType
 {
     ADD("+", false),
@@ -36,12 +43,16 @@ public enum OperatorType
     XX_HASH_64("XX HASH 64", false),
     INDETERMINATE("INDETERMINATE", true);
 
+    private static final Map<String, OperatorType> OPERATOR_TYPES = Arrays.stream(OperatorType.values()).collect(toMap(OperatorType::getFunctionName, Function.identity()));
+
     private final String operator;
+    private final String functionName;
     private final boolean calledOnNullInput;
 
     OperatorType(String operator, boolean calledOnNullInput)
     {
         this.operator = operator;
+        this.functionName = "$operator$" + name();
         this.calledOnNullInput = calledOnNullInput;
     }
 
@@ -50,8 +61,34 @@ public enum OperatorType
         return operator;
     }
 
+    public String getFunctionName()
+    {
+        return functionName;
+    }
+
     public boolean isCalledOnNullInput()
     {
         return calledOnNullInput;
+    }
+
+    public static Optional<OperatorType> tryGetOperatorType(String operatorName)
+    {
+        return Optional.ofNullable(OPERATOR_TYPES.get(operatorName));
+    }
+
+    public boolean isComparisonOperator()
+    {
+        return this.equals(EQUAL) ||
+                this.equals(NOT_EQUAL) ||
+                this.equals(LESS_THAN) ||
+                this.equals(LESS_THAN_OR_EQUAL) ||
+                this.equals(GREATER_THAN) ||
+                this.equals(GREATER_THAN_OR_EQUAL) ||
+                this.equals(IS_DISTINCT_FROM);
+    }
+
+    public boolean isArithmeticOperator()
+    {
+        return this.equals(ADD) || this.equals(SUBTRACT) || this.equals(MULTIPLY) || this.equals(DIVIDE) || this.equals(MODULUS);
     }
 }

@@ -14,25 +14,58 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public class FunctionMetadata
 {
     private final String name;
+    private final Optional<OperatorType> operatorType;
     private final List<TypeSignature> argumentTypes;
     private final TypeSignature returnType;
     private final FunctionKind functionKind;
     private final boolean deterministic;
     private final boolean calledOnNullInput;
 
-    public FunctionMetadata(String name, List<TypeSignature> argumentTypes, TypeSignature returnType, FunctionKind functionKind, boolean deterministic, boolean calledOnNullInput)
+    public FunctionMetadata(
+            String name,
+            List<TypeSignature> argumentTypes,
+            TypeSignature returnType,
+            FunctionKind functionKind,
+            boolean deterministic,
+            boolean calledOnNullInput)
+    {
+        this(name, Optional.empty(), argumentTypes, returnType, functionKind, deterministic, calledOnNullInput);
+    }
+
+    public FunctionMetadata(
+            OperatorType operatorType,
+            List<TypeSignature> argumentTypes,
+            TypeSignature returnType,
+            FunctionKind functionKind,
+            boolean deterministic,
+            boolean calledOnNullInput)
+    {
+        this(operatorType.getFunctionName(), Optional.of(operatorType), argumentTypes, returnType, functionKind, deterministic, calledOnNullInput);
+    }
+
+    private FunctionMetadata(
+            String name,
+            Optional<OperatorType> operatorType,
+            List<TypeSignature> argumentTypes,
+            TypeSignature returnType,
+            FunctionKind functionKind,
+            boolean deterministic,
+            boolean calledOnNullInput)
     {
         this.name = requireNonNull(name, "name is null");
+        this.operatorType = requireNonNull(operatorType, "operatorType is null");
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
         this.returnType = requireNonNull(returnType, "returnType is null");
         this.functionKind = requireNonNull(functionKind, "functionKind is null");
@@ -58,6 +91,11 @@ public class FunctionMetadata
     public TypeSignature getReturnType()
     {
         return returnType;
+    }
+
+    public Optional<OperatorType> getOperatorType()
+    {
+        return operatorType;
     }
 
     public boolean isDeterministic()
