@@ -134,7 +134,7 @@ public class TestDomainExtractor
     private static final long COLOR_VALUE_2 = 2;
 
     private Metadata metadata;
-    private DomainExtractor domainTranslator;
+    private RowExpressionDomainTranslator domainTranslator;
     private RowExpressionCanonicalizer canonicalizer;
 
     private RowExpression opBigint;
@@ -145,7 +145,7 @@ public class TestDomainExtractor
     public void setup()
     {
         metadata = createTestMetadataManager();
-        domainTranslator = new DomainExtractor(metadata.getFunctionManager());
+        domainTranslator = new RowExpressionDomainTranslator(metadata.getFunctionManager());
         opBigint = add(C_BIGINT, constant(1, BIGINT));
         opDouble = dereference(DOUBLE, C_ROW, constant(1, INTEGER));
         opVarchar = regex_extract(C_VARCHAR, constant(Slices.utf8Slice("test"), JoniRegexpType.JONI_REGEXP));
@@ -1205,7 +1205,7 @@ public class TestDomainExtractor
 
     private DomainExtractor.ExtractionResult fromPredicate(RowExpression originalPredicate)
     {
-        return domainTranslator.fromPredicate(metadata, TEST_SESSION, originalPredicate);
+        return DomainExtractor.fromPredicate(metadata, TEST_SESSION, originalPredicate);
     }
 
     private RowExpression nullLiteral(Type type)
