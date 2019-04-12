@@ -118,7 +118,8 @@ public class TestFeaturesConfig
                 .setPushLimitThroughOuterJoin(true)
                 .setMaxConcurrentMaterializations(3)
                 .setPushdownSubfieldsEnabled(false)
-                .setTableWriterMergeOperatorEnabled(true));
+                .setTableWriterMergeOperatorEnabled(true)
+                .setOptimizeFullOuterJoinWithCoalesce(true));
     }
 
     @Test
@@ -196,6 +197,7 @@ public class TestFeaturesConfig
                 .put("max-concurrent-materializations", "5")
                 .put("experimental.pushdown-subfields-enabled", "true")
                 .put("experimental.table-writer-merge-operator-enabled", "false")
+                .put("optimizer.optimize-full-outer-join-with-coalesce", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -269,7 +271,8 @@ public class TestFeaturesConfig
                 .setPushLimitThroughOuterJoin(false)
                 .setMaxConcurrentMaterializations(5)
                 .setPushdownSubfieldsEnabled(true)
-                .setTableWriterMergeOperatorEnabled(false);
+                .setTableWriterMergeOperatorEnabled(false)
+                .setOptimizeFullOuterJoinWithCoalesce(false);
         assertFullMapping(properties, expected);
     }
 
