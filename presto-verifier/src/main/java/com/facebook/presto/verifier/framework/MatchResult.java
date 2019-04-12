@@ -21,15 +21,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static com.facebook.presto.verifier.framework.VerificationResult.MatchType.COLUMN_MISMATCH;
-import static com.facebook.presto.verifier.framework.VerificationResult.MatchType.MATCH;
-import static com.facebook.presto.verifier.framework.VerificationResult.MatchType.ROW_COUNT_MISMATCH;
-import static com.facebook.presto.verifier.framework.VerificationResult.MatchType.SCHEMA_MISMATCH;
+import static com.facebook.presto.verifier.framework.MatchResult.MatchType.COLUMN_MISMATCH;
+import static com.facebook.presto.verifier.framework.MatchResult.MatchType.MATCH;
+import static com.facebook.presto.verifier.framework.MatchResult.MatchType.ROW_COUNT_MISMATCH;
+import static com.facebook.presto.verifier.framework.MatchResult.MatchType.SCHEMA_MISMATCH;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class VerificationResult
+public class MatchResult
 {
     public enum MatchType
     {
@@ -47,7 +47,7 @@ public class VerificationResult
     private final OptionalLong testRowCount;
     private final Map<Column, ColumnMatchResult> mismatchedColumns;
 
-    public VerificationResult(
+    public MatchResult(
             MatchType matchType,
             Optional<String> controlChecksumQuery,
             Optional<String> testChecksumQuery,
