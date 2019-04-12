@@ -51,6 +51,8 @@ import java.util.function.Supplier;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_NO_HOST_FOR_SHARD;
 import static com.facebook.presto.raptor.RaptorSessionProperties.getOneSplitPerBucketThreshold;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -169,6 +171,7 @@ public class RaptorSplitManager
         @Override
         public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
         {
+            checkArgument(partitionHandle.equals(NOT_PARTITIONED), "partitionHandle must be NOT_PARTITIONED");
             checkState((future == null) || future.isDone(), "previous batch not completed");
             future = supplyAsync(batchSupplier(maxSize), executor);
             return future;
