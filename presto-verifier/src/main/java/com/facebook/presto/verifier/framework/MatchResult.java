@@ -40,8 +40,6 @@ public class MatchResult
     }
 
     private final MatchType matchType;
-    private final Optional<String> controlChecksumQuery;
-    private final Optional<String> testChecksumQuery;
     private final Optional<ChecksumResult> controlChecksum;
     private final OptionalLong controlRowCount;
     private final OptionalLong testRowCount;
@@ -49,16 +47,12 @@ public class MatchResult
 
     public MatchResult(
             MatchType matchType,
-            Optional<String> controlChecksumQuery,
-            Optional<String> testChecksumQuery,
             Optional<ChecksumResult> controlChecksum,
             OptionalLong controlRowCount,
             OptionalLong testRowCount,
             Map<Column, ColumnMatchResult> mismatchedColumns)
     {
         this.matchType = requireNonNull(matchType, "type is null");
-        this.controlChecksumQuery = requireNonNull(controlChecksumQuery, "controlChecksumQuery is null");
-        this.testChecksumQuery = requireNonNull(testChecksumQuery, "testChecksumQuery is null");
         this.controlChecksum = requireNonNull(controlChecksum, "controlChecksum is null");
         this.controlRowCount = requireNonNull(controlRowCount, "controlRowCount is null");
         this.testRowCount = requireNonNull(testRowCount, "testRowCount is null");
@@ -73,16 +67,6 @@ public class MatchResult
     public MatchType getMatchType()
     {
         return matchType;
-    }
-
-    public Optional<String> getControlChecksumQuery()
-    {
-        return controlChecksumQuery;
-    }
-
-    public Optional<String> getTestChecksumQuery()
-    {
-        return testChecksumQuery;
     }
 
     public ChecksumResult getControlChecksum()
