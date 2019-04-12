@@ -33,7 +33,7 @@ import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.getDone;
 import static java.util.Objects.requireNonNull;
 
-public class AriaJoinOperator
+public class ConcurrentFetchJoinOperator
         implements Operator
 {
     private final OperatorContext operatorContext;
@@ -46,7 +46,7 @@ public class AriaJoinOperator
 
     private LookupSourceProvider lookupSourceProvider;
     private JoinProbe probe;
-    private AriaProbe ariaProbe;
+    private LayoutSpecificProbeHelper concurrentFetchProbe;
 
     private Page outputPage;
 
@@ -56,10 +56,8 @@ public class AriaJoinOperator
 
     @Nullable
     private ListenableFuture<PartitionedConsumption<Supplier<LookupSource>>> partitionedConsumption;
-    @Nullable
-    private boolean reusePages;
 
-    public AriaJoinOperator(
+    public ConcurrentFetchJoinOperator(
             OperatorContext operatorContext,
             List<Type> probeTypes,
             List<Type> buildOutputTypes,
@@ -94,8 +92,8 @@ public class AriaJoinOperator
         if (finishing) {
             return;
         }
-        if (ariaProbe != null) {
-            ariaProbe.finish();
+        if (concurrentFetchProbe != null) {
+            finishing = true;
         }
         if (lookupSourceProvider != null) {
             lookupSourceProvider.withLease(lookupSourceLease -> {
@@ -115,8 +113,9 @@ public class AriaJoinOperator
         }
         boolean finished;
 
-        if (ariaProbe != null) {
-            finished = ariaProbe.isFinished();
+        // TODO when is fetch probe null
+        if (concurrentFetchProbe != null) {
+            finished = finishing && concurrentFetchProbe.isFinished();
         }
         else {
             finished = this.finished && probe == null && pageBuilder.isEmpty() && outputPage == null;
@@ -181,8 +180,6 @@ public class AriaJoinOperator
             if (!finishing) {
                 return null;
             }
-
-            verify(finishing);
             // We are no longer interested in the build side (the lookupSourceProviderFuture's value).
             addSuccessCallback(lookupSourceProviderFuture, LookupSourceProvider::close);
             lookupSourceProvider = new StaticLookupSourceProvider(new EmptyLookupSource());
@@ -222,17 +219,17 @@ public class AriaJoinOperator
     {
         lookupSourceProvider.withLease(lookupSourceLease -> {
             LookupSource lookupSource = lookupSourceLease.getLookupSource();
-            if (ariaProbe == null) {
+            if (concurrentFetchProbe == null) {
                 if (!(lookupSource instanceof PartitionedLookupSource)) {
                     return Optional.empty();
                 }
-                ariaProbe = getAriaProbe((PartitionedLookupSource) lookupSource);
+                concurrentFetchProbe = getAriaProbe(lookupSource);
             }
             if (probe.getPosition() == -1) {
-                ariaProbe.addInput(probe);
+                concurrentFetchProbe.init(probe);
                 probe.advanceNextPosition();
             }
-            outputPage = ariaProbe.getOutput();
+            outputPage = concurrentFetchProbe.getOutput();
             if (outputPage == null) {
                 probe = null;
             }
@@ -240,9 +237,9 @@ public class AriaJoinOperator
         });
     }
 
-    private AriaProbe getAriaProbe(LookupSource lookupSource)
+    private LayoutSpecificProbeHelper getAriaProbe(LookupSource lookupSource)
     {
-        return new AriaProbe(lookupSource.getPartitionToLookupSourceSupplier(), reusePages);
+        return new LayoutSpecificProbeHelper(lookupSource.getPartitionToLookupSourceSupplier());
     }
 
     @Override

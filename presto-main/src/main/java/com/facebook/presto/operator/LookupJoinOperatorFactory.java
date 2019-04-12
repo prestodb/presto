@@ -143,7 +143,7 @@ public class LookupJoinOperatorFactory
         joinBridgeManager.probeOperatorCreated(driverContext.getLifespan());
 
         if (AriaHash.supportsLayout(lookupSourceFactory)) {
-            return new AriaJoinOperator(
+            return new ConcurrentFetchJoinOperator(
                     operatorContext,
                     probeTypes,
                     buildOutputTypes,

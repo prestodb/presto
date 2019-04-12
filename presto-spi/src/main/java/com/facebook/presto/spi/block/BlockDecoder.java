@@ -189,7 +189,7 @@ public class BlockDecoder
         return (T) values;
     }
 
-    public void setValues(long[] values)
+    void setValues(long[] values)
     {
         this.values = values;
     }
@@ -199,7 +199,7 @@ public class BlockDecoder
         this.values = values;
     }
 
-    public void setValues(Slice values)
+    void setValues(Slice values)
     {
         this.values = values;
     }
@@ -209,7 +209,7 @@ public class BlockDecoder
         return offsets;
     }
 
-    public void setOffsets(int[] offsets)
+    void setOffsets(int[] offsets)
     {
         this.offsets = offsets;
     }
@@ -234,7 +234,7 @@ public class BlockDecoder
         return arrayOffset;
     }
 
-    public void setArrayOffset(int arrayOffset)
+    void setArrayOffset(int arrayOffset)
     {
         this.arrayOffset = arrayOffset;
     }

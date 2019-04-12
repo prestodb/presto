@@ -15,10 +15,12 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.BlockDecoder;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
 import io.airlift.slice.Slice;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -266,6 +268,133 @@ public class LayoutSpecificAriaHash
                 h = (h + 1) & statusMask;
             }
             while (true);
+        }
+    }
+
+    public static class AriaLookupSource
+            implements LookupSource
+    {
+        int statusMask;
+        long[] status;
+        long[] table;
+        Slice[] slices = new Slice[16];
+
+        private int[] fill = new int[16];
+        private int currentSlab = -1;
+
+        private long allocBytes(int bytes)
+        {
+            if (currentSlab == -1 || fill[currentSlab] + bytes > (128 * 1024)) {
+                long w = newSlab();
+                fill[currentSlab] = bytes;
+                return w;
+            }
+            int off = fill[currentSlab];
+            fill[currentSlab] += bytes;
+            return (((currentSlab) << 17) + (off));
+        }
+
+        private long newSlab()
+        {
+            ++currentSlab;
+            if (slices.length <= currentSlab) {
+                int newSize = slices.length * 2;
+                slices = Arrays.copyOf(slices, newSize);
+                fill = Arrays.copyOf(fill, newSize);
+            }
+            Slice s = AriaHash.getSlice();
+            slices[currentSlab] = s;
+            return (currentSlab) << 17;
+        }
+
+        private void release()
+        {
+            for (Slice slice : slices) {
+                if (slice != null) {
+                    AriaHash.releaseSlice(slice);
+                }
+            }
+        }
+
+        private void setSize(int count)
+        {
+            int size = 8;
+            count *= 1.3;
+            while (size < count) {
+                size *= 2;
+            }
+            table = new long[size];
+            Arrays.fill(table, -1);
+            status = new long[size >> 3];
+            Arrays.fill(status, 0x8080808080808080L);
+            statusMask = (size >> 3) - 1;
+        }
+
+        @Override
+        public long getJoinPositionCount()
+        {
+            return statusMask + 1;
+        }
+
+        @Override
+        public long getInMemorySizeInBytes()
+        {
+            return 8 * (statusMask + 1) + (128 * 1024) * (currentSlab + 1);
+        }
+
+        @Override
+        public int getChannelCount()
+        {
+            return 1;
+        }
+
+        @Override
+        public long joinPositionWithinPartition(long joinPosition)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage, long rawHash)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getNextJoinPosition(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean isJoinPositionEligible(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean isEmpty()
+        {
+            return statusMask == 0;
+        }
+
+        @Override
+        public void close()
+        {
+            release();
+            boolean closed = true;
         }
     }
 }
