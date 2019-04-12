@@ -118,6 +118,7 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.tpch.TpchTable.CUSTOMER;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static io.airlift.tpch.TpchTable.PART_SUPPLIER;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -143,7 +144,7 @@ public class TestHiveIntegrationSmokeTest
     @SuppressWarnings("unused")
     public TestHiveIntegrationSmokeTest()
     {
-        this(() -> createQueryRunner(ORDERS, CUSTOMER, LINE_ITEM),
+        this(() -> createQueryRunner(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER),
                 createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
                 createMaterializeExchangesSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
                 HIVE_CATALOG,
@@ -2505,6 +2506,90 @@ public class TestHiveIntegrationSmokeTest
 
         // join
         assertQuery(materializeExchangesSession, "SELECT * FROM (lineitem JOIN orders ON lineitem.orderkey = orders.orderkey) x", assertRemoteMaterializedExchangesCount(2));
+
+        // 3-way join
+        try {
+            assertUpdate("CREATE TABLE test_orders_part1 AS SELECT orderkey, totalprice FROM orders", "SELECT count(*) FROM orders");
+            assertUpdate("CREATE TABLE test_orders_part2 AS SELECT orderkey, comment FROM orders", "SELECT count(*) FROM orders");
+
+            assertQuery(
+                    materializeExchangesSession,
+                    "SELECT lineitem.orderkey, lineitem.comment, test_orders_part1.totalprice, test_orders_part2.comment ordercomment\n" +
+                            "FROM lineitem JOIN test_orders_part1\n" +
+                            "ON lineitem.orderkey = test_orders_part1.orderkey\n" +
+                            "JOIN test_orders_part2\n" +
+                            "ON lineitem.orderkey = test_orders_part2.orderkey",
+                    "SELECT lineitem.orderkey, lineitem.comment, orders.totalprice, orders.comment ordercomment\n" +
+                            "FROM lineitem JOIN orders\n" +
+                            "ON lineitem.orderkey = orders.orderkey",
+                    assertRemoteMaterializedExchangesCount(3));
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_orders_part1");
+            assertUpdate("DROP TABLE IF EXISTS test_orders_part2");
+        }
+
+        try {
+            // join a bucketed table with an unbucketed table
+            assertUpdate(
+                    // bucket count has to be different from materialized bucket number
+                    "CREATE TABLE test_bucketed_lineitem1\n" +
+                            "WITH (bucket_count = 17, bucketed_by = ARRAY['orderkey']) AS\n" +
+                            "SELECT * FROM lineitem",
+                    "SELECT count(*) from lineitem");
+            // bucketed table as probe side
+            assertQuery(
+                    materializeExchangesSession,
+                    "SELECT * FROM test_bucketed_lineitem1 JOIN orders ON test_bucketed_lineitem1.orderkey = orders.orderkey",
+                    "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey",
+                    assertRemoteMaterializedExchangesCount(1));
+            // unbucketed table as probe side
+            assertQuery(
+                    materializeExchangesSession,
+                    "SELECT * FROM orders JOIN test_bucketed_lineitem1 ON test_bucketed_lineitem1.orderkey = orders.orderkey",
+                    "SELECT * FROM orders JOIN lineitem ON lineitem.orderkey = orders.orderkey",
+                    assertRemoteMaterializedExchangesCount(1));
+
+            // join a bucketed table with an unbucketed table; the join has constant pushdown
+            assertUpdate(
+                    // bucket count has to be different from materialized bucket number
+                    "CREATE TABLE test_bucketed_lineitem2\n" +
+                            "WITH (bucket_count = 17, bucketed_by = ARRAY['partkey', 'suppkey']) AS\n" +
+                            "SELECT * FROM lineitem",
+                    "SELECT count(*) from lineitem");
+            // bucketed table as probe side
+            assertQuery(
+                    materializeExchangesSession,
+                    "SELECT * \n" +
+                            "FROM test_bucketed_lineitem2 JOIN partsupp\n" +
+                            "ON test_bucketed_lineitem2.partkey = partsupp.partkey AND\n" +
+                            "test_bucketed_lineitem2.suppkey = partsupp.suppkey\n" +
+                            "WHERE test_bucketed_lineitem2.suppkey = 42",
+                    "SELECT * \n" +
+                            "FROM lineitem JOIN partsupp\n" +
+                            "ON lineitem.partkey = partsupp.partkey AND\n" +
+                            "lineitem.suppkey = partsupp.suppkey\n" +
+                            "WHERE lineitem.suppkey = 42",
+                    assertRemoteMaterializedExchangesCount(1));
+            // unbucketed table as probe side
+            assertQuery(
+                    materializeExchangesSession,
+                    "SELECT * \n" +
+                            "FROM partsupp JOIN test_bucketed_lineitem2\n" +
+                            "ON test_bucketed_lineitem2.partkey = partsupp.partkey AND\n" +
+                            "test_bucketed_lineitem2.suppkey = partsupp.suppkey\n" +
+                            "WHERE test_bucketed_lineitem2.suppkey = 42",
+                    "SELECT * \n" +
+                            "FROM partsupp JOIN lineitem\n" +
+                            "ON lineitem.partkey = partsupp.partkey AND\n" +
+                            "lineitem.suppkey = partsupp.suppkey\n" +
+                            "WHERE lineitem.suppkey = 42",
+                    assertRemoteMaterializedExchangesCount(1));
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_bucketed_lineitem1");
+            assertUpdate("DROP TABLE IF EXISTS test_bucketed_lineitem2");
+        }
     }
 
     public static Consumer<Plan> assertRemoteMaterializedExchangesCount(int expectedRemoteExchangesCount)
