@@ -69,6 +69,8 @@ public class DataVerification
         ChecksumQueryAndResult controlChecksum = computeChecksum(control, controlColumns, CONTROL);
         ChecksumQueryAndResult testChecksum = computeChecksum(test, testColumns, TEST);
         return new VerificationResult(
+                controlChecksum.getQueryId(),
+                testChecksum.getQueryId(),
                 formatSql(controlChecksum.getQuery()),
                 formatSql(testChecksum.getQuery()),
                 match(
@@ -170,27 +172,34 @@ public class DataVerification
     private ChecksumQueryAndResult computeChecksum(QueryBundle bundle, List<Column> columns, QueryGroup group)
     {
         Query checksumQuery = checksumValidator.generateChecksumQuery(bundle.getTableName(), columns);
-        return new ChecksumQueryAndResult(
+        QueryResult<ChecksumResult> queryResult = getPrestoAction().execute(
                 checksumQuery,
-                getOnlyElement(getPrestoAction()
-                        .execute(
-                                checksumQuery,
-                                getConfiguration(group),
-                                new QueryOrigin(group, CHECKSUM),
-                                getVerificationContext(),
-                                ChecksumResult::fromResultSet)
-                        .getResults()));
+                getConfiguration(group),
+                new QueryOrigin(group, CHECKSUM),
+                getVerificationContext(),
+                ChecksumResult::fromResultSet);
+        return new ChecksumQueryAndResult(
+                queryResult.getQueryStats().getQueryId(),
+                checksumQuery,
+                getOnlyElement(queryResult.getResults()));
     }
 
     private class ChecksumQueryAndResult
     {
+        private final String queryId;
         private final Query query;
         private final ChecksumResult result;
 
-        public ChecksumQueryAndResult(Query query, ChecksumResult result)
+        public ChecksumQueryAndResult(String queryId, Query query, ChecksumResult result)
         {
+            this.queryId = requireNonNull(queryId, "queryId is null");
             this.query = requireNonNull(query, "query is null");
             this.result = requireNonNull(result, "result is null");
+        }
+
+        public String getQueryId()
+        {
+            return queryId;
         }
 
         public Query getQuery()

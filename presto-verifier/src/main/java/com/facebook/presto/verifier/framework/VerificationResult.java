@@ -17,23 +17,39 @@ import static java.util.Objects.requireNonNull;
 
 public class VerificationResult
 {
+    private final String controlChecksumQueryId;
+    private final String testChecksumQueryId;
     private final String controlChecksumQuery;
     private final String testChecksumQuery;
     private final MatchResult matchResult;
 
     public VerificationResult(
+            String controlChecksumQueryId,
+            String testChecksumQueryId,
             String controlChecksumQuery,
             String testChecksumQuery,
             MatchResult matchResult)
     {
+        this.controlChecksumQueryId = requireNonNull(controlChecksumQueryId, "controlChecksumQueryId is null");
+        this.testChecksumQueryId = requireNonNull(testChecksumQueryId, "testChecksumQueryId is null");
         this.controlChecksumQuery = requireNonNull(controlChecksumQuery, "controlChecksumQuery is null");
         this.testChecksumQuery = requireNonNull(testChecksumQuery, "testChecksumQuery is null");
         this.matchResult = requireNonNull(matchResult, "matchResult is null");
     }
 
+    public String getControlChecksumQueryId()
+    {
+        return controlChecksumQueryId;
+    }
+
     public String getControlChecksumQuery()
     {
         return controlChecksumQuery;
+    }
+
+    public String getTestChecksumQueryId()
+    {
+        return testChecksumQueryId;
     }
 
     public String getTestChecksumQuery()
