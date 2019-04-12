@@ -265,10 +265,6 @@ public class AriaProbe
 
     public boolean isFinished()
     {
-        System.out.println("probe is finished: " + (finishing && currentResult == -1 && currentProbe == candidateFill));
-        System.out.println("probe is finished (finishing): " + (finishing));
-        System.out.println("probe is finished (currentResult == -1): " + (currentResult == -1));
-        System.out.println("probe is finished (currentProbe == candidateFill): " + (currentProbe == candidateFill));
         return finishing && currentResult == -1 && currentProbe == candidateFill;
     }
 
