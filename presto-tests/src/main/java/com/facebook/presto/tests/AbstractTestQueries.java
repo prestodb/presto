@@ -4325,8 +4325,17 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT x IN (0) FROM (values 4294967296) t(x)", "values false");
         assertQuery("SELECT x IN (0, 4294967297 + CAST(rand() < 0 AS bigint)) FROM (values 4294967296, 4294967297) t(x)", "values false, true");
         assertQuery("SELECT NULL in (1, 2, 3)", "values null");
+        assertQuery("SELECT NULL not in (1, 2, 3)", "values null");
+        assertQuery("SELECT NULL in (NULL)", "values null");
+        assertQuery("SELECT NULL not in (NULL)", "values null");
+        assertQuery("SELECT 1 not in (NULL)", "values null");
+        assertQuery("SELECT 1 in (NULL)", "values null");
+        assertQuery("SELECT NULL in (1, NULL, 3)", "values null");
+        assertQuery("SELECT NULL not in (1, NULL, 3)", "values null");
         assertQuery("SELECT 1 in (1, NULL, 3)", "values true");
+        assertQuery("SELECT 1 NOT IN (1, NULL, 3)", "values false");
         assertQuery("SELECT 2 in (1, NULL, 3)", "values null");
+        assertQuery("SELECT 2 not in (1, NULL, 3)", "values null");
         assertQuery("SELECT x FROM (values DATE '1970-01-01', DATE '1970-01-03') t(x) WHERE x IN (DATE '1970-01-01')", "values DATE '1970-01-01'");
         assertEquals(
                 computeActual("SELECT x FROM (values TIMESTAMP '1970-01-01 00:01:00+00:00', TIMESTAMP '1970-01-01 08:01:00+08:00', TIMESTAMP '1970-01-01 00:01:00+08:00') t(x) WHERE x IN (TIMESTAMP '1970-01-01 00:01:00+00:00')")
