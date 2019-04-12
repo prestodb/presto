@@ -66,12 +66,6 @@ public class QueryInfo
     }
 
     @EventField
-    public String getQueryId()
-    {
-        return queryId;
-    }
-
-    @EventField
     public String getCatalog()
     {
         return catalog;
@@ -87,6 +81,12 @@ public class QueryInfo
     public String getOriginalQuery()
     {
         return originalQuery;
+    }
+
+    @EventField
+    public String getQueryId()
+    {
+        return queryId;
     }
 
     @EventField
