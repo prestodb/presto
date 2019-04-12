@@ -257,6 +257,7 @@ public abstract class AbstractVerification
                 buildQueryInfo(
                         sourceQuery.getControlConfiguration(),
                         sourceQuery.getControlQuery(),
+                        verificationResult.map(VerificationResult::getControlChecksumQueryId),
                         verificationResult.map(VerificationResult::getControlChecksumQuery),
                         control,
                         controlStats,
@@ -264,6 +265,7 @@ public abstract class AbstractVerification
                 buildQueryInfo(
                         sourceQuery.getTestConfiguration(),
                         sourceQuery.getTestQuery(),
+                        verificationResult.map(VerificationResult::getTestChecksumQueryId),
                         verificationResult.map(VerificationResult::getTestChecksumQuery),
                         test,
                         testStats,
@@ -286,6 +288,7 @@ public abstract class AbstractVerification
     private static QueryInfo buildQueryInfo(
             QueryConfiguration configuration,
             String originalQuery,
+            Optional<String> checksumQueryId,
             Optional<String> checksumQuery,
             Optional<QueryBundle> queryBundle,
             Optional<QueryStats> queryStats,
@@ -296,6 +299,7 @@ public abstract class AbstractVerification
                 configuration.getSchema(),
                 originalQuery,
                 queryStats.map(QueryStats::getQueryId),
+                checksumQueryId,
                 queryBundle.map(QueryBundle::getQuery).map(AbstractVerification::formatSql),
                 queryBundle.map(QueryBundle::getSetupQueries).map(AbstractVerification::formatSqls),
                 queryBundle.map(QueryBundle::getTeardownQueries).map(AbstractVerification::formatSqls),
