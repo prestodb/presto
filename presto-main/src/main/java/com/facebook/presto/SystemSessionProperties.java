@@ -122,6 +122,7 @@ public final class SystemSessionProperties
     public static final String MAX_TASKS_PER_STAGE = "max_tasks_per_stage";
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
     public static final String PUSH_LIMIT_THROUGH_OUTER_JOIN = "push_limit_through_outer_join";
+    public static final String OPTIMIZE_FULL_OUTER_JOIN_WITH_COALESCE = "optimize_full_outer_join_with_coalesce";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -581,6 +582,11 @@ public final class SystemSessionProperties
                         PUSH_LIMIT_THROUGH_OUTER_JOIN,
                         "push limits to the outer side of an outer join",
                         featuresConfig.isPushLimitThroughOuterJoin(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_FULL_OUTER_JOIN_WITH_COALESCE,
+                        "optimize partition properties for queries using COALESCE + FULL OUTER JOIN",
+                        featuresConfig.isOptimizeFullOuterJoinWithCoalesce(),
                         false));
     }
 
@@ -987,5 +993,10 @@ public final class SystemSessionProperties
     public static boolean isPushLimitThroughOuterJoin(Session session)
     {
         return session.getSystemProperty(PUSH_LIMIT_THROUGH_OUTER_JOIN, Boolean.class);
+    }
+
+    public static boolean isOptimizeFullOuterJoinWithCoalesce(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_FULL_OUTER_JOIN_WITH_COALESCE, Boolean.class);
     }
 }

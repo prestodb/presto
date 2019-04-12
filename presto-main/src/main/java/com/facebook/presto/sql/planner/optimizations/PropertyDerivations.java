@@ -88,6 +88,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.isOptimizeFullOuterJoinWithCoalesce;
 import static com.facebook.presto.SystemSessionProperties.planWithTableNodePartitioning;
 import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
@@ -432,7 +433,7 @@ public class PropertyDerivations
                             .unordered(true)
                             .build();
                 case FULL:
-                    if (probeProperties.getNodePartitioning().isPresent()) {
+                    if (isOptimizeFullOuterJoinWithCoalesce(session) && probeProperties.getNodePartitioning().isPresent()) {
                         Partitioning nodePartitioning = probeProperties.getNodePartitioning().get();
                         ImmutableList.Builder<Partitioning.ArgumentBinding> outputArguments = ImmutableList.builder();
                         for (Partitioning.ArgumentBinding argument : nodePartitioning.getArguments()) {
