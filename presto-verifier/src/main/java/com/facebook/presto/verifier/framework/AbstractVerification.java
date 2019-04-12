@@ -84,7 +84,7 @@ public abstract class AbstractVerification
         this.runTearDownOnResultMismatch = config.isRunTearDownOnResultMismatch();
     }
 
-    protected abstract MatchResult verify(QueryBundle control, QueryBundle test);
+    protected abstract VerificationResult verify(QueryBundle control, QueryBundle test);
 
     protected abstract Optional<Boolean> isDeterministic(QueryBundle control, ChecksumResult firstChecksum);
 
@@ -105,7 +105,7 @@ public abstract class AbstractVerification
         boolean resultMismatched = false;
         QueryBundle control = null;
         QueryBundle test = null;
-        MatchResult verificationResult = null;
+        VerificationResult verificationResult = null;
         Optional<Boolean> deterministic = Optional.empty();
 
         try {
@@ -113,10 +113,10 @@ public abstract class AbstractVerification
             test = queryRewriter.rewriteQuery(sourceQuery.getTestQuery(), TEST, getConfiguration(TEST), getVerificationContext());
             verificationResult = verify(control, test);
 
-            deterministic = verificationResult.isMismatchPossiblyCausedByNonDeterminism() ?
-                    isDeterministic(control, verificationResult.getControlChecksum()) :
+            deterministic = verificationResult.getMatchResult().isMismatchPossiblyCausedByNonDeterminism() ?
+                    isDeterministic(control, verificationResult.getMatchResult().getControlChecksum()) :
                     Optional.empty();
-            resultMismatched = deterministic.orElse(true) && !verificationResult.isMatched();
+            resultMismatched = deterministic.orElse(true) && !verificationResult.getMatchResult().isMatched();
 
             return Optional.of(buildEvent(
                     Optional.of(control),
@@ -199,10 +199,10 @@ public abstract class AbstractVerification
             Optional<QueryStats> controlStats,
             Optional<QueryStats> testStats,
             Optional<QueryException> queryException,
-            Optional<MatchResult> verificationResult,
+            Optional<VerificationResult> verificationResult,
             Optional<Boolean> deterministic)
     {
-        boolean succeeded = verificationResult.isPresent() && verificationResult.get().isMatched();
+        boolean succeeded = verificationResult.isPresent() && verificationResult.get().getMatchResult().isMatched();
 
         QueryState controlState = getQueryState(controlStats, queryException, CONTROL);
         QueryState testState = getQueryState(testStats, queryException, TEST);
@@ -214,7 +214,7 @@ public abstract class AbstractVerification
                 errorMessage += getStackTraceAsString(queryException.get().getCause());
             }
             if (verificationResult.isPresent()) {
-                errorMessage += verificationResult.get().getResultsComparison();
+                errorMessage += verificationResult.get().getMatchResult().getResultsComparison();
             }
         }
 
@@ -244,7 +244,7 @@ public abstract class AbstractVerification
         Optional<String> errorCode = Optional.empty();
         if (!succeeded) {
             errorCode = Optional.ofNullable(queryException.map(QueryException::getErrorCode).orElse(
-                    verificationResult.map(MatchResult::getMatchType).map(MatchType::name).orElse(null)));
+                    verificationResult.map(VerificationResult::getMatchResult).map(MatchResult::getMatchType).map(MatchType::name).orElse(null)));
         }
 
         return new VerifierQueryEvent(
@@ -257,14 +257,14 @@ public abstract class AbstractVerification
                 buildQueryInfo(
                         sourceQuery.getControlConfiguration(),
                         sourceQuery.getControlQuery(),
-                        verificationResult.flatMap(MatchResult::getControlChecksumQuery),
+                        verificationResult.map(VerificationResult::getControlChecksumQuery),
                         control,
                         controlStats,
                         verificationContext.getAllFailures(CONTROL)),
                 buildQueryInfo(
                         sourceQuery.getTestConfiguration(),
                         sourceQuery.getTestQuery(),
-                        verificationResult.flatMap(MatchResult::getTestChecksumQuery),
+                        verificationResult.map(VerificationResult::getTestChecksumQuery),
                         test,
                         testStats,
                         verificationContext.getAllFailures(TEST)),
