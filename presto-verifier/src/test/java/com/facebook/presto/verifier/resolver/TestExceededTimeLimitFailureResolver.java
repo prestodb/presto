@@ -22,7 +22,6 @@ import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.TEST;
 import static com.facebook.presto.verifier.framework.QueryOrigin.forMain;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 
 public class TestExceededTimeLimitFailureResolver
         extends AbstractTestPrestoQueryFailureResolver
@@ -30,20 +29,6 @@ public class TestExceededTimeLimitFailureResolver
     public TestExceededTimeLimitFailureResolver()
     {
         super(new ExceededTimeLimitFailureResolver());
-    }
-
-    @Test
-    public void testHigherCpuTime()
-    {
-        assertFalse(getFailureResolver().resolve(
-                CONTROL_QUERY_STATS,
-                QueryException.forPresto(
-                        new RuntimeException(),
-                        Optional.of(EXCEEDED_TIME_LIMIT),
-                        false,
-                        Optional.of(createQueryStats(CONTROL_CPU_TIME_MILLIS * 2, CONTROL_PEAK_MEMORY_BYTES)),
-                        forMain(TEST)))
-                .isPresent());
     }
 
     @Test
