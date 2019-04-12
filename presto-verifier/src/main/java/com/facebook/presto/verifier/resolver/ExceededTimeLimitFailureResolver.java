@@ -33,8 +33,7 @@ public class ExceededTimeLimitFailureResolver
     @Override
     public Optional<String> resolveTestQueryFailure(ErrorCodeSupplier errorCode, QueryStats controlQueryStats, QueryStats testQueryStats)
     {
-        if (errorCode == EXCEEDED_TIME_LIMIT &&
-                controlQueryStats.getCpuTimeMillis() > testQueryStats.getCpuTimeMillis()) {
+        if (errorCode == EXCEEDED_TIME_LIMIT) {
             return Optional.of("Auto Resolved: Test cluster has less computing resource");
         }
         return Optional.empty();
