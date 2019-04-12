@@ -21,8 +21,8 @@ import com.facebook.presto.verifier.event.FailureInfo;
 import com.facebook.presto.verifier.event.QueryInfo;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
+import com.facebook.presto.verifier.framework.MatchResult.MatchType;
 import com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup;
-import com.facebook.presto.verifier.framework.VerificationResult.MatchType;
 import com.facebook.presto.verifier.resolver.FailureResolver;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -84,7 +84,7 @@ public abstract class AbstractVerification
         this.runTearDownOnResultMismatch = config.isRunTearDownOnResultMismatch();
     }
 
-    protected abstract VerificationResult verify(QueryBundle control, QueryBundle test);
+    protected abstract MatchResult verify(QueryBundle control, QueryBundle test);
 
     protected abstract Optional<Boolean> isDeterministic(QueryBundle control, ChecksumResult firstChecksum);
 
@@ -105,7 +105,7 @@ public abstract class AbstractVerification
         boolean resultMismatched = false;
         QueryBundle control = null;
         QueryBundle test = null;
-        VerificationResult verificationResult = null;
+        MatchResult verificationResult = null;
         Optional<Boolean> deterministic = Optional.empty();
 
         try {
@@ -199,7 +199,7 @@ public abstract class AbstractVerification
             Optional<QueryStats> controlStats,
             Optional<QueryStats> testStats,
             Optional<QueryException> queryException,
-            Optional<VerificationResult> verificationResult,
+            Optional<MatchResult> verificationResult,
             Optional<Boolean> deterministic)
     {
         boolean succeeded = verificationResult.isPresent() && verificationResult.get().isMatched();
@@ -244,7 +244,7 @@ public abstract class AbstractVerification
         Optional<String> errorCode = Optional.empty();
         if (!succeeded) {
             errorCode = Optional.ofNullable(queryException.map(QueryException::getErrorCode).orElse(
-                    verificationResult.map(VerificationResult::getMatchType).map(MatchType::name).orElse(null)));
+                    verificationResult.map(MatchResult::getMatchType).map(MatchType::name).orElse(null)));
         }
 
         return new VerifierQueryEvent(
@@ -257,14 +257,14 @@ public abstract class AbstractVerification
                 buildQueryInfo(
                         sourceQuery.getControlConfiguration(),
                         sourceQuery.getControlQuery(),
-                        verificationResult.flatMap(VerificationResult::getControlChecksumQuery),
+                        verificationResult.flatMap(MatchResult::getControlChecksumQuery),
                         control,
                         controlStats,
                         verificationContext.getAllFailures(CONTROL)),
                 buildQueryInfo(
                         sourceQuery.getTestConfiguration(),
                         sourceQuery.getTestQuery(),
-                        verificationResult.flatMap(VerificationResult::getTestChecksumQuery),
+                        verificationResult.flatMap(MatchResult::getTestChecksumQuery),
                         test,
                         testStats,
                         verificationContext.getAllFailures(TEST)),

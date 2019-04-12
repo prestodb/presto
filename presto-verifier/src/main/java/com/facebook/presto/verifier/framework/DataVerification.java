@@ -20,8 +20,8 @@ import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.checksum.ColumnMatchResult;
+import com.facebook.presto.verifier.framework.MatchResult.MatchType;
 import com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup;
-import com.facebook.presto.verifier.framework.VerificationResult.MatchType;
 import com.facebook.presto.verifier.resolver.FailureResolver;
 import com.google.common.collect.ImmutableMap;
 
@@ -30,15 +30,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
+import static com.facebook.presto.verifier.framework.MatchResult.MatchType.COLUMN_MISMATCH;
+import static com.facebook.presto.verifier.framework.MatchResult.MatchType.MATCH;
+import static com.facebook.presto.verifier.framework.MatchResult.MatchType.ROW_COUNT_MISMATCH;
+import static com.facebook.presto.verifier.framework.MatchResult.MatchType.SCHEMA_MISMATCH;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.CONTROL;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.TEST;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.CHECKSUM;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.DESCRIBE;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.MAIN;
-import static com.facebook.presto.verifier.framework.VerificationResult.MatchType.COLUMN_MISMATCH;
-import static com.facebook.presto.verifier.framework.VerificationResult.MatchType.MATCH;
-import static com.facebook.presto.verifier.framework.VerificationResult.MatchType.ROW_COUNT_MISMATCH;
-import static com.facebook.presto.verifier.framework.VerificationResult.MatchType.SCHEMA_MISMATCH;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -60,7 +60,7 @@ public class DataVerification
     }
 
     @Override
-    public VerificationResult verify(QueryBundle control, QueryBundle test)
+    public MatchResult verify(QueryBundle control, QueryBundle test)
     {
         setQueryStats(setupAndRun(control, CONTROL), CONTROL);
         setQueryStats(setupAndRun(test, TEST), TEST);
@@ -117,14 +117,14 @@ public class DataVerification
         return getPrestoAction().execute(control.getQuery(), getConfiguration(group), new QueryOrigin(group, MAIN), getVerificationContext());
     }
 
-    private VerificationResult produceResult(
+    private MatchResult produceResult(
             List<Column> controlColumns,
             List<Column> testColumns,
             ChecksumQueryAndResult controlChecksum,
             ChecksumQueryAndResult testChecksum)
     {
         if (!controlColumns.equals(testColumns)) {
-            return new VerificationResult(
+            return new MatchResult(
                     SCHEMA_MISMATCH,
                     Optional.empty(),
                     Optional.empty(),
@@ -149,7 +149,7 @@ public class DataVerification
             mismatchedColumns = checksumValidator.getMismatchedColumns(controlColumns, controlChecksum.getResult(), testChecksum.getResult());
             matchType = mismatchedColumns.isEmpty() ? MATCH : COLUMN_MISMATCH;
         }
-        return new VerificationResult(
+        return new MatchResult(
                 matchType,
                 controlChecksumQuery,
                 testChecksumQuery,
