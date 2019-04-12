@@ -214,6 +214,10 @@ public final class Domain
 
     public Domain complement()
     {
+        // we need to have following
+//        if (!values.isNone()) {
+//            return new Domain(values.complement(), nullAllowed);
+//        }
         return new Domain(values.complement(), !nullAllowed);
     }
 

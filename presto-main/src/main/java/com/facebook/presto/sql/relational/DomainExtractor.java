@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.metadata.FunctionMetadata;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.predicate.DiscreteValues;
 import com.facebook.presto.spi.predicate.Domain;
@@ -76,8 +77,6 @@ import static com.facebook.presto.sql.relational.LogicalRowExpressions.FALSE;
 import static com.facebook.presto.sql.relational.LogicalRowExpressions.TRUE;
 import static com.facebook.presto.sql.relational.LogicalRowExpressions.and;
 import static com.facebook.presto.sql.relational.LogicalRowExpressions.or;
-import static com.facebook.presto.sql.relational.StandardFunctionResolution.getComparisonOperator;
-import static com.facebook.presto.sql.relational.StandardFunctionResolution.isComparisonFunction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -317,6 +316,9 @@ public class DomainExtractor
             switch (node.getForm()) {
                 case AND:
                 case OR: {
+                    if (node.getArguments().size() > 2) {
+                        return logicalRowExpressions.combineConjuncts(node.getArguments()).accept(this, complement);
+                    }
                     return visitBinaryLogic(node, complement);
                 }
                 case IN: {
@@ -346,14 +348,14 @@ public class DomainExtractor
 
                     ImmutableList.Builder<RowExpression> disjuncts = ImmutableList.builder();
                     int numDisjuncts = 0;
-                    if (values.containsKey(true)) {
+                    if (values.containsKey(true) && !values.get(true).isEmpty()) {
                         numDisjuncts++;
                         disjuncts.add(in(target, values.get(true)));
                     }
                     if (values.containsKey(false)) {
                         for (RowExpression expression : values.get(false)) {
                             numDisjuncts++;
-                            disjuncts.add(call(functionManager.resolveOperator(EQUAL, fromTypes(target.getType(), expression.getType())), BOOLEAN, target, expression));
+                            disjuncts.add(call(EQUAL.name(), functionManager.resolveOperator(EQUAL, fromTypes(target.getType(), expression.getType())), BOOLEAN, target, expression));
                         }
                     }
                     checkArgument(numDisjuncts > 0, "Cannot have empty in list");
@@ -372,7 +374,7 @@ public class DomainExtractor
                 case IS_NULL: {
                     RowExpression target = node.getArguments().get(0);
                     Domain domain = complementIfNecessary(Domain.onlyNull(target.getType()), complement);
-                    return resultOf(optimize(target), domain);
+                    return resultOf(target, domain);
                 }
                 default:
                     return resultOf(complementIfNecessary(node, complement));
@@ -418,8 +420,9 @@ public class DomainExtractor
                         binaryOperator(LESS_THAN_OR_EQUAL, node.getArguments().get(0), node.getArguments().get(2))).accept(this, complement);
             }
 
-            if (isComparisonFunction(node.getFunctionHandle())) {
-                Optional<NormalizedSimpleComparison> optionalNormalized = toNormalizedSimpleComparison(getComparisonOperator(node), node.getArguments().get(0), node.getArguments().get(1));
+            FunctionMetadata functionMetadata = functionManager.getFunctionMetadata(node.getFunctionHandle());
+            if (functionMetadata.getOperatorType().map(OperatorType::isComparisonOperator).orElse(false)) {
+                Optional<NormalizedSimpleComparison> optionalNormalized = toNormalizedSimpleComparison(functionMetadata.getOperatorType().get(), node.getArguments().get(0), node.getArguments().get(1));
                 if (!optionalNormalized.isPresent()) {
                     return resultOf(complementIfNecessary(node, complement));
                 }
@@ -559,7 +562,8 @@ public class DomainExtractor
         private RowExpression binaryOperator(OperatorType operatorType, RowExpression left, RowExpression right)
         {
             return call(
-                    metadata.getFunctionManager().resolveOperator(operatorType, fromTypes(left.getType(), right.getType())),
+                    operatorType.name(),
+                    functionManager.resolveOperator(operatorType, fromTypes(left.getType(), right.getType())),
                     BOOLEAN,
                     left,
                     right);
@@ -818,7 +822,7 @@ public class DomainExtractor
 
     private static RowExpression not(StandardFunctionResolution resolution, RowExpression expression)
     {
-        return call(resolution.notFunction(), expression.getType(), expression);
+        return call("not", resolution.notFunction(), expression.getType(), expression);
     }
 
     private static RowExpression in(RowExpression value, List<RowExpression> inList)
