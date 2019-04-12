@@ -717,9 +717,12 @@ public class AddExchanges
                 Partitioning rightPartitioning = left.getProperties().translate(createTranslator(leftToRight)).getNodePartitioning().get();
                 right = node.getRight().accept(this, PreferredProperties.partitioned(rightPartitioning));
                 if (!right.getProperties().isCompatibleTablePartitioningWith(left.getProperties(), rightToLeft::get, metadata, session)) {
-                    // TODO: support materialization when one of the tables is pre-bucketed
                     right = withDerivedProperties(
-                            partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, right.getNode(), new PartitioningScheme(rightPartitioning, right.getNode().getOutputSymbols())),
+                            partitionedExchange(
+                                    idAllocator.getNextId(),
+                                    selectExchangeScopeForPartitionedRemoteExchange(right.getNode()),
+                                    right.getNode(),
+                                    new PartitioningScheme(rightPartitioning, right.getNode().getOutputSymbols())),
                             right.getProperties());
                 }
             }
@@ -728,9 +731,12 @@ public class AddExchanges
 
                 if (right.getProperties().isNodePartitionedOn(rightSymbols) && !right.getProperties().isSingleNode()) {
                     Partitioning leftPartitioning = right.getProperties().translate(createTranslator(rightToLeft)).getNodePartitioning().get();
-                    // TODO: support materialization when one of the tables is pre-bucketed
                     left = withDerivedProperties(
-                            partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, left.getNode(), new PartitioningScheme(leftPartitioning, left.getNode().getOutputSymbols())),
+                            partitionedExchange(
+                                    idAllocator.getNextId(),
+                                    selectExchangeScopeForPartitionedRemoteExchange(left.getNode()),
+                                    left.getNode(),
+                                    new PartitioningScheme(leftPartitioning, left.getNode().getOutputSymbols())),
                             left.getProperties());
                 }
                 else {
@@ -758,9 +764,11 @@ public class AddExchanges
             // if colocated joins are disabled, force redistribute when using a custom partitioning
             if (!isColocatedJoinEnabled(session) && hasMultipleTableScans(left.getNode(), right.getNode())) {
                 Partitioning rightPartitioning = left.getProperties().translate(createTranslator(leftToRight)).getNodePartitioning().get();
-                // TODO: support materialization when one of the tables is pre-bucketed
                 right = withDerivedProperties(
-                        partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, right.getNode(), new PartitioningScheme(rightPartitioning, right.getNode().getOutputSymbols())),
+                        partitionedExchange(
+                                idAllocator.getNextId(),
+                                selectExchangeScopeForPartitionedRemoteExchange(right.getNode()), right.getNode(),
+                                new PartitioningScheme(rightPartitioning, right.getNode().getOutputSymbols())),
                         right.getProperties());
             }
 
