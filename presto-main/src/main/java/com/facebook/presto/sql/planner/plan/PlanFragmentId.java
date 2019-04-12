@@ -18,28 +18,35 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import javax.annotation.concurrent.Immutable;
 
+import static java.util.Objects.requireNonNull;
+
 @Immutable
 public class PlanFragmentId
         implements Comparable<PlanFragmentId>
 {
     private final int id;
 
-    @JsonCreator
     public PlanFragmentId(int id)
     {
         this.id = id;
     }
 
-    @JsonValue
     public int getId()
     {
         return id;
     }
 
     @Override
+    @JsonValue
     public String toString()
     {
         return Integer.toString(id);
+    }
+
+    @JsonCreator
+    public static PlanFragmentId valueOf(String value)
+    {
+        return new PlanFragmentId(Integer.valueOf(requireNonNull(value, "value is null")));
     }
 
     @Override
