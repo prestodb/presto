@@ -45,6 +45,7 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 
 import java.util.List;
 import java.util.Map;
@@ -204,7 +205,7 @@ public class ImplementIntersectAndExceptAsUnion
         {
             ImmutableList.Builder<PlanNode> result = ImmutableList.builder();
             for (int i = 0; i < nodes.size(); i++) {
-                result.add(appendMarkers(nodes.get(i), i, markers, node.sourceSymbolMap(i)));
+                result.add(appendMarkers(nodes.get(i), i, markers, Maps.transformValues(node.sourceSymbolMap(i), Symbol::toSymbolReference)));
             }
             return result.build();
         }

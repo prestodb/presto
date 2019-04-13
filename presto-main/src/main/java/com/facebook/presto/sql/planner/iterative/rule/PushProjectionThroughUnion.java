@@ -27,6 +27,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.Maps;
 
 import java.util.HashMap;
 import java.util.List;
@@ -67,7 +68,7 @@ public class PushProjectionThroughUnion
         ImmutableList.Builder<PlanNode> outputSources = ImmutableList.builder();
 
         for (int i = 0; i < source.getSources().size(); i++) {
-            Map<Symbol, SymbolReference> outputToInput = source.sourceSymbolMap(i);   // Map: output of union -> input of this source to the union
+            Map<Symbol, SymbolReference> outputToInput = Maps.transformValues(source.sourceSymbolMap(i), Symbol::toSymbolReference);   // Map: output of union -> input of this source to the union
             Assignments.Builder assignments = Assignments.builder(); // assignments for the new ProjectNode
 
             // mapping from current ProjectNode to new ProjectNode, used to identify the output layout
