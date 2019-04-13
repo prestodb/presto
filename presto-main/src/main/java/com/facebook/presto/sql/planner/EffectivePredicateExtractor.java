@@ -37,6 +37,7 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
@@ -216,7 +217,7 @@ public class EffectivePredicateExtractor
         @Override
         public Expression visitUnion(UnionNode node, Void context)
         {
-            return deriveCommonPredicates(node, source -> node.outputSymbolMap(source).entries());
+            return deriveCommonPredicates(node, source -> Multimaps.transformValues(node.outputSymbolMap(source), Symbol::toSymbolReference).entries());
         }
 
         @Override
