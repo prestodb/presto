@@ -99,9 +99,7 @@ public class LongDirectStreamReader
 
         if (dataStream == null && presentStream != null) {
             presentStream.skip(nextBatchSize);
-            Block nullValueBlock = new RunLengthEncodedBlock(
-                    type.createBlockBuilder(null, 1).appendNull().build(),
-                    nextBatchSize);
+            Block nullValueBlock = RunLengthEncodedBlock.create(type, null, nextBatchSize);
             readOffset = 0;
             nextBatchSize = 0;
             return nullValueBlock;
