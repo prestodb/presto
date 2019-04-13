@@ -15,8 +15,11 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.orc.FileOrcDataSource;
 import com.facebook.presto.orc.OrcBatchRecordReader;
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
@@ -83,8 +86,14 @@ final class OrcTestingUtil
     }
 
     public static OrcBatchRecordReader createRecordReader(OrcReader orcReader, Map<Integer, Type> includedColumns)
+            throws OrcCorruptionException
     {
-        return orcReader.createBatchRecordReader(includedColumns, OrcPredicate.TRUE, DateTimeZone.UTC, newSimpleAggregatedMemoryContext(), MAX_BATCH_SIZE);
+        Metadata metadata = MetadataManager.createTestMetadataManager();
+        FunctionManager functionManager = metadata.getFunctionManager();
+        TypeRegistry typeRegistry = new TypeRegistry();
+        typeRegistry.setFunctionManager(functionManager);
+        StorageTypeConverter storageTypeConverter = new StorageTypeConverter(typeRegistry);
+        return orcReader.createBatchRecordReader(storageTypeConverter.toStorageTypes(includedColumns), OrcPredicate.TRUE, DateTimeZone.UTC, newSimpleAggregatedMemoryContext(), MAX_BATCH_SIZE);
     }
 
     public static byte[] octets(int... values)

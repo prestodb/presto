@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
@@ -20,6 +21,7 @@ import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
@@ -32,6 +34,7 @@ import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
+import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
 import static com.facebook.presto.spi.type.Chars.byteCountWithoutTrailingSpace;
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.VarbinaryType.isVarbinaryType;
@@ -50,18 +53,21 @@ public class SliceBatchStreamReader
     private final SliceDictionaryBatchStreamReader dictionaryReader;
     private BatchStreamReader currentReader;
 
-    public SliceBatchStreamReader(StreamDescriptor streamDescriptor)
+    public SliceBatchStreamReader(Type type, StreamDescriptor streamDescriptor)
+            throws OrcCorruptionException
     {
+        requireNonNull(type, "type is null");
+        verifyStreamType(streamDescriptor, type, t -> t instanceof VarcharType || t instanceof CharType || t instanceof VarbinaryType);
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        directReader = new SliceDirectBatchStreamReader(streamDescriptor);
-        dictionaryReader = new SliceDictionaryBatchStreamReader(streamDescriptor);
+        this.directReader = new SliceDirectBatchStreamReader(streamDescriptor, getMaxCodePointCount(type), isCharType(type));
+        this.dictionaryReader = new SliceDictionaryBatchStreamReader(streamDescriptor, getMaxCodePointCount(type), isCharType(type));
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
-        return currentReader.readBlock(type);
+        return currentReader.readBlock();
     }
 
     @Override

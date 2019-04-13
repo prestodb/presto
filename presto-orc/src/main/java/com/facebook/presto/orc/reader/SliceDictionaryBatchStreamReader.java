@@ -25,7 +25,6 @@ import com.facebook.presto.orc.stream.RowGroupDictionaryLengthInputStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.VariableWidthBlock;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -44,9 +43,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
 import static com.facebook.presto.orc.reader.SliceBatchStreamReader.computeTruncatedLength;
-import static com.facebook.presto.orc.reader.SliceBatchStreamReader.getMaxCodePointCount;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
-import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -63,6 +60,8 @@ public class SliceDictionaryBatchStreamReader
     private static final int[] EMPTY_DICTIONARY_OFFSETS = new int[2];
 
     private final StreamDescriptor streamDescriptor;
+    private final int maxCodePointCount;
+    private final boolean isCharType;
 
     private int readOffset;
     private int nextBatchSize;
@@ -98,8 +97,10 @@ public class SliceDictionaryBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    public SliceDictionaryBatchStreamReader(StreamDescriptor streamDescriptor)
+    public SliceDictionaryBatchStreamReader(StreamDescriptor streamDescriptor, int maxCodePointCount, boolean isCharType)
     {
+        this.maxCodePointCount = maxCodePointCount;
+        this.isCharType = isCharType;
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
     }
 
@@ -111,11 +112,11 @@ public class SliceDictionaryBatchStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
         if (!rowGroupOpen) {
-            openRowGroup(type);
+            openRowGroup();
         }
 
         if (readOffset > 0) {
@@ -202,7 +203,7 @@ public class SliceDictionaryBatchStreamReader
         }
     }
 
-    private void openRowGroup(Type type)
+    private void openRowGroup()
             throws IOException
     {
         // read the dictionary
@@ -232,7 +233,7 @@ public class SliceDictionaryBatchStreamReader
 
                 // read dictionary values
                 ByteArrayInputStream dictionaryDataStream = stripeDictionaryDataStreamSource.openStream();
-                readDictionary(dictionaryDataStream, stripeDictionarySize, stripeDictionaryLength, 0, stripeDictionaryData, stripeDictionaryOffsetVector, type);
+                readDictionary(dictionaryDataStream, stripeDictionarySize, stripeDictionaryLength, 0, stripeDictionaryData, stripeDictionaryOffsetVector, maxCodePointCount, isCharType);
             }
             else {
                 stripeDictionaryData = EMPTY_DICTIONARY_DATA;
@@ -265,7 +266,7 @@ public class SliceDictionaryBatchStreamReader
 
             // read dictionary values
             ByteArrayInputStream dictionaryDataStream = rowGroupDictionaryDataStreamSource.openStream();
-            readDictionary(dictionaryDataStream, rowGroupDictionarySize, rowGroupDictionaryLength, stripeDictionarySize, rowGroupDictionaryData, rowGroupDictionaryOffsetVector, type);
+            readDictionary(dictionaryDataStream, rowGroupDictionarySize, rowGroupDictionaryLength, stripeDictionarySize, rowGroupDictionaryData, rowGroupDictionaryOffsetVector, maxCodePointCount, isCharType);
             setDictionaryBlockData(rowGroupDictionaryData, rowGroupDictionaryOffsetVector, stripeDictionarySize + rowGroupDictionarySize + 1);
         }
         else {
@@ -288,7 +289,8 @@ public class SliceDictionaryBatchStreamReader
             int offsetVectorOffset,
             byte[] data,
             int[] offsetVector,
-            Type type)
+            int maxCodePointCount,
+            boolean isCharType)
             throws IOException
     {
         Slice slice = wrappedBuffer(data);
@@ -306,8 +308,6 @@ public class SliceDictionaryBatchStreamReader
             int length = dictionaryLengthVector[i];
 
             int truncatedLength;
-            int maxCodePointCount = getMaxCodePointCount(type);
-            boolean isCharType = isCharType(type);
             if (length > 0) {
                 // read data without truncation
                 dictionaryDataStream.next(data, offset, offset + length);

@@ -90,7 +90,7 @@ public class BenchmarkBatchStreamReaders
         OrcBatchRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(data.type, 0);
+            Block block = recordReader.readBlock(0);
             blocks.add(block);
         }
         return blocks;

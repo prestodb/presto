@@ -165,7 +165,10 @@ public final class OrcFileRewriter
                 }
                 userMetadata = ImmutableMap.of(OrcFileMetadata.KEY, METADATA_CODEC.toJson(new OrcFileMetadata(metadataBuilder.build())));
             }
-            try (Closer<OrcBatchRecordReader, IOException> recordReader = closer(reader.createBatchRecordReader(readerColumns, TRUE, DEFAULT_STORAGE_TIMEZONE, newSimpleAggregatedMemoryContext(), INITIAL_BATCH_SIZE), OrcBatchRecordReader::close);
+
+            StorageTypeConverter storageTypeConverter = new StorageTypeConverter(typeManager);
+
+            try (Closer<OrcBatchRecordReader, IOException> recordReader = closer(reader.createBatchRecordReader(storageTypeConverter.toStorageTypes(readerColumns), TRUE, DEFAULT_STORAGE_TIMEZONE, newSimpleAggregatedMemoryContext(), INITIAL_BATCH_SIZE), OrcBatchRecordReader::close);
                     Closer<OrcWriter, IOException> writer = closer(new OrcWriter(
                             orcDataEnvironment.createOrcDataSink(fileSystem, output),
                             writerColumnIds,
@@ -215,7 +218,7 @@ public final class OrcFileRewriter
             Block[] blocks = new Block[types.size()];
             for (int i = 0; i < types.size(); i++) {
                 // read from existing columns
-                blocks[i] = reader.readBlock(types.get(i), readerColumnIndex.get(i));
+                blocks[i] = reader.readBlock(readerColumnIndex.get(i));
             }
 
             row = toIntExact(reader.getFilePosition());

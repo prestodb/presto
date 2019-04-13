@@ -234,7 +234,7 @@ public abstract class AbstractTestOrcReader
             assertEquals(stripeFootercache.stats().hitCount(), 1);
             assertEquals(stripeStreamCache.stats().missCount(), 2);
             assertEquals(stripeStreamCache.stats().hitCount(), 2);
-            assertEquals(storageReader.readBlock(BIGINT, 0).getInt(0), cacheReader.readBlock(BIGINT, 0).getInt(0));
+            assertEquals(storageReader.readBlock(0).getInt(0), cacheReader.readBlock(0).getInt(0));
         }
     }
 

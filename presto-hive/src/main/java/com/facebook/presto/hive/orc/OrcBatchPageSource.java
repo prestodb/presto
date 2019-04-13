@@ -144,12 +144,11 @@ public class OrcBatchPageSource
 
             Block[] blocks = new Block[hiveColumnIndexes.length];
             for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
-                Type type = types.get(fieldId);
                 if (constantBlocks[fieldId] != null) {
                     blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
                 }
                 else {
-                    blocks[fieldId] = new LazyBlock(batchSize, new OrcBlockLoader(hiveColumnIndexes[fieldId], type));
+                    blocks[fieldId] = new LazyBlock(batchSize, new OrcBlockLoader(hiveColumnIndexes[fieldId]));
                 }
             }
             return new Page(batchSize, blocks);
@@ -220,13 +219,11 @@ public class OrcBatchPageSource
     {
         private final int expectedBatchId = batchId;
         private final int columnIndex;
-        private final Type type;
         private boolean loaded;
 
-        public OrcBlockLoader(int columnIndex, Type type)
+        public OrcBlockLoader(int columnIndex)
         {
             this.columnIndex = columnIndex;
-            this.type = requireNonNull(type, "type is null");
         }
 
         @Override
@@ -239,7 +236,7 @@ public class OrcBatchPageSource
             checkState(batchId == expectedBatchId);
 
             try {
-                Block block = recordReader.readBlock(type, columnIndex);
+                Block block = recordReader.readBlock(columnIndex);
                 lazyBlock.setBlock(block);
             }
             catch (OrcCorruptionException e) {
