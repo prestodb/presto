@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.DwrfSequenceEncoding;
@@ -47,6 +48,7 @@ import java.util.SortedMap;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_MAP;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -68,6 +70,7 @@ public class MapFlatBatchStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapFlatBatchStreamReader.class).instanceSize();
 
+    private final MapType type;
     private final StreamDescriptor streamDescriptor;
     private final DateTimeZone hiveStorageTimeZone;
 
@@ -91,8 +94,13 @@ public class MapFlatBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    public MapFlatBatchStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
+    public MapFlatBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
+            throws OrcCorruptionException
     {
+        requireNonNull(type, "type is null");
+        verifyStreamType(streamDescriptor, type, MapType.class::isInstance);
+        this.type = (MapType) type;
+
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         this.keyOrcType = streamDescriptor.getNestedStreams().get(0).getOrcTypeKind();
@@ -107,7 +115,7 @@ public class MapFlatBatchStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -172,7 +180,7 @@ public class MapFlatBatchStreamReader
             if (mapsContainingKey > 0) {
                 BatchStreamReader streamReader = valueStreamReaders.get(keyIndex);
                 streamReader.prepareNextRead(mapsContainingKey);
-                valueBlocks[keyIndex] = streamReader.readBlock(valueType);
+                valueBlocks[keyIndex] = streamReader.readBlock();
             }
             else {
                 valueBlocks[keyIndex] = valueType.createBlockBuilder(null, 0).build();
@@ -241,7 +249,7 @@ public class MapFlatBatchStreamReader
             StreamDescriptor valueStreamDescriptor = copyStreamDescriptorWithSequence(baseValueStreamDescriptor, sequence);
             valueStreamDescriptors.add(valueStreamDescriptor);
 
-            BatchStreamReader valueStreamReader = BatchStreamReaders.createStreamReader(valueStreamDescriptor, hiveStorageTimeZone);
+            BatchStreamReader valueStreamReader = BatchStreamReaders.createStreamReader(type.getValueType(), valueStreamDescriptor, hiveStorageTimeZone);
             valueStreamReader.startStripe(dictionaryStreamSources, encodings);
             valueStreamReaders.add(valueStreamReader);
         }

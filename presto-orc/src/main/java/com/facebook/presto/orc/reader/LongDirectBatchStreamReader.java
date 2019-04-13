@@ -23,6 +23,10 @@ import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -33,6 +37,7 @@ import java.util.List;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -42,6 +47,7 @@ public class LongDirectBatchStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongDirectBatchStreamReader.class).instanceSize();
 
+    private final Type type;
     private final StreamDescriptor streamDescriptor;
 
     private int readOffset;
@@ -57,8 +63,13 @@ public class LongDirectBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    public LongDirectBatchStreamReader(StreamDescriptor streamDescriptor)
+    public LongDirectBatchStreamReader(Type type, StreamDescriptor streamDescriptor)
+            throws OrcCorruptionException
     {
+        requireNonNull(type, "type is null");
+        verifyStreamType(streamDescriptor, type, t -> t instanceof BigintType || t instanceof IntegerType || t instanceof SmallintType || t instanceof DateType);
+        this.type = type;
+
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
     }
 
@@ -70,7 +81,7 @@ public class LongDirectBatchStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
         if (!rowGroupOpen) {

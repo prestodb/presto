@@ -215,7 +215,7 @@ public final class OrcFileRewriter
             Block[] blocks = new Block[types.size()];
             for (int i = 0; i < types.size(); i++) {
                 // read from existing columns
-                blocks[i] = reader.readBlock(types.get(i), readerColumnIndex.get(i));
+                blocks[i] = reader.readBlock(readerColumnIndex.get(i));
             }
 
             row = toIntExact(reader.getFilePosition());
