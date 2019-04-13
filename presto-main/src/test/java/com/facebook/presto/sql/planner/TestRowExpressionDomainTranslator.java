@@ -27,6 +27,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.planner.optimizations.RowExpressionCanonicalizer;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator.ExtractionResult;
 import com.facebook.presto.sql.relational.StandardFunctionResolution;
@@ -1155,7 +1156,7 @@ public class TestRowExpressionDomainTranslator
 
     private ExtractionResult fromPredicate(RowExpression originalPredicate)
     {
-        return RowExpressionDomainTranslator.fromPredicate(metadata, TEST_SESSION, originalPredicate);
+        return domainTranslator.fromPredicate(metadata, TEST_SESSION, originalPredicate);
     }
 
     private RowExpression nullLiteral(Type type)
@@ -1317,7 +1318,8 @@ public class TestRowExpressionDomainTranslator
     private void assertUnsupportedPredicate(RowExpression expression)
     {
         ExtractionResult result = fromPredicate(expression);
-        assertEquals(result.getRemainingExpression(), expression);
+        RowExpressionCanonicalizer canonicalizer = new RowExpressionCanonicalizer(metadata.getFunctionManager());
+        assertEquals(canonicalizer.canonicalize(result.getRemainingExpression()), canonicalizer.canonicalize(expression));
         assertEquals(result.getTupleDomain(), TupleDomain.all());
     }
 

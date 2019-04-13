@@ -600,7 +600,8 @@ public class PropertyDerivations
                 tupleDomain = ExpressionDomainTranslator.fromPredicate(metadata, session, castToExpression(node.getPredicate()), types).getTupleDomain();
             }
             else {
-                tupleDomain = RowExpressionDomainTranslator.fromPredicate(metadata, session, node.getPredicate())
+                // we will deprecate PropertyDerivation later.
+                tupleDomain = new RowExpressionDomainTranslator(metadata.getFunctionManager()).fromPredicate(metadata, session, node.getPredicate())
                         .getTupleDomain()
                         .transform(column -> new Symbol(column.getName()));
             }
