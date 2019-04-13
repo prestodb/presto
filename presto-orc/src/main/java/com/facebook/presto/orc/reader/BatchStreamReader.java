@@ -14,14 +14,13 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 
 import java.io.IOException;
 
 public interface BatchStreamReader
         extends StreamReader
 {
-    Block readBlock(Type type)
+    Block readBlock()
             throws IOException;
 
     void prepareNextRead(int batchSize);

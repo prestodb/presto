@@ -22,6 +22,8 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Map;
+
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -39,6 +41,7 @@ import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class StorageTypeConverter
@@ -88,6 +91,11 @@ public class StorageTypeConverter
         // Need to make sure min/max are compliant with both storage and column types.
         checkState(storageType.getJavaType().equals(type.getJavaType()));
         return storageType;
+    }
+
+    public Map<Integer, Type> toStorageTypes(Map<Integer, Type> includedColumns)
+    {
+        return includedColumns.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> toStorageType(entry.getValue())));
     }
 
     private Type mapType(Type keyType, Type valueType)

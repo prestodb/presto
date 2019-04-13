@@ -36,6 +36,7 @@ import java.util.Optional;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.BatchStreamReaders.createStreamReader;
+import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.Math.toIntExact;
@@ -46,6 +47,7 @@ public class MapDirectBatchStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapDirectBatchStreamReader.class).instanceSize();
 
+    private final MapType type;
     private final StreamDescriptor streamDescriptor;
 
     private final BatchStreamReader keyStreamReader;
@@ -64,11 +66,15 @@ public class MapDirectBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    public MapDirectBatchStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
+    public MapDirectBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
+            throws OrcCorruptionException
     {
+        requireNonNull(type, "type is null");
+        verifyStreamType(streamDescriptor, type, MapType.class::isInstance);
+        this.type = (MapType) type;
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        this.keyStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone);
-        this.valueStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(1), hiveStorageTimeZone);
+        this.keyStreamReader = createStreamReader(this.type.getKeyType(), streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone);
+        this.valueStreamReader = createStreamReader(this.type.getValueType(), streamDescriptor.getNestedStreams().get(1), hiveStorageTimeZone);
     }
 
     @Override
@@ -79,7 +85,7 @@ public class MapDirectBatchStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -139,8 +145,8 @@ public class MapDirectBatchStreamReader
         if (entryCount > 0) {
             keyStreamReader.prepareNextRead(entryCount);
             valueStreamReader.prepareNextRead(entryCount);
-            keys = keyStreamReader.readBlock(keyType);
-            values = valueStreamReader.readBlock(valueType);
+            keys = keyStreamReader.readBlock();
+            values = valueStreamReader.readBlock();
         }
         else {
             keys = keyType.createBlockBuilder(null, 0).build();
