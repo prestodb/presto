@@ -869,7 +869,7 @@ public class OrcTester
                 else {
                     for (int i = 0; i < types.size(); i++) {
                         Type type = types.get(i);
-                        Block block = recordReader.readBlock(type, i);
+                        Block block = recordReader.readBlock(i);
                         assertEquals(block.getPositionCount(), batchSize);
 
                         List<Object> data = new ArrayList<>(block.getPositionCount());

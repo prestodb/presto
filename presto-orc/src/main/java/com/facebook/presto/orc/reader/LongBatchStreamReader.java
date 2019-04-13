@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
@@ -41,11 +42,12 @@ public class LongBatchStreamReader
     private final LongDictionaryBatchStreamReader dictionaryReader;
     private BatchStreamReader currentReader;
 
-    public LongBatchStreamReader(StreamDescriptor streamDescriptor)
+    public LongBatchStreamReader(Type type, StreamDescriptor streamDescriptor)
+            throws OrcCorruptionException
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        directReader = new LongDirectBatchStreamReader(streamDescriptor);
-        dictionaryReader = new LongDictionaryBatchStreamReader(streamDescriptor);
+        directReader = new LongDirectBatchStreamReader(type, streamDescriptor);
+        dictionaryReader = new LongDictionaryBatchStreamReader(type, streamDescriptor);
     }
 
     @Override
@@ -55,10 +57,10 @@ public class LongBatchStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
-        return currentReader.readBlock(type);
+        return currentReader.readBlock();
     }
 
     @Override
