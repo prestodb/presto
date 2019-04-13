@@ -62,6 +62,7 @@ import com.facebook.presto.sql.util.AstUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -343,7 +344,7 @@ public class PredicatePushDown
             boolean modified = false;
             ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
             for (int i = 0; i < node.getSources().size(); i++) {
-                Expression sourcePredicate = inlineSymbols(node.sourceSymbolMap(i), context.get());
+                Expression sourcePredicate = inlineSymbols(Maps.transformValues(node.sourceSymbolMap(i), Symbol::toSymbolReference), context.get());
                 PlanNode source = node.getSources().get(i);
                 PlanNode rewrittenSource = context.rewrite(source, sourcePredicate);
                 if (rewrittenSource != source) {

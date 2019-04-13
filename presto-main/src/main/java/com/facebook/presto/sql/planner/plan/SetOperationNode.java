@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.FluentIterable;
@@ -104,11 +103,11 @@ public abstract class SetOperationNode
     /**
      * Returns the output to input symbol mapping for the given source channel
      */
-    public Map<Symbol, SymbolReference> sourceSymbolMap(int sourceIndex)
+    public Map<Symbol, Symbol> sourceSymbolMap(int sourceIndex)
     {
-        ImmutableMap.Builder<Symbol, SymbolReference> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<Symbol, Symbol> builder = ImmutableMap.builder();
         for (Map.Entry<Symbol, Collection<Symbol>> entry : outputToInputs.asMap().entrySet()) {
-            builder.put(entry.getKey(), Iterables.get(entry.getValue(), sourceIndex).toSymbolReference());
+            builder.put(entry.getKey(), Iterables.get(entry.getValue(), sourceIndex));
         }
 
         return builder.build();
