@@ -23,6 +23,7 @@ import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -116,6 +117,16 @@ public class TimestampStreamReader
             }
         }
 
+        if (secondsStream == null && nanosStream == null && presentStream != null) {
+            presentStream.skip(nextBatchSize);
+            Block nullValueBlock = new RunLengthEncodedBlock(
+                    type.createBlockBuilder(null, 1).appendNull().build(),
+                    nextBatchSize);
+            readOffset = 0;
+            nextBatchSize = 0;
+            return nullValueBlock;
+        }
+
         BlockBuilder builder = type.createBlockBuilder(null, nextBatchSize);
 
         if (presentStream == null) {
@@ -131,10 +142,10 @@ public class TimestampStreamReader
             }
         }
         else {
+            verify(secondsStream != null, "Value is not null but seconds stream is not present");
+            verify(nanosStream != null, "Value is not null but nanos stream is not present");
             for (int i = 0; i < nextBatchSize; i++) {
                 if (presentStream.nextBit()) {
-                    verify(secondsStream != null, "Value is not null but seconds stream is not present");
-                    verify(nanosStream != null, "Value is not null but nanos stream is not present");
                     type.writeLong(builder, decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds));
                 }
                 else {
