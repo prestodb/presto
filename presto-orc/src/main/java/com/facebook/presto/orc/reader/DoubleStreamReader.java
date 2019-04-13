@@ -23,6 +23,7 @@ import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -33,7 +34,9 @@ import java.util.List;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
@@ -61,8 +64,11 @@ public class DoubleStreamReader
 
     private LocalMemoryContext systemMemoryContext;
 
-    public DoubleStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
+    public DoubleStreamReader(Type type, StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
+            throws OrcCorruptionException
     {
+        requireNonNull(type, "type is null");
+        verifyStreamType(streamDescriptor, type, DoubleType.class::isInstance);
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
@@ -75,7 +81,7 @@ public class DoubleStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -101,7 +107,7 @@ public class DoubleStreamReader
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is null but present stream is missing");
             }
             presentStream.skip(nextBatchSize);
-            Block nullValueBlock = RunLengthEncodedBlock.create(type, null, nextBatchSize);
+            Block nullValueBlock = RunLengthEncodedBlock.create(DOUBLE, null, nextBatchSize);
             readOffset = 0;
             nextBatchSize = 0;
             return nullValueBlock;
@@ -109,19 +115,19 @@ public class DoubleStreamReader
 
         Block block;
         if (presentStream == null) {
-            block = dataStream.nextBlock(type, nextBatchSize);
+            block = dataStream.nextBlock(DOUBLE, nextBatchSize);
         }
         else {
             boolean[] isNull = new boolean[nextBatchSize];
             int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
             if (nullCount == 0) {
-                block = dataStream.nextBlock(type, nextBatchSize);
+                block = dataStream.nextBlock(DOUBLE, nextBatchSize);
             }
             else if (nullCount != nextBatchSize) {
-                block = dataStream.nextBlock(type, isNull);
+                block = dataStream.nextBlock(DOUBLE, isNull);
             }
             else {
-                block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
+                block = RunLengthEncodedBlock.create(DOUBLE, null, nextBatchSize);
             }
         }
 

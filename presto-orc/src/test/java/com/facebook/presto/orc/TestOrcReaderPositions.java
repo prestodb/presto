@@ -163,7 +163,7 @@ public class TestOrcReaderPositions
                         break;
                     }
 
-                    Block block = reader.readBlock(BIGINT, 0);
+                    Block block = reader.readBlock(0);
                     for (int i = 0; i < batchSize; i++) {
                         assertEquals(BIGINT.getLong(block, i), position + i);
                     }
@@ -216,7 +216,7 @@ public class TestOrcReaderPositions
 
                     rowCountsInCurrentRowGroup += batchSize;
 
-                    Block block = reader.readBlock(VARCHAR, 0);
+                    Block block = reader.readBlock(0);
                     if (MAX_BATCH_SIZE * currentStringBytes <= MAX_BLOCK_SIZE.toBytes()) {
                         // Either we are bounded by 1024 rows per batch, or it is the last batch in the row group
                         // For the first 3 row groups, the strings are of length 300, 600, and 900 respectively
@@ -270,7 +270,7 @@ public class TestOrcReaderPositions
                     }
                     rowCountsInCurrentRowGroup += batchSize;
 
-                    Block block = reader.readBlock(BIGINT, 0);
+                    Block block = reader.readBlock(0);
                     // 8 bytes per row; 1024 row at most given 1024 X 8B < 1MB
                     assertTrue(block.getPositionCount() == MAX_BATCH_SIZE || rowCountsInCurrentRowGroup == rowsInRowGroup);
 
@@ -363,7 +363,7 @@ public class TestOrcReaderPositions
     private static void assertCurrentBatch(OrcRecordReader reader, int rowIndex, int batchSize)
             throws IOException
     {
-        Block block = reader.readBlock(BIGINT, 0);
+        Block block = reader.readBlock(0);
         for (int i = 0; i < batchSize; i++) {
             assertEquals(BIGINT.getLong(block, i), (rowIndex + i) * 3);
         }
@@ -372,7 +372,7 @@ public class TestOrcReaderPositions
     private static void assertCurrentBatch(OrcRecordReader reader, int stripe)
             throws IOException
     {
-        Block block = reader.readBlock(BIGINT, 0);
+        Block block = reader.readBlock(0);
         for (int i = 0; i < 20; i++) {
             assertEquals(BIGINT.getLong(block, i), ((stripe * 20L) + i) * 3);
         }

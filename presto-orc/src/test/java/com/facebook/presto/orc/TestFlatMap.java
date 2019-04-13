@@ -407,7 +407,7 @@ public class TestFlatMap
                     isFirst = false;
                 }
                 else {
-                    Block block = recordReader.readBlock(mapType, 0);
+                    Block block = recordReader.readBlock(0);
 
                     for (int position = 0; position < block.getPositionCount(); position++) {
                         assertEquals(mapType.getObjectValue(SESSION, block, position), expectedValuesIterator.next());

@@ -536,7 +536,7 @@ public class OrcTester
                     isFirst = false;
                 }
                 else {
-                    Block block = recordReader.readBlock(type, 0);
+                    Block block = recordReader.readBlock(0);
 
                     List<Object> data = new ArrayList<>(block.getPositionCount());
                     for (int position = 0; position < block.getPositionCount(); position++) {

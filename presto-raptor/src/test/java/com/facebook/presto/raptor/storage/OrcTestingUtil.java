@@ -16,6 +16,7 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.orc.FileOrcDataSource;
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
@@ -84,6 +85,7 @@ final class OrcTestingUtil
     }
 
     public static OrcRecordReader createRecordReader(OrcReader orcReader, Map<Integer, Type> includedColumns)
+            throws OrcCorruptionException
     {
         return orcReader.createRecordReader(includedColumns, OrcPredicate.TRUE, DateTimeZone.UTC, newSimpleAggregatedMemoryContext(), MAX_BATCH_SIZE);
     }

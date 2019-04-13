@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
@@ -44,11 +45,12 @@ public class LongStreamReader
     private final LongDictionaryStreamReader dictionaryReader;
     private StreamReader currentReader;
 
-    public LongStreamReader(StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
+    public LongStreamReader(Type type, StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
+            throws OrcCorruptionException
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        directReader = new LongDirectStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(LongStreamReader.class.getSimpleName()));
-        dictionaryReader = new LongDictionaryStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(LongStreamReader.class.getSimpleName()));
+        directReader = new LongDirectStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(LongStreamReader.class.getSimpleName()));
+        dictionaryReader = new LongDictionaryStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(LongStreamReader.class.getSimpleName()));
     }
 
     @Override
@@ -58,10 +60,10 @@ public class LongStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
-        return currentReader.readBlock(type);
+        return currentReader.readBlock();
     }
 
     @Override

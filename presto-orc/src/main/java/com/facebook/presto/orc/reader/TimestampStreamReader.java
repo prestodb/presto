@@ -24,6 +24,7 @@ import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -37,7 +38,9 @@ import java.util.List;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
+import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -76,8 +79,12 @@ public class TimestampStreamReader
 
     private LocalMemoryContext systemMemoryContext;
 
-    public TimestampStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, LocalMemoryContext systemMemoryContext)
+    public TimestampStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, LocalMemoryContext systemMemoryContext)
+            throws OrcCorruptionException
     {
+        requireNonNull(type, "type is null");
+        verifyStreamType(streamDescriptor, type, TimestampType.class::isInstance);
+
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.baseTimestampInSeconds = new DateTime(2015, 1, 1, 0, 0, requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null")).getMillis() / MILLIS_PER_SECOND;
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
@@ -91,7 +98,7 @@ public class TimestampStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -119,13 +126,13 @@ public class TimestampStreamReader
 
         if (secondsStream == null && nanosStream == null && presentStream != null) {
             presentStream.skip(nextBatchSize);
-            Block nullValueBlock = RunLengthEncodedBlock.create(type, null, nextBatchSize);
+            Block nullValueBlock = RunLengthEncodedBlock.create(TIMESTAMP, null, nextBatchSize);
             readOffset = 0;
             nextBatchSize = 0;
             return nullValueBlock;
         }
 
-        BlockBuilder builder = type.createBlockBuilder(null, nextBatchSize);
+        BlockBuilder builder = TIMESTAMP.createBlockBuilder(null, nextBatchSize);
 
         if (presentStream == null) {
             if (secondsStream == null) {
@@ -136,7 +143,7 @@ public class TimestampStreamReader
             }
 
             for (int i = 0; i < nextBatchSize; i++) {
-                type.writeLong(builder, decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds));
+                TIMESTAMP.writeLong(builder, decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds));
             }
         }
         else {
@@ -144,7 +151,7 @@ public class TimestampStreamReader
             verify(nanosStream != null, "Value is not null but nanos stream is not present");
             for (int i = 0; i < nextBatchSize; i++) {
                 if (presentStream.nextBit()) {
-                    type.writeLong(builder, decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds));
+                    TIMESTAMP.writeLong(builder, decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds));
                 }
                 else {
                     builder.appendNull();

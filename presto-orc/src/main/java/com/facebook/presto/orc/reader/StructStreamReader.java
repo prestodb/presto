@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanInputStream;
@@ -24,6 +25,8 @@ import com.facebook.presto.spi.block.RowBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
@@ -39,6 +42,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
 import static com.facebook.presto.orc.reader.StreamReaders.createStreamReader;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -54,6 +58,8 @@ public class StructStreamReader
     private final StreamDescriptor streamDescriptor;
 
     private final Map<String, StreamReader> structFields;
+    private final RowType type;
+    private final ImmutableList<String> fieldNames;
 
     private int readOffset;
     private int nextBatchSize;
@@ -64,11 +70,32 @@ public class StructStreamReader
 
     private boolean rowGroupOpen;
 
-    StructStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
+    StructStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
+            throws OrcCorruptionException
     {
+        requireNonNull(type, "type is null");
+        verifyStreamType(streamDescriptor, type, RowType.class::isInstance);
+        this.type = (RowType) type;
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        this.structFields = streamDescriptor.getNestedStreams().stream()
-                .collect(toImmutableMap(stream -> stream.getFieldName().toLowerCase(Locale.ENGLISH), stream -> createStreamReader(stream, hiveStorageTimeZone, systemMemoryContext)));
+
+        Map<String, StreamDescriptor> nestedStreams = streamDescriptor.getNestedStreams().stream()
+                .collect(toImmutableMap(stream -> stream.getFieldName().toLowerCase(Locale.ENGLISH), stream -> stream));
+
+        ImmutableList.Builder<String> fieldNames = ImmutableList.builder();
+        ImmutableMap.Builder<String, StreamReader> structFields = ImmutableMap.builder();
+        for (RowType.Field field : this.type.getFields()) {
+            String fieldName = field.getName()
+                    .orElseThrow(() -> new IllegalArgumentException("ROW type does not have field names declared: " + type))
+                    .toLowerCase(Locale.ENGLISH);
+            fieldNames.add(fieldName);
+
+            StreamDescriptor fieldStream = nestedStreams.get(fieldName);
+            if (fieldStream != null) {
+                structFields.put(fieldName, createStreamReader(field.getType(), fieldStream, hiveStorageTimeZone, systemMemoryContext));
+            }
+        }
+        this.fieldNames = fieldNames.build();
+        this.structFields = structFields.build();
     }
 
     @Override
@@ -79,7 +106,7 @@ public class StructStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -101,13 +128,13 @@ public class StructStreamReader
         Block[] blocks;
 
         if (presentStream == null) {
-            blocks = getBlocksForType(type, nextBatchSize);
+            blocks = getBlocksForType(nextBatchSize);
         }
         else {
             nullVector = new boolean[nextBatchSize];
             int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
             if (nullValues != nextBatchSize) {
-                blocks = getBlocksForType(type, nextBatchSize - nullValues);
+                blocks = getBlocksForType(nextBatchSize - nullValues);
             }
             else {
                 List<Type> typeParameters = type.getTypeParameters();
@@ -184,40 +211,23 @@ public class StructStreamReader
                 .toString();
     }
 
-    private Block[] getBlocksForType(Type type, int positionCount)
+    private Block[] getBlocksForType(int positionCount)
             throws IOException
     {
-        RowType rowType = (RowType) type;
+        Block[] blocks = new Block[fieldNames.size()];
 
-        Block[] blocks = new Block[rowType.getFields().size()];
-
-        for (int i = 0; i < rowType.getFields().size(); i++) {
-            Optional<String> fieldName = rowType.getFields().get(i).getName();
-            Type fieldType = rowType.getFields().get(i).getType();
-
-            if (!fieldName.isPresent()) {
-                throw new IllegalArgumentException("Missing struct field name in type " + rowType);
-            }
-
-            String lowerCaseFieldName = fieldName.get().toLowerCase(Locale.ENGLISH);
-            StreamReader streamReader = structFields.get(lowerCaseFieldName);
+        for (int i = 0; i < fieldNames.size(); i++) {
+            String fieldName = fieldNames.get(i);
+            StreamReader streamReader = structFields.get(fieldName);
             if (streamReader != null) {
                 streamReader.prepareNextRead(positionCount);
-                blocks[i] = streamReader.readBlock(fieldType);
+                blocks[i] = streamReader.readBlock();
             }
             else {
-                blocks[i] = getNullBlock(fieldType, positionCount);
+                blocks[i] = RunLengthEncodedBlock.create(type.getFields().get(i).getType(), null, positionCount);
             }
         }
         return blocks;
-    }
-
-    private static Block getNullBlock(Type type, int positionCount)
-    {
-        Block nullValueBlock = type.createBlockBuilder(null, 1)
-                .appendNull()
-                .build();
-        return new RunLengthEncodedBlock(nullValueBlock, positionCount);
     }
 
     @Override

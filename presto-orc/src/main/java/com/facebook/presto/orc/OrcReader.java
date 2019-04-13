@@ -223,6 +223,7 @@ public class OrcReader
     }
 
     public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryUsage, int initialBatchSize)
+            throws OrcCorruptionException
     {
         return createRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize);
     }
@@ -235,6 +236,7 @@ public class OrcReader
             DateTimeZone hiveStorageTimeZone,
             AggregatedMemoryContext systemMemoryUsage,
             int initialBatchSize)
+            throws OrcCorruptionException
     {
         return new OrcRecordReader(
                 requireNonNull(includedColumns, "includedColumns is null"),

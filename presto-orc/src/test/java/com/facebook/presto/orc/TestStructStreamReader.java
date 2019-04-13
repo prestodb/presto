@@ -153,7 +153,7 @@ public class TestStructStreamReader
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp =
-            "Missing struct field name in type row\\(varchar,varchar,varchar\\)")
+            "ROW type does not have field names declared: row\\(varchar,varchar,varchar\\)")
     public void testThrowsExceptionWhenFieldNameMissing()
             throws IOException
     {
@@ -271,7 +271,7 @@ public class TestStructStreamReader
         OrcRecordReader recordReader = orcReader.createRecordReader(includedColumns, OrcPredicate.TRUE, UTC, newSimpleAggregatedMemoryContext(), OrcReader.INITIAL_BATCH_SIZE);
 
         recordReader.nextBatch();
-        RowBlock block = (RowBlock) recordReader.readBlock(readerType, 0);
+        RowBlock block = (RowBlock) recordReader.readBlock(0);
         recordReader.close();
         return block;
     }

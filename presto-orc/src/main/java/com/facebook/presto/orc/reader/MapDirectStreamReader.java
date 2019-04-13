@@ -38,6 +38,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
 import static com.facebook.presto.orc.reader.StreamReaders.createStreamReader;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -49,6 +50,7 @@ public class MapDirectStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapDirectStreamReader.class).instanceSize();
 
+    private final MapType type;
     private final StreamDescriptor streamDescriptor;
 
     private final StreamReader keyStreamReader;
@@ -67,11 +69,16 @@ public class MapDirectStreamReader
 
     private boolean rowGroupOpen;
 
-    public MapDirectStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
+    public MapDirectStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
+            throws OrcCorruptionException
     {
+        requireNonNull(type, "type is null");
+        verifyStreamType(streamDescriptor, type, MapType.class::isInstance);
+        this.type = (MapType) type;
+
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        this.keyStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone, systemMemoryContext);
-        this.valueStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(1), hiveStorageTimeZone, systemMemoryContext);
+        this.keyStreamReader = createStreamReader(this.type.getKeyType(), streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone, systemMemoryContext);
+        this.valueStreamReader = createStreamReader(this.type.getValueType(), streamDescriptor.getNestedStreams().get(1), hiveStorageTimeZone, systemMemoryContext);
     }
 
     @Override
@@ -82,7 +89,7 @@ public class MapDirectStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -142,8 +149,8 @@ public class MapDirectStreamReader
         if (entryCount > 0) {
             keyStreamReader.prepareNextRead(entryCount);
             valueStreamReader.prepareNextRead(entryCount);
-            keys = keyStreamReader.readBlock(keyType);
-            values = valueStreamReader.readBlock(valueType);
+            keys = keyStreamReader.readBlock();
+            values = valueStreamReader.readBlock();
         }
         else {
             keys = keyType.createBlockBuilder(null, 0).build();

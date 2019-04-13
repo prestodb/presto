@@ -23,6 +23,7 @@ import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.io.Closer;
 import org.joda.time.DateTimeZone;
@@ -37,6 +38,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
 import static com.facebook.presto.orc.reader.StreamReaders.createStreamReader;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -48,6 +50,7 @@ public class ListStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ListStreamReader.class).instanceSize();
 
+    private final Type elementType;
     private final StreamDescriptor streamDescriptor;
 
     private final StreamReader elementStreamReader;
@@ -65,10 +68,15 @@ public class ListStreamReader
 
     private boolean rowGroupOpen;
 
-    public ListStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
+    public ListStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
+            throws OrcCorruptionException
     {
+        requireNonNull(type, "type is null");
+        verifyStreamType(streamDescriptor, type, ArrayType.class::isInstance);
+        elementType = ((ArrayType) type).getElementType();
+
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        this.elementStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone, systemMemoryContext);
+        this.elementStreamReader = createStreamReader(elementType, streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone, systemMemoryContext);
     }
 
     @Override
@@ -79,7 +87,7 @@ public class ListStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -131,13 +139,12 @@ public class ListStreamReader
             currentLength = nextLength;
         }
 
-        Type elementType = type.getTypeParameters().get(0);
         int elementCount = offsetVector[offsetVector.length - 1];
 
         Block elements;
         if (elementCount > 0) {
             elementStreamReader.prepareNextRead(elementCount);
-            elements = elementStreamReader.readBlock(elementType);
+            elements = elementStreamReader.readBlock();
         }
         else {
             elements = elementType.createBlockBuilder(null, 0).build();

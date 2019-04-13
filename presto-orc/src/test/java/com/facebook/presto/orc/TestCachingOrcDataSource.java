@@ -213,7 +213,7 @@ public class TestCachingOrcDataSource
             if (batchSize <= 0) {
                 break;
             }
-            Block block = orcRecordReader.readBlock(VARCHAR, 0);
+            Block block = orcRecordReader.readBlock(0);
             positionCount += block.getPositionCount();
         }
         assertEquals(positionCount, POSITION_COUNT);

@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
@@ -45,11 +46,12 @@ public class MapStreamReader
     private final MapFlatStreamReader flatReader;
     private StreamReader currentReader;
 
-    public MapStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
+    public MapStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
+            throws OrcCorruptionException
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        directReader = new MapDirectStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
-        flatReader = new MapFlatStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+        directReader = new MapDirectStreamReader(type, streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+        flatReader = new MapFlatStreamReader(type, streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
     }
 
     @Override
@@ -59,10 +61,10 @@ public class MapStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
-        return currentReader.readBlock(type);
+        return currentReader.readBlock();
     }
 
     @Override

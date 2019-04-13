@@ -82,7 +82,6 @@ public class OrcRecordReader
     private final long splitLength;
     private final Set<Integer> presentColumns;
     private final long maxBlockBytes;
-    private final Map<Integer, Type> includedColumns;
     private long currentPosition;
     private long currentStripePosition;
     private int currentBatchSize;
@@ -137,6 +136,7 @@ public class OrcRecordReader
             AggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
             int initialBatchSize)
+            throws OrcCorruptionException
     {
         requireNonNull(includedColumns, "includedColumns is null");
         requireNonNull(predicate, "predicate is null");
@@ -149,7 +149,6 @@ public class OrcRecordReader
         requireNonNull(userMetadata, "userMetadata is null");
         requireNonNull(systemMemoryUsage, "systemMemoryUsage is null");
 
-        this.includedColumns = requireNonNull(includedColumns, "includedColumns is null");
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
         this.writeChecksumBuilder = writeValidation.map(validation -> createWriteChecksumBuilder(includedColumns));
         this.rowGroupStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(includedColumns));
@@ -409,10 +408,10 @@ public class OrcRecordReader
         return currentBatchSize;
     }
 
-    public Block readBlock(Type type, int columnIndex)
+    public Block readBlock(int columnIndex)
             throws IOException
     {
-        Block block = streamReaders[columnIndex].readBlock(type);
+        Block block = streamReaders[columnIndex].readBlock();
         if (block.getPositionCount() > 0) {
             long bytesPerCell = block.getSizeInBytes() / block.getPositionCount();
             if (maxBytesPerCell[columnIndex] < bytesPerCell) {
@@ -543,7 +542,7 @@ public class OrcRecordReader
         if (writeChecksumBuilder.isPresent()) {
             Block[] blocks = new Block[streamReaders.length];
             for (int columnIndex = 0; columnIndex < streamReaders.length; columnIndex++) {
-                blocks[columnIndex] = readBlock(includedColumns.get(columnIndex), columnIndex);
+                blocks[columnIndex] = readBlock(columnIndex);
             }
             Page page = new Page(currentBatchSize, blocks);
             writeChecksumBuilder.get().addPage(page);
@@ -559,15 +558,17 @@ public class OrcRecordReader
             DateTimeZone hiveStorageTimeZone,
             Map<Integer, Type> includedColumns,
             AggregatedMemoryContext systemMemoryContext)
+            throws OrcCorruptionException
     {
         List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
 
         OrcType rowType = types.get(0);
         StreamReader[] streamReaders = new StreamReader[rowType.getFieldCount()];
         for (int columnId = 0; columnId < rowType.getFieldCount(); columnId++) {
-            if (includedColumns.containsKey(columnId)) {
+            Type type = includedColumns.get(columnId);
+            if (type != null) {
                 StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
-                streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+                streamReaders[columnId] = StreamReaders.createStreamReader(type, streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
             }
         }
         return streamReaders;

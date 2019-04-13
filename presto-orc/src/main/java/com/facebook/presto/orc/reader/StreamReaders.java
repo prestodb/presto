@@ -14,7 +14,9 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
+import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
 public final class StreamReaders
@@ -24,39 +26,41 @@ public final class StreamReaders
     }
 
     public static StreamReader createStreamReader(
+            Type type,
             StreamDescriptor streamDescriptor,
             DateTimeZone hiveStorageTimeZone,
             AggregatedMemoryContext systemMemoryContext)
+            throws OrcCorruptionException
     {
         switch (streamDescriptor.getStreamType()) {
             case BOOLEAN:
-                return new BooleanStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
+                return new BooleanStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case BYTE:
-                return new ByteStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
+                return new ByteStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case SHORT:
             case INT:
             case LONG:
             case DATE:
-                return new LongStreamReader(streamDescriptor, systemMemoryContext);
+                return new LongStreamReader(type, streamDescriptor, systemMemoryContext);
             case FLOAT:
-                return new FloatStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
+                return new FloatStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case DOUBLE:
-                return new DoubleStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
+                return new DoubleStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case BINARY:
             case STRING:
             case VARCHAR:
             case CHAR:
-                return new SliceStreamReader(streamDescriptor, systemMemoryContext);
+                return new SliceStreamReader(type, streamDescriptor, systemMemoryContext);
             case TIMESTAMP:
-                return new TimestampStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
+                return new TimestampStreamReader(type, streamDescriptor, hiveStorageTimeZone, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case LIST:
-                return new ListStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+                return new ListStreamReader(type, streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
             case STRUCT:
-                return new StructStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+                return new StructStreamReader(type, streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
             case MAP:
-                return new MapStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+                return new MapStreamReader(type, streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
             case DECIMAL:
-                return new DecimalStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
+                return new DecimalStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case UNION:
             default:
                 throw new IllegalArgumentException("Unsupported type: " + streamDescriptor.getStreamType());

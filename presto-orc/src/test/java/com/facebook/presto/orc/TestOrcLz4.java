@@ -72,9 +72,9 @@ public class TestOrcLz4
             }
             rows += batchSize;
 
-            Block xBlock = reader.readBlock(BIGINT, 0);
-            Block yBlock = reader.readBlock(INTEGER, 1);
-            Block zBlock = reader.readBlock(BIGINT, 2);
+            Block xBlock = reader.readBlock(0);
+            Block yBlock = reader.readBlock(1);
+            Block zBlock = reader.readBlock(2);
 
             for (int position = 0; position < batchSize; position++) {
                 BIGINT.getLong(xBlock, position);

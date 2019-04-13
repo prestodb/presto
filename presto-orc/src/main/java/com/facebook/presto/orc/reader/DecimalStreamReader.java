@@ -40,6 +40,7 @@ import java.util.List;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
+import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.rescale;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -52,6 +53,7 @@ public class DecimalStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(DecimalStreamReader.class).instanceSize();
 
+    private final DecimalType type;
     private final StreamDescriptor streamDescriptor;
 
     private int readOffset;
@@ -76,8 +78,12 @@ public class DecimalStreamReader
 
     private LocalMemoryContext systemMemoryContext;
 
-    public DecimalStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
+    public DecimalStreamReader(Type type, StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
+            throws OrcCorruptionException
     {
+        requireNonNull(type, "type is null");
+        verifyStreamType(streamDescriptor, type, DecimalType.class::isInstance);
+        this.type = (DecimalType) type;
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
@@ -90,12 +96,9 @@ public class DecimalStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
-        DecimalType decimalType = (DecimalType) type;
-        int targetScale = decimalType.getScale();
-
         if (!rowGroupOpen) {
             openRowGroup();
         }
@@ -110,7 +113,7 @@ public class DecimalStreamReader
             return nullValueBlock;
         }
 
-        BlockBuilder builder = decimalType.createBlockBuilder(null, nextBatchSize);
+        BlockBuilder builder = type.createBlockBuilder(null, nextBatchSize);
 
         if (presentStream == null) {
             if (decimalStream == null) {
@@ -122,17 +125,17 @@ public class DecimalStreamReader
 
             for (int i = 0; i < nextBatchSize; i++) {
                 long sourceScale = scaleStream.next();
-                if (decimalType.isShort()) {
-                    long rescaledDecimal = Decimals.rescale(decimalStream.nextLong(), (int) sourceScale, decimalType.getScale());
-                    decimalType.writeLong(builder, rescaledDecimal);
+                if (type.isShort()) {
+                    long rescaledDecimal = Decimals.rescale(decimalStream.nextLong(), (int) sourceScale, type.getScale());
+                    type.writeLong(builder, rescaledDecimal);
                 }
                 else {
                     Slice decimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
                     Slice rescaledDecimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
 
                     decimalStream.nextLongDecimal(decimal);
-                    rescale(decimal, (int) (decimalType.getScale() - sourceScale), rescaledDecimal);
-                    decimalType.writeSlice(builder, rescaledDecimal);
+                    rescale(decimal, (int) (type.getScale() - sourceScale), rescaledDecimal);
+                    type.writeSlice(builder, rescaledDecimal);
                 }
             }
         }
@@ -143,17 +146,17 @@ public class DecimalStreamReader
                 if (presentStream.nextBit()) {
                     // The current row is not null
                     long sourceScale = scaleStream.next();
-                    if (decimalType.isShort()) {
-                        long rescaledDecimal = Decimals.rescale(decimalStream.nextLong(), (int) sourceScale, decimalType.getScale());
-                        decimalType.writeLong(builder, rescaledDecimal);
+                    if (type.isShort()) {
+                        long rescaledDecimal = Decimals.rescale(decimalStream.nextLong(), (int) sourceScale, type.getScale());
+                        type.writeLong(builder, rescaledDecimal);
                     }
                     else {
                         Slice decimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
                         Slice rescaledDecimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
 
                         decimalStream.nextLongDecimal(decimal);
-                        rescale(decimal, (int) (decimalType.getScale() - sourceScale), rescaledDecimal);
-                        decimalType.writeSlice(builder, rescaledDecimal);
+                        rescale(decimal, (int) (type.getScale() - sourceScale), rescaledDecimal);
+                        type.writeSlice(builder, rescaledDecimal);
                     }
                 }
                 else {

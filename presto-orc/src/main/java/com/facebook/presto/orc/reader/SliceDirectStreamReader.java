@@ -24,7 +24,6 @@ import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.VariableWidthBlock;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -40,10 +39,8 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.SliceStreamReader.computeTruncatedLength;
-import static com.facebook.presto.orc.reader.SliceStreamReader.getMaxCodePointCount;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -60,6 +57,8 @@ public class SliceDirectStreamReader
     private static final int ONE_GIGABYTE = toIntExact(new DataSize(1, GIGABYTE).toBytes());
 
     private final StreamDescriptor streamDescriptor;
+    private final int maxCodePointCount;
+    private final boolean isCharType;
 
     private int readOffset;
     private int nextBatchSize;
@@ -78,8 +77,11 @@ public class SliceDirectStreamReader
 
     private boolean rowGroupOpen;
 
-    public SliceDirectStreamReader(StreamDescriptor streamDescriptor)
+    public SliceDirectStreamReader(StreamDescriptor streamDescriptor, int maxCodePointCount, boolean isCharType)
     {
+        this.maxCodePointCount = maxCodePointCount;
+        this.isCharType = isCharType;
+
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
     }
 
@@ -91,7 +93,7 @@ public class SliceDirectStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -180,8 +182,6 @@ public class SliceDirectStreamReader
         // * convert original length values in offsetVector into truncated offset values
         int currentLength = offsetVector[0];
         offsetVector[0] = 0;
-        int maxCodePointCount = getMaxCodePointCount(type);
-        boolean isCharType = isCharType(type);
         for (int i = 1; i <= currentBatchSize; i++) {
             int nextLength = offsetVector[i];
             if (isNullVector != null && isNullVector[i - 1]) {
