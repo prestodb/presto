@@ -1205,7 +1205,9 @@ public class TestDomainExtractor
 
     private DomainExtractor.ExtractionResult fromPredicate(RowExpression originalPredicate)
     {
-        return DomainExtractor.fromPredicate(metadata, TEST_SESSION, originalPredicate);
+        // metadata can be updated for testing legacy behaviors
+        DomainExtractor domainExtractor = new DomainExtractor(metadata.getFunctionManager(), metadata.getTypeManager(), new InterpretedPredicateOptimizer(metadata, TEST_SESSION));
+        return domainExtractor.extract(originalPredicate);
     }
 
     private RowExpression nullLiteral(Type type)

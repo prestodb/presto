@@ -13,18 +13,12 @@
  */
 package com.facebook.presto.sql.relational;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.OperatorNotFoundException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.metadata.FunctionMetadata;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.predicate.Utils;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -35,9 +29,7 @@ import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.InterpretedFunctionInvoker;
-import com.facebook.presto.sql.planner.RowExpressionInterpreter;
-import com.facebook.presto.sql.planner.optimizations.RowExpressionCanonicalizer;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -47,8 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.CastType.CAST;
-import static com.facebook.presto.metadata.CastType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
@@ -62,7 +52,6 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IN;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static com.facebook.presto.sql.planner.LiteralEncoder.toRowExpression;
 import static com.facebook.presto.sql.relational.DomainExtractor.ExtractionResult.resultOf;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.LogicalRowExpressions.TRUE;
@@ -75,8 +64,43 @@ import static java.util.stream.Collectors.partitioningBy;
 
 public class DomainExtractor
 {
-    private DomainExtractor()
+    private final FunctionManager functionManager;
+    private final TypeManager typeManager;
+    private final PredicateOptimizer predicateOptimizer;
+
+    public DomainExtractor(FunctionManager functionManager, TypeManager typeManager, PredicateOptimizer predicateOptimizer)
     {
+        this.functionManager = functionManager;
+        this.typeManager = typeManager;
+        this.predicateOptimizer = predicateOptimizer;
+    }
+
+    /**
+     * Creates a DomainExtractor that expects input is optimized already to be used for example in connectors.
+     * @param functionManager
+     * @param typeManager
+     * @return
+     */
+    public static DomainExtractor createSimpleDomainExtractor(FunctionManager functionManager, TypeManager typeManager)
+    {
+        return new DomainExtractor(functionManager, typeManager, new PredicateOptimizer()
+        {
+            @Override
+            public RowExpression optimize(RowExpression input)
+            {
+                return input;
+            }
+
+            @Override
+            public Optional<RowExpression> coerceComparisonWithRounding(
+                    Type expressionType,
+                    RowExpression compareTarget,
+                    ConstantExpression constant,
+                    OperatorType comparisonOperator)
+            {
+                return Optional.empty();
+            }
+        });
     }
 
     /**
@@ -85,33 +109,43 @@ public class DomainExtractor
      * 2) An Expression fragment which represents the part of the original Expression that will need to be re-evaluated
      * after filtering with the TupleDomain.
      */
-    public static ExtractionResult fromPredicate(Metadata metadata, Session session, RowExpression predicate)
+    public ExtractionResult extract(RowExpression predicate)
     {
-        return predicate.accept(new Visitor(metadata, session), false);
+        return predicate.accept(new Visitor(functionManager, typeManager, predicateOptimizer), false);
+    }
+
+    public interface PredicateOptimizer
+    {
+        RowExpression optimize(RowExpression input);
+
+        Optional<RowExpression> coerceComparisonWithRounding(
+                Type expressionType,
+                RowExpression compareTarget,
+                ConstantExpression constant,
+                OperatorType comparisonOperator);
     }
 
     private static class Visitor
             implements RowExpressionVisitor<ExtractionResult, Boolean>
     {
-        private final InterpretedFunctionInvoker functionInvoker;
-        private final Metadata metadata;
-        private final Session session;
         private final FunctionManager functionManager;
+        private final TypeManager typeManager;
+        private final PredicateOptimizer optimizer;
         private final LogicalRowExpressions logicalRowExpressions;
         private final DeterminismEvaluator determinismEvaluator;
         private final StandardFunctionResolution resolution;
-        private final RowExpressionCanonicalizer canonicalizer;
 
-        private Visitor(Metadata metadata, Session session)
+        private Visitor(FunctionManager functionManager, TypeManager typeManager, PredicateOptimizer optimizer)
         {
-            this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionManager());
-            this.metadata = metadata;
-            this.session = session;
-            this.functionManager = metadata.getFunctionManager();
+            requireNonNull(functionManager, "functionManager is null");
+            requireNonNull(typeManager, "typeManager is null");
+            requireNonNull(optimizer, "optimizer is null");
+            this.functionManager = functionManager;
+            this.typeManager = typeManager;
             this.logicalRowExpressions = new LogicalRowExpressions(functionManager);
             this.determinismEvaluator = new DeterminismEvaluator(functionManager);
             this.resolution = new StandardFunctionResolution(functionManager);
-            this.canonicalizer = new RowExpressionCanonicalizer(functionManager);
+            this.optimizer = optimizer;
         }
 
         @Override
@@ -130,7 +164,7 @@ public class DomainExtractor
                     // optimize nodes first and split into constant list and those cannot be optimized into constant
                     Map<Boolean, List<RowExpression>> values = node.getArguments().subList(1, node.getArguments().size())
                             .stream()
-                            .map(this::optimize)
+                            .map(optimizer::optimize)
                             .collect(partitioningBy(value -> value instanceof ConstantExpression && value.getType() == target.getType()));
 
                     // only contains constant
@@ -261,7 +295,7 @@ public class DomainExtractor
                     Type sourceType = cast.getArguments().get(0).getType();
 
                     // we use saturated floor cast value -> castSourceType to rewrite original expression to new one with one cast peeled off the symbol side
-                    Optional<RowExpression> coercedExpression = coerceComparisonWithRounding(
+                    Optional<RowExpression> coercedExpression = optimizer.coerceComparisonWithRounding(
                             sourceType, cast.getArguments().get(0), normalized.getValue(), normalized.getComparisonOperator());
 
                     if (coercedExpression.isPresent()) {
@@ -285,84 +319,6 @@ public class DomainExtractor
             return resultOf(complementIfNecessary(node, complement));
         }
 
-        private Optional<RowExpression> coerceComparisonWithRounding(
-                Type expressionType,
-                RowExpression compareTarget,
-                ConstantExpression constant,
-                OperatorType comparisonOperator)
-        {
-            requireNonNull(constant, "nullableValue is null");
-            if (constant.getValue() == null) {
-                return Optional.empty();
-            }
-            Type valueType = constant.getType();
-            Object value = constant.getValue();
-            return floorValue(valueType, expressionType, value)
-                    .map((floorValue) -> rewriteComparisonExpression(expressionType, compareTarget, valueType, value, floorValue, comparisonOperator));
-        }
-
-        private RowExpression rewriteComparisonExpression(
-                Type expressionType,
-                RowExpression compareTarget,
-                Type valueType,
-                Object originalValue,
-                Object coercedValue,
-                OperatorType comparisonOperator)
-        {
-            int originalComparedToCoerced = compareOriginalValueToCoerced(valueType, originalValue, expressionType, coercedValue);
-            boolean coercedValueIsEqualToOriginal = originalComparedToCoerced == 0;
-            boolean coercedValueIsLessThanOriginal = originalComparedToCoerced > 0;
-            boolean coercedValueIsGreaterThanOriginal = originalComparedToCoerced < 0;
-            RowExpression coercedLiteral = toRowExpression(coercedValue, expressionType);
-
-            switch (comparisonOperator) {
-                case GREATER_THAN_OR_EQUAL:
-                case GREATER_THAN: {
-                    if (coercedValueIsGreaterThanOriginal) {
-                        return binaryOperator(GREATER_THAN_OR_EQUAL, compareTarget, coercedLiteral);
-                    }
-                    if (coercedValueIsEqualToOriginal) {
-                        return binaryOperator(comparisonOperator, compareTarget, coercedLiteral);
-                    }
-                    return binaryOperator(GREATER_THAN, compareTarget, coercedLiteral);
-                }
-                case LESS_THAN_OR_EQUAL:
-                case LESS_THAN: {
-                    if (coercedValueIsLessThanOriginal) {
-                        return binaryOperator(LESS_THAN_OR_EQUAL, compareTarget, coercedLiteral);
-                    }
-                    if (coercedValueIsEqualToOriginal) {
-                        return binaryOperator(comparisonOperator, compareTarget, coercedLiteral);
-                    }
-                    return binaryOperator(LESS_THAN, compareTarget, coercedLiteral);
-                }
-                case EQUAL: {
-                    if (coercedValueIsEqualToOriginal) {
-                        return binaryOperator(EQUAL, compareTarget, coercedLiteral);
-                    }
-                    // Return something that is false for all non-null values
-                    return and(binaryOperator(EQUAL, compareTarget, coercedLiteral),
-                            binaryOperator(NOT_EQUAL, compareTarget, coercedLiteral));
-                }
-                case NOT_EQUAL: {
-                    if (coercedValueIsEqualToOriginal) {
-                        return binaryOperator(comparisonOperator, compareTarget, coercedLiteral);
-                    }
-                    // Return something that is true for all non-null values
-                    return or(binaryOperator(EQUAL, compareTarget, coercedLiteral),
-                            binaryOperator(NOT_EQUAL, compareTarget, coercedLiteral));
-                }
-                case IS_DISTINCT_FROM: {
-                    if (coercedValueIsEqualToOriginal) {
-                        return binaryOperator(comparisonOperator, compareTarget, coercedLiteral);
-                    }
-                    return TRUE;
-                }
-            }
-
-            throw new IllegalArgumentException("Unhandled operator: " + comparisonOperator);
-        }
-
         private RowExpression binaryOperator(OperatorType operatorType, RowExpression left, RowExpression right)
         {
             return call(
@@ -373,36 +329,11 @@ public class DomainExtractor
                     right);
         }
 
-        private Optional<Object> floorValue(Type fromType, Type toType, Object value)
-        {
-            return getSaturatedFloorCastOperator(fromType, toType)
-                    .map((operator) -> functionInvoker.invoke(operator, session.toConnectorSession(), value));
-        }
-
-        private Optional<FunctionHandle> getSaturatedFloorCastOperator(Type fromType, Type toType)
-        {
-            try {
-                return Optional.of(metadata.getFunctionManager().lookupCast(SATURATED_FLOOR_CAST, fromType.getTypeSignature(), toType.getTypeSignature()));
-            }
-            catch (OperatorNotFoundException e) {
-                return Optional.empty();
-            }
-        }
-
-        private int compareOriginalValueToCoerced(Type originalValueType, Object originalValue, Type coercedValueType, Object coercedValue)
-        {
-            FunctionHandle castToOriginalTypeOperator = metadata.getFunctionManager().lookupCast(CAST, coercedValueType.getTypeSignature(), originalValueType.getTypeSignature());
-            Object coercedValueInOriginalType = functionInvoker.invoke(castToOriginalTypeOperator, session.toConnectorSession(), coercedValue);
-            Block originalValueBlock = Utils.nativeValueToBlock(originalValueType, originalValue);
-            Block coercedValueBlock = Utils.nativeValueToBlock(originalValueType, coercedValueInOriginalType);
-            return originalValueType.compareTo(originalValueBlock, 0, coercedValueBlock, 0);
-        }
-
         private boolean isImplicitCoercion(CallExpression cast)
         {
             Type sourceType = cast.getArguments().get(0).getType();
             Type targetType = cast.getType();
-            return metadata.getTypeManager().canCoerce(sourceType, targetType);
+            return typeManager.canCoerce(sourceType, targetType);
         }
 
         private static Domain extractOrderableDomain(OperatorType comparisonOperator, Type type, Object value, boolean complement)
@@ -445,25 +376,13 @@ public class DomainExtractor
             }
         }
 
-        private RowExpression optimize(RowExpression input)
-        {
-            if (input instanceof ConstantExpression || input instanceof VariableReferenceExpression || input instanceof InputReferenceExpression) {
-                return input;
-            }
-            Object result = new RowExpressionInterpreter(input, metadata, session, true).optimize();
-            if (result instanceof RowExpression) {
-                return canonicalizer.canonicalize((RowExpression) result);
-            }
-            return toRowExpression(result, input.getType());
-        }
-
         /**
          * Extract a normalized simple comparison between a QualifiedNameReference and a native value if possible.
          */
         private Optional<NormalizedSimpleComparison> toNormalizedSimpleComparison(OperatorType operatorType, RowExpression leftExpression, RowExpression rightExpression)
         {
-            RowExpression left = optimize(leftExpression);
-            RowExpression right = optimize(rightExpression);
+            RowExpression left = optimizer.optimize(leftExpression);
+            RowExpression right = optimizer.optimize(rightExpression);
 
             if (right instanceof ConstantExpression) {
                 return Optional.of(new NormalizedSimpleComparison(left, operatorType, (ConstantExpression) right));
