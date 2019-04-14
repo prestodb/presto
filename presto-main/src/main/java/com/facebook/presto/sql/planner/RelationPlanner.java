@@ -29,6 +29,7 @@ import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
+import com.facebook.presto.sql.planner.optimizations.SampleNodeUtil;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
@@ -202,7 +203,7 @@ class RelationPlanner
         PlanNode planNode = new SampleNode(idAllocator.getNextId(),
                 subPlan.getRoot(),
                 ratio,
-                SampleNode.Type.fromType(node.getType()));
+                SampleNodeUtil.fromType(node.getType()));
         return new RelationPlan(planNode, analysis.getScope(node), subPlan.getFieldMappings());
     }
 
