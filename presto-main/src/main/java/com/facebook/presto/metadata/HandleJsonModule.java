@@ -35,6 +35,7 @@ public class HandleJsonModule
         jsonBinder(binder).addModuleBinding().to(IndexHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(TransactionHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(PartitioningHandleJacksonModule.class);
+        jsonBinder(binder).addModuleBinding().to(FunctionHandleJacksonModule.class);
 
         binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
     }
