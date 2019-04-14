@@ -19,6 +19,8 @@ import com.facebook.presto.spi.type.Type;
 
 import java.util.function.Predicate;
 
+import static java.lang.Math.max;
+
 final class ReaderUtils
 {
     private ReaderUtils() {}
@@ -36,5 +38,24 @@ final class ReaderUtils
                 actual,
                 streamDescriptor.getStreamName(),
                 streamDescriptor.getOrcTypeKind());
+    }
+
+    public static int minNonNullValueSize(int nonNullCount)
+    {
+        return max(nonNullCount + 1, 1025);
+    }
+
+    public static byte[] unpackByteNulls(byte[] values, boolean[] isNull)
+    {
+        byte[] result = new byte[isNull.length];
+
+        int position = 0;
+        for (int i = 0; i < isNull.length; i++) {
+            result[i] = values[position];
+            if (!isNull[i]) {
+                position++;
+            }
+        }
+        return result;
     }
 }
