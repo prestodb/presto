@@ -166,8 +166,7 @@ public class MapFlatStreamReader
             }
         }
 
-        MapType mapType = (MapType) type;
-        Type valueType = mapType.getValueType();
+        Type valueType = type.getValueType();
 
         Block[] valueBlocks = new Block[valueStreamReaders.size()];
 
@@ -214,7 +213,7 @@ public class MapFlatStreamReader
         readOffset = 0;
         nextBatchSize = 0;
 
-        return mapType.createBlockFromKeyValue(Optional.ofNullable(nullVector), mapOffsets, new DictionaryBlock(keyBlockTemplate, keyIds), valueBlockBuilder);
+        return type.createBlockFromKeyValue(Optional.ofNullable(nullVector), mapOffsets, new DictionaryBlock(keyBlockTemplate, keyIds), valueBlockBuilder);
     }
 
     private void openRowGroup()

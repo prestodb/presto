@@ -153,8 +153,8 @@ public class LongDictionaryStreamReader
             // Data has nulls
             if (dataStream == null) {
                 // The only valid case for dataStream is null when data has nulls is that all values are nulls.
-                int nullValues = presentStream.getUnsetBits(nextBatchSize);
-                if (nullValues != nextBatchSize) {
+                int notNullValues = presentStream.countBitsSet(nextBatchSize);
+                if (notNullValues != 0) {
                     throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
                 }
                 for (int i = 0; i < nextBatchSize; i++) {

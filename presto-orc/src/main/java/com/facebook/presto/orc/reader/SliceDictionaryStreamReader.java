@@ -169,8 +169,8 @@ public class SliceDictionaryStreamReader
                 // The only valid case for dataStream is null when data has nulls is that all values are nulls.
                 // In that case the only element in the dictionaryBlock is null and the ids in idsVector should
                 // be all 0's, so we don't need to update idVector again.
-                int nullValues = presentStream.getUnsetBits(nextBatchSize);
-                if (nullValues != nextBatchSize) {
+                int notNullValues = presentStream.countBitsSet(nextBatchSize);
+                if (notNullValues != 0) {
                     throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
                 }
             }
