@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.SampledRelation;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -38,19 +37,7 @@ public class SampleNode
     public enum Type
     {
         BERNOULLI,
-        SYSTEM;
-
-        public static Type fromType(SampledRelation.Type sampleType)
-        {
-            switch (sampleType) {
-                case BERNOULLI:
-                    return Type.BERNOULLI;
-                case SYSTEM:
-                    return Type.SYSTEM;
-                default:
-                    throw new UnsupportedOperationException("Unsupported sample type: " + sampleType);
-            }
-        }
+        SYSTEM
     }
 
     @JsonCreator
