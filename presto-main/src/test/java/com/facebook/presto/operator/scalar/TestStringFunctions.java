@@ -285,22 +285,6 @@ public class TestStringFunctions
         testStrPosAndPosition(null, "", null);
         testStrPosAndPosition("", null, null);
         testStrPosAndPosition(null, null, null);
-
-        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 1)", BIGINT, 4L);
-        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 2)", BIGINT, 8L);
-        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 3)", BIGINT, 12L);
-        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 4)", BIGINT, 0L);
-        assertFunction("STRPOS('abc/xyz/foo/bar', '/', -1)", BIGINT, 12L);
-        assertFunction("STRPOS('abc/xyz/foo/bar', '/', -3)", BIGINT, 4L);
-        assertFunction("STRPOS('abc/xyz/foo/bar', '/', -4)", BIGINT, 0L);
-        assertFunction("STRPOS('highhigh', 'ig', 1)", BIGINT, 2L);
-        assertFunction("STRPOS('highhigh', 'ig', -1)", BIGINT, 6L);
-        assertFunction("STRPOS('foobarfoo', 'fb', 1)", BIGINT, 0L);
-        assertFunction("STRPOS('foobarfoo', 'oo', 1)", BIGINT, 2L);
-        assertFunction("STRPOS('foobarfoo', 'obar', -1)", BIGINT, 3L);
-        // assert invalid argument in case of instance equal to 0
-        assertInvalidFunction("STRPOS('abc/xyz/foo/bar', '/', 0)", "Invalid instance argument");
-        assertInvalidFunction("STRPOS('', '', 0)", "Invalid instance argument");
     }
 
     private void testStrPosAndPosition(String string, String substring, Long expected)
