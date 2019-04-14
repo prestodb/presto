@@ -25,6 +25,7 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.split.EmptySplitHandleResolver;
 
 import javax.inject.Inject;
@@ -45,6 +46,7 @@ import static java.util.Objects.requireNonNull;
 public class HandleResolver
 {
     private final ConcurrentMap<String, MaterializedHandleResolver> handleResolvers = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, MaterializedFunctionHandleResolver> functionHandleResolvers = new ConcurrentHashMap<>();
 
     @Inject
     public HandleResolver()
@@ -53,6 +55,8 @@ public class HandleResolver
         handleResolvers.put("$system", new MaterializedHandleResolver(new SystemHandleResolver()));
         handleResolvers.put("$info_schema", new MaterializedHandleResolver(new InformationSchemaHandleResolver()));
         handleResolvers.put("$empty", new MaterializedHandleResolver(new EmptySplitHandleResolver()));
+
+        functionHandleResolvers.put("$static", new MaterializedFunctionHandleResolver(new StaticFunctionNamespaceHandleResolver()));
     }
 
     public void addConnectorName(String name, ConnectorHandleResolver resolver)
@@ -62,6 +66,14 @@ public class HandleResolver
         MaterializedHandleResolver existingResolver = handleResolvers.putIfAbsent(name, new MaterializedHandleResolver(resolver));
         checkState(existingResolver == null || existingResolver.equals(resolver),
                 "Connector '%s' is already assigned to resolver: %s", name, existingResolver);
+    }
+
+    public void addFunctionNamepsace(String name, FunctionHandleResolver resolver)
+    {
+        requireNonNull(name, "name is null");
+        requireNonNull(resolver, "resolver is null");
+        MaterializedFunctionHandleResolver existingResolver = functionHandleResolvers.putIfAbsent(name, new MaterializedFunctionHandleResolver(resolver));
+        checkState(existingResolver == null || existingResolver.equals(resolver), "Name %s is already assigned to function resolver: %s", name, existingResolver);
     }
 
     public String getId(ConnectorTableHandle tableHandle)
@@ -109,6 +121,11 @@ public class HandleResolver
         return getId(transactionHandle, MaterializedHandleResolver::getTransactionHandleClass);
     }
 
+    public String getId(FunctionHandle functionHandle)
+    {
+        return getFunctionNamespaceId(functionHandle, MaterializedFunctionHandleResolver::getFunctionHandleClass);
+    }
+
     public Class<? extends ConnectorTableHandle> getTableHandleClass(String id)
     {
         return resolverFor(id).getTableHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
@@ -154,10 +171,22 @@ public class HandleResolver
         return resolverFor(id).getTransactionHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
     }
 
+    public Class<? extends FunctionHandle> getFunctionHandleClass(String id)
+    {
+        return resolverForFunctionNamespace(id).getFunctionHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
+    }
+
     private MaterializedHandleResolver resolverFor(String id)
     {
         MaterializedHandleResolver resolver = handleResolvers.get(id);
         checkArgument(resolver != null, "No handle resolver for connector: %s", id);
+        return resolver;
+    }
+
+    private MaterializedFunctionHandleResolver resolverForFunctionNamespace(String id)
+    {
+        MaterializedFunctionHandleResolver resolver = functionHandleResolvers.get(id);
+        checkArgument(resolver != null, "No handle resolver for function namespace: %s", id);
         return resolver;
     }
 
@@ -173,6 +202,20 @@ public class HandleResolver
             }
         }
         throw new IllegalArgumentException("No connector for handle: " + handle);
+    }
+
+    private <T> String getFunctionNamespaceId(T handle, Function<MaterializedFunctionHandleResolver, Optional<Class<? extends T>>> getter)
+    {
+        for (Entry<String, MaterializedFunctionHandleResolver> entry : functionHandleResolvers.entrySet()) {
+            try {
+                if (getter.apply(entry.getValue()).map(clazz -> clazz.isInstance(handle)).orElse(false)) {
+                    return entry.getKey();
+                }
+            }
+            catch (UnsupportedOperationException ignored) {
+            }
+        }
+        throw new IllegalArgumentException("No function namespace for handle: " + handle);
     }
 
     private static class MaterializedHandleResolver
@@ -280,6 +323,50 @@ public class HandleResolver
         public int hashCode()
         {
             return Objects.hash(tableHandle, layoutHandle, columnHandle, split, indexHandle, outputTableHandle, insertTableHandle, partitioningHandle, transactionHandle);
+        }
+    }
+
+    private static class MaterializedFunctionHandleResolver
+    {
+        private final Optional<Class<? extends FunctionHandle>> functionHandle;
+
+        public MaterializedFunctionHandleResolver(FunctionHandleResolver resolver)
+        {
+            functionHandle = getHandleClass(resolver::getFunctionHandleClass);
+        }
+
+        private static <T> Optional<Class<? extends T>> getHandleClass(Supplier<Class<? extends T>> callable)
+        {
+            try {
+                return Optional.of(callable.get());
+            }
+            catch (UnsupportedOperationException e) {
+                return Optional.empty();
+            }
+        }
+
+        public Optional<Class<? extends FunctionHandle>> getFunctionHandleClass()
+        {
+            return functionHandle;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            MaterializedFunctionHandleResolver that = (MaterializedFunctionHandleResolver) o;
+            return Objects.equals(functionHandle, that.functionHandle);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(functionHandle);
         }
     }
 }
