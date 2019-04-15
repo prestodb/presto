@@ -16,6 +16,7 @@ package com.facebook.presto.spi.connector;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
+import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.type.TypeManager;
 
 public interface ConnectorContext
@@ -36,6 +37,11 @@ public interface ConnectorContext
     }
 
     default PageIndexerFactory getPageIndexerFactory()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default RowExpressionService getRowExpressionService()
     {
         throw new UnsupportedOperationException();
     }

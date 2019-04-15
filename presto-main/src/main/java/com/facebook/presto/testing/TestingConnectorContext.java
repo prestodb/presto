@@ -20,15 +20,19 @@ import com.facebook.presto.connector.ConnectorAwareNodeManager;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.connector.ConnectorContext;
+import com.facebook.presto.spi.relation.DomainTranslator;
+import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
+import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.type.TypeRegistry;
 
 public class TestingConnectorContext
@@ -38,6 +42,8 @@ public class TestingConnectorContext
     private final TypeManager typeManager = new TypeRegistry();
     private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
     private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig()));
+    private final Metadata metadata = MetadataManager.createTestMetadataManager();
+    private final DomainTranslator domainTranslator = new RowExpressionDomainTranslator(metadata);
 
     public TestingConnectorContext()
     {
@@ -67,5 +73,18 @@ public class TestingConnectorContext
     public PageIndexerFactory getPageIndexerFactory()
     {
         return pageIndexerFactory;
+    }
+
+    @Override
+    public RowExpressionService getRowExpressionService()
+    {
+        return new RowExpressionService()
+        {
+            @Override
+            public DomainTranslator getDomainTranslator()
+            {
+                return domainTranslator;
+            }
+        };
     }
 }

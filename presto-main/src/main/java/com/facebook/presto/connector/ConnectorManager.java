@@ -41,6 +41,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.split.PageSinkManager;
@@ -48,6 +49,7 @@ import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.RecordPageSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.relational.ConnectorRowExpressionService;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -95,6 +97,7 @@ public class ConnectorManager
     private final PageIndexerFactory pageIndexerFactory;
     private final NodeInfo nodeInfo;
     private final TransactionManager transactionManager;
+    private final DomainTranslator domainTranslator;
 
     @GuardedBy("this")
     private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
@@ -120,7 +123,8 @@ public class ConnectorManager
             TypeManager typeManager,
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
-            TransactionManager transactionManager)
+            TransactionManager transactionManager,
+            DomainTranslator domainTranslator)
     {
         this.metadataManager = metadataManager;
         this.catalogManager = catalogManager;
@@ -137,6 +141,7 @@ public class ConnectorManager
         this.pageIndexerFactory = pageIndexerFactory;
         this.nodeInfo = nodeInfo;
         this.transactionManager = transactionManager;
+        this.domainTranslator = domainTranslator;
     }
 
     @PreDestroy
@@ -317,7 +322,8 @@ public class ConnectorManager
                 new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), connectorId),
                 typeManager,
                 pageSorter,
-                pageIndexerFactory);
+                pageIndexerFactory,
+                new ConnectorRowExpressionService(domainTranslator));
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             return factory.create(connectorId.getCatalogName(), properties, context);
