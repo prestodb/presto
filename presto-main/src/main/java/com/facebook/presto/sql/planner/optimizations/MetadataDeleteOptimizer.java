@@ -92,7 +92,7 @@ public class MetadataDeleteOptimizer
             if (!metadata.supportsMetadataDelete(session, tableScanNode.getTable(), tableScanNode.getLayout().get())) {
                 return context.defaultRewrite(node);
             }
-            return new MetadataDeleteNode(idAllocator.getNextId(), delete.get().getTarget(), Iterables.getOnlyElement(node.getOutputSymbols()), tableScanNode.getLayout().get());
+            return new MetadataDeleteNode(idAllocator.getNextId(), delete.get().getTarget(), Iterables.getOnlyElement(node.getOutputVariables()), tableScanNode.getLayout().get());
         }
 
         private static <T> Optional<T> findNode(PlanNode source, Class<T> clazz)
