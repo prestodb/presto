@@ -135,6 +135,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
+import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HivePartitionManager.extractPartitionValues;
 import static com.facebook.presto.hive.HiveSessionProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveSessionProperties.getTemporaryTableSchema;
@@ -1191,25 +1192,27 @@ public class HiveMetadata
 
         metastore.createTable(session, table, principalPrivileges, Optional.of(writeInfo.getWritePath()), false, tableStatistics);
 
-        if (!handle.getPartitionedBy().isEmpty()) {
-            if (isRespectTableFormat(session)) {
-                Verify.verify(handle.getPartitionStorageFormat() == handle.getTableStorageFormat());
-            }
-            for (PartitionUpdate update : partitionUpdates) {
-                Partition partition = buildPartitionObject(session, table, update);
-                PartitionStatistics partitionStatistics = createPartitionStatistics(
-                        session,
-                        update.getStatistics(),
-                        columnTypes,
-                        getColumnStatistics(partitionComputedStatistics, partition.getValues()));
-                metastore.addPartition(
-                        session,
-                        handle.getSchemaName(),
-                        handle.getTableName(),
-                        buildPartitionObject(session, table, update),
-                        update.getWritePath(),
-                        partitionStatistics);
-            }
+        if (handle.getPartitionedBy().isEmpty()) {
+            return Optional.of(new HiveWrittenPartitions(ImmutableList.of(UNPARTITIONED_ID)));
+        }
+
+        if (isRespectTableFormat(session)) {
+            Verify.verify(handle.getPartitionStorageFormat() == handle.getTableStorageFormat());
+        }
+        for (PartitionUpdate update : partitionUpdates) {
+            Partition partition = buildPartitionObject(session, table, update);
+            PartitionStatistics partitionStatistics = createPartitionStatistics(
+                    session,
+                    update.getStatistics(),
+                    columnTypes,
+                    getColumnStatistics(partitionComputedStatistics, partition.getValues()));
+            metastore.addPartition(
+                    session,
+                    handle.getSchemaName(),
+                    handle.getTableName(),
+                    buildPartitionObject(session, table, update),
+                    update.getWritePath(),
+                    partitionStatistics);
         }
 
         return Optional.of(new HiveWrittenPartitions(
@@ -1489,6 +1492,7 @@ public class HiveMetadata
         return Optional.of(new HiveWrittenPartitions(
                 partitionUpdates.stream()
                         .map(PartitionUpdate::getName)
+                        .map(name -> name.isEmpty() ? UNPARTITIONED_ID : name)
                         .collect(Collectors.toList())));
     }
 
