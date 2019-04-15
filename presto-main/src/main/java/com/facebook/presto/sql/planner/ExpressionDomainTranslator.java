@@ -85,6 +85,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 
+// No need to inherit from DomainTranslator; the class will be deprecated in the long term
 @Deprecated
 public final class ExpressionDomainTranslator
 {
