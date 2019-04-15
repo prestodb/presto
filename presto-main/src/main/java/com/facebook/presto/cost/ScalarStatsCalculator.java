@@ -122,7 +122,7 @@ public class ScalarStatsCalculator
                 return computeArithmeticBinaryStatistics(call, context);
             }
 
-            Object value = new RowExpressionInterpreter(call, metadata, session, true).optimize();
+            Object value = new RowExpressionInterpreter(call, metadata, session.toConnectorSession(), true).optimize();
 
             if (value == null) {
                 return nullStatsEstimate();

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.metadata.FunctionMetadata;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.RowBlockBuilder;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -102,7 +102,7 @@ public class RowExpressionInterpreter
 {
     private final RowExpression expression;
     private final Metadata metadata;
-    private final Session session;
+    private final ConnectorSession session;
     private final boolean optimize;
     private final InterpretedFunctionInvoker functionInvoker;
     private final com.facebook.presto.sql.relational.DeterminismEvaluator determinismEvaluator;
@@ -110,7 +110,7 @@ public class RowExpressionInterpreter
 
     private final Visitor visitor;
 
-    public static Object evaluateConstantRowExpression(RowExpression expression, Metadata metadata, Session session)
+    public static Object evaluateConstantRowExpression(RowExpression expression, Metadata metadata, ConnectorSession session)
     {
         // evaluate the expression
         Object result = new RowExpressionInterpreter(expression, metadata, session, false).evaluate();
@@ -118,12 +118,12 @@ public class RowExpressionInterpreter
         return result;
     }
 
-    public static RowExpressionInterpreter rowExpressionInterpreter(RowExpression expression, Metadata metadata, Session session)
+    public static RowExpressionInterpreter rowExpressionInterpreter(RowExpression expression, Metadata metadata, ConnectorSession session)
     {
         return new RowExpressionInterpreter(expression, metadata, session, false);
     }
 
-    public RowExpressionInterpreter(RowExpression expression, Metadata metadata, Session session, boolean optimize)
+    public RowExpressionInterpreter(RowExpression expression, Metadata metadata, ConnectorSession session, boolean optimize)
     {
         this.expression = requireNonNull(expression, "expression is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -236,7 +236,7 @@ public class RowExpressionInterpreter
             if (optimize && (!functionMetadata.isDeterministic() || hasUnresolvedValue(argumentValues) || functionMetadata.getName().equals("fail"))) {
                 return call(node.getDisplayName(), functionHandle, node.getType(), toRowExpressions(argumentValues, argumentTypes));
             }
-            return functionInvoker.invoke(functionHandle, session.toConnectorSession(), argumentValues);
+            return functionInvoker.invoke(functionHandle, session, argumentValues);
         }
 
         @Override
@@ -316,8 +316,8 @@ public class RowExpressionInterpreter
                             EQUAL,
                             ImmutableList.of(commonType, commonType),
                             ImmutableList.of(
-                                    functionInvoker.invoke(firstCast, session.toConnectorSession(), left),
-                                    functionInvoker.invoke(secondCast, session.toConnectorSession(), right))));
+                                    functionInvoker.invoke(firstCast, session, left),
+                                    functionInvoker.invoke(secondCast, session, right))));
 
                     if (equal) {
                         return null;
@@ -633,7 +633,7 @@ public class RowExpressionInterpreter
 
             String failureInfo = JsonCodec.jsonCodec(FailureInfo.class).toJson(Failures.toFailure(exception).toFailureInfo());
             FunctionHandle jsonParse = metadata.getFunctionManager().lookupFunction("json_parse", fromTypes(VARCHAR));
-            Object json = functionInvoker.invoke(jsonParse, session.toConnectorSession(), utf8Slice(failureInfo));
+            Object json = functionInvoker.invoke(jsonParse, session, utf8Slice(failureInfo));
 
             FunctionHandle failureFunction = metadata.getFunctionManager().lookupFunction("fail", fromTypes(JSON));
             FunctionHandle cast = metadata.getFunctionManager().lookupCast(CAST, UNKNOWN.getTypeSignature(), type.getTypeSignature());
@@ -654,7 +654,7 @@ public class RowExpressionInterpreter
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
         {
             FunctionHandle operatorHandle = metadata.getFunctionManager().resolveOperator(operatorType, fromTypes(argumentTypes));
-            return functionInvoker.invoke(operatorHandle, session.toConnectorSession(), argumentValues);
+            return functionInvoker.invoke(operatorHandle, session, argumentValues);
         }
 
         private List<RowExpression> toRowExpressions(List<Object> values, List<Type> types)
@@ -762,7 +762,7 @@ public class RowExpressionInterpreter
                     return changed(null);
                 }
                 checkState((resolution.isCastFunction(((CallExpression) possibleCompiledPattern).getFunctionHandle())));
-                possibleCompiledPattern = functionInvoker.invoke(((CallExpression) possibleCompiledPattern).getFunctionHandle(), session.toConnectorSession(), nonCompiledPattern);
+                possibleCompiledPattern = functionInvoker.invoke(((CallExpression) possibleCompiledPattern).getFunctionHandle(), session, nonCompiledPattern);
                 return changed(interpretLikePredicate(argumentTypes.get(0), (Slice) value, (Regex) possibleCompiledPattern));
             }
 

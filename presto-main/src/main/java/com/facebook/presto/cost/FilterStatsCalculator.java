@@ -151,7 +151,7 @@ public class FilterStatsCalculator
 
     private RowExpression simplifyExpression(Session session, RowExpression predicate)
     {
-        RowExpressionInterpreter interpreter = new RowExpressionInterpreter(predicate, metadata, session, true);
+        RowExpressionInterpreter interpreter = new RowExpressionInterpreter(predicate, metadata, session.toConnectorSession(), true);
         Object value = interpreter.optimize();
 
         if (value == null) {

@@ -343,7 +343,7 @@ final class RowExpressionVerifier
     private Boolean compareLiteral(Node expected, RowExpression actual)
     {
         if (actual instanceof CallExpression && functionResolution.isCastFunction(((CallExpression) actual).getFunctionHandle())) {
-            return getValueFromLiteral(expected).equals(String.valueOf(rowExpressionInterpreter(actual, metadata, session).evaluate()));
+            return getValueFromLiteral(expected).equals(String.valueOf(rowExpressionInterpreter(actual, metadata, session.toConnectorSession()).evaluate()));
         }
         if (actual instanceof ConstantExpression) {
             return getValueFromLiteral(expected).equals(String.valueOf(LiteralInterpreter.evaluate(TEST_SESSION.toConnectorSession(), (ConstantExpression) actual)));

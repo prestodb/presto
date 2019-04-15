@@ -88,7 +88,7 @@ public class ValuesStatsRule
                     if (isExpression(rowExpression)) {
                         return evaluateConstantExpression(castToExpression(rowExpression), symbolType, metadata, session, ImmutableList.of());
                     }
-                    return evaluateConstantRowExpression(rowExpression, metadata, session);
+                    return evaluateConstantRowExpression(rowExpression, metadata, session.toConnectorSession());
                 })
                 .collect(toList());
     }
