@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -56,6 +58,23 @@ class RelationPlan
         this.root = root;
         this.scope = scope;
         this.fieldMappings = ImmutableList.copyOf(fieldMappings);
+    }
+
+    public RelationPlan(PlanNode root, List<VariableReferenceExpression> fieldMappings, Scope scope)
+    {
+        requireNonNull(root, "root is null");
+        requireNonNull(fieldMappings, "outputSymbols is null");
+        requireNonNull(scope, "scope is null");
+
+        int allFieldCount = getAllFieldCount(scope);
+        checkArgument(allFieldCount == fieldMappings.size(),
+                "Number of outputs (%s) doesn't match number of fields in scopes tree (%s)",
+                fieldMappings.size(),
+                allFieldCount);
+
+        this.root = root;
+        this.scope = scope;
+        this.fieldMappings = fieldMappings.stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableList());
     }
 
     public Symbol getSymbol(int fieldIndex)

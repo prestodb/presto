@@ -255,9 +255,9 @@ public class LogicalPlanner
         RelationPlan underlyingPlan = planStatementWithoutOutput(analysis, statement.getStatement());
         PlanNode root = underlyingPlan.getRoot();
         Scope scope = analysis.getScope(statement);
-        Symbol outputSymbol = symbolAllocator.newSymbol(scope.getRelationType().getFieldByIndex(0));
-        root = new ExplainAnalyzeNode(idAllocator.getNextId(), root, outputSymbol, statement.isVerbose());
-        return new RelationPlan(root, scope, ImmutableList.of(outputSymbol));
+        VariableReferenceExpression outputVariable = symbolAllocator.newVariable(scope.getRelationType().getFieldByIndex(0));
+        root = new ExplainAnalyzeNode(idAllocator.getNextId(), root, outputVariable, statement.isVerbose());
+        return new RelationPlan(root, ImmutableList.of(outputVariable), scope);
     }
 
     private RelationPlan createAnalyzePlan(Analysis analysis, Analyze analyzeStatement)
