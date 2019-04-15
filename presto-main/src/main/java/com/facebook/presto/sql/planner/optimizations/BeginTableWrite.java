@@ -149,7 +149,7 @@ public class BeginTableWrite
                     node.getId(),
                     child,
                     newTarget,
-                    node.getRowCountSymbol(),
+                    node.getRowCountVariable(),
                     node.getStatisticsAggregation(),
                     node.getStatisticsAggregationDescriptor());
         }

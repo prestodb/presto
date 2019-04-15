@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
@@ -52,20 +53,30 @@ import static java.util.stream.Collectors.toMap;
 
 public class SymbolMapper
 {
-    private final Map<Symbol, Symbol> mapping;
+    private final Map<String, String> mapping;
 
     public SymbolMapper(Map<Symbol, Symbol> mapping)
     {
-        this.mapping = ImmutableMap.copyOf(requireNonNull(mapping, "mapping is null"));
+        requireNonNull(mapping, "mapping is null");
+        this.mapping = mapping.entrySet().stream().collect(toImmutableMap(entry -> entry.getKey().getName(), entry -> entry.getValue().getName()));
     }
 
     public Symbol map(Symbol symbol)
     {
-        Symbol canonical = symbol;
+        String canonical = symbol.getName();
         while (mapping.containsKey(canonical) && !mapping.get(canonical).equals(canonical)) {
             canonical = mapping.get(canonical);
         }
-        return canonical;
+        return new Symbol(canonical);
+    }
+
+    public VariableReferenceExpression map(VariableReferenceExpression variable)
+    {
+        String canonical = variable.getName();
+        while (mapping.containsKey(canonical) && !mapping.get(canonical).equals(canonical)) {
+            canonical = mapping.get(canonical);
+        }
+        return new VariableReferenceExpression(canonical, variable.getType());
     }
 
     public Expression map(Expression value)
@@ -201,7 +212,7 @@ public class SymbolMapper
                 node.getId(),
                 source,
                 node.getTarget(),
-                map(node.getRowCountSymbol()),
+                map(node.getRowCountVariable()),
                 node.getStatisticsAggregation().map(this::map),
                 node.getStatisticsAggregationDescriptor().map(descriptor -> descriptor.map(this::map)));
     }

@@ -469,7 +469,7 @@ public class LogicalPlanner
                     idAllocator.getNextId(),
                     writerNode,
                     target,
-                    symbolAllocator.newSymbol("rows", BIGINT),
+                    symbolAllocator.newVariable("rows", BIGINT),
                     Optional.of(aggregations.getFinalAggregation()),
                     Optional.of(result.getDescriptor()));
 
@@ -491,7 +491,7 @@ public class LogicalPlanner
                         Optional.empty(),
                         Optional.empty()),
                 target,
-                symbolAllocator.newSymbol("rows", BIGINT),
+                symbolAllocator.newVariable("rows", BIGINT),
                 Optional.empty(),
                 Optional.empty());
         return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputSymbols());
@@ -506,7 +506,7 @@ public class LogicalPlanner
                 idAllocator.getNextId(),
                 deleteNode,
                 deleteNode.getTarget(),
-                symbolAllocator.newSymbol("rows", BIGINT),
+                symbolAllocator.newVariable("rows", BIGINT),
                 Optional.empty(),
                 Optional.empty());
 
