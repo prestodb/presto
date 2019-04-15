@@ -49,6 +49,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.PeekingIterator;
 
 import javax.annotation.Nullable;
+import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -95,6 +96,7 @@ public final class RowExpressionDomainTranslator
     private final StandardFunctionResolution functionResolution;
     private final Metadata metadata;
 
+    @Inject
     public RowExpressionDomainTranslator(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
