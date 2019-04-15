@@ -661,7 +661,7 @@ public class PlanFragmenter
                                             Optional.empty(),
                                             Optional.empty()))),
                     insertHandle,
-                    symbolAllocator.newSymbol("rows", BIGINT),
+                    symbolAllocator.newVariable("rows", BIGINT),
                     Optional.empty(),
                     Optional.empty());
         }
