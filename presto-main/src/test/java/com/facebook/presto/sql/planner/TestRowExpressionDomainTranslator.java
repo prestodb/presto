@@ -1159,7 +1159,7 @@ public class TestRowExpressionDomainTranslator
 
     private ExtractionResult fromPredicate(RowExpression originalPredicate, RowExpressionDomainTranslator domainTranslator)
     {
-        return domainTranslator.fromPredicate(TEST_SESSION, originalPredicate);
+        return domainTranslator.fromPredicate(TEST_SESSION.toConnectorSession(), originalPredicate);
     }
 
     private RowExpression nullLiteral(Type type)

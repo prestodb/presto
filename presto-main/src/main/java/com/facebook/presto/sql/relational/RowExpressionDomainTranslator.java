@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.relational;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.FunctionMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.OperatorType;
@@ -120,7 +120,7 @@ public final class RowExpressionDomainTranslator
      * 2) An Expression fragment which represents the part of the original Expression that will need to be re-evaluated
      * after filtering with the TupleDomain.
      */
-    public ExtractionResult fromPredicate(Session session, RowExpression predicate)
+    public ExtractionResult fromPredicate(ConnectorSession session, RowExpression predicate)
     {
         return predicate.accept(new Visitor(metadata, session), false);
     }
@@ -294,13 +294,13 @@ public final class RowExpressionDomainTranslator
     {
         private final InterpretedFunctionInvoker functionInvoker;
         private final Metadata metadata;
-        private final Session session;
+        private final ConnectorSession session;
         private final FunctionManager functionManager;
         private final LogicalRowExpressions logicalRowExpressions;
         private final DeterminismEvaluator determinismEvaluator;
         private final StandardFunctionResolution resolution;
 
-        private Visitor(Metadata metadata, Session session)
+        private Visitor(Metadata metadata, ConnectorSession session)
         {
             this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionManager());
             this.metadata = metadata;
@@ -549,7 +549,7 @@ public final class RowExpressionDomainTranslator
         private Optional<Object> floorValue(Type fromType, Type toType, Object value)
         {
             return getSaturatedFloorCastOperator(fromType, toType)
-                    .map((operator) -> functionInvoker.invoke(operator, session.toConnectorSession(), value));
+                    .map((operator) -> functionInvoker.invoke(operator, session, value));
         }
 
         private Optional<FunctionHandle> getSaturatedFloorCastOperator(Type fromType, Type toType)
@@ -565,7 +565,7 @@ public final class RowExpressionDomainTranslator
         private int compareOriginalValueToCoerced(Type originalValueType, Object originalValue, Type coercedValueType, Object coercedValue)
         {
             FunctionHandle castToOriginalTypeOperator = metadata.getFunctionManager().lookupCast(CAST, coercedValueType.getTypeSignature(), originalValueType.getTypeSignature());
-            Object coercedValueInOriginalType = functionInvoker.invoke(castToOriginalTypeOperator, session.toConnectorSession(), coercedValue);
+            Object coercedValueInOriginalType = functionInvoker.invoke(castToOriginalTypeOperator, session, coercedValue);
             Block originalValueBlock = Utils.nativeValueToBlock(originalValueType, originalValue);
             Block coercedValueBlock = Utils.nativeValueToBlock(originalValueType, coercedValueInOriginalType);
             return originalValueType.compareTo(originalValueBlock, 0, coercedValueBlock, 0);

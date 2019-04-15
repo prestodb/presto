@@ -1206,7 +1206,7 @@ public class LocalExecutionPlanner
             // filterExpression may contain large function calls; evaluate them before compiling.
             if (filterExpression.isPresent()) {
                 Type type = filterExpression.get().getType();
-                Object value = new RowExpressionInterpreter(filterExpression.get(), metadata, session, true).optimize();
+                Object value = new RowExpressionInterpreter(filterExpression.get(), metadata, session.toConnectorSession(), true).optimize();
                 if (value instanceof RowExpression) {
                     RowExpression optimizedFilter = (RowExpression) value;
                     // building channel info
@@ -1320,7 +1320,7 @@ public class LocalExecutionPlanner
                 pageBuilder.declarePosition();
                 for (int i = 0; i < row.size(); i++) {
                     // evaluate the literal value
-                    Object result = rowExpressionInterpreter(row.get(i), metadata, context.getSession()).evaluate();
+                    Object result = rowExpressionInterpreter(row.get(i), metadata, context.getSession().toConnectorSession()).evaluate();
                     writeNativeValue(outputTypes.get(i), pageBuilder.getBlockBuilder(i), result);
                 }
             }

@@ -1530,7 +1530,7 @@ public class TestExpressionInterpreter
             return value;
         });
         RowExpression rowExpression = TRANSLATOR.translate(parsedExpression, SYMBOL_TYPES);
-        Object rowExpressionResult = new RowExpressionInterpreter(rowExpression, METADATA, TEST_SESSION, true).optimize(symbol -> {
+        Object rowExpressionResult = new RowExpressionInterpreter(rowExpression, METADATA, TEST_SESSION.toConnectorSession(), true).optimize(symbol -> {
             Object value = symbolConstant(symbol);
             if (value == null) {
                 return new VariableReferenceExpression(symbol.getName(), SYMBOL_TYPES.get(symbol));
@@ -1675,7 +1675,7 @@ public class TestExpressionInterpreter
     {
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, expression, emptyList(), WarningCollector.NOOP);
         Object expressionResult = expressionInterpreter(expression, METADATA, TEST_SESSION, expressionTypes).evaluate();
-        Object rowExpressionResult = rowExpressionInterpreter(TRANSLATOR.translateAndOptimize(expression), METADATA, TEST_SESSION).evaluate();
+        Object rowExpressionResult = rowExpressionInterpreter(TRANSLATOR.translateAndOptimize(expression), METADATA, TEST_SESSION.toConnectorSession()).evaluate();
 
         if (deterministic) {
             assertExpressionAndRowExpressionEquals(expressionResult, rowExpressionResult);
