@@ -33,6 +33,7 @@ import com.facebook.presto.spi.predicate.Utils;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -87,6 +88,7 @@ import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 
 public final class RowExpressionDomainTranslator
+        implements DomainTranslator
 {
     private final FunctionManager functionManager;
     private final LogicalRowExpressions logicalRowExpressions;
@@ -101,6 +103,7 @@ public final class RowExpressionDomainTranslator
         this.functionResolution = new StandardFunctionResolution(functionManager);
     }
 
+    @Override
     public RowExpression toPredicate(TupleDomain<VariableReferenceExpression> tupleDomain)
     {
         if (tupleDomain.isNone()) {
@@ -114,12 +117,7 @@ public final class RowExpressionDomainTranslator
                 .collect(collectingAndThen(toImmutableList(), logicalRowExpressions::combineConjuncts));
     }
 
-    /**
-     * Convert an Expression predicate into an ExtractionResult consisting of:
-     * 1) A successfully extracted TupleDomain
-     * 2) An Expression fragment which represents the part of the original Expression that will need to be re-evaluated
-     * after filtering with the TupleDomain.
-     */
+    @Override
     public ExtractionResult fromPredicate(ConnectorSession session, RowExpression predicate)
     {
         return predicate.accept(new Visitor(metadata, session), false);
@@ -331,12 +329,12 @@ public final class RowExpressionDomainTranslator
                     ExtractionResult extractionResult = or(disjuncts.build()).accept(this, complement);
 
                     // preserve original IN predicate as remaining predicate
-                    if (extractionResult.tupleDomain.isAll()) {
+                    if (extractionResult.getTupleDomain().isAll()) {
                         RowExpression originalPredicate = node;
                         if (complement) {
                             originalPredicate = not(resolution, originalPredicate);
                         }
-                        return new ExtractionResult(extractionResult.tupleDomain, originalPredicate);
+                        return new ExtractionResult(extractionResult.getTupleDomain(), originalPredicate);
                     }
                     return extractionResult;
                 }
@@ -880,28 +878,6 @@ public final class RowExpressionDomainTranslator
         public NullableValue getValue()
         {
             return value;
-        }
-    }
-
-    public static class ExtractionResult
-    {
-        private final TupleDomain<VariableReferenceExpression> tupleDomain;
-        private final RowExpression remainingExpression;
-
-        public ExtractionResult(TupleDomain<VariableReferenceExpression> tupleDomain, RowExpression remainingExpression)
-        {
-            this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
-            this.remainingExpression = requireNonNull(remainingExpression, "remainingExpression is null");
-        }
-
-        public TupleDomain<VariableReferenceExpression> getTupleDomain()
-        {
-            return tupleDomain;
-        }
-
-        public RowExpression getRemainingExpression()
-        {
-            return remainingExpression;
         }
     }
 }
