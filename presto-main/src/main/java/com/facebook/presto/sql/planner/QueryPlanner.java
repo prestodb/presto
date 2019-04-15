@@ -241,12 +241,13 @@ class QueryPlanner
         }
 
         // create delete node
-        Symbol rowId = builder.translate(new FieldReference(relationPlan.getDescriptor().indexOf(rowIdField)));
-        List<Symbol> outputs = ImmutableList.of(
-                symbolAllocator.newSymbol("partialrows", BIGINT),
-                symbolAllocator.newSymbol("fragment", VARBINARY));
+        VariableReferenceExpression rowId = new VariableReferenceExpression(builder.translate(new FieldReference(relationPlan.getDescriptor().indexOf(rowIdField))).getName(), rowIdField.getType());
+        List<VariableReferenceExpression> deleteNodeOutputVariables = ImmutableList.of(
+                symbolAllocator.newVariable("partialrows", BIGINT),
+                symbolAllocator.newVariable("fragment", VARBINARY));
 
-        return new DeleteNode(idAllocator.getNextId(), builder.getRoot(), new DeleteHandle(handle, metadata.getTableMetadata(session, handle).getTable()), rowId, outputs);
+        List<Symbol> deleteNodeOutputSymbols = deleteNodeOutputVariables.stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableList());
+        return new DeleteNode(idAllocator.getNextId(), builder.getRoot(), new DeleteHandle(handle, metadata.getTableMetadata(session, handle).getTable()), rowId, deleteNodeOutputSymbols, deleteNodeOutputVariables);
     }
 
     private static List<Symbol> computeOutputs(PlanBuilder builder, List<Expression> outputExpressions)
