@@ -97,7 +97,7 @@ public class MetadataDeleteOptimizer
             return new MetadataDeleteNode(
                     idAllocator.getNextId(),
                     new DeleteHandle(tableScanNode.getTable(), delete.get().getTarget().getSchemaTableName()),
-                    Iterables.getOnlyElement(node.getOutputSymbols()));
+                    Iterables.getOnlyElement(node.getOutputVariables()));
         }
 
         private static <T> Optional<T> findNode(PlanNode source, Class<T> clazz)
