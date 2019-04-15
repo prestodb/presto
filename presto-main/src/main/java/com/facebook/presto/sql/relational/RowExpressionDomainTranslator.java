@@ -91,10 +91,12 @@ public final class RowExpressionDomainTranslator
     private final FunctionManager functionManager;
     private final LogicalRowExpressions logicalRowExpressions;
     private final StandardFunctionResolution functionResolution;
+    private final Metadata metadata;
 
-    public RowExpressionDomainTranslator(FunctionManager functionManager)
+    public RowExpressionDomainTranslator(Metadata metadata)
     {
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.functionManager = metadata.getFunctionManager();
         this.logicalRowExpressions = new LogicalRowExpressions(functionManager);
         this.functionResolution = new StandardFunctionResolution(functionManager);
     }
@@ -110,6 +112,17 @@ public final class RowExpressionDomainTranslator
                 .sorted(comparing(entry -> entry.getKey().getName()))
                 .map(entry -> toPredicate(entry.getValue(), entry.getKey()))
                 .collect(collectingAndThen(toImmutableList(), logicalRowExpressions::combineConjuncts));
+    }
+
+    /**
+     * Convert an Expression predicate into an ExtractionResult consisting of:
+     * 1) A successfully extracted TupleDomain
+     * 2) An Expression fragment which represents the part of the original Expression that will need to be re-evaluated
+     * after filtering with the TupleDomain.
+     */
+    public ExtractionResult fromPredicate(Session session, RowExpression predicate)
+    {
+        return predicate.accept(new Visitor(metadata, session), false);
     }
 
     private RowExpression toPredicate(Domain domain, VariableReferenceExpression reference)
@@ -274,17 +287,6 @@ public final class RowExpressionDomainTranslator
     {
         return !range.getLow().isLowerUnbounded() && range.getLow().getBound() == Marker.Bound.EXACTLY
                 && !range.getHigh().isUpperUnbounded() && range.getHigh().getBound() == Marker.Bound.EXACTLY;
-    }
-
-    /**
-     * Convert an Expression predicate into an ExtractionResult consisting of:
-     * 1) A successfully extracted TupleDomain
-     * 2) An Expression fragment which represents the part of the original Expression that will need to be re-evaluated
-     * after filtering with the TupleDomain.
-     */
-    public static ExtractionResult fromPredicate(Metadata metadata, Session session, RowExpression predicate)
-    {
-        return predicate.accept(new Visitor(metadata, session), false);
     }
 
     private static class Visitor
