@@ -698,8 +698,8 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitDelete(DeleteNode node, RewriteContext<Set<Symbol>> context)
         {
-            PlanNode source = context.rewrite(node.getSource(), ImmutableSet.of(node.getRowId()));
-            return new DeleteNode(node.getId(), source, node.getTarget(), node.getRowId(), node.getOutputSymbols());
+            PlanNode source = context.rewrite(node.getSource(), ImmutableSet.of(node.getRowIdAsSymbol()));
+            return new DeleteNode(node.getId(), source, node.getTarget(), node.getRowId(), node.getOutputSymbols(), node.getOutputVariables());
         }
 
         @Override

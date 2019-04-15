@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -33,16 +34,18 @@ public class DeleteNode
 {
     private final PlanNode source;
     private final DeleteHandle target;
-    private final Symbol rowId;
+    private final VariableReferenceExpression rowId;
     private final List<Symbol> outputs;
+    private final List<VariableReferenceExpression> outputVariables;
 
     @JsonCreator
     public DeleteNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("target") DeleteHandle target,
-            @JsonProperty("rowId") Symbol rowId,
-            @JsonProperty("outputs") List<Symbol> outputs)
+            @JsonProperty("rowId") VariableReferenceExpression rowId,
+            @JsonProperty("outputs") List<Symbol> outputs,
+            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables)
     {
         super(id);
 
@@ -50,6 +53,8 @@ public class DeleteNode
         this.target = requireNonNull(target, "target is null");
         this.rowId = requireNonNull(rowId, "rowId is null");
         this.outputs = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
+        this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
+        validateOutputVariables();
     }
 
     @JsonProperty
@@ -65,9 +70,14 @@ public class DeleteNode
     }
 
     @JsonProperty
-    public Symbol getRowId()
+    public VariableReferenceExpression getRowId()
     {
         return rowId;
+    }
+
+    public Symbol getRowIdAsSymbol()
+    {
+        return new Symbol(rowId.getName());
     }
 
     @JsonProperty("outputs")
@@ -75,6 +85,13 @@ public class DeleteNode
     public List<Symbol> getOutputSymbols()
     {
         return outputs;
+    }
+
+    @JsonProperty
+    @Override
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        return outputVariables;
     }
 
     @Override
@@ -92,6 +109,6 @@ public class DeleteNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new DeleteNode(getId(), Iterables.getOnlyElement(newChildren), target, rowId, outputs);
+        return new DeleteNode(getId(), Iterables.getOnlyElement(newChildren), target, rowId, outputs, outputVariables);
     }
 }

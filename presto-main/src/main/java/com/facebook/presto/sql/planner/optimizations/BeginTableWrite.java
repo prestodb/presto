@@ -113,7 +113,8 @@ public class BeginTableWrite
                     rewriteDeleteTableScan(node.getSource(), deleteHandle.getHandle()),
                     deleteHandle,
                     node.getRowId(),
-                    node.getOutputSymbols());
+                    node.getOutputSymbols(),
+                    node.getOutputVariables());
         }
 
         @Override
