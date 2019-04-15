@@ -407,7 +407,7 @@ public class HiveMetadata
                 Iterable<List<Object>> records = () ->
                         stream(partitionManager.getPartitions(metastore, sourceTableHandle, targetConstraint, session).getPartitions())
                                 .map(hivePartition ->
-                                        (List<Object>) IntStream.range(0, partitionColumns.size())
+                                        IntStream.range(0, partitionColumns.size())
                                                 .mapToObj(fieldIdToColumnHandle::get)
                                                 .map(columnHandle -> hivePartition.getKeys().get(columnHandle).getValue())
                                                 .collect(toList()))
