@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -34,7 +35,7 @@ public class TableFinishNode
 {
     private final PlanNode source;
     private final WriterTarget target;
-    private final Symbol rowCountSymbol;
+    private final VariableReferenceExpression rowCountVariable;
     private final Optional<StatisticAggregations> statisticsAggregation;
     private final Optional<StatisticAggregationsDescriptor<Symbol>> statisticsAggregationDescriptor;
 
@@ -43,7 +44,7 @@ public class TableFinishNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("target") WriterTarget target,
-            @JsonProperty("rowCountSymbol") Symbol rowCountSymbol,
+            @JsonProperty("rowCountVariable") VariableReferenceExpression rowCountVariable,
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation,
             @JsonProperty("statisticsAggregationDescriptor") Optional<StatisticAggregationsDescriptor<Symbol>> statisticsAggregationDescriptor)
     {
@@ -52,7 +53,7 @@ public class TableFinishNode
         checkArgument(target != null || source instanceof TableWriterNode);
         this.source = requireNonNull(source, "source is null");
         this.target = requireNonNull(target, "target is null");
-        this.rowCountSymbol = requireNonNull(rowCountSymbol, "rowCountSymbol is null");
+        this.rowCountVariable = requireNonNull(rowCountVariable, "rowCountVariable is null");
         this.statisticsAggregation = requireNonNull(statisticsAggregation, "statisticsAggregation is null");
         this.statisticsAggregationDescriptor = requireNonNull(statisticsAggregationDescriptor, "statisticsAggregationDescriptor is null");
         checkArgument(statisticsAggregation.isPresent() == statisticsAggregationDescriptor.isPresent(), "statisticsAggregation and statisticsAggregationDescriptor must both be either present or absent");
@@ -71,9 +72,9 @@ public class TableFinishNode
     }
 
     @JsonProperty
-    public Symbol getRowCountSymbol()
+    public VariableReferenceExpression getRowCountVariable()
     {
-        return rowCountSymbol;
+        return rowCountVariable;
     }
 
     @JsonProperty
@@ -97,7 +98,13 @@ public class TableFinishNode
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.of(rowCountSymbol);
+        return ImmutableList.of(new Symbol(rowCountVariable.getName()));
+    }
+
+    @Override
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        return ImmutableList.of(rowCountVariable);
     }
 
     @Override
@@ -113,7 +120,7 @@ public class TableFinishNode
                 getId(),
                 Iterables.getOnlyElement(newChildren),
                 target,
-                rowCountSymbol,
+                rowCountVariable,
                 statisticsAggregation,
                 statisticsAggregationDescriptor);
     }
