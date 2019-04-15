@@ -46,7 +46,7 @@ public class TestRemoveEmptyDelete
                                 ImmutableList.of(),
                                 ImmutableList.of(),
                                 ImmutableMap.of()),
-                        p.symbol("a", BigintType.BIGINT)))
+                        p.variable(p.symbol("a", BigintType.BIGINT))))
                 .doesNotFire();
     }
 
@@ -57,7 +57,7 @@ public class TestRemoveEmptyDelete
                 .on(p -> p.tableDelete(
                         new SchemaTableName("sch", "tab"),
                         p.values(),
-                        p.symbol("a", BigintType.BIGINT)))
+                        p.variable(p.symbol("a", BigintType.BIGINT))))
                 .matches(
                         PlanMatchPattern.values(ImmutableMap.of("a", 0)));
     }

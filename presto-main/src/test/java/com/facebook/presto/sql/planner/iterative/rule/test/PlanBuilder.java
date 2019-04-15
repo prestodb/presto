@@ -428,8 +428,9 @@ public class PlanBuilder
                 enforcedConstraint);
     }
 
-    public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)
+    public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, VariableReferenceExpression deleteRowId)
     {
+        Symbol deleteRowIdSymbol = new Symbol(deleteRowId.getName());
         TableWriterNode.DeleteHandle deleteHandle = new TableWriterNode.DeleteHandle(
                 new TableHandle(
                         new ConnectorId("testConnector"),
@@ -444,10 +445,10 @@ public class PlanBuilder
                                 idAllocator.getNextId(),
                                 deleteSource,
                                 deleteHandle,
-                                deleteRowId,
-                                ImmutableList.of(deleteRowId)))
-                        .addInputsSet(deleteRowId)
-                        .singleDistributionPartitioningScheme(deleteRowId)),
+                                deleteRowIdSymbol,
+                                ImmutableList.of(deleteRowIdSymbol)))
+                        .addInputsSet(deleteRowIdSymbol)
+                        .singleDistributionPartitioningScheme(deleteRowIdSymbol)),
                 deleteHandle,
                 deleteRowId,
                 Optional.empty(),
