@@ -144,6 +144,11 @@ public class SymbolAllocator
         return newSymbol(nameHint, field.getType());
     }
 
+    public VariableReferenceExpression newVariable(Field field)
+    {
+        return newVariable(field.getName().orElse("field"), field.getType(), null);
+    }
+
     public TypeProvider getTypes()
     {
         return TypeProvider.viewOf(symbols);
