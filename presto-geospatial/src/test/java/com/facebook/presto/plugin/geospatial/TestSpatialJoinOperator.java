@@ -346,6 +346,9 @@ public class TestSpatialJoinOperator
                 .row(stPoint(10, 1), "10_1");
         OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), INNER, probePages.getTypes(), Ints.asList(1), 0, Optional.empty(), pagesSpatialIndexFactory);
 
+        // Make sure that spatial index reference counting works with duplicate factories
+        joinOperatorFactory.duplicate().noMoreOperators();
+
         MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
                 .row("0_1", "0_0")
                 .row("0_1", "1_0")
@@ -452,6 +455,9 @@ public class TestSpatialJoinOperator
         while (!pagesSpatialIndex.isDone()) {
             driver.process();
         }
+
+        // Release the spatial index reference
+        pagesSpatialIndexFactory.probeOperatorFinished();
 
         runDriverInThread(executor, driver);
         return pagesSpatialIndexFactory;

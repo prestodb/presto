@@ -107,6 +107,8 @@ public class SpatialJoinOperator
         @Override
         public OperatorFactory duplicate()
         {
+            checkState(!closed, "Factory is already closed");
+            pagesSpatialIndexFactory.addProbeOperatorFactory();
             return new SpatialJoinOperatorFactory(operatorId, planNodeId, joinType, probeTypes, probeOutputChannels, probeGeometryChannel, partitionChannel, pagesSpatialIndexFactory);
         }
     }

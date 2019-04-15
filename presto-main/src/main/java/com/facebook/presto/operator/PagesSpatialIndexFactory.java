@@ -112,6 +112,16 @@ public class PagesSpatialIndexFactory
     }
 
     /**
+     * Called by SpatialJoinOperatorFactory to indicate that a duplicate factory will be created
+     * and this class should wait for an extra {@link noMoreProbeOperators} call before
+     * releasing spatial index.
+     */
+    public synchronized void addProbeOperatorFactory()
+    {
+        activeProbeOperators.retain();
+    }
+
+    /**
      * Called by SpatialJoinOperatorFactory to indicate that all
      * {@link SpatialJoinOperator} have been created.
      */
