@@ -17,13 +17,13 @@ import com.facebook.presto.operator.scalar.CombineHashFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.function.IntFunction;
 
+import static com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer.INITIAL_HASH_VALUE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -54,7 +54,7 @@ public class InterpretedHashGenerator
 
     public long hashPosition(int position, IntFunction<Block> blockProvider)
     {
-        long result = HashGenerationOptimizer.INITIAL_HASH_VALUE;
+        long result = INITIAL_HASH_VALUE;
         for (int i = 0; i < hashChannels.length; i++) {
             Type type = hashChannelTypes.get(i);
             result = CombineHashFunction.getHash(result, TypeUtils.hashPosition(type, blockProvider.apply(hashChannels[i]), position));

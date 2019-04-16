@@ -132,7 +132,7 @@ public class RewriteSpatialPartitioningAggregation
                         node.getGroupingSets(),
                         node.getPreGroupedSymbols(),
                         node.getStep(),
-                        node.getHashSymbol(),
+                        node.getHashVariable(),
                         node.getGroupIdSymbol()));
     }
 }

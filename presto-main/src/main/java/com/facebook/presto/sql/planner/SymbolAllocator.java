@@ -68,9 +68,9 @@ public class SymbolAllocator
         return newVariable(nameHint, type, null);
     }
 
-    public Symbol newHashSymbol()
+    public VariableReferenceExpression newHashVariable()
     {
-        return newSymbol("$hashValue", BigintType.BIGINT);
+        return newVariable("$hashValue", BigintType.BIGINT);
     }
 
     public VariableReferenceExpression newVariable(String nameHint, Type type, String suffix)

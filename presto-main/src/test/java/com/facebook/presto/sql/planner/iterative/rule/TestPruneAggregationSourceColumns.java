@@ -89,7 +89,7 @@ public class TestPruneAggregationSourceColumns
         return planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
                 .singleGroupingSet(key)
                 .addAggregation(avg, planBuilder.expression("avg(input)"), ImmutableList.of(BIGINT), mask)
-                .hashSymbol(keyHash)
+                .hashVariable(planBuilder.variable(keyHash))
                 .source(
                         planBuilder.values(
                                 filteredSourceSymboles,

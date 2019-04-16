@@ -98,7 +98,7 @@ public class SimplifyCountOverConstant
                 parent.getGroupingSets(),
                 ImmutableList.of(),
                 parent.getStep(),
-                parent.getHashSymbol(),
+                parent.getHashVariable(),
                 parent.getGroupIdSymbol()));
     }
 

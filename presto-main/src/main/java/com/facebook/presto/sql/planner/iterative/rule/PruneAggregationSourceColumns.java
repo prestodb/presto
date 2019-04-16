@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils;
@@ -44,7 +45,7 @@ public class PruneAggregationSourceColumns
     {
         Set<Symbol> requiredInputs = Streams.concat(
                 aggregationNode.getGroupingKeys().stream(),
-                aggregationNode.getHashSymbol().map(Stream::of).orElse(Stream.empty()),
+                aggregationNode.getHashVariable().map(this::toSymbol).map(Stream::of).orElse(Stream.empty()),
                 aggregationNode.getAggregations().values().stream()
                         .flatMap(PruneAggregationSourceColumns::getAggregationInputs))
                 .collect(toImmutableSet());
@@ -59,5 +60,10 @@ public class PruneAggregationSourceColumns
         return Streams.concat(
                 AggregationNodeUtils.extractUnique(aggregation).stream(),
                 aggregation.getMask().map(Stream::of).orElse(Stream.empty()));
+    }
+
+    private Symbol toSymbol(VariableReferenceExpression variable)
+    {
+        return new Symbol(variable.getName());
     }
 }

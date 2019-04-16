@@ -102,7 +102,7 @@ public class TestPruneJoinChildrenColumns
                         .filter(joinOutputFilter)
                         .collect(toImmutableList()),
                 Optional.of(expression("leftValue > 5")),
-                Optional.of(leftKeyHash),
-                Optional.of(rightKeyHash));
+                Optional.of(p.variable(leftKeyHash)),
+                Optional.of(p.variable(rightKeyHash)));
     }
 }

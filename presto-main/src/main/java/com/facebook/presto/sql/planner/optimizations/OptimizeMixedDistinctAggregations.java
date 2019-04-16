@@ -459,7 +459,7 @@ public class OptimizeMixedDistinctAggregations
                     singleGroupingSet(ImmutableList.copyOf(groupByKeys)),
                     ImmutableList.of(),
                     SINGLE,
-                    originalNode.getHashSymbol(),
+                    originalNode.getHashVariable(),
                     Optional.empty());
         }
 

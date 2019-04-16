@@ -132,7 +132,7 @@ public class PruneUnreferencedOutputs
         public PlanNode visitExchange(ExchangeNode node, RewriteContext<Set<Symbol>> context)
         {
             Set<Symbol> expectedOutputSymbols = Sets.newHashSet(context.get());
-            node.getPartitioningScheme().getHashColumn().ifPresent(expectedOutputSymbols::add);
+            node.getPartitioningScheme().getHashColumn().ifPresent(variable -> expectedOutputSymbols.add(new Symbol(variable.getName())));
             node.getPartitioningScheme().getPartitioning().getColumns().stream()
                     .forEach(expectedOutputSymbols::add);
             node.getOrderingScheme().ifPresent(orderingScheme -> expectedOutputSymbols.addAll(orderingScheme.getOrderBy()));
@@ -194,16 +194,16 @@ public class PruneUnreferencedOutputs
 
             ImmutableSet.Builder<Symbol> leftInputsBuilder = ImmutableSet.builder();
             leftInputsBuilder.addAll(context.get()).addAll(Iterables.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft));
-            if (node.getLeftHashSymbol().isPresent()) {
-                leftInputsBuilder.add(node.getLeftHashSymbol().get());
+            if (node.getLeftHashVariable().isPresent()) {
+                leftInputsBuilder.add(new Symbol(node.getLeftHashVariable().get().getName()));
             }
             leftInputsBuilder.addAll(expectedFilterInputs);
             Set<Symbol> leftInputs = leftInputsBuilder.build();
 
             ImmutableSet.Builder<Symbol> rightInputsBuilder = ImmutableSet.builder();
             rightInputsBuilder.addAll(context.get()).addAll(Iterables.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight));
-            if (node.getRightHashSymbol().isPresent()) {
-                rightInputsBuilder.add(node.getRightHashSymbol().get());
+            if (node.getRightHashVariable().isPresent()) {
+                rightInputsBuilder.add(new Symbol(node.getRightHashVariable().get().getName()));
             }
             rightInputsBuilder.addAll(expectedFilterInputs);
             Set<Symbol> rightInputs = rightInputsBuilder.build();
@@ -227,7 +227,7 @@ public class PruneUnreferencedOutputs
                         .collect(toImmutableList());
             }
 
-            return new JoinNode(node.getId(), node.getType(), left, right, node.getCriteria(), outputSymbols, node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType());
+            return new JoinNode(node.getId(), node.getType(), left, right, node.getCriteria(), outputSymbols, node.getFilter(), node.getLeftHashVariable(), node.getRightHashVariable(), node.getDistributionType());
         }
 
         @Override
@@ -235,15 +235,15 @@ public class PruneUnreferencedOutputs
         {
             ImmutableSet.Builder<Symbol> sourceInputsBuilder = ImmutableSet.builder();
             sourceInputsBuilder.addAll(context.get()).add(node.getSourceJoinSymbol());
-            if (node.getSourceHashSymbol().isPresent()) {
-                sourceInputsBuilder.add(node.getSourceHashSymbol().get());
+            if (node.getSourceHashVariable().isPresent()) {
+                sourceInputsBuilder.add(new Symbol(node.getSourceHashVariable().get().getName()));
             }
             Set<Symbol> sourceInputs = sourceInputsBuilder.build();
 
             ImmutableSet.Builder<Symbol> filteringSourceInputBuilder = ImmutableSet.builder();
             filteringSourceInputBuilder.add(node.getFilteringSourceJoinSymbol());
-            if (node.getFilteringSourceHashSymbol().isPresent()) {
-                filteringSourceInputBuilder.add(node.getFilteringSourceHashSymbol().get());
+            if (node.getFilteringSourceHashVariable().isPresent()) {
+                filteringSourceInputBuilder.add(new Symbol(node.getFilteringSourceHashVariable().get().getName()));
             }
             Set<Symbol> filteringSourceInputs = filteringSourceInputBuilder.build();
 
@@ -256,8 +256,8 @@ public class PruneUnreferencedOutputs
                     node.getSourceJoinSymbol(),
                     node.getFilteringSourceJoinSymbol(),
                     node.getSemiJoinOutput(),
-                    node.getSourceHashSymbol(),
-                    node.getFilteringSourceHashSymbol(),
+                    node.getSourceHashVariable(),
+                    node.getFilteringSourceHashVariable(),
                     node.getDistributionType());
         }
 
@@ -299,23 +299,23 @@ public class PruneUnreferencedOutputs
             ImmutableSet.Builder<Symbol> probeInputsBuilder = ImmutableSet.builder();
             probeInputsBuilder.addAll(context.get())
                     .addAll(Iterables.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause::getProbe));
-            if (node.getProbeHashSymbol().isPresent()) {
-                probeInputsBuilder.add(node.getProbeHashSymbol().get());
+            if (node.getProbeHashVariable().isPresent()) {
+                probeInputsBuilder.add(new Symbol(node.getProbeHashVariable().get().getName()));
             }
             Set<Symbol> probeInputs = probeInputsBuilder.build();
 
             ImmutableSet.Builder<Symbol> indexInputBuilder = ImmutableSet.builder();
             indexInputBuilder.addAll(context.get())
                     .addAll(Iterables.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause::getIndex));
-            if (node.getIndexHashSymbol().isPresent()) {
-                indexInputBuilder.add(node.getIndexHashSymbol().get());
+            if (node.getIndexHashVariable().isPresent()) {
+                indexInputBuilder.add(new Symbol(node.getIndexHashVariable().get().getName()));
             }
             Set<Symbol> indexInputs = indexInputBuilder.build();
 
             PlanNode probeSource = context.rewrite(node.getProbeSource(), probeInputs);
             PlanNode indexSource = context.rewrite(node.getIndexSource(), indexInputs);
 
-            return new IndexJoinNode(node.getId(), node.getType(), probeSource, indexSource, node.getCriteria(), node.getProbeHashSymbol(), node.getIndexHashSymbol());
+            return new IndexJoinNode(node.getId(), node.getType(), probeSource, indexSource, node.getCriteria(), node.getProbeHashVariable(), node.getIndexHashVariable());
         }
 
         @Override
@@ -340,8 +340,8 @@ public class PruneUnreferencedOutputs
         {
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(node.getGroupingKeys());
-            if (node.getHashSymbol().isPresent()) {
-                expectedInputs.add(node.getHashSymbol().get());
+            if (node.getHashVariable().isPresent()) {
+                expectedInputs.add(new Symbol(node.getHashVariable().get().getName()));
             }
 
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
@@ -364,7 +364,7 @@ public class PruneUnreferencedOutputs
                     node.getGroupingSets(),
                     ImmutableList.of(),
                     node.getStep(),
-                    node.getHashSymbol(),
+                    node.getHashVariable(),
                     node.getGroupIdSymbol());
         }
 
@@ -388,8 +388,8 @@ public class PruneUnreferencedOutputs
                 }
             }
 
-            if (node.getHashSymbol().isPresent()) {
-                expectedInputs.add(node.getHashSymbol().get());
+            if (node.getHashVariable().isPresent()) {
+                expectedInputs.add(new Symbol(node.getHashVariable().get().getName()));
             }
 
             ImmutableMap.Builder<VariableReferenceExpression, WindowNode.Function> functionsBuilder = ImmutableMap.builder();
@@ -415,7 +415,7 @@ public class PruneUnreferencedOutputs
                     source,
                     node.getSpecification(),
                     functions,
-                    node.getHashSymbol(),
+                    node.getHashVariable(),
                     node.getPrePartitionedInputs(),
                     node.getPreSortedOrderPrefix());
         }
@@ -502,12 +502,12 @@ public class PruneUnreferencedOutputs
                             .filter(symbol -> !symbol.equals(node.getMarkerSymbol()))
                             .collect(toImmutableList()));
 
-            if (node.getHashSymbol().isPresent()) {
-                expectedInputs.add(node.getHashSymbol().get());
+            if (node.getHashVariable().isPresent()) {
+                expectedInputs.add(new Symbol(node.getHashVariable().get().getName()));
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
-            return new MarkDistinctNode(node.getId(), source, node.getMarkerVariable(), node.getDistinctSymbols(), node.getHashSymbol());
+            return new MarkDistinctNode(node.getId(), source, node.getMarkerVariable(), node.getDistinctSymbols(), node.getHashVariable());
         }
 
         @Override
@@ -569,14 +569,14 @@ public class PruneUnreferencedOutputs
         public PlanNode visitDistinctLimit(DistinctLimitNode node, RewriteContext<Set<Symbol>> context)
         {
             Set<Symbol> expectedInputs;
-            if (node.getHashSymbol().isPresent()) {
-                expectedInputs = ImmutableSet.copyOf(concat(node.getDistinctSymbols(), ImmutableList.of(node.getHashSymbol().get())));
+            if (node.getHashVariable().isPresent()) {
+                expectedInputs = ImmutableSet.copyOf(concat(node.getDistinctSymbols(), ImmutableList.of(new Symbol(node.getHashVariable().get().getName()))));
             }
             else {
                 expectedInputs = ImmutableSet.copyOf(node.getDistinctSymbols());
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
-            return new DistinctLimitNode(node.getId(), source, node.getLimit(), node.isPartial(), node.getDistinctSymbols(), node.getHashSymbol());
+            return new DistinctLimitNode(node.getId(), source, node.getLimit(), node.isPartial(), node.getDistinctSymbols(), node.getHashVariable());
         }
 
         @Override
@@ -599,12 +599,12 @@ public class PruneUnreferencedOutputs
                     .addAll(context.get())
                     .addAll(node.getPartitionBy());
 
-            if (node.getHashSymbol().isPresent()) {
-                inputsBuilder.add(node.getHashSymbol().get());
+            if (node.getHashVariable().isPresent()) {
+                inputsBuilder.add(new Symbol(node.getHashVariable().get().getName()));
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
-            return new RowNumberNode(node.getId(), source, node.getPartitionBy(), node.getRowNumberVariable(), node.getMaxRowCountPerPartition(), node.getHashSymbol());
+            return new RowNumberNode(node.getId(), source, node.getPartitionBy(), node.getRowNumberVariable(), node.getMaxRowCountPerPartition(), node.getHashVariable());
         }
 
         @Override
@@ -615,8 +615,8 @@ public class PruneUnreferencedOutputs
                     .addAll(node.getPartitionBy())
                     .addAll(node.getOrderingScheme().getOrderBy());
 
-            if (node.getHashSymbol().isPresent()) {
-                expectedInputs.add(node.getHashSymbol().get());
+            if (node.getHashVariable().isPresent()) {
+                expectedInputs.add(new Symbol(node.getHashVariable().get().getName()));
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
@@ -626,7 +626,7 @@ public class PruneUnreferencedOutputs
                     node.getRowNumberVariable(),
                     node.getMaxRowCountPerPartition(),
                     node.isPartial(),
-                    node.getHashSymbol());
+                    node.getHashVariable());
         }
 
         @Override
@@ -647,7 +647,7 @@ public class PruneUnreferencedOutputs
             if (node.getPartitioningScheme().isPresent()) {
                 PartitioningScheme partitioningScheme = node.getPartitioningScheme().get();
                 partitioningScheme.getPartitioning().getColumns().forEach(expectedInputs::add);
-                partitioningScheme.getHashColumn().ifPresent(expectedInputs::add);
+                partitioningScheme.getHashColumn().ifPresent(variable -> expectedInputs.add(new Symbol(variable.getName())));
             }
             if (node.getStatisticsAggregation().isPresent()) {
                 StatisticAggregations aggregations = node.getStatisticsAggregation().get();

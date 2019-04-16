@@ -46,7 +46,7 @@ public class PruneMarkDistinctColumns
                 referencedOutputs.stream()
                         .filter(symbol -> !symbol.equals(markDistinctNode.getMarkerSymbol())),
                 markDistinctNode.getDistinctSymbols().stream(),
-                markDistinctNode.getHashSymbol().map(Stream::of).orElse(Stream.empty()))
+                markDistinctNode.getHashVariable().map(variable -> Stream.of(new Symbol(variable.getName()))).orElse(Stream.empty()))
                 .collect(toImmutableSet());
 
         return restrictChildOutputs(idAllocator, markDistinctNode, requiredInputs);
