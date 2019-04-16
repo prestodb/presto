@@ -52,7 +52,7 @@ public class TopNRowNumberMatcher
         this.rowNumberSymbol = requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
         this.maxRowCountPerPartition = requireNonNull(maxRowCountPerPartition, "maxRowCountPerPartition is null");
         this.partial = requireNonNull(partial, "partial is null");
-        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
+        this.hashSymbol = requireNonNull(hashSymbol, "hashVariable is null");
     }
 
     @Override
@@ -100,7 +100,7 @@ public class TopNRowNumberMatcher
                 .map(expectedHashSymbol ->
                         expectedHashSymbol
                                 .map(symbolAlias -> symbolAlias.toSymbol(symbolAliases))
-                                .equals(topNRowNumberNode.getHashSymbol()))
+                                .equals(topNRowNumberNode.getHashVariable()))
                 .orElse(true)) {
             return NO_MATCH;
         }
@@ -116,7 +116,7 @@ public class TopNRowNumberMatcher
                 .add("rowNumberSymbol", rowNumberSymbol)
                 .add("maxRowCountPerPartition", maxRowCountPerPartition)
                 .add("partial", partial)
-                .add("hashSymbol", hashSymbol)
+                .add("hashVariable", hashSymbol)
                 .toString();
     }
 
@@ -163,7 +163,7 @@ public class TopNRowNumberMatcher
 
         public Builder hashSymbol(Optional<SymbolAlias> hashSymbol)
         {
-            this.hashSymbol = Optional.of(requireNonNull(hashSymbol, "hashSymbol is null"));
+            this.hashSymbol = Optional.of(requireNonNull(hashSymbol, "hashVariable is null"));
             return this;
         }
 

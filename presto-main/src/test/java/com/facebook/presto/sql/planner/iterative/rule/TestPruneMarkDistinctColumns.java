@@ -63,7 +63,7 @@ public class TestPruneMarkDistinctColumns
                             p.markDistinct(
                                     p.variable(mark),
                                     ImmutableList.of(key),
-                                    hash,
+                                    p.variable(hash),
                                     p.values(key, hash, unused)));
                 })
                 .matches(

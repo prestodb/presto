@@ -169,7 +169,7 @@ public class ExpressionRewriteRuleSet
                         aggregationNode.getGroupingSets(),
                         aggregationNode.getPreGroupedSymbols(),
                         aggregationNode.getStep(),
-                        aggregationNode.getHashSymbol(),
+                        aggregationNode.getHashVariable(),
                         aggregationNode.getGroupIdSymbol()));
             }
             return Result.empty();
@@ -232,8 +232,8 @@ public class ExpressionRewriteRuleSet
                         joinNode.getCriteria(),
                         joinNode.getOutputSymbols(),
                         filter,
-                        joinNode.getLeftHashSymbol(),
-                        joinNode.getRightHashSymbol(),
+                        joinNode.getLeftHashVariable(),
+                        joinNode.getRightHashVariable(),
                         joinNode.getDistributionType()));
             }
             return Result.empty();

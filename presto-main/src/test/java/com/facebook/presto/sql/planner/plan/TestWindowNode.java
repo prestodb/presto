@@ -127,14 +127,14 @@ public class TestWindowNode
                         ImmutableList.of(columnB),
                         ImmutableMap.of(columnB, SortOrder.ASC_NULLS_FIRST))));
         Map<VariableReferenceExpression, WindowNode.Function> functions = ImmutableMap.of(windowVariable, new WindowNode.Function(functionCall, functionHandle, frame));
-        Optional<Symbol> hashSymbol = Optional.of(columnB);
+        Optional<VariableReferenceExpression> hashVariable = Optional.of(variableB);
         Set<Symbol> prePartitionedInputs = ImmutableSet.of(columnA);
         WindowNode windowNode = new WindowNode(
                 id,
                 sourceNode,
                 specification,
                 functions,
-                hashSymbol,
+                hashVariable,
                 prePartitionedInputs,
                 0);
 
@@ -146,7 +146,7 @@ public class TestWindowNode
         assertEquals(actualNode.getSpecification(), windowNode.getSpecification());
         assertEquals(actualNode.getWindowFunctions(), windowNode.getWindowFunctions());
         assertEquals(actualNode.getFrames(), windowNode.getFrames());
-        assertEquals(actualNode.getHashSymbol(), windowNode.getHashSymbol());
+        assertEquals(actualNode.getHashVariable(), windowNode.getHashVariable());
         assertEquals(actualNode.getPrePartitionedInputs(), windowNode.getPrePartitionedInputs());
         assertEquals(actualNode.getPreSortedOrderPrefix(), windowNode.getPreSortedOrderPrefix());
     }

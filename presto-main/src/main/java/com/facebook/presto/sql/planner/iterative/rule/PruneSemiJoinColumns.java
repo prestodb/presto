@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -47,12 +48,17 @@ public class PruneSemiJoinColumns
                 referencedOutputs.stream()
                         .filter(symbol -> !symbol.equals(semiJoinNode.getSemiJoinOutput())),
                 Stream.of(semiJoinNode.getSourceJoinSymbol()),
-                semiJoinNode.getSourceHashSymbol().map(Stream::of).orElse(Stream.empty()))
+                semiJoinNode.getSourceHashVariable().map(this::toSymbol).map(Stream::of).orElse(Stream.empty()))
                 .collect(toImmutableSet());
 
         return restrictOutputs(idAllocator, semiJoinNode.getSource(), requiredSourceInputs)
                 .map(newSource ->
                         semiJoinNode.replaceChildren(ImmutableList.of(
                                 newSource, semiJoinNode.getFilteringSource())));
+    }
+
+    private Symbol toSymbol(VariableReferenceExpression variable)
+    {
+        return new Symbol(variable.getName());
     }
 }

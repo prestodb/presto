@@ -74,7 +74,7 @@ public class TestPruneSemiJoinFilteringSourceColumns
                 rightKey,
                 match,
                 Optional.empty(),
-                Optional.of(rightKeyHash),
+                Optional.of(p.variable(rightKeyHash)),
                 p.values(leftKey),
                 p.values(
                         filteredSourceSymbols,

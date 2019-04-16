@@ -47,7 +47,7 @@ public class RowNumberMatcher
         this.partitionBy = requireNonNull(partitionBy, "partitionBy is null");
         this.maxRowCountPerPartition = requireNonNull(maxRowCountPerPartition, "maxRowCountPerPartition is null");
         this.rowNumberSymbol = requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
-        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
+        this.hashSymbol = requireNonNull(hashSymbol, "hashVariable is null");
     }
 
     @Override
@@ -90,7 +90,7 @@ public class RowNumberMatcher
                 .map(expectedHashSymbol ->
                         expectedHashSymbol
                                 .map(symbolAlias -> symbolAlias.toSymbol(symbolAliases))
-                                .equals(rowNumberNode.getHashSymbol()))
+                                .equals(rowNumberNode.getHashVariable()))
                 .orElse(true)) {
             return NO_MATCH;
         }
@@ -105,7 +105,7 @@ public class RowNumberMatcher
                 .add("partitionBy", partitionBy)
                 .add("maxRowCountPerPartition", maxRowCountPerPartition)
                 .add("rowNumberSymbol", rowNumberSymbol)
-                .add("hashSymbol", hashSymbol)
+                .add("hashVariable", hashSymbol)
                 .toString();
     }
 
@@ -150,7 +150,7 @@ public class RowNumberMatcher
 
         public Builder hashSymbol(Optional<SymbolAlias> hashSymbol)
         {
-            this.hashSymbol = Optional.of(requireNonNull(hashSymbol, "hashSymbol is null"));
+            this.hashSymbol = Optional.of(requireNonNull(hashSymbol, "hashVariable is null"));
             return this;
         }
 

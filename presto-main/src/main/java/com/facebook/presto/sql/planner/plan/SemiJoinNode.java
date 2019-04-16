@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -35,8 +36,8 @@ public class SemiJoinNode
     private final Symbol sourceJoinSymbol;
     private final Symbol filteringSourceJoinSymbol;
     private final Symbol semiJoinOutput;
-    private final Optional<Symbol> sourceHashSymbol;
-    private final Optional<Symbol> filteringSourceHashSymbol;
+    private final Optional<VariableReferenceExpression> sourceHashVariable;
+    private final Optional<VariableReferenceExpression> filteringSourceHashVariable;
     private final Optional<DistributionType> distributionType;
 
     @JsonCreator
@@ -46,8 +47,8 @@ public class SemiJoinNode
             @JsonProperty("sourceJoinSymbol") Symbol sourceJoinSymbol,
             @JsonProperty("filteringSourceJoinSymbol") Symbol filteringSourceJoinSymbol,
             @JsonProperty("semiJoinOutput") Symbol semiJoinOutput,
-            @JsonProperty("sourceHashSymbol") Optional<Symbol> sourceHashSymbol,
-            @JsonProperty("filteringSourceHashSymbol") Optional<Symbol> filteringSourceHashSymbol,
+            @JsonProperty("sourceHashVariable") Optional<VariableReferenceExpression> sourceHashVariable,
+            @JsonProperty("filteringSourceHashVariable") Optional<VariableReferenceExpression> filteringSourceHashVariable,
             @JsonProperty("distributionType") Optional<DistributionType> distributionType)
     {
         super(id);
@@ -56,8 +57,8 @@ public class SemiJoinNode
         this.sourceJoinSymbol = requireNonNull(sourceJoinSymbol, "sourceJoinSymbol is null");
         this.filteringSourceJoinSymbol = requireNonNull(filteringSourceJoinSymbol, "filteringSourceJoinSymbol is null");
         this.semiJoinOutput = requireNonNull(semiJoinOutput, "semiJoinOutput is null");
-        this.sourceHashSymbol = requireNonNull(sourceHashSymbol, "sourceHashSymbol is null");
-        this.filteringSourceHashSymbol = requireNonNull(filteringSourceHashSymbol, "filteringSourceHashSymbol is null");
+        this.sourceHashVariable = requireNonNull(sourceHashVariable, "sourceHashVariable is null");
+        this.filteringSourceHashVariable = requireNonNull(filteringSourceHashVariable, "filteringSourceHashVariable is null");
         this.distributionType = requireNonNull(distributionType, "distributionType is null");
 
         checkArgument(source.getOutputSymbols().contains(sourceJoinSymbol), "Source does not contain join symbol");
@@ -70,49 +71,49 @@ public class SemiJoinNode
         REPLICATED
     }
 
-    @JsonProperty("source")
+    @JsonProperty
     public PlanNode getSource()
     {
         return source;
     }
 
-    @JsonProperty("filteringSource")
+    @JsonProperty
     public PlanNode getFilteringSource()
     {
         return filteringSource;
     }
 
-    @JsonProperty("sourceJoinSymbol")
+    @JsonProperty
     public Symbol getSourceJoinSymbol()
     {
         return sourceJoinSymbol;
     }
 
-    @JsonProperty("filteringSourceJoinSymbol")
+    @JsonProperty
     public Symbol getFilteringSourceJoinSymbol()
     {
         return filteringSourceJoinSymbol;
     }
 
-    @JsonProperty("semiJoinOutput")
+    @JsonProperty
     public Symbol getSemiJoinOutput()
     {
         return semiJoinOutput;
     }
 
-    @JsonProperty("sourceHashSymbol")
-    public Optional<Symbol> getSourceHashSymbol()
+    @JsonProperty
+    public Optional<VariableReferenceExpression> getSourceHashVariable()
     {
-        return sourceHashSymbol;
+        return sourceHashVariable;
     }
 
-    @JsonProperty("filteringSourceHashSymbol")
-    public Optional<Symbol> getFilteringSourceHashSymbol()
+    @JsonProperty
+    public Optional<VariableReferenceExpression> getFilteringSourceHashVariable()
     {
-        return filteringSourceHashSymbol;
+        return filteringSourceHashVariable;
     }
 
-    @JsonProperty("distributionType")
+    @JsonProperty
     public Optional<DistributionType> getDistributionType()
     {
         return distributionType;
@@ -150,8 +151,8 @@ public class SemiJoinNode
                 sourceJoinSymbol,
                 filteringSourceJoinSymbol,
                 semiJoinOutput,
-                sourceHashSymbol,
-                filteringSourceHashSymbol,
+                sourceHashVariable,
+                filteringSourceHashVariable,
                 distributionType);
     }
 
@@ -164,8 +165,8 @@ public class SemiJoinNode
                 sourceJoinSymbol,
                 filteringSourceJoinSymbol,
                 semiJoinOutput,
-                sourceHashSymbol,
-                filteringSourceHashSymbol,
+                sourceHashVariable,
+                filteringSourceHashVariable,
                 Optional.of(distributionType));
     }
 }

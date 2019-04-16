@@ -58,8 +58,8 @@ public class PruneCrossJoinColumns
                 joinNode.getCriteria(),
                 outputSymbolBuilder.build(),
                 joinNode.getFilter(),
-                joinNode.getLeftHashSymbol(),
-                joinNode.getRightHashSymbol(),
+                joinNode.getLeftHashVariable(),
+                joinNode.getRightHashVariable(),
                 joinNode.getDistributionType()));
     }
 }

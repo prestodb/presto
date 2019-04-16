@@ -63,6 +63,6 @@ public class MergeLimitWithDistinct
                         parent.getCount(),
                         false,
                         child.getGroupingKeys(),
-                        child.getHashSymbol()));
+                        child.getHashVariable()));
     }
 }

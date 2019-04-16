@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -35,7 +36,7 @@ public class DistinctLimitNode
     private final long limit;
     private final boolean partial;
     private final List<Symbol> distinctSymbols;
-    private final Optional<Symbol> hashSymbol;
+    private final Optional<VariableReferenceExpression> hashVariable;
 
     @JsonCreator
     public DistinctLimitNode(
@@ -44,7 +45,7 @@ public class DistinctLimitNode
             @JsonProperty("limit") long limit,
             @JsonProperty("partial") boolean partial,
             @JsonProperty("distinctSymbols") List<Symbol> distinctSymbols,
-            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
+            @JsonProperty("hashSymbol") Optional<VariableReferenceExpression> hashVariable)
     {
         super(id);
         this.source = requireNonNull(source, "source is null");
@@ -52,8 +53,8 @@ public class DistinctLimitNode
         this.limit = limit;
         this.partial = partial;
         this.distinctSymbols = ImmutableList.copyOf(distinctSymbols);
-        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
-        checkArgument(!hashSymbol.isPresent() || !distinctSymbols.contains(hashSymbol.get()), "distinctSymbols should not contain hash symbol");
+        this.hashVariable = requireNonNull(hashVariable, "hashVariable is null");
+        checkArgument(!hashVariable.isPresent() || !distinctSymbols.contains(hashVariable.get()), "distinctSymbols should not contain hash symbol");
     }
 
     @Override
@@ -81,9 +82,9 @@ public class DistinctLimitNode
     }
 
     @JsonProperty
-    public Optional<Symbol> getHashSymbol()
+    public Optional<VariableReferenceExpression> getHashVariable()
     {
-        return hashSymbol;
+        return hashVariable;
     }
 
     @JsonProperty
@@ -97,7 +98,7 @@ public class DistinctLimitNode
     {
         ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
         outputSymbols.addAll(distinctSymbols);
-        hashSymbol.ifPresent(outputSymbols::add);
+        hashVariable.ifPresent(variable -> outputSymbols.add(new Symbol(variable.getName())));
         return outputSymbols.build();
     }
 
@@ -110,6 +111,6 @@ public class DistinctLimitNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new DistinctLimitNode(getId(), Iterables.getOnlyElement(newChildren), limit, partial, distinctSymbols, hashSymbol);
+        return new DistinctLimitNode(getId(), Iterables.getOnlyElement(newChildren), limit, partial, distinctSymbols, hashVariable);
     }
 }

@@ -150,7 +150,7 @@ public class SingleDistinctAggregationToGroupBy
                         aggregation.getGroupingSets(),
                         emptyList(),
                         aggregation.getStep(),
-                        aggregation.getHashSymbol(),
+                        aggregation.getHashVariable(),
                         aggregation.getGroupIdSymbol()));
     }
 

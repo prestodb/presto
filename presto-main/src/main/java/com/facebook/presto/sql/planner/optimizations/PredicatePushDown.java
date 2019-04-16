@@ -525,8 +525,8 @@ public class PredicatePushDown
                                 .addAll(rightSource.getOutputSymbols())
                                 .build(),
                         newJoinFilter,
-                        node.getLeftHashSymbol(),
-                        node.getRightHashSymbol(),
+                        node.getLeftHashVariable(),
+                        node.getRightHashVariable(),
                         node.getDistributionType());
             }
 
@@ -912,11 +912,11 @@ public class PredicatePushDown
                     return node;
                 }
                 if (canConvertToLeftJoin && canConvertToRightJoin) {
-                    return new JoinNode(node.getId(), INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType());
+                    return new JoinNode(node.getId(), INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashVariable(), node.getRightHashVariable(), node.getDistributionType());
                 }
                 else {
                     return new JoinNode(node.getId(), canConvertToLeftJoin ? LEFT : RIGHT,
-                            node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType());
+                            node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashVariable(), node.getRightHashVariable(), node.getDistributionType());
                 }
             }
 
@@ -924,7 +924,7 @@ public class PredicatePushDown
                     node.getType() == JoinNode.Type.RIGHT && !canConvertOuterToInner(node.getLeft().getOutputSymbols(), inheritedPredicate)) {
                 return node;
             }
-            return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType());
+            return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashVariable(), node.getRightHashVariable(), node.getDistributionType());
         }
 
         private boolean canConvertOuterToInner(List<Symbol> innerSymbolsForOuterJoin, Expression inheritedPredicate)
@@ -1046,7 +1046,7 @@ public class PredicatePushDown
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource() || rewrittenFilteringSource != node.getFilteringSource()) {
-                output = new SemiJoinNode(node.getId(), rewrittenSource, rewrittenFilteringSource, node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput(), node.getSourceHashSymbol(), node.getFilteringSourceHashSymbol(), node.getDistributionType());
+                output = new SemiJoinNode(node.getId(), rewrittenSource, rewrittenFilteringSource, node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput(), node.getSourceHashVariable(), node.getFilteringSourceHashVariable(), node.getDistributionType());
             }
             if (!postJoinConjuncts.isEmpty()) {
                 output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(postJoinConjuncts));
@@ -1132,8 +1132,8 @@ public class PredicatePushDown
                         node.getSourceJoinSymbol(),
                         node.getFilteringSourceJoinSymbol(),
                         node.getSemiJoinOutput(),
-                        node.getSourceHashSymbol(),
-                        node.getFilteringSourceHashSymbol(),
+                        node.getSourceHashVariable(),
+                        node.getFilteringSourceHashVariable(),
                         node.getDistributionType());
             }
             if (!postJoinConjuncts.isEmpty()) {
@@ -1198,7 +1198,7 @@ public class PredicatePushDown
                         node.getGroupingSets(),
                         ImmutableList.of(),
                         node.getStep(),
-                        node.getHashSymbol(),
+                        node.getHashVariable(),
                         node.getGroupIdSymbol());
             }
             if (!postAggregationConjuncts.isEmpty()) {

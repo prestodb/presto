@@ -56,7 +56,7 @@ public final class WindowMatcher
         this.prePartitionedInputs = requireNonNull(prePartitionedInputs, "prePartitionedInputs is null");
         this.specification = requireNonNull(specification, "specification is null");
         this.preSortedOrderPrefix = requireNonNull(preSortedOrderPrefix, "preSortedOrderPrefix is null");
-        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
+        this.hashSymbol = requireNonNull(hashSymbol, "hashVariable is null");
     }
 
     @Override
@@ -98,7 +98,7 @@ public final class WindowMatcher
         if (!hashSymbol
                 .map(expectedHashSymbol -> expectedHashSymbol
                         .map(alias -> alias.toSymbol(symbolAliases))
-                        .equals(windowNode.getHashSymbol()))
+                        .equals(windowNode.getHashVariable()))
                 .orElse(true)) {
             return NO_MATCH;
         }
@@ -120,7 +120,7 @@ public final class WindowMatcher
                 .add("prePartitionedInputs", prePartitionedInputs.orElse(null))
                 .add("specification", specification.orElse(null))
                 .add("preSortedOrderPrefix", preSortedOrderPrefix.orElse(null))
-                .add("hashSymbol", hashSymbol.orElse(null))
+                .add("hashVariable", hashSymbol.orElse(null))
                 .toString();
     }
 
@@ -204,7 +204,7 @@ public final class WindowMatcher
         }
 
         /**
-         * Matches only if WindowNode.getHashSymbol() is an empty option.
+         * Matches only if WindowNode.getHashVariable() is an empty option.
          */
         public Builder hashSymbol()
         {
@@ -213,11 +213,11 @@ public final class WindowMatcher
         }
 
         /**
-         * Matches only if WindowNode.getHashSymbol() is a non-empty option containing hashSymbol.
+         * Matches only if WindowNode.getHashVariable() is a non-empty option containing hashVariable.
          */
         public Builder hashSymbol(String hashSymbol)
         {
-            requireNonNull(hashSymbol, "hashSymbol is null");
+            requireNonNull(hashSymbol, "hashVariable is null");
             this.hashSymbol = Optional.of(Optional.of(new SymbolAlias(hashSymbol)));
             return this;
         }
