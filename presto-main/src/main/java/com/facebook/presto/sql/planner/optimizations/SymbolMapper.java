@@ -31,7 +31,6 @@ import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -112,8 +111,11 @@ public class SymbolMapper
     private Aggregation map(Aggregation aggregation)
     {
         return new Aggregation(
-                (FunctionCall) map(aggregation.getCall()),
                 aggregation.getFunctionHandle(),
+                aggregation.getArguments().stream().map(this::map).collect(toImmutableList()),
+                aggregation.getFilter(),
+                aggregation.getOrderBy(),
+                aggregation.isDistinct(),
                 aggregation.getMask().map(this::map));
     }
 

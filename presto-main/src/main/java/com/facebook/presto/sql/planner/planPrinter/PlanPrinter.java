@@ -487,10 +487,10 @@ public class PlanPrinter
 
             for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
                 if (entry.getValue().getMask().isPresent()) {
-                    nodeOutput.appendDetailsLine("%s := %s (mask = %s)", entry.getKey(), entry.getValue().getCall(), entry.getValue().getMask().get());
+                    nodeOutput.appendDetailsLine("%s := %s (mask = %s)", entry.getKey(), entry.getValue(), entry.getValue().getMask().get());
                 }
                 else {
-                    nodeOutput.appendDetailsLine("%s := %s", entry.getKey(), entry.getValue().getCall());
+                    nodeOutput.appendDetailsLine("%s := %s", entry.getKey(), entry.getValue());
                 }
             }
 

@@ -159,7 +159,7 @@ public class RuleAssert
 
     private RuleApplication applyRule()
     {
-        SymbolAllocator symbolAllocator = new SymbolAllocator(types.allTypes());
+        SymbolAllocator symbolAllocator = new SymbolAllocator(metadata.getFunctionManager(), types.allTypes());
         Memo memo = new Memo(idAllocator, plan);
         Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
 

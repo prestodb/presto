@@ -179,7 +179,9 @@ public final class TypeValidator
         private void checkFunctionCall(Map<Symbol, Aggregation> aggregations)
         {
             for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
-                checkCall(entry.getKey(), entry.getValue().getCall());
+                Type expectedType = types.get(entry.getKey());
+                verifyTypeSignature(entry.getKey(), expectedType.getTypeSignature(),
+                        metadata.getFunctionManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getReturnType());
             }
         }
 

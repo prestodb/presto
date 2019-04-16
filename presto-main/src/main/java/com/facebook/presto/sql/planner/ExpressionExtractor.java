@@ -29,7 +29,6 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -91,8 +90,13 @@ public class ExpressionExtractor
         @Override
         public Void visitAggregation(AggregationNode node, ImmutableList.Builder<RowExpression> context)
         {
+            // This is only used in symbol extractor, thus we return all arguments.
             node.getAggregations().values()
-                    .forEach(aggregation -> context.add(castToRowExpression(aggregation.getCall())));
+                    .forEach(aggregation ->
+                            aggregation.getArguments()
+                                    .stream()
+                                    .map(OriginalExpressionUtils::castToRowExpression)
+                                    .forEach(context::add));
             return super.visitAggregation(node, context);
         }
 

@@ -57,7 +57,10 @@ public class PruneAggregationSourceColumns
     private static Stream<Symbol> getAggregationInputs(AggregationNode.Aggregation aggregation)
     {
         return Streams.concat(
-                SymbolsExtractor.extractUnique(aggregation.getCall()).stream(),
+                aggregation.getArguments()
+                        .stream()
+                        .map(SymbolsExtractor::extractUnique)
+                        .flatMap(Set::stream),
                 aggregation.getMask().map(Stream::of).orElse(Stream.empty()));
     }
 }

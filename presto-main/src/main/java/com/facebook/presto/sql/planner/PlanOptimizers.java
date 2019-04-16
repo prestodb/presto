@@ -288,7 +288,7 @@ public class PlanOptimizers
                                         new MultipleDistinctAggregationToMarkDistinct(),
                                         new ImplementBernoulliSampleAsFilter(),
                                         new MergeLimitWithDistinct(),
-                                        new PruneCountAggregationOverScalar(),
+                                        new PruneCountAggregationOverScalar(metadata.getFunctionManager()),
                                         new PruneOrderByInAggregation(metadata.getFunctionManager()),
                                         new RewriteSpatialPartitioningAggregation(metadata)))
                                 .build()),

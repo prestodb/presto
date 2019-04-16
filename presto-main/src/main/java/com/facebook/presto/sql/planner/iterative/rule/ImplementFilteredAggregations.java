@@ -23,7 +23,6 @@ import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -68,7 +67,7 @@ public class ImplementFilteredAggregations
     {
         return aggregation.getAggregations()
                 .values().stream()
-                .anyMatch(e -> e.getCall().getFilter().isPresent() &&
+                .anyMatch(e -> e.getFilter().isPresent() &&
                         !e.getMask().isPresent()); // can't handle filtered aggregations with DISTINCT (conservatively, if they have a mask)
     }
 
@@ -90,11 +89,11 @@ public class ImplementFilteredAggregations
             Symbol output = entry.getKey();
 
             // strip the filters
-            FunctionCall call = entry.getValue().getCall();
+            Aggregation aggregationFunction = entry.getValue();
             Optional<Symbol> mask = entry.getValue().getMask();
 
-            if (call.getFilter().isPresent()) {
-                Expression filter = call.getFilter().get();
+            if (aggregationFunction.getFilter().isPresent()) {
+                Expression filter = aggregationFunction.getFilter().get();
                 Symbol symbol = context.getSymbolAllocator().newSymbol(filter, BOOLEAN);
                 verify(!mask.isPresent(), "Expected aggregation without mask symbols, see Rule pattern");
                 newAssignments.put(symbol, filter);
@@ -107,8 +106,11 @@ public class ImplementFilteredAggregations
             }
 
             aggregations.put(output, new Aggregation(
-                    new FunctionCall(call.getName(), call.getWindow(), Optional.empty(), call.getOrderBy(), call.isDistinct(), call.getArguments()),
-                    entry.getValue().getFunctionHandle(),
+                    aggregationFunction.getFunctionHandle(),
+                    aggregationFunction.getArguments(),
+                    Optional.empty(),
+                    aggregationFunction.getOrderBy(),
+                    aggregationFunction.isDistinct(),
                     mask));
         }
 

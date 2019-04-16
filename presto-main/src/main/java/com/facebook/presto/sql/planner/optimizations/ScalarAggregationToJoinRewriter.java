@@ -32,7 +32,6 @@ import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -173,18 +172,19 @@ public class ScalarAggregationToJoinRewriter
     {
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
         for (Map.Entry<Symbol, Aggregation> entry : scalarAggregation.getAggregations().entrySet()) {
-            FunctionCall call = entry.getValue().getCall();
+            Aggregation aggregation = entry.getValue();
             Symbol symbol = entry.getKey();
-            if (call.getName().equals(COUNT)) {
+            if (functionManager.getFunctionMetadata(aggregation.getFunctionHandle()).getName().equals(COUNT)) {
                 List<TypeSignature> scalarAggregationSourceTypeSignatures = ImmutableList.of(
                         symbolAllocator.getTypes().get(nonNullableAggregationSourceSymbol).getTypeSignature());
                 aggregations.put(symbol, new Aggregation(
-                        new FunctionCall(
-                                COUNT,
-                                ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference())),
                         functionManager.lookupFunction(
                                 COUNT.getSuffix(),
                                 fromTypeSignatures(scalarAggregationSourceTypeSignatures)),
+                        ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference()),
+                        aggregation.getFilter(),
+                        aggregation.getOrderBy(),
+                        aggregation.isDistinct(),
                         entry.getValue().getMask()));
             }
             else {

@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.Domain;
@@ -71,6 +72,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_FIRST;
@@ -97,6 +99,8 @@ public final class PlanMatchPattern
 
     private final List<PlanMatchPattern> sourcePatterns;
     private boolean anyTree;
+
+    private static final FunctionManager TEST_FUNCTION_MANAGER = createTestMetadataManager().getFunctionManager();
 
     public static PlanMatchPattern node(Class<? extends PlanNode> nodeClass, PlanMatchPattern... sources)
     {
@@ -186,7 +190,7 @@ public final class PlanMatchPattern
     {
         PlanMatchPattern result = node(AggregationNode.class, source);
         aggregations.entrySet().forEach(
-                aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue())));
+                aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(TEST_FUNCTION_MANAGER, aggregation.getValue())));
         return result;
     }
 
@@ -197,7 +201,7 @@ public final class PlanMatchPattern
     {
         PlanMatchPattern result = node(AggregationNode.class, source).with(new AggregationStepMatcher(step));
         aggregations.entrySet().forEach(
-                aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue())));
+                aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(TEST_FUNCTION_MANAGER, aggregation.getValue())));
         return result;
     }
 
@@ -209,7 +213,7 @@ public final class PlanMatchPattern
             Step step,
             PlanMatchPattern source)
     {
-        return aggregation(groupingSets, aggregations, ImmutableList.of(), masks, groupId, step, source);
+        return aggregation(TEST_FUNCTION_MANAGER, groupingSets, aggregations, ImmutableList.of(), masks, groupId, step, source);
     }
 
     public static PlanMatchPattern aggregation(
@@ -221,9 +225,22 @@ public final class PlanMatchPattern
             Step step,
             PlanMatchPattern source)
     {
+        return aggregation(TEST_FUNCTION_MANAGER, groupingSets, aggregations, preGroupedSymbols, masks, groupId, step, source);
+    }
+
+    public static PlanMatchPattern aggregation(
+            FunctionManager functionaManager,
+            GroupingSetDescriptor groupingSets,
+            Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations,
+            List<String> preGroupedSymbols,
+            Map<Symbol, Symbol> masks,
+            Optional<Symbol> groupId,
+            Step step,
+            PlanMatchPattern source)
+    {
         PlanMatchPattern result = node(AggregationNode.class, source).with(new AggregationMatcher(groupingSets, preGroupedSymbols, masks, groupId, step));
         aggregations.entrySet().forEach(
-                aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue())));
+                aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(functionaManager, aggregation.getValue())));
         return result;
     }
 

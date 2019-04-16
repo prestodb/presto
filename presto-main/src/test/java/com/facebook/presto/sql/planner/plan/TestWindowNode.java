@@ -73,7 +73,7 @@ public class TestWindowNode
     @BeforeClass
     public void setUp()
     {
-        symbolAllocator = new SymbolAllocator();
+        symbolAllocator = new SymbolAllocator(createTestMetadataManager().getFunctionManager());
         columnA = symbolAllocator.newSymbol("a", BIGINT);
         columnB = symbolAllocator.newSymbol("b", BIGINT);
         columnC = symbolAllocator.newSymbol("c", BIGINT);

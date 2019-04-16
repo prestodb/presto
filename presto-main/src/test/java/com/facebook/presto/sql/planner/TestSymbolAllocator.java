@@ -19,6 +19,7 @@ import org.testng.annotations.Test;
 
 import java.util.Set;
 
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static org.testng.Assert.assertEquals;
 
 public class TestSymbolAllocator
@@ -26,7 +27,7 @@ public class TestSymbolAllocator
     @Test
     public void testUnique()
     {
-        SymbolAllocator allocator = new SymbolAllocator();
+        SymbolAllocator allocator = new SymbolAllocator(createTestMetadataManager().getFunctionManager());
         Set<Symbol> symbols = ImmutableSet.<Symbol>builder()
                 .add(allocator.newSymbol("foo_1_0", BigintType.BIGINT))
                 .add(allocator.newSymbol("foo", BigintType.BIGINT))

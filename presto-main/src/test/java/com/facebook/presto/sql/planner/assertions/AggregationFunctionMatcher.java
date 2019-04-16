@@ -14,12 +14,15 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.sql.planner.ConversionUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.OrderBy;
 
 import java.util.Map;
 import java.util.Optional;
@@ -31,10 +34,12 @@ public class AggregationFunctionMatcher
         implements RvalueMatcher
 {
     private final ExpectedValueProvider<FunctionCall> callMaker;
+    private final FunctionManager functionManager;
 
-    public AggregationFunctionMatcher(ExpectedValueProvider<FunctionCall> callMaker)
+    public AggregationFunctionMatcher(FunctionManager functionManager, ExpectedValueProvider<FunctionCall> callMaker)
     {
         this.callMaker = requireNonNull(callMaker, "functionCall is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
     }
 
     @Override
@@ -49,13 +54,22 @@ public class AggregationFunctionMatcher
 
         FunctionCall expectedCall = callMaker.getExpectedValue(symbolAliases);
         for (Map.Entry<Symbol, Aggregation> assignment : aggregationNode.getAggregations().entrySet()) {
-            if (expectedCall.equals(assignment.getValue().getCall())) {
+            if (compare(expectedCall, assignment.getValue())) {
                 checkState(!result.isPresent(), "Ambiguous function calls in %s", aggregationNode);
                 result = Optional.of(assignment.getKey());
             }
         }
 
         return result;
+    }
+
+    private boolean compare(FunctionCall expected, Aggregation actual)
+    {
+        return expected.getName().getSuffix() == functionManager.getFunctionMetadata(actual.getFunctionHandle()).getName() &&
+                expected.isDistinct() == actual.isDistinct() &&
+                expected.getArguments() == actual.getArguments() &&
+                expected.getOrderBy().map(OrderBy::getSortItems).map(ConversionUtils::fromSortItems) == actual.getOrderBy() &&
+                expected.getFilter() == actual.getFilter();
     }
 
     @Override

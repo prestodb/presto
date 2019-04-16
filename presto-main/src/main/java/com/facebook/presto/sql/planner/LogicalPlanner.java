@@ -117,7 +117,7 @@ public class LogicalPlanner
     private final Session session;
     private final List<PlanOptimizer> planOptimizers;
     private final PlanSanityChecker planSanityChecker;
-    private final SymbolAllocator symbolAllocator = new SymbolAllocator();
+    private final SymbolAllocator symbolAllocator;
     private final Metadata metadata;
     private final SqlParser sqlParser;
     private final StatisticsAggregationPlanner statisticsAggregationPlanner;
@@ -157,6 +157,7 @@ public class LogicalPlanner
         this.planSanityChecker = requireNonNull(planSanityChecker, "planSanityChecker is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.symbolAllocator = new SymbolAllocator(metadata.getFunctionManager());
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(session, symbolAllocator, metadata);
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");

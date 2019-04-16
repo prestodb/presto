@@ -342,10 +342,10 @@ public final class GraphvizPrinter
             StringBuilder builder = new StringBuilder();
             for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
                 if (entry.getValue().getMask().isPresent()) {
-                    builder.append(format("%s := %s (mask = %s)\\n", entry.getKey(), entry.getValue().getCall(), entry.getValue().getMask().get()));
+                    builder.append(format("%s := %s (mask = %s)\\n", entry.getKey(), entry.getValue().getFunctionHandle().toString(), entry.getValue().getMask().get()));
                 }
                 else {
-                    builder.append(format("%s := %s\\n", entry.getKey(), entry.getValue().getCall()));
+                    builder.append(format("%s := %s\\n", entry.getKey(), entry.getValue().getFunctionHandle()));
                 }
             }
             printNode(node, format("Aggregate[%s]", node.getStep()), builder.toString(), NODE_COLORS.get(NodeType.AGGREGATE));

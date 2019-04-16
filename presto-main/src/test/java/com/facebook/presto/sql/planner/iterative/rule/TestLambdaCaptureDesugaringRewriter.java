@@ -28,6 +28,7 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.sql.planner.iterative.rule.LambdaCaptureDesugaringRewriter.rewrite;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static java.util.stream.Collectors.toList;
@@ -39,7 +40,7 @@ public class TestLambdaCaptureDesugaringRewriter
     public void testRewriteBasicLambda()
     {
         final Map<Symbol, Type> symbols = ImmutableMap.of(new Symbol("a"), BigintType.BIGINT);
-        final SymbolAllocator allocator = new SymbolAllocator(symbols);
+        final SymbolAllocator allocator = new SymbolAllocator(createTestMetadataManager().getFunctionManager(), symbols);
 
         assertEquals(rewrite(expression("x -> a + x"), allocator.getTypes(), allocator),
                 new BindExpression(

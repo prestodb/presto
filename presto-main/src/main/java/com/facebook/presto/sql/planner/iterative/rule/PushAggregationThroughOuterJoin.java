@@ -31,7 +31,6 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
@@ -299,10 +298,13 @@ public class PushAggregationThroughOuterJoin
             }
 
             AggregationNode.Aggregation overNullAggregation = new AggregationNode.Aggregation(
-                    (FunctionCall) inlineSymbols(sourcesSymbolMapping, aggregation.getCall()),
                     aggregation.getFunctionHandle(),
+                    aggregation.getArguments().stream().map(argument -> inlineSymbols(sourcesSymbolMapping, argument)).collect(toImmutableList()),
+                    aggregation.getFilter(),
+                    aggregation.getOrderBy(),
+                    aggregation.isDistinct(),
                     aggregation.getMask().map(x -> Symbol.from(sourcesSymbolMapping.get(x))));
-            Symbol overNullSymbol = symbolAllocator.newSymbol(overNullAggregation.getCall(), symbolAllocator.getTypes().get(aggregationSymbol));
+            Symbol overNullSymbol = symbolAllocator.newSymbol(overNullAggregation.getFunctionHandle(), symbolAllocator.getTypes().get(aggregationSymbol));
             aggregationsOverNullBuilder.put(overNullSymbol, overNullAggregation);
             aggregationsSymbolMappingBuilder.put(aggregationSymbol, overNullSymbol);
         }
@@ -324,7 +326,7 @@ public class PushAggregationThroughOuterJoin
 
     private static boolean isUsingSymbols(AggregationNode.Aggregation aggregation, Set<Symbol> sourceSymbols)
     {
-        List<Expression> functionArguments = aggregation.getCall().getArguments();
+        List<Expression> functionArguments = aggregation.getArguments();
         return sourceSymbols.stream()
                 .map(Symbol::toSymbolReference)
                 .anyMatch(functionArguments::contains);

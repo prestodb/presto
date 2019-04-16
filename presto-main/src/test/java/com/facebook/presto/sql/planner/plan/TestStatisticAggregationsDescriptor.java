@@ -22,6 +22,7 @@ import com.google.common.reflect.TypeToken;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor.ColumnStatisticMetadataKeyDeserializer.deserialize;
@@ -59,7 +60,7 @@ public class TestStatisticAggregationsDescriptor
     private static StatisticAggregationsDescriptor<Symbol> createTestDescriptor()
     {
         StatisticAggregationsDescriptor.Builder<Symbol> builder = StatisticAggregationsDescriptor.builder();
-        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        SymbolAllocator symbolAllocator = new SymbolAllocator(createTestMetadataManager().getFunctionManager());
         for (String column : COLUMNS) {
             for (ColumnStatisticType type : ColumnStatisticType.values()) {
                 builder.addColumnStatistic(new ColumnStatisticMetadata(column, type), testSymbol(symbolAllocator));

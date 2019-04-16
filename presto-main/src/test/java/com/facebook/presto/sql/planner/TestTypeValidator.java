@@ -84,7 +84,7 @@ public class TestTypeValidator
     @BeforeMethod
     public void setUp()
     {
-        symbolAllocator = new SymbolAllocator();
+        symbolAllocator = new SymbolAllocator(FUNCTION_MANAGER);
         columnA = symbolAllocator.newSymbol("a", BIGINT);
         columnB = symbolAllocator.newSymbol("b", INTEGER);
         columnC = symbolAllocator.newSymbol("c", DOUBLE);
@@ -185,8 +185,11 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())),
                         FUNCTION_MANAGER.lookupFunction("sum", fromTypes(DOUBLE)),
+                        ImmutableList.of(columnC.toSymbolReference()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
                         Optional.empty())),
                 singleGroupingSet(ImmutableList.of(columnA, columnB)),
                 ImmutableList.of(),
@@ -236,8 +239,11 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnA.toSymbolReference())),
                         FUNCTION_MANAGER.lookupFunction("sum", fromTypes(DOUBLE)),
+                        ImmutableList.of(columnA.toSymbolReference()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
                         Optional.empty())),
                 singleGroupingSet(ImmutableList.of(columnA, columnB)),
                 ImmutableList.of(),
@@ -257,8 +263,11 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())),
                         FUNCTION_MANAGER.lookupFunction("sum", fromTypes(BIGINT)), // should be DOUBLE
+                        ImmutableList.of(columnC.toSymbolReference()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
                         Optional.empty())),
                 singleGroupingSet(ImmutableList.of(columnA, columnB)),
                 ImmutableList.of(),

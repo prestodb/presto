@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -38,10 +40,12 @@ import static com.facebook.presto.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 public class TestPruneCountAggregationOverScalar
         extends BaseRuleTest
 {
+    private static final FunctionManager FUNCTION_MANAGER = MetadataManager.createTestMetadataManager().getFunctionManager();
+
     @Test
     public void testDoesNotFireOnNonNestedAggregate()
     {
-        tester().assertThat(new PruneCountAggregationOverScalar())
+        tester().assertThat(new PruneCountAggregationOverScalar(FUNCTION_MANAGER))
                 .on(p ->
                         p.aggregation((a) -> a
                                 .globalGrouping()
@@ -57,7 +61,7 @@ public class TestPruneCountAggregationOverScalar
     @Test
     public void testFiresOnNestedCountAggregate()
     {
-        tester().assertThat(new PruneCountAggregationOverScalar())
+        tester().assertThat(new PruneCountAggregationOverScalar(FUNCTION_MANAGER))
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
@@ -76,7 +80,7 @@ public class TestPruneCountAggregationOverScalar
     @Test
     public void testFiresOnCountAggregateOverValues()
     {
-        tester().assertThat(new PruneCountAggregationOverScalar())
+        tester().assertThat(new PruneCountAggregationOverScalar(FUNCTION_MANAGER))
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
@@ -94,7 +98,7 @@ public class TestPruneCountAggregationOverScalar
     @Test
     public void testFiresOnCountAggregateOverEnforceSingleRow()
     {
-        tester().assertThat(new PruneCountAggregationOverScalar())
+        tester().assertThat(new PruneCountAggregationOverScalar(FUNCTION_MANAGER))
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
@@ -110,7 +114,7 @@ public class TestPruneCountAggregationOverScalar
     @Test
     public void testDoesNotFireOnNestedCountAggregateWithNonEmptyGroupBy()
     {
-        tester().assertThat(new PruneCountAggregationOverScalar())
+        tester().assertThat(new PruneCountAggregationOverScalar(FUNCTION_MANAGER))
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
@@ -132,7 +136,7 @@ public class TestPruneCountAggregationOverScalar
     @Test
     public void testDoesNotFireOnNestedNonCountAggregate()
     {
-        tester().assertThat(new PruneCountAggregationOverScalar())
+        tester().assertThat(new PruneCountAggregationOverScalar(FUNCTION_MANAGER))
                 .on(p -> {
                     Symbol totalPrice = p.symbol("total_price", DOUBLE);
                     AggregationNode inner = p.aggregation((a) -> a

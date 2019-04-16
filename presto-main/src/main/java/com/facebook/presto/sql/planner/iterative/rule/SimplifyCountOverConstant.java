@@ -23,16 +23,15 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
@@ -75,10 +74,15 @@ public class SimplifyCountOverConstant
 
             if (isCountOverConstant(aggregation, child.getAssignments())) {
                 changed = true;
-                aggregations.put(symbol, new AggregationNode.Aggregation(
-                        new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
-                        functionManager.lookupFunction("count", ImmutableList.of()),
-                        aggregation.getMask()));
+                aggregations.put(
+                        symbol,
+                        new AggregationNode.Aggregation(
+                                functionManager.lookupFunction("count", ImmutableList.of()),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                false,
+                                aggregation.getMask()));
             }
         }
 
@@ -97,14 +101,13 @@ public class SimplifyCountOverConstant
                 parent.getGroupIdSymbol()));
     }
 
-    private static boolean isCountOverConstant(AggregationNode.Aggregation aggregation, Assignments inputs)
+    private boolean isCountOverConstant(AggregationNode.Aggregation aggregation, Assignments inputs)
     {
-        FunctionCall call = aggregation.getCall();
-        if (!call.getName().equals("count") || call.getArguments().size() != 1) {
+        if (!functionManager.getFunctionMetadata(aggregation.getFunctionHandle()).getName().equals("count") || aggregation.getArguments().size() != 1) {
             return false;
         }
 
-        Expression argument = aggregation.getCall().getArguments().get(0);
+        Expression argument = aggregation.getArguments().get(0);
         if (argument instanceof SymbolReference) {
             argument = inputs.get(Symbol.from(argument));
         }

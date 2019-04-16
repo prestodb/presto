@@ -55,8 +55,6 @@ import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.SortItem;
-import com.facebook.presto.sql.tree.SortItem.NullOrdering;
-import com.facebook.presto.sql.tree.SortItem.Ordering;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
@@ -79,6 +77,7 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
+import static com.facebook.presto.sql.planner.ConversionUtils.toSortOrder;
 import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.toBoundType;
 import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.toWindowType;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.groupingSets;
@@ -557,8 +556,30 @@ class QueryPlanner
                 needPostProjectionCoercion = true;
             }
             aggregationTranslations.put(aggregate, newSymbol);
+            FunctionCall function = (FunctionCall) rewritten;
+            Optional<OrderingScheme> orderingScheme = Optional.empty();
+            ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
+            LinkedHashMap<Symbol, SortOrder> orderings = new LinkedHashMap<>();
+            for (SortItem item : getSortItemsFromOrderBy(aggregate.getOrderBy())) {
+                Symbol symbol = subPlan.translate(item.getSortKey());
+                // don't override existing keys, i.e. when "ORDER BY a ASC, a DESC" is specified
+                orderings.putIfAbsent(symbol, toSortOrder(item));
+            }
 
-            aggregationsBuilder.put(newSymbol, new Aggregation((FunctionCall) rewritten, analysis.getFunctionHandle(aggregate), Optional.empty()));
+            orderBySymbols.addAll(orderings.keySet());
+            if (!orderings.isEmpty()) {
+                orderingScheme = Optional.of(new OrderingScheme(orderBySymbols.build(), orderings));
+            }
+
+            aggregationsBuilder.put(
+                    newSymbol,
+                    new Aggregation(
+                            analysis.getFunctionHandle(aggregate),
+                            function.getArguments(),
+                            function.getFilter(),
+                            orderingScheme,
+                            function.isDistinct(),
+                            Optional.empty()));
         }
         Map<Symbol, Aggregation> aggregations = aggregationsBuilder.build();
 
@@ -933,25 +954,5 @@ class QueryPlanner
         return stream(expressions)
                 .distinct()
                 .collect(toImmutableMap(expression -> expression, builder::translate));
-    }
-
-    public static SortOrder toSortOrder(SortItem sortItem)
-    {
-        if (sortItem.getOrdering() == Ordering.ASCENDING) {
-            if (sortItem.getNullOrdering() == NullOrdering.FIRST) {
-                return SortOrder.ASC_NULLS_FIRST;
-            }
-            else {
-                return SortOrder.ASC_NULLS_LAST;
-            }
-        }
-        else {
-            if (sortItem.getNullOrdering() == NullOrdering.FIRST) {
-                return SortOrder.DESC_NULLS_FIRST;
-            }
-            else {
-                return SortOrder.DESC_NULLS_LAST;
-            }
-        }
     }
 }

@@ -19,7 +19,6 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -66,13 +65,25 @@ public class StatisticAggregations
             Aggregation originalAggregation = entry.getValue();
             FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
             InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
-            Symbol partialSymbol = symbolAllocator.newSymbol(originalAggregation.getCall().getName(), function.getIntermediateType());
+            Symbol partialSymbol = symbolAllocator.newSymbol(originalAggregation.getFunctionHandle(), function.getIntermediateType());
             mappings.put(entry.getKey(), partialSymbol);
-            partialAggregation.put(partialSymbol, new Aggregation(originalAggregation.getCall(), functionHandle, originalAggregation.getMask()));
-            finalAggregation.put(entry.getKey(),
+            partialAggregation.put(
+                    partialSymbol,
                     new Aggregation(
-                            new FunctionCall(originalAggregation.getCall().getName(), ImmutableList.of(partialSymbol.toSymbolReference())),
                             functionHandle,
+                            originalAggregation.getArguments(),
+                            originalAggregation.getFilter(),
+                            originalAggregation.getOrderBy(),
+                            originalAggregation.isDistinct(),
+                            originalAggregation.getMask()));
+            finalAggregation.put(
+                    entry.getKey(),
+                    new Aggregation(
+                            functionHandle,
+                            ImmutableList.of(partialSymbol.toSymbolReference()),
+                            Optional.empty(),
+                            Optional.empty(),
+                            false,
                             Optional.empty()));
         }
         groupingSymbols.forEach(symbol -> mappings.put(symbol, symbol));

@@ -139,7 +139,6 @@ public class TestEffectivePredicateExtractor
     @Test
     public void testAggregation()
     {
-        FunctionCall functionCall = new FunctionCall(QualifiedName.of("count"), ImmutableList.of());
         FunctionHandle functionHandle = metadata.getFunctionManager().lookupFunction("count", ImmutableList.of());
         PlanNode node = new AggregationNode(newId(),
                 filter(baseTableScan,
@@ -152,8 +151,8 @@ public class TestEffectivePredicateExtractor
                                 greaterThan(AE, bigintLiteral(2)),
                                 equals(EE, FE))),
                 ImmutableMap.of(
-                        C, new Aggregation(functionCall, functionHandle, Optional.empty()),
-                        D, new Aggregation(functionCall, functionHandle, Optional.empty())),
+                        C, new Aggregation(functionHandle, ImmutableList.of(), Optional.empty(), Optional.empty(), false, Optional.empty()),
+                        D, new Aggregation(functionHandle, ImmutableList.of(), Optional.empty(), Optional.empty(), false, Optional.empty())),
                 singleGroupingSet(ImmutableList.of(A, B, C)),
                 ImmutableList.of(),
                 AggregationNode.Step.FINAL,

@@ -37,7 +37,6 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -249,8 +248,11 @@ public class ImplementIntersectAndExceptAsUnion
                 Symbol output = aggregationOutputs.get(i);
                 QualifiedName name = QualifiedName.of("count");
                 aggregations.put(output, new Aggregation(
-                        new FunctionCall(name, ImmutableList.of(markers.get(i).toSymbolReference())),
                         functionManager.lookupFunction(name.getSuffix(), fromTypes(BIGINT)),
+                        ImmutableList.of(markers.get(i).toSymbolReference()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
                         Optional.empty()));
             }
 

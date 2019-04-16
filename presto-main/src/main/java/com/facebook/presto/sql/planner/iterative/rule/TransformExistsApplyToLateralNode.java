@@ -162,8 +162,11 @@ public class TransformExistsApplyToLateralNode
                                 context.getIdAllocator().getNextId(),
                                 parent.getSubquery(),
                                 ImmutableMap.of(count, new Aggregation(
-                                        COUNT_CALL,
                                         functionManager.lookupFunction(COUNT, ImmutableList.of()),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        false,
                                         Optional.empty())),
                                 globalAggregation(),
                                 ImmutableList.of(),

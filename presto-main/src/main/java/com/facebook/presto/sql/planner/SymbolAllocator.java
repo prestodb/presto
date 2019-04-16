@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Field;
@@ -34,16 +36,19 @@ import static java.util.Objects.requireNonNull;
 public class SymbolAllocator
 {
     private final Map<Symbol, Type> symbols;
+    private final FunctionManager functionManager;
     private int nextId;
 
-    public SymbolAllocator()
+    public SymbolAllocator(FunctionManager functionManager)
     {
         symbols = new HashMap<>();
+        this.functionManager = functionManager;
     }
 
-    public SymbolAllocator(Map<Symbol, Type> initial)
+    public SymbolAllocator(FunctionManager functionManager, Map<Symbol, Type> initial)
     {
         symbols = new HashMap<>(initial);
+        this.functionManager = functionManager;
     }
 
     public Symbol newSymbol(Symbol symbolHint)
@@ -105,6 +110,11 @@ public class SymbolAllocator
     public Symbol newSymbol(Expression expression, Type type)
     {
         return newSymbol(expression, type, null);
+    }
+
+    public Symbol newSymbol(FunctionHandle functionHandle, Type type)
+    {
+        return newSymbol(functionManager.getFunctionMetadata(functionHandle).getName(), type, null);
     }
 
     public Symbol newSymbol(Expression expression, Type type, String suffix)

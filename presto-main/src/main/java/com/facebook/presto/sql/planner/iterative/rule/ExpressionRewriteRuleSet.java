@@ -27,7 +27,6 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -46,6 +45,7 @@ import static com.facebook.presto.sql.planner.plan.Patterns.values;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionRewriteRuleSet
@@ -153,11 +153,17 @@ public class ExpressionRewriteRuleSet
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
             for (Map.Entry<Symbol, Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
                 Aggregation aggregation = entry.getValue();
-                FunctionCall call = (FunctionCall) rewriter.rewrite(aggregation.getCall(), context);
+                List<Expression> rewrittenArguments = aggregation.getArguments().stream().map(argument -> rewriter.rewrite(argument, context)).collect(toImmutableList());
                 aggregations.put(
                         entry.getKey(),
-                        new Aggregation(call, aggregation.getFunctionHandle(), aggregation.getMask()));
-                if (!aggregation.getCall().equals(call)) {
+                        new Aggregation(
+                                aggregation.getFunctionHandle(),
+                                rewrittenArguments,
+                                aggregation.getFilter(),
+                                aggregation.getOrderBy(),
+                                aggregation.isDistinct(),
+                                aggregation.getMask()));
+                if (!rewrittenArguments.equals(aggregation.getArguments())) {
                     anyRewritten = true;
                 }
             }

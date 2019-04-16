@@ -26,12 +26,12 @@ import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.isEnableIntermediateAggregations;
@@ -47,6 +47,7 @@ import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.step;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
 /**
@@ -178,12 +179,15 @@ public class AddIntermediateAggregations
         for (Map.Entry<Symbol, Aggregation> entry : assignments.entrySet()) {
             Symbol output = entry.getKey();
             Aggregation aggregation = entry.getValue();
-            checkState(!aggregation.getCall().getOrderBy().isPresent(), "Intermediate aggregation does not support ORDER BY");
+            checkState(!aggregation.getOrderBy().isPresent(), "Intermediate aggregation does not support ORDER BY");
             builder.put(
                     output,
                     new Aggregation(
-                            new FunctionCall(aggregation.getCall().getName(), ImmutableList.of(output.toSymbolReference())),
                             aggregation.getFunctionHandle(),
+                            ImmutableList.of(output.toSymbolReference()),
+                            Optional.empty(),
+                            Optional.empty(),
+                            false,
                             Optional.empty()));  // No mask for INTERMEDIATE
         }
         return builder.build();
@@ -202,7 +206,12 @@ public class AddIntermediateAggregations
         ImmutableMap.Builder<Symbol, Aggregation> builder = ImmutableMap.builder();
         for (Map.Entry<Symbol, Aggregation> entry : assignments.entrySet()) {
             // Should only have one input symbol
-            Symbol input = getOnlyElement(SymbolsExtractor.extractAll(entry.getValue().getCall()));
+            Symbol input = getOnlyElement(
+                    entry.getValue().getArguments()
+                            .stream()
+                            .map(SymbolsExtractor::extractUnique)
+                            .flatMap(Set::stream)
+                            .collect(toImmutableSet()));
             builder.put(input, entry.getValue());
         }
         return builder.build();

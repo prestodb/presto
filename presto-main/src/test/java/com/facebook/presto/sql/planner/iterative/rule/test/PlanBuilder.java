@@ -75,6 +75,8 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
@@ -86,6 +88,7 @@ import com.google.common.collect.Maps;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -95,6 +98,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.sql.planner.ConversionUtils.toSortOrder;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.relational.Expressions.constant;
@@ -291,7 +295,24 @@ public class PlanBuilder
             checkArgument(expression instanceof FunctionCall);
             FunctionCall aggregation = (FunctionCall) expression;
             FunctionHandle functionHandle = metadata.getFunctionManager().resolveFunction(session, aggregation.getName(), TypeSignatureProvider.fromTypes(inputTypes));
-            return addAggregation(output, new Aggregation(aggregation, functionHandle, mask));
+            return addAggregation(output, new Aggregation(
+                    functionHandle,
+                    aggregation.getArguments(),
+                    aggregation.getFilter(),
+                    aggregation.getOrderBy().map(orderBy -> fromSortItems(orderBy.getSortItems())),
+                    aggregation.isDistinct(),
+                    mask));
+        }
+
+        private OrderingScheme fromSortItems(List<SortItem> sortItems)
+        {
+            Map<Symbol, SortOrder> orderings = new LinkedHashMap<>();
+            for (SortItem item : sortItems) {
+                checkArgument(item.getSortKey() instanceof SymbolReference, "Sort key must be symbol reference");
+                Symbol symbol = new Symbol(((SymbolReference) item.getSortKey()).getName());
+                orderings.putIfAbsent(symbol, toSortOrder(item));
+            }
+            return new OrderingScheme(orderings.keySet().stream().collect(toImmutableList()), orderings);
         }
 
         public AggregationBuilder addAggregation(Symbol output, Aggregation aggregation)
@@ -761,6 +782,7 @@ public class PlanBuilder
                 unnestSymbols,
                 ordinalitySymbol);
     }
+
     public static Expression expression(String sql)
     {
         return ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql));

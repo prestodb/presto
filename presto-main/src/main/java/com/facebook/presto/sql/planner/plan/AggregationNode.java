@@ -16,8 +16,9 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Expression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -72,8 +73,7 @@ public class AggregationNode
         this.groupIdSymbol = requireNonNull(groupIdSymbol);
 
         boolean noOrderBy = aggregations.values().stream()
-                .map(Aggregation::getCall)
-                .map(FunctionCall::getOrderBy)
+                .map(Aggregation::getOrderBy)
                 .noneMatch(Optional::isPresent);
         checkArgument(noOrderBy || step == SINGLE, "ORDER BY does not support distributed aggregation");
 
@@ -187,8 +187,7 @@ public class AggregationNode
     public boolean hasOrderings()
     {
         return aggregations.values().stream()
-                .map(Aggregation::getCall)
-                .map(FunctionCall::getOrderBy)
+                .map(Aggregation::getOrderBy)
                 .anyMatch(Optional::isPresent);
     }
 
@@ -207,13 +206,11 @@ public class AggregationNode
     public boolean isDecomposable(FunctionManager functionManager)
     {
         boolean hasOrderBy = getAggregations().values().stream()
-                .map(Aggregation::getCall)
-                .map(FunctionCall::getOrderBy)
+                .map(Aggregation::getOrderBy)
                 .anyMatch(Optional::isPresent);
 
         boolean hasDistinct = getAggregations().values().stream()
-                .map(Aggregation::getCall)
-                .anyMatch(FunctionCall::isDistinct);
+                .anyMatch(Aggregation::isDistinct);
 
         boolean decomposableFunctions = getAggregations().values().stream()
                 .map(Aggregation::getFunctionHandle)
@@ -358,25 +355,28 @@ public class AggregationNode
 
     public static class Aggregation
     {
-        private final FunctionCall call;
         private final FunctionHandle functionHandle;
+        private final Optional<Expression> filter;
+        private final Optional<OrderingScheme> orderBy;
+        private final boolean distinct;
+        private final List<Expression> arguments;
         private final Optional<Symbol> mask;
 
         @JsonCreator
         public Aggregation(
-                @JsonProperty("call") FunctionCall call,
                 @JsonProperty("functionHandle") FunctionHandle functionHandle,
+                @JsonProperty("arguments") List<Expression> arguments,
+                @JsonProperty("filter") Optional<Expression> filter,
+                @JsonProperty("orderBy") Optional<OrderingScheme> orderBy,
+                @JsonProperty("distinct") boolean distinct,
                 @JsonProperty("mask") Optional<Symbol> mask)
         {
-            this.call = requireNonNull(call, "call is null");
             this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
+            this.arguments = requireNonNull(arguments, "arguments is null");
+            this.filter = requireNonNull(filter, "filter is null");
+            this.orderBy = requireNonNull(orderBy, "orderBy is null");
+            this.distinct = distinct;
             this.mask = requireNonNull(mask, "mask is null");
-        }
-
-        @JsonProperty
-        public FunctionCall getCall()
-        {
-            return call;
         }
 
         @JsonProperty
@@ -389,6 +389,30 @@ public class AggregationNode
         public Optional<Symbol> getMask()
         {
             return mask;
+        }
+
+        @JsonProperty
+        public Optional<Expression> getFilter()
+        {
+            return filter;
+        }
+
+        @JsonProperty
+        public Optional<OrderingScheme> getOrderBy()
+        {
+            return orderBy;
+        }
+
+        @JsonProperty
+        public boolean isDistinct()
+        {
+            return distinct;
+        }
+
+        @JsonProperty
+        public List<Expression> getArguments()
+        {
+            return arguments;
         }
     }
 }

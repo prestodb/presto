@@ -37,7 +37,6 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -147,20 +146,32 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     subqueryPlan,
                     ImmutableMap.of(
                             minValue, new Aggregation(
-                                    new FunctionCall(MIN, outputColumnReferences),
                                     functionManager.lookupFunction(MIN.getSuffix(), outputColumnTypeSignatures),
+                                    outputColumnReferences,
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    false,
                                     Optional.empty()),
                             maxValue, new Aggregation(
-                                    new FunctionCall(MAX, outputColumnReferences),
                                     functionManager.lookupFunction(MAX.getSuffix(), outputColumnTypeSignatures),
+                                    outputColumnReferences,
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    false,
                                     Optional.empty()),
                             countAllValue, new Aggregation(
-                                    new FunctionCall(COUNT, emptyList()),
                                     functionManager.lookupFunction(COUNT.getSuffix(), emptyList()),
+                                    emptyList(),
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    false,
                                     Optional.empty()),
                             countNonNullValue, new Aggregation(
-                                    new FunctionCall(COUNT, outputColumnReferences),
                                     functionManager.lookupFunction(COUNT.getSuffix(), outputColumnTypeSignatures),
+                                    outputColumnReferences,
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    false,
                                     Optional.empty())),
                     globalAggregation(),
                     ImmutableList.of(),
