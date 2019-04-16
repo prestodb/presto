@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import org.testng.annotations.Test;
 
@@ -48,8 +49,8 @@ public class TestOutputNodeStats
 
         tester().assertStatsFor(pb -> pb
                 .output(outputBuilder -> {
-                    Symbol a = pb.symbol("a", BIGINT);
-                    Symbol b = pb.symbol("b", DOUBLE);
+                    VariableReferenceExpression a = pb.variable(pb.symbol("a", BIGINT));
+                    VariableReferenceExpression b = pb.variable(pb.symbol("b", DOUBLE));
                     outputBuilder
                             .source(pb.values(a, b))
                             .column(a, "a1")
