@@ -131,7 +131,7 @@ public class BeginTableWrite
                     node.getId(),
                     child,
                     analyzeHandle,
-                    node.getRowCountSymbol(),
+                    node.getRowCountVariable(),
                     node.isRowCountEnabled(),
                     node.getDescriptor());
         }

@@ -671,7 +671,7 @@ public class PruneUnreferencedOutputs
                     node.getId(),
                     source,
                     node.getTarget(),
-                    node.getRowCountSymbol(),
+                    node.getRowCountVariable(),
                     node.isRowCountEnabled(),
                     node.getDescriptor());
         }
