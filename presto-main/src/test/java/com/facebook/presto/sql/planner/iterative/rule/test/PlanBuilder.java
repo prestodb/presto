@@ -124,13 +124,14 @@ public class PlanBuilder
         this.metadata = metadata;
     }
 
-    public OutputNode output(List<String> columnNames, List<Symbol> outputs, PlanNode source)
+    public OutputNode output(List<String> columnNames, List<Symbol> outputs, List<VariableReferenceExpression> variables, PlanNode source)
     {
         return new OutputNode(
                 idAllocator.getNextId(),
                 source,
                 columnNames,
-                outputs);
+                outputs,
+                variables);
     }
 
     public OutputNode output(Consumer<OutputBuilder> outputBuilderConsumer)
@@ -144,7 +145,7 @@ public class PlanBuilder
     {
         private PlanNode source;
         private List<String> columnNames = new ArrayList<>();
-        private List<Symbol> outputs = new ArrayList<>();
+        private List<VariableReferenceExpression> outputVariables = new ArrayList<>();
 
         public OutputBuilder source(PlanNode source)
         {
@@ -152,27 +153,32 @@ public class PlanBuilder
             return this;
         }
 
-        public OutputBuilder column(Symbol symbol)
+        public OutputBuilder column(VariableReferenceExpression variable, String columnName)
         {
-            return column(symbol, symbol.getName());
-        }
-
-        public OutputBuilder column(Symbol symbol, String columnName)
-        {
-            outputs.add(symbol);
+            outputVariables.add(variable);
             columnNames.add(columnName);
             return this;
         }
 
         protected OutputNode build()
         {
-            return new OutputNode(idAllocator.getNextId(), source, columnNames, outputs);
+            return new OutputNode(idAllocator.getNextId(), source, columnNames, outputVariables.stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableList()), outputVariables);
         }
+    }
+
+    public ValuesNode values()
+    {
+        return values(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of());
     }
 
     public ValuesNode values(Symbol... columns)
     {
         return values(idAllocator.getNextId(), columns);
+    }
+
+    public ValuesNode values(VariableReferenceExpression... columns)
+    {
+        return values(idAllocator.getNextId(), 0, columns);
     }
 
     public ValuesNode values(PlanNodeId id, Symbol... columns)
@@ -194,6 +200,16 @@ public class PlanBuilder
         return values(
                 id,
                 ImmutableList.copyOf(columns),
+                variables,
+                nElements(rows, row -> nElements(columns.length, cell -> constantNull(UNKNOWN))));
+    }
+
+    public ValuesNode values(PlanNodeId id, int rows, VariableReferenceExpression... columns)
+    {
+        List<VariableReferenceExpression> variables = ImmutableList.copyOf(columns);
+        return values(
+                id,
+                variables.stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableList()),
                 variables,
                 nElements(rows, row -> nElements(columns.length, cell -> constantNull(UNKNOWN))));
     }
