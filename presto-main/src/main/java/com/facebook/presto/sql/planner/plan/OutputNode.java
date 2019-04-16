@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -34,12 +35,14 @@ public class OutputNode
     private final PlanNode source;
     private final List<String> columnNames;
     private final List<Symbol> outputs; // column name = symbol
+    private final List<VariableReferenceExpression> outputVariables;
 
     @JsonCreator
     public OutputNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("columns") List<String> columnNames,
-            @JsonProperty("outputs") List<Symbol> outputs)
+            @JsonProperty("outputs") List<Symbol> outputs,
+            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables)
     {
         super(id);
 
@@ -50,6 +53,8 @@ public class OutputNode
         this.source = source;
         this.columnNames = columnNames;
         this.outputs = ImmutableList.copyOf(outputs);
+        this.outputVariables = ImmutableList.copyOf(outputVariables);
+        validateOutputVariables();
     }
 
     @Override
@@ -63,6 +68,13 @@ public class OutputNode
     public List<Symbol> getOutputSymbols()
     {
         return outputs;
+    }
+
+    @Override
+    @JsonProperty
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        return outputVariables;
     }
 
     @JsonProperty("columns")
@@ -86,6 +98,6 @@ public class OutputNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new OutputNode(getId(), Iterables.getOnlyElement(newChildren), columnNames, outputs);
+        return new OutputNode(getId(), Iterables.getOnlyElement(newChildren), columnNames, outputs, outputVariables);
     }
 }
