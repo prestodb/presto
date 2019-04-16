@@ -592,7 +592,7 @@ public final class ValidateDependenciesChecker
         {
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanNode subplan = node.getSources().get(i);
-                checkDependencies(subplan.getOutputSymbols(), node.sourceOutputLayout(i), "%s subplan must provide all of the necessary symbols", node.getClass().getSimpleName());
+                checkDependencies(subplan.getOutputSymbols(), node.sourceOutputSymbolLayout(i), "%s subplan must provide all of the necessary symbols", node.getClass().getSimpleName());
                 subplan.accept(this, boundSymbols); // visit child
             }
 

@@ -479,10 +479,10 @@ public class TestCostCalculator
     {
         TableScanNode ts1 = tableScan("ts1", "orderkey");
         TableScanNode ts2 = tableScan("ts2", "orderkey_0");
-        ImmutableListMultimap.Builder<Symbol, Symbol> outputMappings = ImmutableListMultimap.builder();
-        outputMappings.put(new Symbol("orderkey_1"), new Symbol("orderkey"));
-        outputMappings.put(new Symbol("orderkey_1"), new Symbol("orderkey_0"));
-        UnionNode union = new UnionNode(new PlanNodeId("union"), ImmutableList.of(ts1, ts2), outputMappings.build(), ImmutableList.of(new Symbol("orderkey_1")));
+        ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> outputMappings = ImmutableListMultimap.builder();
+        outputMappings.put(new VariableReferenceExpression("orderkey_1", BIGINT), new VariableReferenceExpression("orderkey", BIGINT));
+        outputMappings.put(new VariableReferenceExpression("orderkey_1", BIGINT), new VariableReferenceExpression("orderkey_0", BIGINT));
+        UnionNode union = new UnionNode(new PlanNodeId("union"), ImmutableList.of(ts1, ts2), outputMappings.build());
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
                 "ts1", statsEstimate(ts1, 4000),
                 "ts2", statsEstimate(ts2, 1000),

@@ -357,7 +357,7 @@ public class PredicatePushDown
             }
 
             if (modified) {
-                return new UnionNode(node.getId(), builder.build(), node.getSymbolMapping(), node.getOutputSymbols());
+                return new UnionNode(node.getId(), builder.build(), node.getVariableMapping());
             }
 
             return node;

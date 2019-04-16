@@ -584,19 +584,19 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitUnion(UnionNode node, RewriteContext<Void> context)
         {
-            return new UnionNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationSymbolMap(node.getSymbolMapping()), canonicalizeAndDistinct(node.getOutputSymbols()));
+            return new UnionNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationVariableMap(node.getVariableMapping()));
         }
 
         @Override
         public PlanNode visitIntersect(IntersectNode node, RewriteContext<Void> context)
         {
-            return new IntersectNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationSymbolMap(node.getSymbolMapping()), canonicalizeAndDistinct(node.getOutputSymbols()));
+            return new IntersectNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationVariableMap(node.getVariableMapping()));
         }
 
         @Override
         public PlanNode visitExcept(ExceptNode node, RewriteContext<Void> context)
         {
-            return new ExceptNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationSymbolMap(node.getSymbolMapping()), canonicalizeAndDistinct(node.getOutputSymbols()));
+            return new ExceptNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationVariableMap(node.getVariableMapping()));
         }
 
         private static ImmutableList.Builder<PlanNode> rewriteSources(SetOperationNode node, RewriteContext<Void> context)
@@ -786,14 +786,14 @@ public class UnaliasSymbolReferences
             return builder.build();
         }
 
-        private ListMultimap<Symbol, Symbol> canonicalizeSetOperationSymbolMap(ListMultimap<Symbol, Symbol> setOperationSymbolMap)
+        private ListMultimap<VariableReferenceExpression, VariableReferenceExpression> canonicalizeSetOperationVariableMap(ListMultimap<VariableReferenceExpression, VariableReferenceExpression> setOperationVariableMap)
         {
-            ImmutableListMultimap.Builder<Symbol, Symbol> builder = ImmutableListMultimap.builder();
-            Set<Symbol> addedSymbols = new HashSet<>();
-            for (Map.Entry<Symbol, Collection<Symbol>> entry : setOperationSymbolMap.asMap().entrySet()) {
-                Symbol canonicalOutputSymbol = canonicalize(entry.getKey());
-                if (addedSymbols.add(canonicalOutputSymbol)) {
-                    builder.putAll(canonicalOutputSymbol, Iterables.transform(entry.getValue(), this::canonicalize));
+            ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> builder = ImmutableListMultimap.builder();
+            Set<VariableReferenceExpression> addedSymbols = new HashSet<>();
+            for (Map.Entry<VariableReferenceExpression, Collection<VariableReferenceExpression>> entry : setOperationVariableMap.asMap().entrySet()) {
+                VariableReferenceExpression canonicalOutputVariable = canonicalize(entry.getKey());
+                if (addedSymbols.add(canonicalOutputVariable)) {
+                    builder.putAll(canonicalOutputVariable, Iterables.transform(entry.getValue(), this::canonicalize));
                 }
             }
             return builder.build();

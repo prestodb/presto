@@ -133,12 +133,11 @@ public final class TypeValidator
         {
             visitPlan(node, context);
 
-            ListMultimap<Symbol, Symbol> symbolMapping = node.getSymbolMapping();
-            for (Symbol keySymbol : symbolMapping.keySet()) {
-                List<Symbol> valueSymbols = symbolMapping.get(keySymbol);
-                Type expectedType = types.get(keySymbol);
-                for (Symbol valueSymbol : valueSymbols) {
-                    verifyTypeSignature(keySymbol, expectedType.getTypeSignature(), types.get(valueSymbol).getTypeSignature());
+            ListMultimap<VariableReferenceExpression, VariableReferenceExpression> variableMapping = node.getVariableMapping();
+            for (VariableReferenceExpression keyVariable : variableMapping.keySet()) {
+                List<VariableReferenceExpression> valueVariables = variableMapping.get(keyVariable);
+                for (VariableReferenceExpression valueVariable : valueVariables) {
+                    verifyTypeSignature(keyVariable, valueVariable.getType().getTypeSignature());
                 }
             }
 

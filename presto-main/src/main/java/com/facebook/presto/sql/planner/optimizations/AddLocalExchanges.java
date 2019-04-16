@@ -525,7 +525,7 @@ public class AddLocalExchanges
 
             List<List<Symbol>> inputLayouts = new ArrayList<>(sources.size());
             for (int i = 0; i < sources.size(); i++) {
-                inputLayouts.add(node.sourceOutputLayout(i));
+                inputLayouts.add(node.sourceOutputSymbolLayout(i));
             }
 
             if (preferredProperties.isSingleStreamPreferred()) {

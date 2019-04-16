@@ -14,6 +14,7 @@
 
 package com.facebook.presto.cost;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -38,12 +39,12 @@ public class TestUnionStatsRule
 
         tester().assertStatsFor(pb -> pb
                 .union(
-                        ImmutableListMultimap.<Symbol, Symbol>builder()
-                                .putAll(pb.symbol("o1", BIGINT), pb.symbol("i11", BIGINT), pb.symbol("i21", BIGINT))
-                                .putAll(pb.symbol("o2", BIGINT), pb.symbol("i12", BIGINT), pb.symbol("i22", BIGINT))
-                                .putAll(pb.symbol("o3", BIGINT), pb.symbol("i13", BIGINT), pb.symbol("i23", BIGINT))
-                                .putAll(pb.symbol("o4", BIGINT), pb.symbol("i14", BIGINT), pb.symbol("i24", BIGINT))
-                                .putAll(pb.symbol("o5", BIGINT), pb.symbol("i15", BIGINT), pb.symbol("i25", BIGINT))
+                        ImmutableListMultimap.<VariableReferenceExpression, VariableReferenceExpression>builder()
+                                .putAll(pb.variable("o1", BIGINT), pb.variable("i11", BIGINT), pb.variable("i21", BIGINT))
+                                .putAll(pb.variable("o2", BIGINT), pb.variable("i12", BIGINT), pb.variable("i22", BIGINT))
+                                .putAll(pb.variable("o3", BIGINT), pb.variable("i13", BIGINT), pb.variable("i23", BIGINT))
+                                .putAll(pb.variable("o4", BIGINT), pb.variable("i14", BIGINT), pb.variable("i24", BIGINT))
+                                .putAll(pb.variable("o5", BIGINT), pb.variable("i15", BIGINT), pb.variable("i25", BIGINT))
                                 .build(),
                         ImmutableList.of(
                                 pb.values(pb.symbol("i11", BIGINT), pb.symbol("i12", BIGINT), pb.symbol("i13", BIGINT), pb.symbol("i14", BIGINT), pb.symbol("i15", BIGINT)),
