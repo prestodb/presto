@@ -365,8 +365,15 @@ public class TestExchangeClient
         // remove remote source while pages are still available
         exchangeClient.removeRemoteSource(taskId1);
 
-        // client should not receive any further pages from removed remote source
-        assertNull(exchangeClient.pollPage());
+        SerializedPage nextPage = exchangeClient.pollPage();
+        if (nextPage != null) {
+            // After the first page get polled, it is possible for the second page get buffered
+            // before remote source get removed.
+            assertPageEquals(nextPage, createPage(2));
+            // Buffer capacity is set to 1 byte, so the third page cannot be buffered.
+            // Client should not receive any further pages from removed remote source.
+            assertNull(exchangeClient.pollPage());
+        }
         assertEquals(exchangeClient.getStatus().getBufferedPages(), 0);
 
         // add pages to another source
