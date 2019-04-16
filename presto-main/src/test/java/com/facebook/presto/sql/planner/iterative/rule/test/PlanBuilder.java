@@ -267,9 +267,9 @@ public class PlanBuilder
         return new MarkDistinctNode(idAllocator.getNextId(), source, markerVariable, distinctSymbols, Optional.empty());
     }
 
-    public MarkDistinctNode markDistinct(VariableReferenceExpression markerVariable, List<Symbol> distinctSymbols, Symbol hashSymbol, PlanNode source)
+    public MarkDistinctNode markDistinct(VariableReferenceExpression markerVariable, List<Symbol> distinctSymbols, VariableReferenceExpression hashVariable, PlanNode source)
     {
-        return new MarkDistinctNode(idAllocator.getNextId(), source, markerVariable, distinctSymbols, Optional.of(hashSymbol));
+        return new MarkDistinctNode(idAllocator.getNextId(), source, markerVariable, distinctSymbols, Optional.of(hashVariable));
     }
 
     public FilterNode filter(Expression predicate, PlanNode source)
@@ -296,7 +296,7 @@ public class PlanBuilder
         private AggregationNode.GroupingSetDescriptor groupingSets;
         private List<Symbol> preGroupedSymbols = new ArrayList<>();
         private Step step = Step.SINGLE;
-        private Optional<Symbol> hashSymbol = Optional.empty();
+        private Optional<VariableReferenceExpression> hashVariable = Optional.empty();
         private Optional<Symbol> groupIdSymbol = Optional.empty();
         private Session session = testSessionBuilder().build();
 
@@ -368,9 +368,9 @@ public class PlanBuilder
             return this;
         }
 
-        public AggregationBuilder hashSymbol(Symbol hashSymbol)
+        public AggregationBuilder hashVariable(VariableReferenceExpression hashVariable)
         {
-            this.hashSymbol = Optional.of(hashSymbol);
+            this.hashVariable = Optional.of(hashVariable);
             return this;
         }
 
@@ -390,7 +390,7 @@ public class PlanBuilder
                     groupingSets,
                     preGroupedSymbols,
                     step,
-                    hashSymbol,
+                    hashVariable,
                     groupIdSymbol);
         }
     }
@@ -485,8 +485,8 @@ public class PlanBuilder
             Symbol sourceJoinSymbol,
             Symbol filteringSourceJoinSymbol,
             Symbol semiJoinOutput,
-            Optional<Symbol> sourceHashSymbol,
-            Optional<Symbol> filteringSourceHashSymbol,
+            Optional<VariableReferenceExpression> sourceHashVariable,
+            Optional<VariableReferenceExpression> filteringSourceHashVariable,
             PlanNode source,
             PlanNode filteringSource)
     {
@@ -496,8 +496,8 @@ public class PlanBuilder
                 sourceJoinSymbol,
                 filteringSourceJoinSymbol,
                 semiJoinOutput,
-                sourceHashSymbol,
-                filteringSourceHashSymbol,
+                sourceHashVariable,
+                filteringSourceHashVariable,
                 Optional.empty());
     }
 
@@ -507,8 +507,8 @@ public class PlanBuilder
             Symbol sourceJoinSymbol,
             Symbol filteringSourceJoinSymbol,
             Symbol semiJoinOutput,
-            Optional<Symbol> sourceHashSymbol,
-            Optional<Symbol> filteringSourceHashSymbol,
+            Optional<VariableReferenceExpression> sourceHashVariable,
+            Optional<VariableReferenceExpression> filteringSourceHashVariable,
             Optional<SemiJoinNode.DistributionType> distributionType)
     {
         return new SemiJoinNode(
@@ -518,8 +518,8 @@ public class PlanBuilder
                 sourceJoinSymbol,
                 filteringSourceJoinSymbol,
                 semiJoinOutput,
-                sourceHashSymbol,
-                filteringSourceHashSymbol,
+                sourceHashVariable,
+                filteringSourceHashVariable,
                 distributionType);
     }
 
@@ -589,13 +589,13 @@ public class PlanBuilder
                     ImmutableList.copyOf(outputSymbols)));
         }
 
-        public ExchangeBuilder fixedHashDistributionParitioningScheme(List<Symbol> outputSymbols, List<Symbol> partitioningSymbols, Symbol hashSymbol)
+        public ExchangeBuilder fixedHashDistributionParitioningScheme(List<Symbol> outputSymbols, List<Symbol> partitioningSymbols, VariableReferenceExpression hashVariable)
         {
             return partitioningScheme(new PartitioningScheme(Partitioning.create(
                     FIXED_HASH_DISTRIBUTION,
                     ImmutableList.copyOf(partitioningSymbols)),
                     ImmutableList.copyOf(outputSymbols),
-                    Optional.of(hashSymbol)));
+                    Optional.of(hashVariable)));
         }
 
         public ExchangeBuilder partitioningScheme(PartitioningScheme partitioningScheme)
@@ -671,10 +671,10 @@ public class PlanBuilder
             List<JoinNode.EquiJoinClause> criteria,
             List<Symbol> outputSymbols,
             Optional<Expression> filter,
-            Optional<Symbol> leftHashSymbol,
-            Optional<Symbol> rightHashSymbol)
+            Optional<VariableReferenceExpression> leftHashVariable,
+            Optional<VariableReferenceExpression> rightHashVariable)
     {
-        return join(type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.empty());
+        return join(type, left, right, criteria, outputSymbols, filter, leftHashVariable, rightHashVariable, Optional.empty());
     }
 
     public JoinNode join(
@@ -684,11 +684,11 @@ public class PlanBuilder
             List<JoinNode.EquiJoinClause> criteria,
             List<Symbol> outputSymbols,
             Optional<Expression> filter,
-            Optional<Symbol> leftHashSymbol,
-            Optional<Symbol> rightHashSymbol,
+            Optional<VariableReferenceExpression> leftHashVariable,
+            Optional<VariableReferenceExpression> rightHashVariable,
             Optional<JoinNode.DistributionType> distributionType)
     {
-        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputSymbols, filter.map(OriginalExpressionUtils::castToRowExpression), leftHashSymbol, rightHashSymbol, distributionType);
+        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputSymbols, filter.map(OriginalExpressionUtils::castToRowExpression), leftHashVariable, rightHashVariable, distributionType);
     }
 
     public PlanNode indexJoin(IndexJoinNode.Type type, TableScanNode probe, TableScanNode index)
@@ -763,14 +763,14 @@ public class PlanBuilder
                 0);
     }
 
-    public WindowNode window(WindowNode.Specification specification, Map<VariableReferenceExpression, WindowNode.Function> functions, Symbol hashSymbol, PlanNode source)
+    public WindowNode window(WindowNode.Specification specification, Map<VariableReferenceExpression, WindowNode.Function> functions, VariableReferenceExpression hashVariable, PlanNode source)
     {
         return new WindowNode(
                 idAllocator.getNextId(),
                 source,
                 specification,
                 ImmutableMap.copyOf(functions),
-                Optional.of(hashSymbol),
+                Optional.of(hashVariable),
                 ImmutableSet.of(),
                 0);
     }

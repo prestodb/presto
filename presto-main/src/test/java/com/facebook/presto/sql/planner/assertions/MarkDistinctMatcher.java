@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
@@ -42,7 +43,7 @@ public class MarkDistinctMatcher
     {
         this.markerSymbol = requireNonNull(markerSymbol, "markerSymbol is null");
         this.distinctSymbols = ImmutableList.copyOf(distinctSymbols);
-        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
+        this.hashSymbol = requireNonNull(hashSymbol, "hashVariable is null");
     }
 
     @Override
@@ -57,7 +58,7 @@ public class MarkDistinctMatcher
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
         MarkDistinctNode markDistinctNode = (MarkDistinctNode) node;
 
-        if (!markDistinctNode.getHashSymbol().equals(hashSymbol.map(alias -> alias.toSymbol(symbolAliases)))) {
+        if (!markDistinctNode.getHashVariable().map(variable -> new Symbol(variable.getName())).equals(hashSymbol.map(alias -> alias.toSymbol(symbolAliases)))) {
             return NO_MATCH;
         }
 
@@ -75,7 +76,7 @@ public class MarkDistinctMatcher
         return toStringHelper(this)
                 .add("markerSymbol", markerSymbol)
                 .add("distinctSymbols", distinctSymbols)
-                .add("hashSymbol", hashSymbol)
+                .add("hashVariable", hashSymbol)
                 .toString();
     }
 }

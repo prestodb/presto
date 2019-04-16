@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
@@ -48,7 +49,7 @@ public class AggregationNode
     private final GroupingSetDescriptor groupingSets;
     private final List<Symbol> preGroupedSymbols;
     private final Step step;
-    private final Optional<Symbol> hashSymbol;
+    private final Optional<VariableReferenceExpression> hashVariable;
     private final Optional<Symbol> groupIdSymbol;
     private final List<Symbol> outputs;
 
@@ -60,7 +61,7 @@ public class AggregationNode
             @JsonProperty("groupingSets") GroupingSetDescriptor groupingSets,
             @JsonProperty("preGroupedSymbols") List<Symbol> preGroupedSymbols,
             @JsonProperty("step") Step step,
-            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
+            @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable,
             @JsonProperty("groupIdSymbol") Optional<Symbol> groupIdSymbol)
     {
         super(id);
@@ -80,7 +81,7 @@ public class AggregationNode
         checkArgument(noOrderBy || step == SINGLE, "ORDER BY does not support distributed aggregation");
 
         this.step = step;
-        this.hashSymbol = hashSymbol;
+        this.hashVariable = hashVariable;
 
         requireNonNull(preGroupedSymbols, "preGroupedSymbols is null");
         checkArgument(preGroupedSymbols.isEmpty() || groupingSets.getGroupingKeys().containsAll(preGroupedSymbols), "Pre-grouped symbols must be a subset of the grouping keys");
@@ -88,7 +89,7 @@ public class AggregationNode
 
         ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
         outputs.addAll(groupingSets.getGroupingKeys());
-        hashSymbol.ifPresent(outputs::add);
+        hashVariable.ifPresent(variable -> outputs.add(new Symbol(variable.getName())));
         outputs.addAll(aggregations.keySet());
 
         this.outputs = outputs.build();
@@ -174,10 +175,10 @@ public class AggregationNode
         return step;
     }
 
-    @JsonProperty("hashSymbol")
-    public Optional<Symbol> getHashSymbol()
+    @JsonProperty("hashVariable")
+    public Optional<VariableReferenceExpression> getHashVariable()
     {
-        return hashSymbol;
+        return hashVariable;
     }
 
     @JsonProperty("groupIdSymbol")
@@ -202,7 +203,7 @@ public class AggregationNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, preGroupedSymbols, step, hashSymbol, groupIdSymbol);
+        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, preGroupedSymbols, step, hashVariable, groupIdSymbol);
     }
 
     public boolean isDecomposable(FunctionManager functionManager)

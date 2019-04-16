@@ -36,7 +36,7 @@ public final class RowNumberNode
     private final List<Symbol> partitionBy;
     private final Optional<Integer> maxRowCountPerPartition;
     private final VariableReferenceExpression rowNumberVariable;
-    private final Optional<Symbol> hashSymbol;
+    private final Optional<VariableReferenceExpression> hashVariable;
 
     @JsonCreator
     public RowNumberNode(
@@ -45,7 +45,7 @@ public final class RowNumberNode
             @JsonProperty("partitionBy") List<Symbol> partitionBy,
             @JsonProperty("rowNumberVariable") VariableReferenceExpression rowNumberVariable,
             @JsonProperty("maxRowCountPerPartition") Optional<Integer> maxRowCountPerPartition,
-            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
+            @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable)
     {
         super(id);
 
@@ -53,13 +53,13 @@ public final class RowNumberNode
         requireNonNull(partitionBy, "partitionBy is null");
         requireNonNull(rowNumberVariable, "rowNumberVariable is null");
         requireNonNull(maxRowCountPerPartition, "maxRowCountPerPartition is null");
-        requireNonNull(hashSymbol, "hashSymbol is null");
+        requireNonNull(hashVariable, "hashVariable is null");
 
         this.source = source;
         this.partitionBy = ImmutableList.copyOf(partitionBy);
         this.rowNumberVariable = rowNumberVariable;
         this.maxRowCountPerPartition = maxRowCountPerPartition;
-        this.hashSymbol = hashSymbol;
+        this.hashVariable = hashVariable;
     }
 
     @Override
@@ -116,9 +116,9 @@ public final class RowNumberNode
     }
 
     @JsonProperty
-    public Optional<Symbol> getHashSymbol()
+    public Optional<VariableReferenceExpression> getHashVariable()
     {
-        return hashSymbol;
+        return hashVariable;
     }
 
     @Override
@@ -130,6 +130,6 @@ public final class RowNumberNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new RowNumberNode(getId(), Iterables.getOnlyElement(newChildren), partitionBy, rowNumberVariable, maxRowCountPerPartition, hashSymbol);
+        return new RowNumberNode(getId(), Iterables.getOnlyElement(newChildren), partitionBy, rowNumberVariable, maxRowCountPerPartition, hashVariable);
     }
 }

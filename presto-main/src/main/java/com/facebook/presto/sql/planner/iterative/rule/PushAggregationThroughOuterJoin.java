@@ -146,7 +146,7 @@ public class PushAggregationThroughOuterJoin
                 singleGroupingSet(groupingKeys),
                 ImmutableList.of(),
                 aggregation.getStep(),
-                aggregation.getHashSymbol(),
+                aggregation.getHashVariable(),
                 aggregation.getGroupIdSymbol());
 
         JoinNode rewrittenJoin;
@@ -162,8 +162,8 @@ public class PushAggregationThroughOuterJoin
                             .addAll(rewrittenAggregation.getAggregations().keySet())
                             .build(),
                     join.getFilter(),
-                    join.getLeftHashSymbol(),
-                    join.getRightHashSymbol(),
+                    join.getLeftHashVariable(),
+                    join.getRightHashVariable(),
                     join.getDistributionType());
         }
         else {
@@ -178,8 +178,8 @@ public class PushAggregationThroughOuterJoin
                             .addAll(join.getRight().getOutputSymbols())
                             .build(),
                     join.getFilter(),
-                    join.getLeftHashSymbol(),
-                    join.getRightHashSymbol(),
+                    join.getLeftHashVariable(),
+                    join.getRightHashVariable(),
                     join.getDistributionType());
         }
 

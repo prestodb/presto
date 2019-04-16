@@ -132,7 +132,7 @@ public class SymbolMapper
                         node.getGlobalGroupingSets()),
                 ImmutableList.of(),
                 node.getStep(),
-                node.getHashSymbol().map(this::map),
+                node.getHashVariable().map(this::map),
                 node.getGroupIdSymbol().map(this::map));
     }
 

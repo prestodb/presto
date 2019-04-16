@@ -103,8 +103,9 @@ public class PushProjectionThroughExchange
 
             if (exchange.getPartitioningScheme().getHashColumn().isPresent()) {
                 // Need to retain the hash symbol for the exchange
-                projections.put(exchange.getPartitioningScheme().getHashColumn().get(), exchange.getPartitioningScheme().getHashColumn().get().toSymbolReference());
-                inputs.add(exchange.getPartitioningScheme().getHashColumn().get());
+                Symbol hashSymbol = new Symbol(exchange.getPartitioningScheme().getHashColumn().get().getName());
+                projections.put(hashSymbol, hashSymbol.toSymbolReference());
+                inputs.add(hashSymbol);
             }
 
             if (exchange.getOrderingScheme().isPresent()) {
@@ -134,7 +135,7 @@ public class PushProjectionThroughExchange
         // Construct the output symbols in the same order as the sources
         ImmutableList.Builder<Symbol> outputBuilder = ImmutableList.builder();
         partitioningColumns.forEach(outputBuilder::add);
-        exchange.getPartitioningScheme().getHashColumn().ifPresent(outputBuilder::add);
+        exchange.getPartitioningScheme().getHashColumn().ifPresent(variable -> outputBuilder.add(new Symbol(variable.getName())));
         if (exchange.getOrderingScheme().isPresent()) {
             exchange.getOrderingScheme().get().getOrderBy().stream()
                     .filter(symbol -> !partitioningColumns.contains(symbol))

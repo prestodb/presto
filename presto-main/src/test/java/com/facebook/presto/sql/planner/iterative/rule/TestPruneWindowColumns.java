@@ -239,7 +239,7 @@ public class TestPruneWindowColumns
                                                 Optional.of(endValue2),
                                                 Optional.of(startValue2.toSymbolReference()).map(Expression::toString),
                                                 Optional.of(endValue2.toSymbolReference()).map(Expression::toString)))),
-                        hash,
+                        p.variable(hash),
                         p.values(
                                 filteredInputs,
                                 filteredInputVariables,

@@ -48,7 +48,7 @@ public class WindowNode
     private final Specification specification;
     private final int preSortedOrderPrefix;
     private final Map<VariableReferenceExpression, Function> windowFunctions;
-    private final Optional<Symbol> hashSymbol;
+    private final Optional<VariableReferenceExpression> hashVariable;
 
     @JsonCreator
     public WindowNode(
@@ -56,7 +56,7 @@ public class WindowNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("specification") Specification specification,
             @JsonProperty("windowFunctions") Map<VariableReferenceExpression, Function> windowFunctions,
-            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
+            @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable,
             @JsonProperty("prePartitionedInputs") Set<Symbol> prePartitionedInputs,
             @JsonProperty("preSortedOrderPrefix") int preSortedOrderPrefix)
     {
@@ -65,7 +65,7 @@ public class WindowNode
         requireNonNull(source, "source is null");
         requireNonNull(specification, "specification is null");
         requireNonNull(windowFunctions, "windowFunctions is null");
-        requireNonNull(hashSymbol, "hashSymbol is null");
+        requireNonNull(hashVariable, "hashVariable is null");
         checkArgument(specification.getPartitionBy().containsAll(prePartitionedInputs), "prePartitionedInputs must be contained in partitionBy");
         Optional<OrderingScheme> orderingScheme = specification.getOrderingScheme();
         checkArgument(preSortedOrderPrefix == 0 || (orderingScheme.isPresent() && preSortedOrderPrefix <= orderingScheme.get().getOrderBy().size()), "Cannot have sorted more symbols than those requested");
@@ -75,7 +75,7 @@ public class WindowNode
         this.prePartitionedInputs = ImmutableSet.copyOf(prePartitionedInputs);
         this.specification = specification;
         this.windowFunctions = ImmutableMap.copyOf(windowFunctions);
-        this.hashSymbol = hashSymbol;
+        this.hashVariable = hashVariable;
         this.preSortedOrderPrefix = preSortedOrderPrefix;
     }
 
@@ -149,9 +149,9 @@ public class WindowNode
     }
 
     @JsonProperty
-    public Optional<Symbol> getHashSymbol()
+    public Optional<VariableReferenceExpression> getHashVariable()
     {
-        return hashSymbol;
+        return hashVariable;
     }
 
     @JsonProperty
@@ -175,7 +175,7 @@ public class WindowNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new WindowNode(getId(), Iterables.getOnlyElement(newChildren), specification, windowFunctions, hashSymbol, prePartitionedInputs, preSortedOrderPrefix);
+        return new WindowNode(getId(), Iterables.getOnlyElement(newChildren), specification, windowFunctions, hashVariable, prePartitionedInputs, preSortedOrderPrefix);
     }
 
     @Immutable

@@ -127,7 +127,7 @@ public class PushPartialAggregationThroughExchange
         }
 
         // currently, we only support plans that don't use pre-computed hash functions
-        if (aggregationNode.getHashSymbol().isPresent() || exchangeNode.getPartitioningScheme().getHashColumn().isPresent()) {
+        if (aggregationNode.getHashVariable().isPresent() || exchangeNode.getPartitioningScheme().getHashColumn().isPresent()) {
             return Result.empty();
         }
 
@@ -240,7 +240,7 @@ public class PushPartialAggregationThroughExchange
                 // through the exchange may or may not preserve these properties. Hence, it is safest to drop preGroupedSymbols here.
                 ImmutableList.of(),
                 PARTIAL,
-                node.getHashSymbol(),
+                node.getHashVariable(),
                 node.getGroupIdSymbol());
 
         return new AggregationNode(
@@ -252,7 +252,7 @@ public class PushPartialAggregationThroughExchange
                 // through the exchange may or may not preserve these properties. Hence, it is safest to drop preGroupedSymbols here.
                 ImmutableList.of(),
                 FINAL,
-                node.getHashSymbol(),
+                node.getHashVariable(),
                 node.getGroupIdSymbol());
     }
 }

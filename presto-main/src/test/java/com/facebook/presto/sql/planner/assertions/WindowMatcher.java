@@ -18,6 +18,8 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -98,7 +100,8 @@ public final class WindowMatcher
         if (!hashSymbol
                 .map(expectedHashSymbol -> expectedHashSymbol
                         .map(alias -> alias.toSymbol(symbolAliases))
-                        .equals(windowNode.getHashSymbol()))
+                        .map(Symbol::getName)
+                        .equals(windowNode.getHashVariable().map(VariableReferenceExpression::getName)))
                 .orElse(true)) {
             return NO_MATCH;
         }
@@ -204,16 +207,7 @@ public final class WindowMatcher
         }
 
         /**
-         * Matches only if WindowNode.getHashSymbol() is an empty option.
-         */
-        public Builder hashSymbol()
-        {
-            this.hashSymbol = Optional.of(Optional.empty());
-            return this;
-        }
-
-        /**
-         * Matches only if WindowNode.getHashSymbol() is a non-empty option containing hashSymbol.
+         * Matches only if WindowNode.getHashVariable() is a non-empty option containing hashVariable.
          */
         public Builder hashSymbol(String hashSymbol)
         {

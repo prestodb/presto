@@ -321,7 +321,7 @@ public class AddLocalExchanges
                     node.getGroupingSets(),
                     preGroupedSymbols,
                     node.getStep(),
-                    node.getHashSymbol(),
+                    node.getHashVariable(),
                     node.getGroupIdSymbol());
 
             return deriveProperties(result, child.getProperties());
@@ -368,7 +368,7 @@ public class AddLocalExchanges
                     child.getNode(),
                     node.getSpecification(),
                     node.getWindowFunctions(),
-                    node.getHashSymbol(),
+                    node.getHashVariable(),
                     prePartitionedInputs,
                     preSortedOrderPrefix);
 
@@ -391,7 +391,7 @@ public class AddLocalExchanges
                     child.getNode(),
                     node.getMarkerVariable(),
                     pruneMarkDistinctSymbols(node, child.getProperties().getLocalProperties()),
-                    node.getHashSymbol());
+                    node.getHashVariable());
 
             return deriveProperties(result, child.getProperties());
         }
@@ -548,8 +548,7 @@ public class AddLocalExchanges
                         LOCAL,
                         new PartitioningScheme(
                                 Partitioning.create(FIXED_HASH_DISTRIBUTION, preferredPartitionColumns.get()),
-                                node.getOutputSymbols(),
-                                Optional.empty()),
+                                node.getOutputSymbols()),
                         sources,
                         inputLayouts,
                         Optional.empty());

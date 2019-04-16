@@ -179,7 +179,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
             List<Symbol> symbols = canonicalizeAndDistinct(node.getDistinctSymbols());
-            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerVariable()), symbols, canonicalize(node.getHashSymbol()));
+            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerVariable()), symbols, canonicalize(node.getHashVariable()));
         }
 
         @Override
@@ -223,7 +223,7 @@ public class UnaliasSymbolReferences
                     source,
                     canonicalizeAndDistinct(node.getSpecification()),
                     functions.build(),
-                    canonicalize(node.getHashSymbol()),
+                    canonicalize(node.getHashVariable()),
                     canonicalize(node.getPrePartitionedInputs()),
                     node.getPreSortedOrderPrefix());
         }
@@ -242,9 +242,9 @@ public class UnaliasSymbolReferences
             return new WindowNode.Frame(
                     frame.getType(),
                     frame.getStartType(),
-                    canonicalize(frame.getStartValue()),
+                    canonicalizeOptionalSymbol(frame.getStartValue()),
                     frame.getEndType(),
-                    canonicalize(frame.getEndValue()),
+                    canonicalizeOptionalSymbol(frame.getEndValue()),
                     frame.getOriginalStartValue(),
                     frame.getOriginalEndValue());
         }
@@ -359,7 +359,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitDistinctLimit(DistinctLimitNode node, RewriteContext<Void> context)
         {
-            return new DistinctLimitNode(node.getId(), context.rewrite(node.getSource()), node.getLimit(), node.isPartial(), canonicalizeAndDistinct(node.getDistinctSymbols()), canonicalize(node.getHashSymbol()));
+            return new DistinctLimitNode(node.getId(), context.rewrite(node.getSource()), node.getLimit(), node.isPartial(), canonicalizeAndDistinct(node.getDistinctSymbols()), canonicalize(node.getHashVariable()));
         }
 
         @Override
@@ -417,7 +417,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitRowNumber(RowNumberNode node, RewriteContext<Void> context)
         {
-            return new RowNumberNode(node.getId(), context.rewrite(node.getSource()), canonicalizeAndDistinct(node.getPartitionBy()), canonicalize(node.getRowNumberVariable()), node.getMaxRowCountPerPartition(), canonicalize(node.getHashSymbol()));
+            return new RowNumberNode(node.getId(), context.rewrite(node.getSource()), canonicalizeAndDistinct(node.getPartitionBy()), canonicalize(node.getRowNumberVariable()), node.getMaxRowCountPerPartition(), canonicalize(node.getHashVariable()));
         }
 
         @Override
@@ -430,7 +430,7 @@ public class UnaliasSymbolReferences
                     canonicalize(node.getRowNumberVariable()),
                     node.getMaxRowCountPerPartition(),
                     node.isPartial(),
-                    canonicalize(node.getHashSymbol()));
+                    canonicalize(node.getHashVariable()));
         }
 
         @Override
@@ -520,8 +520,8 @@ public class UnaliasSymbolReferences
 
             List<JoinNode.EquiJoinClause> canonicalCriteria = canonicalizeJoinCriteria(node.getCriteria());
             Optional<Expression> canonicalFilter = node.getFilter().map(OriginalExpressionUtils::castToExpression).map(this::canonicalize);
-            Optional<Symbol> canonicalLeftHashSymbol = canonicalize(node.getLeftHashSymbol());
-            Optional<Symbol> canonicalRightHashSymbol = canonicalize(node.getRightHashSymbol());
+            Optional<VariableReferenceExpression> canonicalLeftHashVariable = canonicalize(node.getLeftHashVariable());
+            Optional<VariableReferenceExpression> canonicalRightHashVariable = canonicalize(node.getRightHashVariable());
 
             if (node.getType().equals(INNER)) {
                 canonicalCriteria.stream()
@@ -538,8 +538,8 @@ public class UnaliasSymbolReferences
                     canonicalCriteria,
                     canonicalizeAndDistinct(node.getOutputSymbols()),
                     canonicalFilter.map(OriginalExpressionUtils::castToRowExpression),
-                    canonicalLeftHashSymbol,
-                    canonicalRightHashSymbol,
+                    canonicalLeftHashVariable,
+                    canonicalRightHashVariable,
                     node.getDistributionType());
         }
 
@@ -556,8 +556,8 @@ public class UnaliasSymbolReferences
                     canonicalize(node.getSourceJoinSymbol()),
                     canonicalize(node.getFilteringSourceJoinSymbol()),
                     canonicalize(node.getSemiJoinOutput()),
-                    canonicalize(node.getSourceHashSymbol()),
-                    canonicalize(node.getFilteringSourceHashSymbol()),
+                    canonicalize(node.getSourceHashVariable()),
+                    canonicalize(node.getFilteringSourceHashVariable()),
                     node.getDistributionType());
         }
 
@@ -567,7 +567,7 @@ public class UnaliasSymbolReferences
             PlanNode left = context.rewrite(node.getLeft());
             PlanNode right = context.rewrite(node.getRight());
 
-            return new SpatialJoinNode(node.getId(), node.getType(), left, right, canonicalizeAndDistinct(node.getOutputSymbols()), castToRowExpression(canonicalize(castToExpression(node.getFilter()))), canonicalize(node.getLeftPartitionSymbol()), canonicalize(node.getRightPartitionSymbol()), node.getKdbTree());
+            return new SpatialJoinNode(node.getId(), node.getType(), left, right, canonicalizeAndDistinct(node.getOutputSymbols()), castToRowExpression(canonicalize(castToExpression(node.getFilter()))), canonicalizeOptionalSymbol(node.getLeftPartitionSymbol()), canonicalizeOptionalSymbol(node.getRightPartitionSymbol()), node.getKdbTree());
         }
 
         @Override
@@ -582,7 +582,7 @@ public class UnaliasSymbolReferences
             PlanNode probeSource = context.rewrite(node.getProbeSource());
             PlanNode indexSource = context.rewrite(node.getIndexSource());
 
-            return new IndexJoinNode(node.getId(), node.getType(), probeSource, indexSource, canonicalizeIndexJoinCriteria(node.getCriteria()), canonicalize(node.getProbeHashSymbol()), canonicalize(node.getIndexHashSymbol()));
+            return new IndexJoinNode(node.getId(), node.getType(), probeSource, indexSource, canonicalizeIndexJoinCriteria(node.getCriteria()), canonicalize(node.getProbeHashVariable()), canonicalize(node.getIndexHashVariable()));
         }
 
         @Override
@@ -668,7 +668,7 @@ public class UnaliasSymbolReferences
             return assignments.build();
         }
 
-        private Optional<Symbol> canonicalize(Optional<Symbol> symbol)
+        private Optional<Symbol> canonicalizeOptionalSymbol(Optional<Symbol> symbol)
         {
             if (symbol.isPresent()) {
                 return Optional.of(canonicalize(symbol.get()));
@@ -692,6 +692,14 @@ public class UnaliasSymbolReferences
                 canonical = mapping.get(canonical);
             }
             return new VariableReferenceExpression(canonical, variable.getType());
+        }
+
+        private Optional<VariableReferenceExpression> canonicalize(Optional<VariableReferenceExpression> variable)
+        {
+            if (variable.isPresent()) {
+                return Optional.of(canonicalize(variable.get()));
+            }
+            return Optional.empty();
         }
 
         private Expression canonicalize(Expression value)

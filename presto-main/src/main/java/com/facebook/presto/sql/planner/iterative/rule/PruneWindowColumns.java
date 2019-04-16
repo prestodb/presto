@@ -60,7 +60,7 @@ public class PruneWindowColumns
                 orderingScheme -> orderingScheme
                         .getOrderBy()
                         .forEach(referencedInputs::add));
-        windowNode.getHashSymbol().ifPresent(referencedInputs::add);
+        windowNode.getHashVariable().ifPresent(variable -> referencedInputs.add(new Symbol(variable.getName())));
 
         for (WindowNode.Function windowFunction : referencedFunctions.values()) {
             referencedInputs.addAll(WindowNodeUtil.extractWindowFunctionUnique(windowFunction));
@@ -74,7 +74,7 @@ public class PruneWindowColumns
                         .orElse(windowNode.getSource()),
                 windowNode.getSpecification(),
                 referencedFunctions,
-                windowNode.getHashSymbol(),
+                windowNode.getHashVariable(),
                 windowNode.getPrePartitionedInputs(),
                 windowNode.getPreSortedOrderPrefix());
 

@@ -96,7 +96,7 @@ public class TestPruneSemiJoinColumns
                         leftKey,
                         rightKey,
                         match,
-                        Optional.of(leftKeyHash),
+                        Optional.of(p.variable(leftKeyHash)),
                         Optional.empty(),
                         p.values(leftKey, leftKeyHash, leftValue),
                         p.values(rightKey)));

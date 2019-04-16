@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -31,7 +32,7 @@ public class PartitioningScheme
 {
     private final Partitioning partitioning;
     private final List<Symbol> outputLayout;
-    private final Optional<Symbol> hashColumn;
+    private final Optional<VariableReferenceExpression> hashColumn;
     private final boolean replicateNullsAndAny;
     private final Optional<int[]> bucketToPartition;
 
@@ -45,7 +46,7 @@ public class PartitioningScheme
                 Optional.empty());
     }
 
-    public PartitioningScheme(Partitioning partitioning, List<Symbol> outputLayout, Optional<Symbol> hashColumn)
+    public PartitioningScheme(Partitioning partitioning, List<Symbol> outputLayout, Optional<VariableReferenceExpression> hashColumn)
     {
         this(
                 partitioning,
@@ -59,7 +60,7 @@ public class PartitioningScheme
     public PartitioningScheme(
             @JsonProperty("partitioning") Partitioning partitioning,
             @JsonProperty("outputLayout") List<Symbol> outputLayout,
-            @JsonProperty("hashColumn") Optional<Symbol> hashColumn,
+            @JsonProperty("hashColumn") Optional<VariableReferenceExpression> hashColumn,
             @JsonProperty("replicateNullsAndAny") boolean replicateNullsAndAny,
             @JsonProperty("bucketToPartition") Optional<int[]> bucketToPartition)
     {
@@ -71,7 +72,7 @@ public class PartitioningScheme
                 "Output layout (%s) don't include all partition columns (%s)", outputLayout, columns);
 
         this.hashColumn = requireNonNull(hashColumn, "hashColumn is null");
-        hashColumn.ifPresent(column -> checkArgument(outputLayout.contains(column),
+        hashColumn.ifPresent(column -> checkArgument(outputLayout.contains(new Symbol(column.getName())),
                 "Output layout (%s) don't include hash column (%s)", outputLayout, column));
 
         checkArgument(!replicateNullsAndAny || columns.size() <= 1, "Must have at most one partitioning column when nullPartition is REPLICATE.");
@@ -92,7 +93,7 @@ public class PartitioningScheme
     }
 
     @JsonProperty
-    public Optional<Symbol> getHashColumn()
+    public Optional<VariableReferenceExpression> getHashColumn()
     {
         return hashColumn;
     }
@@ -122,9 +123,11 @@ public class PartitioningScheme
 
         Partitioning newPartitioning = partitioning.translate(symbol -> newOutputLayout.get(outputLayout.indexOf(symbol)));
 
-        Optional<Symbol> newHashSymbol = hashColumn
+        Optional<VariableReferenceExpression> newHashSymbol = hashColumn
+                .map(variable -> new Symbol(variable.getName()))
                 .map(outputLayout::indexOf)
-                .map(newOutputLayout::get);
+                .map(newOutputLayout::get)
+                .map(symbol -> new VariableReferenceExpression(symbol.getName(), hashColumn.get().getType()));
 
         return new PartitioningScheme(newPartitioning, newOutputLayout, newHashSymbol, replicateNullsAndAny, bucketToPartition);
     }

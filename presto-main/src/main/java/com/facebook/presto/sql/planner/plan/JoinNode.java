@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.SortExpressionContext;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -54,8 +55,8 @@ public class JoinNode
     private final List<EquiJoinClause> criteria;
     private final List<Symbol> outputSymbols;
     private final Optional<RowExpression> filter;
-    private final Optional<Symbol> leftHashSymbol;
-    private final Optional<Symbol> rightHashSymbol;
+    private final Optional<VariableReferenceExpression> leftHashVariable;
+    private final Optional<VariableReferenceExpression> rightHashVariable;
     private final Optional<DistributionType> distributionType;
 
     @JsonCreator
@@ -66,8 +67,8 @@ public class JoinNode
             @JsonProperty("criteria") List<EquiJoinClause> criteria,
             @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
             @JsonProperty("filter") Optional<RowExpression> filter,
-            @JsonProperty("leftHashSymbol") Optional<Symbol> leftHashSymbol,
-            @JsonProperty("rightHashSymbol") Optional<Symbol> rightHashSymbol,
+            @JsonProperty("leftHashVariable") Optional<VariableReferenceExpression> leftHashVariable,
+            @JsonProperty("rightHashVariable") Optional<VariableReferenceExpression> rightHashVariable,
             @JsonProperty("distributionType") Optional<DistributionType> distributionType)
     {
         super(id);
@@ -77,8 +78,8 @@ public class JoinNode
         requireNonNull(criteria, "criteria is null");
         requireNonNull(outputSymbols, "outputSymbols is null");
         requireNonNull(filter, "filter is null");
-        requireNonNull(leftHashSymbol, "leftHashSymbol is null");
-        requireNonNull(rightHashSymbol, "rightHashSymbol is null");
+        requireNonNull(leftHashVariable, "leftHashVariable is null");
+        requireNonNull(rightHashVariable, "rightHashVariable is null");
         requireNonNull(distributionType, "distributionType is null");
 
         this.type = type;
@@ -87,8 +88,8 @@ public class JoinNode
         this.criteria = ImmutableList.copyOf(criteria);
         this.outputSymbols = ImmutableList.copyOf(outputSymbols);
         this.filter = filter;
-        this.leftHashSymbol = leftHashSymbol;
-        this.rightHashSymbol = rightHashSymbol;
+        this.leftHashVariable = leftHashVariable;
+        this.rightHashVariable = rightHashVariable;
         this.distributionType = distributionType;
 
         Set<Symbol> inputSymbols = ImmutableSet.<Symbol>builder()
@@ -98,8 +99,8 @@ public class JoinNode
         checkArgument(new HashSet<>(inputSymbols).containsAll(outputSymbols), "Left and right join inputs do not contain all output symbols");
         checkArgument(!isCrossJoin() || inputSymbols.size() == outputSymbols.size(), "Cross join does not support output symbols pruning or reordering");
 
-        checkArgument(!(criteria.isEmpty() && leftHashSymbol.isPresent()), "Left hash symbol is only valid in an equijoin");
-        checkArgument(!(criteria.isEmpty() && rightHashSymbol.isPresent()), "Right hash symbol is only valid in an equijoin");
+        checkArgument(!(criteria.isEmpty() && leftHashVariable.isPresent()), "Left hash variable is only valid in an equijoin");
+        checkArgument(!(criteria.isEmpty() && rightHashVariable.isPresent()), "Right hash variable is only valid in an equijoin");
 
         if (distributionType.isPresent()) {
             // The implementation of full outer join only works if the data is hash partitioned.
@@ -127,8 +128,8 @@ public class JoinNode
                 flipJoinCriteria(criteria),
                 flipOutputSymbols(getOutputSymbols(), left, right),
                 filter,
-                rightHashSymbol,
-                leftHashSymbol,
+                rightHashVariable,
+                leftHashVariable,
                 distributionType);
     }
 
@@ -207,25 +208,25 @@ public class JoinNode
         }
     }
 
-    @JsonProperty("type")
+    @JsonProperty
     public Type getType()
     {
         return type;
     }
 
-    @JsonProperty("left")
+    @JsonProperty
     public PlanNode getLeft()
     {
         return left;
     }
 
-    @JsonProperty("right")
+    @JsonProperty
     public PlanNode getRight()
     {
         return right;
     }
 
-    @JsonProperty("criteria")
+    @JsonProperty
     public List<EquiJoinClause> getCriteria()
     {
         return criteria;
@@ -243,16 +244,16 @@ public class JoinNode
                 .flatMap(filter -> extractSortExpression(ImmutableSet.copyOf(right.getOutputSymbols()), filter, functionManager));
     }
 
-    @JsonProperty("leftHashSymbol")
-    public Optional<Symbol> getLeftHashSymbol()
+    @JsonProperty
+    public Optional<VariableReferenceExpression> getLeftHashVariable()
     {
-        return leftHashSymbol;
+        return leftHashVariable;
     }
 
-    @JsonProperty("rightHashSymbol")
-    public Optional<Symbol> getRightHashSymbol()
+    @JsonProperty
+    public Optional<VariableReferenceExpression> getRightHashVariable()
     {
-        return rightHashSymbol;
+        return rightHashVariable;
     }
 
     @Override
@@ -262,13 +263,13 @@ public class JoinNode
     }
 
     @Override
-    @JsonProperty("outputSymbols")
+    @JsonProperty
     public List<Symbol> getOutputSymbols()
     {
         return outputSymbols;
     }
 
-    @JsonProperty("distributionType")
+    @JsonProperty
     public Optional<DistributionType> getDistributionType()
     {
         return distributionType;
@@ -284,12 +285,12 @@ public class JoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new JoinNode(getId(), type, newChildren.get(0), newChildren.get(1), criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType);
+        return new JoinNode(getId(), type, newChildren.get(0), newChildren.get(1), criteria, outputSymbols, filter, leftHashVariable, rightHashVariable, distributionType);
     }
 
     public JoinNode withDistributionType(DistributionType distributionType)
     {
-        return new JoinNode(getId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.of(distributionType));
+        return new JoinNode(getId(), type, left, right, criteria, outputSymbols, filter, leftHashVariable, rightHashVariable, Optional.of(distributionType));
     }
 
     public boolean isCrossJoin()

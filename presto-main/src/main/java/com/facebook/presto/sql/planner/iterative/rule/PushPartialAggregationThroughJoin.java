@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -61,7 +62,7 @@ public class PushPartialAggregationThroughJoin
             return false;
         }
 
-        if (aggregationNode.getHashSymbol().isPresent()) {
+        if (aggregationNode.getHashVariable().isPresent()) {
             // TODO: add support for hash symbol in aggregation node
             return false;
         }
@@ -132,9 +133,14 @@ public class PushPartialAggregationThroughJoin
                 node.getCriteria().stream().map(JoinNode.EquiJoinClause::getLeft),
                 node.getCriteria().stream().map(JoinNode.EquiJoinClause::getRight),
                 node.getFilter().map(OriginalExpressionUtils::castToExpression).map(SymbolsExtractor::extractUnique).orElse(ImmutableSet.of()).stream(),
-                node.getLeftHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream(),
-                node.getRightHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream())
+                node.getLeftHashVariable().map(this::toSymbol).map(ImmutableSet::of).orElse(ImmutableSet.of()).stream(),
+                node.getRightHashVariable().map(this::toSymbol).map(ImmutableSet::of).orElse(ImmutableSet.of()).stream())
                 .collect(toImmutableSet());
+    }
+
+    private Symbol toSymbol(VariableReferenceExpression variable)
+    {
+        return new Symbol(variable.getName());
     }
 
     private List<Symbol> getPushedDownGroupingSet(AggregationNode aggregation, Set<Symbol> availableSymbols, Set<Symbol> requiredJoinSymbols)
@@ -167,7 +173,7 @@ public class PushPartialAggregationThroughJoin
                 singleGroupingSet(groupingKeys),
                 ImmutableList.of(),
                 aggregation.getStep(),
-                aggregation.getHashSymbol(),
+                aggregation.getHashVariable(),
                 aggregation.getGroupIdSymbol());
     }
 
@@ -189,8 +195,8 @@ public class PushPartialAggregationThroughJoin
                         .addAll(rightChild.getOutputSymbols())
                         .build(),
                 child.getFilter(),
-                child.getLeftHashSymbol(),
-                child.getRightHashSymbol(),
+                child.getLeftHashVariable(),
+                child.getRightHashVariable(),
                 child.getDistributionType());
         return restrictOutputs(context.getIdAllocator(), joinNode, ImmutableSet.copyOf(aggregation.getOutputSymbols())).orElse(joinNode);
     }

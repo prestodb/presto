@@ -48,8 +48,8 @@ public class PruneJoinColumns
                         joinNode.getCriteria(),
                         filteredCopy(joinNode.getOutputSymbols(), referencedOutputs::contains),
                         joinNode.getFilter(),
-                        joinNode.getLeftHashSymbol(),
-                        joinNode.getRightHashSymbol(),
+                        joinNode.getLeftHashVariable(),
+                        joinNode.getRightHashVariable(),
                         joinNode.getDistributionType()));
     }
 }

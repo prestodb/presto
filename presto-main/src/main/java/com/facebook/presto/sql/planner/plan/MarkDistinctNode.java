@@ -36,7 +36,7 @@ public class MarkDistinctNode
     private final PlanNode source;
     private final VariableReferenceExpression markerVariable;
 
-    private final Optional<Symbol> hashSymbol;
+    private final Optional<VariableReferenceExpression> hashVariable;
     private final List<Symbol> distinctSymbols;
 
     @JsonCreator
@@ -44,12 +44,12 @@ public class MarkDistinctNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("markerVariable") VariableReferenceExpression markerVariable,
             @JsonProperty("distinctSymbols") List<Symbol> distinctSymbols,
-            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
+            @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable)
     {
         super(id);
         this.source = source;
         this.markerVariable = markerVariable;
-        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
+        this.hashVariable = requireNonNull(hashVariable, "hashVariable is null");
         requireNonNull(distinctSymbols, "distinctSymbols is null");
         checkArgument(!distinctSymbols.isEmpty(), "distinctSymbols cannot be empty");
         this.distinctSymbols = ImmutableList.copyOf(distinctSymbols);
@@ -103,9 +103,9 @@ public class MarkDistinctNode
     }
 
     @JsonProperty
-    public Optional<Symbol> getHashSymbol()
+    public Optional<VariableReferenceExpression> getHashVariable()
     {
-        return hashSymbol;
+        return hashVariable;
     }
 
     @Override
@@ -117,6 +117,6 @@ public class MarkDistinctNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new MarkDistinctNode(getId(), Iterables.getOnlyElement(newChildren), markerVariable, distinctSymbols, hashSymbol);
+        return new MarkDistinctNode(getId(), Iterables.getOnlyElement(newChildren), markerVariable, distinctSymbols, hashVariable);
     }
 }

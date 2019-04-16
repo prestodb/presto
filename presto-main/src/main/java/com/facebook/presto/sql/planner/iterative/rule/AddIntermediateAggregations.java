@@ -118,7 +118,7 @@ public class AddIntermediateAggregations
                     aggregation.getGroupingSets(),
                     aggregation.getPreGroupedSymbols(),
                     INTERMEDIATE,
-                    aggregation.getHashSymbol(),
+                    aggregation.getHashVariable(),
                     aggregation.getGroupIdSymbol());
             source = gatheringExchange(idAllocator.getNextId(), LOCAL, source);
         }
@@ -161,7 +161,7 @@ public class AddIntermediateAggregations
                 aggregation.getGroupingSets(),
                 aggregation.getPreGroupedSymbols(),
                 INTERMEDIATE,
-                aggregation.getHashSymbol(),
+                aggregation.getHashVariable(),
                 aggregation.getGroupIdSymbol());
     }
 

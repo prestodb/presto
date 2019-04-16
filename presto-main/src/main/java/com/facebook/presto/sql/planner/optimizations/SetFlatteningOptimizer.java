@@ -135,7 +135,7 @@ public class SetFlatteningOptimizer
                     node.getGroupingSets(),
                     ImmutableList.of(),
                     node.getStep(),
-                    node.getHashSymbol(),
+                    node.getHashVariable(),
                     node.getGroupIdSymbol());
         }
 

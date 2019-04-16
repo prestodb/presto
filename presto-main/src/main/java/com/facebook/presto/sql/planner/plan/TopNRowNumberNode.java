@@ -40,7 +40,7 @@ public final class TopNRowNumberNode
     private final VariableReferenceExpression rowNumberVariable;
     private final int maxRowCountPerPartition;
     private final boolean partial;
-    private final Optional<Symbol> hashSymbol;
+    private final Optional<VariableReferenceExpression> hashVariable;
 
     @JsonCreator
     public TopNRowNumberNode(
@@ -50,7 +50,7 @@ public final class TopNRowNumberNode
             @JsonProperty("rowNumberVariable") VariableReferenceExpression rowNumberVariable,
             @JsonProperty("maxRowCountPerPartition") int maxRowCountPerPartition,
             @JsonProperty("partial") boolean partial,
-            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
+            @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable)
     {
         super(id);
 
@@ -59,14 +59,14 @@ public final class TopNRowNumberNode
         checkArgument(specification.getOrderingScheme().isPresent(), "specification orderingScheme is absent");
         requireNonNull(rowNumberVariable, "rowNumberVariable is null");
         checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
-        requireNonNull(hashSymbol, "hashSymbol is null");
+        requireNonNull(hashVariable, "hashVariable is null");
 
         this.source = source;
         this.specification = specification;
         this.rowNumberVariable = rowNumberVariable;
         this.maxRowCountPerPartition = maxRowCountPerPartition;
         this.partial = partial;
-        this.hashSymbol = hashSymbol;
+        this.hashVariable = hashVariable;
     }
 
     @Override
@@ -133,9 +133,9 @@ public final class TopNRowNumberNode
     }
 
     @JsonProperty
-    public Optional<Symbol> getHashSymbol()
+    public Optional<VariableReferenceExpression> getHashVariable()
     {
-        return hashSymbol;
+        return hashVariable;
     }
 
     @Override
@@ -147,6 +147,6 @@ public final class TopNRowNumberNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TopNRowNumberNode(getId(), Iterables.getOnlyElement(newChildren), specification, rowNumberVariable, maxRowCountPerPartition, partial, hashSymbol);
+        return new TopNRowNumberNode(getId(), Iterables.getOnlyElement(newChildren), specification, rowNumberVariable, maxRowCountPerPartition, partial, hashVariable);
     }
 }

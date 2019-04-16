@@ -195,7 +195,7 @@ public class GatherAndMergeWindows
                     child.getSource(),
                     parent.getSpecification(),
                     functionsBuilder.build(),
-                    parent.getHashSymbol(),
+                    parent.getHashVariable(),
                     parent.getPrePartitionedInputs(),
                     parent.getPreSortedOrderPrefix());
 
