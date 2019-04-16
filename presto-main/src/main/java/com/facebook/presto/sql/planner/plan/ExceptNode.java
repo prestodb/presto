@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ListMultimap;
 
@@ -28,10 +28,9 @@ public class ExceptNode
     public ExceptNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("sources") List<PlanNode> sources,
-            @JsonProperty("outputToInputs") ListMultimap<Symbol, Symbol> outputToInputs,
-            @JsonProperty("outputs") List<Symbol> outputs)
+            @JsonProperty("outputToInputs") ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputToInputs)
     {
-        super(id, sources, outputToInputs, outputs);
+        super(id, sources, outputToInputs);
     }
 
     @Override
@@ -43,6 +42,6 @@ public class ExceptNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new ExceptNode(getId(), newChildren, getSymbolMapping(), getOutputSymbols());
+        return new ExceptNode(getId(), newChildren, getVariableMapping());
     }
 }

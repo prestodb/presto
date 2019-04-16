@@ -576,16 +576,18 @@ public class HashGenerationOptimizer
             }
 
             // add hash symbols to sources
-            ImmutableListMultimap.Builder<Symbol, Symbol> newSymbolMapping = ImmutableListMultimap.builder();
-            newSymbolMapping.putAll(node.getSymbolMapping());
+            ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> newVariableMapping = ImmutableListMultimap.builder();
+            newVariableMapping.putAll(node.getVariableMapping());
             ImmutableList.Builder<PlanNode> newSources = ImmutableList.builder();
             for (int sourceId = 0; sourceId < node.getSources().size(); sourceId++) {
                 // translate preference to input symbols
-                Map<Symbol, Symbol> outputToInputMap = new HashMap<>();
-                for (Symbol outputSymbol : node.getOutputSymbols()) {
-                    outputToInputMap.put(outputSymbol, node.getSymbolMapping().get(outputSymbol).get(sourceId));
+                Map<VariableReferenceExpression, VariableReferenceExpression> outputToInputMap = new HashMap<>();
+                for (VariableReferenceExpression outputVariables : node.getOutputVariables()) {
+                    outputToInputMap.put(outputVariables, node.getVariableMapping().get(outputVariables).get(sourceId));
                 }
-                Function<Symbol, Optional<Symbol>> outputToInputTranslator = symbol -> Optional.of(outputToInputMap.get(symbol));
+                Map<Symbol, Symbol> outputToInputSymbolMap = outputToInputMap.entrySet().stream()
+                        .collect(toImmutableMap(entry -> new Symbol(entry.getKey().getName()), entry -> new Symbol(entry.getValue().getName())));
+                Function<Symbol, Optional<Symbol>> outputToInputTranslator = symbol -> Optional.of(outputToInputSymbolMap.get(symbol));
 
                 HashComputationSet sourcePreference = preference.translate(outputToInputTranslator);
                 PlanWithProperties child = planAndEnforce(node.getSources().get(sourceId), sourcePreference, true, sourcePreference);
@@ -594,7 +596,7 @@ public class HashGenerationOptimizer
                 // add hash symbols to inputs
                 for (Entry<HashComputation, VariableReferenceExpression> entry : newHashVariables.entrySet()) {
                     HashComputation hashComputation = entry.getKey().translate(outputToInputTranslator).get();
-                    newSymbolMapping.put(new Symbol(entry.getValue().getName()), new Symbol(child.getRequiredHashVariable(hashComputation).getName()));
+                    newVariableMapping.put(entry.getValue(), child.getRequiredHashVariable(hashComputation));
                 }
             }
 
@@ -602,8 +604,7 @@ public class HashGenerationOptimizer
                     new UnionNode(
                             node.getId(),
                             newSources.build(),
-                            newSymbolMapping.build(),
-                            ImmutableList.copyOf(newSymbolMapping.build().keySet())),
+                            newVariableMapping.build()),
                     newHashVariables);
         }
 

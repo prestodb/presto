@@ -183,8 +183,7 @@ public class TestPhasedExecutionSchedule
                                 Optional.empty(),
                                 REPARTITION))
                         .collect(toImmutableList()),
-                ImmutableListMultimap.of(),
-                ImmutableList.of());
+                ImmutableListMultimap.of());
 
         return createFragment(planNode);
     }
