@@ -38,6 +38,7 @@ public class TestPruneOutputColumns
                     return p.output(
                             ImmutableList.of("B label"),
                             ImmutableList.of(b),
+                            ImmutableList.of(p.variable(b)),
                             p.values(a, b));
                 })
                 .matches(
@@ -59,6 +60,7 @@ public class TestPruneOutputColumns
                     return p.output(
                             ImmutableList.of("A label", "B label"),
                             ImmutableList.of(a, b),
+                            ImmutableList.of(p.variable(a), p.variable(b)),
                             p.values(a, b));
                 })
                 .doesNotFire();
