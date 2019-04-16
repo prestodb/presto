@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -36,9 +36,9 @@ public class TestPushTableWriteThroughUnion
                         p.tableWriter(
                                 ImmutableList.of(p.symbol("A", BIGINT), p.symbol("B", BIGINT)), ImmutableList.of("a", "b"),
                                 p.union(
-                                        ImmutableListMultimap.<Symbol, Symbol>builder()
-                                                .putAll(p.symbol("A", BIGINT), p.symbol("A1", BIGINT), p.symbol("B2", BIGINT))
-                                                .putAll(p.symbol("B", BIGINT), p.symbol("B1", BIGINT), p.symbol("A2", BIGINT))
+                                        ImmutableListMultimap.<VariableReferenceExpression, VariableReferenceExpression>builder()
+                                                .putAll(p.variable("A", BIGINT), p.variable("A1", BIGINT), p.variable("B2", BIGINT))
+                                                .putAll(p.variable("B", BIGINT), p.variable("B1", BIGINT), p.variable("A2", BIGINT))
                                                 .build(),
                                         ImmutableList.of(
                                                 p.values(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),

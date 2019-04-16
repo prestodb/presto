@@ -61,11 +61,6 @@ public class SymbolMapper
         this.mapping = ImmutableMap.copyOf(mapping);
     }
 
-    public static SymbolMapper createSymbolMapper(Map<Symbol, Symbol> mapping)
-    {
-        return new SymbolMapper(mapping.entrySet().stream().collect(toImmutableMap(entry -> entry.getKey().getName(), entry -> entry.getValue().getName())));
-    }
-
     public Symbol map(Symbol symbol)
     {
         String canonical = symbol.getName();

@@ -22,6 +22,7 @@ import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -1058,7 +1059,7 @@ public class AddExchanges
                 // Theoretically, if all children are single partitioned on the same node we could choose a single
                 // partitioning, but as this only applies to a union of two values nodes, it isn't worth the added complexity
                 if (child.getProperties().isNodePartitionedOn(childPartitioning.getPartitioningColumns(), nullsAndAnyReplicated) && !child.getProperties().isSingleNode()) {
-                    Function<Symbol, Optional<Symbol>> childToParent = createTranslator(createMapping(node.sourceOutputLayout(sourceIndex), node.getOutputSymbols()));
+                    Function<Symbol, Optional<Symbol>> childToParent = createTranslator(createMapping(node.sourceOutputSymbolLayout(sourceIndex), node.getOutputSymbols()));
                     return child.getProperties().translate(childToParent).getNodePartitioning().get();
                 }
             }
@@ -1079,10 +1080,10 @@ public class AddExchanges
                 Partitioning desiredParentPartitioning = selectUnionPartitioning(node, parentPartitioningProperties);
 
                 ImmutableList.Builder<PlanNode> partitionedSources = ImmutableList.builder();
-                ImmutableListMultimap.Builder<Symbol, Symbol> outputToSourcesMapping = ImmutableListMultimap.builder();
+                ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> outputToSourcesMapping = ImmutableListMultimap.builder();
 
                 for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
-                    Partitioning childPartitioning = desiredParentPartitioning.translate(createDirectTranslator(createMapping(node.getOutputSymbols(), node.sourceOutputLayout(sourceIndex))));
+                    Partitioning childPartitioning = desiredParentPartitioning.translate(createDirectTranslator(createMapping(node.getOutputSymbols(), node.sourceOutputSymbolLayout(sourceIndex))));
 
                     PreferredProperties childPreferred = PreferredProperties.builder()
                             .global(PreferredProperties.Global.distributed(PartitioningProperties.partitioned(childPartitioning)
@@ -1109,14 +1110,13 @@ public class AddExchanges
                     partitionedSources.add(source.getNode());
 
                     for (int column = 0; column < node.getOutputSymbols().size(); column++) {
-                        outputToSourcesMapping.put(node.getOutputSymbols().get(column), node.sourceOutputLayout(sourceIndex).get(column));
+                        outputToSourcesMapping.put(node.getOutputVariables().get(column), node.sourceOutputLayout(sourceIndex).get(column));
                     }
                 }
                 UnionNode newNode = new UnionNode(
                         node.getId(),
                         partitionedSources.build(),
-                        outputToSourcesMapping.build(),
-                        ImmutableList.copyOf(outputToSourcesMapping.build().keySet()));
+                        outputToSourcesMapping.build());
 
                 return new PlanWithProperties(
                         newNode,
@@ -1133,10 +1133,10 @@ public class AddExchanges
 
             // first, classify children into single node and distributed
             List<PlanNode> singleNodeChildren = new ArrayList<>();
-            List<List<Symbol>> singleNodeOutputLayouts = new ArrayList<>();
+            List<List<VariableReferenceExpression>> singleNodeOutputLayouts = new ArrayList<>();
 
             List<PlanNode> distributedChildren = new ArrayList<>();
-            List<List<Symbol>> distributedOutputLayouts = new ArrayList<>();
+            List<List<VariableReferenceExpression>> distributedOutputLayouts = new ArrayList<>();
 
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanWithProperties child = node.getSources().get(i).accept(this, PreferredProperties.any());
@@ -1150,6 +1150,13 @@ public class AddExchanges
                     distributedOutputLayouts.add(node.sourceOutputLayout(i));
                 }
             }
+
+            List<List<Symbol>> distributedOutputLayoutSymbols = distributedOutputLayouts.stream()
+                    .map(layout -> layout.stream()
+                                    .map(VariableReferenceExpression::getName)
+                                    .map(Symbol::new)
+                                    .collect(toImmutableList()))
+                    .collect(toImmutableList());
 
             PlanNode result;
             if (!distributedChildren.isEmpty() && singleNodeChildren.isEmpty()) {
@@ -1167,7 +1174,7 @@ public class AddExchanges
                         REMOTE_STREAMING,
                         new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
                         distributedChildren,
-                        distributedOutputLayouts,
+                        distributedOutputLayoutSymbols,
                         Optional.empty());
             }
             else if (!singleNodeChildren.isEmpty()) {
@@ -1175,32 +1182,38 @@ public class AddExchanges
                     // add a gathering exchange above partitioned inputs and fold it into the set of unpartitioned inputs
                     // NOTE: new symbols for ExchangeNode output are required in order to keep plan logically correct with new local union below
 
-                    List<Symbol> exchangeOutputLayout = node.getOutputSymbols().stream()
-                            .map(outputSymbol -> symbolAllocator.newSymbol(outputSymbol.getName(), types.get(outputSymbol)))
+                    List<VariableReferenceExpression> exchangeOutputLayout = node.getOutputVariables().stream()
+                            .map(symbolAllocator::newVariable)
                             .collect(toImmutableList());
 
                     result = new ExchangeNode(
                             idAllocator.getNextId(),
                             GATHER,
                             REMOTE_STREAMING,
-                            new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), exchangeOutputLayout),
+                            new PartitioningScheme(
+                                    Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
+                                    exchangeOutputLayout.stream()
+                                            .map(VariableReferenceExpression::getName)
+                                            .map(Symbol::new)
+                                            .collect(toImmutableList())),
                             distributedChildren,
-                            distributedOutputLayouts,
+                            distributedOutputLayoutSymbols,
                             Optional.empty());
 
                     singleNodeChildren.add(result);
-                    singleNodeOutputLayouts.add(result.getOutputSymbols());
+                    // TODO use result.getOutputVariable() after symbol to variable refactoring is done. This is a temporary hack since we know the value should be exchangeOutputLayout.
+                    singleNodeOutputLayouts.add(exchangeOutputLayout);
                 }
 
-                ImmutableListMultimap.Builder<Symbol, Symbol> mappings = ImmutableListMultimap.builder();
-                for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-                    for (List<Symbol> outputLayout : singleNodeOutputLayouts) {
-                        mappings.put(node.getOutputSymbols().get(i), outputLayout.get(i));
+                ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> mappings = ImmutableListMultimap.builder();
+                for (int i = 0; i < node.getOutputVariables().size(); i++) {
+                    for (List<VariableReferenceExpression> outputLayout : singleNodeOutputLayouts) {
+                        mappings.put(node.getOutputVariables().get(i), outputLayout.get(i));
                     }
                 }
 
                 // add local union for all unpartitioned inputs
-                result = new UnionNode(node.getId(), singleNodeChildren, mappings.build(), ImmutableList.copyOf(mappings.build().keySet()));
+                result = new UnionNode(node.getId(), singleNodeChildren, mappings.build());
             }
             else {
                 throw new IllegalStateException("both singleNodeChildren distributedChildren are empty");
@@ -1216,7 +1229,7 @@ public class AddExchanges
         private PlanWithProperties arbitraryDistributeUnion(
                 UnionNode node,
                 List<PlanNode> distributedChildren,
-                List<List<Symbol>> distributedOutputLayouts)
+                List<List<VariableReferenceExpression>> distributedOutputLayouts)
         {
             // TODO: can we insert LOCAL exchange for one child SOURCE distributed and another HASH distributed?
             if (getNumberOfTableScans(distributedChildren) == 0) {
@@ -1235,7 +1248,12 @@ public class AddExchanges
                                 REMOTE_STREAMING,
                                 new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
                                 distributedChildren,
-                                distributedOutputLayouts,
+                                distributedOutputLayouts.stream()
+                                        .map(layout -> layout.stream()
+                                                .map(VariableReferenceExpression::getName)
+                                                .map(Symbol::new)
+                                                .collect(toImmutableList()))
+                                        .collect(toImmutableList()),
                                 Optional.empty()));
             }
         }

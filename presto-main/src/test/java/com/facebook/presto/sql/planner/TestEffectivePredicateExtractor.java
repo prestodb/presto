@@ -396,14 +396,13 @@ public class TestEffectivePredicateExtractor
     @Test
     public void testUnion()
     {
-        ImmutableListMultimap<Symbol, Symbol> symbolMapping = ImmutableListMultimap.of(A, B, A, C, A, E);
+        ImmutableListMultimap<VariableReferenceExpression, VariableReferenceExpression> variableMapping = ImmutableListMultimap.of(AV, BV, AV, CV, AV, EV);
         PlanNode node = new UnionNode(newId(),
                 ImmutableList.of(
                         filter(baseTableScan, greaterThan(AE, bigintLiteral(10))),
                         filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100)))),
                         filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100))))),
-                symbolMapping,
-                ImmutableList.copyOf(symbolMapping.keySet()));
+                variableMapping);
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(node);
 

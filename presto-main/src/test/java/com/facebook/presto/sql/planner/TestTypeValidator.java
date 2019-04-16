@@ -86,6 +86,11 @@ public class TestTypeValidator
     private Symbol columnC;
     private Symbol columnD;
     private Symbol columnE;
+    private VariableReferenceExpression variableA;
+    private VariableReferenceExpression variableB;
+    private VariableReferenceExpression variableC;
+    private VariableReferenceExpression variableD;
+    private VariableReferenceExpression variableE;
 
     @BeforeMethod
     public void setUp()
@@ -97,12 +102,17 @@ public class TestTypeValidator
         columnD = symbolAllocator.newSymbol("d", DATE);
         columnE = symbolAllocator.newSymbol("e", VarcharType.createVarcharType(3));  // varchar(3), to test type only coercion
 
+        variableA = new VariableReferenceExpression(columnA.getName(), BIGINT);
+        variableB = new VariableReferenceExpression(columnB.getName(), INTEGER);
+        variableC = new VariableReferenceExpression(columnC.getName(), DOUBLE);
+        variableD = new VariableReferenceExpression(columnD.getName(), DATE);
+        variableE = new VariableReferenceExpression(columnE.getName(), VarcharType.createVarcharType(3));
         List<VariableReferenceExpression> variables = ImmutableList.of(
-                new VariableReferenceExpression(columnA.getName(), BIGINT),
-                new VariableReferenceExpression(columnB.getName(), INTEGER),
-                new VariableReferenceExpression(columnC.getName(), DOUBLE),
-                new VariableReferenceExpression(columnD.getName(), DATE),
-                new VariableReferenceExpression(columnE.getName(), VarcharType.createVarcharType(3)));
+                variableA,
+                variableB,
+                variableC,
+                variableD,
+                variableE);
 
         Map<Symbol, ColumnHandle> assignments = ImmutableMap.<Symbol, ColumnHandle>builder()
                 .put(columnA, new TestingColumnHandle("a"))
@@ -142,17 +152,16 @@ public class TestTypeValidator
     @Test
     public void testValidUnion()
     {
-        Symbol outputSymbol = symbolAllocator.newSymbol("output", DATE);
-        ListMultimap<Symbol, Symbol> mappings = ImmutableListMultimap.<Symbol, Symbol>builder()
-                .put(outputSymbol, columnD)
-                .put(outputSymbol, columnD)
+        VariableReferenceExpression output = symbolAllocator.newVariable("output", DATE);
+        ListMultimap<VariableReferenceExpression, VariableReferenceExpression> mappings = ImmutableListMultimap.<VariableReferenceExpression, VariableReferenceExpression>builder()
+                .put(output, variableD)
+                .put(output, variableD)
                 .build();
 
         PlanNode node = new UnionNode(
                 newId(),
                 ImmutableList.of(baseTableScan, baseTableScan),
-                mappings,
-                ImmutableList.copyOf(mappings.keySet()));
+                mappings);
 
         assertTypesValid(node);
     }
@@ -356,20 +365,19 @@ public class TestTypeValidator
         assertTypesValid(node);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'output(_[0-9]+)?' is expected to be date, but the actual type is bigint")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of variable 'output(_[0-9]+)?' is expected to be date, but the actual type is bigint")
     public void testInvalidUnion()
     {
-        Symbol outputSymbol = symbolAllocator.newSymbol("output", DATE);
-        ListMultimap<Symbol, Symbol> mappings = ImmutableListMultimap.<Symbol, Symbol>builder()
-                .put(outputSymbol, columnD)
-                .put(outputSymbol, columnA) // should be a symbol with DATE type
+        VariableReferenceExpression output = symbolAllocator.newVariable("output", DATE);
+        ListMultimap<VariableReferenceExpression, VariableReferenceExpression> mappings = ImmutableListMultimap.<VariableReferenceExpression, VariableReferenceExpression>builder()
+                .put(output, variableD)
+                .put(output, variableA) // should be a symbol with DATE type
                 .build();
 
         PlanNode node = new UnionNode(
                 newId(),
                 ImmutableList.of(baseTableScan, baseTableScan),
-                mappings,
-                ImmutableList.copyOf(mappings.keySet()));
+                mappings);
 
         assertTypesValid(node);
     }

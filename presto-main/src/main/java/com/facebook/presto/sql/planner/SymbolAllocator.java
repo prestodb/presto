@@ -55,6 +55,12 @@ public class SymbolAllocator
         return newSymbol(symbolHint.getName(), symbols.get(symbolHint));
     }
 
+    public VariableReferenceExpression newVariable(Symbol symbolHint)
+    {
+        checkArgument(symbols.containsKey(symbolHint), "symbolHint not in symbols map");
+        return newVariable(symbolHint.getName(), symbols.get(symbolHint));
+    }
+
     public VariableReferenceExpression newVariable(VariableReferenceExpression variableHint)
     {
         return newVariable(variableHint.getName(), variableHint.getType());

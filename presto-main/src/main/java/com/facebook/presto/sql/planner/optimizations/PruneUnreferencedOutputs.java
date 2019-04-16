@@ -705,47 +705,50 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitUnion(UnionNode node, RewriteContext<Set<Symbol>> context)
         {
-            ListMultimap<Symbol, Symbol> rewrittenSymbolMapping = rewriteSetOperationSymbolMapping(node, context);
-            ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenSymbolMapping);
-            return new UnionNode(node.getId(), rewrittenSubPlans, rewrittenSymbolMapping, ImmutableList.copyOf(rewrittenSymbolMapping.keySet()));
+            ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMapping = rewriteSetOperationVariableMapping(node, context);
+            ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenVariableMapping);
+            return new UnionNode(node.getId(), rewrittenSubPlans, rewrittenVariableMapping);
         }
 
         @Override
         public PlanNode visitIntersect(IntersectNode node, RewriteContext<Set<Symbol>> context)
         {
-            ListMultimap<Symbol, Symbol> rewrittenSymbolMapping = rewriteSetOperationSymbolMapping(node, context);
-            ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenSymbolMapping);
-            return new IntersectNode(node.getId(), rewrittenSubPlans, rewrittenSymbolMapping, ImmutableList.copyOf(rewrittenSymbolMapping.keySet()));
+            ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMapping = rewriteSetOperationVariableMapping(node, context);
+            ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenVariableMapping);
+            return new IntersectNode(node.getId(), rewrittenSubPlans, rewrittenVariableMapping);
         }
 
         @Override
         public PlanNode visitExcept(ExceptNode node, RewriteContext<Set<Symbol>> context)
         {
-            ListMultimap<Symbol, Symbol> rewrittenSymbolMapping = rewriteSetOperationSymbolMapping(node, context);
-            ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenSymbolMapping);
-            return new ExceptNode(node.getId(), rewrittenSubPlans, rewrittenSymbolMapping, ImmutableList.copyOf(rewrittenSymbolMapping.keySet()));
+            ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMapping = rewriteSetOperationVariableMapping(node, context);
+            ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenVariableMapping);
+            return new ExceptNode(node.getId(), rewrittenSubPlans, rewrittenVariableMapping);
         }
 
-        private ListMultimap<Symbol, Symbol> rewriteSetOperationSymbolMapping(SetOperationNode node, RewriteContext<Set<Symbol>> context)
+        private ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewriteSetOperationVariableMapping(SetOperationNode node, RewriteContext<Set<Symbol>> context)
         {
-            // Find out which output symbols we need to keep
-            ImmutableListMultimap.Builder<Symbol, Symbol> rewrittenSymbolMappingBuilder = ImmutableListMultimap.builder();
-            for (Symbol symbol : node.getOutputSymbols()) {
-                if (context.get().contains(symbol)) {
-                    rewrittenSymbolMappingBuilder.putAll(symbol, node.getSymbolMapping().get(symbol));
+            // Find out which output variables we need to keep
+            Set<String> contextSymbolName = context.get().stream().map(Symbol::getName).collect(toImmutableSet());
+            ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMappingBuilder = ImmutableListMultimap.builder();
+            for (VariableReferenceExpression variable : node.getOutputVariables()) {
+                if (contextSymbolName.contains(variable.getName())) {
+                    rewrittenVariableMappingBuilder.putAll(
+                            variable,
+                            node.getVariableMapping().get(variable));
                 }
             }
-            return rewrittenSymbolMappingBuilder.build();
+            return rewrittenVariableMappingBuilder.build();
         }
 
-        private ImmutableList<PlanNode> rewriteSetOperationSubPlans(SetOperationNode node, RewriteContext<Set<Symbol>> context, ListMultimap<Symbol, Symbol> rewrittenSymbolMapping)
+        private ImmutableList<PlanNode> rewriteSetOperationSubPlans(SetOperationNode node, RewriteContext<Set<Symbol>> context, ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMapping)
         {
             // Find the corresponding input symbol to the remaining output symbols and prune the subplans
             ImmutableList.Builder<PlanNode> rewrittenSubPlans = ImmutableList.builder();
             for (int i = 0; i < node.getSources().size(); i++) {
                 ImmutableSet.Builder<Symbol> expectedInputSymbols = ImmutableSet.builder();
-                for (Collection<Symbol> symbols : rewrittenSymbolMapping.asMap().values()) {
-                    expectedInputSymbols.add(Iterables.get(symbols, i));
+                for (Collection<VariableReferenceExpression> variables : rewrittenVariableMapping.asMap().values()) {
+                    expectedInputSymbols.add(new Symbol(Iterables.get(variables, i).getName()));
                 }
                 rewrittenSubPlans.add(context.rewrite(node.getSources().get(i), expectedInputSymbols.build()));
             }

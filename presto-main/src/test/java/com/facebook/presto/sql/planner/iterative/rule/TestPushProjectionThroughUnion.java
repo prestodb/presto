@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -54,9 +55,9 @@ public class TestPushProjectionThroughUnion
                     return p.project(
                             Assignments.of(cTimes3, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, c.toSymbolReference(), new LongLiteral("3"))),
                             p.union(
-                                    ImmutableListMultimap.<Symbol, Symbol>builder()
-                                            .put(c, a)
-                                            .put(c, b)
+                                    ImmutableListMultimap.<VariableReferenceExpression, VariableReferenceExpression>builder()
+                                            .put(p.variable(c), p.variable(a))
+                                            .put(p.variable(c), p.variable(b))
                                             .build(),
                                     ImmutableList.of(
                                             p.values(a),

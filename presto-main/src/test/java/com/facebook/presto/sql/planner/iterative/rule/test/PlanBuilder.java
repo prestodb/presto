@@ -701,10 +701,9 @@ public class PlanBuilder
                 Optional.empty());
     }
 
-    public UnionNode union(ListMultimap<Symbol, Symbol> outputsToInputs, List<PlanNode> sources)
+    public UnionNode union(ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs, List<PlanNode> sources)
     {
-        ImmutableList<Symbol> outputs = outputsToInputs.keySet().stream().collect(toImmutableList());
-        return new UnionNode(idAllocator.getNextId(), sources, outputsToInputs, outputs);
+        return new UnionNode(idAllocator.getNextId(), sources, outputsToInputs);
     }
 
     public TableWriterNode tableWriter(List<Symbol> columns, List<String> columnNames, PlanNode source)
@@ -726,6 +725,12 @@ public class PlanBuilder
     public VariableReferenceExpression variable(Symbol symbol)
     {
         return new VariableReferenceExpression(symbol.getName(), symbols.get(symbol));
+    }
+
+    public VariableReferenceExpression variable(String name, Type type)
+    {
+        Symbol s = symbol(name, type);
+        return new VariableReferenceExpression(s.getName(), type);
     }
 
     public Symbol symbol(String name)

@@ -18,6 +18,7 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
@@ -150,19 +151,22 @@ public class ImplementIntersectAndExceptAsUnion
                     .map(rewriteContext::rewrite)
                     .collect(toList());
 
-            List<Symbol> markers = allocateSymbols(sources.size(), MARKER, BOOLEAN);
+            List<VariableReferenceExpression> markers = allocateVariables(sources.size(), MARKER, BOOLEAN);
 
             // identity projection for all the fields in each of the sources plus marker columns
             List<PlanNode> withMarkers = appendMarkers(markers, sources, node);
 
             // add a union over all the rewritten sources. The outputs of the union have the same name as the
             // original intersect node
-            List<Symbol> outputs = node.getOutputSymbols();
+            List<VariableReferenceExpression> outputs = node.getOutputVariables();
             UnionNode union = union(withMarkers, ImmutableList.copyOf(concat(outputs, markers)));
 
             // add count aggregations and filter rows where any of the counts is >= 1
-            List<Symbol> aggregationOutputs = allocateSymbols(markers.size(), "count", BIGINT);
-            AggregationNode aggregation = computeCounts(union, outputs, markers, aggregationOutputs);
+            List<Symbol> aggregationOutputs = allocateVariables(markers.size(), "count", BIGINT).stream()
+                    .map(VariableReferenceExpression::getName)
+                    .map(Symbol::new)
+                    .collect(toImmutableList());
+            AggregationNode aggregation = computeCounts(union, node.getOutputSymbols(), markers, aggregationOutputs);
             FilterNode filterNode = addFilterForIntersect(aggregation);
 
             return project(filterNode, outputs);
@@ -175,34 +179,37 @@ public class ImplementIntersectAndExceptAsUnion
                     .map(rewriteContext::rewrite)
                     .collect(toList());
 
-            List<Symbol> markers = allocateSymbols(sources.size(), MARKER, BOOLEAN);
+            List<VariableReferenceExpression> markers = allocateVariables(sources.size(), MARKER, BOOLEAN);
 
             // identity projection for all the fields in each of the sources plus marker columns
             List<PlanNode> withMarkers = appendMarkers(markers, sources, node);
 
             // add a union over all the rewritten sources. The outputs of the union have the same name as the
             // original except node
-            List<Symbol> outputs = node.getOutputSymbols();
+            List<VariableReferenceExpression> outputs = node.getOutputVariables();
             UnionNode union = union(withMarkers, ImmutableList.copyOf(concat(outputs, markers)));
 
             // add count aggregations and filter rows where count for the first source is >= 1 and all others are 0
-            List<Symbol> aggregationOutputs = allocateSymbols(markers.size(), "count", BIGINT);
-            AggregationNode aggregation = computeCounts(union, outputs, markers, aggregationOutputs);
+            List<Symbol> aggregationOutputs = allocateVariables(markers.size(), "count", BIGINT).stream()
+                    .map(VariableReferenceExpression::getName)
+                    .map(Symbol::new)
+                    .collect(toImmutableList());
+            AggregationNode aggregation = computeCounts(union, node.getOutputSymbols(), markers, aggregationOutputs);
             FilterNode filterNode = addFilterForExcept(aggregation, aggregationOutputs.get(0), aggregationOutputs.subList(1, aggregationOutputs.size()));
 
             return project(filterNode, outputs);
         }
 
-        private List<Symbol> allocateSymbols(int count, String nameHint, Type type)
+        private List<VariableReferenceExpression> allocateVariables(int count, String nameHint, Type type)
         {
-            ImmutableList.Builder<Symbol> symbolsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<VariableReferenceExpression> variablesBuilder = ImmutableList.builder();
             for (int i = 0; i < count; i++) {
-                symbolsBuilder.add(symbolAllocator.newSymbol(nameHint, type));
+                variablesBuilder.add(symbolAllocator.newVariable(nameHint, type));
             }
-            return symbolsBuilder.build();
+            return variablesBuilder.build();
         }
 
-        private List<PlanNode> appendMarkers(List<Symbol> markers, List<PlanNode> nodes, SetOperationNode node)
+        private List<PlanNode> appendMarkers(List<VariableReferenceExpression> markers, List<PlanNode> nodes, SetOperationNode node)
         {
             ImmutableList.Builder<PlanNode> result = ImmutableList.builder();
             for (int i = 0; i < nodes.size(); i++) {
@@ -211,7 +218,7 @@ public class ImplementIntersectAndExceptAsUnion
             return result.build();
         }
 
-        private PlanNode appendMarkers(PlanNode source, int markerIndex, List<Symbol> markers, Map<Symbol, SymbolReference> projections)
+        private PlanNode appendMarkers(PlanNode source, int markerIndex, List<VariableReferenceExpression> markers, Map<Symbol, SymbolReference> projections)
         {
             Assignments.Builder assignments = Assignments.builder();
             // add existing intersect symbols to projection
@@ -229,19 +236,19 @@ public class ImplementIntersectAndExceptAsUnion
             return new ProjectNode(idAllocator.getNextId(), source, assignments.build());
         }
 
-        private UnionNode union(List<PlanNode> nodes, List<Symbol> outputs)
+        private UnionNode union(List<PlanNode> nodes, List<VariableReferenceExpression> outputs)
         {
-            ImmutableListMultimap.Builder<Symbol, Symbol> outputsToInputs = ImmutableListMultimap.builder();
+            ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs = ImmutableListMultimap.builder();
             for (PlanNode source : nodes) {
                 for (int i = 0; i < source.getOutputSymbols().size(); i++) {
-                    outputsToInputs.put(outputs.get(i), source.getOutputSymbols().get(i));
+                    outputsToInputs.put(outputs.get(i), new VariableReferenceExpression(source.getOutputSymbols().get(i).getName(), outputs.get(i).getType()));
                 }
             }
 
-            return new UnionNode(idAllocator.getNextId(), nodes, outputsToInputs.build(), outputs);
+            return new UnionNode(idAllocator.getNextId(), nodes, outputsToInputs.build());
         }
 
-        private AggregationNode computeCounts(UnionNode sourceNode, List<Symbol> originalColumns, List<Symbol> markers, List<Symbol> aggregationOutputs)
+        private AggregationNode computeCounts(UnionNode sourceNode, List<Symbol> originalColumns, List<VariableReferenceExpression> markers, List<Symbol> aggregationOutputs)
         {
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
 
@@ -249,7 +256,7 @@ public class ImplementIntersectAndExceptAsUnion
                 Symbol output = aggregationOutputs.get(i);
                 aggregations.put(output, new Aggregation(
                         functionResolution.countFunction(BIGINT),
-                        ImmutableList.of(markers.get(i).toSymbolReference()),
+                        ImmutableList.of(new SymbolReference(markers.get(i).getName())),
                         Optional.empty(),
                         Optional.empty(),
                         false,
@@ -285,7 +292,7 @@ public class ImplementIntersectAndExceptAsUnion
             return new FilterNode(idAllocator.getNextId(), aggregation, castToRowExpression(ExpressionUtils.and(predicatesBuilder.build())));
         }
 
-        private ProjectNode project(PlanNode node, List<Symbol> columns)
+        private ProjectNode project(PlanNode node, List<VariableReferenceExpression> columns)
         {
             return new ProjectNode(
                     idAllocator.getNextId(),

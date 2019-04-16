@@ -773,11 +773,7 @@ class RelationPlanner
 
         SetOperationPlan setOperationPlan = process(node);
 
-        PlanNode planNode = new UnionNode(
-                idAllocator.getNextId(),
-                setOperationPlan.getSources(),
-                setOperationPlan.getSymbolMapping(),
-                ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()));
+        PlanNode planNode = new UnionNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getVariableMapping());
         if (node.isDistinct()) {
             planNode = distinct(planNode);
         }
@@ -791,8 +787,8 @@ class RelationPlanner
 
         SetOperationPlan setOperationPlan = process(node);
 
-        PlanNode planNode = new IntersectNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()));
-        return new RelationPlan(planNode, analysis.getScope(node), symbolAllocator.toVariableReferences(planNode.getOutputSymbols()));
+        PlanNode planNode = new IntersectNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getVariableMapping());
+        return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputVariables());
     }
 
     @Override
@@ -802,8 +798,8 @@ class RelationPlanner
 
         SetOperationPlan setOperationPlan = process(node);
 
-        PlanNode planNode = new ExceptNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()));
-        return new RelationPlan(planNode, analysis.getScope(node), symbolAllocator.toVariableReferences(planNode.getOutputSymbols()));
+        PlanNode planNode = new ExceptNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getVariableMapping());
+        return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputVariables());
     }
 
     private SetOperationPlan process(SetOperation node)
