@@ -79,7 +79,7 @@ public class TestPruneOrderByInAggregation
                 .singleGroupingSet(key)
                 .addAggregation(avg, planBuilder.expression("avg(input order by input)"), ImmutableList.of(BIGINT), mask)
                 .addAggregation(arrayAgg, planBuilder.expression("array_agg(input order by input)"), ImmutableList.of(BIGINT), mask)
-                .hashSymbol(keyHash)
+                .hashVariable(planBuilder.variable(keyHash))
                 .source(planBuilder.values(sourceSymbols, sourceVariables, ImmutableList.of())));
     }
 }

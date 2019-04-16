@@ -134,7 +134,7 @@ public class ImplementFilteredAggregations
                         aggregation.getGroupingSets(),
                         ImmutableList.of(),
                         aggregation.getStep(),
-                        aggregation.getHashSymbol(),
+                        aggregation.getHashVariable(),
                         aggregation.getGroupIdSymbol()));
     }
 }

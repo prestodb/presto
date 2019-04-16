@@ -231,7 +231,7 @@ public class PlanNodeDecorrelator
                             .build()),
                     ImmutableList.of(),
                     decorrelatedAggregation.getStep(),
-                    decorrelatedAggregation.getHashSymbol(),
+                    decorrelatedAggregation.getHashVariable(),
                     decorrelatedAggregation.getGroupIdSymbol());
 
             boolean atMostSingleRow = newAggregation.getGroupingSetCount() == 1

@@ -200,7 +200,7 @@ public class ScalarAggregationToJoinRewriter
                 singleGroupingSet(leftOuterJoin.getLeft().getOutputSymbols()),
                 ImmutableList.of(),
                 scalarAggregation.getStep(),
-                scalarAggregation.getHashSymbol(),
+                scalarAggregation.getHashVariable(),
                 Optional.empty()));
     }
 }

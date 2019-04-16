@@ -131,7 +131,7 @@ public class TestPushProjectionThroughExchange
                                     .fixedHashDistributionParitioningScheme(
                                             ImmutableList.of(a, b, h),
                                             ImmutableList.of(b),
-                                            h)));
+                                            p.variable(h))));
                 })
                 .matches(
                         project(

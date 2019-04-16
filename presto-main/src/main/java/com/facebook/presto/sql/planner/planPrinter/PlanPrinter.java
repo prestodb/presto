@@ -377,7 +377,7 @@ public class PlanPrinter
             else {
                 nodeOutput = addNode(node,
                         node.getType().getJoinLabel(),
-                        format("[%s]%s", Joiner.on(" AND ").join(joinExpressions), formatHash(node.getLeftHashSymbol(), node.getRightHashSymbol())));
+                        format("[%s]%s", Joiner.on(" AND ").join(joinExpressions), formatHash(node.getLeftHashVariable(), node.getRightHashVariable())));
             }
 
             node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetails("Distribution: %s", distributionType));
@@ -411,7 +411,7 @@ public class PlanPrinter
                     format("[%s = %s]%s",
                             node.getSourceJoinSymbol(),
                             node.getFilteringSourceJoinSymbol(),
-                            formatHash(node.getSourceHashSymbol(), node.getFilteringSourceHashSymbol())));
+                            formatHash(node.getSourceHashVariable(), node.getFilteringSourceHashVariable())));
             node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetailsLine("Distribution: %s", distributionType));
             node.getSource().accept(this, context);
             node.getFilteringSource().accept(this, context);
@@ -446,7 +446,7 @@ public class PlanPrinter
 
             addNode(node,
                     format("%sIndexJoin", node.getType().getJoinLabel()),
-                    format("[%s]%s", Joiner.on(" AND ").join(joinExpressions), formatHash(node.getProbeHashSymbol(), node.getIndexHashSymbol())));
+                    format("[%s]%s", Joiner.on(" AND ").join(joinExpressions), formatHash(node.getProbeHashVariable(), node.getIndexHashVariable())));
             node.getProbeSource().accept(this, context);
             node.getIndexSource().accept(this, context);
 
@@ -467,7 +467,7 @@ public class PlanPrinter
         {
             addNode(node,
                     format("DistinctLimit%s", node.isPartial() ? "Partial" : ""),
-                    format("[%s]%s", node.getLimit(), formatHash(node.getHashSymbol())));
+                    format("[%s]%s", node.getLimit(), formatHash(node.getHashVariable())));
             return processChildren(node, context);
         }
 
@@ -487,7 +487,7 @@ public class PlanPrinter
             }
 
             NodeRepresentation nodeOutput = addNode(node,
-                    format("Aggregate%s%s%s", type, key, formatHash(node.getHashSymbol())));
+                    format("Aggregate%s%s%s", type, key, formatHash(node.getHashVariable())));
 
             for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
                 if (entry.getValue().getMask().isPresent()) {
@@ -525,7 +525,7 @@ public class PlanPrinter
         {
             addNode(node,
                     "MarkDistinct",
-                    format("[distinct=%s marker=%s]%s", formatOutputs(types, node.getDistinctSymbols()), node.getMarkerVariable(), formatHash(node.getHashSymbol())));
+                    format("[distinct=%s marker=%s]%s", formatOutputs(types, node.getDistinctSymbols()), node.getMarkerVariable(), formatHash(node.getHashVariable())));
 
             return processChildren(node, context);
         }
@@ -571,7 +571,7 @@ public class PlanPrinter
                         .collect(Collectors.joining(", "))));
             }
 
-            NodeRepresentation nodeOutput = addNode(node, "Window", format("[%s]%s", Joiner.on(", ").join(args), formatHash(node.getHashSymbol())));
+            NodeRepresentation nodeOutput = addNode(node, "Window", format("[%s]%s", Joiner.on(", ").join(args), formatHash(node.getHashVariable())));
 
             for (Map.Entry<VariableReferenceExpression, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 CallExpression call = entry.getValue().getFunctionCall();
@@ -604,7 +604,7 @@ public class PlanPrinter
 
             NodeRepresentation nodeOutput = addNode(node,
                     "TopNRowNumber",
-                    format("[%s limit %s]%s", Joiner.on(", ").join(args), node.getMaxRowCountPerPartition(), formatHash(node.getHashSymbol())));
+                    format("[%s limit %s]%s", Joiner.on(", ").join(args), node.getMaxRowCountPerPartition(), formatHash(node.getHashVariable())));
 
             nodeOutput.appendDetailsLine("%s := %s", node.getRowNumberVariable(), "row_number()");
 
@@ -626,7 +626,7 @@ public class PlanPrinter
 
             NodeRepresentation nodeOutput = addNode(node,
                     "RowNumber",
-                    format("[%s]%s", Joiner.on(", ").join(args), formatHash(node.getHashSymbol())));
+                    format("[%s]%s", Joiner.on(", ").join(args), formatHash(node.getHashVariable())));
             nodeOutput.appendDetailsLine("%s := %s", node.getRowNumberVariable(), "row_number()");
 
             return processChildren(node, context);
@@ -1185,18 +1185,18 @@ public class PlanPrinter
         return builder.toString();
     }
 
-    private static String formatHash(Optional<Symbol>... hashes)
+    private static String formatHash(Optional<VariableReferenceExpression>... hashes)
     {
-        List<Symbol> symbols = stream(hashes)
+        List<VariableReferenceExpression> variables = stream(hashes)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(toList());
 
-        if (symbols.isEmpty()) {
+        if (variables.isEmpty()) {
             return "";
         }
 
-        return "[" + Joiner.on(", ").join(symbols) + "]";
+        return "[" + Joiner.on(", ").join(variables) + "]";
     }
 
     private static String formatOutputs(TypeProvider types, Iterable<Symbol> outputs)
