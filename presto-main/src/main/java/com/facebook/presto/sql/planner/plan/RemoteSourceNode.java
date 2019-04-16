@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -34,6 +35,7 @@ public class RemoteSourceNode
 {
     private final List<PlanFragmentId> sourceFragmentIds;
     private final List<Symbol> outputs;
+    private final List<VariableReferenceExpression> outputVariables;
     private final Optional<OrderingScheme> orderingScheme;
     private final ExchangeNode.Type exchangeType; // This is needed to "unfragment" to compute stats correctly.
 
@@ -42,22 +44,30 @@ public class RemoteSourceNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("sourceFragmentIds") List<PlanFragmentId> sourceFragmentIds,
             @JsonProperty("outputs") List<Symbol> outputs,
+            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme,
             @JsonProperty("exchangeType") ExchangeNode.Type exchangeType)
     {
         super(id);
 
-        requireNonNull(outputs, "outputs is null");
-
         this.sourceFragmentIds = sourceFragmentIds;
-        this.outputs = ImmutableList.copyOf(outputs);
+        this.outputs = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
+        this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
         this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
         this.exchangeType = requireNonNull(exchangeType, "exchangeType is null");
+
+        validateOutputVariables();
     }
 
-    public RemoteSourceNode(PlanNodeId id, PlanFragmentId sourceFragmentId, List<Symbol> outputs, Optional<OrderingScheme> orderingScheme, ExchangeNode.Type exchangeType)
+    public RemoteSourceNode(
+            PlanNodeId id,
+            PlanFragmentId sourceFragmentId,
+            List<Symbol> outputs,
+            List<VariableReferenceExpression> outputVariables,
+            Optional<OrderingScheme> orderingScheme,
+            ExchangeNode.Type exchangeType)
     {
-        this(id, ImmutableList.of(sourceFragmentId), outputs, orderingScheme, exchangeType);
+        this(id, ImmutableList.of(sourceFragmentId), outputs, outputVariables, orderingScheme, exchangeType);
     }
 
     @Override
@@ -71,6 +81,13 @@ public class RemoteSourceNode
     public List<Symbol> getOutputSymbols()
     {
         return outputs;
+    }
+
+    @Override
+    @JsonProperty
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        return outputVariables;
     }
 
     @JsonProperty("sourceFragmentIds")

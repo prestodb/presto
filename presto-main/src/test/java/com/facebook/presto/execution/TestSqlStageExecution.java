@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -162,6 +163,7 @@ public class TestSqlStageExecution
                 new PlanNodeId("exchange"),
                 ImmutableList.of(new PlanFragmentId(0)),
                 ImmutableList.of(new Symbol("column")),
+                ImmutableList.of(new VariableReferenceExpression("column", VARCHAR)),
                 Optional.empty(),
                 REPARTITION);
 

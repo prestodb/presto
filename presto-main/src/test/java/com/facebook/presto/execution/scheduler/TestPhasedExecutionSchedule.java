@@ -163,6 +163,7 @@ public class TestPhasedExecutionSchedule
                         .map(PlanFragment::getId)
                         .collect(toImmutableList()),
                 fragments[0].getPartitioningScheme().getOutputLayout(),
+                fragments[0].getPartitioningScheme().getOutputLayout().stream().map(symbol -> new VariableReferenceExpression(symbol.getName(), BIGINT)).collect(toImmutableList()),
                 Optional.empty(),
                 REPARTITION);
 
@@ -174,7 +175,13 @@ public class TestPhasedExecutionSchedule
         PlanNode planNode = new UnionNode(
                 new PlanNodeId(name + "_id"),
                 Stream.of(fragments)
-                        .map(fragment -> new RemoteSourceNode(new PlanNodeId(fragment.getId().toString()), fragment.getId(), fragment.getPartitioningScheme().getOutputLayout(), Optional.empty(), REPARTITION))
+                        .map(fragment -> new RemoteSourceNode(
+                                new PlanNodeId(fragment.getId().toString()),
+                                fragment.getId(),
+                                fragment.getPartitioningScheme().getOutputLayout(),
+                                fragment.getPartitioningScheme().getOutputLayout().stream().map(symbol -> new VariableReferenceExpression(symbol.getName(), BIGINT)).collect(toImmutableList()),
+                                Optional.empty(),
+                                REPARTITION))
                         .collect(toImmutableList()),
                 ImmutableListMultimap.of(),
                 ImmutableList.of());
@@ -197,7 +204,7 @@ public class TestPhasedExecutionSchedule
                 ImmutableList.of(variable),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")));
 
-        RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), Optional.empty(), REPLICATE);
+        RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), ImmutableList.of(), Optional.empty(), REPLICATE);
         PlanNode join = new JoinNode(
                 new PlanNodeId(name + "_id"),
                 INNER,
@@ -218,8 +225,8 @@ public class TestPhasedExecutionSchedule
 
     private static PlanFragment createJoinPlanFragment(JoinNode.Type joinType, String name, PlanFragment buildFragment, PlanFragment probeFragment)
     {
-        RemoteSourceNode probe = new RemoteSourceNode(new PlanNodeId("probe_id"), probeFragment.getId(), ImmutableList.of(), Optional.empty(), REPARTITION);
-        RemoteSourceNode build = new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), Optional.empty(), REPARTITION);
+        RemoteSourceNode probe = new RemoteSourceNode(new PlanNodeId("probe_id"), probeFragment.getId(), ImmutableList.of(), ImmutableList.of(), Optional.empty(), REPARTITION);
+        RemoteSourceNode build = new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), ImmutableList.of(), Optional.empty(), REPARTITION);
         PlanNode planNode = new JoinNode(
                 new PlanNodeId(name + "_id"),
                 joinType,
