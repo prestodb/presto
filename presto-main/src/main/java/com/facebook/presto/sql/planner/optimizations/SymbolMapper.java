@@ -200,7 +200,7 @@ public class SymbolMapper
                 node.getId(),
                 source,
                 node.getTarget(),
-                node.getRowCountSymbol(),
+                node.getRowCountVariable(),
                 node.isRowCountEnabled(),
                 node.getDescriptor().map(this::map));
     }
