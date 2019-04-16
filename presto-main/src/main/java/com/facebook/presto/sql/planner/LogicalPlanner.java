@@ -300,7 +300,7 @@ public class LogicalPlanner
                         Optional.empty(),
                         Optional.empty()),
                 new StatisticsWriterNode.WriteStatisticsReference(targetTable),
-                symbolAllocator.newSymbol("rows", BIGINT),
+                symbolAllocator.newVariable("rows", BIGINT),
                 tableStatisticsMetadata.getTableStatistics().contains(ROW_COUNT),
                 tableStatisticAggregation.getDescriptor());
         return new RelationPlan(planNode, analysis.getScope(analyzeStatement), planNode.getOutputSymbols());

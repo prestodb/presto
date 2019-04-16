@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.metadata.AnalyzeTableHandle;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -32,7 +33,7 @@ public class StatisticsWriterNode
         extends InternalPlanNode
 {
     private final PlanNode source;
-    private final Symbol rowCountSymbol;
+    private final VariableReferenceExpression rowCountVariable;
     private final WriteStatisticsTarget target;
     private final boolean rowCountEnabled;
     private final StatisticAggregationsDescriptor<Symbol> descriptor;
@@ -42,14 +43,14 @@ public class StatisticsWriterNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("target") WriteStatisticsTarget target,
-            @JsonProperty("rowCountSymbol") Symbol rowCountSymbol,
+            @JsonProperty("rowCountVariable") VariableReferenceExpression rowCountVariable,
             @JsonProperty("rowCountEnabled") boolean rowCountEnabled,
             @JsonProperty("descriptor") StatisticAggregationsDescriptor<Symbol> descriptor)
     {
         super(id);
         this.source = requireNonNull(source, "source is null");
         this.target = requireNonNull(target, "target is null");
-        this.rowCountSymbol = requireNonNull(rowCountSymbol, "rowCountSymbol is null");
+        this.rowCountVariable = requireNonNull(rowCountVariable, "rowCountVariable is null");
         this.rowCountEnabled = rowCountEnabled;
         this.descriptor = requireNonNull(descriptor, "descriptor is null");
     }
@@ -73,9 +74,9 @@ public class StatisticsWriterNode
     }
 
     @JsonProperty
-    public Symbol getRowCountSymbol()
+    public VariableReferenceExpression getRowCountVariable()
     {
-        return rowCountSymbol;
+        return rowCountVariable;
     }
 
     @JsonProperty
@@ -93,7 +94,7 @@ public class StatisticsWriterNode
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.of(rowCountSymbol);
+        return ImmutableList.of(new Symbol(rowCountVariable.getName()));
     }
 
     @Override
@@ -103,7 +104,7 @@ public class StatisticsWriterNode
                 getId(),
                 Iterables.getOnlyElement(newChildren),
                 target,
-                rowCountSymbol,
+                rowCountVariable,
                 rowCountEnabled,
                 descriptor);
     }
