@@ -19,7 +19,7 @@ import com.facebook.presto.orc.Filters.MultiRange;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.DomainTranslator;
+import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -218,9 +218,9 @@ public class TestTupleDomainOrcPredicateFilters
         return new TupleDomainOrcPredicate.ColumnReference<>(column, 0, type);
     }
 
-    private DomainTranslator.ExtractionResult fromPredicate(Expression originalPredicate)
+    private ExpressionDomainTranslator.ExtractionResult fromPredicate(Expression originalPredicate)
     {
-        return DomainTranslator.fromPredicate(metadata, TEST_SESSION, originalPredicate, TYPES);
+        return ExpressionDomainTranslator.fromPredicate(metadata, TEST_SESSION, originalPredicate, TYPES);
     }
 
     private static ComparisonExpression equal(Symbol symbol, Expression expression)
