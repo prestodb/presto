@@ -179,6 +179,7 @@ import static com.facebook.presto.hive.HiveUtil.verifyPartitionTypeSupported;
 import static com.facebook.presto.hive.HiveWriteUtils.checkTableIsWritable;
 import static com.facebook.presto.hive.HiveWriteUtils.initializeSerializer;
 import static com.facebook.presto.hive.HiveWriteUtils.isWritableType;
+import static com.facebook.presto.hive.HiveWriterFactory.getFileExtension;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.APPEND;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.NEW;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.OVERWRITE;
@@ -1243,11 +1244,8 @@ public class HiveMetadata
             int bucketCount = handle.getBucketProperty().get().getBucketCount();
             LocationHandle locationHandle = handle.getLocationHandle();
             List<String> fileNamesForMissingBuckets = computeFileNamesForMissingBuckets(
-                    session,
-                    table,
                     storageFormat,
                     handle.getCompressionCodec(),
-                    locationHandle.getTargetPath(),
                     handle.getFilePrefix(),
                     bucketCount,
                     ImmutableSet.of());
@@ -1269,11 +1267,8 @@ public class HiveMetadata
             int bucketCount = handle.getBucketProperty().get().getBucketCount();
 
             List<String> fileNamesForMissingBuckets = computeFileNamesForMissingBuckets(
-                    session,
-                    table,
                     storageFormat,
                     handle.getCompressionCodec(),
-                    partitionUpdate.getTargetPath(),
                     handle.getFilePrefix(),
                     bucketCount,
                     ImmutableSet.copyOf(getTargetFileNames(partitionUpdate.getFileWriteInfos())));
@@ -1293,11 +1288,8 @@ public class HiveMetadata
     }
 
     private List<String> computeFileNamesForMissingBuckets(
-            ConnectorSession session,
-            Table table,
             HiveStorageFormat storageFormat,
             HiveCompressionCodec compressionCodec,
-            Path targetPath,
             String filePrefix,
             int bucketCount,
             Set<String> existingFileNames)
@@ -1306,9 +1298,7 @@ public class HiveMetadata
             // fast path for common case
             return ImmutableList.of();
         }
-        HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
-        JobConf conf = configureCompression(hdfsEnvironment.getConfiguration(hdfsContext, targetPath), compressionCodec);
-        String fileExtension = HiveWriterFactory.getFileExtension(conf, fromHiveStorageFormat(storageFormat));
+        String fileExtension = getFileExtension(fromHiveStorageFormat(storageFormat), compressionCodec);
         ImmutableList.Builder<String> missingFileNamesBuilder = ImmutableList.builder();
         for (int i = 0; i < bucketCount; i++) {
             String targetFileName = HiveWriterFactory.computeBucketedFileName(filePrefix, i) + fileExtension;
