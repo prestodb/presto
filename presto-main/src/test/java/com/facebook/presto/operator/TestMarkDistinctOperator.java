@@ -122,7 +122,7 @@ public class TestMarkDistinctOperator
         for (Page page : result.getOutput()) {
             assertEquals(page.getChannelCount(), 3);
             for (int i = 0; i < page.getPositionCount(); i++) {
-                assertEquals(page.getBlock(2).getByte(i, 0), 1);
+                assertEquals(page.getBlock(2).getByte(i), 1);
                 count++;
             }
         }

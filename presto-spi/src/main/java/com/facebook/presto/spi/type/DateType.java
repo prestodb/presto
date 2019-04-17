@@ -43,7 +43,7 @@ public final class DateType
             return null;
         }
 
-        int days = block.getInt(position, 0);
+        int days = block.getInt(position);
         return new SqlDate(days);
     }
 

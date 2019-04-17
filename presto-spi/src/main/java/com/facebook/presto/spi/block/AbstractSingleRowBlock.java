@@ -43,24 +43,24 @@ public abstract class AbstractSingleRowBlock
     }
 
     @Override
-    public byte getByte(int position, int offset)
+    public byte getByte(int position)
     {
         checkFieldIndex(position);
-        return getRawFieldBlock(position).getByte(rowIndex, offset);
+        return getRawFieldBlock(position).getByte(rowIndex);
     }
 
     @Override
-    public short getShort(int position, int offset)
+    public short getShort(int position)
     {
         checkFieldIndex(position);
-        return getRawFieldBlock(position).getShort(rowIndex, offset);
+        return getRawFieldBlock(position).getShort(rowIndex);
     }
 
     @Override
-    public int getInt(int position, int offset)
+    public int getInt(int position)
     {
         checkFieldIndex(position);
-        return getRawFieldBlock(position).getInt(rowIndex, offset);
+        return getRawFieldBlock(position).getInt(rowIndex);
     }
 
     @Override

@@ -40,7 +40,7 @@ public class IntArrayBlockEncoding
 
         for (int position = 0; position < positionCount; position++) {
             if (!block.isNull(position)) {
-                sliceOutput.writeInt(block.getInt(position, 0));
+                sliceOutput.writeInt(block.getInt(position));
             }
         }
     }

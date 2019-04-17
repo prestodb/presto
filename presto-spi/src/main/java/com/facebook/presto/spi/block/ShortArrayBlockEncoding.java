@@ -40,7 +40,7 @@ public class ShortArrayBlockEncoding
 
         for (int position = 0; position < positionCount; position++) {
             if (!block.isNull(position)) {
-                sliceOutput.writeShort(block.getShort(position, 0));
+                sliceOutput.writeShort(block.getShort(position));
             }
         }
     }

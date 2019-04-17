@@ -279,22 +279,16 @@ public abstract class AbstractTestBlock
         if (expectedValue instanceof Slice) {
             Slice expectedSliceValue = (Slice) expectedValue;
 
-            if (isByteAccessSupported()) {
-                for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_BYTE; offset++) {
-                    assertEquals(block.getByte(position, offset), expectedSliceValue.getByte(offset));
-                }
+            if (isByteAccessSupported() && expectedSliceValue.length() >= SIZE_OF_BYTE) {
+                assertEquals(block.getByte(position), expectedSliceValue.getByte(0));
             }
 
-            if (isShortAccessSupported()) {
-                for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_SHORT; offset++) {
-                    assertEquals(block.getShort(position, offset), expectedSliceValue.getShort(offset));
-                }
+            if (isShortAccessSupported() && expectedSliceValue.length() >= SIZE_OF_SHORT) {
+                assertEquals(block.getShort(position), expectedSliceValue.getShort(0));
             }
 
-            if (isIntAccessSupported()) {
-                for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_INT; offset++) {
-                    assertEquals(block.getInt(position, offset), expectedSliceValue.getInt(offset));
-                }
+            if (isIntAccessSupported() && expectedSliceValue.length() >= SIZE_OF_INT) {
+                assertEquals(block.getInt(position), expectedSliceValue.getInt(0));
             }
 
             if (isLongAccessSupported()) {

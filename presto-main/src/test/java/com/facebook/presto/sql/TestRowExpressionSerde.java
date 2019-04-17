@@ -138,9 +138,9 @@ public class TestRowExpressionSerde
         assertTrue(value instanceof IntArrayBlock);
         IntArrayBlock block = (IntArrayBlock) value;
         assertEquals(block.getPositionCount(), 3);
-        assertEquals(block.getInt(0, 0), 1);
-        assertEquals(block.getInt(1, 0), 2);
-        assertEquals(block.getInt(2, 0), 3);
+        assertEquals(block.getInt(0), 1);
+        assertEquals(block.getInt(1), 2);
+        assertEquals(block.getInt(2), 3);
     }
 
     @Test
