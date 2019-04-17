@@ -2,9 +2,9 @@
 Presto Verifier
 ===============
 
-The Presto Verifier can be used to test Presto against another database (such as MySQL),
-or to test two Presto clusters against each other. We use it to continuously test trunk
-against the previous release while developing Presto.
+The Presto Verifier can be used to compare two versions of Presto.
+
+.. _running-verifier:
 
 Running Verifier
 ----------------
