@@ -546,9 +546,7 @@ public class OrcTester
                         new int[] {0},
                         true,
                         new FilterFunction[0],
-                        true,
-                        512 * 1024,
-                        127);
+                        512 * 1024);
                 recordReader.pushdownFilterAndProjection(options, new int[] {0}, ImmutableList.of(type));
 
                 assertEquals(recordReader.getReaderPosition(), 0);

@@ -85,6 +85,8 @@ public final class HiveSessionProperties
     private static final String TEMPORARY_TABLE_COMPRESSION_CODEC = "temporary_table_compression_codec";
     public static final String USE_REWINDABLE_SPLIT_SOURCE = "use_rewindable_split_source";
     private static final String ARIA_SCAN_ENABLED = "aria_scan_enabled";
+    public static final String FILTER_REORDERING_ENABLED = "filter_reordering_enabled";
+    public static final String READER_BUDGET_ENFORCEMENT_ENABLED = "reader_budget_enforcement_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -362,6 +364,16 @@ public final class HiveSessionProperties
                         ARIA_SCAN_ENABLED,
                         "Aria scan enabled",
                         true,
+                        false),
+                booleanProperty(
+                        FILTER_REORDERING_ENABLED,
+                        "Should reorder filters to apply most efficient first",
+                        true,
+                        false),
+                booleanProperty(
+                        READER_BUDGET_ENFORCEMENT_ENABLED,
+                        "Should enforce memory budget for ORC readers",
+                        true,
                         false));
     }
 
@@ -605,6 +617,16 @@ public final class HiveSessionProperties
     public static boolean isAriaScanEnabled(ConnectorSession session)
     {
         return session.getProperty(ARIA_SCAN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isFilterReorderingEnabled(ConnectorSession session)
+    {
+        return session.getProperty(FILTER_REORDERING_ENABLED, Boolean.class);
+    }
+
+    public static boolean isReaderBudgetEnforcementEnabled(ConnectorSession session)
+    {
+        return session.getProperty(READER_BUDGET_ENFORCEMENT_ENABLED, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)

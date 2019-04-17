@@ -37,7 +37,6 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.SystemSessionProperties.ariaFlags;
 import static com.facebook.presto.SystemSessionProperties.isAriaScanEnabled;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
@@ -281,9 +280,7 @@ public class TableScanOperator
                 channels,
                 reusePages,
                 new FilterFunction[0],
-                false,
-                512 * 1024,
-                ariaFlags(operatorContext.getSession()));
+                512 * 1024);
         source.pushdownFilterAndProjection(options);
     }
 

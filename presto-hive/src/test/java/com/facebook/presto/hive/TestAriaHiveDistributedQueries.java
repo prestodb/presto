@@ -20,8 +20,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SystemSessionProperties.ARIA_FLAGS;
-import static com.facebook.presto.SystemSessionProperties.ARIA_REORDER;
 import static com.facebook.presto.SystemSessionProperties.ARIA_REUSE_PAGES;
 import static com.facebook.presto.SystemSessionProperties.ARIA_SCAN;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS;
@@ -185,11 +183,11 @@ public class TestAriaHiveDistributedQueries
     {
         return Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(ARIA_SCAN, "true")
-                .setSystemProperty(ARIA_REORDER, "true")
                 .setSystemProperty(ARIA_REUSE_PAGES, "true")
-                .setSystemProperty(ARIA_FLAGS, "127")
                 .setSystemProperty(PUSHDOWN_SUBFIELDS, "true")
                 .setCatalogSessionProperty(HIVE_CATALOG, HiveSessionProperties.ARIA_SCAN_ENABLED, "true")
+                .setCatalogSessionProperty(HIVE_CATALOG, HiveSessionProperties.FILTER_REORDERING_ENABLED, "true")
+                .setCatalogSessionProperty(HIVE_CATALOG, HiveSessionProperties.READER_BUDGET_ENFORCEMENT_ENABLED, "true")
                 .build();
     }
 

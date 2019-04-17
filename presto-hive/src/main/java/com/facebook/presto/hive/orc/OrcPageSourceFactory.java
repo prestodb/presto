@@ -65,7 +65,9 @@ import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDista
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
+import static com.facebook.presto.hive.HiveSessionProperties.isFilterReorderingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isReaderBudgetEnforcementEnabled;
 import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
@@ -120,6 +122,7 @@ public class OrcPageSourceFactory
         }
 
         return Optional.of(createOrcPageSource(
+                session,
                 ORC,
                 hdfsEnvironment,
                 session.getUser(),
@@ -144,6 +147,7 @@ public class OrcPageSourceFactory
     }
 
     public static OrcPageSource createOrcPageSource(
+            ConnectorSession session,
             OrcEncoding orcEncoding,
             HdfsEnvironment hdfsEnvironment,
             String sessionUser,
@@ -217,7 +221,9 @@ public class OrcPageSourceFactory
                     length,
                     hiveStorageTimeZone,
                     systemMemoryUsage,
-                    INITIAL_BATCH_SIZE);
+                    INITIAL_BATCH_SIZE,
+                    isFilterReorderingEnabled(session),
+                    isReaderBudgetEnforcementEnabled(session));
 
             return new OrcPageSource(
                     recordReader,

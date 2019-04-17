@@ -23,9 +23,7 @@ public class PageSourceOptions
     private final int[] internalChannels;
     private final int[] outputChannels;
     private final FilterFunction[] filterFunctions;
-    private final boolean reorderFilters;
     private final int targetBytes;
-    private final int ariaFlags;
 
     public static class FilterStats
     {
@@ -184,17 +182,13 @@ public class PageSourceOptions
                              int[] outputChannels,
                              boolean reusePages,
                              FilterFunction[] filterFunctions,
-                             boolean reorderFilters,
-                             int targetBytes,
-                             int ariaFlags)
+                             int targetBytes)
     {
         this.internalChannels = requireNonNull(internalChannels, "internalChannels is null");
         this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
         this.reusePages = reusePages;
         this.filterFunctions = requireNonNull(filterFunctions, "filterFunctions is null");
-        this.reorderFilters = reorderFilters;
         this.targetBytes = targetBytes;
-        this.ariaFlags = ariaFlags;
     }
 
     public int[] getInternalChannels()
@@ -217,18 +211,8 @@ public class PageSourceOptions
         return filterFunctions;
     }
 
-    public boolean getReorderFilters()
-    {
-        return reorderFilters;
-    }
-
     public int getTargetBytes()
     {
         return targetBytes;
-    }
-
-    public int getAriaFlags()
-    {
-        return ariaFlags;
     }
 }

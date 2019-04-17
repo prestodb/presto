@@ -847,9 +847,7 @@ public class HivePageSource
                 outputChannels,
                 options.getReusePages(),
                 filterFunctions.toArray(new FilterFunction[0]),
-                options.getReorderFilters(),
-                options.getTargetBytes(),
-                options.getAriaFlags());
+                options.getTargetBytes());
     }
 
     private Set<ColumnMappingKind> getInputKinds(FilterFunction filterFunction)
