@@ -85,6 +85,18 @@ public abstract class AbstractSingleMapBlock
     }
 
     @Override
+    public long getLong(int position)
+    {
+        position = getAbsolutePosition(position);
+        if (position % 2 == 0) {
+            return getRawKeyBlock().getLong(position / 2);
+        }
+        else {
+            return getRawValueBlock().getLong(position / 2);
+        }
+    }
+
+    @Override
     public long getLong(int position, int offset)
     {
         position = getAbsolutePosition(position);

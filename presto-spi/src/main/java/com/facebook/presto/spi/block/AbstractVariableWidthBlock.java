@@ -57,6 +57,13 @@ public abstract class AbstractVariableWidthBlock
     }
 
     @Override
+    public long getLong(int position)
+    {
+        checkReadablePosition(position);
+        return getRawSlice(position).getLong(getPositionOffset(position));
+    }
+
+    @Override
     public long getLong(int position, int offset)
     {
         checkReadablePosition(position);

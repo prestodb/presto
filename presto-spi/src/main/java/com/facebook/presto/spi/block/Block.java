@@ -56,6 +56,14 @@ public interface Block
     }
 
     /**
+     * Gets a little endian long in the value at {@code position}.
+     */
+    default long getLong(int position)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
+
+    /**
      * Gets a little endian long at {@code offset} in the value at {@code position}.
      */
     default long getLong(int position, int offset)

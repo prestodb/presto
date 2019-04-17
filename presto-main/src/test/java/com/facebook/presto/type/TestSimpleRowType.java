@@ -67,7 +67,7 @@ public class TestSimpleRowType
 
         Block block = (Block) value;
         singleRowBlockWriter = blockBuilder.beginBlockEntry();
-        BIGINT.writeLong(singleRowBlockWriter, block.getSingleValueBlock(0).getLong(0, 0) + 1);
+        BIGINT.writeLong(singleRowBlockWriter, block.getSingleValueBlock(0).getLong(0) + 1);
         VARCHAR.writeSlice(singleRowBlockWriter, block.getSingleValueBlock(1).getSlice(0, 0, 1));
         blockBuilder.closeEntry();
 

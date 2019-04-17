@@ -187,6 +187,13 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public long getLong(int position)
+    {
+        checkReadablePosition(position);
+        return value.getLong(0);
+    }
+
+    @Override
     public long getLong(int position, int offset)
     {
         checkReadablePosition(position);

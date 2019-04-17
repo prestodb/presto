@@ -402,7 +402,7 @@ public class TestHashAggregationOperator
             // value + hash + aggregation result
             assertEquals(page.getChannelCount(), 3);
             for (int i = 0; i < page.getPositionCount(); i++) {
-                assertEquals(page.getBlock(2).getLong(i, 0), 1);
+                assertEquals(page.getBlock(2).getLong(i), 1);
                 count++;
             }
         }

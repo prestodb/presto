@@ -64,6 +64,13 @@ public abstract class AbstractSingleRowBlock
     }
 
     @Override
+    public long getLong(int position)
+    {
+        checkFieldIndex(position);
+        return getRawFieldBlock(position).getLong(rowIndex);
+    }
+
+    @Override
     public long getLong(int position, int offset)
     {
         checkFieldIndex(position);

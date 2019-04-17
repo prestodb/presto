@@ -71,6 +71,13 @@ public class LazyBlock
     }
 
     @Override
+    public long getLong(int position)
+    {
+        assureLoaded();
+        return block.getLong(position);
+    }
+
+    @Override
     public long getLong(int position, int offset)
     {
         assureLoaded();
