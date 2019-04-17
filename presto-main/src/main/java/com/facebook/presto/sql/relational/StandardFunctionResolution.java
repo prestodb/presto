@@ -91,6 +91,11 @@ public final class StandardFunctionResolution
         return functionManager.getFunctionMetadata(functionHandle).getName().equals(mangleOperatorName(OperatorType.CAST.name()));
     }
 
+    public boolean isSubscriptFunction(FunctionHandle functionHandle)
+    {
+        return functionManager.getFunctionMetadata(functionHandle).getName().equals(mangleOperatorName(OperatorType.SUBSCRIPT.name()));
+    }
+
     public boolean isBetweenFunction(FunctionHandle functionHandle)
     {
         return functionHandle.getSignature().getName().equals(mangleOperatorName(OperatorType.BETWEEN.name()));
