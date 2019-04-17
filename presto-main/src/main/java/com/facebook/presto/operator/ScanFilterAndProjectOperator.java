@@ -54,8 +54,6 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.SystemSessionProperties.ariaFlags;
-import static com.facebook.presto.SystemSessionProperties.ariaReorderFilters;
 import static com.facebook.presto.SystemSessionProperties.isAriaScanEnabled;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.google.common.base.Preconditions.checkState;
@@ -347,9 +345,7 @@ public class ScanFilterAndProjectOperator
                 projectionPushdownChannels == null ? channels : projectionPushdownChannels,
                 reusePages,
                 filters,
-                ariaReorderFilters(operatorContext.getSession()),
-                mergingOutput.getMinPageSizeInBytes(),
-                ariaFlags(operatorContext.getSession()));
+                mergingOutput.getMinPageSizeInBytes());
 
         boolean filterPushedDown = pageSource.pushdownFilterAndProjection(options);
         if (filterPushedDown && projectionPushedDown) {

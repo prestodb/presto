@@ -124,6 +124,10 @@ public class OrcRecordReader
     private final Optional<StatisticsValidation> rowGroupStatisticsValidation;
     private final Optional<StatisticsValidation> stripeStatisticsValidation;
     private final Optional<StatisticsValidation> fileStatisticsValidation;
+
+    private final boolean reorderFilters;
+    private final boolean enforceMemoryBudget;
+
     private OrcPredicate predicate;
     // For getNextPage interface.
     private ColumnGroupReader reader;
@@ -131,7 +135,6 @@ public class OrcRecordReader
     private int numResults;
     private int targetResultBytes;
     private int targetResultRows = 30000;
-    private boolean reorderFilters;
     private boolean reuseBlocks;
     private int ariaBatchRows = 1000;
     private long numAriaBytes;
@@ -160,7 +163,9 @@ public class OrcRecordReader
             Map<String, Slice> userMetadata,
             AggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
-            int initialBatchSize)
+            int initialBatchSize,
+            boolean reorderFilters,
+            boolean enforceMemoryBudget)
     {
         requireNonNull(includedColumns, "includedColumns is null");
         requireNonNull(includedSubfields, "includedSubfields is null");
@@ -182,6 +187,8 @@ public class OrcRecordReader
         this.fileStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(includedColumns));
         this.systemMemoryUsage = systemMemoryUsage.newAggregatedMemoryContext();
         this.predicate = predicate;
+        this.reorderFilters = reorderFilters;
+        this.enforceMemoryBudget = enforceMemoryBudget;
 
         // reduce the included columns to the set that is also present
         ImmutableSet.Builder<Integer> presentColumns = ImmutableSet.builder();
@@ -757,7 +764,6 @@ public class OrcRecordReader
     public void pushdownFilterAndProjection(PageSourceOptions options, int[] channelColumns, List<Type> types)
     {
         reuseBlocks = options.getReusePages();
-        reorderFilters = options.getReorderFilters();
         reader = new ColumnGroupReader(
                 streamReaders,
                 presentColumns,
@@ -767,8 +773,8 @@ public class OrcRecordReader
                 options.getOutputChannels(),
                 predicate.getFilters(),
                 options.getFilterFunctions(),
-                reorderFilters,
-                options.getAriaFlags());
+                enforceMemoryBudget,
+                reorderFilters);
         targetResultBytes = options.getTargetBytes();
         reader.setResultSizeBudget(targetResultBytes);
     }
