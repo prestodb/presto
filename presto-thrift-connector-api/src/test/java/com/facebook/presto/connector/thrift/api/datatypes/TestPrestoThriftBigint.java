@@ -156,7 +156,7 @@ public class TestPrestoThriftBigint
                 assertTrue(block.isNull(i));
             }
             else {
-                assertEquals(block.getLong(i, 0), expected.get(i).longValue());
+                assertEquals(block.getLong(i), expected.get(i).longValue());
             }
         }
     }

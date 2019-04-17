@@ -63,13 +63,13 @@ public class TestLookupJoinPageBuilder
         for (int i = 0; i < output.getPositionCount(); i++) {
             assertFalse(output.getBlock(0).isNull(i));
             assertFalse(output.getBlock(1).isNull(i));
-            assertEquals(output.getBlock(0).getLong(i, 0), i / 2);
-            assertEquals(output.getBlock(1).getLong(i, 0), i / 2);
+            assertEquals(output.getBlock(0).getLong(i), i / 2);
+            assertEquals(output.getBlock(1).getLong(i), i / 2);
             if (i % 2 == 0) {
                 assertFalse(output.getBlock(2).isNull(i));
                 assertFalse(output.getBlock(3).isNull(i));
-                assertEquals(output.getBlock(2).getLong(i, 0), i / 2);
-                assertEquals(output.getBlock(3).getLong(i, 0), i / 2);
+                assertEquals(output.getBlock(2).getLong(i), i / 2);
+                assertEquals(output.getBlock(3).getLong(i), i / 2);
             }
             else {
                 assertTrue(output.getBlock(2).isNull(i));
@@ -117,8 +117,8 @@ public class TestLookupJoinPageBuilder
         assertTrue(output.getBlock(0) instanceof DictionaryBlock);
         assertEquals(output.getPositionCount(), entries / 2);
         for (int i = 0; i < entries / 2; i++) {
-            assertEquals(output.getBlock(0).getLong(i, 0), i * 2);
-            assertEquals(output.getBlock(1).getLong(i, 0), i * 2);
+            assertEquals(output.getBlock(0).getLong(i), i * 2);
+            assertEquals(output.getBlock(1).getLong(i), i * 2);
         }
         lookupJoinPageBuilder.reset();
 
@@ -132,8 +132,8 @@ public class TestLookupJoinPageBuilder
         assertFalse(output.getBlock(0) instanceof DictionaryBlock);
         assertEquals(output.getPositionCount(), entries);
         for (int i = 0; i < entries; i++) {
-            assertEquals(output.getBlock(0).getLong(i, 0), i);
-            assertEquals(output.getBlock(1).getLong(i, 0), i);
+            assertEquals(output.getBlock(0).getLong(i), i);
+            assertEquals(output.getBlock(1).getLong(i), i);
         }
         lookupJoinPageBuilder.reset();
 
@@ -150,8 +150,8 @@ public class TestLookupJoinPageBuilder
         assertFalse(output.getBlock(0) instanceof DictionaryBlock);
         assertEquals(output.getPositionCount(), 40);
         for (int i = 10; i < 50; i++) {
-            assertEquals(output.getBlock(0).getLong(i - 10, 0), i);
-            assertEquals(output.getBlock(1).getLong(i - 10, 0), i);
+            assertEquals(output.getBlock(0).getLong(i - 10), i);
+            assertEquals(output.getBlock(1).getLong(i - 10), i);
         }
     }
 

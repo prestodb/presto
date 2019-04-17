@@ -217,8 +217,8 @@ public class DecimalInequalityOperators
             return false;
         }
 
-        long leftValue = left.getLong(leftPosition, 0);
-        long rightValue = right.getLong(rightPosition, 0);
+        long leftValue = left.getLong(leftPosition);
+        long rightValue = right.getLong(rightPosition);
         return Long.compare(leftValue, rightValue) != 0;
     }
 

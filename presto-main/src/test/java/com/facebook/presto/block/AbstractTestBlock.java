@@ -291,10 +291,8 @@ public abstract class AbstractTestBlock
                 assertEquals(block.getInt(position), expectedSliceValue.getInt(0));
             }
 
-            if (isLongAccessSupported()) {
-                for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_LONG; offset++) {
-                    assertEquals(block.getLong(position, offset), expectedSliceValue.getLong(offset));
-                }
+            if (isIntAccessSupported() && expectedSliceValue.length() >= SIZE_OF_LONG) {
+                assertEquals(block.getLong(position), expectedSliceValue.getLong(0));
             }
 
             if (isAlignedLongAccessSupported()) {

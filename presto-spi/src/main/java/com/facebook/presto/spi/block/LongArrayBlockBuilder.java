@@ -181,12 +181,9 @@ public class LongArrayBlockBuilder
     }
 
     @Override
-    public long getLong(int position, int offset)
+    public long getLong(int position)
     {
         checkReadablePosition(position);
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
         return values[position];
     }
 

@@ -63,6 +63,13 @@ public abstract class AbstractSingleArrayBlock
     }
 
     @Override
+    public long getLong(int position)
+    {
+        checkReadablePosition(position);
+        return getBlock().getLong(position + start);
+    }
+
+    @Override
     public long getLong(int position, int offset)
     {
         checkReadablePosition(position);

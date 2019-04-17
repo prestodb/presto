@@ -447,7 +447,7 @@ public final class Statistics
     private static OptionalLong getTimestampValue(DateTimeZone timeZone, Block block)
     {
         // TODO #7122
-        return block.isNull(0) ? OptionalLong.empty() : OptionalLong.of(MILLISECONDS.toSeconds(timeZone.convertUTCToLocal(block.getLong(0, 0))));
+        return block.isNull(0) ? OptionalLong.empty() : OptionalLong.of(MILLISECONDS.toSeconds(timeZone.convertUTCToLocal(block.getLong(0))));
     }
 
     private static Optional<BigDecimal> getDecimalValue(ConnectorSession session, Type type, Block block)

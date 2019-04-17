@@ -123,6 +123,12 @@ public class DictionaryBlock
     }
 
     @Override
+    public long getLong(int position)
+    {
+        return dictionary.getLong(getId(position));
+    }
+
+    @Override
     public long getLong(int position, int offset)
     {
         return dictionary.getLong(getId(position), offset);

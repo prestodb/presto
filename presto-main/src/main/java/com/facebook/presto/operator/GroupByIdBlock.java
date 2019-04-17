@@ -98,6 +98,12 @@ public class GroupByIdBlock
     }
 
     @Override
+    public long getLong(int position)
+    {
+        return block.getLong(position);
+    }
+
+    @Override
     public long getLong(int position, int offset)
     {
         return block.getLong(position, offset);

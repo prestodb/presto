@@ -61,7 +61,7 @@ public class TestMergeHashSort
         Page actualPage = mergedPage.getResult();
         assertEquals(actualPage.getPositionCount(), 1);
         assertEquals(actualPage.getChannelCount(), 1);
-        assertEquals(actualPage.getBlock(0).getLong(0, 0), 42);
+        assertEquals(actualPage.getBlock(0).getLong(0), 42);
 
         assertFinishes(mergedPage);
     }
@@ -84,7 +84,7 @@ public class TestMergeHashSort
         Page actualPage = mergedPage.getResult();
         assertEquals(actualPage.getPositionCount(), 1);
         assertEquals(actualPage.getChannelCount(), 1);
-        assertEquals(actualPage.getBlock(0).getLong(0, 0), 42);
+        assertEquals(actualPage.getBlock(0).getLong(0), 42);
 
         assertFinishes(mergedPage);
     }
@@ -110,10 +110,10 @@ public class TestMergeHashSort
         assertTrue(mergedPages.process());
         Page resultPage = mergedPages.getResult();
         assertEquals(resultPage.getPositionCount(), 4);
-        assertEquals(resultPage.getBlock(0).getLong(0, 0), 42);
-        assertEquals(resultPage.getBlock(0).getLong(1, 0), 42);
-        assertEquals(resultPage.getBlock(0).getLong(2, 0), 52);
-        assertEquals(resultPage.getBlock(0).getLong(3, 0), 60);
+        assertEquals(resultPage.getBlock(0).getLong(0), 42);
+        assertEquals(resultPage.getBlock(0).getLong(1), 42);
+        assertEquals(resultPage.getBlock(0).getLong(2), 52);
+        assertEquals(resultPage.getBlock(0).getLong(3), 60);
 
         assertFinishes(mergedPages);
     }
