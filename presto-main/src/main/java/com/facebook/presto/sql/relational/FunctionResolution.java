@@ -106,7 +106,6 @@ public final class FunctionResolution
         return functionManager.lookupFunction(BETWEEN.getFunctionName(), fromTypes(valueType, lowerBoundType, upperBoundType));
     }
 
-    @Override
     public boolean isBetweenFunction(FunctionHandle functionHandle)
     {
         return functionManager.getFunctionMetadata(functionHandle).getOperatorType().equals(Optional.of(BETWEEN));
