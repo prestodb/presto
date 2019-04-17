@@ -120,7 +120,7 @@ public class ExchangeNode
                 "local exchanges do not support constant partition function arguments");
 
         checkArgument(!scope.isRemote() || type == REPARTITION || !partitioningScheme.isReplicateNullsAndAny(), "Only REPARTITION can replicate remotely");
-        checkArgument(scope != REMOTE_MATERIALIZED || type != REPARTITION, "Only REPARTITION can be REMOTE_MATERIALIZED: %s", type);
+        checkArgument(scope != REMOTE_MATERIALIZED || type == REPARTITION, "Only REPARTITION can be REMOTE_MATERIALIZED: %s", type);
 
         orderingScheme.ifPresent(ordering -> {
             PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
