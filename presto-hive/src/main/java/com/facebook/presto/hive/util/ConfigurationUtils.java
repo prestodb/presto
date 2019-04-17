@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.util;
 
+import com.facebook.presto.hadoop.FileSystemFactory;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile;
@@ -23,6 +24,7 @@ import parquet.hadoop.ParquetOutputFormat;
 import java.util.Map;
 
 import static com.facebook.hive.orc.OrcConf.ConfVars.HIVE_ORC_COMPRESSION;
+import static com.google.common.base.Preconditions.checkArgument;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.HIVE_ORC_DEFAULT_COMPRESS;
 import static org.apache.hadoop.io.SequenceFile.CompressionType.BLOCK;
@@ -73,8 +75,19 @@ public final class ConfigurationUtils
 
     public static JobConf configureCompression(Configuration config, HiveCompressionCodec compression)
     {
-        JobConf result = new JobConf(false);
-        copy(config, result);
+        JobConf result;
+        // FileSystemFactory is used to hack around the abuse of Configuration as a
+        // cache for FileSystem. See FileSystemFactory class for more details.
+        //
+        // It is caller's responsibility to create a copy if FileSystemFactory is used.
+        if (config instanceof FileSystemFactory) {
+            checkArgument(config instanceof JobConf, "config is not an instance of JobConf: %s", config.getClass());
+            result = (JobConf) config;
+        }
+        else {
+            result = new JobConf(false);
+            copy(config, result);
+        }
         setCompressionProperties(result, compression);
         return result;
     }
