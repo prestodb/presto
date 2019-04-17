@@ -15,23 +15,27 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
-import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
-import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
+import static com.facebook.presto.hive.HiveQueryRunner.createMaterializingQueryRunner;
+import static com.facebook.presto.hive.TestHiveIntegrationSmokeTest.assertRemoteMaterializedExchangesCount;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
 import static org.testng.Assert.assertEquals;
 
-public class TestHiveDistributedQueriesHivePartitioning
+public class TestHiveDistributedQueriesWithExchangeMaterialization
         extends AbstractTestDistributedQueries
 {
-    public TestHiveDistributedQueriesHivePartitioning()
+    public TestHiveDistributedQueriesWithExchangeMaterialization()
     {
-        super(() -> createQueryRunner(getTables(), ImmutableMap.of("query.partitioning-provider-catalog", "hive"), Optional.empty()));
+        super(() -> createMaterializingQueryRunner(getTables()));
+    }
+
+    @Test
+    public void testMaterializedExchangesEnabled()
+    {
+        assertQuery(getSession(), "SELECT orderkey, COUNT(*) lines FROM lineitem GROUP BY orderkey", assertRemoteMaterializedExchangesCount(1));
     }
 
     @Override
@@ -86,6 +90,102 @@ public class TestHiveDistributedQueriesHivePartitioning
     public void testValues()
     {
         // decimal type is not supported by the Hive hash code function
+    }
+
+    @Override
+    public void testAntiJoinNullHandling()
+    {
+        // Unsupported Hive type: unknown
+    }
+
+    @Override
+    public void testApproxSetBigintGroupBy()
+    {
+        // Unsupported Hive type: HyperLogLog
+    }
+
+    @Override
+    public void testApproxSetVarcharGroupBy()
+    {
+        // Unsupported Hive type: HyperLogLog
+    }
+
+    @Override
+    public void testApproxSetDoubleGroupBy()
+    {
+        // Unsupported Hive type: HyperLogLog
+    }
+
+    @Override
+    public void testApproxSetGroupByWithOnlyNullsInOneGroup()
+    {
+        // Unsupported Hive type: HyperLogLog
+    }
+
+    @Override
+    public void testApproxSetGroupByWithNulls()
+    {
+        // Unsupported Hive type: HyperLogLog
+    }
+
+    @Override
+    public void testMergeHyperLogLogGroupBy()
+    {
+        // Unsupported Hive type: HyperLogLog
+    }
+
+    @Override
+    public void testMergeHyperLogLogGroupByWithNulls()
+    {
+        // Unsupported Hive type: HyperLogLog
+    }
+
+    @Override
+    public void testP4ApproxSetBigintGroupBy()
+    {
+        // Unsupported Hive type: HyperLogLog
+    }
+
+    @Override
+    public void testP4ApproxSetVarcharGroupBy()
+    {
+        // Unsupported Hive type: HyperLogLog
+    }
+
+    @Override
+    public void testP4ApproxSetDoubleGroupBy()
+    {
+        // Unsupported Hive type: HyperLogLog
+    }
+
+    @Override
+    public void testP4ApproxSetGroupByWithOnlyNullsInOneGroup()
+    {
+        // Unsupported Hive type: HyperLogLog
+    }
+
+    @Override
+    public void testP4ApproxSetGroupByWithNulls()
+    {
+        // Unsupported Hive type: HyperLogLog
+    }
+
+    @Override
+    public void testHaving3()
+    {
+        // Anonymous row type is not supported in Hive
+    }
+
+    @Override
+    public void testJoinCoercionOnEqualityComparison()
+    {
+        // Anonymous row type is not supported in Hive
+    }
+
+    @Override
+    public void testCorrelatedScalarSubqueriesWithScalarAggregation()
+    {
+        // Anonymous row type is not supported in Hive
     }
 
     @Test
