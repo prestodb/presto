@@ -14,7 +14,6 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.reader.StreamReader;
-import com.facebook.presto.spi.AriaFlags;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageSourceOptions.FilterFunction;
 import com.facebook.presto.spi.block.Block;
@@ -48,9 +47,9 @@ public class ColumnGroupReader
     private QualifyingSet inputQualifyingSet;
     private QualifyingSet outputQualifyingSet;
 
-    private final int ariaFlags;
-
     private boolean reorderFilters;
+    private final boolean enforceMemoryBudget;
+
     private Block[] reusedPageBlocks;
 
     private int maxOutputChannel = -1;
@@ -77,10 +76,10 @@ public class ColumnGroupReader
             Map<Integer, Filter> filters,
             FilterFunction[] filterFunctions,
             boolean reorderFilters,
-            int ariaFlags)
+            boolean enforceMemoryBudget)
     {
         this.reorderFilters = reorderFilters;
-        this.ariaFlags = ariaFlags;
+        this.enforceMemoryBudget = enforceMemoryBudget;
         this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
         channelToStreamReader = new HashMap();
         for (int i = 0; i < channelColumns.length; i++) {
@@ -287,7 +286,7 @@ public class ColumnGroupReader
     // streams at firstStreamIdx and to the right of at.
     private void makeResultBudget(int numRows)
     {
-        if (targetResultBytes == UNLIMITED_BUDGET || (ariaFlags & AriaFlags.noReaderBudget) != 0) {
+        if (targetResultBytes == UNLIMITED_BUDGET || !enforceMemoryBudget) {
             for (int i = 0; i < sortedStreamReaders.length; i++) {
                 StreamReader reader = sortedStreamReaders[i];
                 if (reader.getChannel() != -1) {

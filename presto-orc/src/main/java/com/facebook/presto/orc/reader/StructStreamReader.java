@@ -341,7 +341,7 @@ public class StructStreamReader
                                        filters,
                                        new FilterFunction[0],
                                        true,
-                                       0);
+                                       true);
     }
 
     @Override
