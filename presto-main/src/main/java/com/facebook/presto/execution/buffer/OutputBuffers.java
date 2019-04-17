@@ -26,6 +26,7 @@ import java.util.Objects;
 
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.BROADCAST;
+import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.DISCARDING;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
@@ -38,6 +39,7 @@ import static java.util.Objects.requireNonNull;
 public final class OutputBuffers
 {
     public static final int BROADCAST_PARTITION_ID = 0;
+    private static final OutputBuffers DISCARDING_OUTPUT_BUFFERS = createInitialEmptyOutputBuffers(DISCARDING).withNoMoreBufferIds();
 
     public static OutputBuffers createInitialEmptyOutputBuffers(BufferType type)
     {
@@ -59,11 +61,17 @@ public final class OutputBuffers
         return new OutputBuffers(type, 0, false, ImmutableMap.of());
     }
 
+    public static OutputBuffers createDiscardingOutputBuffers()
+    {
+        return DISCARDING_OUTPUT_BUFFERS;
+    }
+
     public enum BufferType
     {
         PARTITIONED,
         BROADCAST,
         ARBITRARY,
+        DISCARDING,
     }
 
     private final BufferType type;
