@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
@@ -37,6 +38,11 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
+import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATION_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION_FOR_AGGREGATION;
+import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
+import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
@@ -60,6 +66,7 @@ public final class HiveQueryRunner
     public static final String HIVE_BUCKETED_CATALOG = "hive_bucketed";
     public static final String TPCH_SCHEMA = "tpch";
     private static final String TPCH_BUCKETED_SCHEMA = "tpch_bucketed";
+    private static final String TEMPORARY_TABLE_SCHEMA = "__temporary_tables__";
     private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
     public static DistributedQueryRunner createQueryRunner(TpchTable<?>... tables)
@@ -112,6 +119,7 @@ public final class HiveQueryRunner
                     .put("hive.max-partitions-per-scan", "1000")
                     .put("hive.assume-canonical-partition-keys", "true")
                     .put("hive.collect-column-statistics-on-write", "true")
+                    .put("hive.temporary-table-schema", TEMPORARY_TABLE_SCHEMA)
                     .build();
             Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
                     .putAll(hiveProperties)
@@ -133,12 +141,30 @@ public final class HiveQueryRunner
                 copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, createBucketedSession(Optional.empty()), tables);
             }
 
+            if (!metastore.getDatabase(TEMPORARY_TABLE_SCHEMA).isPresent()) {
+                metastore.createDatabase(createDatabaseMetastoreObject(TEMPORARY_TABLE_SCHEMA));
+            }
+
             return queryRunner;
         }
         catch (Exception e) {
             queryRunner.close();
             throw e;
         }
+    }
+
+    public static DistributedQueryRunner createMaterializingQueryRunner(Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        return createQueryRunner(
+                tables,
+                ImmutableMap.of(
+                        "query.partitioning-provider-catalog", "hive",
+                        "query.exchange-materialization-strategy", "ALL",
+                        "query.hash-partition-count", "11",
+                        "colocated-joins-enabled", "true",
+                        "grouped-execution-for-aggregation-enabled", "true"),
+                Optional.empty());
     }
 
     private static void setupLogging()
@@ -181,6 +207,24 @@ public final class HiveQueryRunner
                 .setCatalog(HIVE_CATALOG)
                 .setCatalog(HIVE_BUCKETED_CATALOG)
                 .setSchema(TPCH_BUCKETED_SCHEMA)
+                .build();
+    }
+
+    public static Session createMaterializeExchangesSession(Optional<SelectedRole> role)
+    {
+        return testSessionBuilder()
+                .setIdentity(new Identity(
+                        "hive",
+                        Optional.empty(),
+                        role.map(selectedRole -> ImmutableMap.of("hive", selectedRole))
+                                .orElse(ImmutableMap.of())))
+                .setSystemProperty(PARTITIONING_PROVIDER_CATALOG, HIVE_CATALOG)
+                .setSystemProperty(EXCHANGE_MATERIALIZATION_STRATEGY, ExchangeMaterializationStrategy.ALL.toString())
+                .setSystemProperty(HASH_PARTITION_COUNT, "13")
+                .setSystemProperty(COLOCATED_JOIN, "true")
+                .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                .setCatalog(HIVE_CATALOG)
+                .setSchema(TPCH_SCHEMA)
                 .build();
     }
 
