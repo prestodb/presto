@@ -30,6 +30,8 @@ import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
+import static com.facebook.presto.hive.HiveCompressionCodec.SNAPPY;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.TestHiveUtil.nonDefaultTimeZone;
@@ -125,6 +127,7 @@ public class TestHiveClientConfig
                 .setWritingStagingFilesEnabled(false)
                 .setTemporaryTableSchema("default")
                 .setTemporaryTableStorageFormat(ORC)
+                .setTemporaryTableCompressionCodec(SNAPPY)
                 .setUseRewindableSplitSource(false));
     }
 
@@ -216,6 +219,7 @@ public class TestHiveClientConfig
                 .put("hive.writing-staging-files-enabled", "true")
                 .put("hive.temporary-table-schema", "other")
                 .put("hive.temporary-table-storage-format", "DWRF")
+                .put("hive.temporary-table-compression-codec", "NONE")
                 .put("hive.use-rewindable-split-source", "true")
                 .build();
 
@@ -305,6 +309,7 @@ public class TestHiveClientConfig
                 .setWritingStagingFilesEnabled(true)
                 .setTemporaryTableSchema("other")
                 .setTemporaryTableStorageFormat(DWRF)
+                .setTemporaryTableCompressionCodec(NONE)
                 .setUseRewindableSplitSource(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);

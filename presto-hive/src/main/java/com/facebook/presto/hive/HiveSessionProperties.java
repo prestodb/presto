@@ -83,6 +83,7 @@ public final class HiveSessionProperties
     public static final String WRITING_STAGING_FILES_ENABLED = "writing_staging_files_enabled";
     private static final String TEMPORARY_TABLE_SCHEMA = "temporary_table_schema";
     private static final String TEMPORARY_TABLE_STORAGE_FORMAT = "temporary_table_storage_format";
+    private static final String TEMPORARY_TABLE_COMPRESSION_CODEC = "temporary_table_compression_codec";
     public static final String USE_REWINDABLE_SPLIT_SOURCE = "use_rewindable_split_source";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -348,6 +349,15 @@ public final class HiveSessionProperties
                         false,
                         value -> HiveStorageFormat.valueOf(((String) value).toUpperCase()),
                         HiveStorageFormat::name),
+                new PropertyMetadata<>(
+                        TEMPORARY_TABLE_COMPRESSION_CODEC,
+                        "Compression codec used to store data in temporary tables",
+                        VARCHAR,
+                        HiveCompressionCodec.class,
+                        hiveClientConfig.getTemporaryTableCompressionCodec(),
+                        false,
+                        value -> HiveCompressionCodec.valueOf(((String) value).toUpperCase()),
+                        HiveCompressionCodec::name),
                 booleanProperty(
                         USE_REWINDABLE_SPLIT_SOURCE,
                         "Use rewindable hive split source",
@@ -584,6 +594,11 @@ public final class HiveSessionProperties
     public static HiveStorageFormat getTemporaryTableStorageFormat(ConnectorSession session)
     {
         return session.getProperty(TEMPORARY_TABLE_STORAGE_FORMAT, HiveStorageFormat.class);
+    }
+
+    public static HiveCompressionCodec getTemporaryTableCompressionCodec(ConnectorSession session)
+    {
+        return session.getProperty(TEMPORARY_TABLE_COMPRESSION_CODEC, HiveCompressionCodec.class);
     }
 
     public static boolean isUseRewindableSplitSource(ConnectorSession session)
