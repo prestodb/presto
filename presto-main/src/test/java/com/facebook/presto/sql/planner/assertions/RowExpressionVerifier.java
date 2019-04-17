@@ -48,6 +48,7 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
@@ -403,6 +404,18 @@ final class RowExpressionVerifier
             return false;
         }
         return symbolAliases.get((expected).getName()).getName().equals(((VariableReferenceExpression) actual).getName());
+    }
+
+    @Override
+    protected Boolean visitSubscriptExpression(SubscriptExpression expression, RowExpression actual)
+    {
+        if (!(actual instanceof CallExpression) || !functionResolution.isSubscriptFunction(((CallExpression) actual).getFunctionHandle())) {
+            return false;
+        }
+
+        CallExpression callExpression = (CallExpression) actual;
+        return process(expression.getBase(), callExpression.getArguments().get(0)) &&
+                process(expression.getIndex(), callExpression.getArguments().get(1));
     }
 
     @Override
