@@ -36,24 +36,24 @@ public abstract class AbstractVariableWidthBlock
     }
 
     @Override
-    public byte getByte(int position, int offset)
+    public byte getByte(int position)
     {
         checkReadablePosition(position);
-        return getRawSlice(position).getByte(getPositionOffset(position) + offset);
+        return getRawSlice(position).getByte(getPositionOffset(position));
     }
 
     @Override
-    public short getShort(int position, int offset)
+    public short getShort(int position)
     {
         checkReadablePosition(position);
-        return getRawSlice(position).getShort(getPositionOffset(position) + offset);
+        return getRawSlice(position).getShort(getPositionOffset(position));
     }
 
     @Override
-    public int getInt(int position, int offset)
+    public int getInt(int position)
     {
         checkReadablePosition(position);
-        return getRawSlice(position).getInt(getPositionOffset(position) + offset);
+        return getRawSlice(position).getInt(getPositionOffset(position));
     }
 
     @Override

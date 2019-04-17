@@ -49,38 +49,38 @@ public abstract class AbstractSingleMapBlock
     }
 
     @Override
-    public byte getByte(int position, int offset)
+    public byte getByte(int position)
     {
         position = getAbsolutePosition(position);
         if (position % 2 == 0) {
-            return getRawKeyBlock().getByte(position / 2, offset);
+            return getRawKeyBlock().getByte(position / 2);
         }
         else {
-            return getRawValueBlock().getByte(position / 2, offset);
+            return getRawValueBlock().getByte(position / 2);
         }
     }
 
     @Override
-    public short getShort(int position, int offset)
+    public short getShort(int position)
     {
         position = getAbsolutePosition(position);
         if (position % 2 == 0) {
-            return getRawKeyBlock().getShort(position / 2, offset);
+            return getRawKeyBlock().getShort(position / 2);
         }
         else {
-            return getRawValueBlock().getShort(position / 2, offset);
+            return getRawValueBlock().getShort(position / 2);
         }
     }
 
     @Override
-    public int getInt(int position, int offset)
+    public int getInt(int position)
     {
         position = getAbsolutePosition(position);
         if (position % 2 == 0) {
-            return getRawKeyBlock().getInt(position / 2, offset);
+            return getRawKeyBlock().getInt(position / 2);
         }
         else {
-            return getRawValueBlock().getInt(position / 2, offset);
+            return getRawValueBlock().getInt(position / 2);
         }
     }
 
