@@ -121,8 +121,6 @@ public final class SystemSessionProperties
     public static final String PUSHDOWN_SUBFIELDS = "pushdown_subfields";
     public static final String ARIA_SCAN = "aria_scan";
     public static final String ARIA_REUSE_PAGES = "aria_reuse_pages";
-    public static final String ARIA_REORDER = "aria_reorder";
-    public static final String ARIA_FLAGS = "aria_flags";
     public static final String IGNORE_STATS_CALCULATOR_FAILURES = "ignore_stats_calculator_failures";
     public static final String PRINT_STATS_FOR_NON_JOIN_QUERY = "print_stats_for_non_join_query";
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
@@ -585,14 +583,6 @@ public final class SystemSessionProperties
                         "Enable Aria Presto! reuse of Pages",
                         true,
                         false),
-                booleanProperty(ARIA_REORDER,
-                                "Enable Aria Presto! reorder of filters",
-                                true,
-                                false),
-                integerProperty(ARIA_FLAGS,
-                                "Enable various Aria Presto! experiments",
-                                0,
-                                false),
                 new PropertyMetadata<>(
                         MAX_DRIVERS_PER_TASK,
                         "Maximum number of drivers per task",
@@ -1027,16 +1017,6 @@ public final class SystemSessionProperties
     public static boolean enableAriaReusePages(Session session)
     {
         return session.getSystemProperty(ARIA_REUSE_PAGES, Boolean.class);
-    }
-
-    public static boolean ariaReorderFilters(Session session)
-    {
-        return session.getSystemProperty(ARIA_REORDER, Boolean.class);
-    }
-
-    public static int ariaFlags(Session session)
-    {
-        return session.getSystemProperty(ARIA_FLAGS, Integer.class);
     }
 
     public static boolean isIgnoreStatsCalculatorFailures(Session session)
