@@ -59,6 +59,7 @@ import io.airlift.log.Logger;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
@@ -122,10 +123,12 @@ public class SplitSourceFactory
         public Map<PlanNodeId, SplitSource> visitTableScan(TableScanNode node, Void context)
         {
             // get dataSource for table
-            SplitSource splitSource = splitSourceProvider.getSplits(
+            Supplier<SplitSource> splitSourceSupplier = () -> splitSourceProvider.getSplits(
                     session,
                     node.getLayout().get(),
                     stageExecutionDescriptor.isScanGroupedExecution(node.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING);
+
+            SplitSource splitSource = node.isTemporaryTable() ? new LazySplitSource(splitSourceSupplier) : splitSourceSupplier.get();
 
             splitSources.add(splitSource);
 
