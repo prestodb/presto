@@ -301,7 +301,7 @@ public class ExpressionCompiler
         for (List<RowExpression> conjuncts : inputsToConjuncts.values()) {
             RowExpression firstConjunct = conjuncts.get(0);
             for (int i = 1; i < conjuncts.size(); i++) {
-                firstConjunct = new CallExpression(topAnd.getFunctionHandle(), topAnd.getType(), ImmutableList.of(firstConjunct, conjuncts.get(i)));
+                firstConjunct = new CallExpression(topAnd.getDisplayName(), topAnd.getFunctionHandle(), topAnd.getType(), ImmutableList.of(firstConjunct, conjuncts.get(i)));
             }
             result.add(pageFunctionCompiler.compileFilter(firstConjunct, classNameSuffix));
         }

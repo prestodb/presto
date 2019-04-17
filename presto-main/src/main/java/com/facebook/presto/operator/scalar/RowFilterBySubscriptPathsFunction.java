@@ -58,8 +58,7 @@ public class RowFilterBySubscriptPathsFunction
         return new ScalarFunctionImplementation(
                 true,
                 ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL), valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                METHOD_HANDLE,
-                isDeterministic());
+                METHOD_HANDLE);
     }
 
     @Override

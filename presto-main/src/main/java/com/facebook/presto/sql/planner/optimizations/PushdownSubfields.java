@@ -62,6 +62,7 @@ import static com.facebook.presto.SystemSessionProperties.isPushdownSubfields;
 import static com.facebook.presto.spi.SubfieldPath.allSubscripts;
 import static com.facebook.presto.sql.planner.SubfieldUtils.deferenceOrSubscriptExpressionToPath;
 import static com.facebook.presto.sql.planner.SubfieldUtils.isDereferenceOrSubscriptExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -201,7 +202,7 @@ public class PushdownSubfields
         @Override
         public PlanNode visitFilter(FilterNode node, RewriteContext<Void> context)
         {
-            collectSubfieldPaths(node.getPredicate());
+            collectSubfieldPaths(castToExpression(node.getPredicate()));
 
             PlanNode source = context.rewrite(node.getSource(), context.get());
             return node.replaceChildren(ImmutableList.of(source));
