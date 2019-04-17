@@ -90,7 +90,7 @@ public class HiveClientConfig
     private S3FileSystemType s3FileSystemType = S3FileSystemType.PRESTO;
 
     private HiveStorageFormat hiveStorageFormat = ORC;
-    private HiveCompressionCodec hiveCompressionCodec = HiveCompressionCodec.GZIP;
+    private HiveCompressionCodec compressionCodec = HiveCompressionCodec.GZIP;
     private boolean respectTableFormat = true;
     private boolean immutablePartitions;
     private int maxPartitionsPerWriter = 100;
@@ -569,15 +569,15 @@ public class HiveClientConfig
         return this;
     }
 
-    public HiveCompressionCodec getHiveCompressionCodec()
+    public HiveCompressionCodec getCompressionCodec()
     {
-        return hiveCompressionCodec;
+        return compressionCodec;
     }
 
     @Config("hive.compression-codec")
-    public HiveClientConfig setHiveCompressionCodec(HiveCompressionCodec hiveCompressionCodec)
+    public HiveClientConfig setCompressionCodec(HiveCompressionCodec compressionCodec)
     {
-        this.hiveCompressionCodec = hiveCompressionCodec;
+        this.compressionCodec = compressionCodec;
         return this;
     }
 
