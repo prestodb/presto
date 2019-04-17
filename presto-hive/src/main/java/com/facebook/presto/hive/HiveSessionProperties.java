@@ -235,7 +235,7 @@ public final class HiveSessionProperties
                         "The compression codec to use when writing files",
                         VARCHAR,
                         HiveCompressionCodec.class,
-                        hiveClientConfig.getHiveCompressionCodec(),
+                        hiveClientConfig.getCompressionCodec(),
                         false,
                         value -> HiveCompressionCodec.valueOf(((String) value).toUpperCase()),
                         HiveCompressionCodec::name),

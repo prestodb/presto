@@ -104,7 +104,7 @@ public class TestHivePageSink
             ExtendedHiveMetastore metastore = createTestingFileHiveMetastore(new File(tempDir, "metastore"));
             for (HiveStorageFormat format : HiveStorageFormat.values()) {
                 config.setHiveStorageFormat(format);
-                config.setHiveCompressionCodec(NONE);
+                config.setCompressionCodec(NONE);
                 long uncompressedLength = writeTestFile(config, metastore, makeFileName(tempDir, config));
                 assertGreaterThan(uncompressedLength, 0L);
 
@@ -112,7 +112,7 @@ public class TestHivePageSink
                     if (codec == NONE) {
                         continue;
                     }
-                    config.setHiveCompressionCodec(codec);
+                    config.setCompressionCodec(codec);
                     long length = writeTestFile(config, metastore, makeFileName(tempDir, config));
                     assertTrue(uncompressedLength > length, format("%s with %s compressed to %s which is not less than %s", format, codec, length, uncompressedLength));
                 }
@@ -125,7 +125,7 @@ public class TestHivePageSink
 
     private static String makeFileName(File tempDir, HiveClientConfig config)
     {
-        return tempDir.getAbsolutePath() + "/" + config.getHiveStorageFormat().name() + "." + config.getHiveCompressionCodec().name();
+        return tempDir.getAbsolutePath() + "/" + config.getHiveStorageFormat().name() + "." + config.getCompressionCodec().name();
     }
 
     private static long writeTestFile(HiveClientConfig config, ExtendedHiveMetastore metastore, String outputPath)
@@ -248,7 +248,7 @@ public class TestHivePageSink
                 locationHandle,
                 config.getHiveStorageFormat(),
                 config.getHiveStorageFormat(),
-                config.getHiveCompressionCodec(),
+                config.getCompressionCodec(),
                 ImmutableList.of(),
                 Optional.empty(),
                 "test",
