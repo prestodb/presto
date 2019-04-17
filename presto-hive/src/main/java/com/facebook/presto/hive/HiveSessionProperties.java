@@ -61,6 +61,7 @@ public final class HiveSessionProperties
     private static final String ORC_OPTIMIZED_WRITER_MAX_STRIPE_ROWS = "orc_optimized_writer_max_stripe_rows";
     private static final String ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY = "orc_optimized_writer_max_dictionary_memory";
     private static final String HIVE_STORAGE_FORMAT = "hive_storage_format";
+    private static final String COMPRESSION_CODEC = "compression_codec";
     private static final String RESPECT_TABLE_FORMAT = "respect_table_format";
     private static final String PARQUET_USE_COLUMN_NAME = "parquet_use_column_names";
     private static final String PARQUET_FAIL_WITH_CORRUPTED_STATISTICS = "parquet_fail_with_corrupted_statistics";
@@ -229,6 +230,15 @@ public final class HiveSessionProperties
                         "Default storage format for new tables or partitions",
                         hiveClientConfig.getHiveStorageFormat().toString(),
                         false),
+                new PropertyMetadata<>(
+                        COMPRESSION_CODEC,
+                        "The compression codec to use when writing files",
+                        VARCHAR,
+                        HiveCompressionCodec.class,
+                        hiveClientConfig.getHiveCompressionCodec(),
+                        false,
+                        value -> HiveCompressionCodec.valueOf(((String) value).toUpperCase()),
+                        HiveCompressionCodec::name),
                 booleanProperty(
                         RESPECT_TABLE_FORMAT,
                         "Write new partitions using table format rather than default storage format",
@@ -460,6 +470,11 @@ public final class HiveSessionProperties
     public static HiveStorageFormat getHiveStorageFormat(ConnectorSession session)
     {
         return HiveStorageFormat.valueOf(session.getProperty(HIVE_STORAGE_FORMAT, String.class).toUpperCase(ENGLISH));
+    }
+
+    public static HiveCompressionCodec getCompressionCodec(ConnectorSession session)
+    {
+        return session.getProperty(COMPRESSION_CODEC, HiveCompressionCodec.class);
     }
 
     public static boolean isRespectTableFormat(ConnectorSession session)

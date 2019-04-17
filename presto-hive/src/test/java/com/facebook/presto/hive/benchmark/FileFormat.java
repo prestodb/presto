@@ -63,11 +63,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HdfsConfigurationUpdater.configureCompression;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static com.facebook.presto.hive.util.ConfigurationUtils.configureCompression;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
@@ -418,8 +418,7 @@ public enum FileFormat
                 HiveStorageFormat format,
                 ConnectorSession session)
         {
-            JobConf config = new JobConf(conf);
-            configureCompression(config, compressionCodec);
+            JobConf config = configureCompression(conf, compressionCodec);
 
             recordWriter = new RecordFileWriter(
                     new Path(targetFile.toURI()),

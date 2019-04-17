@@ -20,19 +20,15 @@ import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.orc.OrcFile.OrcTableProperties;
 import org.apache.hadoop.mapreduce.lib.input.LineRecordReader;
-import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.net.DNSToSwitchMapping;
 import org.apache.hadoop.net.SocksSocketFactory;
-import parquet.hadoop.ParquetOutputFormat;
 
 import javax.inject.Inject;
 import javax.net.SocketFactory;
 
 import java.util.List;
 
-import static com.facebook.hive.orc.OrcConf.ConfVars.HIVE_ORC_COMPRESSION;
 import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;
@@ -47,9 +43,6 @@ import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.NET_TOPOLOGY_NO
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CLIENT_READ_SHORTCIRCUIT_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CLIENT_SOCKET_TIMEOUT_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DOMAIN_SOCKET_PATH_KEY;
-import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
-import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.HIVE_ORC_DEFAULT_COMPRESS;
-import static org.apache.hadoop.io.SequenceFile.CompressionType.BLOCK;
 
 public class HdfsConfigurationUpdater
 {
@@ -60,7 +53,6 @@ public class HdfsConfigurationUpdater
     private final int dfsConnectMaxRetries;
     private final String domainSocketPath;
     private final Configuration resourcesConfiguration;
-    private final HiveCompressionCodec compressionCodec;
     private final int fileSystemMaxCacheSize;
     private final S3ConfigurationUpdater s3ConfigurationUpdater;
     private final boolean isHdfsWireEncryptionEnabled;
@@ -86,7 +78,6 @@ public class HdfsConfigurationUpdater
         this.dfsConnectMaxRetries = config.getDfsConnectMaxRetries();
         this.domainSocketPath = config.getDomainSocketPath();
         this.resourcesConfiguration = readConfiguration(config.getResourceConfigFiles());
-        this.compressionCodec = config.getHiveCompressionCodec();
         this.fileSystemMaxCacheSize = config.getFileSystemMaxCacheSize();
         this.isHdfsWireEncryptionEnabled = config.isHdfsWireEncryptionEnabled();
         this.textMaxLineLength = toIntExact(config.getTextMaxLineLength().toBytes());
@@ -142,35 +133,7 @@ public class HdfsConfigurationUpdater
 
         config.setInt(LineRecordReader.MAX_LINE_LENGTH, textMaxLineLength);
 
-        configureCompression(config, compressionCodec);
-
         s3ConfigurationUpdater.updateConfiguration(config);
-    }
-
-    public static void configureCompression(Configuration config, HiveCompressionCodec compressionCodec)
-    {
-        boolean compression = compressionCodec != HiveCompressionCodec.NONE;
-        config.setBoolean(COMPRESSRESULT.varname, compression);
-        config.setBoolean("mapred.output.compress", compression);
-        config.setBoolean(FileOutputFormat.COMPRESS, compression);
-        // For DWRF
-        config.set(HIVE_ORC_DEFAULT_COMPRESS.varname, compressionCodec.getOrcCompressionKind().name());
-        config.set(HIVE_ORC_COMPRESSION.varname, compressionCodec.getOrcCompressionKind().name());
-        // For ORC
-        config.set(OrcTableProperties.COMPRESSION.getPropName(), compressionCodec.getOrcCompressionKind().name());
-        // For RCFile and Text
-        if (compressionCodec.getCodec().isPresent()) {
-            config.set("mapred.output.compression.codec", compressionCodec.getCodec().get().getName());
-            config.set(FileOutputFormat.COMPRESS_CODEC, compressionCodec.getCodec().get().getName());
-        }
-        else {
-            config.unset("mapred.output.compression.codec");
-            config.unset(FileOutputFormat.COMPRESS_CODEC);
-        }
-        // For Parquet
-        config.set(ParquetOutputFormat.COMPRESSION, compressionCodec.getParquetCompressionCodec().name());
-        // For SequenceFile
-        config.set(FileOutputFormat.COMPRESS_TYPE, BLOCK.toString());
     }
 
     public static class NoOpDNSToSwitchMapping

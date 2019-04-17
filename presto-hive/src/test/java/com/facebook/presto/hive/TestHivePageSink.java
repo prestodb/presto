@@ -248,6 +248,7 @@ public class TestHivePageSink
                 locationHandle,
                 config.getHiveStorageFormat(),
                 config.getHiveStorageFormat(),
+                config.getHiveCompressionCodec(),
                 ImmutableList.of(),
                 Optional.empty(),
                 "test",

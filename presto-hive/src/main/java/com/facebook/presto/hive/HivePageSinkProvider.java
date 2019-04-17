@@ -140,6 +140,7 @@ public class HivePageSinkProvider
                 handle.getInputColumns(),
                 handle.getTableStorageFormat(),
                 handle.getPartitionStorageFormat(),
+                handle.getCompressionCodec(),
                 bucketCount,
                 sortedBy,
                 handle.getLocationHandle(),

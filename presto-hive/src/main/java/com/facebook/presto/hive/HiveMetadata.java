@@ -137,6 +137,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HivePartitionManager.extractPartitionValues;
+import static com.facebook.presto.hive.HiveSessionProperties.getCompressionCodec;
 import static com.facebook.presto.hive.HiveSessionProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveSessionProperties.getTemporaryTableSchema;
 import static com.facebook.presto.hive.HiveSessionProperties.getTemporaryTableStorageFormat;
@@ -192,7 +193,7 @@ import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORM
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledPrincipals;
 import static com.facebook.presto.hive.security.SqlStandardAccessControl.ADMIN_ROLE_NAME;
-import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
+import static com.facebook.presto.hive.util.ConfigurationUtils.configureCompression;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.ADD;
 import static com.facebook.presto.hive.util.Statistics.createComputedStatisticsToPartitionMap;
 import static com.facebook.presto.hive.util.Statistics.createEmptyPartitionStatistics;
@@ -1121,6 +1122,7 @@ public class HiveMetadata
                 locationHandle,
                 tableStorageFormat,
                 partitionStorageFormat,
+                getCompressionCodec(session),
                 partitionedBy,
                 bucketProperty,
                 session.getUser(),
@@ -1170,7 +1172,13 @@ public class HiveMetadata
             partitionUpdates = PartitionUpdate.mergePartitionUpdates(Iterables.concat(partitionUpdates, partitionUpdatesForMissingBuckets));
             for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
                 Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session, table, partitionUpdate));
-                createEmptyFile(session, partitionUpdate.getWritePath(), table, partition, getTargetFileNames(partitionUpdate.getFileWriteInfos()));
+                createEmptyFile(
+                        session,
+                        partitionUpdate.getWritePath(),
+                        table,
+                        partition,
+                        getTargetFileNames(partitionUpdate.getFileWriteInfos()),
+                        handle.getCompressionCodec());
             }
         }
 
@@ -1237,6 +1245,7 @@ public class HiveMetadata
                     session,
                     table,
                     storageFormat,
+                    handle.getCompressionCodec(),
                     locationHandle.getTargetPath(),
                     handle.getFilePrefix(),
                     bucketCount,
@@ -1262,6 +1271,7 @@ public class HiveMetadata
                     session,
                     table,
                     storageFormat,
+                    handle.getCompressionCodec(),
                     partitionUpdate.getTargetPath(),
                     handle.getFilePrefix(),
                     bucketCount,
@@ -1285,6 +1295,7 @@ public class HiveMetadata
             ConnectorSession session,
             Table table,
             HiveStorageFormat storageFormat,
+            HiveCompressionCodec compressionCodec,
             Path targetPath,
             String filePrefix,
             int bucketCount,
@@ -1295,7 +1306,7 @@ public class HiveMetadata
             return ImmutableList.of();
         }
         HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
-        JobConf conf = toJobConf(hdfsEnvironment.getConfiguration(hdfsContext, targetPath));
+        JobConf conf = configureCompression(hdfsEnvironment.getConfiguration(hdfsContext, targetPath), compressionCodec);
         String fileExtension = HiveWriterFactory.getFileExtension(conf, fromHiveStorageFormat(storageFormat));
         ImmutableList.Builder<String> missingFileNamesBuilder = ImmutableList.builder();
         for (int i = 0; i < bucketCount; i++) {
@@ -1309,9 +1320,16 @@ public class HiveMetadata
         return missingFileNames;
     }
 
-    private void createEmptyFile(ConnectorSession session, Path path, Table table, Optional<Partition> partition, List<String> fileNames)
+    private void createEmptyFile(
+            ConnectorSession session,
+            Path path,
+            Table table,
+            Optional<Partition> partition,
+            List<String> fileNames,
+            HiveCompressionCodec compressionCodec)
     {
-        JobConf conf = toJobConf(hdfsEnvironment.getConfiguration(new HdfsContext(session, table.getDatabaseName(), table.getTableName()), path));
+        HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
+        JobConf conf = configureCompression(hdfsEnvironment.getConfiguration(hdfsContext, path), compressionCodec);
 
         Properties schema;
         StorageFormat format;
@@ -1386,7 +1404,8 @@ public class HiveMetadata
                 locationHandle,
                 table.get().getStorage().getBucketProperty(),
                 tableStorageFormat,
-                isRespectTableFormat(session) ? tableStorageFormat : HiveSessionProperties.getHiveStorageFormat(session));
+                isRespectTableFormat(session) ? tableStorageFormat : HiveSessionProperties.getHiveStorageFormat(session),
+                getCompressionCodec(session));
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
         metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), result.getFilePrefix(), tableName);
@@ -1424,7 +1443,13 @@ public class HiveMetadata
             partitionUpdates = PartitionUpdate.mergePartitionUpdates(Iterables.concat(partitionUpdates, partitionUpdatesForMissingBuckets));
             for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
                 Optional<Partition> partition = table.get().getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session, table.get(), partitionUpdate));
-                createEmptyFile(session, partitionUpdate.getWritePath(), table.get(), partition, getTargetFileNames(partitionUpdate.getFileWriteInfos()));
+                createEmptyFile(
+                        session,
+                        partitionUpdate.getWritePath(),
+                        table.get(),
+                        partition,
+                        getTargetFileNames(partitionUpdate.getFileWriteInfos()),
+                        handle.getCompressionCodec());
             }
         }
 
