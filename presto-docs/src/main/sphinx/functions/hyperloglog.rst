@@ -54,8 +54,17 @@ Functions
 
 .. function:: approx_set(x) -> HyperLogLog
 
-    Returns the ``HyperLogLog`` sketch of the input data set of ``x``. This
-    data sketch underlies :func:`approx_distinct` and can be stored and
+    Returns the ``HyperLogLog`` sketch of the input data set of ``x``.
+    The value of the maximum standard error is defaulted to ``0.01625``.
+    This data sketch underlies :func:`approx_distinct` and can be stored and
+    used later by calling ``cardinality()``.
+
+.. function:: approx_set(x, e) -> HyperLogLog
+
+    Returns the ``HyperLogLog`` sketch of the input data set of ``x``, with
+    a maximum standard error of ``e``. The current implementation of this
+    function requires that ``e`` be in the range of ``[0.0040625, 0.26000]``.
+    This data sketch underlies :func:`approx_distinct` and can be stored and
     used later by calling ``cardinality()``.
 
 .. function:: cardinality(hll) -> bigint
@@ -67,6 +76,13 @@ Functions
 .. function:: empty_approx_set() -> HyperLogLog
 
     Returns an empty ``HyperLogLog``.
+    The value of the maximum standard error is defaulted to ``0.01625``.
+
+.. function:: empty_approx_set(e) -> HyperLogLog
+
+    Returns an empty ``HyperLogLog`` with a maximum standard error of ``e``.
+    The current implementation of this function requires that ``e`` be in
+    the range of ``[0.0040625, 0.26000]``.
 
 .. function:: merge(HyperLogLog) -> HyperLogLog
 

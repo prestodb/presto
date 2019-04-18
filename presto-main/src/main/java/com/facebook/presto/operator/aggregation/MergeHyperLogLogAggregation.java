@@ -38,27 +38,13 @@ public final class MergeHyperLogLogAggregation
     public static void input(@AggregationState HyperLogLogState state, @SqlType(StandardTypes.HYPER_LOG_LOG) Slice value)
     {
         HyperLogLog input = HyperLogLog.newInstance(value);
-        merge(state, input);
+        HyperLogLogUtils.mergeState(state, input);
     }
 
     @CombineFunction
     public static void combine(@AggregationState HyperLogLogState state, @AggregationState HyperLogLogState otherState)
     {
-        merge(state, otherState.getHyperLogLog());
-    }
-
-    private static void merge(@AggregationState HyperLogLogState state, HyperLogLog input)
-    {
-        HyperLogLog previous = state.getHyperLogLog();
-        if (previous == null) {
-            state.setHyperLogLog(input);
-            state.addMemoryUsage(input.estimatedInMemorySize());
-        }
-        else {
-            state.addMemoryUsage(-previous.estimatedInMemorySize());
-            previous.mergeWith(input);
-            state.addMemoryUsage(previous.estimatedInMemorySize());
-        }
+        HyperLogLogUtils.mergeState(state, otherState.getHyperLogLog());
     }
 
     @OutputFunction(StandardTypes.HYPER_LOG_LOG)

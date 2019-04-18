@@ -19,6 +19,9 @@ import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
 
+import static com.facebook.presto.operator.aggregation.ApproximateSetAggregation.DEFAULT_STANDARD_ERROR;
+import static com.facebook.presto.operator.aggregation.HyperLogLogUtils.standardErrorToBuckets;
+
 public final class CreateHll
 {
     private CreateHll() {}
@@ -27,7 +30,16 @@ public final class CreateHll
     @SqlType(StandardTypes.HYPER_LOG_LOG)
     public static Slice createHll(@SqlType(StandardTypes.BIGINT) long value)
     {
-        HyperLogLog hll = HyperLogLog.newInstance(4096);
+        HyperLogLog hll = HyperLogLog.newInstance(standardErrorToBuckets(DEFAULT_STANDARD_ERROR));
+        hll.add(value);
+        return hll.serialize();
+    }
+
+    @ScalarFunction
+    @SqlType(StandardTypes.HYPER_LOG_LOG)
+    public static Slice createHll(@SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DOUBLE) double maxStandardError)
+    {
+        HyperLogLog hll = HyperLogLog.newInstance(standardErrorToBuckets(maxStandardError));
         hll.add(value);
         return hll.serialize();
     }
