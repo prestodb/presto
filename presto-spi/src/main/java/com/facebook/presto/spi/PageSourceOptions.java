@@ -98,8 +98,8 @@ public class PageSourceOptions
 
     public static class ErrorSet
     {
-        int positionCount;
-        private Throwable[] errors;
+        private int positionCount;
+        private RuntimeException[] errors;
 
         public boolean isEmpty()
         {
@@ -135,10 +135,10 @@ public class PageSourceOptions
             positionCount -= end;
         }
 
-        public void addError(int position, int maxPosition, Throwable error)
+        public void addError(int position, int maxPosition, RuntimeException error)
         {
             if (errors == null) {
-                errors = new Throwable[maxPosition];
+                errors = new RuntimeException[maxPosition];
             }
             else if (errors.length < maxPosition) {
                 errors = Arrays.copyOf(errors, maxPosition);
@@ -152,12 +152,12 @@ public class PageSourceOptions
             }
         }
 
-        public Throwable[] getErrors()
+        public RuntimeException[] getErrors()
         {
             return errors;
         }
 
-        public void setErrors(Throwable[] errors, int positionCount)
+        public void setErrors(RuntimeException[] errors, int positionCount)
         {
             if (positionCount > errors.length) {
                 throw new IllegalArgumentException("positionCount is larger than the errors array");
@@ -166,7 +166,7 @@ public class PageSourceOptions
             this.errors = errors;
         }
 
-        public Throwable getFirstError(int numPositions)
+        public RuntimeException getFirstError(int numPositions)
         {
             int end = Math.min(positionCount, numPositions);
             for (int i = 0; i < end; i++) {

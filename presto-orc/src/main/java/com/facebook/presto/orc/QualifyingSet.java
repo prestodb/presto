@@ -310,7 +310,7 @@ public class QualifyingSet
         }
         positionCount = numSurviving;
         if (errorSet != null && !errorSet.isEmpty()) {
-            Throwable[] errors = errorSet.getErrors();
+            RuntimeException[] errors = errorSet.getErrors();
             int numErrors = errorSet.getPositionCount();
             int lastError = -1;
             for (int i = 0; i < numSurviving; i++) {
