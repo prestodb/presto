@@ -38,7 +38,7 @@ public class MultimapAggregationStateSerializer
     {
         this.keyType = requireNonNull(keyType);
         this.valueType = requireNonNull(valueType);
-        this.arrayType = new ArrayType(RowType.anonymous(ImmutableList.of(valueType, keyType)));
+        this.arrayType = new ArrayType(RowType.withDefaultFieldNames(ImmutableList.of(valueType, keyType)));
     }
 
     @Override

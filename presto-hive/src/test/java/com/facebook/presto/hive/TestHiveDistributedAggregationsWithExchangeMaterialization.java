@@ -45,10 +45,4 @@ public class TestHiveDistributedAggregationsWithExchangeMaterialization
     {
         // row type is not supported by the Hive hash code function
     }
-
-    @Override
-    public void testAggregationPushedBelowOuterJoin()
-    {
-        // Anonymous row type is not supported in Hive
-    }
 }

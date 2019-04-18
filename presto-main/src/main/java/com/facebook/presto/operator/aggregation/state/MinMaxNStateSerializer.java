@@ -39,7 +39,7 @@ public class MinMaxNStateSerializer
         this.blockComparator = blockComparator;
         this.elementType = elementType;
         this.arrayType = new ArrayType(elementType);
-        this.serializedType = RowType.anonymous(ImmutableList.of(BIGINT, arrayType));
+        this.serializedType = RowType.withDefaultFieldNames(ImmutableList.of(BIGINT, arrayType));
     }
 
     @Override

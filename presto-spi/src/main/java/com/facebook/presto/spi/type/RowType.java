@@ -63,6 +63,15 @@ public class RowType
         return new RowType(makeSignature(fields), fields);
     }
 
+    public static RowType withDefaultFieldNames(List<Type> types)
+    {
+        List<Field> fields = new ArrayList<>();
+        for (int i = 0; i < types.size(); i++) {
+            fields.add(new Field(Optional.of("field" + i), types.get(i)));
+        }
+        return new RowType(makeSignature(fields), fields);
+    }
+
     // Only RowParametricType.createType should call this method
     public static RowType createWithTypeSignature(TypeSignature typeSignature, List<Field> fields)
     {
