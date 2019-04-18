@@ -34,6 +34,7 @@ import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.server.smile.Codec;
 import com.facebook.presto.server.smile.SmileCodec;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -45,15 +46,18 @@ import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.ResponseHandler;
+import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.net.URI;
@@ -85,16 +89,21 @@ import static com.facebook.presto.server.remotetask.RequestErrorTracker.logError
 import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
 import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFullSmileResponseHandler;
 import static com.facebook.presto.server.smile.JsonCodecWrapper.unwrapJsonCodec;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
+import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -106,6 +115,7 @@ public final class HttpRemoteTask
     private static final Logger log = Logger.get(HttpRemoteTask.class);
 
     private final TaskId taskId;
+    private final URI taskLocation;
 
     private final Session session;
     private final String nodeId;
@@ -114,6 +124,7 @@ public final class HttpRemoteTask
 
     private final AtomicLong nextSplitId = new AtomicLong();
 
+    private final Duration maxErrorDuration;
     private final RemoteTaskStats stats;
     private final TaskInfoFetcher taskInfoFetcher;
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
@@ -197,10 +208,12 @@ public final class HttpRemoteTask
         requireNonNull(taskInfoCodec, "taskInfoCodec is null");
         requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
         requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
+        requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         requireNonNull(stats, "stats is null");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             this.taskId = taskId;
+            this.taskLocation = location;
             this.session = session;
             this.nodeId = nodeId;
             this.planFragment = planFragment;
@@ -214,6 +227,7 @@ public final class HttpRemoteTask
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
             this.updateErrorTracker = new RequestErrorTracker(taskId, location, maxErrorDuration, errorScheduledExecutor, "updating task");
             this.partitionedSplitCountTracker = requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
+            this.maxErrorDuration = maxErrorDuration;
             this.stats = stats;
             this.isBinaryTransportEnabled = isBinaryTransportEnabled;
 
@@ -380,6 +394,77 @@ public final class HttpRemoteTask
             needsUpdate.set(true);
             scheduleUpdate();
         }
+    }
+
+    @Override
+    public ListenableFuture<?> removeRemoteSource(TaskId remoteSourceTaskId)
+    {
+        URI remoteSourceUri = uriBuilderFrom(taskLocation)
+                .appendPath("remote-source")
+                .appendPath(remoteSourceTaskId.toString())
+                .build();
+
+        Request request = prepareDelete()
+                .setUri(remoteSourceUri)
+                .build();
+        RequestErrorTracker errorTracker = new RequestErrorTracker(
+                taskId,
+                remoteSourceUri,
+                maxErrorDuration,
+                errorScheduledExecutor,
+                "Remove exchange remote source");
+
+        SettableFuture<?> future = SettableFuture.create();
+        doRemoveRemoteSource(errorTracker, request, future);
+        return future;
+    }
+
+    /// This method may call itself recursively when retrying for failures
+    private void doRemoveRemoteSource(RequestErrorTracker errorTracker, Request request, SettableFuture<?> future)
+    {
+        errorTracker.startRequest();
+
+        FutureCallback<StatusResponse> callback = new FutureCallback<StatusResponse>() {
+            @Override
+            public void onSuccess(@Nullable StatusResponse response)
+            {
+                if (response == null) {
+                    throw new PrestoException(GENERIC_INTERNAL_ERROR, "Request failed with null response");
+                }
+                if (response.getStatusCode() != OK.code()) {
+                    throw new PrestoException(GENERIC_INTERNAL_ERROR, "Request failed with HTTP status " + response.getStatusCode());
+                }
+                future.set(null);
+            }
+
+            @Override
+            public void onFailure(Throwable failedReason)
+            {
+                if (failedReason instanceof RejectedExecutionException && httpClient.isClosed()) {
+                    log.error("Unable to destroy exchange source at %s. HTTP client is closed", request.getUri());
+                    future.setException(failedReason);
+                    return;
+                }
+                // record failure
+                try {
+                    errorTracker.requestFailed(failedReason);
+                }
+                catch (PrestoException e) {
+                    future.setException(e);
+                    return;
+                }
+                // if throttled due to error, asynchronously wait for timeout and try again
+                ListenableFuture<?> errorRateLimit = errorTracker.acquireRequestPermit();
+                if (errorRateLimit.isDone()) {
+                    doRemoveRemoteSource(errorTracker, request, future);
+                }
+                else {
+                    errorRateLimit.addListener(() -> doRemoveRemoteSource(errorTracker, request, future), errorScheduledExecutor);
+                }
+            }
+        };
+
+        addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), callback, directExecutor());
     }
 
     @Override
