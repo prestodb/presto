@@ -218,7 +218,7 @@ public class AccumulatorCompiler
         }
         else {
             methodDefinition.getBody()
-                    .append(constantType(callSiteBinder, RowType.anonymous(type)))
+                    .append(constantType(callSiteBinder, RowType.withDefaultFieldNames(type)))
                     .retObject();
         }
 

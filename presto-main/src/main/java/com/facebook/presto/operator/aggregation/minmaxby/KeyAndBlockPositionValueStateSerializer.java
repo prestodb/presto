@@ -47,7 +47,7 @@ public abstract class KeyAndBlockPositionValueStateSerializer<T extends KeyAndBl
     public Type getSerializedType()
     {
         // Types are: firstNull, secondNull, firstField, secondField
-        return RowType.anonymous(ImmutableList.of(BOOLEAN, BOOLEAN, firstType, secondType));
+        return RowType.withDefaultFieldNames(ImmutableList.of(BOOLEAN, BOOLEAN, firstType, secondType));
     }
 
     @Override

@@ -98,24 +98,6 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
         // Unsupported Hive type: unknown
     }
 
-    @Override
-    public void testHaving3()
-    {
-        // Anonymous row type is not supported in Hive
-    }
-
-    @Override
-    public void testJoinCoercionOnEqualityComparison()
-    {
-        // Anonymous row type is not supported in Hive
-    }
-
-    @Override
-    public void testCorrelatedScalarSubqueriesWithScalarAggregation()
-    {
-        // Anonymous row type is not supported in Hive
-    }
-
     @Test
     public void testExplainOfCreateTableAs()
     {
