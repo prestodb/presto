@@ -18,6 +18,8 @@ import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.relation.DomainTranslator;
+import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.type.TypeManager;
 
@@ -54,6 +56,16 @@ public interface ConnectorContext
     }
 
     default RowExpressionService getRowExpressionService()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default DomainTranslator getDomainTranslator()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default PredicateCompiler getPredicateCompiler()
     {
         throw new UnsupportedOperationException();
     }

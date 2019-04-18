@@ -19,6 +19,8 @@ import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.relation.DomainTranslator;
+import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.type.TypeManager;
 
@@ -34,6 +36,8 @@ public class ConnectorContextInstance
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
     private final RowExpressionService rowExpressionService;
+    private final DomainTranslator domainTranslator;
+    private final PredicateCompiler predicateCompiler;
 
     public ConnectorContextInstance(
             NodeManager nodeManager,
@@ -42,7 +46,9 @@ public class ConnectorContextInstance
             StandardFunctionResolution functionResolution,
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
-            RowExpressionService rowExpressionService)
+            RowExpressionService rowExpressionService,
+            DomainTranslator domainTranslator,
+            PredicateCompiler predicateCompiler)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -51,6 +57,8 @@ public class ConnectorContextInstance
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
+        this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
+        this.predicateCompiler = requireNonNull(predicateCompiler, "predicateCompiler is null");
     }
 
     @Override
@@ -93,5 +101,17 @@ public class ConnectorContextInstance
     public RowExpressionService getRowExpressionService()
     {
         return rowExpressionService;
+    }
+
+    @Override
+    public DomainTranslator getDomainTranslator()
+    {
+        return domainTranslator;
+    }
+
+    @Override
+    public PredicateCompiler getPredicateCompiler()
+    {
+        return predicateCompiler;
     }
 }

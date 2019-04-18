@@ -42,6 +42,7 @@ import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.relation.DomainTranslator;
+import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.split.PageSinkManager;
@@ -99,6 +100,7 @@ public class ConnectorManager
     private final NodeInfo nodeInfo;
     private final TransactionManager transactionManager;
     private final DomainTranslator domainTranslator;
+    private final PredicateCompiler predicateCompiler;
 
     @GuardedBy("this")
     private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
@@ -125,7 +127,8 @@ public class ConnectorManager
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
             TransactionManager transactionManager,
-            DomainTranslator domainTranslator)
+            DomainTranslator domainTranslator,
+            PredicateCompiler predicateCompiler)
     {
         this.metadataManager = metadataManager;
         this.catalogManager = catalogManager;
@@ -143,6 +146,7 @@ public class ConnectorManager
         this.nodeInfo = nodeInfo;
         this.transactionManager = transactionManager;
         this.domainTranslator = domainTranslator;
+        this.predicateCompiler = predicateCompiler;
     }
 
     @PreDestroy
@@ -326,7 +330,9 @@ public class ConnectorManager
                 new FunctionResolution(metadataManager.getFunctionManager()),
                 pageSorter,
                 pageIndexerFactory,
-                new ConnectorRowExpressionService(domainTranslator));
+                new ConnectorRowExpressionService(domainTranslator),
+                domainTranslator,
+                predicateCompiler);
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             return factory.create(connectorId.getCatalogName(), properties, context);
