@@ -13,8 +13,13 @@
  */
 package com.facebook.presto.mongodb;
 
+import com.facebook.presto.spi.PrestoException;
 import com.mongodb.ReadPreference;
+import com.mongodb.TagSet;
 
+import java.util.List;
+
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.util.Objects.requireNonNull;
 
 public enum ReadPreferenceType
@@ -35,5 +40,14 @@ public enum ReadPreferenceType
     public ReadPreference getReadPreference()
     {
         return readPreference;
+    }
+
+    public ReadPreference getReadPreferenceWithTags(List<TagSet> tagSets)
+    {
+        if (PRIMARY.equals(this)) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Primary read preference can not specify tag sets");
+        }
+
+        return ReadPreference.valueOf(readPreference.getName(), tagSets);
     }
 }
