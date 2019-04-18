@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.SqlFunction;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
@@ -7131,6 +7132,42 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testApproxSetBigintWithMaxError()
+    {
+        MaterializedResult actual = computeActual("SELECT cardinality(approx_set(custkey, 0.01)) FROM orders");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+                .row(1000L)
+                .build();
+
+        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testApproxSetVarcharWithMaxError()
+    {
+        MaterializedResult actual = computeActual("SELECT cardinality(approx_set(CAST(custkey AS VARCHAR), 0.01)) FROM orders");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+                .row(1000L)
+                .build();
+
+        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testApproxSetDoubleWithMaxError()
+    {
+        MaterializedResult actual = computeActual("SELECT cardinality(approx_set(CAST(custkey AS DOUBLE), 0.01)) FROM orders");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+                .row(1000L)
+                .build();
+
+        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
     public void testMergeHyperLogLog()
     {
         MaterializedResult actual = computeActual("SELECT cardinality(merge(create_hll(custkey))) FROM orders");
@@ -7211,6 +7248,22 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testEmptyApproxSetWithMaxError()
+    {
+        MaterializedResult actual = computeActual("SELECT cardinality(empty_approx_set(0.1))");
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+                .row(0L)
+                .build();
+        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test(expectedExceptions = {RuntimeException.class, PrestoException.class}, expectedExceptionsMessageRegExp = "Max standard error must be in.*")
+    public void testEmptyApproxSetWithMaxErrorOutsideBounds()
+    {
+        computeActual("SELECT cardinality(empty_approx_set(0.3))");
+    }
+
+    @Test
     public void testMergeEmptyApproxSet()
     {
         MaterializedResult actual = computeActual("SELECT cardinality(merge(empty_approx_set())) FROM orders");
@@ -7228,6 +7281,22 @@ public abstract class AbstractTestQueries
                 .row(1002L)
                 .build();
         assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testMergeEmptyNonEmptyApproxSetWithSameMaxError()
+    {
+        MaterializedResult actual = computeActual("SELECT cardinality(merge(c)) FROM (SELECT create_hll(custkey, 0.1) c FROM orders UNION ALL SELECT empty_approx_set(0.1))");
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+                .row(1046L)
+                .build();
+        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test(expectedExceptions = {RuntimeException.class, PrestoException.class}, expectedExceptionsMessageRegExp = "Cannot merge HLLs with different number of buckets.*")
+    public void testMergeEmptyNonEmptyApproxSetWithDifferentMaxError()
+    {
+        computeActual("SELECT cardinality(merge(c)) FROM (SELECT create_hll(custkey, 0.1) c FROM orders UNION ALL SELECT empty_approx_set(0.2))");
     }
 
     @Test

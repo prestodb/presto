@@ -16,12 +16,12 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.spi.PrestoException;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregation.standardErrorToBuckets;
+import static com.facebook.presto.operator.aggregation.HyperLogLogUtils.standardErrorToBuckets;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
-public class TestApproximateCountDistinctAggregations
+public class TestHyperLogLogUtils
 {
     @Test
     public void testStandardErrorToBuckets()

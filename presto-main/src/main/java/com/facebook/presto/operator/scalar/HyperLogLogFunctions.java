@@ -13,13 +13,15 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.operator.aggregation.ApproximateSetAggregation;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
+
+import static com.facebook.presto.operator.aggregation.ApproximateSetAggregation.DEFAULT_STANDARD_ERROR;
+import static com.facebook.presto.operator.aggregation.HyperLogLogUtils.standardErrorToBuckets;
 
 public final class HyperLogLogFunctions
 {
@@ -38,6 +40,14 @@ public final class HyperLogLogFunctions
     @SqlType(StandardTypes.HYPER_LOG_LOG)
     public static Slice emptyApproxSet()
     {
-        return ApproximateSetAggregation.newHyperLogLog().serialize();
+        return HyperLogLog.newInstance(standardErrorToBuckets(DEFAULT_STANDARD_ERROR)).serialize();
+    }
+
+    @ScalarFunction
+    @Description("an empty HyperLogLog instance with the specified max standard error")
+    @SqlType(StandardTypes.HYPER_LOG_LOG)
+    public static Slice emptyApproxSet(@SqlType(StandardTypes.DOUBLE) double maxStandardError)
+    {
+        return HyperLogLog.newInstance(standardErrorToBuckets(maxStandardError)).serialize();
     }
 }
