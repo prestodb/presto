@@ -55,11 +55,17 @@ public class MongoClientModule
                 .sslEnabled(config.getSslEnabled())
                 .maxWaitTime(config.getMaxWaitTime())
                 .minConnectionsPerHost(config.getMinConnectionsPerHost())
-                .readPreference(config.getReadPreference().getReadPreference())
                 .writeConcern(config.getWriteConcern().getWriteConcern());
 
         if (config.getRequiredReplicaSetName() != null) {
             options.requiredReplicaSetName(config.getRequiredReplicaSetName());
+        }
+
+        if (config.getReadPreferenceTags().isEmpty()) {
+            options.readPreference(config.getReadPreference().getReadPreference());
+        }
+        else {
+            options.readPreference(config.getReadPreference().getReadPreferenceWithTags(config.getReadPreferenceTags()));
         }
 
         MongoClient client = new MongoClient(config.getSeeds(), config.getCredentials(), options.build());
