@@ -143,12 +143,6 @@ public class MockRemoteTaskFactory
         return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, scheduledExecutor, initialSplits, totalPartitions, partitionedSplitCountTracker);
     }
 
-    @Override
-    public ListenableFuture<?> removeRemoteSource(TaskId taskId, TaskId remoteSourceTaskId)
-    {
-        throw new UnsupportedOperationException();
-    }
-
     public static final class MockRemoteTask
             implements RemoteTask
     {
@@ -372,6 +366,12 @@ public class MockRemoteTaskFactory
         public void setOutputBuffers(OutputBuffers outputBuffers)
         {
             outputBuffer.setOutputBuffers(outputBuffers);
+        }
+
+        @Override
+        public ListenableFuture<?> removeRemoteSource(TaskId remoteSourceTaskId)
+        {
+            throw new UnsupportedOperationException();
         }
 
         @Override

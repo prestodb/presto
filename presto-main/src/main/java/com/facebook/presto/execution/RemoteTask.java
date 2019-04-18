@@ -40,6 +40,8 @@ public interface RemoteTask
 
     void setOutputBuffers(OutputBuffers outputBuffers);
 
+    ListenableFuture<?> removeRemoteSource(TaskId remoteSourceTaskId);
+
     /**
      * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
      * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
