@@ -771,4 +771,28 @@ public class TestRaptorIntegrationSmokeTest
 
         assertUpdate("DROP TABLE test_alter_table");
     }
+
+    @Test
+    public void testDelete()
+    {
+        assertUpdate("CREATE TABLE test_delete_table (c1 bigint, c2 bigint)");
+        assertUpdate("INSERT INTO test_delete_table VALUES (1, 1), (1, 2), (1, 3), (1, 4), (11, 1), (11, 2)", 6);
+
+        assertUpdate("ALTER TABLE test_delete_table ADD COLUMN c3 bigint");
+        assertUpdate("INSERT INTO test_delete_table VALUES (2, 1, 1), (2, 2, 2), (2, 3, 3), (2, 4, 4), (22, 1, 1), (22, 2, 2), (22, 4, 4)", 7);
+
+        assertUpdate("DELETE FROM test_delete_table WHERE c1 = 1", 4);
+        assertQuery("SELECT * FROM test_delete_table", "VALUES (11, 1, NULL), (11, 2, NULL), (2, 1, 1), (2, 2, 2), (2, 3, 3), (2, 4, 4), (22, 1, 1), (22, 2, 2), (22, 4, 4)");
+
+        assertUpdate("ALTER TABLE test_delete_table DROP COLUMN c2");
+        assertUpdate("INSERT INTO test_delete_table VALUES (3, 1), (3, 2), (3, 3), (3, 4)", 4);
+
+        assertUpdate("DELETE FROM test_delete_table WHERE c1 = 2", 4);
+        assertQuery("SELECT * FROM test_delete_table", "VALUES (11, NULL), (11, NULL), (22, 1), (22, 2), (22, 4), (3, 1), (3, 2), (3, 3), (3, 4)");
+
+        assertUpdate("DELETE FROM test_delete_table WHERE c1 % 11 = 0", 5);
+        assertQuery("SELECT * FROM test_delete_table", "VALUES (3, 1), (3, 2), (3, 3), (3, 4)");
+
+        assertUpdate("DROP TABLE test_delete_table");
+    }
 }
