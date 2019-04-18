@@ -264,7 +264,7 @@ public class ScanFilterAndProjectOperator
                 }
                 return size;
             }
-            catch (Exception e) {
+            catch (RuntimeException e) {
                 /* Ignore the errirm try next row by row and track errors */
             }
 
@@ -280,7 +280,7 @@ public class ScanFilterAndProjectOperator
                         outputRows[numTrue++] = i;
                     }
                 }
-                catch (Exception e) {
+                catch (RuntimeException e) {
                     outputRows[numTrue++] = i;
                     errorSet.addError(i, positionCount, e);
                 }
