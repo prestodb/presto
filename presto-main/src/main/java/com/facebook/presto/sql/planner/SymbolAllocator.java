@@ -26,9 +26,11 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.primitives.Ints;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -51,6 +53,11 @@ public class SymbolAllocator
     {
         checkArgument(symbols.containsKey(symbolHint), "symbolHint not in symbols map");
         return newSymbol(symbolHint.getName(), symbols.get(symbolHint));
+    }
+
+    public VariableReferenceExpression newVariable(VariableReferenceExpression variableHint)
+    {
+        return newVariable(variableHint.getName(), variableHint.getType());
     }
 
     public Symbol newSymbol(QualifiedName nameHint, Type type)
@@ -114,6 +121,12 @@ public class SymbolAllocator
         return symbol;
     }
 
+    public VariableReferenceExpression newVariable(Expression expression, Type type)
+    {
+        Symbol symbol = newSymbol(expression, type);
+        return new VariableReferenceExpression(symbol.getName(), type);
+    }
+
     public Symbol newSymbol(Expression expression, Type type)
     {
         return newSymbol(expression, type, null);
@@ -157,5 +170,12 @@ public class SymbolAllocator
     private int nextId()
     {
         return nextId++;
+    }
+
+    public List<VariableReferenceExpression> toVariableReferences(List<Symbol> symbols)
+    {
+        return symbols.stream()
+                .map(symbol -> new VariableReferenceExpression(symbol.getName(), getTypes().get(symbol)))
+                .collect(toImmutableList());
     }
 }

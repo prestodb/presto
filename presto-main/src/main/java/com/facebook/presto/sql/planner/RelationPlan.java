@@ -40,10 +40,10 @@ import static java.util.Objects.requireNonNull;
 class RelationPlan
 {
     private final PlanNode root;
-    private final List<Symbol> fieldMappings; // for each field in the relation, the corresponding symbol from "root"
+    private final List<VariableReferenceExpression> fieldMappings; // for each field in the relation, the corresponding variable from "root"
     private final Scope scope;
 
-    public RelationPlan(PlanNode root, Scope scope, List<Symbol> fieldMappings)
+    public RelationPlan(PlanNode root, Scope scope, List<VariableReferenceExpression> fieldMappings)
     {
         requireNonNull(root, "root is null");
         requireNonNull(fieldMappings, "outputSymbols is null");
@@ -60,27 +60,10 @@ class RelationPlan
         this.fieldMappings = ImmutableList.copyOf(fieldMappings);
     }
 
-    public RelationPlan(PlanNode root, List<VariableReferenceExpression> fieldMappings, Scope scope)
-    {
-        requireNonNull(root, "root is null");
-        requireNonNull(fieldMappings, "outputSymbols is null");
-        requireNonNull(scope, "scope is null");
-
-        int allFieldCount = getAllFieldCount(scope);
-        checkArgument(allFieldCount == fieldMappings.size(),
-                "Number of outputs (%s) doesn't match number of fields in scopes tree (%s)",
-                fieldMappings.size(),
-                allFieldCount);
-
-        this.root = root;
-        this.scope = scope;
-        this.fieldMappings = fieldMappings.stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableList());
-    }
-
     public Symbol getSymbol(int fieldIndex)
     {
         checkArgument(fieldIndex >= 0 && fieldIndex < fieldMappings.size(), "No field->symbol mapping for field %s", fieldIndex);
-        return fieldMappings.get(fieldIndex);
+        return new Symbol(fieldMappings.get(fieldIndex).getName());
     }
 
     public PlanNode getRoot()
@@ -88,9 +71,17 @@ class RelationPlan
         return root;
     }
 
-    public List<Symbol> getFieldMappings()
+    public List<VariableReferenceExpression> getFieldMappings()
     {
         return fieldMappings;
+    }
+
+    public List<Symbol> getFieldSymbolMappings()
+    {
+        return fieldMappings.stream()
+                .map(VariableReferenceExpression::getName)
+                .map(Symbol::new)
+                .collect(toImmutableList());
     }
 
     public RelationType getDescriptor()

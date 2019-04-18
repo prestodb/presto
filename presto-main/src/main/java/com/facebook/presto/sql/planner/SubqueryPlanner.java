@@ -483,10 +483,10 @@ class SubqueryPlanner
 
         // Make field->symbol mapping from underlying relation plan available for translations
         // This makes it possible to rewrite FieldOrExpressions that reference fields from the FROM clause directly
-        translations.setFieldMappings(relationPlan.getFieldMappings());
+        translations.setFieldMappings(relationPlan.getFieldSymbolMappings());
 
         if (node instanceof Expression && relationPlan.getFieldMappings().size() == 1) {
-            translations.put((Expression) node, getOnlyElement(relationPlan.getFieldMappings()));
+            translations.put((Expression) node, getOnlyElement(relationPlan.getFieldSymbolMappings()));
         }
 
         return new PlanBuilder(translations, relationPlan.getRoot(), analysis.getParameters());

@@ -257,7 +257,7 @@ public class LogicalPlanner
         Scope scope = analysis.getScope(statement);
         VariableReferenceExpression outputVariable = symbolAllocator.newVariable(scope.getRelationType().getFieldByIndex(0));
         root = new ExplainAnalyzeNode(idAllocator.getNextId(), root, outputVariable, statement.isVerbose());
-        return new RelationPlan(root, ImmutableList.of(outputVariable), scope);
+        return new RelationPlan(root, scope, ImmutableList.of(outputVariable));
     }
 
     private RelationPlan createAnalyzePlan(Analysis analysis, Analyze analyzeStatement)
@@ -303,7 +303,7 @@ public class LogicalPlanner
                 symbolAllocator.newVariable("rows", BIGINT),
                 tableStatisticsMetadata.getTableStatistics().contains(ROW_COUNT),
                 tableStatisticAggregation.getDescriptor());
-        return new RelationPlan(planNode, analysis.getScope(analyzeStatement), planNode.getOutputSymbols());
+        return new RelationPlan(planNode, analysis.getScope(analyzeStatement), symbolAllocator.toVariableReferences(planNode.getOutputSymbols()));
     }
 
     private RelationPlan createTableCreationPlan(Analysis analysis, Query query)
@@ -384,7 +384,7 @@ public class LogicalPlanner
                 .collect(toImmutableList());
         Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields)).build();
 
-        plan = new RelationPlan(projectNode, scope, projectNode.getOutputSymbols());
+        plan = new RelationPlan(projectNode, scope, symbolAllocator.toVariableReferences(projectNode.getOutputSymbols()));
 
         Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, insert.getTarget());
         String catalogName = insert.getTarget().getConnectorId().getCatalogName();
@@ -420,7 +420,7 @@ public class LogicalPlanner
             }
         });
 
-        List<Symbol> symbols = plan.getFieldMappings();
+        List<Symbol> symbols = plan.getFieldSymbolMappings();
 
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
         if (writeTableLayout.isPresent()) {
@@ -473,7 +473,7 @@ public class LogicalPlanner
                     Optional.of(aggregations.getFinalAggregation()),
                     Optional.of(result.getDescriptor()));
 
-            return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputSymbols());
+            return new RelationPlan(commitNode, analysis.getRootScope(), symbolAllocator.toVariableReferences(commitNode.getOutputSymbols()));
         }
 
         TableFinishNode commitNode = new TableFinishNode(
@@ -494,7 +494,7 @@ public class LogicalPlanner
                 symbolAllocator.newVariable("rows", BIGINT),
                 Optional.empty(),
                 Optional.empty());
-        return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputSymbols());
+        return new RelationPlan(commitNode, analysis.getRootScope(), symbolAllocator.toVariableReferences(commitNode.getOutputSymbols()));
     }
 
     private RelationPlan createDeletePlan(Analysis analysis, Delete node)
@@ -510,7 +510,7 @@ public class LogicalPlanner
                 Optional.empty(),
                 Optional.empty());
 
-        return new RelationPlan(commitNode, analysis.getScope(node), commitNode.getOutputSymbols());
+        return new RelationPlan(commitNode, analysis.getScope(node), symbolAllocator.toVariableReferences(commitNode.getOutputSymbols()));
     }
 
     private PlanNode createOutputPlan(RelationPlan plan, Analysis analysis)
