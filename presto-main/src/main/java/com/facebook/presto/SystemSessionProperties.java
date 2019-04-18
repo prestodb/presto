@@ -657,7 +657,7 @@ public final class SystemSessionProperties
         return session.getSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, Boolean.class);
     }
 
-    public static boolean isDynamicSchduleForGroupedExecution(Session session)
+    public static boolean isDynamicScheduleForGroupedExecution(Session session)
     {
         return session.getSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, Boolean.class);
     }
