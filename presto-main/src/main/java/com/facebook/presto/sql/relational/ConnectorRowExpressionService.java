@@ -15,6 +15,7 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
+import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.RowExpressionService;
 
 import static java.util.Objects.requireNonNull;
@@ -24,11 +25,13 @@ public final class ConnectorRowExpressionService
 {
     private final DomainTranslator domainTranslator;
     private final ExpressionOptimizer expressionOptimizer;
+    private final PredicateCompiler predicateCompiler;
 
-    public ConnectorRowExpressionService(DomainTranslator domainTranslator, ExpressionOptimizer expressionOptimizer)
+    public ConnectorRowExpressionService(DomainTranslator domainTranslator, ExpressionOptimizer expressionOptimizer, PredicateCompiler predicateCompiler)
     {
         this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
         this.expressionOptimizer = requireNonNull(expressionOptimizer, "expressionOptimizer is null");
+        this.predicateCompiler = requireNonNull(predicateCompiler, "predicateCompiler is null");
     }
 
     @Override
@@ -41,5 +44,11 @@ public final class ConnectorRowExpressionService
     public ExpressionOptimizer getExpressionOptimizer()
     {
         return expressionOptimizer;
+    }
+
+    @Override
+    public PredicateCompiler getPredicateCompiler()
+    {
+        return predicateCompiler;
     }
 }

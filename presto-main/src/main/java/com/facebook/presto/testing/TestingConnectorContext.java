@@ -31,10 +31,12 @@ import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
+import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
+import com.facebook.presto.sql.gen.RowExpressionPredicateCompiler;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
@@ -51,6 +53,7 @@ public class TestingConnectorContext
     private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig()));
     private final Metadata metadata = MetadataManager.createTestMetadataManager();
     private final DomainTranslator domainTranslator = new RowExpressionDomainTranslator(metadata);
+    private final PredicateCompiler predicateCompiler = new RowExpressionPredicateCompiler(metadata);
 
     @Override
     public NodeManager getNodeManager()
@@ -103,6 +106,12 @@ public class TestingConnectorContext
             public ExpressionOptimizer getExpressionOptimizer()
             {
                 return new RowExpressionOptimizer(metadata);
+            }
+
+            @Override
+            public PredicateCompiler getPredicateCompiler()
+            {
+                return predicateCompiler;
             }
         };
     }
