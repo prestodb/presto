@@ -1205,18 +1205,8 @@ public class LocalExecutionPlanner
 
             // filterExpression may contain large function calls; evaluate them before compiling.
             if (filterExpression.isPresent()) {
-                Type type = filterExpression.get().getType();
-                Object value = new RowExpressionInterpreter(filterExpression.get(), metadata, session.toConnectorSession(), true).optimize();
-                if (value instanceof RowExpression) {
-                    RowExpression optimizedFilter = (RowExpression) value;
-                    // building channel info
-                    optimizedFilter = SymbolToChannelTranslator.translate(optimizedFilter, sourceLayout);
-                    filterExpression = Optional.of(optimizedFilter);
-                }
-                else {
-                    // TODO: theoretically value should either be true or false; we could possibly optimized the execution based on this
-                    filterExpression = Optional.of(constant(value, type));
-                }
+                // TODO: theoretically, filterExpression could be a constant value (true or false) after optimization; we could possibly optimize the execution.
+                filterExpression = Optional.of(bindChannels(filterExpression.get(), sourceLayout));
             }
 
             // build output mapping
@@ -1286,9 +1276,25 @@ public class LocalExecutionPlanner
             }
         }
 
+        // TODO: migrate `toRowExpression` to `bindChannels`
         private RowExpression toRowExpression(Expression expression, Map<NodeRef<Expression>, Type> types, Map<Symbol, Integer> sourceLayout)
         {
             return SqlToRowExpressionTranslator.translate(expression, types, sourceLayout, metadata.getFunctionManager(), metadata.getTypeManager(), session, true);
+        }
+
+        private RowExpression bindChannels(RowExpression expression, Map<Symbol, Integer> sourceLayout)
+        {
+            Type type = expression.getType();
+            Object value = new RowExpressionInterpreter(expression, metadata, session.toConnectorSession(), true).optimize();
+            if (value instanceof RowExpression) {
+                RowExpression optimized = (RowExpression) value;
+                // building channel info
+                expression = SymbolToChannelTranslator.translate(optimized, sourceLayout);
+            }
+            else {
+                expression = constant(value, type);
+            }
+            return expression;
         }
 
         @Override
