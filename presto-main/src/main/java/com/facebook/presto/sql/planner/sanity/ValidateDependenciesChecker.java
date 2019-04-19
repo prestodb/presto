@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.sanity;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
@@ -558,12 +559,16 @@ public final class ValidateDependenciesChecker
         {
             node.getSource().accept(this, boundSymbols); // visit child
 
-            StatisticAggregationsDescriptor<Symbol> descriptor = node.getDescriptor();
-            Set<Symbol> dependencies = ImmutableSet.<Symbol>builder()
+            StatisticAggregationsDescriptor<VariableReferenceExpression> descriptor = node.getDescriptor();
+            Set<Symbol> dependencies = ImmutableSet.<VariableReferenceExpression>builder()
                     .addAll(descriptor.getGrouping().values())
                     .addAll(descriptor.getColumnStatistics().values())
                     .addAll(descriptor.getTableStatistics().values())
-                    .build();
+                    .build()
+                    .stream()
+                    .map(VariableReferenceExpression::getName)
+                    .map(Symbol::new)
+                    .collect(toImmutableSet());
             List<Symbol> outputSymbols = node.getSource().getOutputSymbols();
             checkDependencies(dependencies, dependencies, "Invalid node. Dependencies (%s) not in source plan output (%s)", dependencies, outputSymbols);
             return null;

@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -48,7 +50,7 @@ public class TableWriterNode
     private final List<String> columnNames;
     private final Optional<PartitioningScheme> partitioningScheme;
     private final Optional<StatisticAggregations> statisticsAggregation;
-    private final Optional<StatisticAggregationsDescriptor<Symbol>> statisticsAggregationDescriptor;
+    private final Optional<StatisticAggregationsDescriptor<VariableReferenceExpression>> statisticsAggregationDescriptor;
     private final List<Symbol> outputs;
 
     @JsonCreator
@@ -62,7 +64,7 @@ public class TableWriterNode
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("partitioningScheme") Optional<PartitioningScheme> partitioningScheme,
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation,
-            @JsonProperty("statisticsAggregationDescriptor") Optional<StatisticAggregationsDescriptor<Symbol>> statisticsAggregationDescriptor)
+            @JsonProperty("statisticsAggregationDescriptor") Optional<StatisticAggregationsDescriptor<VariableReferenceExpression>> statisticsAggregationDescriptor)
     {
         super(id);
 
@@ -86,7 +88,7 @@ public class TableWriterNode
                 .add(fragmentSymbol);
         statisticsAggregation.ifPresent(aggregation -> {
             outputs.addAll(aggregation.getGroupingSymbols());
-            outputs.addAll(aggregation.getAggregations().keySet());
+            outputs.addAll(aggregation.getAggregations().keySet().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
         });
         this.outputs = outputs.build();
     }
@@ -140,7 +142,7 @@ public class TableWriterNode
     }
 
     @JsonProperty
-    public Optional<StatisticAggregationsDescriptor<Symbol>> getStatisticsAggregationDescriptor()
+    public Optional<StatisticAggregationsDescriptor<VariableReferenceExpression>> getStatisticsAggregationDescriptor()
     {
         return statisticsAggregationDescriptor;
     }

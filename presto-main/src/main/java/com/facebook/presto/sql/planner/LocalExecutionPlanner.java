@@ -270,6 +270,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.DiscreteDomain.integers;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -2182,7 +2183,8 @@ public class LocalExecutionPlanner
                 if (groupingSymbols.isEmpty()) {
                     return createAggregationOperatorFactory(
                             node.getId(),
-                            aggregation.getAggregations(),
+                            aggregation.getAggregations().entrySet().stream()
+                                    .collect(toImmutableMap(entry -> new Symbol(entry.getKey().getName()), Map.Entry::getValue)),
                             PARTIAL,
                             STATS_START_CHANNEL,
                             outputMapping,
@@ -2192,7 +2194,8 @@ public class LocalExecutionPlanner
                 }
                 return createHashAggregationOperatorFactory(
                         node.getId(),
-                        aggregation.getAggregations(),
+                        aggregation.getAggregations().entrySet().stream()
+                                .collect(toImmutableMap(entry -> new Symbol(entry.getKey().getName()), Map.Entry::getValue)),
                         ImmutableSet.of(),
                         groupingSymbols,
                         PARTIAL,
@@ -2238,7 +2241,7 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            StatisticAggregationsDescriptor<Integer> descriptor = node.getDescriptor().map(symbol -> source.getLayout().get(symbol));
+            StatisticAggregationsDescriptor<Integer> descriptor = node.getDescriptor().map(variable -> source.getLayout().get(new Symbol(variable.getName())));
 
             OperatorFactory operatorFactory = new StatisticsWriterOperatorFactory(
                     context.getNextOperatorId(),
@@ -2261,7 +2264,8 @@ public class LocalExecutionPlanner
                 if (groupingSymbols.isEmpty()) {
                     return createAggregationOperatorFactory(
                             node.getId(),
-                            aggregation.getAggregations(),
+                            aggregation.getAggregations().entrySet().stream()
+                                    .collect(toImmutableMap(entry -> new Symbol(entry.getKey().getName()), Map.Entry::getValue)),
                             FINAL,
                             0,
                             outputMapping,
@@ -2271,9 +2275,10 @@ public class LocalExecutionPlanner
                 }
                 return createHashAggregationOperatorFactory(
                         node.getId(),
-                        aggregation.getAggregations(),
+                        aggregation.getAggregations().entrySet().stream()
+                                .collect(toImmutableMap(entry -> new Symbol(entry.getKey().getName()), Map.Entry::getValue)),
                         ImmutableSet.of(),
-                        groupingSymbols,
+                        aggregation.getGroupingSymbols(),
                         FINAL,
                         Optional.empty(),
                         Optional.empty(),
@@ -2293,7 +2298,7 @@ public class LocalExecutionPlanner
 
             Map<Symbol, Integer> aggregationOutput = outputMapping.build();
             StatisticAggregationsDescriptor<Integer> descriptor = node.getStatisticsAggregationDescriptor()
-                    .map(desc -> desc.map(aggregationOutput::get))
+                    .map(desc -> desc.map(variable -> aggregationOutput.get(new Symbol(variable.getName()))))
                     .orElse(StatisticAggregationsDescriptor.empty());
 
             OperatorFactory operatorFactory = new TableFinishOperatorFactory(
@@ -2689,7 +2694,7 @@ public class LocalExecutionPlanner
                 PlanNodeId planNodeId,
                 Map<Symbol, Aggregation> aggregations,
                 Set<Integer> globalGroupingSets,
-                List<Symbol> groupBySymbols,
+                List<Symbol> groupbySymbols,
                 Step step,
                 Optional<VariableReferenceExpression> hashVariable,
                 Optional<Symbol> groupIdSymbol,
@@ -2718,7 +2723,7 @@ public class LocalExecutionPlanner
             // add group-by key fields each in a separate channel
             int channel = startOutputChannel;
             Optional<Integer> groupIdChannel = Optional.empty();
-            for (Symbol symbol : groupBySymbols) {
+            for (Symbol symbol : groupbySymbols) {
                 outputMappings.put(symbol, channel);
                 if (groupIdSymbol.isPresent() && groupIdSymbol.get().equals(symbol)) {
                     groupIdChannel = Optional.of(channel);
@@ -2737,7 +2742,7 @@ public class LocalExecutionPlanner
                 channel++;
             }
 
-            List<Integer> groupByChannels = getChannelsForSymbols(groupBySymbols, source.getLayout());
+            List<Integer> groupByChannels = getChannelsForSymbols(groupbySymbols, source.getLayout());
             List<Type> groupByTypes = groupByChannels.stream()
                     .map(entry -> source.getTypes().get(entry))
                     .collect(toImmutableList());
