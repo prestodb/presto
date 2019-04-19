@@ -99,7 +99,7 @@ public final class QuantileDigestAggregationFunction
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(QuantileDigestAggregationFunction.class.getClassLoader());
         List<Type> inputTypes = getInputTypes(valueType, arity);
-        QuantileDigestStateSerializer stateSerializer = new QuantileDigestStateSerializer(valueType);
+        QuantileDigestStateSerializer stateSerializer = new QuantileDigestStateSerializer();
         Type intermediateType = stateSerializer.getSerializedType();
 
         AggregationMetadata metadata = new AggregationMetadata(

@@ -1269,4 +1269,60 @@ public abstract class AbstractTestAggregations
                         "('5-LOW', 445 , NULL)," +
                         "('1-URGENT', 781 , ('O'))");
     }
+
+    /**
+     * Comprehensive correctness testing is done in the TestQuantileDigestAggregationFunction
+     */
+    @Test
+    public void testQuantileDigest()
+    {
+        assertQuery("SELECT value_at_quantile(qdigest_agg(orderkey), 0.5E0) > 0 FROM lineitem", "SELECT true");
+        assertQuery("SELECT value_at_quantile(qdigest_agg(quantity), 0.5E0) > 0 FROM lineitem", "SELECT true");
+        assertQuery("SELECT value_at_quantile(qdigest_agg(CAST(quantity AS REAL)), 0.5E0) > 0 FROM lineitem", "SELECT true");
+        assertQuery("SELECT value_at_quantile(qdigest_agg(orderkey, 2), 0.5E0) > 0 FROM lineitem", "SELECT true");
+        assertQuery("SELECT value_at_quantile(qdigest_agg(quantity, 3), 0.5E0) > 0 FROM lineitem", "SELECT true");
+        assertQuery("SELECT value_at_quantile(qdigest_agg(CAST(quantity AS REAL), 4), 0.5E0) > 0 FROM lineitem", "SELECT true");
+        assertQuery("SELECT value_at_quantile(qdigest_agg(orderkey, 2, 0.0001E0), 0.5E0) > 0 FROM lineitem", "SELECT true");
+        assertQuery("SELECT value_at_quantile(qdigest_agg(quantity, 3, 0.0001E0), 0.5E0) > 0 FROM lineitem", "SELECT true");
+        assertQuery("SELECT value_at_quantile(qdigest_agg(CAST(quantity AS REAL), 4, 0.0001E0), 0.5E0) > 0 FROM lineitem", "SELECT true");
+    }
+
+    /**
+     * Comprehensive correctness testing is done in the TestQuantileDigestAggregationFunction
+     */
+    @Test
+    public void testQuantileDigestGroupBy()
+    {
+        assertQuery("SELECT partkey, value_at_quantile(qdigest_agg(orderkey), 0.5E0) > 0 FROM lineitem GROUP BY partkey", "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery("SELECT partkey, value_at_quantile(qdigest_agg(quantity), 0.5E0) > 0 FROM lineitem GROUP BY partkey", "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery("SELECT partkey, value_at_quantile(qdigest_agg(CAST(quantity AS REAL)), 0.5E0) > 0 FROM lineitem GROUP BY partkey", "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery("SELECT partkey, value_at_quantile(qdigest_agg(orderkey, 2), 0.5E0) > 0 FROM lineitem GROUP BY partkey", "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery("SELECT partkey, value_at_quantile(qdigest_agg(quantity, 3), 0.5E0) > 0 FROM lineitem GROUP BY partkey", "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery("SELECT partkey, value_at_quantile(qdigest_agg(CAST(quantity AS REAL), 4), 0.5E0) > 0 FROM lineitem GROUP BY partkey", "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery("SELECT partkey, value_at_quantile(qdigest_agg(orderkey, 2, 0.0001E0), 0.5E0) > 0 FROM lineitem GROUP BY partkey", "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery("SELECT partkey, value_at_quantile(qdigest_agg(quantity, 3, 0.0001E0), 0.5E0) > 0 FROM lineitem GROUP BY partkey", "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery("SELECT partkey, value_at_quantile(qdigest_agg(CAST(quantity AS REAL), 4, 0.0001E0), 0.5E0) > 0 FROM lineitem GROUP BY partkey", "SELECT partkey, true FROM lineitem GROUP BY partkey");
+    }
+
+    /**
+     * Comprehensive correctness testing is done in the TestMergeQuantileDigestFunction
+     */
+    @Test
+    public void testQuantileDigestMerge()
+    {
+        assertQuery("SELECT value_at_quantile(merge(qdigest), 0.5E0) > 0 FROM (SELECT partkey, qdigest_agg(orderkey) as qdigest FROM lineitem GROUP BY partkey)", "SELECT true");
+    }
+
+    /**
+     * Comprehensive correctness testing is done in the TestMergeQuantileDigestFunction
+     */
+    @Test
+    public void testQuantileDigestMergeGroupBy()
+    {
+        assertQuery("" +
+                        "SELECT partkey, value_at_quantile(merge(qdigest), 0.5E0) > 0 " +
+                        "FROM (SELECT partkey, suppkey, qdigest_agg(orderkey) as qdigest FROM lineitem GROUP BY partkey, suppkey)" +
+                        "GROUP BY partkey",
+                "SELECT partkey, true FROM lineitem GROUP BY partkey");
+    }
 }

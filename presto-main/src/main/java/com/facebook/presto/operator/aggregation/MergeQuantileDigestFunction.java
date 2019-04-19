@@ -80,13 +80,13 @@ public final class MergeQuantileDigestFunction
         Type valueType = boundVariables.getTypeVariable("T");
         QuantileDigestType outputType = (QuantileDigestType) typeManager.getParameterizedType(StandardTypes.QDIGEST,
                 ImmutableList.of(TypeSignatureParameter.of(valueType.getTypeSignature())));
-        return generateAggregation(valueType, outputType);
+        return generateAggregation(outputType);
     }
 
-    private static InternalAggregationFunction generateAggregation(Type valueType, QuantileDigestType type)
+    private static InternalAggregationFunction generateAggregation(QuantileDigestType type)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(MapAggregationFunction.class.getClassLoader());
-        QuantileDigestStateSerializer stateSerializer = new QuantileDigestStateSerializer(valueType);
+        QuantileDigestStateSerializer stateSerializer = new QuantileDigestStateSerializer();
         Type intermediateType = stateSerializer.getSerializedType();
 
         AggregationMetadata metadata = new AggregationMetadata(
