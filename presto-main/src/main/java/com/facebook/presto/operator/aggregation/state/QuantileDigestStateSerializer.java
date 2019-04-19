@@ -16,24 +16,18 @@ package com.facebook.presto.operator.aggregation.state;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import com.facebook.presto.spi.type.QuantileDigestType;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.stats.QuantileDigest;
+
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 
 public class QuantileDigestStateSerializer
         implements AccumulatorStateSerializer<QuantileDigestState>
 {
-    private final QuantileDigestType type;
-
-    public QuantileDigestStateSerializer(Type elementType)
-    {
-        this.type = new QuantileDigestType(elementType);
-    }
-
     @Override
     public Type getSerializedType()
     {
-        return type;
+        return VARBINARY;
     }
 
     @Override
@@ -43,13 +37,13 @@ public class QuantileDigestStateSerializer
             out.appendNull();
         }
         else {
-            type.writeSlice(out, state.getQuantileDigest().serialize());
+            VARBINARY.writeSlice(out, state.getQuantileDigest().serialize());
         }
     }
 
     @Override
     public void deserialize(Block block, int index, QuantileDigestState state)
     {
-        state.setQuantileDigest(new QuantileDigest(type.getSlice(block, index)));
+        state.setQuantileDigest(new QuantileDigest(VARBINARY.getSlice(block, index)));
     }
 }
