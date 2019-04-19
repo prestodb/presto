@@ -35,7 +35,7 @@ public class StatisticsWriterNode
     private final VariableReferenceExpression rowCountVariable;
     private final WriteStatisticsTarget target;
     private final boolean rowCountEnabled;
-    private final StatisticAggregationsDescriptor<Symbol> descriptor;
+    private final StatisticAggregationsDescriptor<VariableReferenceExpression> descriptor;
 
     @JsonCreator
     public StatisticsWriterNode(
@@ -44,7 +44,7 @@ public class StatisticsWriterNode
             @JsonProperty("target") WriteStatisticsTarget target,
             @JsonProperty("rowCountVariable") VariableReferenceExpression rowCountVariable,
             @JsonProperty("rowCountEnabled") boolean rowCountEnabled,
-            @JsonProperty("descriptor") StatisticAggregationsDescriptor<Symbol> descriptor)
+            @JsonProperty("descriptor") StatisticAggregationsDescriptor<VariableReferenceExpression> descriptor)
     {
         super(id);
         this.source = requireNonNull(source, "source is null");
@@ -67,7 +67,7 @@ public class StatisticsWriterNode
     }
 
     @JsonProperty
-    public StatisticAggregationsDescriptor<Symbol> getDescriptor()
+    public StatisticAggregationsDescriptor<VariableReferenceExpression> getDescriptor()
     {
         return descriptor;
     }
