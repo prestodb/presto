@@ -16,11 +16,11 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -33,14 +33,13 @@ import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
@@ -54,7 +53,6 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
-import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggregation;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
@@ -74,35 +72,32 @@ import static java.util.Objects.requireNonNull;
 public class TransformQuantifiedComparisonApplyToLateralJoin
         implements PlanOptimizer
 {
-    private final FunctionManager functionManager;
+    private final StandardFunctionResolution functionResolution;
 
     public TransformQuantifiedComparisonApplyToLateralJoin(FunctionManager functionManager)
     {
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        requireNonNull(functionManager, "functionManager is null");
+        this.functionResolution = new FunctionResolution(functionManager);
     }
 
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        return rewriteWith(new Rewriter(functionManager, session, idAllocator, types, symbolAllocator), plan, null);
+        return rewriteWith(new Rewriter(functionResolution, session, idAllocator, types, symbolAllocator), plan, null);
     }
 
     private static class Rewriter
             extends SimplePlanRewriter<PlanNode>
     {
-        private static final QualifiedName MIN = QualifiedName.of("min");
-        private static final QualifiedName MAX = QualifiedName.of("max");
-        private static final QualifiedName COUNT = QualifiedName.of("count");
-
-        private final FunctionManager functionManager;
+        private final StandardFunctionResolution functionResolution;
         private final Session session;
         private final PlanNodeIdAllocator idAllocator;
         private final TypeProvider types;
         private final SymbolAllocator symbolAllocator;
 
-        public Rewriter(FunctionManager functionManager, Session session, PlanNodeIdAllocator idAllocator, TypeProvider types, SymbolAllocator symbolAllocator)
+        public Rewriter(StandardFunctionResolution functionResolution, Session session, PlanNodeIdAllocator idAllocator, TypeProvider types, SymbolAllocator symbolAllocator)
         {
-            this.functionManager = requireNonNull(functionManager, "functionManager is null");
+            this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
             this.session = requireNonNull(session, "session is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.types = requireNonNull(types, "types is null");
@@ -134,33 +129,44 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
             Type outputColumnType = types.get(outputColumn);
             checkState(outputColumnType.isOrderable(), "Subquery result type must be orderable");
 
-            Symbol minValue = symbolAllocator.newSymbol(MIN.toString(), outputColumnType);
-            Symbol maxValue = symbolAllocator.newSymbol(MAX.toString(), outputColumnType);
+            Symbol minValue = symbolAllocator.newSymbol("min", outputColumnType);
+            Symbol maxValue = symbolAllocator.newSymbol("max", outputColumnType);
             Symbol countAllValue = symbolAllocator.newSymbol("count_all", BigintType.BIGINT);
             Symbol countNonNullValue = symbolAllocator.newSymbol("count_non_null", BigintType.BIGINT);
 
             List<Expression> outputColumnReferences = ImmutableList.of(outputColumn.toSymbolReference());
-            List<TypeSignatureProvider> outputColumnTypeSignatures = fromTypes(outputColumnType);
 
             subqueryPlan = new AggregationNode(
                     idAllocator.getNextId(),
                     subqueryPlan,
                     ImmutableMap.of(
                             minValue, new Aggregation(
-                                    new FunctionCall(MIN, outputColumnReferences),
-                                    functionManager.lookupFunction(MIN.getSuffix(), outputColumnTypeSignatures),
+                                    functionResolution.minFunction(outputColumnType),
+                                    outputColumnReferences,
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    false,
                                     Optional.empty()),
                             maxValue, new Aggregation(
-                                    new FunctionCall(MAX, outputColumnReferences),
-                                    functionManager.lookupFunction(MAX.getSuffix(), outputColumnTypeSignatures),
+                                    functionResolution.maxFunction(outputColumnType),
+                                    outputColumnReferences,
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    false,
                                     Optional.empty()),
                             countAllValue, new Aggregation(
-                                    new FunctionCall(COUNT, emptyList()),
-                                    functionManager.lookupFunction(COUNT.getSuffix(), emptyList()),
+                                    functionResolution.countFunction(),
+                                    emptyList(),
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    false,
                                     Optional.empty()),
                             countNonNullValue, new Aggregation(
-                                    new FunctionCall(COUNT, outputColumnReferences),
-                                    functionManager.lookupFunction(COUNT.getSuffix(), outputColumnTypeSignatures),
+                                    functionResolution.countFunction(outputColumnType),
+                                    outputColumnReferences,
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    false,
                                     Optional.empty())),
                     globalAggregation(),
                     ImmutableList.of(),

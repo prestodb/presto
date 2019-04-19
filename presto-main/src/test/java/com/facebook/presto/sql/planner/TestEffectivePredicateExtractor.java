@@ -23,7 +23,6 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -75,6 +74,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.or;
+import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.count;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggregation;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
@@ -157,8 +157,8 @@ public class TestEffectivePredicateExtractor
                                 greaterThan(AE, bigintLiteral(2)),
                                 equals(EE, FE))),
                 ImmutableMap.of(
-                        C, new Aggregation(functionCall, functionHandle, Optional.empty()),
-                        D, new Aggregation(functionCall, functionHandle, Optional.empty())),
+                        C, count(metadata.getFunctionManager()),
+                        D, count(metadata.getFunctionManager())),
                 singleGroupingSet(ImmutableList.of(A, B, C)),
                 ImmutableList.of(),
                 AggregationNode.Step.FINAL,

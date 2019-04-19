@@ -558,8 +558,16 @@ class QueryPlanner
                 needPostProjectionCoercion = true;
             }
             aggregationTranslations.put(aggregate, newSymbol);
+            FunctionCall rewrittenFunction = (FunctionCall) rewritten;
 
-            aggregationsBuilder.put(newSymbol, new Aggregation((FunctionCall) rewritten, analysis.getFunctionHandle(aggregate), Optional.empty()));
+            aggregationsBuilder.put(newSymbol,
+                    new Aggregation(
+                            analysis.getFunctionHandle(aggregate),
+                            rewrittenFunction.getArguments(),
+                            rewrittenFunction.getFilter(),
+                            rewrittenFunction.getOrderBy().map(OrderBy::getSortItems).map(PlannerUtils::toOrderingScheme),
+                            rewrittenFunction.isDistinct(),
+                            Optional.empty()));
         }
         Map<Symbol, Aggregation> aggregations = aggregationsBuilder.build();
 
@@ -887,6 +895,7 @@ class QueryPlanner
 
         Iterator<SortItem> sortItems = orderBy.get().getSortItems().iterator();
 
+        // This logic is similar to PlannerUtils::toOrderingScheme
         ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
         Map<Symbol, SortOrder> orderings = new HashMap<>();
         for (Expression fieldOrExpression : orderByExpressions) {

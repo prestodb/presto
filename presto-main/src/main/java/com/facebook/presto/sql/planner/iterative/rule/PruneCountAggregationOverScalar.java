@@ -15,11 +15,13 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
-import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Map;
@@ -38,6 +40,13 @@ public class PruneCountAggregationOverScalar
         implements Rule<AggregationNode>
 {
     private static final Pattern<AggregationNode> PATTERN = aggregation();
+    private final StandardFunctionResolution functionResolution;
+
+    public PruneCountAggregationOverScalar(FunctionManager functionManager)
+    {
+        requireNonNull(functionManager, "functionManager is null");
+        this.functionResolution = new FunctionResolution(functionManager);
+    }
 
     @Override
     public Pattern<AggregationNode> getPattern()
@@ -55,8 +64,7 @@ public class PruneCountAggregationOverScalar
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
             AggregationNode.Aggregation aggregation = entry.getValue();
             requireNonNull(aggregation, "aggregation is null");
-            FunctionCall functionCall = aggregation.getCall();
-            if (!"count".equals(functionCall.getName().getSuffix()) || !functionCall.getArguments().isEmpty()) {
+            if (!functionResolution.isCountFunction(aggregation.getFunctionHandle()) || !aggregation.getArguments().isEmpty()) {
                 return Result.empty();
             }
         }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule.test;
 
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.Plugin;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
@@ -48,5 +49,10 @@ public abstract class BaseRuleTest
     protected RuleTester tester()
     {
         return tester;
+    }
+
+    protected FunctionManager getFunctionManager()
+    {
+        return tester.getMetadata().getFunctionManager();
     }
 }

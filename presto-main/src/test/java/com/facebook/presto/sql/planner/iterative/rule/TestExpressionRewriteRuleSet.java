@@ -24,6 +24,7 @@ import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -77,24 +78,25 @@ public class TestExpressionRewriteRuleSet
     @Test
     public void testAggregationExpressionRewrite()
     {
-        tester().assertThat(functionCallRewriter.aggregationExpressionRewrite())
+        tester().assertThat(new ExpressionRewriteRuleSet((expression, context) -> new SymbolReference("x")).aggregationExpressionRewrite())
                 .on(p -> p.aggregation(a -> a
                         .globalGrouping()
                         .addAggregation(
                                 p.symbol("count_1", BIGINT),
-                                new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
+                                new FunctionCall(QualifiedName.of("count"), ImmutableList.of(p.symbol("y", BIGINT).toSymbolReference())),
                                 ImmutableList.of(BIGINT))
                         .source(
-                                p.values())))
+                                p.values(p.symbol("x", BIGINT)))))
                 .matches(
                         PlanMatchPattern.aggregation(
-                                ImmutableMap.of("count_1", functionCall("now", ImmutableList.of())),
-                                values()));
+                                ImmutableMap.of("count_1", functionCall("count", ImmutableList.of("x"))),
+                                values("x")));
     }
 
     @Test
     public void testAggregationExpressionNotRewritten()
     {
+        // Aggregation expression will only rewrite argument/filter
         tester().assertThat(functionCallRewriter.aggregationExpressionRewrite())
                 .on(p -> p.aggregation(a -> a
                         .globalGrouping()
@@ -102,6 +104,17 @@ public class TestExpressionRewriteRuleSet
                                 p.symbol("count_1", DateType.DATE),
                                 nowCall,
                                 ImmutableList.of())
+                        .source(
+                                p.values())))
+                .doesNotFire();
+
+        tester().assertThat(functionCallRewriter.aggregationExpressionRewrite())
+                .on(p -> p.aggregation(a -> a
+                        .globalGrouping()
+                        .addAggregation(
+                                p.symbol("count_1", BIGINT),
+                                new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
+                                ImmutableList.of(BIGINT))
                         .source(
                                 p.values())))
                 .doesNotFire();

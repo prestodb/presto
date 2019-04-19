@@ -31,7 +31,8 @@ import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.OrderBy;
+import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -41,11 +42,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.groupingSets;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 public class SymbolMapper
 {
@@ -76,6 +79,19 @@ public class SymbolMapper
                 return canonical.toSymbolReference();
             }
         }, value);
+    }
+
+    public OrderingScheme map(OrderingScheme orderingScheme)
+    {
+        return new OrderingScheme(orderingScheme.getOrderBy().stream().map(this::map).collect(toImmutableList()),
+                orderingScheme.getOrderings().entrySet().stream().collect(toMap(entry -> map(entry.getKey()), entry -> entry.getValue())));
+    }
+
+    // TODO this will be removed later after FunctionCall is removed from aggregation
+    public OrderBy map(OrderBy orderBy)
+    {
+        return new OrderBy(orderBy.getSortItems().stream()
+                .map(sortItem -> new SortItem(map(sortItem.getSortKey()), sortItem.getOrdering(), sortItem.getNullOrdering())).collect(Collectors.toList()));
     }
 
     public AggregationNode map(AggregationNode node, PlanNode source)
@@ -112,8 +128,11 @@ public class SymbolMapper
     private Aggregation map(Aggregation aggregation)
     {
         return new Aggregation(
-                (FunctionCall) map(aggregation.getCall()),
                 aggregation.getFunctionHandle(),
+                aggregation.getArguments().stream().map(this::map).collect(toImmutableList()),
+                aggregation.getFilter().map(this::map),
+                aggregation.getOrderBy().map(this::map),
+                aggregation.isDistinct(),
                 aggregation.getMask().map(this::map));
     }
 

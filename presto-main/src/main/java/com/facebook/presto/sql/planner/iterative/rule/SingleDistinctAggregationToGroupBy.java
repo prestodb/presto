@@ -20,7 +20,6 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -80,16 +79,14 @@ public class SingleDistinctAggregationToGroupBy
     {
         return aggregation.getAggregations()
                 .values().stream()
-                .map(Aggregation::getCall)
-                .allMatch(FunctionCall::isDistinct);
+                .allMatch(Aggregation::isDistinct);
     }
 
     private static boolean noFilters(AggregationNode aggregation)
     {
         return aggregation.getAggregations()
                 .values().stream()
-                .map(Aggregation::getCall)
-                .noneMatch(call -> call.getFilter().isPresent());
+                .noneMatch(instance -> instance.getFilter().isPresent());
     }
 
     private static boolean noMasks(AggregationNode aggregation)
@@ -103,9 +100,8 @@ public class SingleDistinctAggregationToGroupBy
     {
         return aggregation.getAggregations()
                 .values().stream()
-                .map(Aggregation::getCall)
-                .filter(FunctionCall::isDistinct)
-                .map(FunctionCall::getArguments)
+                .filter(Aggregation::isDistinct)
+                .map(Aggregation::getArguments)
                 .<Set<Expression>>map(HashSet::new)
                 .distinct();
     }
@@ -156,18 +152,14 @@ public class SingleDistinctAggregationToGroupBy
 
     private static AggregationNode.Aggregation removeDistinct(AggregationNode.Aggregation aggregation)
     {
-        checkArgument(aggregation.getCall().isDistinct(), "Expected aggregation to have DISTINCT input");
+        checkArgument(aggregation.isDistinct(), "Expected aggregation to have DISTINCT input");
 
-        FunctionCall call = aggregation.getCall();
         return new AggregationNode.Aggregation(
-                new FunctionCall(
-                        call.getName(),
-                        call.getWindow(),
-                        call.getFilter(),
-                        call.getOrderBy(),
-                        false,
-                        call.getArguments()),
                 aggregation.getFunctionHandle(),
+                aggregation.getArguments(),
+                aggregation.getFilter(),
+                aggregation.getOrderBy(),
+                false,
                 aggregation.getMask());
     }
 }

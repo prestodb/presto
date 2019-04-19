@@ -49,8 +49,6 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
@@ -76,6 +74,7 @@ import java.util.function.Function;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.count;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
@@ -766,10 +765,7 @@ public class TestCostCalculator
 
     private AggregationNode aggregation(String id, PlanNode source)
     {
-        AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
-                new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
-                metadata.getFunctionManager().lookupFunction("count", ImmutableList.of()),
-                Optional.empty());
+        AggregationNode.Aggregation aggregation = count(metadata.getFunctionManager());
 
         return new AggregationNode(
                 new PlanNodeId(id),

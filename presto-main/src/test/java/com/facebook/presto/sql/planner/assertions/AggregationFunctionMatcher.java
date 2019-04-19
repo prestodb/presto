@@ -14,7 +14,9 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.sql.planner.PlannerUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -49,13 +51,22 @@ public class AggregationFunctionMatcher
 
         FunctionCall expectedCall = callMaker.getExpectedValue(symbolAliases);
         for (Map.Entry<Symbol, Aggregation> assignment : aggregationNode.getAggregations().entrySet()) {
-            if (expectedCall.equals(assignment.getValue().getCall())) {
+            if (compareAggregation(metadata.getFunctionManager(), assignment.getValue(), expectedCall)) {
                 checkState(!result.isPresent(), "Ambiguous function calls in %s", aggregationNode);
                 result = Optional.of(assignment.getKey());
             }
         }
 
         return result;
+    }
+
+    private boolean compareAggregation(FunctionManager functionManager, Aggregation aggregation, FunctionCall expectedCall)
+    {
+        return expectedCall.getName().getSuffix().equalsIgnoreCase(functionManager.getFunctionMetadata(aggregation.getFunctionHandle()).getName()) &&
+                expectedCall.getArguments().equals(aggregation.getArguments()) &&
+                expectedCall.getFilter().equals(aggregation.getFilter()) &&
+                expectedCall.isDistinct() == aggregation.isDistinct() &&
+                expectedCall.getOrderBy().map(PlannerUtils::toOrderingScheme).equals(aggregation.getOrderBy());
     }
 
     @Override

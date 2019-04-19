@@ -34,7 +34,7 @@ public final class VerifyNoFilteredAggregations
                 .<AggregationNode>findAll()
                 .stream()
                 .flatMap(node -> node.getAggregations().values().stream())
-                .filter(aggregation -> aggregation.getCall().getFilter().isPresent())
+                .filter(aggregation -> aggregation.getFilter().isPresent())
                 .forEach(ignored -> {
                     throw new IllegalStateException("Generated plan contains unimplemented filtered aggregations");
                 });

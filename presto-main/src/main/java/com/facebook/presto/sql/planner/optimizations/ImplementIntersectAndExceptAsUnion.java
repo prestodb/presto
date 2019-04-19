@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
@@ -34,13 +35,12 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SetOperationNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -53,7 +53,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
@@ -131,14 +130,15 @@ public class ImplementIntersectAndExceptAsUnion
         private static final String MARKER = "marker";
 
         private final Session session;
-        private final FunctionManager functionManager;
+        private final StandardFunctionResolution functionResolution;
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
 
         private Rewriter(Session session, FunctionManager functionManager, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
         {
+            requireNonNull(functionManager, "functionManager is null");
             this.session = requireNonNull(session, "session is null");
-            this.functionManager = requireNonNull(functionManager, "functionManager is null");
+            this.functionResolution = new FunctionResolution(functionManager);
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         }
@@ -247,10 +247,12 @@ public class ImplementIntersectAndExceptAsUnion
 
             for (int i = 0; i < markers.size(); i++) {
                 Symbol output = aggregationOutputs.get(i);
-                QualifiedName name = QualifiedName.of("count");
                 aggregations.put(output, new Aggregation(
-                        new FunctionCall(name, ImmutableList.of(markers.get(i).toSymbolReference())),
-                        functionManager.lookupFunction(name.getSuffix(), fromTypes(BIGINT)),
+                        functionResolution.countFunction(BIGINT),
+                        ImmutableList.of(markers.get(i).toSymbolReference()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
                         Optional.empty()));
             }
 

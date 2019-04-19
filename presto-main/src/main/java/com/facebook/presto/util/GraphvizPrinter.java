@@ -214,12 +214,14 @@ public final class GraphvizPrinter
         private final StringBuilder output;
         private final PlanNodeIdGenerator idGenerator;
         private final RowExpressionFormatter formatter;
+        private final FunctionManager functionManager;
 
         public NodePrinter(StringBuilder output, PlanNodeIdGenerator idGenerator, Session session, FunctionManager functionManager)
         {
             this.output = output;
             this.idGenerator = idGenerator;
             this.formatter = new RowExpressionFormatter(session.toConnectorSession(), functionManager);
+            this.functionManager = functionManager;
         }
 
         @Override
@@ -349,15 +351,20 @@ public final class GraphvizPrinter
         {
             StringBuilder builder = new StringBuilder();
             for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
-                if (entry.getValue().getMask().isPresent()) {
-                    builder.append(format("%s := %s (mask = %s)\\n", entry.getKey(), entry.getValue().getCall(), entry.getValue().getMask().get()));
-                }
-                else {
-                    builder.append(format("%s := %s\\n", entry.getKey(), entry.getValue().getCall()));
-                }
+                builder.append(format("%s := %s\\n", entry.getKey(), formatAggregation(entry.getValue())));
             }
             printNode(node, format("Aggregate[%s]", node.getStep()), builder.toString(), NODE_COLORS.get(NodeType.AGGREGATE));
             return node.getSource().accept(this, context);
+        }
+
+        private String formatAggregation(AggregationNode.Aggregation aggregation)
+        {
+            return String.format("%s(%s)%s%s%s",
+                    functionManager.getFunctionMetadata(aggregation.getFunctionHandle()).getName(),
+                    Joiner.on(",").join(aggregation.getArguments().stream().map(Expression::toString).collect(toImmutableList())),
+                    aggregation.getFilter().map(filter -> format(" WHERE %s", filter)).orElse(""),
+                    aggregation.getOrderBy().map(orderingScheme -> format(" ORDER BY %s", orderingScheme)).orElse(""),
+                    aggregation.getMask().map(mask -> format(" (mask = %s)", mask)).orElse(""));
         }
 
         @Override

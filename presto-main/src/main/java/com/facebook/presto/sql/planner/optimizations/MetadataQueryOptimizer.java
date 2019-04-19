@@ -107,7 +107,8 @@ public class MetadataQueryOptimizer
         {
             // supported functions are only MIN/MAX/APPROX_DISTINCT or distinct aggregates
             for (Aggregation aggregation : node.getAggregations().values()) {
-                if (!ALLOWED_FUNCTIONS.contains(aggregation.getCall().getName().toString()) && !aggregation.getCall().isDistinct()) {
+                String functionName = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName();
+                if (!ALLOWED_FUNCTIONS.contains(functionName) && !aggregation.isDistinct()) {
                     return context.defaultRewrite(node);
                 }
             }

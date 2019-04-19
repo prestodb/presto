@@ -22,7 +22,6 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -75,16 +74,15 @@ public class MultipleDistinctAggregationToMarkDistinct
     {
         return aggregation.getAggregations()
                 .values().stream()
-                .noneMatch(e -> e.getCall().isDistinct() && (e.getCall().getFilter().isPresent() || e.getMask().isPresent()));
+                .noneMatch(e -> e.isDistinct() && (e.getFilter().isPresent() || e.getMask().isPresent()));
     }
 
     private static boolean hasMultipleDistincts(AggregationNode aggregation)
     {
         return aggregation.getAggregations()
                 .values().stream()
-                .filter(e -> e.getCall().isDistinct())
-                .map(Aggregation::getCall)
-                .map(FunctionCall::getArguments)
+                .filter(e -> e.isDistinct())
+                .map(Aggregation::getArguments)
                 .map(HashSet::new)
                 .distinct()
                 .count() > 1;
@@ -94,8 +92,7 @@ public class MultipleDistinctAggregationToMarkDistinct
     {
         long distincts = aggregation.getAggregations()
                 .values().stream()
-                .map(Aggregation::getCall)
-                .filter(FunctionCall::isDistinct)
+                .filter(Aggregation::isDistinct)
                 .count();
 
         return distincts > 0 && distincts < aggregation.getAggregations().size();
@@ -122,10 +119,9 @@ public class MultipleDistinctAggregationToMarkDistinct
 
         for (Map.Entry<Symbol, Aggregation> entry : parent.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
-            FunctionCall call = aggregation.getCall();
 
-            if (call.isDistinct() && !call.getFilter().isPresent() && !aggregation.getMask().isPresent()) {
-                Set<Symbol> inputs = call.getArguments().stream()
+            if (aggregation.isDistinct() && !aggregation.getFilter().isPresent() && !aggregation.getMask().isPresent()) {
+                Set<Symbol> inputs = aggregation.getArguments().stream()
                         .map(Symbol::from)
                         .collect(toSet());
 
@@ -150,14 +146,11 @@ public class MultipleDistinctAggregationToMarkDistinct
                 // remove the distinct flag and set the distinct marker
                 newAggregations.put(entry.getKey(),
                         new Aggregation(
-                                new FunctionCall(
-                                        call.getName(),
-                                        call.getWindow(),
-                                        call.getFilter(),
-                                        call.getOrderBy(),
-                                        false,
-                                        call.getArguments()),
                                 aggregation.getFunctionHandle(),
+                                aggregation.getArguments(),
+                                aggregation.getFilter(),
+                                aggregation.getOrderBy(),
+                                false,
                                 Optional.of(marker)));
             }
             else {

@@ -288,7 +288,7 @@ public class PlanOptimizers
                                         new MultipleDistinctAggregationToMarkDistinct(),
                                         new ImplementBernoulliSampleAsFilter(),
                                         new MergeLimitWithDistinct(),
-                                        new PruneCountAggregationOverScalar(),
+                                        new PruneCountAggregationOverScalar(metadata.getFunctionManager()),
                                         new PruneOrderByInAggregation(metadata.getFunctionManager()),
                                         new RewriteSpatialPartitioningAggregation(metadata)))
                                 .build()),
@@ -357,7 +357,7 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
-                                new PushAggregationThroughOuterJoin())),
+                                new PushAggregationThroughOuterJoin(metadata.getFunctionManager()))),
                 inlineProjections,
                 simplifyOptimizer, // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
                 projectionPushDown,

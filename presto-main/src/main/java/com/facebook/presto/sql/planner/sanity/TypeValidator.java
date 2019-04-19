@@ -32,7 +32,6 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ListMultimap;
@@ -88,7 +87,7 @@ public final class TypeValidator
             switch (step) {
                 case SINGLE:
                     checkFunctionSignature(node.getAggregations());
-                    checkFunctionCall(node.getAggregations());
+                    checkAggregation(node.getAggregations());
                     break;
                 case FINAL:
                     checkFunctionSignature(node.getAggregations());
@@ -162,14 +161,6 @@ public final class TypeValidator
             verifyTypeSignature(symbol, expectedTypeSignature, actualTypeSignature);
         }
 
-        private void checkCall(Symbol symbol, FunctionCall call)
-        {
-            Type expectedType = types.get(symbol);
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, call, emptyList(), warningCollector);
-            Type actualType = expressionTypes.get(NodeRef.<Expression>of(call));
-            verifyTypeSignature(symbol, expectedType.getTypeSignature(), actualType.getTypeSignature());
-        }
-
         private void checkCall(Symbol symbol, CallExpression call)
         {
             Type expectedType = types.get(symbol);
@@ -184,10 +175,15 @@ public final class TypeValidator
             }
         }
 
-        private void checkFunctionCall(Map<Symbol, Aggregation> aggregations)
+        private void checkAggregation(Map<Symbol, Aggregation> aggregations)
         {
             for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
-                checkCall(entry.getKey(), entry.getValue().getCall());
+                Symbol symbol = entry.getKey();
+                verifyTypeSignature(
+                        symbol,
+                        types.get(symbol).getTypeSignature(),
+                        metadata.getFunctionManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getReturnType());
+                // TODO check if the argument type agrees with function handle (will be added once Aggregation is using CallExpression).
             }
         }
 

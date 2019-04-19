@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -28,7 +27,6 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
@@ -36,15 +34,13 @@ import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class DesugarAtTimeZoneRewriter
 {
     public static Expression rewrite(Expression expression, Map<NodeRef<Expression>, Type> expressionTypes)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(expressionTypes), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(expressionTypes), expression, null);
     }
 
     private DesugarAtTimeZoneRewriter() {}
@@ -57,9 +53,7 @@ public class DesugarAtTimeZoneRewriter
         if (expression instanceof SymbolReference) {
             return expression;
         }
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), expression, emptyList(), WarningCollector.NOOP);
-
-        return rewrite(expression, expressionTypes);
+        return new AnalyzedExpressionRewriter(session, metadata, sqlParser, symbolAllocator.getTypes()).rewriteWith(Visitor::new, expression);
     }
 
     private static class Visitor
@@ -69,14 +63,14 @@ public class DesugarAtTimeZoneRewriter
 
         public Visitor(Map<NodeRef<Expression>, Type> expressionTypes)
         {
-            this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
+            this.expressionTypes = requireNonNull(expressionTypes, "expressionTypes is null");
         }
 
         @Override
         public Expression rewriteAtTimeZone(AtTimeZone node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             Expression value = treeRewriter.rewrite(node.getValue(), context);
-            Type type = getType(node.getValue());
+            Type type = expressionTypes.get(NodeRef.of(node.getValue()));
             if (type.equals(TIME)) {
                 value = new Cast(value, TIME_WITH_TIME_ZONE.getDisplayName());
             }
@@ -85,11 +79,6 @@ public class DesugarAtTimeZoneRewriter
             }
 
             return new FunctionCall(QualifiedName.of("at_timezone"), ImmutableList.of(value, treeRewriter.rewrite(node.getTimeZone(), context)));
-        }
-
-        private Type getType(Expression expression)
-        {
-            return expressionTypes.get(NodeRef.of(expression));
         }
     }
 }
