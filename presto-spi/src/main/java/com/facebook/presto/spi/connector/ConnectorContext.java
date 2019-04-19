@@ -16,6 +16,7 @@ package com.facebook.presto.spi.connector;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.type.TypeManager;
 
@@ -27,6 +28,11 @@ public interface ConnectorContext
     }
 
     default TypeManager getTypeManager()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default FunctionMetadataManager getFunctionMetadataManager()
     {
         throw new UnsupportedOperationException();
     }

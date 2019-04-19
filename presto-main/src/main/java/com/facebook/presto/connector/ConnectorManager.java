@@ -321,6 +321,7 @@ public class ConnectorManager
         ConnectorContext context = new ConnectorContextInstance(
                 new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), connectorId),
                 typeManager,
+                metadataManager.getFunctionManager(),
                 pageSorter,
                 pageIndexerFactory,
                 new ConnectorRowExpressionService(domainTranslator));
