@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.operator.StageExecutionDescriptor;
+import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.SampledSplitSource;
 import com.facebook.presto.split.SplitSource;
@@ -62,6 +63,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
+import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.REWINDABLE_GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -99,6 +101,17 @@ public class SplitSourceFactory
         }
     }
 
+    private static SplitSchedulingStrategy getSplitSchedulingStrategy(StageExecutionDescriptor stageExecutionDescriptor, PlanNodeId scanNodeId)
+    {
+        if (stageExecutionDescriptor.isRecoverableGroupedExecution()) {
+            return REWINDABLE_GROUPED_SCHEDULING;
+        }
+        if (stageExecutionDescriptor.isScanGroupedExecution(scanNodeId)) {
+            return GROUPED_SCHEDULING;
+        }
+        return UNGROUPED_SCHEDULING;
+    }
+
     private final class Visitor
             extends InternalPlanVisitor<Map<PlanNodeId, SplitSource>, Void>
     {
@@ -126,7 +139,7 @@ public class SplitSourceFactory
             Supplier<SplitSource> splitSourceSupplier = () -> splitSourceProvider.getSplits(
                     session,
                     node.getTable(),
-                    stageExecutionDescriptor.isScanGroupedExecution(node.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING);
+                    getSplitSchedulingStrategy(stageExecutionDescriptor, node.getId()));
 
             SplitSource splitSource = node.isTemporaryTable() ? new LazySplitSource(splitSourceSupplier) : splitSourceSupplier.get();
 

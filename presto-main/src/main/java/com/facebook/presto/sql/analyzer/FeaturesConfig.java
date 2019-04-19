@@ -68,8 +68,8 @@ public class FeaturesConfig
     private boolean colocatedJoinsEnabled;
     private boolean groupedExecutionForAggregationEnabled;
     private boolean dynamicScheduleForGroupedExecution;
-    private double maxFailedTaskPercentage = 0.3;
     private boolean recoverableGroupedExecutionEnabled;
+    private double maxFailedTaskPercentage = 0.3;
     private int concurrentLifespansPerTask;
     private boolean spatialJoinsEnabled = true;
     private boolean fastInequalityJoins = true;
@@ -354,6 +354,19 @@ public class FeaturesConfig
     public FeaturesConfig setRecoverableGroupedExecutionEnabled(boolean recoverableGroupedExecutionEnabled)
     {
         this.recoverableGroupedExecutionEnabled = recoverableGroupedExecutionEnabled;
+        return this;
+    }
+
+    public double getMaxFailedTaskPercentage()
+    {
+        return maxFailedTaskPercentage;
+    }
+
+    @Config("max-failed-task-percentage")
+    @ConfigDescription("Max percentage of failed tasks that are retryable for recoverable dynamic scheduling")
+    public FeaturesConfig setMaxFailedTaskPercentage(double maxFailedTaskPercentage)
+    {
+        this.maxFailedTaskPercentage = maxFailedTaskPercentage;
         return this;
     }
 

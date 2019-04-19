@@ -253,6 +253,20 @@ public class HiveSplitManager
                         executor,
                         new CounterStat());
                 break;
+            case REWINDABLE_GROUPED_SCHEDULING:
+                splitSource = HiveSplitSource.bucketedRewindable(
+                        session,
+                        table.getDatabaseName(),
+                        table.getTableName(),
+                        layout.getDomainPredicate(),
+                        layout.getRemainingPredicate(),
+                        layout.getPredicateColumns(),
+                        maxInitialSplits,
+                        maxOutstandingSplitsSize,
+                        hiveSplitLoader,
+                        executor,
+                        new CounterStat());
+                break;
             default:
                 throw new IllegalArgumentException("Unknown splitSchedulingStrategy: " + splitSchedulingContext.getSplitSchedulingStrategy());
         }

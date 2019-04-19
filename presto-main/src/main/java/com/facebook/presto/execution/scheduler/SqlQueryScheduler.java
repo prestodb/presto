@@ -340,7 +340,8 @@ public class SqlQueryScheduler
                 failureDetector,
                 nodeTaskMap,
                 stageSchedulers,
-                stageLinkages);
+                stageLinkages,
+                Optional.empty());
         sectionStages.get(0).setOutputBuffers(outputBuffers);
         stages.addAll(sectionStages);
 
@@ -384,7 +385,8 @@ public class SqlQueryScheduler
             FailureDetector failureDetector,
             NodeTaskMap nodeTaskMap,
             ImmutableMap.Builder<StageId, StageScheduler> stageSchedulers,
-            ImmutableMap.Builder<StageId, StageLinkage> stageLinkages)
+            ImmutableMap.Builder<StageId, StageLinkage> stageLinkages,
+            Optional<SqlStageExecution> parentStageExecution)
     {
         ImmutableList.Builder<SqlStageExecution> stages = ImmutableList.builder();
 
@@ -478,7 +480,7 @@ public class SqlQueryScheduler
                     bucketToPartition = Optional.of(nodePartitionMap.getBucketToPartition());
                 }
 
-                stageSchedulers.put(stageId, new FixedSourcePartitionedScheduler(
+                FixedSourcePartitionedScheduler stageScheduler = new FixedSourcePartitionedScheduler(
                         stage,
                         splitSources,
                         plan.getFragment().getStageExecutionDescriptor(),
@@ -488,7 +490,18 @@ public class SqlQueryScheduler
                         splitBatchSize,
                         getConcurrentLifespansPerNode(session),
                         nodeScheduler.createNodeSelector(connectorId),
-                        connectorPartitionHandles));
+                        connectorPartitionHandles);
+                stageSchedulers.put(stageId, stageScheduler);
+                if (plan.getFragment().getStageExecutionDescriptor().isRecoverableGroupedExecution()) {
+                    stage.registerStageTaskRecoveryCallback(taskId -> {
+                        checkArgument(taskId.getStageId().equals(stageId), "The task did not execute this stage");
+                        checkArgument(parentStageExecution.isPresent(), "Parent stage execution must exist");
+                        checkArgument(parentStageExecution.get().getAllTasks().size() == 1, "Parent stage should only have one task for recoverable grouped execution");
+
+                        parentStageExecution.get().removeRemoteSourceIfSingleTaskStage(taskId);
+                        stageScheduler.recover(taskId);
+                    });
+                }
             }
             else {
                 // all sources are remote
@@ -519,7 +532,8 @@ public class SqlQueryScheduler
                     failureDetector,
                     nodeTaskMap,
                     stageSchedulers,
-                    stageLinkages);
+                    stageLinkages,
+                    Optional.of(stage));
             stages.addAll(subTree);
 
             SqlStageExecution childStage = subTree.get(0);

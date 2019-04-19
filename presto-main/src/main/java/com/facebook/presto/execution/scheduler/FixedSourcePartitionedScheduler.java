@@ -16,6 +16,7 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason;
 import com.facebook.presto.execution.scheduler.group.DynamicLifespanScheduler;
 import com.facebook.presto.execution.scheduler.group.FixedLifespanScheduler;
@@ -61,6 +62,7 @@ public class FixedSourcePartitionedScheduler
     private final List<SourceScheduler> sourceSchedulers;
     private final List<ConnectorPartitionHandle> partitionHandles;
     private boolean scheduledTasks;
+    private boolean anySourceSchedulingFinished;
     private final Optional<LifespanScheduler> groupedLifespanScheduler;
 
     public FixedSourcePartitionedScheduler(
@@ -159,8 +161,9 @@ public class FixedSourcePartitionedScheduler
         return partitionHandles.get(lifespan.getId());
     }
 
+    // Only schedule() and recover() are synchronized
     @Override
-    public ScheduleResult schedule()
+    public synchronized ScheduleResult schedule()
     {
         // schedule a task on every node in the distribution
         List<RemoteTask> newTasks = ImmutableList.of();
@@ -225,6 +228,7 @@ public class FixedSourcePartitionedScheduler
                 stage.schedulingComplete(sourceScheduler.getPlanNodeId());
                 schedulerIterator.remove();
                 sourceScheduler.close();
+                anySourceSchedulingFinished = true;
             }
         }
 
@@ -234,6 +238,17 @@ public class FixedSourcePartitionedScheduler
         else {
             return ScheduleResult.nonBlocked(sourceSchedulers.isEmpty(), newTasks, splitsScheduled);
         }
+    }
+
+    // Only schedule() and recover() are synchronized
+    public synchronized void recover(TaskId taskId)
+    {
+        checkState(groupedLifespanScheduler.isPresent(), "groupedLifespanScheduler is not present for recoverable grouped execution");
+        if (anySourceSchedulingFinished) {
+            throw new IllegalStateException("Recover after any source scheduling finished is not supported");
+        }
+
+        groupedLifespanScheduler.get().onTaskFailed(taskId.getId(), sourceSchedulers);
     }
 
     @Override

@@ -316,7 +316,8 @@ public class TestTableWriterOperator
                 session,
                 statisticsAggregation,
                 outputTypes,
-                TABLE_COMMIT_CONTEXT_CODEC);
+                TABLE_COMMIT_CONTEXT_CODEC,
+                false);
         return factory.createOperator(driverContext);
     }
 

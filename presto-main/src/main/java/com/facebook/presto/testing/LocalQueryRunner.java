@@ -103,6 +103,7 @@ import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
@@ -193,6 +194,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.cost.StatsCalculatorModule.createNewStatsCalculator;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
+import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.REWINDABLE_GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
@@ -756,7 +758,7 @@ public class LocalQueryRunner
             SplitSource splitSource = splitManager.getSplits(
                     session,
                     tableScan.getTable(),
-                    stageExecutionDescriptor.isScanGroupedExecution(tableScan.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING);
+                    getSplitSchedulingStrategy(stageExecutionDescriptor, tableScan.getId()));
 
             ImmutableSet.Builder<ScheduledSplit> scheduledSplits = ImmutableSet.builder();
             while (!splitSource.isFinished()) {
@@ -803,6 +805,17 @@ public class LocalQueryRunner
         }
 
         return ImmutableList.copyOf(drivers);
+    }
+
+    private static SplitSchedulingStrategy getSplitSchedulingStrategy(StageExecutionDescriptor stageExecutionDescriptor, PlanNodeId scanNodeId)
+    {
+        if (stageExecutionDescriptor.isRecoverableGroupedExecution()) {
+            return REWINDABLE_GROUPED_SCHEDULING;
+        }
+        if (stageExecutionDescriptor.isScanGroupedExecution(scanNodeId)) {
+            return GROUPED_SCHEDULING;
+        }
+        return UNGROUPED_SCHEDULING;
     }
 
     @Override

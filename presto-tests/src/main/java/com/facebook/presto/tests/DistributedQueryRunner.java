@@ -415,6 +415,11 @@ public class DistributedQueryRunner
         return queryPlan;
     }
 
+    public List<BasicQueryInfo> getQueries()
+    {
+        return coordinator.getQueryManager().getQueries();
+    }
+
     public QueryInfo getQueryInfo(QueryId queryId)
     {
         return coordinator.getQueryManager().getFullQueryInfo(queryId);

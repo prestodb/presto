@@ -36,6 +36,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -65,6 +66,7 @@ public final class SystemSessionProperties
     public static final String GROUPED_EXECUTION_FOR_AGGREGATION = "grouped_execution_for_aggregation";
     public static final String DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION = "dynamic_schedule_for_grouped_execution";
     public static final String RECOVERABLE_GROUPED_EXECUTION = "recoverable_grouped_execution";
+    public static final String MAX_FAILED_TASK_PERCENTAGE = "max_failed_task_percentage";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_WRITER_COUNT = "task_writer_count";
     public static final String TASK_CONCURRENCY = "task_concurrency";
@@ -213,6 +215,11 @@ public final class SystemSessionProperties
                         DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION,
                         "Experimental: Use dynamic schedule for grouped execution when possible",
                         featuresConfig.isDynamicScheduleForGroupedExecutionEnabled(),
+                        false),
+                doubleProperty(
+                        MAX_FAILED_TASK_PERCENTAGE,
+                        "Max percentage of failed tasks that are retryable for recoverable dynamic scheduling",
+                        featuresConfig.getMaxFailedTaskPercentage(),
                         false),
                 booleanProperty(
                         RECOVERABLE_GROUPED_EXECUTION,
@@ -671,6 +678,11 @@ public final class SystemSessionProperties
     public static boolean isRecoverableGroupedExecutionEnabled(Session session)
     {
         return session.getSystemProperty(RECOVERABLE_GROUPED_EXECUTION, Boolean.class);
+    }
+
+    public static double getMaxFailedTaskPercentage(Session session)
+    {
+        return session.getSystemProperty(MAX_FAILED_TASK_PERCENTAGE, Double.class);
     }
 
     public static boolean preferStreamingOperators(Session session)
