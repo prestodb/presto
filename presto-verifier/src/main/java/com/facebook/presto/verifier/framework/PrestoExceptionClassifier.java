@@ -15,6 +15,7 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.hive.HiveErrorCode;
 import com.facebook.presto.jdbc.QueryStats;
+import com.facebook.presto.plugin.jdbc.JdbcErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.google.common.collect.ImmutableSet;
@@ -37,6 +38,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
+import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
@@ -55,6 +57,7 @@ public class PrestoExceptionClassifier
     private static final Set<ErrorCodeSupplier> DEFAULT_ERRORS = ImmutableSet.<ErrorCodeSupplier>builder()
             .addAll(asList(StandardErrorCode.values()))
             .addAll(asList(HiveErrorCode.values()))
+            .addAll(asList(JdbcErrorCode.values()))
             .build();
 
     private static final Set<ErrorCodeSupplier> DEFAULT_RETRYABLE_ERRORS = ImmutableSet.of(
@@ -75,7 +78,9 @@ public class PrestoExceptionClassifier
             HIVE_WRITER_CLOSE_ERROR,
             HIVE_FILESYSTEM_ERROR,
             HIVE_CANNOT_OPEN_SPLIT,
-            HIVE_METASTORE_ERROR);
+            HIVE_METASTORE_ERROR,
+            // From JdbcErrorCode
+            JDBC_ERROR);
 
     private final Map<Integer, ErrorCodeSupplier> errorByCode;
     private final Set<ErrorCodeSupplier> retryableErrors;
