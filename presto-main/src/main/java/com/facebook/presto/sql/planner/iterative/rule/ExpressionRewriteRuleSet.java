@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -155,9 +156,15 @@ public class ExpressionRewriteRuleSet
             for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
                 Aggregation aggregation = entry.getValue();
                 Aggregation rewritten = new Aggregation(
-                        aggregation.getFunctionHandle(),
-                        aggregation.getArguments().stream().map(argument -> rewriter.rewrite(argument, context)).collect(toImmutableList()),
-                        aggregation.getFilter().map(filter -> rewriter.rewrite(filter, context)),
+                        new CallExpression(aggregation.getCall().getDisplayName(),
+                                aggregation.getCall().getFunctionHandle(),
+                                aggregation.getCall().getType(),
+                                aggregation.getCall().getArguments()
+                                        .stream()
+                                        .map(argument -> castToRowExpression(rewriter.rewrite(castToExpression(argument), context)))
+                                        .collect(toImmutableList())),
+                        aggregation.getFilter()
+                                .map(filter -> castToRowExpression(rewriter.rewrite(castToExpression(filter), context))),
                         aggregation.getOrderBy(),
                         aggregation.isDistinct(),
                         aggregation.getMask());

@@ -16,6 +16,8 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -33,8 +35,6 @@ import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.OrderBy;
-import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -45,13 +45,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.groupingSets;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
+import static com.facebook.presto.sql.relational.SymbolToSymbolTranslator.rewriteWith;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toMap;
 
 public class SymbolMapper
 {
@@ -111,17 +113,25 @@ public class SymbolMapper
         }, value);
     }
 
-    public OrderingScheme map(OrderingScheme orderingScheme)
+    public RowExpression map(RowExpression value)
     {
-        return new OrderingScheme(orderingScheme.getOrderBy().stream().map(this::map).collect(toImmutableList()),
-                orderingScheme.getOrderings().entrySet().stream().collect(toMap(entry -> map(entry.getKey()), entry -> entry.getValue())));
+        if (isExpression(value)) {
+            return castToRowExpression(map(castToExpression(value)));
+        }
+        return rewriteWith(value, this::map);
     }
 
-    // TODO this will be removed later after FunctionCall is removed from aggregation
-    public OrderBy map(OrderBy orderBy)
+    public OrderingScheme map(OrderingScheme orderingScheme)
     {
-        return new OrderBy(orderBy.getSortItems().stream()
-                .map(sortItem -> new SortItem(map(sortItem.getSortKey()), sortItem.getOrdering(), sortItem.getNullOrdering())).collect(Collectors.toList()));
+        // SymbolMapper inlines symbol with multiple level reference (SymbolInliner only inline single level).
+        ImmutableList.Builder<VariableReferenceExpression> orderBy = ImmutableList.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, SortOrder> ordering = ImmutableMap.builder();
+        for (VariableReferenceExpression variable : orderingScheme.getOrderBy()) {
+            VariableReferenceExpression translated = map(variable);
+            orderBy.add(translated);
+            ordering.put(translated, orderingScheme.getOrdering(variable));
+        }
+        return new OrderingScheme(orderBy.build(), ordering.build());
     }
 
     public AggregationNode map(AggregationNode node, PlanNode source)
@@ -158,8 +168,11 @@ public class SymbolMapper
     private Aggregation map(Aggregation aggregation)
     {
         return new Aggregation(
-                aggregation.getFunctionHandle(),
-                aggregation.getArguments().stream().map(this::map).collect(toImmutableList()),
+                new CallExpression(
+                        aggregation.getCall().getDisplayName(),
+                        aggregation.getCall().getFunctionHandle(),
+                        aggregation.getCall().getType(),
+                        aggregation.getArguments().stream().map(this::map).collect(toImmutableList())),
                 aggregation.getFilter().map(this::map),
                 aggregation.getOrderBy().map(this::map),
                 aggregation.isDistinct(),

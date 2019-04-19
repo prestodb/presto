@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
@@ -26,7 +27,6 @@ import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -36,7 +36,7 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.isEnableIntermediateAggregations;
 import static com.facebook.presto.matching.Pattern.empty;
-import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.extractUniqueVariables;
+import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.extractAggregationUniqueVariables;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -46,6 +46,8 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.roundRobinExchan
 import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.groupingColumns;
 import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.step;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -185,8 +187,11 @@ public class AddIntermediateAggregations
             builder.put(
                     output,
                     new Aggregation(
-                            aggregation.getFunctionHandle(),
-                            ImmutableList.of(new SymbolReference(output.getName())),
+                            new CallExpression(
+                                    aggregation.getCall().getDisplayName(),
+                                    aggregation.getCall().getFunctionHandle(),
+                                    aggregation.getCall().getType(),
+                                    ImmutableList.of(castToRowExpression(asSymbolReference(output)))),
                             Optional.empty(),
                             Optional.empty(),
                             false,
@@ -212,7 +217,7 @@ public class AddIntermediateAggregations
             checkArgument(
                     aggregation.getArguments().size() == 1 && !aggregation.getOrderBy().isPresent() && !aggregation.getFilter().isPresent(),
                     "Aggregation should only have one argument and should have no order by  or filter to be able to rewritten to intermediate form");
-            VariableReferenceExpression input = getOnlyElement(extractUniqueVariables(entry.getValue(), types));
+            VariableReferenceExpression input = getOnlyElement(extractAggregationUniqueVariables(entry.getValue(), types));
             builder.put(input, entry.getValue());
         }
         return builder.build();

@@ -16,11 +16,11 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -30,6 +30,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -79,16 +81,22 @@ public class StatisticAggregations
             VariableReferenceExpression partialVariable = symbolAllocator.newVariable(functionManager.getFunctionMetadata(functionHandle).getName(), function.getIntermediateType());
             mappings.put(entry.getKey(), partialVariable);
             partialAggregation.put(partialVariable, new Aggregation(
-                    functionHandle,
-                    originalAggregation.getArguments(),
+                    new CallExpression(
+                            originalAggregation.getCall().getDisplayName(),
+                            functionHandle,
+                            function.getIntermediateType(),
+                            originalAggregation.getArguments()),
                     originalAggregation.getFilter(),
                     originalAggregation.getOrderBy(),
                     originalAggregation.isDistinct(),
                     originalAggregation.getMask()));
             finalAggregation.put(entry.getKey(),
                     new Aggregation(
-                            functionHandle,
-                            ImmutableList.of(new SymbolReference(partialVariable.getName())),
+                            new CallExpression(
+                                    originalAggregation.getCall().getDisplayName(),
+                                    functionHandle,
+                                    function.getFinalType(),
+                                    ImmutableList.of(castToRowExpression(asSymbolReference(partialVariable)))),
                             Optional.empty(),
                             Optional.empty(),
                             false,

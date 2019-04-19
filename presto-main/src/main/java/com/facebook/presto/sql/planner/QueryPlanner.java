@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
@@ -560,9 +561,12 @@ class QueryPlanner
 
             aggregationsBuilder.put(newVariable,
                     new Aggregation(
-                            analysis.getFunctionHandle(aggregate),
-                            rewrittenFunction.getArguments(),
-                            rewrittenFunction.getFilter(),
+                            new CallExpression(
+                                    aggregate.getName().getSuffix(),
+                                    analysis.getFunctionHandle(aggregate),
+                                    analysis.getType(aggregate),
+                                    rewrittenFunction.getArguments().stream().map(OriginalExpressionUtils::castToRowExpression).collect(toImmutableList())),
+                            rewrittenFunction.getFilter().map(OriginalExpressionUtils::castToRowExpression),
                             rewrittenFunction.getOrderBy().map(orderBy -> toOrderingScheme(orderBy, symbolAllocator.getTypes())),
                             rewrittenFunction.isDistinct(),
                             Optional.empty()));

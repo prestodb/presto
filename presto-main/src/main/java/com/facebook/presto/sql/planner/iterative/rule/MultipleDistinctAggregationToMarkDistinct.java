@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -123,6 +124,7 @@ public class MultipleDistinctAggregationToMarkDistinct
 
             if (aggregation.isDistinct() && !aggregation.getFilter().isPresent() && !aggregation.getMask().isPresent()) {
                 Set<VariableReferenceExpression> inputs = aggregation.getArguments().stream()
+                        .map(OriginalExpressionUtils::castToExpression)
                         .map(Symbol::from)
                         .map(context.getSymbolAllocator()::toVariableReference)
                         .collect(toSet());
@@ -148,8 +150,7 @@ public class MultipleDistinctAggregationToMarkDistinct
                 // remove the distinct flag and set the distinct marker
                 newAggregations.put(entry.getKey(),
                         new Aggregation(
-                                aggregation.getFunctionHandle(),
-                                aggregation.getArguments(),
+                                aggregation.getCall(),
                                 aggregation.getFilter(),
                                 aggregation.getOrderBy(),
                                 false,

@@ -67,8 +67,7 @@ public class PruneOrderByInAggregation
                 anyRewritten = true;
 
                 aggregations.put(entry.getKey(), new Aggregation(
-                        aggregation.getFunctionHandle(),
-                        aggregation.getArguments(),
+                        aggregation.getCall(),
                         aggregation.getFilter(),
                         Optional.empty(),
                         aggregation.isDistinct(),

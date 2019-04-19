@@ -18,11 +18,9 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -39,6 +37,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isPushAggregationThroughJoin;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
+import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.extractAggregationUniqueVariables;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
@@ -92,25 +91,24 @@ public class PushPartialAggregationThroughJoin
         }
 
         // TODO: leave partial aggregation above Join?
-        if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getLeft().getOutputVariables())) {
+        if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getLeft().getOutputVariables(), context.getSymbolAllocator().getTypes())) {
             return Result.ofPlanNode(pushPartialToLeftChild(aggregationNode, joinNode, context));
         }
-        else if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getRight().getOutputVariables())) {
+        else if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getRight().getOutputVariables(), context.getSymbolAllocator().getTypes())) {
             return Result.ofPlanNode(pushPartialToRightChild(aggregationNode, joinNode, context));
         }
 
         return Result.empty();
     }
 
-    private boolean allAggregationsOn(Map<VariableReferenceExpression, AggregationNode.Aggregation> aggregations, List<VariableReferenceExpression> variables)
+    private boolean allAggregationsOn(Map<VariableReferenceExpression, AggregationNode.Aggregation> aggregations, List<VariableReferenceExpression> variables, TypeProvider types)
     {
-        Set<String> inputNames = aggregations.values()
+        Set<VariableReferenceExpression> inputs = aggregations.values()
                 .stream()
-                .map(AggregationNodeUtils::extractUnique)
+                .map(aggregation -> extractAggregationUniqueVariables(aggregation, types))
                 .flatMap(Set::stream)
-                .map(Symbol::getName)
                 .collect(toImmutableSet());
-        return variables.stream().map(VariableReferenceExpression::getName).collect(toImmutableSet()).containsAll(inputNames);
+        return variables.containsAll(inputs);
     }
 
     private PlanNode pushPartialToLeftChild(AggregationNode node, JoinNode child, Context context)

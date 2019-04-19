@@ -15,6 +15,7 @@ package com.facebook.presto.util;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
@@ -213,14 +214,12 @@ public final class GraphvizPrinter
         private final StringBuilder output;
         private final PlanNodeIdGenerator idGenerator;
         private final RowExpressionFormatter formatter;
-        private final FunctionManager functionManager;
 
         public NodePrinter(StringBuilder output, PlanNodeIdGenerator idGenerator, Session session, FunctionManager functionManager)
         {
             this.output = output;
             this.idGenerator = idGenerator;
             this.formatter = new RowExpressionFormatter(session.toConnectorSession(), functionManager);
-            this.functionManager = functionManager;
         }
 
         @Override
@@ -359,8 +358,8 @@ public final class GraphvizPrinter
         private String formatAggregation(AggregationNode.Aggregation aggregation)
         {
             return String.format("%s(%s)%s%s%s",
-                    functionManager.getFunctionMetadata(aggregation.getFunctionHandle()).getName(),
-                    Joiner.on(",").join(aggregation.getArguments().stream().map(Expression::toString).collect(toImmutableList())),
+                    aggregation.getCall().getDisplayName(),
+                    Joiner.on(",").join(aggregation.getArguments().stream().map(RowExpression::toString).collect(toImmutableList())),
                     aggregation.getFilter().map(filter -> format(" WHERE %s", filter)).orElse(""),
                     aggregation.getOrderBy().map(orderingScheme -> format(" ORDER BY %s", orderingScheme)).orElse(""),
                     aggregation.getMask().map(mask -> format(" (mask = %s)", mask)).orElse(""));

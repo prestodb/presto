@@ -19,6 +19,8 @@ import com.facebook.presto.operator.aggregation.MaxDataSizeForStats;
 import com.facebook.presto.operator.aggregation.SumDataSizeForStats;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
@@ -29,6 +31,7 @@ import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -41,6 +44,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -71,15 +75,17 @@ public class StatisticsAggregationPlanner
         }
 
         ImmutableMap.Builder<VariableReferenceExpression, AggregationNode.Aggregation> aggregations = ImmutableMap.builder();
-        FunctionManager functionManager = metadata.getFunctionManager();
+        StandardFunctionResolution functionResolution = new FunctionResolution(metadata.getFunctionManager());
         for (TableStatisticType type : statisticsMetadata.getTableStatistics()) {
             if (type != ROW_COUNT) {
                 throw new PrestoException(NOT_SUPPORTED, "Table-wide statistic type not supported: " + type);
             }
-            String count = "count";
             AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
-                    functionManager.lookupFunction(count, ImmutableList.of()),
-                    ImmutableList.of(),
+                    new CallExpression(
+                            "count",
+                            functionResolution.countFunction(),
+                            BIGINT,
+                            ImmutableList.of()),
                     Optional.empty(),
                     Optional.empty(),
                     false,
@@ -135,8 +141,11 @@ public class StatisticsAggregationPlanner
         verify(resolvedType.equals(inputType), "resolved function input type does not match the input type: %s != %s", resolvedType, inputType);
         return new ColumnStatisticsAggregation(
                 new AggregationNode.Aggregation(
-                        functionHandle,
-                        ImmutableList.of(input),
+                        new CallExpression(
+                                functionName,
+                                functionHandle,
+                                outputType,
+                                ImmutableList.of(castToRowExpression(input))),
                         Optional.empty(),
                         Optional.empty(),
                         false,

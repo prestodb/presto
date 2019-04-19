@@ -17,9 +17,10 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.tree.Expression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -357,24 +358,21 @@ public class AggregationNode
 
     public static class Aggregation
     {
-        private final FunctionHandle functionHandle;
-        private final List<Expression> arguments;
-        private final Optional<Expression> filter;
+        private final CallExpression call;
+        private final Optional<RowExpression> filter;
         private final Optional<OrderingScheme> orderingScheme;
         private final boolean isDistinct;
         private final Optional<VariableReferenceExpression> mask;
 
         @JsonCreator
         public Aggregation(
-                @JsonProperty("functionHandle") FunctionHandle functionHandle,
-                @JsonProperty("arguments") List<Expression> arguments,
-                @JsonProperty("filter") Optional<Expression> filter,
+                @JsonProperty("call") CallExpression call,
+                @JsonProperty("filter") Optional<RowExpression> filter,
                 @JsonProperty("orderBy") Optional<OrderingScheme> orderingScheme,
                 @JsonProperty("distinct") boolean isDistinct,
                 @JsonProperty("mask") Optional<VariableReferenceExpression> mask)
         {
-            this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
-            this.arguments = requireNonNull(arguments, "arguments is null");
+            this.call = requireNonNull(call, "call is null");
             this.filter = requireNonNull(filter, "filter is null");
             this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
             this.isDistinct = isDistinct;
@@ -382,15 +380,21 @@ public class AggregationNode
         }
 
         @JsonProperty
-        public FunctionHandle getFunctionHandle()
+        public CallExpression getCall()
         {
-            return functionHandle;
+            return call;
         }
 
         @JsonProperty
-        public List<Expression> getArguments()
+        public FunctionHandle getFunctionHandle()
         {
-            return arguments;
+            return call.getFunctionHandle();
+        }
+
+        @JsonProperty
+        public List<RowExpression> getArguments()
+        {
+            return call.getArguments();
         }
 
         @JsonProperty
@@ -400,7 +404,7 @@ public class AggregationNode
         }
 
         @JsonProperty
-        public Optional<Expression> getFilter()
+        public Optional<RowExpression> getFilter()
         {
             return filter;
         }
@@ -428,17 +432,28 @@ public class AggregationNode
             }
             Aggregation that = (Aggregation) o;
             return isDistinct == that.isDistinct &&
-                    Objects.equals(functionHandle, that.functionHandle) &&
-                    Objects.equals(arguments, that.arguments) &&
+                    Objects.equals(call, that.call) &&
                     Objects.equals(filter, that.filter) &&
                     Objects.equals(orderingScheme, that.orderingScheme) &&
                     Objects.equals(mask, that.mask);
         }
 
         @Override
+        public String toString()
+        {
+            return "Aggregation{" +
+                    "call=" + call +
+                    ", filter=" + filter +
+                    ", orderingScheme=" + orderingScheme +
+                    ", isDistinct=" + isDistinct +
+                    ", mask=" + mask +
+                    '}';
+        }
+
+        @Override
         public int hashCode()
         {
-            return Objects.hash(functionHandle, arguments, filter, orderingScheme, isDistinct, mask);
+            return Objects.hash(call, filter, orderingScheme, isDistinct, mask);
         }
     }
 }

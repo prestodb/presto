@@ -18,6 +18,7 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -255,9 +256,12 @@ public class TransformCorrelatedInPredicateToJoin
     private AggregationNode.Aggregation countWithFilter(Expression condition)
     {
         return new AggregationNode.Aggregation(
-                functionResolution.countFunction(),
-                ImmutableList.of(),
-                Optional.of(condition),
+                new CallExpression(
+                        "count",
+                        functionResolution.countFunction(),
+                        BIGINT,
+                        ImmutableList.of()),
+                Optional.of(castToRowExpression(condition)),
                 Optional.empty(),
                 false,
                 Optional.empty()); /* mask */

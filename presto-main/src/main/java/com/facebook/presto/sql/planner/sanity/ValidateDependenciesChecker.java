@@ -74,7 +74,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.extractUniqueVariables;
+import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.extractAggregationUniqueVariables;
 import static com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer.IndexKeyTracer;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
@@ -135,7 +135,7 @@ public final class ValidateDependenciesChecker
             checkDependencies(inputs, node.getGroupingKeys(), "Invalid node. Grouping key variables (%s) not in source plan output (%s)", node.getGroupingKeys(), node.getSource().getOutputVariables());
 
             for (Aggregation aggregation : node.getAggregations().values()) {
-                Set<VariableReferenceExpression> dependencies = extractUniqueVariables(aggregation, types);
+                Set<VariableReferenceExpression> dependencies = extractAggregationUniqueVariables(aggregation, types);
                 checkDependencies(inputs, dependencies, "Invalid node. Aggregation dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputVariables());
                 aggregation.getMask().ifPresent(mask -> {
                     checkDependencies(inputs, ImmutableSet.of(mask), "Invalid node. Aggregation mask symbol (%s) not in source plan output (%s)", mask, node.getSource().getOutputVariables());

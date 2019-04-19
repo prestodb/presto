@@ -117,7 +117,6 @@ import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.FunctionType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.PartitioningSpillerFactory;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
@@ -177,8 +176,6 @@ import com.facebook.presto.sql.planner.plan.WindowNode.Frame;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.relational.VariableToChannelTranslator;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
-import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.VerifyException;
@@ -2259,8 +2256,8 @@ public class LocalExecutionPlanner
             ImmutableMap.Builder<VariableReferenceExpression, Integer> outputMapping = ImmutableMap.builder();
 
             OperatorFactory statisticsAggregation = node.getStatisticsAggregation().map(aggregation -> {
-                List<Symbol> groupingSymbols = aggregation.getGroupingSymbols();
-                if (groupingSymbols.isEmpty()) {
+                List<VariableReferenceExpression> groupingVariables = aggregation.getGroupingVariables();
+                if (groupingVariables.isEmpty()) {
                     return createAggregationOperatorFactory(
                             node.getId(),
                             aggregation.getAggregations(),
@@ -2528,77 +2525,26 @@ public class LocalExecutionPlanner
             InternalAggregationFunction internalAggregationFunction = functionManager.getAggregateFunctionImplementation(aggregation.getFunctionHandle());
 
             List<Integer> valueChannels = new ArrayList<>();
-            for (int i = 0; i < aggregation.getArguments().size(); i++) {
-                Expression argument = aggregation.getArguments().get(i);
-                if (!(argument instanceof LambdaExpression)) {
-                    VariableReferenceExpression argumentVariable = new VariableReferenceExpression(Symbol.from(argument).getName(), types.get(Symbol.from(argument)));
-                    valueChannels.add(source.getLayout().get(argumentVariable));
+            for (RowExpression argument : aggregation.getArguments()) {
+                if (!(argument instanceof LambdaDefinitionExpression)) {
+                    checkArgument(argument instanceof VariableReferenceExpression, "argument must be variable reference");
+                    valueChannels.add(source.getLayout().get(argument));
                 }
             }
 
             List<LambdaProvider> lambdaProviders = new ArrayList<>();
-            List<LambdaExpression> lambdaExpressions = aggregation.getArguments().stream()
-                    .filter(LambdaExpression.class::isInstance)
-                    .map(LambdaExpression.class::cast)
+            List<LambdaDefinitionExpression> lambdas = aggregation.getArguments().stream()
+                    .filter(LambdaDefinitionExpression.class::isInstance)
+                    .map(LambdaDefinitionExpression.class::cast)
                     .collect(toImmutableList());
-            if (!lambdaExpressions.isEmpty()) {
-                List<FunctionType> functionTypes = functionManager.getFunctionMetadata(aggregation.getFunctionHandle()).getArgumentTypes().stream()
-                        .filter(typeSignature -> typeSignature.getBase().equals(FunctionType.NAME))
-                        .map(typeSignature -> (FunctionType) (metadata.getTypeManager().getType(typeSignature)))
-                        .collect(toImmutableList());
+            for (int i = 0; i < lambdas.size(); i++) {
                 List<Class> lambdaInterfaces = internalAggregationFunction.getLambdaInterfaces();
-                verify(lambdaExpressions.size() == functionTypes.size());
-                verify(lambdaExpressions.size() == lambdaInterfaces.size());
-
-                for (int i = 0; i < lambdaExpressions.size(); i++) {
-                    LambdaExpression lambdaExpression = lambdaExpressions.get(i);
-                    FunctionType functionType = functionTypes.get(i);
-
-                    // To compile lambda, LambdaDefinitionExpression needs to be generated from LambdaExpression,
-                    // which requires the types of all sub-expressions.
-                    //
-                    // In project and filter expression compilation, ExpressionAnalyzer.getExpressionTypesFromInput
-                    // is used to generate the types of all sub-expressions. (see visitScanFilterAndProject and visitFilter)
-                    //
-                    // This does not work here since the function call representation in final aggregation node
-                    // is currently a hack: it takes intermediate type as input, and may not be a valid
-                    // function call in Presto.
-                    //
-                    // TODO: Once the final aggregation function call representation is fixed,
-                    // the same mechanism in project and filter expression should be used here.
-                    verify(lambdaExpression.getArguments().size() == functionType.getArgumentTypes().size());
-                    Map<NodeRef<Expression>, Type> lambdaArgumentExpressionTypes = new HashMap<>();
-                    Map<Symbol, Type> lambdaArgumentSymbolTypes = new HashMap<>();
-                    for (int j = 0; j < lambdaExpression.getArguments().size(); j++) {
-                        LambdaArgumentDeclaration argument = lambdaExpression.getArguments().get(j);
-                        Type type = functionType.getArgumentTypes().get(j);
-                        lambdaArgumentExpressionTypes.put(NodeRef.of(argument), type);
-                        lambdaArgumentSymbolTypes.put(new Symbol(argument.getName().getValue()), type);
-                    }
-                    Map<NodeRef<Expression>, Type> expressionTypes = ImmutableMap.<NodeRef<Expression>, Type>builder()
-                            // the lambda expression itself
-                            .put(NodeRef.of(lambdaExpression), functionType)
-                            // expressions from lambda arguments
-                            .putAll(lambdaArgumentExpressionTypes)
-                            // expressions from lambda body
-                            .putAll(getExpressionTypes(
-                                    session,
-                                    metadata,
-                                    sqlParser,
-                                    TypeProvider.copyOf(lambdaArgumentSymbolTypes),
-                                    lambdaExpression.getBody(),
-                                    emptyList(),
-                                    NOOP))
-                            .build();
-
-                    LambdaDefinitionExpression lambda = (LambdaDefinitionExpression) toRowExpression(lambdaExpression, expressionTypes, ImmutableMap.of());
-                    Class<? extends LambdaProvider> lambdaProviderClass = compileLambdaProvider(lambda, metadata.getFunctionManager(), lambdaInterfaces.get(i));
-                    try {
-                        lambdaProviders.add((LambdaProvider) constructorMethodHandle(lambdaProviderClass, ConnectorSession.class).invoke(session.toConnectorSession()));
-                    }
-                    catch (Throwable t) {
-                        throw new RuntimeException(t);
-                    }
+                Class<? extends LambdaProvider> lambdaProviderClass = compileLambdaProvider(lambdas.get(i), metadata.getFunctionManager(), lambdaInterfaces.get(i));
+                try {
+                    lambdaProviders.add((LambdaProvider) constructorMethodHandle(lambdaProviderClass, ConnectorSession.class).invoke(session.toConnectorSession()));
+                }
+                catch (Throwable t) {
+                    throw new RuntimeException(t);
                 }
             }
 
