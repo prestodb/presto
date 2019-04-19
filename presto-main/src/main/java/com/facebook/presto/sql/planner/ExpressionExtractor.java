@@ -92,11 +92,8 @@ public class ExpressionExtractor
         {
             node.getAggregations().values()
                     .forEach(aggregation -> {
-                        aggregation.getArguments()
-                                .stream()
-                                .map(OriginalExpressionUtils::castToRowExpression)
-                                .forEach(context::add);
-                        aggregation.getFilter().map(OriginalExpressionUtils::castToRowExpression).ifPresent(context::add);
+                        aggregation.getArguments().forEach(context::add);
+                        aggregation.getFilter().ifPresent(context::add);
                         aggregation.getOrderBy()
                                 .map(OrderingScheme::getOrderBy)
                                 .orElse(ImmutableList.of())

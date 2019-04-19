@@ -509,10 +509,10 @@ public class PlanPrinter
                 builder.append("*");
             }
             else {
-                builder.append(Joiner.on(",").join(aggregation.getArguments().stream().map(Object::toString).collect(toImmutableList())));
+                builder.append("(" + Joiner.on(",").join(aggregation.getArguments().stream().map(formatter::formatRowExpression).collect(toImmutableList())) + ")");
             }
             builder.append(")");
-            aggregation.getFilter().ifPresent(filter -> builder.append(" WHERE " + filter));
+            aggregation.getFilter().ifPresent(filter -> builder.append(" WHERE " + formatter.formatRowExpression(filter)));
             aggregation.getOrderBy().ifPresent(orderingScheme -> builder.append(" ORDER BY " + orderingScheme.toString()));
             aggregation.getMask().ifPresent(mask -> builder.append(" (mask = " + mask + ")"));
             return builder.toString();

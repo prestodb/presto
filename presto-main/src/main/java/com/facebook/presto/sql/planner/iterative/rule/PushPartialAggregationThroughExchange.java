@@ -19,6 +19,8 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -29,7 +31,6 @@ import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
@@ -51,6 +52,9 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -208,8 +212,11 @@ public class PushPartialAggregationThroughExchange
 
             checkState(!originalAggregation.getOrderBy().isPresent(), "Aggregate with ORDER BY does not support partial aggregation");
             intermediateAggregation.put(intermediateVariable, new AggregationNode.Aggregation(
-                    functionHandle,
-                    originalAggregation.getArguments(),
+                    new CallExpression(
+                            functionName,
+                            functionHandle,
+                            function.getIntermediateType(),
+                            originalAggregation.getArguments()),
                     originalAggregation.getFilter(),
                     originalAggregation.getOrderBy(),
                     originalAggregation.isDistinct(),
@@ -218,13 +225,17 @@ public class PushPartialAggregationThroughExchange
             // rewrite final aggregation in terms of intermediate function
             finalAggregation.put(entry.getKey(),
                     new AggregationNode.Aggregation(
-                            functionHandle,
-                            ImmutableList.<Expression>builder()
-                                    .add(new SymbolReference(intermediateVariable.getName()))
-                                    .addAll(originalAggregation.getArguments().stream()
-                                            .filter(LambdaExpression.class::isInstance)
-                                            .collect(toImmutableList()))
-                                    .build(),
+                            new CallExpression(
+                                    functionName,
+                                    functionHandle,
+                                    function.getFinalType(),
+                                    ImmutableList.<RowExpression>builder()
+                                            .add(castToRowExpression(asSymbolReference(intermediateVariable)))
+                                            .addAll(originalAggregation.getArguments()
+                                                    .stream()
+                                                    .filter(PushPartialAggregationThroughExchange::isLambda)
+                                                    .collect(toImmutableList()))
+                                            .build()),
                             Optional.empty(),
                             Optional.empty(),
                             false,
@@ -254,5 +265,10 @@ public class PushPartialAggregationThroughExchange
                 FINAL,
                 node.getHashVariable(),
                 node.getGroupIdVariable());
+    }
+
+    private static boolean isLambda(RowExpression rowExpression)
+    {
+        return castToExpression(rowExpression) instanceof LambdaExpression;
     }
 }

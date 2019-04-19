@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
@@ -33,7 +34,6 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -46,6 +46,8 @@ import java.util.Set;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -176,8 +178,11 @@ public class ScalarAggregationToJoinRewriter
             if (functionResolution.isCountFunction(entry.getValue().getFunctionHandle())) {
                 Type scalarAggregationSourceType = nonNull.getType();
                 aggregations.put(variable, new Aggregation(
-                        functionResolution.countFunction(scalarAggregationSourceType),
-                        ImmutableList.of(new SymbolReference(nonNull.getName())),
+                        new CallExpression(
+                                "count",
+                                functionResolution.countFunction(scalarAggregationSourceType),
+                                BIGINT,
+                                ImmutableList.of(castToRowExpression(asSymbolReference(nonNull)))),
                         Optional.empty(),
                         Optional.empty(),
                         false,

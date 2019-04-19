@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
@@ -93,7 +94,8 @@ public class ImplementFilteredAggregations
             Optional<VariableReferenceExpression> mask = entry.getValue().getMask();
 
             if (entry.getValue().getFilter().isPresent()) {
-                Expression filter = entry.getValue().getFilter().get();
+                // TODO remove cast once assignment can be RowExpression
+                Expression filter = OriginalExpressionUtils.castToExpression(entry.getValue().getFilter().get());
                 VariableReferenceExpression variable = context.getSymbolAllocator().newVariable(filter, BOOLEAN);
                 verify(!mask.isPresent(), "Expected aggregation without mask symbols, see Rule pattern");
                 newAssignments.put(variable, filter);
@@ -106,8 +108,7 @@ public class ImplementFilteredAggregations
             }
 
             aggregations.put(output, new Aggregation(
-                    entry.getValue().getFunctionHandle(),
-                    entry.getValue().getArguments(),
+                    entry.getValue().getCall(),
                     Optional.empty(),
                     entry.getValue().getOrderBy(),
                     entry.getValue().isDistinct(),

@@ -17,10 +17,11 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -32,6 +33,7 @@ import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -54,8 +56,14 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isOptimizeDistinctAggregationEnabled;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReference;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.relational.Expressions.variable;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -158,9 +166,13 @@ public class OptimizeMixedDistinctAggregations
             ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> coalesceVariablesBuilder = ImmutableMap.builder();
             for (Map.Entry<VariableReferenceExpression, Aggregation> entry : node.getAggregations().entrySet()) {
                 if (entry.getValue().getMask().isPresent()) {
+                    VariableReferenceExpression input = aggregateInfo.getNewDistinctAggregateVariable();
                     aggregations.put(entry.getKey(), new Aggregation(
-                            entry.getValue().getFunctionHandle(),
-                            ImmutableList.of(new SymbolReference(aggregateInfo.getNewDistinctAggregateVariable().getName())),
+                            new CallExpression(
+                                    entry.getValue().getCall().getDisplayName(),
+                                    entry.getValue().getCall().getFunctionHandle(),
+                                    entry.getValue().getCall().getType(),
+                                    ImmutableList.of(castToRowExpression(asSymbolReference(input)))),
                             Optional.empty(),
                             Optional.empty(),
                             false,
@@ -170,8 +182,11 @@ public class OptimizeMixedDistinctAggregations
                     // Aggregations on non-distinct are already done by new node, just extract the non-null value
                     VariableReferenceExpression argument = aggregateInfo.getNewNonDistinctAggregateVariables().get(entry.getKey());
                     Aggregation aggregation = new Aggregation(
-                            metadata.getFunctionManager().lookupFunction("arbitrary", ImmutableList.of(new TypeSignatureProvider(argument.getType().getTypeSignature()))),
-                            ImmutableList.of(new SymbolReference(argument.getName())),
+                            new CallExpression(
+                                    "arbitrary",
+                                    metadata.getFunctionManager().lookupFunction("arbitrary", fromTypes(ImmutableList.of(argument.getType()))),
+                                    entry.getKey().getType(),
+                                    ImmutableList.of(castToRowExpression(asSymbolReference(argument)))),
                             Optional.empty(),
                             Optional.empty(),
                             false,
@@ -430,12 +445,14 @@ public class OptimizeMixedDistinctAggregations
                     aggregationOutputSymbolsMapBuilder.put(newVariable, entry.getKey());
                     // Handling for cases when mask symbol appears in non distinct aggregations too
                     // Now the aggregation should happen over the duplicate symbol added before
-                    List<Expression> arguments;
-                    if (!duplicatedDistinctVariable.equals(distinctVariable) && entry.getValue().getArguments().contains(new SymbolReference(distinctVariable.getName()))) {
-                        ImmutableList.Builder<Expression> argumentsBuilder = ImmutableList.builder();
-                        for (Expression argument : aggregation.getArguments()) {
-                            if (new SymbolReference(distinctVariable.getName()).equals(argument)) {
-                                argumentsBuilder.add(new SymbolReference(duplicatedDistinctVariable.getName()));
+                    List<RowExpression> arguments;
+                    if (!duplicatedDistinctVariable.equals(distinctVariable) &&
+                            extractVariables(entry.getValue().getArguments(), symbolAllocator.getTypes()).contains(distinctVariable)) {
+                        ImmutableList.Builder<RowExpression> argumentsBuilder = ImmutableList.builder();
+                        for (RowExpression argument : aggregation.getArguments()) {
+                            if (castToExpression(argument) instanceof SymbolReference &&
+                                    toVariableReference(Symbol.from(castToExpression(argument)), symbolAllocator.getTypes()).equals(distinctVariable)) {
+                                argumentsBuilder.add(castToRowExpression(asSymbolReference(duplicatedDistinctVariable)));
                             }
                             else {
                                 argumentsBuilder.add(argument);
@@ -444,11 +461,15 @@ public class OptimizeMixedDistinctAggregations
                         arguments = argumentsBuilder.build();
                     }
                     else {
-                        arguments = entry.getValue().getArguments();
+                        arguments = aggregation.getArguments();
                     }
+
                     aggregations.put(newVariable, new Aggregation(
-                            entry.getValue().getFunctionHandle(),
-                            arguments,
+                            new CallExpression(
+                                    aggregation.getCall().getDisplayName(),
+                                    aggregation.getCall().getFunctionHandle(),
+                                    aggregation.getCall().getType(),
+                                    arguments),
                             Optional.empty(),
                             Optional.empty(),
                             false,
@@ -464,6 +485,18 @@ public class OptimizeMixedDistinctAggregations
                     SINGLE,
                     originalNode.getHashVariable(),
                     Optional.empty());
+        }
+
+        private static Set<VariableReferenceExpression> extractVariables(List<RowExpression> arguments, TypeProvider types)
+        {
+            ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
+            for (RowExpression argument : arguments) {
+                if (castToExpression(argument) instanceof SymbolReference) {
+                    Symbol symbol = Symbol.from(castToExpression(argument));
+                    builder.add(variable(symbol.getName(), types.get(symbol)));
+                }
+            }
+            return builder.build();
         }
 
         // creates if clause specific to use case here, default value always null
@@ -502,8 +535,9 @@ public class OptimizeMixedDistinctAggregations
                     .filter(aggregation -> !aggregation.getMask().isPresent())
                     .flatMap(aggregation -> aggregation.getArguments().stream())
                     .distinct()
+                    .map(OriginalExpressionUtils::castToExpression)
                     .map(Symbol::from)
-                    .map(symbol -> new VariableReferenceExpression(symbol.getName(), types.get(symbol)))
+                    .map(symbol -> toVariableReference(symbol, types))
                     .collect(Collectors.toList());
         }
 
@@ -513,8 +547,7 @@ public class OptimizeMixedDistinctAggregations
                     .filter(aggregation -> aggregation.getMask().isPresent())
                     .flatMap(aggregation -> aggregation.getArguments().stream())
                     .distinct()
-                    .map(Symbol::from)
-                    .map(symbol -> new VariableReferenceExpression(symbol.getName(), types.get(symbol)))
+                    .map(symbol -> toVariableReference(Symbol.from(castToExpression(symbol)), types))
                     .collect(Collectors.toList());
         }
 

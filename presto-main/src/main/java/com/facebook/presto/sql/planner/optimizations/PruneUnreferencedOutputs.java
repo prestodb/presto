@@ -81,7 +81,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.extractUniqueVariables;
+import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.extractAggregationUniqueVariables;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
@@ -357,8 +357,8 @@ public class PruneUnreferencedOutputs
 
                 if (context.get().contains(variable)) {
                     Aggregation aggregation = entry.getValue();
-                    expectedInputs.addAll(extractUniqueVariables(aggregation, symbolAllocator.getTypes()));
-                    aggregation.getMask().ifPresent(expectedInputs::add);
+                    expectedInputs.addAll(extractAggregationUniqueVariables(aggregation, symbolAllocator.getTypes()));
+                    aggregation.getMask().ifPresent(mask -> expectedInputs.add(mask));
                     aggregations.put(variable, aggregation);
                 }
             }
@@ -652,7 +652,9 @@ public class PruneUnreferencedOutputs
             if (node.getStatisticsAggregation().isPresent()) {
                 StatisticAggregations aggregations = node.getStatisticsAggregation().get();
                 expectedInputs.addAll(aggregations.getGroupingVariables());
-                aggregations.getAggregations().values().forEach(aggregation -> expectedInputs.addAll(extractUniqueVariables(aggregation, symbolAllocator.getTypes())));
+                aggregations.getAggregations()
+                        .values()
+                        .forEach(aggregation -> expectedInputs.addAll(extractAggregationUniqueVariables(aggregation, symbolAllocator.getTypes())));
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
             return new TableWriterNode(

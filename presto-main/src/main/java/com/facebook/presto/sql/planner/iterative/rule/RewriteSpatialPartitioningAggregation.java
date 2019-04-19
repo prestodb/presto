@@ -16,6 +16,8 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -28,7 +30,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -40,6 +41,9 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -96,18 +100,23 @@ public class RewriteSpatialPartitioningAggregation
             String name = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName();
             Type geometryType = metadata.getType(GEOMETRY_TYPE_SIGNATURE);
             if (name.equals(NAME) && aggregation.getArguments().size() == 1) {
-                Expression geometry = getOnlyElement(aggregation.getArguments());
+                RowExpression geometry = getOnlyElement(aggregation.getArguments());
                 VariableReferenceExpression envelopeVariable = context.getSymbolAllocator().newVariable("envelope", geometryType);
-                if (geometry instanceof FunctionCall && ((FunctionCall) geometry).getName().toString().equalsIgnoreCase("ST_Envelope")) {
-                    envelopeAssignments.put(envelopeVariable, geometry);
+                if (isFunctionNameMatch(geometry, "ST_Envelope")) {
+                    envelopeAssignments.put(envelopeVariable, castToExpression(geometry));
                 }
                 else {
-                    envelopeAssignments.put(envelopeVariable, new FunctionCall(QualifiedName.of("ST_Envelope"), ImmutableList.of(geometry)));
+                    envelopeAssignments.put(envelopeVariable, new FunctionCall(QualifiedName.of("ST_Envelope"), ImmutableList.of(castToExpression(geometry))));
                 }
                 aggregations.put(entry.getKey(),
                         new Aggregation(
-                                metadata.getFunctionManager().lookupFunction(NAME, fromTypes(geometryType, INTEGER)),
-                                ImmutableList.of(new SymbolReference(envelopeVariable.getName()), new SymbolReference(partitionCountVariable.getName())),
+                                new CallExpression(
+                                        name,
+                                        metadata.getFunctionManager().lookupFunction(NAME, fromTypes(geometryType, INTEGER)),
+                                        entry.getKey().getType(),
+                                        ImmutableList.of(
+                                                castToRowExpression(asSymbolReference(envelopeVariable)),
+                                                castToRowExpression(asSymbolReference(partitionCountVariable)))),
                                 Optional.empty(),
                                 Optional.empty(),
                                 false,
@@ -135,5 +144,13 @@ public class RewriteSpatialPartitioningAggregation
                         node.getStep(),
                         node.getHashVariable(),
                         node.getGroupIdVariable()));
+    }
+
+    private static boolean isFunctionNameMatch(RowExpression rowExpression, String expectedName)
+    {
+        if (castToExpression(rowExpression) instanceof FunctionCall) {
+            return ((FunctionCall) castToExpression(rowExpression)).getName().toString().equalsIgnoreCase(expectedName);
+        }
+        return false;
     }
 }

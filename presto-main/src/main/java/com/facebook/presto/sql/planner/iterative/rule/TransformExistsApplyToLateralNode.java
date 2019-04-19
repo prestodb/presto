@@ -17,6 +17,7 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelator;
@@ -48,6 +49,7 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggrega
 import static com.facebook.presto.sql.planner.plan.LateralJoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.LateralJoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static com.google.common.base.Preconditions.checkState;
@@ -161,8 +163,11 @@ public class TransformExistsApplyToLateralNode
                                 context.getIdAllocator().getNextId(),
                                 parent.getSubquery(),
                                 ImmutableMap.of(count, new Aggregation(
-                                        functionResolution.countFunction(),
-                                        ImmutableList.of(),
+                                        new CallExpression(
+                                                "count",
+                                                functionResolution.countFunction(),
+                                                BIGINT,
+                                                ImmutableList.of()),
                                         Optional.empty(),
                                         Optional.empty(),
                                         false,
@@ -172,7 +177,7 @@ public class TransformExistsApplyToLateralNode
                                 AggregationNode.Step.SINGLE,
                                 Optional.empty(),
                                 Optional.empty()),
-                        Assignments.of(exists, new ComparisonExpression(GREATER_THAN, new SymbolReference(count.getName()), new Cast(new LongLiteral("0"), BIGINT.toString())))),
+                        Assignments.of(exists, new ComparisonExpression(GREATER_THAN, asSymbolReference(count), new Cast(new LongLiteral("0"), BIGINT.toString())))),
                 parent.getCorrelation(),
                 INNER,
                 parent.getOriginSubqueryError());

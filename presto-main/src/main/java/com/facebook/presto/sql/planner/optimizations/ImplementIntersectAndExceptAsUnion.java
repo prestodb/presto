@@ -18,6 +18,7 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -55,6 +56,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
@@ -248,8 +250,11 @@ public class ImplementIntersectAndExceptAsUnion
             for (int i = 0; i < markers.size(); i++) {
                 VariableReferenceExpression output = aggregationOutputs.get(i);
                 aggregations.put(output, new Aggregation(
-                        functionResolution.countFunction(BIGINT),
-                        ImmutableList.of(new SymbolReference(markers.get(i).getName())),
+                        new CallExpression(
+                                "count",
+                                functionResolution.countFunction(markers.get(i).getType()),
+                                BIGINT,
+                                ImmutableList.of(castToRowExpression(asSymbolReference(markers.get(i))))),
                         Optional.empty(),
                         Optional.empty(),
                         false,

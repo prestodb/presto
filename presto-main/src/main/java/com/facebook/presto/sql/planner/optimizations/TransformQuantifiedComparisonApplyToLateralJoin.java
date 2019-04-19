@@ -18,6 +18,8 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
@@ -54,9 +56,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggregation;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
@@ -132,36 +136,48 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
             VariableReferenceExpression countAllValue = symbolAllocator.newVariable("count_all", BigintType.BIGINT);
             VariableReferenceExpression countNonNullValue = symbolAllocator.newVariable("count_non_null", BigintType.BIGINT);
 
-            List<Expression> outputColumnReferences = ImmutableList.of(new SymbolReference(outputColumn.getName()));
+            List<RowExpression> outputColumnReferences = ImmutableList.of(castToRowExpression(new SymbolReference(outputColumn.getName())));
 
             subqueryPlan = new AggregationNode(
                     idAllocator.getNextId(),
                     subqueryPlan,
                     ImmutableMap.of(
                             minValue, new Aggregation(
-                                    functionResolution.minFunction(outputColumnType),
-                                    outputColumnReferences,
+                                    new CallExpression(
+                                            "min",
+                                            functionResolution.minFunction(outputColumnType),
+                                            outputColumnType,
+                                            outputColumnReferences),
                                     Optional.empty(),
                                     Optional.empty(),
                                     false,
                                     Optional.empty()),
                             maxValue, new Aggregation(
-                                    functionResolution.maxFunction(outputColumnType),
-                                    outputColumnReferences,
+                                    new CallExpression(
+                                            "max",
+                                            functionResolution.maxFunction(outputColumnType),
+                                            outputColumnType,
+                                            outputColumnReferences),
                                     Optional.empty(),
                                     Optional.empty(),
                                     false,
                                     Optional.empty()),
                             countAllValue, new Aggregation(
-                                    functionResolution.countFunction(),
-                                    emptyList(),
+                                    new CallExpression(
+                                            "count",
+                                            functionResolution.countFunction(),
+                                            BIGINT,
+                                            emptyList()),
                                     Optional.empty(),
                                     Optional.empty(),
                                     false,
                                     Optional.empty()),
                             countNonNullValue, new Aggregation(
-                                    functionResolution.countFunction(outputColumnType),
-                                    outputColumnReferences,
+                                    new CallExpression(
+                                            "count",
+                                            functionResolution.countFunction(outputColumnType),
+                                            BIGINT,
+                                            outputColumnReferences),
                                     Optional.empty(),
                                     Optional.empty(),
                                     false,

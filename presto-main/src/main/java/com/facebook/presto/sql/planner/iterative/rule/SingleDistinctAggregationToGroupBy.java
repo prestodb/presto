@@ -15,12 +15,13 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
-import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -97,13 +98,13 @@ public class SingleDistinctAggregationToGroupBy
                 .noneMatch(e -> e.getMask().isPresent());
     }
 
-    private static Stream<Set<Expression>> extractArgumentSets(AggregationNode aggregation)
+    private static Stream<Set<RowExpression>> extractArgumentSets(AggregationNode aggregation)
     {
         return aggregation.getAggregations()
                 .values().stream()
                 .filter(Aggregation::isDistinct)
                 .map(Aggregation::getArguments)
-                .<Set<Expression>>map(HashSet::new)
+                .<Set<RowExpression>>map(HashSet::new)
                 .distinct();
     }
 
@@ -116,10 +117,11 @@ public class SingleDistinctAggregationToGroupBy
     @Override
     public Result apply(AggregationNode aggregation, Captures captures, Context context)
     {
-        List<Set<Expression>> argumentSets = extractArgumentSets(aggregation)
+        List<Set<RowExpression>> argumentSets = extractArgumentSets(aggregation)
                 .collect(Collectors.toList());
 
         Set<VariableReferenceExpression> variables = Iterables.getOnlyElement(argumentSets).stream()
+                .map(OriginalExpressionUtils::castToExpression)
                 .map(Symbol::from)
                 .map(context.getSymbolAllocator()::toVariableReference)
                 .collect(Collectors.toSet());
@@ -157,8 +159,7 @@ public class SingleDistinctAggregationToGroupBy
         checkArgument(aggregation.isDistinct(), "Expected aggregation to have DISTINCT input");
 
         return new AggregationNode.Aggregation(
-                aggregation.getFunctionHandle(),
-                aggregation.getArguments(),
+                aggregation.getCall(),
                 aggregation.getFilter(),
                 aggregation.getOrderBy(),
                 false,
