@@ -65,6 +65,11 @@ public class SymbolAllocator
         return newSymbol(nameHint.getSuffix(), type, null);
     }
 
+    public VariableReferenceExpression newVariable(QualifiedName nameHint, Type type)
+    {
+        return newVariable(nameHint.getSuffix(), type, null);
+    }
+
     public Symbol newSymbol(String nameHint, Type type)
     {
         return newSymbol(nameHint, type, null);

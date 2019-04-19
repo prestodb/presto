@@ -160,7 +160,7 @@ public class LogicalPlanner
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(session, symbolAllocator, metadata);
+        this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(symbolAllocator, metadata);
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -266,25 +266,24 @@ public class LogicalPlanner
 
         // Plan table scan
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTable);
-        ImmutableList.Builder<Symbol> tableScanOutputs = ImmutableList.builder();
-        ImmutableList.Builder<VariableReferenceExpression> tableScanOutputVariables = ImmutableList.builder();
+        ImmutableList.Builder<VariableReferenceExpression> tableScanOutputsBuilder = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, ColumnHandle> symbolToColumnHandle = ImmutableMap.builder();
-        ImmutableMap.Builder<String, Symbol> columnNameToSymbol = ImmutableMap.builder();
+        ImmutableMap.Builder<String, VariableReferenceExpression> columnNameToVariable = ImmutableMap.builder();
         TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTable);
         for (ColumnMetadata column : tableMetadata.getColumns()) {
-            Symbol symbol = symbolAllocator.newSymbol(column.getName(), column.getType());
-            tableScanOutputs.add(symbol);
-            tableScanOutputVariables.add(new VariableReferenceExpression(symbol.getName(), column.getType()));
-            symbolToColumnHandle.put(symbol, columnHandles.get(column.getName()));
-            columnNameToSymbol.put(column.getName(), symbol);
+            VariableReferenceExpression variable = symbolAllocator.newVariable(column.getName(), column.getType());
+            tableScanOutputsBuilder.add(variable);
+            symbolToColumnHandle.put(new Symbol(variable.getName()), columnHandles.get(column.getName()));
+            columnNameToVariable.put(column.getName(), variable);
         }
 
+        List<VariableReferenceExpression> tableScanOutputs = tableScanOutputsBuilder.build();
         TableStatisticsMetadata tableStatisticsMetadata = metadata.getStatisticsCollectionMetadata(
                 session,
                 targetTable.getConnectorId().getCatalogName(),
                 tableMetadata.getMetadata());
 
-        TableStatisticAggregation tableStatisticAggregation = statisticsAggregationPlanner.createStatisticsAggregation(tableStatisticsMetadata, columnNameToSymbol.build());
+        TableStatisticAggregation tableStatisticAggregation = statisticsAggregationPlanner.createStatisticsAggregation(tableStatisticsMetadata, columnNameToVariable.build());
         StatisticAggregations statisticAggregations = tableStatisticAggregation.getAggregations();
         List<Symbol> groupingSymbols = statisticAggregations.getGroupingSymbols();
 
@@ -292,8 +291,8 @@ public class LogicalPlanner
                 idAllocator.getNextId(),
                 new AggregationNode(
                         idAllocator.getNextId(),
-                        new TableScanNode(idAllocator.getNextId(), targetTable, tableScanOutputs.build(), tableScanOutputVariables.build(), symbolToColumnHandle.build()),
-                        statisticAggregations.getAggregations(),
+                        new TableScanNode(idAllocator.getNextId(), targetTable, tableScanOutputs.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()), tableScanOutputs, symbolToColumnHandle.build()),
+                        statisticAggregations.getAggregations().entrySet().stream().collect(toImmutableMap(entry -> new Symbol(entry.getKey().getName()), Map.Entry::getValue)),
                         singleGroupingSet(groupingSymbols),
                         ImmutableList.of(),
                         AggregationNode.Step.SINGLE,
@@ -421,7 +420,6 @@ public class LogicalPlanner
         });
 
         List<Symbol> symbols = plan.getFieldSymbolMappings();
-
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
         if (writeTableLayout.isPresent()) {
             List<Symbol> partitionFunctionArguments = new ArrayList<>();
@@ -439,10 +437,10 @@ public class LogicalPlanner
 
         if (!statisticsMetadata.isEmpty()) {
             verify(columnNames.size() == symbols.size(), "columnNames.size() != symbols.size(): %s and %s", columnNames, symbols);
-            Map<String, Symbol> columnToSymbolMap = zip(columnNames.stream(), symbols.stream(), SimpleImmutableEntry::new)
+            Map<String, VariableReferenceExpression> columnToVariableMap = zip(columnNames.stream(), plan.getFieldMappings().stream(), SimpleImmutableEntry::new)
                     .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
-            TableStatisticAggregation result = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnToSymbolMap);
+            TableStatisticAggregation result = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnToVariableMap);
 
             StatisticAggregations.Parts aggregations = result.getAggregations().createPartialAggregations(symbolAllocator, metadata.getFunctionManager());
 

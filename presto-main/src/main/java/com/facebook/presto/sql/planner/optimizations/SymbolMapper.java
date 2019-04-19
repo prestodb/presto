@@ -127,7 +127,7 @@ public class SymbolMapper
                 source,
                 aggregations.build(),
                 groupingSets(
-                        mapAndDistinct(node.getGroupingKeys()),
+                        mapAndDistinctSymbol(node.getGroupingKeys()),
                         node.getGroupingSetCount(),
                         node.getGlobalGroupingSets()),
                 ImmutableList.of(),
@@ -221,7 +221,7 @@ public class SymbolMapper
     {
         return new PartitioningScheme(
                 scheme.getPartitioning().translate(this::map),
-                mapAndDistinct(source.getOutputSymbols()),
+                mapAndDistinctSymbol(source.getOutputSymbols()),
                 scheme.getHashColumn().map(this::map),
                 scheme.isReplicateNullsAndAny(),
                 scheme.getBucketToPartition());
@@ -229,12 +229,12 @@ public class SymbolMapper
 
     private StatisticAggregations map(StatisticAggregations statisticAggregations)
     {
-        Map<Symbol, Aggregation> aggregations = statisticAggregations.getAggregations().entrySet().stream()
+        Map<VariableReferenceExpression, Aggregation> aggregations = statisticAggregations.getAggregations().entrySet().stream()
                 .collect(toImmutableMap(entry -> map(entry.getKey()), entry -> map(entry.getValue())));
-        return new StatisticAggregations(aggregations, mapAndDistinct(statisticAggregations.getGroupingSymbols()));
+        return new StatisticAggregations(aggregations, mapAndDistinctVariable(statisticAggregations.getGroupingVariables()));
     }
 
-    private StatisticAggregationsDescriptor<Symbol> map(StatisticAggregationsDescriptor<Symbol> descriptor)
+    private StatisticAggregationsDescriptor<VariableReferenceExpression> map(StatisticAggregationsDescriptor<VariableReferenceExpression> descriptor)
     {
         return descriptor.map(this::map);
     }
@@ -246,12 +246,25 @@ public class SymbolMapper
                 .collect(toImmutableList());
     }
 
-    private List<Symbol> mapAndDistinct(List<Symbol> outputs)
+    private List<Symbol> mapAndDistinctSymbol(List<Symbol> outputs)
     {
         Set<Symbol> added = new HashSet<>();
         ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
         for (Symbol symbol : outputs) {
             Symbol canonical = map(symbol);
+            if (added.add(canonical)) {
+                builder.add(canonical);
+            }
+        }
+        return builder.build();
+    }
+
+    private List<VariableReferenceExpression> mapAndDistinctVariable(List<VariableReferenceExpression> outputs)
+    {
+        Set<VariableReferenceExpression> added = new HashSet<>();
+        ImmutableList.Builder<VariableReferenceExpression> builder = ImmutableList.builder();
+        for (VariableReferenceExpression variable : outputs) {
+            VariableReferenceExpression canonical = map(variable);
             if (added.add(canonical)) {
                 builder.add(canonical);
             }

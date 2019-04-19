@@ -38,7 +38,7 @@ public class TableFinishNode
     private final WriterTarget target;
     private final VariableReferenceExpression rowCountVariable;
     private final Optional<StatisticAggregations> statisticsAggregation;
-    private final Optional<StatisticAggregationsDescriptor<Symbol>> statisticsAggregationDescriptor;
+    private final Optional<StatisticAggregationsDescriptor<VariableReferenceExpression>> statisticsAggregationDescriptor;
 
     @JsonCreator
     public TableFinishNode(
@@ -47,7 +47,7 @@ public class TableFinishNode
             @JsonProperty("target") WriterTarget target,
             @JsonProperty("rowCountVariable") VariableReferenceExpression rowCountVariable,
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation,
-            @JsonProperty("statisticsAggregationDescriptor") Optional<StatisticAggregationsDescriptor<Symbol>> statisticsAggregationDescriptor)
+            @JsonProperty("statisticsAggregationDescriptor") Optional<StatisticAggregationsDescriptor<VariableReferenceExpression>> statisticsAggregationDescriptor)
     {
         super(id);
 
@@ -85,7 +85,7 @@ public class TableFinishNode
     }
 
     @JsonProperty
-    public Optional<StatisticAggregationsDescriptor<Symbol>> getStatisticsAggregationDescriptor()
+    public Optional<StatisticAggregationsDescriptor<VariableReferenceExpression>> getStatisticsAggregationDescriptor()
     {
         return statisticsAggregationDescriptor;
     }
