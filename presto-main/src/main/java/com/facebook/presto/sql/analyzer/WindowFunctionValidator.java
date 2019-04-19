@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.metadata.FunctionMetadata;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.FunctionCall;
 
