@@ -29,7 +29,15 @@
             <excludes>
                 <exclude>launcher</exclude>
                 <exclude>launcher.py</exclude>
+                <exclude>launcher.properties</exclude>
             </excludes>
+            <outputDirectory>bin</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/launcher/bin</directory>
+            <includes>
+                <include>launcher.properties</include>
+            </includes>
             <outputDirectory>bin</outputDirectory>
             <filtered>true</filtered>
         </fileSet>
@@ -40,7 +48,6 @@
                 <include>launcher.py</include>
             </includes>
             <outputDirectory>bin</outputDirectory>
-            <filtered>true</filtered>
             <fileMode>0755</fileMode>
         </fileSet>
 
