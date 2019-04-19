@@ -23,6 +23,7 @@ import java.util.Set;
 
 import static com.facebook.presto.operator.StageExecutionDescriptor.StageExecutionStrategy.DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION;
 import static com.facebook.presto.operator.StageExecutionDescriptor.StageExecutionStrategy.FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION;
+import static com.facebook.presto.operator.StageExecutionDescriptor.StageExecutionStrategy.RECOVERABLE_GROUPED_EXECUTION;
 import static com.facebook.presto.operator.StageExecutionDescriptor.StageExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -41,6 +42,7 @@ public class StageExecutionDescriptor
                 break;
             case FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION:
             case DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION:
+            case RECOVERABLE_GROUPED_EXECUTION:
                 checkArgument(!groupedExecutionScanNodes.isEmpty(), "groupedExecutionScanNodes cannot be empty if stage execution strategy is grouped execution");
                 break;
             default:
@@ -71,6 +73,13 @@ public class StageExecutionDescriptor
         return new StageExecutionDescriptor(DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION, ImmutableSet.copyOf(capableScanNodes), totalLifespans);
     }
 
+    public static StageExecutionDescriptor recoverableGroupedExecution(List<PlanNodeId> capableScanNodes, int totalLifespans)
+    {
+        requireNonNull(capableScanNodes, "capableScanNodes is null");
+        checkArgument(!capableScanNodes.isEmpty(), "capableScanNodes cannot be empty if stage execution strategy is grouped execution");
+        return new StageExecutionDescriptor(RECOVERABLE_GROUPED_EXECUTION, ImmutableSet.copyOf(capableScanNodes), totalLifespans);
+    }
+
     public StageExecutionStrategy getStageExecutionStrategy()
     {
         return stageExecutionStrategy;
@@ -83,12 +92,17 @@ public class StageExecutionDescriptor
 
     public boolean isDynamicLifespanSchedule()
     {
-        return stageExecutionStrategy == DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION;
+        return stageExecutionStrategy == DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION || stageExecutionStrategy == RECOVERABLE_GROUPED_EXECUTION;
     }
 
     public boolean isScanGroupedExecution(PlanNodeId scanNodeId)
     {
         return groupedExecutionScanNodes.contains(scanNodeId);
+    }
+
+    public boolean isRecoverableGroupedExecution()
+    {
+        return stageExecutionStrategy == RECOVERABLE_GROUPED_EXECUTION;
     }
 
     @JsonCreator
@@ -125,6 +139,7 @@ public class StageExecutionDescriptor
     {
         UNGROUPED_EXECUTION,
         FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION,
-        DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION
+        DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION,
+        RECOVERABLE_GROUPED_EXECUTION,
     }
 }

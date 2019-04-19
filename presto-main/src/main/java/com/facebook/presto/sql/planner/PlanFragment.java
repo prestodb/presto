@@ -242,6 +242,21 @@ public class PlanFragment
                 jsonRepresentation);
     }
 
+    public PlanFragment withRecoverableGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans)
+    {
+        return new PlanFragment(
+                id,
+                root,
+                symbols,
+                partitioning,
+                tableScanSchedulingOrder,
+                partitioningScheme,
+                StageExecutionDescriptor.recoverableGroupedExecution(capableTableScanNodes, totalLifespans),
+                outputTableWriterFragment,
+                statsAndCosts,
+                jsonRepresentation);
+    }
+
     @Override
     public String toString()
     {

@@ -64,6 +64,7 @@ public final class SystemSessionProperties
     public static final String EXCHANGE_MATERIALIZATION_STRATEGY = "exchange_materialization_strategy";
     public static final String GROUPED_EXECUTION_FOR_AGGREGATION = "grouped_execution_for_aggregation";
     public static final String DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION = "dynamic_schedule_for_grouped_execution";
+    public static final String RECOVERABLE_GROUPED_EXECUTION = "recoverable_grouped_execution";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_WRITER_COUNT = "task_writer_count";
     public static final String TASK_CONCURRENCY = "task_concurrency";
@@ -213,6 +214,11 @@ public final class SystemSessionProperties
                         DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION,
                         "Experimental: Use dynamic schedule for grouped execution when possible",
                         featuresConfig.isDynamicScheduleForGroupedExecutionEnabled(),
+                        false),
+                booleanProperty(
+                        RECOVERABLE_GROUPED_EXECUTION,
+                        "Experimental: Use recoverable grouped execution when possible",
+                        featuresConfig.isRecoverableGroupedExecutionEnabled(),
                         false),
                 booleanProperty(
                         PREFER_STREAMING_OPERATORS,
@@ -666,6 +672,11 @@ public final class SystemSessionProperties
     public static boolean isDynamicScheduleForGroupedExecution(Session session)
     {
         return session.getSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, Boolean.class);
+    }
+
+    public static boolean isRecoverableGroupedExecutionEnabled(Session session)
+    {
+        return session.getSystemProperty(RECOVERABLE_GROUPED_EXECUTION, Boolean.class);
     }
 
     public static boolean preferStreamingOperators(Session session)

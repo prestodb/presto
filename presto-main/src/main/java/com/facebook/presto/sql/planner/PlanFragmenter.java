@@ -63,6 +63,7 @@ import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
@@ -87,8 +88,11 @@ import java.util.Set;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxStageCount;
 import static com.facebook.presto.SystemSessionProperties.isDynamicScheduleForGroupedExecution;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
+import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedExecutionEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static com.facebook.presto.spi.StandardWarningCode.TOO_MANY_STAGES;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_PARTITION_COMMIT;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_REWINDABLE_SPLIT_SOURCE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -163,7 +167,7 @@ public class PlanFragmenter
 
         SubPlan subPlan = fragmenter.buildRootFragment(root, properties);
         subPlan = reassignPartitioningHandleIfNecessary(session, subPlan);
-        subPlan = analyzeGroupedExecution(session, subPlan);
+        subPlan = analyzeGroupedExecution(session, subPlan, false);
 
         checkState(!isForceSingleNodeOutput(session) || subPlan.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
 
@@ -189,7 +193,15 @@ public class PlanFragmenter
         }
     }
 
-    private SubPlan analyzeGroupedExecution(Session session, SubPlan subPlan)
+    /*
+     * In theory, recoverable grouped execution should be decided at query section level (i.e. a connected component of stages connected by remote exchanges).
+     * This is because supporting mixed recoverable execution and non-recoverable execution within a query section adds unnecessary complications but provides little benefit,
+     * because a single task failure is still likely to fail the non-recoverable stage.
+     * However, since the concept of "query section" is not introduced until execution time as of now, it needs significant hacks to decide at fragmenting time.
+
+     * TODO: We should introduce "query section" and make recoverability analysis done at query section level.
+     */
+    private SubPlan analyzeGroupedExecution(Session session, SubPlan subPlan, boolean parentContainsTableFinish)
     {
         PlanFragment fragment = subPlan.getFragment();
         GroupedExecutionProperties properties = fragment.getRoot().accept(new GroupedExecutionTagger(session, metadata, nodePartitioningManager), null);
@@ -198,17 +210,43 @@ public class PlanFragmenter
                     && isDynamicScheduleForGroupedExecution(session);
             BucketNodeMap bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, fragment.getPartitioning(), preferDynamic);
             if (bucketNodeMap.isDynamic()) {
-                fragment = fragment.withDynamicLifespanScheduleGroupedExecution(properties.getCapableTableScanNodes(), properties.totalLifespans);
+                /*
+                 * We currently only support recoverable grouped execution if the following statements hold true:
+                 *   - Current session enables recoverable grouped execution
+                 *   - Parent sub plan contains TableFinishNode
+                 *   - Current sub plan's root is TableWriterNode
+                 *   - Input connectors supports split source rewind
+                 *   - Output connectors supports partition commit
+                 *   - Bucket node map uses dynamic scheduling
+                 *   - Output table is partitioned
+                 */
+                boolean recoverable = isRecoverableGroupedExecutionEnabled(session) &&
+                        parentContainsTableFinish &&
+                        fragment.getRoot() instanceof TableWriterNode &&
+                        properties.isRecoveryEligible();
+                if (recoverable) {
+                    fragment = fragment.withRecoverableGroupedExecution(properties.getCapableTableScanNodes(), properties.getTotalLifespans());
+                }
+                else {
+                    fragment = fragment.withDynamicLifespanScheduleGroupedExecution(properties.getCapableTableScanNodes(), properties.getTotalLifespans());
+                }
             }
             else {
-                fragment = fragment.withFixedLifespanScheduleGroupedExecution(properties.getCapableTableScanNodes(), properties.totalLifespans);
+                fragment = fragment.withFixedLifespanScheduleGroupedExecution(properties.getCapableTableScanNodes(), properties.getTotalLifespans());
             }
         }
         ImmutableList.Builder<SubPlan> result = ImmutableList.builder();
+        boolean containsTableFinishNode = containsTableFinishNode(fragment);
         for (SubPlan child : subPlan.getChildren()) {
-            result.add(analyzeGroupedExecution(session, child));
+            result.add(analyzeGroupedExecution(session, child, containsTableFinishNode));
         }
         return new SubPlan(fragment, result.build());
+    }
+
+    private static boolean containsTableFinishNode(PlanFragment planFragment)
+    {
+        PlanNode root = planFragment.getRoot();
+        return root instanceof OutputNode && getOnlyElement(root.getSources()) instanceof TableFinishNode;
     }
 
     private SubPlan reassignPartitioningHandleIfNecessary(Session session, SubPlan subPlan)
@@ -915,7 +953,8 @@ public class PlanFragmenter
                                         .addAll(left.capableTableScanNodes)
                                         .addAll(right.capableTableScanNodes)
                                         .build(),
-                                left.totalLifespans);
+                                left.totalLifespans,
+                                left.recoveryEligible && right.recoveryEligible);
                     }
                     // right.subTreeUseful && !left.currentNodeCapable:
                     //   It's not particularly helpful to do grouped execution on the right side
@@ -940,7 +979,7 @@ public class PlanFragmenter
                 switch (node.getStep()) {
                     case SINGLE:
                     case FINAL:
-                        return new GroupedExecutionProperties(true, true, properties.capableTableScanNodes, properties.totalLifespans);
+                        return new GroupedExecutionProperties(true, true, properties.capableTableScanNodes, properties.totalLifespans, properties.recoveryEligible);
                     case PARTIAL:
                     case INTERMEDIATE:
                         return properties;
@@ -971,7 +1010,7 @@ public class PlanFragmenter
         {
             GroupedExecutionProperties properties = getOnlyElement(node.getSources()).accept(this, null);
             if (groupedExecutionForAggregation && properties.isCurrentNodeCapable()) {
-                return new GroupedExecutionProperties(true, true, properties.capableTableScanNodes, properties.totalLifespans);
+                return new GroupedExecutionProperties(true, true, properties.capableTableScanNodes, properties.totalLifespans, properties.recoveryEligible);
             }
             return GroupedExecutionProperties.notCapable();
         }
@@ -981,9 +1020,31 @@ public class PlanFragmenter
         {
             GroupedExecutionProperties properties = getOnlyElement(node.getSources()).accept(this, null);
             if (groupedExecutionForAggregation && properties.isCurrentNodeCapable()) {
-                return new GroupedExecutionProperties(true, true, properties.capableTableScanNodes, properties.totalLifespans);
+                return new GroupedExecutionProperties(true, true, properties.capableTableScanNodes, properties.totalLifespans, properties.recoveryEligible);
             }
             return GroupedExecutionProperties.notCapable();
+        }
+
+        @Override
+        public GroupedExecutionProperties visitTableWriter(TableWriterNode node, Void context)
+        {
+            GroupedExecutionProperties properties = node.getSource().accept(this, null);
+            boolean recoveryEligible = properties.isRecoveryEligible() && node.getPartitioningScheme().isPresent();
+            if (node.getTarget() instanceof CreateHandle) {
+                recoveryEligible &= metadata.getConnectorCapabilities(session, ((CreateHandle) node.getTarget()).getHandle().getConnectorId()).contains(SUPPORTS_PARTITION_COMMIT);
+            }
+            else if (node.getTarget() instanceof InsertHandle) {
+                recoveryEligible &= metadata.getConnectorCapabilities(session, ((InsertHandle) node.getTarget()).getHandle().getConnectorId()).contains(SUPPORTS_PARTITION_COMMIT);
+            }
+            else {
+                recoveryEligible = false;
+            }
+            return new GroupedExecutionProperties(
+                    properties.isCurrentNodeCapable(),
+                    properties.isSubTreeUseful(),
+                    properties.getCapableTableScanNodes(),
+                    properties.getTotalLifespans(),
+                    recoveryEligible);
         }
 
         @Override
@@ -994,11 +1055,12 @@ public class PlanFragmenter
                 return GroupedExecutionProperties.notCapable();
             }
             List<ConnectorPartitionHandle> partitionHandles = nodePartitioningManager.listPartitionHandles(session, tablePartitioning.get().getPartitioningHandle());
+            boolean recoveryEligible = metadata.getConnectorCapabilities(session, node.getTable().getConnectorId()).contains(SUPPORTS_REWINDABLE_SPLIT_SOURCE);
             if (ImmutableList.of(NOT_PARTITIONED).equals(partitionHandles)) {
-                return new GroupedExecutionProperties(false, false, ImmutableList.of(), 1);
+                return new GroupedExecutionProperties(false, false, ImmutableList.of(), 1, recoveryEligible);
             }
             else {
-                return new GroupedExecutionProperties(true, false, ImmutableList.of(node.getId()), partitionHandles.size());
+                return new GroupedExecutionProperties(true, false, ImmutableList.of(node.getId()), partitionHandles.size(), recoveryEligible);
             }
         }
 
@@ -1012,10 +1074,15 @@ public class PlanFragmenter
 
             // * If any child is "not capable", return "not capable"
             // * When all children are capable ("capable and useful" or "capable but not useful")
-            //   * if any child is "capable and useful", return "capable and useful"
-            //   * if no children is "capable and useful", return "capable but not useful"
+            //   * Usefulness:
+            //     * if any child is "useful", this node is "useful"
+            //     * if no children is "useful", this node is "not useful"
+            //   * Recovery Eligibility:
+            //     * if all children is "recovery eligible", this node is "recovery eligible"
+            //     * if any child is "not recovery eligible", this node is "not recovery eligible"
             boolean anyUseful = false;
             OptionalInt totalLifespans = OptionalInt.empty();
+            boolean allRecoveryEligible = true;
             ImmutableList.Builder<PlanNodeId> capableTableScanNodes = ImmutableList.builder();
             for (PlanNode source : node.getSources()) {
                 GroupedExecutionProperties properties = source.accept(this, null);
@@ -1023,6 +1090,7 @@ public class PlanFragmenter
                     return GroupedExecutionProperties.notCapable();
                 }
                 anyUseful |= properties.isSubTreeUseful();
+                allRecoveryEligible &= properties.isRecoveryEligible();
                 if (!totalLifespans.isPresent()) {
                     totalLifespans = OptionalInt.of(properties.totalLifespans);
                 }
@@ -1032,7 +1100,7 @@ public class PlanFragmenter
 
                 capableTableScanNodes.addAll(properties.capableTableScanNodes);
             }
-            return new GroupedExecutionProperties(true, anyUseful, capableTableScanNodes.build(), totalLifespans.getAsInt());
+            return new GroupedExecutionProperties(true, anyUseful, capableTableScanNodes.build(), totalLifespans.getAsInt(), allRecoveryEligible);
         }
     }
 
@@ -1054,21 +1122,25 @@ public class PlanFragmenter
         private final boolean subTreeUseful;
         private final List<PlanNodeId> capableTableScanNodes;
         private final int totalLifespans;
+        private final boolean recoveryEligible;
 
-        public GroupedExecutionProperties(boolean currentNodeCapable, boolean subTreeUseful, List<PlanNodeId> capableTableScanNodes, int totalLifespans)
+        public GroupedExecutionProperties(boolean currentNodeCapable, boolean subTreeUseful, List<PlanNodeId> capableTableScanNodes, int totalLifespans, boolean recoveryEligible)
         {
             this.currentNodeCapable = currentNodeCapable;
             this.subTreeUseful = subTreeUseful;
             this.capableTableScanNodes = ImmutableList.copyOf(requireNonNull(capableTableScanNodes, "capableTableScanNodes is null"));
             this.totalLifespans = totalLifespans;
+            this.recoveryEligible = recoveryEligible;
             // Verify that `subTreeUseful` implies `currentNodeCapable`
             checkArgument(!subTreeUseful || currentNodeCapable);
+            // Verify that `recoveryEligible` implies `currentNodeCapable`
+            checkArgument(!recoveryEligible || currentNodeCapable);
             checkArgument(currentNodeCapable == !capableTableScanNodes.isEmpty());
         }
 
         public static GroupedExecutionProperties notCapable()
         {
-            return new GroupedExecutionProperties(false, false, ImmutableList.of(), 1);
+            return new GroupedExecutionProperties(false, false, ImmutableList.of(), 1, false);
         }
 
         public boolean isCurrentNodeCapable()
@@ -1089,6 +1161,11 @@ public class PlanFragmenter
         public int getTotalLifespans()
         {
             return totalLifespans;
+        }
+
+        public boolean isRecoveryEligible()
+        {
+            return recoveryEligible;
         }
     }
 
