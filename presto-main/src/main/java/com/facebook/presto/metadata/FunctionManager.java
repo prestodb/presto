@@ -20,6 +20,7 @@ import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -34,6 +35,7 @@ import java.util.List;
 
 @ThreadSafe
 public class FunctionManager
+        implements FunctionMetadataManager
 {
     private final StaticFunctionNamespace staticFunctionNamespace;
     private final FunctionInvokerProvider functionInvokerProvider;
@@ -77,6 +79,7 @@ public class FunctionManager
         return staticFunctionNamespace.resolveFunction(name, parameterTypes);
     }
 
+    @Override
     public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
     {
         return staticFunctionNamespace.getFunctionMetadata(functionHandle);
