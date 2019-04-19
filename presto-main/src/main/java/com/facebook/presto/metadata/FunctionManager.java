@@ -19,6 +19,7 @@ import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;

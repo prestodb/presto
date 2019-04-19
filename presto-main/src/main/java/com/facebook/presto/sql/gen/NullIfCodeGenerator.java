@@ -15,9 +15,9 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.metadata.FunctionMetadata;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;

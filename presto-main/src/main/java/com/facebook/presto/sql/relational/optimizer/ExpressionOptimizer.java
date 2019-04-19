@@ -15,10 +15,10 @@ package com.facebook.presto.sql.relational.optimizer;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.metadata.FunctionMetadata;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
