@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelator;
@@ -27,15 +28,14 @@ import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -78,14 +78,12 @@ public class TransformExistsApplyToLateralNode
 {
     private static final Pattern<ApplyNode> PATTERN = applyNode();
 
-    private static final String COUNT = "count";
-    private static final FunctionCall COUNT_CALL = new FunctionCall(QualifiedName.of(COUNT), ImmutableList.of());
-
-    private final FunctionManager functionManager;
+    private final StandardFunctionResolution functionResolution;
 
     public TransformExistsApplyToLateralNode(FunctionManager functionManager)
     {
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        requireNonNull(functionManager, "functionManager is null");
+        this.functionResolution = new FunctionResolution(functionManager);
     }
 
     @Override
@@ -150,7 +148,7 @@ public class TransformExistsApplyToLateralNode
 
     private PlanNode rewriteToDefaultAggregation(ApplyNode parent, Context context)
     {
-        Symbol count = context.getSymbolAllocator().newSymbol(COUNT, BIGINT);
+        Symbol count = context.getSymbolAllocator().newSymbol("count", BIGINT);
         Symbol exists = getOnlyElement(parent.getSubqueryAssignments().getSymbols());
 
         return new LateralJoinNode(
@@ -162,8 +160,11 @@ public class TransformExistsApplyToLateralNode
                                 context.getIdAllocator().getNextId(),
                                 parent.getSubquery(),
                                 ImmutableMap.of(count, new Aggregation(
-                                        COUNT_CALL,
-                                        functionManager.lookupFunction(COUNT, ImmutableList.of()),
+                                        functionResolution.countFunction(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        false,
                                         Optional.empty())),
                                 globalAggregation(),
                                 ImmutableList.of(),

@@ -17,7 +17,10 @@ import com.facebook.presto.Session;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -31,7 +34,6 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
@@ -55,6 +57,7 @@ import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 /**
  * This optimizer pushes aggregations below outer joins when: the aggregation
@@ -101,6 +104,12 @@ public class PushAggregationThroughOuterJoin
 
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .with(source().matching(join().capturedAs(JOIN)));
+    private final FunctionManager functionManager;
+
+    public PushAggregationThroughOuterJoin(FunctionManager functionManager)
+    {
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+    }
 
     @Override
     public Pattern<AggregationNode> getPattern()
@@ -299,10 +308,14 @@ public class PushAggregationThroughOuterJoin
             }
 
             AggregationNode.Aggregation overNullAggregation = new AggregationNode.Aggregation(
-                    (FunctionCall) inlineSymbols(sourcesSymbolMapping, aggregation.getCall()),
                     aggregation.getFunctionHandle(),
+                    aggregation.getArguments().stream().map(argument -> inlineSymbols(sourcesSymbolMapping, argument)).collect(toImmutableList()),
+                    aggregation.getFilter().map(filter -> inlineSymbols(sourcesSymbolMapping, filter)),
+                    aggregation.getOrderBy().map(orderBy -> inlineOrderBySymbols(sourcesSymbolMapping, orderBy)),
+                    aggregation.isDistinct(),
                     aggregation.getMask().map(x -> Symbol.from(sourcesSymbolMapping.get(x))));
-            Symbol overNullSymbol = symbolAllocator.newSymbol(overNullAggregation.getCall(), symbolAllocator.getTypes().get(aggregationSymbol));
+            String functionName = functionManager.getFunctionMetadata(overNullAggregation.getFunctionHandle()).getName();
+            Symbol overNullSymbol = symbolAllocator.newSymbol(functionName, symbolAllocator.getTypes().get(aggregationSymbol));
             aggregationsOverNullBuilder.put(overNullSymbol, overNullAggregation);
             aggregationsSymbolMappingBuilder.put(aggregationSymbol, overNullSymbol);
         }
@@ -322,9 +335,22 @@ public class PushAggregationThroughOuterJoin
         return Optional.of(new MappedAggregationInfo(aggregationOverNullRow, aggregationsSymbolMapping));
     }
 
+    private static OrderingScheme inlineOrderBySymbols(Map<Symbol, SymbolReference> symbolMapping, OrderingScheme orderingScheme)
+    {
+        // This is a logic expanded from ExpressionTreeRewriter::rewriteSortItems
+        ImmutableList.Builder<Symbol> orderBy = ImmutableList.builder();
+        ImmutableMap.Builder<Symbol, SortOrder> ordering = new ImmutableMap.Builder<>();
+        for (Symbol symbol : orderingScheme.getOrderBy()) {
+            Symbol translated = Symbol.from(symbolMapping.get(symbol));
+            orderBy.add(translated);
+            ordering.put(translated, orderingScheme.getOrdering(symbol));
+        }
+        return new OrderingScheme(orderBy.build(), ordering.build());
+    }
+
     private static boolean isUsingSymbols(AggregationNode.Aggregation aggregation, Set<Symbol> sourceSymbols)
     {
-        List<Expression> functionArguments = aggregation.getCall().getArguments();
+        List<Expression> functionArguments = aggregation.getArguments();
         return sourceSymbols.stream()
                 .map(Symbol::toSymbolReference)
                 .anyMatch(functionArguments::contains);

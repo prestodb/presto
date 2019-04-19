@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -31,18 +32,17 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.WhenClause;
@@ -98,11 +98,12 @@ public class TransformCorrelatedInPredicateToJoin
     private static final Pattern<ApplyNode> PATTERN = applyNode()
             .with(nonEmpty(correlation()));
 
-    private final FunctionManager functionManager;
+    private final StandardFunctionResolution functionResolution;
 
     public TransformCorrelatedInPredicateToJoin(FunctionManager functionManager)
     {
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        requireNonNull(functionManager, "functionManager is null");
+        this.functionResolution = new FunctionResolution(functionManager);
     }
 
     @Override
@@ -251,17 +252,12 @@ public class TransformCorrelatedInPredicateToJoin
 
     private AggregationNode.Aggregation countWithFilter(Expression condition)
     {
-        FunctionCall countCall = new FunctionCall(
-                QualifiedName.of("count"),
-                Optional.empty(),
+        return new AggregationNode.Aggregation(
+                functionResolution.countFunction(),
+                ImmutableList.of(),
                 Optional.of(condition),
                 Optional.empty(),
                 false,
-                ImmutableList.<Expression>of()); /* arguments */
-
-        return new AggregationNode.Aggregation(
-                countCall,
-                functionManager.lookupFunction("count", ImmutableList.of()),
                 Optional.<Symbol>empty()); /* mask */
     }
 

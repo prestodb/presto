@@ -19,10 +19,10 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
@@ -56,7 +56,7 @@ public class PruneOrderByInAggregation
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
         for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
-            if (!aggregation.getCall().getOrderBy().isPresent()) {
+            if (!aggregation.getOrderBy().isPresent()) {
                 aggregations.put(entry);
             }
             // getAggregateFunctionImplementation can be expensive, so check it last.
@@ -65,13 +65,14 @@ public class PruneOrderByInAggregation
             }
             else {
                 anyRewritten = true;
-                FunctionCall rewritten = new FunctionCall(
-                        aggregation.getCall().getName(),
-                        aggregation.getCall().isDistinct(),
-                        aggregation.getCall().getArguments(),
-                        aggregation.getCall().getFilter());
 
-                aggregations.put(entry.getKey(), new Aggregation(rewritten, aggregation.getFunctionHandle(), aggregation.getMask()));
+                aggregations.put(entry.getKey(), new Aggregation(
+                        aggregation.getFunctionHandle(),
+                        aggregation.getArguments(),
+                        aggregation.getFilter(),
+                        Optional.empty(),
+                        aggregation.isDistinct(),
+                        aggregation.getMask()));
             }
         }
 

@@ -29,8 +29,6 @@ import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -82,8 +80,11 @@ public class StatisticsAggregationPlanner
             }
             String count = "count";
             AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
-                    new FunctionCall(QualifiedName.of(count), ImmutableList.of()),
                     functionManager.lookupFunction(count, ImmutableList.of()),
+                    ImmutableList.of(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    false,
                     Optional.empty());
             Symbol symbol = symbolAllocator.newSymbol("rowCount", BIGINT);
             aggregations.put(symbol, aggregation);
@@ -137,8 +138,11 @@ public class StatisticsAggregationPlanner
         verify(resolvedType.equals(inputType), "resolved function input type does not match the input type: %s != %s", resolvedType, inputType);
         return new ColumnStatisticsAggregation(
                 new AggregationNode.Aggregation(
-                        new FunctionCall(QualifiedName.of(functionName), ImmutableList.of(input)),
                         functionHandle,
+                        ImmutableList.of(input),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
                         Optional.empty()),
                 outputType);
     }

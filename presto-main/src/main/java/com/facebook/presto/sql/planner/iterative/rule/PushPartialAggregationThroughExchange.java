@@ -30,9 +30,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LambdaExpression;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
@@ -202,27 +200,34 @@ public class PushPartialAggregationThroughExchange
         Map<Symbol, AggregationNode.Aggregation> finalAggregation = new HashMap<>();
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
             AggregationNode.Aggregation originalAggregation = entry.getValue();
-            QualifiedName functionName = originalAggregation.getCall().getName();
+            String functionName = functionManager.getFunctionMetadata(originalAggregation.getFunctionHandle()).getName();
             FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
             InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
             Symbol intermediateSymbol = context.getSymbolAllocator().newSymbol(functionName, function.getIntermediateType());
 
-            checkState(!originalAggregation.getCall().getOrderBy().isPresent(), "Aggregate with ORDER BY does not support partial aggregation");
-            intermediateAggregation.put(intermediateSymbol, new AggregationNode.Aggregation(originalAggregation.getCall(), functionHandle, originalAggregation.getMask()));
+            checkState(!originalAggregation.getOrderBy().isPresent(), "Aggregate with ORDER BY does not support partial aggregation");
+            intermediateAggregation.put(intermediateSymbol, new AggregationNode.Aggregation(
+                    functionHandle,
+                    originalAggregation.getArguments(),
+                    originalAggregation.getFilter(),
+                    originalAggregation.getOrderBy(),
+                    originalAggregation.isDistinct(),
+                    originalAggregation.getMask()));
 
             // rewrite final aggregation in terms of intermediate function
             finalAggregation.put(entry.getKey(),
                     new AggregationNode.Aggregation(
-                            new FunctionCall(
-                                    functionName,
-                                    ImmutableList.<Expression>builder()
-                                            .add(intermediateSymbol.toSymbolReference())
-                                            .addAll(originalAggregation.getCall().getArguments().stream()
-                                                    .filter(LambdaExpression.class::isInstance)
-                                                    .collect(toImmutableList()))
-                                            .build()),
 
                             functionHandle,
+                            ImmutableList.<Expression>builder()
+                                    .add(intermediateSymbol.toSymbolReference())
+                                    .addAll(originalAggregation.getArguments().stream()
+                                            .filter(LambdaExpression.class::isInstance)
+                                            .collect(toImmutableList()))
+                                    .build(),
+                            Optional.empty(),
+                            Optional.empty(),
+                            false,
                             Optional.empty()));
         }
 

@@ -490,15 +490,21 @@ public class PlanPrinter
                     format("Aggregate%s%s%s", type, key, formatHash(node.getHashSymbol())));
 
             for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
-                if (entry.getValue().getMask().isPresent()) {
-                    nodeOutput.appendDetailsLine("%s := %s (mask = %s)", entry.getKey(), entry.getValue().getCall(), entry.getValue().getMask().get());
-                }
-                else {
-                    nodeOutput.appendDetailsLine("%s := %s", entry.getKey(), entry.getValue().getCall());
-                }
+                nodeOutput.appendDetailsLine("%s := %s", entry.getKey(), formatAggregation(entry.getValue()));
             }
 
             return processChildren(node, context);
+        }
+
+        private String formatAggregation(AggregationNode.Aggregation aggregation)
+        {
+            StringBuilder builder = new StringBuilder();
+            builder.append(functionManager.getFunctionMetadata(aggregation.getFunctionHandle()).getName());
+            builder.append("(" + Joiner.on(",").join(aggregation.getArguments().stream().map(Object::toString).collect(toImmutableList())) + ")");
+            aggregation.getFilter().ifPresent(filter -> builder.append(" WHERE " + filter));
+            aggregation.getOrderBy().ifPresent(orderingScheme -> builder.append(" ORDER BY " + orderingScheme.toString()));
+            aggregation.getMask().ifPresent(mask -> builder.append(" (mask = " + mask + ")"));
+            return builder.toString();
         }
 
         @Override

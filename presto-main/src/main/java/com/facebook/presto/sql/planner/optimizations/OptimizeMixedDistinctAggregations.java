@@ -35,11 +35,9 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -119,7 +117,7 @@ public class OptimizeMixedDistinctAggregations
                 return context.defaultRewrite(node, Optional.empty());
             }
 
-            if (node.getAggregations().values().stream().map(Aggregation::getCall).map(FunctionCall::getFilter).anyMatch(Optional::isPresent)) {
+            if (node.getAggregations().values().stream().map(Aggregation::getFilter).anyMatch(Optional::isPresent)) {
                 // Skip if any aggregation contains a filter
                 return context.defaultRewrite(node, Optional.empty());
             }
@@ -155,25 +153,26 @@ public class OptimizeMixedDistinctAggregations
             // non-null result without any input
             ImmutableMap.Builder<Symbol, Symbol> coalesceSymbolsBuilder = ImmutableMap.builder();
             for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
-                FunctionCall functionCall = entry.getValue().getCall();
                 if (entry.getValue().getMask().isPresent()) {
                     aggregations.put(entry.getKey(), new Aggregation(
-                            new FunctionCall(
-                                    functionCall.getName(),
-                                    functionCall.getWindow(),
-                                    false,
-                                    ImmutableList.of(aggregateInfo.getNewDistinctAggregateSymbol().toSymbolReference())),
                             entry.getValue().getFunctionHandle(),
+                            ImmutableList.of(aggregateInfo.getNewDistinctAggregateSymbol().toSymbolReference()),
+                            Optional.empty(),
+                            Optional.empty(),
+                            false,
                             Optional.empty()));
                 }
                 else {
                     // Aggregations on non-distinct are already done by new node, just extract the non-null value
                     Symbol argument = aggregateInfo.getNewNonDistinctAggregateSymbols().get(entry.getKey());
                     Aggregation aggregation = new Aggregation(
-                            new FunctionCall(QualifiedName.of("arbitrary"), functionCall.getWindow(), false, ImmutableList.of(argument.toSymbolReference())),
                             metadata.getFunctionManager().lookupFunction("arbitrary", ImmutableList.of(new TypeSignatureProvider(symbolAllocator.getTypes().get(argument).getTypeSignature()))),
+                            ImmutableList.of(argument.toSymbolReference()),
+                            Optional.empty(),
+                            Optional.empty(),
+                            false,
                             Optional.empty());
-                    String functionName = functionCall.getName().getSuffix();
+                    String functionName = metadata.getFunctionManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getName();
                     if (functionName.equals("count") || functionName.equals("count_if") || functionName.equals("approx_distinct")) {
                         Symbol newSymbol = symbolAllocator.newSymbol("expr", symbolAllocator.getTypes().get(entry.getKey()));
                         aggregations.put(newSymbol, aggregation);
@@ -422,27 +421,35 @@ public class OptimizeMixedDistinctAggregations
         {
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
             for (Map.Entry<Symbol, Aggregation> entry : aggregateInfo.getAggregations().entrySet()) {
-                FunctionCall functionCall = entry.getValue().getCall();
                 if (!entry.getValue().getMask().isPresent()) {
                     Symbol newSymbol = symbolAllocator.newSymbol(entry.getKey().toSymbolReference(), symbolAllocator.getTypes().get(entry.getKey()));
+                    Aggregation aggregation = entry.getValue();
                     aggregationOutputSymbolsMapBuilder.put(newSymbol, entry.getKey());
-                    if (!duplicatedDistinctSymbol.equals(distinctSymbol)) {
-                        // Handling for cases when mask symbol appears in non distinct aggregations too
-                        // Now the aggregation should happen over the duplicate symbol added before
-                        if (functionCall.getArguments().contains(distinctSymbol.toSymbolReference())) {
-                            ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
-                            for (Expression argument : functionCall.getArguments()) {
-                                if (distinctSymbol.toSymbolReference().equals(argument)) {
-                                    arguments.add(duplicatedDistinctSymbol.toSymbolReference());
-                                }
-                                else {
-                                    arguments.add(argument);
-                                }
+                    // Handling for cases when mask symbol appears in non distinct aggregations too
+                    // Now the aggregation should happen over the duplicate symbol added before
+                    List<Expression> arguments;
+                    if (!duplicatedDistinctSymbol.equals(distinctSymbol) && entry.getValue().getArguments().contains(distinctSymbol.toSymbolReference())) {
+                        ImmutableList.Builder<Expression> argumentsBuilder = ImmutableList.builder();
+                        for (Expression argument : aggregation.getArguments()) {
+                            if (distinctSymbol.toSymbolReference().equals(argument)) {
+                                argumentsBuilder.add(duplicatedDistinctSymbol.toSymbolReference());
                             }
-                            functionCall = new FunctionCall(functionCall.getName(), functionCall.getWindow(), false, arguments.build());
+                            else {
+                                argumentsBuilder.add(argument);
+                            }
                         }
+                        arguments = argumentsBuilder.build();
                     }
-                    aggregations.put(newSymbol, new Aggregation(functionCall, entry.getValue().getFunctionHandle(), Optional.empty()));
+                    else {
+                        arguments = entry.getValue().getArguments();
+                    }
+                    aggregations.put(newSymbol, new Aggregation(
+                            entry.getValue().getFunctionHandle(),
+                            arguments,
+                            Optional.empty(),
+                            Optional.empty(),
+                            false,
+                            Optional.empty()));
                 }
             }
             return new AggregationNode(
@@ -490,8 +497,7 @@ public class OptimizeMixedDistinctAggregations
         {
             return aggregations.values().stream()
                     .filter(aggregation -> !aggregation.getMask().isPresent())
-                    .map(Aggregation::getCall)
-                    .flatMap(function -> function.getArguments().stream())
+                    .flatMap(aggregation -> aggregation.getArguments().stream())
                     .distinct()
                     .map(Symbol::from)
                     .collect(Collectors.toList());
@@ -501,8 +507,7 @@ public class OptimizeMixedDistinctAggregations
         {
             return aggregations.values().stream()
                     .filter(aggregation -> aggregation.getMask().isPresent())
-                    .map(Aggregation::getCall)
-                    .flatMap(function -> function.getArguments().stream())
+                    .flatMap(aggregation -> aggregation.getArguments().stream())
                     .distinct()
                     .map(Symbol::from)
                     .collect(Collectors.toList());

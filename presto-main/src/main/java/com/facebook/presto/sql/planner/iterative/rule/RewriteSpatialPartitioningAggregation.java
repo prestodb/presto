@@ -32,6 +32,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -61,8 +62,7 @@ public class RewriteSpatialPartitioningAggregation
 {
     private static final TypeSignature GEOMETRY_TYPE_SIGNATURE = parseTypeSignature("Geometry");
     private static final String NAME = "spatial_partitioning";
-    private static final Pattern<AggregationNode> PATTERN = aggregation()
-            .matching(RewriteSpatialPartitioningAggregation::hasSpatialPartitioningAggregation);
+    private final Pattern<AggregationNode> pattern = aggregation().matching(this::hasSpatialPartitioningAggregation);
 
     private final Metadata metadata;
 
@@ -71,17 +71,17 @@ public class RewriteSpatialPartitioningAggregation
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
-    private static boolean hasSpatialPartitioningAggregation(AggregationNode aggregation)
+    private boolean hasSpatialPartitioningAggregation(AggregationNode aggregationNode)
     {
-        return aggregation.getAggregations().values().stream()
-                .map(Aggregation::getCall)
-                .anyMatch(call -> call.getName().toString().equals(NAME) && call.getArguments().size() == 1);
+        return aggregationNode.getAggregations().values().stream().anyMatch(
+                aggregation -> metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName().equals(NAME)
+                        && aggregation.getArguments().size() == 1);
     }
 
     @Override
     public Pattern<AggregationNode> getPattern()
     {
-        return PATTERN;
+        return pattern;
     }
 
     @Override
@@ -92,11 +92,10 @@ public class RewriteSpatialPartitioningAggregation
         ImmutableMap.Builder<Symbol, Expression> envelopeAssignments = ImmutableMap.builder();
         for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
-            FunctionCall call = aggregation.getCall();
-            QualifiedName name = call.getName();
+            String name = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName();
             Type geometryType = metadata.getType(GEOMETRY_TYPE_SIGNATURE);
-            if (name.toString().equals(NAME) && call.getArguments().size() == 1) {
-                Expression geometry = getOnlyElement(call.getArguments());
+            if (name.equals(NAME) && aggregation.getArguments().size() == 1) {
+                Expression geometry = getOnlyElement(aggregation.getArguments());
                 Symbol envelopeSymbol = context.getSymbolAllocator().newSymbol("envelope", geometryType);
                 if (geometry instanceof FunctionCall && ((FunctionCall) geometry).getName().toString().equalsIgnoreCase("ST_Envelope")) {
                     envelopeAssignments.put(envelopeSymbol, geometry);
@@ -106,8 +105,11 @@ public class RewriteSpatialPartitioningAggregation
                 }
                 aggregations.put(entry.getKey(),
                         new Aggregation(
-                                new FunctionCall(name, ImmutableList.of(envelopeSymbol.toSymbolReference(), partitionCountSymbol.toSymbolReference())),
                                 metadata.getFunctionManager().lookupFunction(NAME, fromTypes(geometryType, INTEGER)),
+                                ImmutableList.of(envelopeSymbol.toSymbolReference(), partitionCountSymbol.toSymbolReference()),
+                                Optional.empty(),
+                                Optional.empty(),
+                                false,
                                 aggregation.getMask()));
             }
             else {
@@ -117,7 +119,7 @@ public class RewriteSpatialPartitioningAggregation
 
         return Result.ofPlanNode(
                 new AggregationNode(
-                    node.getId(),
+                        node.getId(),
                         new ProjectNode(
                                 context.getIdAllocator().getNextId(),
                                 node.getSource(),
@@ -126,11 +128,11 @@ public class RewriteSpatialPartitioningAggregation
                                         .put(partitionCountSymbol, new LongLiteral(Integer.toString(getHashPartitionCount(context.getSession()))))
                                         .putAll(envelopeAssignments.build())
                                         .build()),
-                    aggregations.build(),
-                    node.getGroupingSets(),
-                    node.getPreGroupedSymbols(),
-                    node.getStep(),
-                    node.getHashSymbol(),
-                    node.getGroupIdSymbol()));
+                        aggregations.build(),
+                        node.getGroupingSets(),
+                        node.getPreGroupedSymbols(),
+                        node.getStep(),
+                        node.getHashSymbol(),
+                        node.getGroupIdSymbol()));
     }
 }

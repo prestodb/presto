@@ -16,8 +16,8 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.google.common.collect.Streams;
 
@@ -57,7 +57,7 @@ public class PruneAggregationSourceColumns
     private static Stream<Symbol> getAggregationInputs(AggregationNode.Aggregation aggregation)
     {
         return Streams.concat(
-                SymbolsExtractor.extractUnique(aggregation.getCall()).stream(),
+                AggregationNodeUtils.extractUnique(aggregation).stream(),
                 aggregation.getMask().map(Stream::of).orElse(Stream.empty()));
     }
 }
