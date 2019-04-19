@@ -37,7 +37,7 @@ import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.relational.StandardFunctionResolution;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -100,7 +100,7 @@ public class FilterStatsCalculator
     private final ScalarStatsCalculator scalarStatsCalculator;
     private final StatsNormalizer normalizer;
     private final LiteralEncoder literalEncoder;
-    private final StandardFunctionResolution functionResolution;
+    private final FunctionResolution functionResolution;
 
     public FilterStatsCalculator(Metadata metadata, ScalarStatsCalculator scalarStatsCalculator, StatsNormalizer normalizer)
     {
@@ -108,7 +108,7 @@ public class FilterStatsCalculator
         this.scalarStatsCalculator = requireNonNull(scalarStatsCalculator, "scalarStatsCalculator is null");
         this.normalizer = requireNonNull(normalizer, "normalizer is null");
         this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
-        this.functionResolution = new StandardFunctionResolution(metadata.getFunctionManager());
+        this.functionResolution = new FunctionResolution(metadata.getFunctionManager());
     }
 
     @Deprecated

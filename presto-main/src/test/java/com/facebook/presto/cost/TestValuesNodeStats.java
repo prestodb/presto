@@ -14,7 +14,7 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.relational.StandardFunctionResolution;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -35,7 +35,7 @@ public class TestValuesNodeStats
     @Test
     public void testStatsForValuesNode()
     {
-        StandardFunctionResolution resolution = new StandardFunctionResolution(tester().getMetadata().getFunctionManager());
+        FunctionResolution resolution = new FunctionResolution(tester().getMetadata().getFunctionManager());
         tester().assertStatsFor(pb -> pb
                 .values(ImmutableList.of(pb.symbol("a", BIGINT), pb.symbol("b", DOUBLE)),
                         ImmutableList.of(
@@ -86,7 +86,7 @@ public class TestValuesNodeStats
     @Test
     public void testStatsForValuesNodeWithJustNulls()
     {
-        StandardFunctionResolution resolution = new StandardFunctionResolution(tester().getMetadata().getFunctionManager());
+        FunctionResolution resolution = new FunctionResolution(tester().getMetadata().getFunctionManager());
         PlanNodeStatsEstimate nullAStats = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(1)
                 .addSymbolStatistics(new Symbol("a"), SymbolStatsEstimate.zero())

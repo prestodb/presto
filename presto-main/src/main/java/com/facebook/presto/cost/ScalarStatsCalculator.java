@@ -35,7 +35,7 @@ import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.relational.StandardFunctionResolution;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -98,7 +98,7 @@ public class ScalarStatsCalculator
     {
         private final PlanNodeStatsEstimate input;
         private final Session session;
-        private final StandardFunctionResolution resolution = new StandardFunctionResolution(metadata.getFunctionManager());
+        private final FunctionResolution resolution = new FunctionResolution(metadata.getFunctionManager());
 
         public RowExpressionStatsVisitor(PlanNodeStatsEstimate input, Session session)
         {

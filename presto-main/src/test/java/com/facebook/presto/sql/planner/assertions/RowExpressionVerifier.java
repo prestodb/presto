@@ -23,7 +23,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
-import com.facebook.presto.sql.relational.StandardFunctionResolution;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -91,14 +91,14 @@ final class RowExpressionVerifier
     private final SymbolAliases symbolAliases;
     private final Metadata metadata;
     private final Session session;
-    private final StandardFunctionResolution functionResolution;
+    private final FunctionResolution functionResolution;
 
     RowExpressionVerifier(SymbolAliases symbolAliases, Metadata metadata, Session session)
     {
         this.symbolAliases = requireNonNull(symbolAliases, "symbolLayout is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.session = requireNonNull(session, "session is null");
-        this.functionResolution = new StandardFunctionResolution(metadata.getFunctionManager());
+        this.functionResolution = new FunctionResolution(metadata.getFunctionManager());
     }
 
     @Override

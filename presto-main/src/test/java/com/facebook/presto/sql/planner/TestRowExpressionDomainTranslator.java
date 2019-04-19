@@ -28,8 +28,8 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
-import com.facebook.presto.sql.relational.StandardFunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
@@ -1225,7 +1225,7 @@ public class TestRowExpressionDomainTranslator
 
     private RowExpression not(RowExpression expression)
     {
-        return call("not", new StandardFunctionResolution(metadata.getFunctionManager()).notFunction(), expression.getType(), expression);
+        return call("not", new FunctionResolution(metadata.getFunctionManager()).notFunction(), expression.getType(), expression);
     }
 
     private RowExpression in(RowExpression value, List<RowExpression> inList)

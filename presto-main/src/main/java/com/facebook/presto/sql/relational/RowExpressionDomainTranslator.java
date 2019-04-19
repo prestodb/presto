@@ -93,8 +93,8 @@ public final class RowExpressionDomainTranslator
 {
     private final FunctionManager functionManager;
     private final LogicalRowExpressions logicalRowExpressions;
-    private final StandardFunctionResolution functionResolution;
     private final Metadata metadata;
+    private final FunctionResolution functionResolution;
 
     @Inject
     public RowExpressionDomainTranslator(Metadata metadata)
@@ -102,7 +102,7 @@ public final class RowExpressionDomainTranslator
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.functionManager = metadata.getFunctionManager();
         this.logicalRowExpressions = new LogicalRowExpressions(functionManager);
-        this.functionResolution = new StandardFunctionResolution(functionManager);
+        this.functionResolution = new FunctionResolution(functionManager);
     }
 
     @Override
@@ -298,7 +298,7 @@ public final class RowExpressionDomainTranslator
         private final FunctionManager functionManager;
         private final LogicalRowExpressions logicalRowExpressions;
         private final DeterminismEvaluator determinismEvaluator;
-        private final StandardFunctionResolution resolution;
+        private final FunctionResolution resolution;
 
         private Visitor(Metadata metadata, ConnectorSession session)
         {
@@ -308,7 +308,7 @@ public final class RowExpressionDomainTranslator
             this.functionManager = metadata.getFunctionManager();
             this.logicalRowExpressions = new LogicalRowExpressions(functionManager);
             this.determinismEvaluator = new DeterminismEvaluator(functionManager);
-            this.resolution = new StandardFunctionResolution(functionManager);
+            this.resolution = new FunctionResolution(functionManager);
         }
 
         @Override
@@ -809,7 +809,7 @@ public final class RowExpressionDomainTranslator
         return new SpecialFormExpression(IS_NULL, BOOLEAN, expression);
     }
 
-    private static RowExpression not(StandardFunctionResolution resolution, RowExpression expression)
+    private static RowExpression not(FunctionResolution resolution, RowExpression expression)
     {
         return call("not", resolution.notFunction(), expression.getType(), expression);
     }

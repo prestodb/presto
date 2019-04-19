@@ -47,11 +47,11 @@ import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public final class StandardFunctionResolution
+public final class FunctionResolution
 {
     private final FunctionManager functionManager;
 
-    public StandardFunctionResolution(FunctionManager functionManager)
+    public FunctionResolution(FunctionManager functionManager)
     {
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
     }
