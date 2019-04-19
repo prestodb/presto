@@ -89,6 +89,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionT
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionInterpreter;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.rowExpressionInterpreter;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -352,6 +353,9 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("abs(-bound_long)", "1234");
         assertOptimizedEquals("abs(unbound_long)", "abs(unbound_long)");
         assertOptimizedEquals("abs(unbound_long + 1)", "abs(unbound_long + 1)");
+        assertOptimizedEquals("cast(json_parse(unbound_string) as map(varchar, varchar))", "cast(json_parse(unbound_string) as map(varchar, varchar))");
+        assertOptimizedEquals("cast(json_parse(unbound_string) as array(varchar))", "cast(json_parse(unbound_string) as array(varchar))");
+        assertOptimizedEquals("cast(json_parse(unbound_string) as row(bigint, varchar))", "cast(json_parse(unbound_string) as row(bigint, varchar))");
     }
 
     @Test
@@ -1582,7 +1586,7 @@ public class TestExpressionInterpreter
             // It is tricky to check the equivalence of an expression and a row expression.
             // We rely on the optimized translator to fill the gap.
             RowExpression translated = TRANSLATOR.translateAndOptimize((Expression) expressionResult, SYMBOL_TYPES);
-            assertRowExpressionEvaluationEquals(translated, new ExpressionOptimizer(METADATA.getFunctionManager(), TEST_SESSION).optimize((RowExpression) rowExpressionResult));
+            assertRowExpressionEvaluationEquals(translated, new ExpressionOptimizer(METADATA.getFunctionManager(), SESSION).optimize((RowExpression) rowExpressionResult));
         }
         else {
             // We have constants; directly compare

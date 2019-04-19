@@ -37,6 +37,7 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.planner.Interpreters.LambdaSymbolResolver;
 import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.util.Failures;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -150,7 +151,7 @@ public class RowExpressionInterpreter
     public Object optimize()
     {
         checkState(optimize, "optimize() not allowed for interpreter");
-        return expression.accept(visitor, null);
+        return optimize(null);
     }
 
     /**
@@ -160,7 +161,13 @@ public class RowExpressionInterpreter
     public Object optimize(SymbolResolver inputs)
     {
         checkState(optimize, "optimize(SymbolResolver) not allowed for interpreter");
-        return expression.accept(visitor, inputs);
+        Object result = expression.accept(visitor, inputs);
+
+        if (!(result instanceof RowExpression)) {
+            // constant folding
+            return result;
+        }
+        return new ExpressionOptimizer(metadata.getFunctionManager(), session).optimize((RowExpression) result);
     }
 
     private class Visitor
