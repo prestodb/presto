@@ -65,7 +65,7 @@ public final class HiveQueryRunner
     public static final String HIVE_CATALOG = "hive";
     public static final String HIVE_BUCKETED_CATALOG = "hive_bucketed";
     public static final String TPCH_SCHEMA = "tpch";
-    private static final String TPCH_BUCKETED_SCHEMA = "tpch_bucketed";
+    public static final String TPCH_BUCKETED_SCHEMA = "tpch_bucketed";
     private static final String TEMPORARY_TABLE_SCHEMA = "__temporary_tables__";
     private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
