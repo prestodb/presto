@@ -196,7 +196,7 @@ public class LongDictionaryStreamReader
             if (dictionaryStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Dictionary is not empty but data stream is not present");
             }
-            dictionaryStream.nextLongVector(dictionarySize, dictionary);
+            dictionaryStream.next(dictionary, dictionarySize);
         }
         dictionaryOpen = true;
 

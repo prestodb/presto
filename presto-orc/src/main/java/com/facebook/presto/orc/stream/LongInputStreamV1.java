@@ -19,6 +19,8 @@ import com.facebook.presto.orc.checkpoint.LongStreamV1Checkpoint;
 
 import java.io.IOException;
 
+import static java.lang.Math.min;
+
 public class LongInputStreamV1
         implements LongInputStream
 {
@@ -62,7 +64,6 @@ public class LongInputStreamV1
             }
 
             // convert from 0 to 255 to -128 to 127 by converting to a signed byte
-            // noinspection SillyAssignment
             delta = (byte) delta;
             literals[0] = LongDecode.readVInt(signed, input);
         }
@@ -92,6 +93,111 @@ public class LongInputStreamV1
             result = literals[used++];
         }
         return result;
+    }
+
+    @Override
+    public void next(long[] values, int items)
+            throws IOException
+    {
+        int offset = 0;
+        while (items > 0) {
+            if (used == numLiterals) {
+                numLiterals = 0;
+                used = 0;
+                readValues();
+            }
+
+            int chunkSize = min(numLiterals - used, items);
+            if (repeat) {
+                for (int i = 0; i < chunkSize; i++) {
+                    values[offset + i] = literals[0] + ((used + i) * delta);
+                }
+            }
+            else {
+                System.arraycopy(literals, used, values, offset, chunkSize);
+            }
+            used += chunkSize;
+            offset += chunkSize;
+            items -= chunkSize;
+        }
+    }
+
+    @Override
+    public void next(int[] values, int items)
+            throws IOException
+    {
+        int offset = 0;
+        while (items > 0) {
+            if (used == numLiterals) {
+                numLiterals = 0;
+                used = 0;
+                readValues();
+            }
+
+            int chunkSize = min(numLiterals - used, items);
+            if (repeat) {
+                for (int i = 0; i < chunkSize; i++) {
+                    long literal = literals[0] + ((used + i) * delta);
+                    int value = (int) literal;
+                    if (literal != value) {
+                        throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 32bit number");
+                    }
+                    values[offset + i] = value;
+                }
+            }
+            else {
+                for (int i = 0; i < chunkSize; i++) {
+                    long literal = literals[used + i];
+                    int value = (int) literal;
+                    if (literal != value) {
+                        throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 32bit number");
+                    }
+                    values[offset + i] = value;
+                }
+            }
+            used += chunkSize;
+            offset += chunkSize;
+            items -= chunkSize;
+        }
+    }
+
+    @Override
+    public void next(short[] values, int items)
+            throws IOException
+    {
+        int offset = 0;
+        while (items > 0) {
+            if (used == numLiterals) {
+                numLiterals = 0;
+                used = 0;
+                readValues();
+            }
+
+            int chunkSize = min(numLiterals - used, items);
+            if (repeat) {
+                for (int i = 0; i < chunkSize; i++) {
+                    long literal = literals[0] + ((used + i) * delta);
+                    short value = (short) literal;
+                    if (literal != value) {
+                        throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 16bit number");
+                    }
+                    values[offset + i] = value;
+                }
+            }
+            else {
+                for (int i = 0; i < chunkSize; i++) {
+                    long literal = literals[used + i];
+                    short value = (short) literal;
+                    if (literal != value) {
+                        throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 16bit number");
+                    }
+                    values[offset + i] = value;
+                }
+            }
+            used += chunkSize;
+            offset += chunkSize;
+            items -= chunkSize;
+        }
     }
 
     @Override
@@ -127,7 +233,7 @@ public class LongInputStreamV1
             if (used == numLiterals) {
                 readValues();
             }
-            long consume = Math.min(items, numLiterals - used);
+            long consume = min(items, numLiterals - used);
             used += consume;
             items -= consume;
         }
