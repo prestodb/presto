@@ -16,6 +16,7 @@ package com.facebook.presto.sql.relational;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
@@ -38,6 +39,7 @@ import static com.facebook.presto.spi.function.OperatorType.MODULUS;
 import static com.facebook.presto.spi.function.OperatorType.MULTIPLY;
 import static com.facebook.presto.spi.function.OperatorType.NEGATION;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -45,9 +47,11 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class FunctionResolution
+        implements StandardFunctionResolution
 {
     private final FunctionManager functionManager;
 
@@ -56,6 +60,7 @@ public final class FunctionResolution
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
     }
 
+    @Override
     public FunctionHandle notFunction()
     {
         return functionManager.lookupFunction("not", fromTypes(BOOLEAN));
@@ -66,11 +71,13 @@ public final class FunctionResolution
         return notFunction().equals(functionHandle);
     }
 
+    @Override
     public FunctionHandle likeVarcharFunction()
     {
         return functionManager.lookupFunction("LIKE", fromTypes(VARCHAR, LIKE_PATTERN));
     }
 
+    @Override
     public FunctionHandle likeCharFunction(Type valueType)
     {
         checkArgument(valueType instanceof CharType, "Expected CHAR value type");
@@ -92,9 +99,23 @@ public final class FunctionResolution
         return functionManager.getFunctionMetadata(functionHandle).getName().equals(mangleOperatorName(OperatorType.CAST.name()));
     }
 
+    @Override
+    public FunctionHandle betweenFunction(Type valueType, Type lowerBoundType, Type upperBoundType)
+    {
+        return functionManager.lookupFunction(BETWEEN.getFunctionName(), fromTypes(valueType, lowerBoundType, upperBoundType));
+    }
+
+    @Override
     public boolean isBetweenFunction(FunctionHandle functionHandle)
     {
         return functionManager.getFunctionMetadata(functionHandle).getOperatorType().equals(Optional.of(BETWEEN));
+    }
+
+    @Override
+    public FunctionHandle arithmeticFunction(OperatorType operator, Type leftType, Type rightType)
+    {
+        checkArgument(operator.isArithmeticOperator(), format("unexpected arithmetic type %s", operator));
+        return functionManager.resolveOperator(operator, fromTypes(leftType, rightType));
     }
 
     public FunctionHandle arithmeticFunction(ArithmeticBinaryExpression.Operator operator, Type leftType, Type rightType)
@@ -119,17 +140,39 @@ public final class FunctionResolution
             default:
                 throw new IllegalStateException("Unknown arithmetic operator: " + operator);
         }
-        return functionManager.resolveOperator(operatorType, fromTypes(leftType, rightType));
+        return arithmeticFunction(operatorType, leftType, rightType);
     }
 
+    @Override
+    public boolean isArithmeticFunction(FunctionHandle functionHandle)
+    {
+        Optional<OperatorType> operatorType = functionManager.getFunctionMetadata(functionHandle).getOperatorType();
+        return operatorType.isPresent() && operatorType.get().isArithmeticOperator();
+    }
+
+    @Override
+    public FunctionHandle negateFunction(Type type)
+    {
+        return functionManager.lookupFunction(NEGATION.getFunctionName(), fromTypes(type));
+    }
+
+    @Override
     public boolean isNegateFunction(FunctionHandle functionHandle)
     {
         return functionManager.getFunctionMetadata(functionHandle).getOperatorType().equals(Optional.of(NEGATION));
     }
 
+    @Override
     public FunctionHandle arrayConstructor(List<? extends Type> argumentTypes)
     {
         return functionManager.lookupFunction(ARRAY_CONSTRUCTOR, fromTypes(argumentTypes));
+    }
+
+    @Override
+    public FunctionHandle comparisonFunction(OperatorType operator, Type leftType, Type rightType)
+    {
+        checkArgument(operator.isComparisonOperator(), format("unexpected comparison type %s", operator));
+        return functionManager.resolveOperator(operator, fromTypes(leftType, rightType));
     }
 
     public FunctionHandle comparisonFunction(ComparisonExpression.Operator operator, Type leftType, Type rightType)
@@ -161,7 +204,26 @@ public final class FunctionResolution
                 throw new IllegalStateException("Unsupported comparison operator type: " + operator);
         }
 
-        return functionManager.resolveOperator(operatorType, fromTypes(leftType, rightType));
+        return comparisonFunction(operatorType, leftType, rightType);
+    }
+
+    @Override
+    public boolean isComparisonFunction(FunctionHandle functionHandle)
+    {
+        Optional<OperatorType> operatorType = functionManager.getFunctionMetadata(functionHandle).getOperatorType();
+        return operatorType.isPresent() && operatorType.get().isComparisonOperator();
+    }
+
+    @Override
+    public FunctionHandle subscriptFunction(Type baseType, Type indexType)
+    {
+        return functionManager.lookupFunction(SUBSCRIPT.getFunctionName(), fromTypes(baseType, indexType));
+    }
+
+    @Override
+    public boolean isSubscriptFunction(FunctionHandle functionHandle)
+    {
+        return functionManager.getFunctionMetadata(functionHandle).getOperatorType().equals(Optional.of(SUBSCRIPT));
     }
 
     public FunctionHandle tryFunction(Type returnType)
