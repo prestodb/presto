@@ -14,17 +14,12 @@
 package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.checkpoint.FloatStreamCheckpoint;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
-import static java.lang.Float.floatToIntBits;
-import static java.lang.Math.min;
 
 public class FloatInputStream
         implements ValueInputStream<FloatStreamCheckpoint>
@@ -67,51 +62,9 @@ public class FloatInputStream
         return slice.getFloat(0);
     }
 
-    public Block nextBlock(Type type, boolean[] isNull)
+    public void next(int[] values, int items)
             throws IOException
     {
-        int items = isNull.length;
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, items);
-
-        for (int batchBase = 0; batchBase < items; batchBase += BUFFER_SIZE) {
-            int batchSize = min(items - batchBase, BUFFER_SIZE);
-
-            // stream is null suppressed, so count the present values
-            int nonNullCount = 0;
-            for (int i = batchBase; i < batchBase + batchSize; i++) {
-                if (!isNull[i]) {
-                    nonNullCount++;
-                }
-            }
-            input.readFully(buffer, 0, SIZE_OF_FLOAT * nonNullCount);
-
-            int bufferIndex = 0;
-            for (int i = batchBase; i < batchBase + batchSize; i++) {
-                if (!isNull[i]) {
-                    type.writeLong(blockBuilder, floatToIntBits(slice.getFloat(bufferIndex * SIZE_OF_FLOAT)));
-                    bufferIndex++;
-                }
-                else {
-                    blockBuilder.appendNull();
-                }
-            }
-        }
-        return blockBuilder.build();
-    }
-
-    public Block nextBlock(Type type, int items)
-            throws IOException
-    {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, items);
-        for (int batchBase = 0; batchBase < items; batchBase += BUFFER_SIZE) {
-            int batchSize = min(items - batchBase, BUFFER_SIZE);
-
-            input.readFully(buffer, 0, SIZE_OF_FLOAT * batchSize);
-
-            for (int i = 0; i < batchSize; i++) {
-                type.writeLong(blockBuilder, floatToIntBits(slice.getFloat(i * SIZE_OF_FLOAT)));
-            }
-        }
-        return blockBuilder.build();
+        input.readFully(Slices.wrappedIntArray(values), 0, items * SIZE_OF_FLOAT);
     }
 }

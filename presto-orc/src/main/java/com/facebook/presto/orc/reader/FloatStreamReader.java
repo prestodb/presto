@@ -22,6 +22,7 @@ import com.facebook.presto.orc.stream.FloatInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.IntArrayBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.RealType;
 import com.facebook.presto.spi.type.Type;
@@ -31,13 +32,16 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.ReaderUtils.minNonNullValueSize;
 import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
@@ -61,6 +65,8 @@ public class FloatStreamReader
     private FloatInputStream dataStream;
 
     private boolean rowGroupOpen;
+
+    private int[] nonNullValueTemp = new int[0];
 
     private LocalMemoryContext systemMemoryContext;
 
@@ -96,38 +102,34 @@ public class FloatStreamReader
             }
             if (readOffset > 0) {
                 if (dataStream == null) {
-                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
+                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is missing");
                 }
                 dataStream.skip(readOffset);
             }
         }
 
+        Block block;
         if (dataStream == null) {
             if (presentStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
+                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is missing");
             }
             presentStream.skip(nextBatchSize);
-            Block nullValueBlock = RunLengthEncodedBlock.create(REAL, null, nextBatchSize);
-            readOffset = 0;
-            nextBatchSize = 0;
-            return nullValueBlock;
+            block = RunLengthEncodedBlock.create(REAL, null, nextBatchSize);
         }
-
-        Block block;
-        if (presentStream == null) {
+        else if (presentStream == null) {
             if (dataStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
             }
-            block = dataStream.nextBlock(REAL, nextBatchSize);
+            block = readNonNullBlock();
         }
         else {
             boolean[] isNull = new boolean[nextBatchSize];
             int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
             if (nullCount == 0) {
-                block = dataStream.nextBlock(REAL, nextBatchSize);
+                block = readNonNullBlock();
             }
             else if (nullCount != nextBatchSize) {
-                block = dataStream.nextBlock(REAL, isNull);
+                block = readNullBlock(isNull, nextBatchSize - nullCount);
             }
             else {
                 block = RunLengthEncodedBlock.create(REAL, null, nextBatchSize);
@@ -138,6 +140,32 @@ public class FloatStreamReader
         nextBatchSize = 0;
 
         return block;
+    }
+
+    private Block readNonNullBlock()
+            throws IOException
+    {
+        verify(dataStream != null);
+        int[] values = new int[nextBatchSize];
+        dataStream.next(values, nextBatchSize);
+        return new IntArrayBlock(nextBatchSize, Optional.empty(), values);
+    }
+
+    private Block readNullBlock(boolean[] isNull, int nonNullCount)
+            throws IOException
+    {
+        verify(dataStream != null);
+        int minNonNullValueSize = minNonNullValueSize(nonNullCount);
+        if (nonNullValueTemp.length < minNonNullValueSize) {
+            nonNullValueTemp = new int[minNonNullValueSize];
+            systemMemoryContext.setBytes(sizeOf(nonNullValueTemp));
+        }
+
+        dataStream.next(nonNullValueTemp, nonNullCount);
+
+        int[] result = ReaderUtils.unpackIntNulls(nonNullValueTemp, isNull);
+
+        return new IntArrayBlock(isNull.length, Optional.of(isNull), result);
     }
 
     private void openRowGroup()

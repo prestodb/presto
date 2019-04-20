@@ -14,16 +14,12 @@
 package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.checkpoint.DoubleStreamCheckpoint;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
-import static java.lang.Math.min;
 
 public class DoubleInputStream
         implements ValueInputStream<DoubleStreamCheckpoint>
@@ -66,51 +62,9 @@ public class DoubleInputStream
         return slice.getDouble(0);
     }
 
-    public Block nextBlock(Type type, boolean[] isNull)
+    public void next(long[] values, int items)
             throws IOException
     {
-        int items = isNull.length;
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, items);
-
-        for (int batchBase = 0; batchBase < items; batchBase += BUFFER_SIZE) {
-            int batchSize = min(items - batchBase, BUFFER_SIZE);
-
-            // stream is null suppressed, so count the present values
-            int nonNullCount = 0;
-            for (int i = batchBase; i < batchBase + batchSize; i++) {
-                if (!isNull[i]) {
-                    nonNullCount++;
-                }
-            }
-            input.readFully(buffer, 0, SIZE_OF_DOUBLE * nonNullCount);
-
-            int bufferIndex = 0;
-            for (int i = batchBase; i < batchBase + batchSize; i++) {
-                if (!isNull[i]) {
-                    type.writeDouble(blockBuilder, slice.getDouble(bufferIndex * SIZE_OF_DOUBLE));
-                    bufferIndex++;
-                }
-                else {
-                    blockBuilder.appendNull();
-                }
-            }
-        }
-        return blockBuilder.build();
-    }
-
-    public Block nextBlock(Type type, int items)
-            throws IOException
-    {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, items);
-        for (int batchBase = 0; batchBase < items; batchBase += BUFFER_SIZE) {
-            int batchSize = min(items - batchBase, BUFFER_SIZE);
-
-            input.readFully(buffer, 0, SIZE_OF_DOUBLE * batchSize);
-
-            for (int i = 0; i < batchSize; i++) {
-                type.writeDouble(blockBuilder, slice.getDouble(i * SIZE_OF_DOUBLE));
-            }
-        }
-        return blockBuilder.build();
+        input.readFully(Slices.wrappedLongArray(values), 0, items * SIZE_OF_DOUBLE);
     }
 }
