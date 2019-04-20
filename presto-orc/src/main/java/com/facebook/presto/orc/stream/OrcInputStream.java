@@ -33,6 +33,7 @@ import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.decodeDec
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
@@ -157,6 +158,24 @@ public final class OrcInputStream
                 throw new OrcCorruptionException(orcDataSourceId, "Unexpected end of stream");
             }
             offset += result;
+        }
+    }
+
+    public void readFully(Slice buffer, int offset, int length)
+            throws IOException
+    {
+        while (length > 0) {
+            if (current != null && current.remaining() == 0) {
+                advance();
+            }
+            if (current == null) {
+                throw new OrcCorruptionException(orcDataSourceId, "Unexpected end of stream");
+            }
+
+            int chunkSize = min(length, (int) current.remaining());
+            current.readBytes(buffer, offset, chunkSize);
+            length -= chunkSize;
+            offset += chunkSize;
         }
     }
 
