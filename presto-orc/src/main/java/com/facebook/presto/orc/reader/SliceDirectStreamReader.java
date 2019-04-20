@@ -23,6 +23,7 @@ import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.block.VariableWidthBlock;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -38,6 +39,8 @@ import java.util.Optional;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.ReaderUtils.convertLengthVectorToOffsetVector;
+import static com.facebook.presto.orc.reader.ReaderUtils.unpackLengthNulls;
 import static com.facebook.presto.orc.reader.SliceStreamReader.computeTruncatedLength;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -120,6 +123,17 @@ public class SliceDirectStreamReader
             }
         }
 
+        if (lengthStream == null) {
+            if (presentStream == null) {
+                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is null but present stream is missing");
+            }
+            presentStream.skip(nextBatchSize);
+            Block nullValueBlock = readAllNullsBlock();
+            readOffset = 0;
+            nextBatchSize = 0;
+            return nullValueBlock;
+        }
+
         // create new isNullVector and offsetVector for VariableWidthBlock
         boolean[] isNullVector = null;
 
@@ -128,35 +142,40 @@ public class SliceDirectStreamReader
         int[] offsetVector = new int[nextBatchSize + 1];
 
         if (presentStream == null) {
-            if (lengthStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but length stream is not present");
-            }
             lengthStream.nextIntVector(nextBatchSize, offsetVector, 0);
         }
         else {
             isNullVector = new boolean[nextBatchSize];
-            int nullValues = presentStream.getUnsetBits(nextBatchSize, isNullVector);
-            if (nullValues != nextBatchSize) {
+            int nullCount = presentStream.getUnsetBits(nextBatchSize, isNullVector);
+            if (nullCount == nextBatchSize) {
                 if (lengthStream == null) {
-                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but length stream is not present");
+                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but length stream is missing");
                 }
 
-                if (nullValues == 0) {
-                    isNullVector = null;
-                    lengthStream.nextIntVector(nextBatchSize, offsetVector, 0);
-                }
-                else {
-                    lengthStream.nextIntVector(nextBatchSize, offsetVector, 0, isNullVector);
-                }
+                // all nulls
+                Block nullValueBlock = readAllNullsBlock();
+                readOffset = 0;
+                nextBatchSize = 0;
+                return nullValueBlock;
+            }
+
+            if (lengthStream == null) {
+                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but length stream is missing");
+            }
+            if (nullCount == 0) {
+                isNullVector = null;
+                lengthStream.nextIntVector(nextBatchSize, offsetVector, 0);
+            }
+            else {
+                lengthStream.nextIntVector(nextBatchSize - nullCount, offsetVector, 0);
+                unpackLengthNulls(offsetVector, isNullVector, nextBatchSize - nullCount);
             }
         }
 
         // Calculate the total length for all entries. Note that the values in the offsetVector are still length values now.
         long totalLength = 0;
         for (int i = 0; i < nextBatchSize; i++) {
-            if (isNullVector == null || !isNullVector[i]) {
-                totalLength += offsetVector[i];
-            }
+            totalLength += offsetVector[i];
         }
 
         int currentBatchSize = nextBatchSize;
@@ -170,41 +189,53 @@ public class SliceDirectStreamReader
                     format("Values in column \"%s\" are too large to process for Presto. %s column values are larger than 1GB [%s]", streamDescriptor.getFieldName(), nextBatchSize, streamDescriptor.getOrcDataSourceId()));
         }
         if (dataStream == null) {
-            throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
+            throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is missing");
         }
 
         // allocate enough space to read
         byte[] data = new byte[toIntExact(totalLength)];
         Slice slice = Slices.wrappedBuffer(data);
 
-        // We do the following operations together in the for loop:
-        // * truncate strings
-        // * convert original length values in offsetVector into truncated offset values
-        int currentLength = offsetVector[0];
-        offsetVector[0] = 0;
-        for (int i = 1; i <= currentBatchSize; i++) {
-            int nextLength = offsetVector[i];
-            if (isNullVector != null && isNullVector[i - 1]) {
-                checkState(currentLength == 0, "Corruption in slice direct stream: length is non-zero for null entry");
-                offsetVector[i] = offsetVector[i - 1];
+        if (maxCodePointCount < 0) {
+            // unbounded, simply read all data in on shot
+            dataStream.next(data, 0, data.length);
+            convertLengthVectorToOffsetVector(offsetVector);
+        }
+        else {
+            // We do the following operations together in the for loop:
+            // * truncate strings
+            // * convert original length values in offsetVector into truncated offset values
+            int currentLength = offsetVector[0];
+            offsetVector[0] = 0;
+            for (int i = 1; i <= currentBatchSize; i++) {
+                int nextLength = offsetVector[i];
+                if (isNullVector != null && isNullVector[i - 1]) {
+                    checkState(currentLength == 0, "Corruption in slice direct stream: length is non-zero for null entry");
+                    offsetVector[i] = offsetVector[i - 1];
+                    currentLength = nextLength;
+                    continue;
+                }
+                int offset = offsetVector[i - 1];
+
+                // read data without truncation
+                dataStream.next(data, offset, offset + currentLength);
+
+                // adjust offsetVector with truncated length
+                int truncatedLength = computeTruncatedLength(slice, offset, currentLength, maxCodePointCount, isCharType);
+                verify(truncatedLength >= 0);
+                offsetVector[i] = offset + truncatedLength;
+
                 currentLength = nextLength;
-                continue;
             }
-            int offset = offsetVector[i - 1];
-
-            // read data without truncation
-            dataStream.next(data, offset, offset + currentLength);
-
-            // adjust offsetVector with truncated length
-            int truncatedLength = computeTruncatedLength(slice, offset, currentLength, maxCodePointCount, isCharType);
-            verify(truncatedLength >= 0);
-            offsetVector[i] = offset + truncatedLength;
-
-            currentLength = nextLength;
         }
 
         // this can lead to over-retention but unlikely to happen given truncation rarely happens
         return new VariableWidthBlock(currentBatchSize, slice, offsetVector, Optional.ofNullable(isNullVector));
+    }
+
+    private RunLengthEncodedBlock readAllNullsBlock()
+    {
+        return new RunLengthEncodedBlock(new VariableWidthBlock(1, EMPTY_SLICE, new int[2], Optional.of(new boolean[] {true})), nextBatchSize);
     }
 
     private void openRowGroup()
