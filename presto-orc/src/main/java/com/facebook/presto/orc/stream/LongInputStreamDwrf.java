@@ -70,4 +70,31 @@ public class LongInputStreamDwrf
         }
         return input.readDwrfLong(orcTypeKind);
     }
+
+    @Override
+    public void next(long[] values, int items)
+            throws IOException
+    {
+        for (int i = 0; i < items; i++) {
+            values[i] = next();
+        }
+    }
+
+    @Override
+    public void next(int[] values, int items)
+            throws IOException
+    {
+        for (int i = 0; i < items; i++) {
+            values[i] = (int) next();
+        }
+    }
+
+    @Override
+    public void next(short[] values, int items)
+            throws IOException
+    {
+        for (int i = 0; i < items; i++) {
+            values[i] = (short) next();
+        }
+    }
 }

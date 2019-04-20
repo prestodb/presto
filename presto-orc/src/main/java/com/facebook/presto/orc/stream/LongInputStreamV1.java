@@ -19,6 +19,8 @@ import com.facebook.presto.orc.checkpoint.LongStreamV1Checkpoint;
 
 import java.io.IOException;
 
+import static java.lang.Math.min;
+
 public class LongInputStreamV1
         implements LongInputStream
 {
@@ -56,7 +58,6 @@ public class LongInputStreamV1
             }
 
             // convert from 0 to 255 to -128 to 127 by converting to a signed byte
-            // noinspection SillyAssignment
             delta = (byte) delta;
             repeatBase = input.readVarint(signed);
         }
@@ -84,6 +85,113 @@ public class LongInputStreamV1
         }
         used++;
         return result;
+    }
+
+    @Override
+    public void next(long[] values, int items)
+            throws IOException
+    {
+        int offset = 0;
+        while (items > 0) {
+            if (used == numValuesInRun) {
+                numValuesInRun = 0;
+                used = 0;
+                readHeader();
+            }
+
+            int chunkSize = min(numValuesInRun - used, items);
+            if (repeat) {
+                for (int i = 0; i < chunkSize; i++) {
+                    values[offset + i] = repeatBase + ((used + i) * delta);
+                }
+            }
+            else {
+                for (int i = 0; i < chunkSize; ++i) {
+                    values[offset + i] = input.readVarint(signed);
+                }
+            }
+            used += chunkSize;
+            offset += chunkSize;
+            items -= chunkSize;
+        }
+    }
+
+    @Override
+    public void next(int[] values, int items)
+            throws IOException
+    {
+        int offset = 0;
+        while (items > 0) {
+            if (used == numValuesInRun) {
+                numValuesInRun = 0;
+                used = 0;
+                readHeader();
+            }
+
+            int chunkSize = min(numValuesInRun - used, items);
+            if (repeat) {
+                for (int i = 0; i < chunkSize; i++) {
+                    long literal = repeatBase + ((used + i) * delta);
+                    int value = (int) literal;
+                    if (literal != value) {
+                        throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 32bit number");
+                    }
+                    values[offset + i] = value;
+                }
+            }
+            else {
+                for (int i = 0; i < chunkSize; i++) {
+                    long literal = input.readVarint(signed);
+                    int value = (int) literal;
+                    if (literal != value) {
+                        throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 32bit number");
+                    }
+                    values[offset + i] = value;
+                }
+            }
+            used += chunkSize;
+            offset += chunkSize;
+            items -= chunkSize;
+        }
+    }
+
+    @Override
+    public void next(short[] values, int items)
+            throws IOException
+    {
+        int offset = 0;
+        while (items > 0) {
+            if (used == numValuesInRun) {
+                numValuesInRun = 0;
+                used = 0;
+                readHeader();
+            }
+
+            int chunkSize = min(numValuesInRun - used, items);
+            if (repeat) {
+                for (int i = 0; i < chunkSize; i++) {
+                    long literal = repeatBase + ((used + i) * delta);
+                    short value = (short) literal;
+                    if (literal != value) {
+                        throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 16bit number");
+                    }
+                    values[offset + i] = value;
+                }
+            }
+            else {
+                for (int i = 0; i < chunkSize; i++) {
+                    long literal = input.readVarint(signed);
+                    short value = (short) literal;
+                    if (literal != value) {
+                        throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 16bit number");
+                    }
+                    values[offset + i] = value;
+                }
+            }
+            used += chunkSize;
+            offset += chunkSize;
+            items -= chunkSize;
+        }
     }
 
     @Override

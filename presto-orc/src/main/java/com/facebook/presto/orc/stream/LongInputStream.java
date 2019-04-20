@@ -14,8 +14,6 @@
 package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 
 import java.io.IOException;
 
@@ -28,6 +26,15 @@ public interface LongInputStream
     long next()
             throws IOException;
 
+    void next(long[] values, int items)
+            throws IOException;
+
+    void next(int[] values, int items)
+            throws IOException;
+
+    void next(short[] values, int items)
+            throws IOException;
+
     default void nextIntVector(int items, int[] vector, int offset)
             throws IOException
     {
@@ -38,19 +45,6 @@ public interface LongInputStream
         }
     }
 
-    default void nextIntVector(int items, int[] vector, int vectorOffset, boolean[] isNull)
-            throws IOException
-    {
-        checkPositionIndex(items + vectorOffset, vector.length);
-        checkPositionIndex(items, isNull.length);
-
-        for (int i = 0; i < items; i++) {
-            if (!isNull[i]) {
-                vector[i + vectorOffset] = toIntExact(next());
-            }
-        }
-    }
-
     default void nextLongVector(int items, long[] vector)
             throws IOException
     {
@@ -58,14 +52,6 @@ public interface LongInputStream
 
         for (int i = 0; i < items; i++) {
             vector[i] = next();
-        }
-    }
-
-    default void nextLongVector(Type type, int items, BlockBuilder builder)
-            throws IOException
-    {
-        for (int i = 0; i < items; i++) {
-            type.writeLong(builder, next());
         }
     }
 
