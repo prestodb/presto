@@ -12,6 +12,9 @@
  split | array(varchar(x)) | varchar(x), varchar(y), bigint | scalar | true | |
  split_part | varchar(x) | varchar(x), varchar(y), bigint | scalar | true | splits a string by a delimiter and returns the specified field (counting from one) |
  strpos | bigint | varchar(x), varchar(y) | scalar | true | returns index of first occurrence of a substring (or 0 if not found) |
+ strpos | bigint | varchar(x), varchar(y), bigint | scalar | true | returns index of n-th occurrence of a substring (or 0 if not found) |
+ strrpos | bigint | varchar(x), varchar(y) | scalar | true | returns index of last occurrence of a substring (or 0 if not found) |
+ strrpos | bigint | varchar(x), varchar(y), bigint | scalar | true | returns index of n-th occurrence of a substring from the end of the string (or 0 if not found) |
  substr | varchar(x) | varchar(x), bigint | scalar | true | suffix starting at given index |
  substr | varchar(x) | varchar(x), bigint, bigint | scalar | true | substring of given length starting at an index |
  trim | varchar(x) | varchar(x) | scalar | true | removes whitespace from the beginning and end of a string |
