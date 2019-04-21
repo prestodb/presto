@@ -144,6 +144,23 @@ String Functions
     Returns the starting position of the first instance of ``substring`` in
     ``string``. Positions start with ``1``. If not found, ``0`` is returned.
 
+.. function:: strpos(string, substring, instance) -> bigint
+
+    Returns the position of the N-th ``instance`` of ``substring`` in ``string``.
+    ``instance`` must be a positive number.
+    Positions start with ``1``. If not found, ``0`` is returned.
+
+.. function:: strrpos(string, substring) -> bigint
+
+    Returns the starting position of the last instance of ``substring`` in ``string``.
+    Positions start with ``1``. If not found, ``0`` is returned.
+
+.. function:: strrpos(string, substring, instance) -> bigint
+
+    Returns the position of the N-th ``instance`` of ``substring`` in ``string`` starting from the end of the string.
+    ``instance`` must be a positive number.
+    Positions start with ``1``. If not found, ``0`` is returned.
+
 .. function:: position(substring IN string) -> bigint
 
     Returns the starting position of the first instance of ``substring`` in
