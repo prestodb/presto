@@ -333,7 +333,7 @@ public class PlanNodeDecorrelator
         SymbolMapper getCorrelatedSymbolMapper()
         {
             return new SymbolMapper(correlatedSymbolsMapping.asMap().entrySet().stream()
-                    .collect(toImmutableMap(Map.Entry::getKey, symbols -> Iterables.getLast(symbols.getValue()))));
+                    .collect(toImmutableMap(entry -> entry.getKey().getName(), symbols -> Iterables.getLast(symbols.getValue()).getName())));
         }
 
         /**
