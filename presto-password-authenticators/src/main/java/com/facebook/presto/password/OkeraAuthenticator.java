@@ -73,13 +73,30 @@ public class OkeraAuthenticator
     @Inject
     public OkeraAuthenticator(OkeraConfig serverConfig)
     {
+        // Authentication is enabled on this system if either of these are set.
         if (envVarSet("SYSTEM_TOKEN") || envVarSet("KERBEROS_KEYTAB_FILE")) {
             LOG.info("Configuring CDAS_REST_SERVER for authentication.");
 
-            // Authentication is enabled on this system if either of these are set.
-            if (!envVarSet("CDAS_REST_SERVER_SERVICE_HOST")) {
-                throw new IllegalStateException("Expecting CDAS_REST_SERVER_SERVICE_HOST to be set in the environment.");
+            if (!envVarSet("CDAS_REST_SERVER_SERVICE_HOST") && !envVarSet("CDAS_REST_SERVER_SERVICE_HOST")) {
+                throw new IllegalStateException("Expecting CDAS_REST_SERVER_SERVICE_HOST or CDAS_REST_SERVER_SERVICE_HOST to be set in the environment.");
             }
+
+            String host;
+            String port;
+            if (envVarSet("CDAS_REST_SERVER_SERVICE_HOST")) {
+                // Configured it explicitly
+                host = System.getenv("CEREBRO_REST_FQDN");
+                if (host == null) {
+                    host = System.getenv("CDAS_REST_SERVER_SERVICE_HOST");
+                }
+                port = System.getenv("CDAS_REST_SERVER_SERVICE_PORT");
+            }
+            else {
+                // Configured via k8s
+                host = System.getenv("CDAS_REST_SERVER_SERVICE_HOST");
+                port = System.getenv("CDAS_REST_SERVER_SERVICE_PORT");
+            }
+
             authenticationEnabled = true;
             try {
                 String urlString = "";
@@ -90,8 +107,7 @@ public class OkeraAuthenticator
                 else {
                     urlString = "http://";
                 }
-                urlString += System.getenv("CEREBRO_REST_FQDN") + ":";
-                urlString += System.getenv("CDAS_REST_SERVER_SERVICE_PORT");
+                urlString += host + ":" + port;
                 url = new URL(urlString + "/api/get-user");
                 LOG.info("Configured backing authentication service: " + url);
             }
