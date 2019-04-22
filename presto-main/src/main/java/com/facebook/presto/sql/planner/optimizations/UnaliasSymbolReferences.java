@@ -96,7 +96,6 @@ import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToR
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
@@ -142,8 +141,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
             //TODO: use mapper in other methods
-            SymbolMapper mapper = new SymbolMapper(mapping.entrySet().stream()
-                    .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), entry -> new Symbol(entry.getValue()))));
+            SymbolMapper mapper = new SymbolMapper(mapping);
             return mapper.map(node, source);
         }
 
@@ -401,8 +399,7 @@ public class UnaliasSymbolReferences
         public PlanNode visitStatisticsWriterNode(StatisticsWriterNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            SymbolMapper mapper = new SymbolMapper(mapping.entrySet().stream()
-                    .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), entry -> new Symbol(entry.getValue()))));
+            SymbolMapper mapper = new SymbolMapper(mapping);
             return mapper.map(node, source);
         }
 
@@ -410,8 +407,7 @@ public class UnaliasSymbolReferences
         public PlanNode visitTableFinish(TableFinishNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            SymbolMapper mapper = new SymbolMapper(mapping.entrySet().stream()
-                    .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), entry -> new Symbol(entry.getValue()))));
+            SymbolMapper mapper = new SymbolMapper(mapping);
             return mapper.map(node, source);
         }
 
@@ -500,8 +496,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            SymbolMapper mapper = new SymbolMapper(mapping.entrySet().stream()
-                    .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), entry -> new Symbol(entry.getValue()))));
+            SymbolMapper mapper = new SymbolMapper(mapping);
             return mapper.map(node, source, node.getId());
         }
 
@@ -617,8 +612,7 @@ public class UnaliasSymbolReferences
         public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            SymbolMapper mapper = new SymbolMapper(mapping.entrySet().stream()
-                    .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), entry -> new Symbol(entry.getValue()))));
+            SymbolMapper mapper = new SymbolMapper(mapping);
             return mapper.map(node, source);
         }
 

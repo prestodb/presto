@@ -154,7 +154,7 @@ public class PushPartialAggregationThroughExchange
                 Symbol output = exchange.getOutputSymbols().get(outputIndex);
                 Symbol input = exchange.getInputs().get(i).get(outputIndex);
                 if (!output.equals(input)) {
-                    mappingsBuilder.put(output, input);
+                    mappingsBuilder.put(output.getName(), input.getName());
                 }
             }
 

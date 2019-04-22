@@ -33,6 +33,7 @@ import java.util.Map;
 
 import static com.facebook.presto.SystemSessionProperties.isPushTableWriteThroughUnion;
 import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.sql.planner.optimizations.SymbolMapper.createSymbolMapper;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableWriterNode;
 import static com.facebook.presto.sql.planner.plan.Patterns.union;
@@ -107,7 +108,7 @@ public class PushTableWriteThroughUnion
             }
         }
         sourceMappings.add(outputMappings.build());
-        SymbolMapper symbolMapper = new SymbolMapper(mappings.build());
+        SymbolMapper symbolMapper = createSymbolMapper(mappings.build());
         return symbolMapper.map(writerNode, unionNode.getSources().get(source), context.getIdAllocator().getNextId());
     }
 

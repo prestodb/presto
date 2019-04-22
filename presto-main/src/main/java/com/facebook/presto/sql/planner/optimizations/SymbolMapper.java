@@ -55,10 +55,15 @@ public class SymbolMapper
 {
     private final Map<String, String> mapping;
 
-    public SymbolMapper(Map<Symbol, Symbol> mapping)
+    public SymbolMapper(Map<String, String> mapping)
     {
         requireNonNull(mapping, "mapping is null");
-        this.mapping = mapping.entrySet().stream().collect(toImmutableMap(entry -> entry.getKey().getName(), entry -> entry.getValue().getName()));
+        this.mapping = ImmutableMap.copyOf(mapping);
+    }
+
+    public static SymbolMapper createSymbolMapper(Map<Symbol, Symbol> mapping)
+    {
+        return new SymbolMapper(mapping.entrySet().stream().collect(toImmutableMap(entry -> entry.getKey().getName(), entry -> entry.getValue().getName())));
     }
 
     public Symbol map(Symbol symbol)
@@ -279,14 +284,14 @@ public class SymbolMapper
 
     public static class Builder
     {
-        private final ImmutableMap.Builder<Symbol, Symbol> mappings = ImmutableMap.builder();
+        private final ImmutableMap.Builder<String, String> mappings = ImmutableMap.builder();
 
         public SymbolMapper build()
         {
             return new SymbolMapper(mappings.build());
         }
 
-        public void put(Symbol from, Symbol to)
+        public void put(String from, String to)
         {
             mappings.put(from, to);
         }
