@@ -25,7 +25,6 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
@@ -213,7 +212,7 @@ public class TestEffectivePredicateExtractor
                                 equals(AE, BE),
                                 equals(BE, CE),
                                 lessThan(CE, bigintLiteral(10)))),
-                Assignments.of(D, AE, E, CE));
+                AssignmentsUtils.of(D, AE, E, CE));
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(node);
 

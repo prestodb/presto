@@ -32,6 +32,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
@@ -40,7 +41,6 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -759,7 +759,7 @@ public class TestCostCalculator
         return new ProjectNode(
                 new PlanNodeId(id),
                 source,
-                Assignments.of(new Symbol(symbol), expression));
+                AssignmentsUtils.of(new Symbol(symbol), expression));
     }
 
     private AggregationNode aggregation(String id, PlanNode source)

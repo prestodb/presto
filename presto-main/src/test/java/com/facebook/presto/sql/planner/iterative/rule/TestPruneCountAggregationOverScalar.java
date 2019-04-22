@@ -15,11 +15,11 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -142,7 +142,7 @@ public class TestPruneCountAggregationOverScalar
                             .globalGrouping()
                             .source(
                                     p.project(
-                                            Assignments.of(totalPrice, totalPrice.toSymbolReference()),
+                                            AssignmentsUtils.of(totalPrice, totalPrice.toSymbolReference()),
                                             p.tableScan(
                                                     new TableHandle(
                                                             new ConnectorId("local"),

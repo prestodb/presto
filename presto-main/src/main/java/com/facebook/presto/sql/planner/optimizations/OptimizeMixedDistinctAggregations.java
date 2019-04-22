@@ -19,13 +19,13 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -200,7 +200,7 @@ public class OptimizeMixedDistinctAggregations
                 return aggregationNode;
             }
 
-            Assignments.Builder outputSymbols = Assignments.builder();
+            AssignmentsUtils.Builder outputSymbols = AssignmentsUtils.builder();
             for (Symbol symbol : aggregationNode.getOutputSymbols()) {
                 if (coalesceSymbols.containsKey(symbol)) {
                     Expression expression = new CoalesceExpression(symbol.toSymbolReference(), new Cast(new LongLiteral("0"), "bigint"));
@@ -321,7 +321,7 @@ public class OptimizeMixedDistinctAggregations
                 List<Symbol> groupBySymbols,
                 Map<Symbol, Symbol> aggregationOutputSymbolsMap)
         {
-            Assignments.Builder outputSymbols = Assignments.builder();
+            AssignmentsUtils.Builder outputSymbols = AssignmentsUtils.builder();
             ImmutableMap.Builder<Symbol, Symbol> outputNonDistinctAggregateSymbols = ImmutableMap.builder();
             for (Symbol symbol : source.getOutputSymbols()) {
                 if (distinctSymbol.equals(symbol)) {

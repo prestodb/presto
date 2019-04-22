@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -39,7 +39,7 @@ public class TestPruneMarkDistinctColumns
                     Symbol mark = p.symbol("mark");
                     Symbol unused = p.symbol("unused");
                     return p.project(
-                            Assignments.of(key2, key.toSymbolReference()),
+                            AssignmentsUtils.of(key2, key.toSymbolReference()),
                             p.markDistinct(mark, ImmutableList.of(key), p.values(key, unused)));
                 })
                 .matches(
@@ -59,7 +59,7 @@ public class TestPruneMarkDistinctColumns
                     Symbol hash = p.symbol("hash");
                     Symbol unused = p.symbol("unused");
                     return p.project(
-                            Assignments.identity(mark),
+                            AssignmentsUtils.identity(mark),
                             p.markDistinct(
                                     mark,
                                     ImmutableList.of(key),
@@ -86,7 +86,7 @@ public class TestPruneMarkDistinctColumns
                     Symbol key = p.symbol("key");
                     Symbol mark = p.symbol("mark");
                     return p.project(
-                            Assignments.identity(mark),
+                            AssignmentsUtils.identity(mark),
                             p.markDistinct(mark, ImmutableList.of(key), p.values(key)));
                 })
                 .doesNotFire();
@@ -101,7 +101,7 @@ public class TestPruneMarkDistinctColumns
                     Symbol key = p.symbol("key");
                     Symbol mark = p.symbol("mark");
                     return p.project(
-                            Assignments.identity(key, mark),
+                            AssignmentsUtils.identity(key, mark),
                             p.markDistinct(mark, ImmutableList.of(key), p.values(key)));
                 })
                 .doesNotFire();

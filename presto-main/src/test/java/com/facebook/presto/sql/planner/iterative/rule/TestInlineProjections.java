@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.assertions.ExpressionMatcher;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -33,7 +33,7 @@ public class TestInlineProjections
         tester().assertThat(new InlineProjections())
                 .on(p ->
                         p.project(
-                                Assignments.builder()
+                                AssignmentsUtils.builder()
                                         .put(p.symbol("identity"), expression("symbol")) // identity
                                         .put(p.symbol("multi_complex_1"), expression("complex + 1")) // complex expression referenced multiple times
                                         .put(p.symbol("multi_complex_2"), expression("complex + 2")) // complex expression referenced multiple times
@@ -42,7 +42,7 @@ public class TestInlineProjections
                                         .put(p.symbol("single_complex"), expression("complex_2 + 2")) // complex expression reference only once
                                         .put(p.symbol("try"), expression("try(complex / literal)"))
                                         .build(),
-                                p.project(Assignments.builder()
+                                p.project(AssignmentsUtils.builder()
                                                 .put(p.symbol("symbol"), expression("x"))
                                                 .put(p.symbol("complex"), expression("x * 2"))
                                                 .put(p.symbol("literal"), expression("1"))
@@ -73,9 +73,9 @@ public class TestInlineProjections
         tester().assertThat(new InlineProjections())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("output"), expression("value")),
+                                AssignmentsUtils.of(p.symbol("output"), expression("value")),
                                 p.project(
-                                        Assignments.identity(p.symbol("value")),
+                                        AssignmentsUtils.identity(p.symbol("value")),
                                         p.values(p.symbol("value")))))
                 .doesNotFire();
     }
@@ -86,9 +86,9 @@ public class TestInlineProjections
         tester().assertThat(new InlineProjections())
                 .on(p ->
                         p.project(
-                                Assignments.identity(p.symbol("fromOuterScope"), p.symbol("value")),
+                                AssignmentsUtils.identity(p.symbol("fromOuterScope"), p.symbol("value")),
                                 p.project(
-                                        Assignments.identity(p.symbol("value")),
+                                        AssignmentsUtils.identity(p.symbol("value")),
                                         p.values(p.symbol("value")))))
                 .doesNotFire();
     }

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -56,7 +56,7 @@ public class TestTransformExistsApplyToLateralJoin
         tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata().getFunctionManager()))
                 .on(p ->
                         p.apply(
-                                Assignments.of(p.symbol("b", BOOLEAN), expression("EXISTS(SELECT TRUE)")),
+                                AssignmentsUtils.of(p.symbol("b", BOOLEAN), expression("EXISTS(SELECT TRUE)")),
                                 ImmutableList.of(),
                                 p.values(),
                                 p.values()))
@@ -75,10 +75,10 @@ public class TestTransformExistsApplyToLateralJoin
         tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata().getFunctionManager()))
                 .on(p ->
                         p.apply(
-                                Assignments.of(p.symbol("b", BOOLEAN), expression("EXISTS(SELECT TRUE)")),
+                                AssignmentsUtils.of(p.symbol("b", BOOLEAN), expression("EXISTS(SELECT TRUE)")),
                                 ImmutableList.of(p.symbol("corr")),
                                 p.values(p.symbol("corr")),
-                                p.project(Assignments.of(),
+                                p.project(AssignmentsUtils.of(),
                                         p.filter(
                                                 expression("corr = column"),
                                                 p.values(p.symbol("column"))))))

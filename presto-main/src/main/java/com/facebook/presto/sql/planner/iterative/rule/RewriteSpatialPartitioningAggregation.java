@@ -18,11 +18,11 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -121,7 +121,7 @@ public class RewriteSpatialPartitioningAggregation
                         new ProjectNode(
                                 context.getIdAllocator().getNextId(),
                                 node.getSource(),
-                                Assignments.builder()
+                                AssignmentsUtils.builder()
                                         .putIdentities(node.getSource().getOutputSymbols())
                                         .put(partitionCountSymbol, new LongLiteral(Integer.toString(getHashPartitionCount(context.getSession()))))
                                         .putAll(envelopeAssignments.build())

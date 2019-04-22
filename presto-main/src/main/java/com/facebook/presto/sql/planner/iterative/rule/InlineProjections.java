@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -70,7 +71,7 @@ public class InlineProjections
         }
 
         // inline the expressions
-        Assignments assignments = child.getAssignments().filter(targets::contains);
+        Assignments assignments = AssignmentsUtils.filter(child.getAssignments(), targets::contains);
         Map<Symbol, Expression> parentAssignments = parent.getAssignments()
                 .entrySet().stream()
                 .collect(Collectors.toMap(
@@ -88,7 +89,7 @@ public class InlineProjections
                 .flatMap(entry -> SymbolsExtractor.extractAll(entry).stream())
                 .collect(toSet());
 
-        Assignments.Builder childAssignments = Assignments.builder();
+        AssignmentsUtils.Builder childAssignments = AssignmentsUtils.builder();
         for (Map.Entry<Symbol, Expression> assignment : child.getAssignments().entrySet()) {
             if (!targets.contains(assignment.getKey())) {
                 childAssignments.put(assignment);
@@ -105,7 +106,7 @@ public class InlineProjections
                                 child.getId(),
                                 child.getSource(),
                                 childAssignments.build()),
-                        Assignments.copyOf(parentAssignments)));
+                        AssignmentsUtils.copyOf(parentAssignments)));
     }
 
     private Expression inlineReferences(Expression expression, Assignments assignments)
@@ -155,7 +156,7 @@ public class InlineProjections
         Set<Symbol> singletons = dependencies.entrySet().stream()
                 .filter(entry -> entry.getValue() == 1) // reference appears just once across all expressions in parent project node
                 .filter(entry -> !tryArguments.contains(entry.getKey())) // they are not inputs to TRY. Otherwise, inlining might change semantics
-                .filter(entry -> !child.getAssignments().isIdentity(entry.getKey())) // skip identities, otherwise, this rule will keep firing forever
+                .filter(entry -> !AssignmentsUtils.isIdentity(child.getAssignments(), entry.getKey())) // skip identities, otherwise, this rule will keep firing forever
                 .map(Map.Entry::getKey)
                 .collect(toSet());
 

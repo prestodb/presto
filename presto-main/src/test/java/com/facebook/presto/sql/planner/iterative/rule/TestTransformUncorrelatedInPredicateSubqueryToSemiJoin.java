@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -34,7 +34,7 @@ public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
     {
         tester().assertThat(new TransformUncorrelatedInPredicateSubqueryToSemiJoin())
                 .on(p -> p.apply(
-                        Assignments.of(),
+                        AssignmentsUtils.of(),
                         emptyList(),
                         p.values(),
                         p.values()))
@@ -46,7 +46,7 @@ public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
     {
         tester().assertThat(new TransformUncorrelatedInPredicateSubqueryToSemiJoin())
                 .on(p -> p.apply(
-                        Assignments.of(p.symbol("x"), new ExistsPredicate(new LongLiteral("1"))),
+                        AssignmentsUtils.of(p.symbol("x"), new ExistsPredicate(new LongLiteral("1"))),
                         emptyList(),
                         p.values(),
                         p.values()))
@@ -58,7 +58,7 @@ public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
     {
         tester().assertThat(new TransformUncorrelatedInPredicateSubqueryToSemiJoin())
                 .on(p -> p.apply(
-                        Assignments.of(
+                        AssignmentsUtils.of(
                                 p.symbol("x"),
                                 new InPredicate(
                                         new SymbolReference("y"),

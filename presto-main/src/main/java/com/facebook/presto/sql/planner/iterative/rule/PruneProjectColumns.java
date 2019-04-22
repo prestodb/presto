@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -41,6 +42,6 @@ public class PruneProjectColumns
                 new ProjectNode(
                         childProjectNode.getId(),
                         childProjectNode.getSource(),
-                        childProjectNode.getAssignments().filter(referencedOutputs)));
+                        AssignmentsUtils.filter(childProjectNode.getAssignments(), referencedOutputs)));
     }
 }

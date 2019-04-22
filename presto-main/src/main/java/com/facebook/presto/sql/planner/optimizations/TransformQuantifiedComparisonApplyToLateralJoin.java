@@ -21,6 +21,7 @@ import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -180,7 +181,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
 
             Symbol quantifiedComparisonSymbol = getOnlyElement(node.getSubqueryAssignments().getSymbols());
 
-            return projectExpressions(lateralJoinNode, Assignments.of(quantifiedComparisonSymbol, valueComparedToSubquery));
+            return projectExpressions(lateralJoinNode, AssignmentsUtils.of(quantifiedComparisonSymbol, valueComparedToSubquery));
         }
 
         public Expression rewriteUsingBounds(QuantifiedComparisonExpression quantifiedComparison, Symbol minValue, Symbol maxValue, Symbol countAllValue, Symbol countNonNullValue)
@@ -255,7 +256,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
 
         private ProjectNode projectExpressions(PlanNode input, Assignments subqueryAssignments)
         {
-            Assignments assignments = Assignments.builder()
+            Assignments assignments = AssignmentsUtils.builder()
                     .putIdentities(input.getOutputSymbols())
                     .putAll(subqueryAssignments)
                     .build();

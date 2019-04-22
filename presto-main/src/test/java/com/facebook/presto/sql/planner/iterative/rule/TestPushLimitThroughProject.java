@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -36,7 +36,7 @@ public class TestPushLimitThroughProject
                     Symbol a = p.symbol("a");
                     return p.limit(1,
                             p.project(
-                                    Assignments.of(a, TRUE_LITERAL),
+                                    AssignmentsUtils.of(a, TRUE_LITERAL),
                                     p.values()));
                 })
                 .matches(
@@ -53,7 +53,7 @@ public class TestPushLimitThroughProject
                     Symbol a = p.symbol("a");
                     return p.limit(1,
                             p.project(
-                                    Assignments.of(a, a.toSymbolReference()),
+                                    AssignmentsUtils.of(a, a.toSymbolReference()),
                                     p.values(a)));
                 }).doesNotFire();
     }

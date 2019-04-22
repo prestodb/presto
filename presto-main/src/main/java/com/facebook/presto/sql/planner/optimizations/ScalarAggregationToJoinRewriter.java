@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -79,7 +80,7 @@ public class ScalarAggregationToJoinRewriter
         }
 
         Symbol nonNull = symbolAllocator.newSymbol("non_null", BooleanType.BOOLEAN);
-        Assignments scalarAggregationSourceAssignments = Assignments.builder()
+        Assignments scalarAggregationSourceAssignments = AssignmentsUtils.builder()
                 .putIdentities(source.get().getNode().getOutputSymbols())
                 .put(nonNull, TRUE_LITERAL)
                 .build();
@@ -140,7 +141,7 @@ public class ScalarAggregationToJoinRewriter
         List<Symbol> aggregationOutputSymbols = getTruncatedAggregationSymbols(lateralJoinNode, aggregationNode.get());
 
         if (subqueryProjection.isPresent()) {
-            Assignments assignments = Assignments.builder()
+            Assignments assignments = AssignmentsUtils.builder()
                     .putIdentities(aggregationOutputSymbols)
                     .putAll(subqueryProjection.get().getAssignments())
                     .build();
@@ -154,7 +155,7 @@ public class ScalarAggregationToJoinRewriter
             return new ProjectNode(
                     idAllocator.getNextId(),
                     aggregationNode.get(),
-                    Assignments.identity(aggregationOutputSymbols));
+                    AssignmentsUtils.identity(aggregationOutputSymbols));
         }
     }
 

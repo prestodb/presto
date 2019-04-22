@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -27,7 +28,6 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
@@ -523,7 +523,7 @@ public class PruneUnreferencedOutputs
         {
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.builder();
 
-            Assignments.Builder builder = Assignments.builder();
+            AssignmentsUtils.Builder builder = AssignmentsUtils.builder();
             node.getAssignments().forEach((symbol, expression) -> {
                 if (context.get().contains(symbol)) {
                     expectedInputs.addAll(SymbolsExtractor.extractUnique(expression));
@@ -776,7 +776,7 @@ public class PruneUnreferencedOutputs
 
             // extract symbols required subquery plan
             ImmutableSet.Builder<Symbol> subqueryAssignmentsSymbolsBuilder = ImmutableSet.builder();
-            Assignments.Builder subqueryAssignments = Assignments.builder();
+            AssignmentsUtils.Builder subqueryAssignments = AssignmentsUtils.builder();
             for (Map.Entry<Symbol, Expression> entry : node.getSubqueryAssignments().getMap().entrySet()) {
                 Symbol output = entry.getKey();
                 Expression expression = entry.getValue();

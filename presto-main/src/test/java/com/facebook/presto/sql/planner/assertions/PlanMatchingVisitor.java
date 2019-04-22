@@ -16,10 +16,10 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
@@ -63,7 +63,7 @@ final class PlanMatchingVisitor
 
         SymbolAliases newAliases = result.getAliases();
         for (List<Symbol> inputs : allInputs) {
-            Assignments.Builder assignments = Assignments.builder();
+            AssignmentsUtils.Builder assignments = AssignmentsUtils.builder();
             for (int i = 0; i < inputs.size(); ++i) {
                 assignments.put(outputs.get(i), inputs.get(i).toSymbolReference());
             }

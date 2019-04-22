@@ -1143,7 +1143,7 @@ public class LocalExecutionPlanner
             RowExpression filterExpression = node.getPredicate();
             List<Symbol> outputSymbols = node.getOutputSymbols();
 
-            return visitScanFilterAndProject(context, node.getId(), sourceNode, Optional.of(filterExpression), Assignments.identity(outputSymbols), outputSymbols);
+            return visitScanFilterAndProject(context, node.getId(), sourceNode, Optional.of(filterExpression), AssignmentsUtils.identity(outputSymbols), outputSymbols);
         }
 
         @Override

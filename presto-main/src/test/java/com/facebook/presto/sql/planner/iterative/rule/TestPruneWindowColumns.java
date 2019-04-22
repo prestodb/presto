@@ -15,13 +15,13 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -202,7 +202,7 @@ public class TestPruneWindowColumns
         List<Symbol> outputs = ImmutableList.<Symbol>builder().addAll(inputs).add(output1, output2).build();
 
         return p.project(
-                Assignments.identity(
+                AssignmentsUtils.identity(
                         outputs.stream()
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),

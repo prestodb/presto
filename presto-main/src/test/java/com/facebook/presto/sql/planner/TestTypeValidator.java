@@ -114,7 +114,7 @@ public class TestTypeValidator
     {
         Expression expression1 = new Cast(columnB.toSymbolReference(), StandardTypes.BIGINT);
         Expression expression2 = new Cast(columnC.toSymbolReference(), StandardTypes.BIGINT);
-        Assignments assignments = Assignments.builder()
+        Assignments assignments = AssignmentsUtils.builder()
                 .put(symbolAllocator.newSymbol(expression1, BIGINT), expression1)
                 .put(symbolAllocator.newSymbol(expression2, BIGINT), expression2)
                 .build();
@@ -201,7 +201,7 @@ public class TestTypeValidator
     public void testValidTypeOnlyCoercion()
     {
         Expression expression = new Cast(columnB.toSymbolReference(), StandardTypes.BIGINT);
-        Assignments assignments = Assignments.builder()
+        Assignments assignments = AssignmentsUtils.builder()
                 .put(symbolAllocator.newSymbol(expression, BIGINT), expression)
                 .put(symbolAllocator.newSymbol(columnE.toSymbolReference(), VARCHAR), columnE.toSymbolReference()) // implicit coercion from varchar(3) to varchar
                 .build();
@@ -215,7 +215,7 @@ public class TestTypeValidator
     {
         Expression expression1 = new Cast(columnB.toSymbolReference(), StandardTypes.INTEGER);
         Expression expression2 = new Cast(columnA.toSymbolReference(), StandardTypes.INTEGER);
-        Assignments assignments = Assignments.builder()
+        Assignments assignments = AssignmentsUtils.builder()
                 .put(symbolAllocator.newSymbol(expression1, BIGINT), expression1) // should be INTEGER
                 .put(symbolAllocator.newSymbol(expression1, INTEGER), expression2)
                 .build();

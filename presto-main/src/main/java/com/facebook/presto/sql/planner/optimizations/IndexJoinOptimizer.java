@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.ResolvedIndex;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -26,7 +27,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
@@ -161,7 +161,7 @@ public class IndexJoinOptimizer
                                 indexJoinNode = new ProjectNode(
                                         idAllocator.getNextId(),
                                         indexJoinNode,
-                                        Assignments.identity(node.getOutputSymbols()));
+                                        AssignmentsUtils.identity(node.getOutputSymbols()));
                             }
 
                             return indexJoinNode;
@@ -203,7 +203,7 @@ public class IndexJoinOptimizer
                 result = new ProjectNode(
                         idAllocator.getNextId(),
                         result,
-                        Assignments.identity(expectedOutputs));
+                        AssignmentsUtils.identity(expectedOutputs));
             }
             return result;
         }

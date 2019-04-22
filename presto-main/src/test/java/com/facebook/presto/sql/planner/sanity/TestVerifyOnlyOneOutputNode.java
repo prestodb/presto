@@ -14,9 +14,9 @@
 package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -38,7 +38,7 @@ public class TestVerifyOnlyOneOutputNode
                         new ProjectNode(idAllocator.getNextId(),
                                 new ValuesNode(
                                         idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of()),
-                                Assignments.of()
+                                AssignmentsUtils.of()
                         ), ImmutableList.of(), ImmutableList.of());
         new VerifyOnlyOneOutputNode().validate(root, null, null, null, null, WarningCollector.NOOP);
     }
@@ -54,7 +54,7 @@ public class TestVerifyOnlyOneOutputNode
                                         new ProjectNode(idAllocator.getNextId(),
                                                 new ValuesNode(
                                                         idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of()),
-                                                Assignments.of()
+                                                AssignmentsUtils.of()
                                         ), ImmutableList.of(), ImmutableList.of()
                                 ), new Symbol("a"),
                                 false),

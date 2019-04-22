@@ -18,6 +18,7 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -26,7 +27,6 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -610,7 +610,7 @@ public class HashGenerationOptimizer
             PlanWithProperties child = plan(node.getSource(), sourceContext);
 
             // create a new project node with all assignments from the original node
-            Assignments.Builder newAssignments = Assignments.builder();
+            AssignmentsUtils.Builder newAssignments = AssignmentsUtils.builder();
             newAssignments.putAll(node.getAssignments());
 
             // and all hash symbols that could be translated to the source symbols
@@ -713,7 +713,7 @@ public class HashGenerationOptimizer
 
         private PlanWithProperties enforce(PlanWithProperties planWithProperties, HashComputationSet requiredHashes)
         {
-            Assignments.Builder assignments = Assignments.builder();
+            AssignmentsUtils.Builder assignments = AssignmentsUtils.builder();
 
             Map<HashComputation, Symbol> outputHashSymbols = new HashMap<>();
 

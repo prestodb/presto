@@ -18,13 +18,13 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -252,7 +252,7 @@ public class PushAggregationThroughOuterJoin
                 Optional.empty());
 
         // Add coalesce expressions for all aggregation functions
-        Assignments.Builder assignmentsBuilder = Assignments.builder();
+        AssignmentsUtils.Builder assignmentsBuilder = AssignmentsUtils.builder();
         for (Symbol symbol : outerJoin.getOutputSymbols()) {
             if (aggregationNode.getAggregations().containsKey(symbol)) {
                 assignmentsBuilder.put(symbol, new CoalesceExpression(symbol.toSymbolReference(), sourceAggregationToOverNullMapping.get(symbol).toSymbolReference()));

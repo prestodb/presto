@@ -15,9 +15,9 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.collect.ImmutableList;
@@ -54,7 +54,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                                         ImmutableMap.of(p.symbol("l_nationkey"), new TpchColumnHandle("nationkey",
                                                 BIGINT))),
                                 p.project(
-                                        Assignments.of(p.symbol("l_expr2"), expression("l_nationkey + 1")),
+                                        AssignmentsUtils.of(p.symbol("l_expr2"), expression("l_nationkey + 1")),
                                         p.values(
                                                 ImmutableList.of(),
                                                 ImmutableList.of(ImmutableList.of())))))

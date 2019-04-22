@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
@@ -75,7 +76,7 @@ public class TransformCorrelatedSingleRowSubqueryToProject
             return Result.ofPlanNode(parent.getInput());
         }
         else if (subqueryProjections.size() == 1) {
-            Assignments assignments = Assignments.builder()
+            Assignments assignments = AssignmentsUtils.builder()
                     .putIdentities(parent.getInput().getOutputSymbols())
                     .putAll(subqueryProjections.get(0).getAssignments())
                     .build();

@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.optimizations.joins.JoinGraph;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -250,7 +250,7 @@ public class TestEliminateCrossJoins
         return new ProjectNode(
                 idAllocator.getNextId(),
                 source,
-                Assignments.of(new Symbol(symbol), expression));
+                AssignmentsUtils.of(new Symbol(symbol), expression));
     }
 
     private String symbol(String name)

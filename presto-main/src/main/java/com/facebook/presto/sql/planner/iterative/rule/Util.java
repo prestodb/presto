@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -82,7 +82,7 @@ class Util
                 new ProjectNode(
                         idAllocator.getNextId(),
                         node,
-                        Assignments.identity(restrictedOutputs)));
+                        AssignmentsUtils.identity(restrictedOutputs)));
     }
 
     /**

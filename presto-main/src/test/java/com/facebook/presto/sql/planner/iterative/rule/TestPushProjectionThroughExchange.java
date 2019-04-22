@@ -14,10 +14,10 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -44,7 +44,7 @@ public class TestPushProjectionThroughExchange
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("x"), new LongLiteral("3")),
+                                AssignmentsUtils.of(p.symbol("x"), new LongLiteral("3")),
                                 p.values(p.symbol("a"))))
                 .doesNotFire();
     }
@@ -59,7 +59,7 @@ public class TestPushProjectionThroughExchange
                     Symbol c = p.symbol("c");
 
                     return p.project(
-                            Assignments.builder()
+                            AssignmentsUtils.builder()
                                     .put(a, a.toSymbolReference())
                                     .put(b, b.toSymbolReference())
                                     .build(),
@@ -82,7 +82,7 @@ public class TestPushProjectionThroughExchange
                     Symbol c2 = p.symbol("c2");
                     Symbol x = p.symbol("x");
                     return p.project(
-                            Assignments.of(
+                            AssignmentsUtils.of(
                                     x, new LongLiteral("3"),
                                     c2, new SymbolReference("c")),
                             p.exchange(e -> e
@@ -119,7 +119,7 @@ public class TestPushProjectionThroughExchange
                     Symbol bTimes5 = p.symbol("b_times_5");
                     Symbol hTimes5 = p.symbol("h_times_5");
                     return p.project(
-                            Assignments.builder()
+                            AssignmentsUtils.builder()
                                     .put(aTimes5, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, new SymbolReference("a"), new LongLiteral("5")))
                                     .put(bTimes5, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, new SymbolReference("b"), new LongLiteral("5")))
                                     .put(hTimes5, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, new SymbolReference("h"), new LongLiteral("5")))
@@ -163,7 +163,7 @@ public class TestPushProjectionThroughExchange
                     Symbol sortSymbol = p.symbol("sortSymbol");
                     OrderingScheme orderingScheme = new OrderingScheme(ImmutableList.of(sortSymbol), ImmutableMap.of(sortSymbol, SortOrder.ASC_NULLS_FIRST));
                     return p.project(
-                            Assignments.builder()
+                            AssignmentsUtils.builder()
                                     .put(aTimes5, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, new SymbolReference("a"), new LongLiteral("5")))
                                     .put(bTimes5, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, new SymbolReference("b"), new LongLiteral("5")))
                                     .put(hTimes5, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, new SymbolReference("h"), new LongLiteral("5")))

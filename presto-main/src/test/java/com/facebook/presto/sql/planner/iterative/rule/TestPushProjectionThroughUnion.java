@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.google.common.collect.ImmutableList;
@@ -37,7 +37,7 @@ public class TestPushProjectionThroughUnion
         tester().assertThat(new PushProjectionThroughUnion())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("x"), new LongLiteral("3")),
+                                AssignmentsUtils.of(p.symbol("x"), new LongLiteral("3")),
                                 p.values(p.symbol("a"))))
                 .doesNotFire();
     }
@@ -52,7 +52,7 @@ public class TestPushProjectionThroughUnion
                     Symbol c = p.symbol("c");
                     Symbol cTimes3 = p.symbol("c_times_3");
                     return p.project(
-                            Assignments.of(cTimes3, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, c.toSymbolReference(), new LongLiteral("3"))),
+                            AssignmentsUtils.of(cTimes3, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, c.toSymbolReference(), new LongLiteral("3"))),
                             p.union(
                                     ImmutableListMultimap.<Symbol, Symbol>builder()
                                             .put(c, a)

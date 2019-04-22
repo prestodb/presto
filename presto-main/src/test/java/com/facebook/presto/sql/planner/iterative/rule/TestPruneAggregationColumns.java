@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -71,7 +71,7 @@ public class TestPruneAggregationColumns
         Symbol b = planBuilder.symbol("b");
         Symbol key = planBuilder.symbol("key");
         return planBuilder.project(
-                Assignments.identity(ImmutableList.of(a, b).stream().filter(projectionFilter).collect(toImmutableSet())),
+                AssignmentsUtils.identity(ImmutableList.of(a, b).stream().filter(projectionFilter).collect(toImmutableSet())),
                 planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
                         .source(planBuilder.values(key))
                         .singleGroupingSet(key)

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -35,7 +35,7 @@ public class TestPruneValuesColumns
         tester().assertThat(new PruneValuesColumns())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("y"), expression("x")),
+                                AssignmentsUtils.of(p.symbol("y"), expression("x")),
                                 p.values(
                                         ImmutableList.of(p.symbol("unused"), p.symbol("x")),
                                         ImmutableList.of(
@@ -57,7 +57,7 @@ public class TestPruneValuesColumns
         tester().assertThat(new PruneValuesColumns())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("y"), expression("x")),
+                                AssignmentsUtils.of(p.symbol("y"), expression("x")),
                                 p.values(p.symbol("x"))))
                 .doesNotFire();
     }

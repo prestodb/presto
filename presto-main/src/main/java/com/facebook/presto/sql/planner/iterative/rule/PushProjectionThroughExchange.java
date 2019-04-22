@@ -17,10 +17,10 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -89,7 +89,7 @@ public class PushProjectionThroughExchange
         for (int i = 0; i < exchange.getSources().size(); i++) {
             Map<Symbol, SymbolReference> outputToInputMap = extractExchangeOutputToInput(exchange, i);
 
-            Assignments.Builder projections = Assignments.builder();
+            AssignmentsUtils.Builder projections = AssignmentsUtils.builder();
             ImmutableList.Builder<Symbol> inputs = ImmutableList.builder();
 
             // Need to retain the partition keys for the exchange

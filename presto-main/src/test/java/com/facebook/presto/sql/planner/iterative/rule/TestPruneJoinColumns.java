@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.base.Predicates;
@@ -71,7 +71,7 @@ public class TestPruneJoinColumns
                     Symbol leftValue = p.symbol("leftValue");
                     Symbol rightValue = p.symbol("rightValue");
                     return p.project(
-                            Assignments.of(),
+                            AssignmentsUtils.of(),
                             p.join(
                                     JoinNode.Type.INNER,
                                     p.values(leftValue),
@@ -93,7 +93,7 @@ public class TestPruneJoinColumns
         Symbol rightValue = p.symbol("rightValue");
         List<Symbol> outputs = ImmutableList.of(leftKey, leftValue, rightKey, rightValue);
         return p.project(
-                Assignments.identity(
+                AssignmentsUtils.identity(
                         outputs.stream()
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),

@@ -19,13 +19,13 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
@@ -213,7 +213,7 @@ public class ImplementIntersectAndExceptAsUnion
 
         private PlanNode appendMarkers(PlanNode source, int markerIndex, List<Symbol> markers, Map<Symbol, SymbolReference> projections)
         {
-            Assignments.Builder assignments = Assignments.builder();
+            AssignmentsUtils.Builder assignments = AssignmentsUtils.builder();
             // add existing intersect symbols to projection
             for (Map.Entry<Symbol, SymbolReference> entry : projections.entrySet()) {
                 Symbol symbol = symbolAllocator.newSymbol(entry.getKey().getName(), symbolAllocator.getTypes().get(entry.getKey()));
@@ -288,7 +288,7 @@ public class ImplementIntersectAndExceptAsUnion
             return new ProjectNode(
                     idAllocator.getNextId(),
                     node,
-                    Assignments.identity(columns));
+                    AssignmentsUtils.identity(columns));
         }
     }
 }

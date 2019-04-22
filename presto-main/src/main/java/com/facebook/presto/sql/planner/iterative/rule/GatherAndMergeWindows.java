@@ -17,6 +17,7 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.matching.PropertyPattern;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
@@ -140,14 +141,14 @@ public class GatherAndMergeWindows
                 // The target node, when hoisted above the projections, will provide the symbols directly.
                 Map<Symbol, Expression> assignmentsWithoutTargetOutputIdentities = Maps.filterKeys(
                         project.getAssignments().getMap(),
-                        output -> !(project.getAssignments().isIdentity(output) && targetOutputs.contains(output)));
+                        output -> !(AssignmentsUtils.isIdentity(project.getAssignments(), output) && targetOutputs.contains(output)));
 
                 if (targetInputs.stream().anyMatch(assignmentsWithoutTargetOutputIdentities::containsKey)) {
                     // Redefinition of an input to the target -- can't handle this case.
                     return Optional.empty();
                 }
 
-                Assignments newAssignments = Assignments.builder()
+                Assignments newAssignments = AssignmentsUtils.builder()
                         .putAll(assignmentsWithoutTargetOutputIdentities)
                         .putIdentities(targetInputs)
                         .build();

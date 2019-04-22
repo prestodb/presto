@@ -15,6 +15,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.sql.ExpressionUtils;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
@@ -259,7 +260,7 @@ public class PlanNodeDecorrelator
                     .filter(symbol -> !nodeOutputSymbols.contains(symbol))
                     .collect(toImmutableList());
 
-            Assignments assignments = Assignments.builder()
+            Assignments assignments = AssignmentsUtils.builder()
                     .putAll(node.getAssignments())
                     .putIdentities(symbolsToAdd)
                     .build();

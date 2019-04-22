@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
@@ -316,7 +316,7 @@ public class TestAddIntermediateAggregations
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE_STREAMING,
                                             p.project(
-                                                    Assignments.identity(p.symbol("b")),
+                                                    AssignmentsUtils.identity(p.symbol("b")),
                                                     p.aggregation(ap -> ap.globalGrouping()
                                                             .step(AggregationNode.Step.PARTIAL)
                                                             .addAggregation(p.symbol("b"), expression("count(a)"), ImmutableList.of(BIGINT))

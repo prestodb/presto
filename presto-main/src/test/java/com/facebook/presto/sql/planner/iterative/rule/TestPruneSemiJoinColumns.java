@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -88,7 +88,7 @@ public class TestPruneSemiJoinColumns
         Symbol rightKey = p.symbol("rightKey");
         List<Symbol> outputs = ImmutableList.of(match, leftKey, leftKeyHash, leftValue);
         return p.project(
-                Assignments.identity(
+                AssignmentsUtils.identity(
                         outputs.stream()
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),

@@ -39,11 +39,11 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.split.SplitSource.SplitBatch;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.Rule.Context;
 import com.facebook.presto.sql.planner.iterative.Rule.Result;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -584,7 +584,7 @@ public class ExtractSpatialJoins
 
     private static PlanNode addProjection(Context context, PlanNode node, Symbol symbol, Expression expression)
     {
-        Assignments.Builder projections = Assignments.builder();
+        AssignmentsUtils.Builder projections = AssignmentsUtils.builder();
         for (Symbol outputSymbol : node.getOutputSymbols()) {
             projections.putIdentity(outputSymbol);
         }
@@ -595,7 +595,7 @@ public class ExtractSpatialJoins
 
     private static PlanNode addPartitioningNodes(Context context, PlanNode node, Symbol partitionSymbol, KdbTree kdbTree, Expression geometry, Optional<Expression> radius)
     {
-        Assignments.Builder projections = Assignments.builder();
+        AssignmentsUtils.Builder projections = AssignmentsUtils.builder();
         for (Symbol outputSymbol : node.getOutputSymbols()) {
             projections.putIdentity(outputSymbol);
         }

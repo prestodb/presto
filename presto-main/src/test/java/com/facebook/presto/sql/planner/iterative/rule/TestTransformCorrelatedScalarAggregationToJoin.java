@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -106,7 +106,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                 .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                        p.project(Assignments.of(p.symbol("expr"), p.expression("sum + 1")),
+                        p.project(AssignmentsUtils.of(p.symbol("expr"), p.expression("sum + 1")),
                                 p.aggregation(ab -> ab
                                         .source(p.values(p.symbol("a"), p.symbol("b")))
                                         .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))

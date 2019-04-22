@@ -18,6 +18,7 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.EffectivePredicateExtractor;
 import com.facebook.presto.sql.planner.EqualityInference;
@@ -32,7 +33,6 @@ import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
@@ -453,12 +453,12 @@ public class PredicatePushDown
             PlanNode output = node;
 
             // Create identity projections for all existing symbols
-            Assignments.Builder leftProjections = Assignments.builder();
+            AssignmentsUtils.Builder leftProjections = AssignmentsUtils.builder();
             leftProjections.putAll(node.getLeft()
                     .getOutputSymbols().stream()
                     .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
 
-            Assignments.Builder rightProjections = Assignments.builder();
+            AssignmentsUtils.Builder rightProjections = AssignmentsUtils.builder();
             rightProjections.putAll(node.getRight()
                     .getOutputSymbols().stream()
                     .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
@@ -537,7 +537,7 @@ public class PredicatePushDown
             }
 
             if (!node.getOutputSymbols().equals(output.getOutputSymbols())) {
-                output = new ProjectNode(idAllocator.getNextId(), output, Assignments.identity(node.getOutputSymbols()));
+                output = new ProjectNode(idAllocator.getNextId(), output, AssignmentsUtils.identity(node.getOutputSymbols()));
             }
 
             return output;
@@ -602,12 +602,12 @@ public class PredicatePushDown
                     rightSource != node.getRight() ||
                     !areExpressionsEquivalent(newJoinPredicate, joinPredicate)) {
                 // Create identity projections for all existing symbols
-                Assignments.Builder leftProjections = Assignments.builder();
+                AssignmentsUtils.Builder leftProjections = AssignmentsUtils.builder();
                 leftProjections.putAll(node.getLeft()
                         .getOutputSymbols().stream()
                         .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
 
-                Assignments.Builder rightProjections = Assignments.builder();
+                AssignmentsUtils.Builder rightProjections = AssignmentsUtils.builder();
                 rightProjections.putAll(node.getRight()
                         .getOutputSymbols().stream()
                         .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));

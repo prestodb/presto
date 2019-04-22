@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -34,9 +34,9 @@ public class TestPruneProjectColumns
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     return p.project(
-                            Assignments.identity(b),
+                            AssignmentsUtils.identity(b),
                             p.project(
-                                    Assignments.identity(a, b),
+                                    AssignmentsUtils.identity(a, b),
                                     p.values(a, b)));
                 })
                 .matches(
@@ -55,9 +55,9 @@ public class TestPruneProjectColumns
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     return p.project(
-                            Assignments.identity(b),
+                            AssignmentsUtils.identity(b),
                             p.project(
-                                    Assignments.identity(b),
+                                    AssignmentsUtils.identity(b),
                                     p.values(a, b)));
                 })
                 .doesNotFire();

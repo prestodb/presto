@@ -14,11 +14,11 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -181,12 +181,12 @@ public class TestMergeAdjacentWindows
                                 newWindowNodeSpecification(p, "a"),
                                 ImmutableMap.of(p.symbol("lagOutput"), newWindowNodeFunction("lag", windowA, "a", "one")),
                                 p.project(
-                                        Assignments.builder()
+                                        AssignmentsUtils.builder()
                                                 .put(p.symbol("one"), expression("CAST(1 AS bigint)"))
                                                 .putIdentities(ImmutableList.of(p.symbol("a"), p.symbol("avgOutput")))
                                                 .build(),
                                         p.project(
-                                                Assignments.identity(p.symbol("a"), p.symbol("avgOutput"), p.symbol("unused")),
+                                                AssignmentsUtils.identity(p.symbol("a"), p.symbol("avgOutput"), p.symbol("unused")),
                                                 p.window(
                                                         newWindowNodeSpecification(p, "a"),
                                                         ImmutableMap.of(p.symbol("avgOutput"), newWindowNodeFunction("avg", windowA, "a")),

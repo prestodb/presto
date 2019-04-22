@@ -31,7 +31,6 @@ import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.optimizations.SampleNodeUtil;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
@@ -175,7 +174,7 @@ class RelationPlanner
 
         if (node.getColumnNames() != null) {
             ImmutableList.Builder<Symbol> newMappings = ImmutableList.<Symbol>builder();
-            Assignments.Builder assignments = Assignments.builder();
+            AssignmentsUtils.Builder assignments = AssignmentsUtils.builder();
 
             // project only the visible columns from the underlying relation
             for (int i = 0; i < subPlan.getDescriptor().getAllFieldCount(); i++) {
@@ -429,8 +428,8 @@ class RelationPlanner
         Map<Identifier, Symbol> leftJoinColumns = new HashMap<>();
         Map<Identifier, Symbol> rightJoinColumns = new HashMap<>();
 
-        Assignments.Builder leftCoercions = Assignments.builder();
-        Assignments.Builder rightCoercions = Assignments.builder();
+        AssignmentsUtils.Builder leftCoercions = AssignmentsUtils.builder();
+        AssignmentsUtils.Builder rightCoercions = AssignmentsUtils.builder();
 
         leftCoercions.putIdentities(left.getRoot().getOutputSymbols());
         rightCoercions.putIdentities(right.getRoot().getOutputSymbols());
@@ -481,7 +480,7 @@ class RelationPlanner
 
         // Add a projection to produce the outputs of the columns in the USING clause,
         // which are defined as coalesce(l.k, r.k)
-        Assignments.Builder assignments = Assignments.builder();
+        AssignmentsUtils.Builder assignments = AssignmentsUtils.builder();
 
         ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
         for (Identifier column : joinColumns) {
@@ -723,7 +722,7 @@ class RelationPlanner
         verify(targetColumnTypes.length == oldSymbols.size());
         ImmutableList.Builder<Symbol> newSymbols = new ImmutableList.Builder<>();
         Field[] newFields = new Field[targetColumnTypes.length];
-        Assignments.Builder assignments = Assignments.builder();
+        AssignmentsUtils.Builder assignments = AssignmentsUtils.builder();
         for (int i = 0; i < targetColumnTypes.length; i++) {
             Symbol inputSymbol = oldSymbols.get(i);
             Type inputType = symbolAllocator.getTypes().get(inputSymbol);

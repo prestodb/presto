@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -76,7 +76,7 @@ public class TestPruneTopNColumns
         Symbol a = planBuilder.symbol("a");
         Symbol b = planBuilder.symbol("b");
         return planBuilder.project(
-                Assignments.identity(ImmutableList.of(a, b).stream().filter(projectionTopN).collect(toImmutableSet())),
+                AssignmentsUtils.identity(ImmutableList.of(a, b).stream().filter(projectionTopN).collect(toImmutableSet())),
                 planBuilder.topN(
                         COUNT,
                         ImmutableList.of(b),

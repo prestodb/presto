@@ -18,9 +18,9 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -107,7 +107,7 @@ public class TestIterativeOptimizer
             if (isIdentityProjection(project)) {
                 return Result.ofPlanNode(project.getSource());
             }
-            PlanNode projectNode = new ProjectNode(context.getIdAllocator().getNextId(), project, Assignments.identity(project.getOutputSymbols()));
+            PlanNode projectNode = new ProjectNode(context.getIdAllocator().getNextId(), project, AssignmentsUtils.identity(project.getOutputSymbols()));
             return Result.ofPlanNode(projectNode);
         }
 

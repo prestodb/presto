@@ -15,10 +15,10 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
@@ -45,7 +45,7 @@ public class TestPruneTableScanColumns
                     Symbol orderdate = p.symbol("orderdate", DATE);
                     Symbol totalprice = p.symbol("totalprice", DOUBLE);
                     return p.project(
-                            Assignments.of(p.symbol("x"), totalprice.toSymbolReference()),
+                            AssignmentsUtils.of(p.symbol("x"), totalprice.toSymbolReference()),
                             p.tableScan(
                                     new TableHandle(
                                             new ConnectorId("local"),
@@ -67,7 +67,7 @@ public class TestPruneTableScanColumns
         tester().assertThat(new PruneTableScanColumns())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("y"), expression("x")),
+                                AssignmentsUtils.of(p.symbol("y"), expression("x")),
                                 p.tableScan(
                                         ImmutableList.of(p.symbol("x")),
                                         ImmutableMap.of(p.symbol("x"), new TestingColumnHandle("x")))))

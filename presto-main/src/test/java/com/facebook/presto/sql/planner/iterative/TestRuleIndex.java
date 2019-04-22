@@ -16,9 +16,9 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -51,7 +51,7 @@ public class TestRuleIndex
                 .register(anyRule)
                 .build();
 
-        ProjectNode projectNode = planBuilder.project(Assignments.of(), planBuilder.values());
+        ProjectNode projectNode = planBuilder.project(AssignmentsUtils.of(), planBuilder.values());
         FilterNode filterNode = planBuilder.filter(BooleanLiteral.TRUE_LITERAL, planBuilder.values());
         ValuesNode valuesNode = planBuilder.values();
 

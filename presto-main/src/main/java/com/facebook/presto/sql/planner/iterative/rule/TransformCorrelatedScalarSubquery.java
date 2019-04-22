@@ -17,10 +17,10 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
@@ -154,6 +154,6 @@ public class TransformCorrelatedScalarSubquery
         return Result.ofPlanNode(new ProjectNode(
                 context.getIdAllocator().getNextId(),
                 filterNode,
-                Assignments.identity(lateralJoinNode.getOutputSymbols())));
+                AssignmentsUtils.identity(lateralJoinNode.getOutputSymbols())));
     }
 }

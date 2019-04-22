@@ -18,6 +18,7 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -598,7 +599,7 @@ public class UnaliasSymbolReferences
         private Assignments canonicalize(Assignments oldAssignments)
         {
             Map<Expression, Symbol> computedExpressions = new HashMap<>();
-            Assignments.Builder assignments = Assignments.builder();
+            AssignmentsUtils.Builder assignments = AssignmentsUtils.builder();
             for (Map.Entry<Symbol, Expression> entry : oldAssignments.getMap().entrySet()) {
                 Expression expression = canonicalize(entry.getValue());
 

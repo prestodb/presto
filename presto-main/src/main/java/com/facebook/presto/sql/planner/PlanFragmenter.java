@@ -45,7 +45,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -593,7 +592,7 @@ public class PlanFragmenter
                 // update sources
                 sources = sources.stream()
                         .map(source -> {
-                            Assignments.Builder assignments = Assignments.builder();
+                            AssignmentsUtils.Builder assignments = AssignmentsUtils.builder();
                             assignments.putIdentities(source.getOutputSymbols());
                             constantSymbols.forEach(symbol -> assignments.put(symbol, constantExpressions.get(symbol)));
                             return new ProjectNode(idAllocator.getNextId(), source, assignments.build());

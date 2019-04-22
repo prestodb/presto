@@ -14,10 +14,10 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -148,7 +148,7 @@ public class TestPushAggregationThroughOuterJoin
                         .source(
                                 p.join(
                                         JoinNode.Type.LEFT,
-                                        p.project(Assignments.builder()
+                                        p.project(AssignmentsUtils.builder()
                                                         .putIdentity(p.symbol("COL1", BIGINT))
                                                         .build(),
                                                 p.aggregation(builder ->

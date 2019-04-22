@@ -44,7 +44,6 @@ import com.facebook.presto.sql.planner.StatisticsAggregationPlanner.TableStatist
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -346,7 +345,7 @@ public class LogicalPlanner
         RelationPlan plan = createRelationPlan(analysis, insertStatement.getQuery());
 
         Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, insert.getTarget());
-        Assignments.Builder assignments = Assignments.builder();
+        AssignmentsUtils.Builder assignments = AssignmentsUtils.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             if (column.isHidden()) {
                 continue;

@@ -17,9 +17,9 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
@@ -69,7 +69,7 @@ public class PushProjectionThroughUnion
 
         for (int i = 0; i < source.getSources().size(); i++) {
             Map<Symbol, SymbolReference> outputToInput = Maps.transformValues(source.sourceSymbolMap(i), Symbol::toSymbolReference);   // Map: output of union -> input of this source to the union
-            Assignments.Builder assignments = Assignments.builder(); // assignments for the new ProjectNode
+            AssignmentsUtils.Builder assignments = AssignmentsUtils.builder(); // assignments for the new ProjectNode
 
             // mapping from current ProjectNode to new ProjectNode, used to identify the output layout
             Map<Symbol, Symbol> projectSymbolMapping = new HashMap<>();

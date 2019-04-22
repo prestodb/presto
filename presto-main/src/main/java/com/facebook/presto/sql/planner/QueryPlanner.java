@@ -332,7 +332,7 @@ class QueryPlanner
     {
         TranslationMap outputTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToSymbolMap);
 
-        Assignments.Builder projections = Assignments.builder();
+        AssignmentsUtils.Builder projections = AssignmentsUtils.builder();
         for (Expression expression : expressions) {
             if (expression instanceof SymbolReference) {
                 Symbol symbol = Symbol.from(expression);
@@ -379,7 +379,7 @@ class QueryPlanner
     private PlanBuilder explicitCoercionFields(PlanBuilder subPlan, Iterable<Expression> alreadyCoerced, Iterable<? extends Expression> uncoerced)
     {
         TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToSymbolMap);
-        Assignments.Builder projections = Assignments.builder();
+        AssignmentsUtils.Builder projections = AssignmentsUtils.builder();
 
         projections.putAll(coerce(uncoerced, subPlan, translations));
 
@@ -409,7 +409,7 @@ class QueryPlanner
     {
         TranslationMap translations = subPlan.copyTranslations();
 
-        Assignments assignments = Assignments.builder()
+        Assignments assignments = AssignmentsUtils.builder()
                 .putAll(coerce(uncoerced, subPlan, translations))
                 .putIdentities(alreadyCoerced)
                 .build();
@@ -532,7 +532,7 @@ class QueryPlanner
             subPlan = new PlanBuilder(groupingTranslations, groupId, analysis.getParameters());
         }
         else {
-            Assignments.Builder assignments = Assignments.builder();
+            AssignmentsUtils.Builder assignments = AssignmentsUtils.builder();
             aggregationArguments.forEach(assignments::putIdentity);
             groupingSetMappings.forEach((key, value) -> assignments.put(key, value.toSymbolReference()));
 
@@ -661,7 +661,7 @@ class QueryPlanner
 
         TranslationMap newTranslations = subPlan.copyTranslations();
 
-        Assignments.Builder projections = Assignments.builder();
+        AssignmentsUtils.Builder projections = AssignmentsUtils.builder();
         projections.putIdentities(subPlan.getRoot().getOutputSymbols());
 
         List<Set<Integer>> descriptor = groupingSets.stream()

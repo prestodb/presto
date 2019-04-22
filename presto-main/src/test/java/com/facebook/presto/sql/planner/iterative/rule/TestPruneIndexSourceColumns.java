@@ -18,10 +18,10 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
@@ -78,7 +78,7 @@ public class TestPruneIndexSourceColumns
         ColumnHandle custkeyHandle = new TpchColumnHandle(custkey.getName(), INTEGER);
         ColumnHandle totalpriceHandle = new TpchColumnHandle(totalprice.getName(), DOUBLE);
         return p.project(
-                Assignments.identity(
+                AssignmentsUtils.identity(
                         ImmutableList.of(orderkey, custkey, totalprice).stream()
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),

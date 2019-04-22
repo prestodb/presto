@@ -198,7 +198,7 @@ class SubqueryPlanner
 
         subPlan.getTranslations().put(inPredicate, inPredicateSubquerySymbol);
 
-        return appendApplyNode(subPlan, inPredicate, subqueryPlan.getRoot(), Assignments.of(inPredicateSubquerySymbol, inPredicateSubqueryExpression), correlationAllowed);
+        return appendApplyNode(subPlan, inPredicate, subqueryPlan.getRoot(), AssignmentsUtils.of(inPredicateSubquerySymbol, inPredicateSubqueryExpression), correlationAllowed);
     }
 
     private PlanBuilder appendScalarSubqueryApplyNodes(PlanBuilder builder, Set<SubqueryExpression> scalarSubqueries, boolean correlationAllowed)
@@ -288,7 +288,7 @@ class SubqueryPlanner
         }
 
         // add an explicit projection that removes all columns
-        PlanNode subqueryNode = new ProjectNode(idAllocator.getNextId(), subqueryPlan.getRoot(), Assignments.of());
+        PlanNode subqueryNode = new ProjectNode(idAllocator.getNextId(), subqueryPlan.getRoot(), AssignmentsUtils.of());
 
         Symbol exists = symbolAllocator.newSymbol("exists", BOOLEAN);
         subPlan.getTranslations().put(existsPredicate, exists);
@@ -297,7 +297,7 @@ class SubqueryPlanner
                 subPlan,
                 existsPredicate.getSubquery(),
                 subqueryNode,
-                Assignments.of(exists, rewrittenExistsPredicate),
+                AssignmentsUtils.of(exists, rewrittenExistsPredicate),
                 correlationAllowed);
     }
 
@@ -395,7 +395,7 @@ class SubqueryPlanner
                 subPlan,
                 quantifiedComparison.getSubquery(),
                 subqueryPlan.getRoot(),
-                Assignments.of(coercedQuantifiedComparisonSymbol, coercedQuantifiedComparison),
+                AssignmentsUtils.of(coercedQuantifiedComparisonSymbol, coercedQuantifiedComparison),
                 correlationAllowed);
     }
 
@@ -570,8 +570,8 @@ class SubqueryPlanner
         {
             ProjectNode rewrittenNode = (ProjectNode) context.defaultRewrite(node);
 
-            Assignments assignments = rewrittenNode.getAssignments()
-                    .rewrite(expression -> replaceExpression(expression, mapping));
+            Assignments assignments = AssignmentsUtils
+                    .rewrite(rewrittenNode.getAssignments(), expression -> replaceExpression(expression, mapping));
 
             return new ProjectNode(idAllocator.getNextId(), rewrittenNode.getSource(), assignments);
         }

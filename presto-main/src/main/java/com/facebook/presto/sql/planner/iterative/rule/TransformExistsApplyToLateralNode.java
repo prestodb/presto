@@ -16,13 +16,13 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -119,7 +119,7 @@ public class TransformExistsApplyToLateralNode
         Symbol exists = getOnlyElement(applyNode.getSubqueryAssignments().getSymbols());
         Symbol subqueryTrue = context.getSymbolAllocator().newSymbol("subqueryTrue", BOOLEAN);
 
-        Assignments.Builder assignments = Assignments.builder();
+        AssignmentsUtils.Builder assignments = AssignmentsUtils.builder();
         assignments.putIdentities(applyNode.getInput().getOutputSymbols());
         assignments.put(exists, new CoalesceExpression(ImmutableList.of(subqueryTrue.toSymbolReference(), BooleanLiteral.FALSE_LITERAL)));
 
@@ -130,7 +130,7 @@ public class TransformExistsApplyToLateralNode
                         applyNode.getSubquery(),
                         1L,
                         false),
-                Assignments.of(subqueryTrue, TRUE_LITERAL));
+                AssignmentsUtils.of(subqueryTrue, TRUE_LITERAL));
 
         PlanNodeDecorrelator decorrelator = new PlanNodeDecorrelator(context.getIdAllocator(), context.getLookup());
         if (!decorrelator.decorrelateFilters(subquery, applyNode.getCorrelation()).isPresent()) {
@@ -170,7 +170,7 @@ public class TransformExistsApplyToLateralNode
                                 AggregationNode.Step.SINGLE,
                                 Optional.empty(),
                                 Optional.empty()),
-                        Assignments.of(exists, new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), BIGINT.toString())))),
+                        AssignmentsUtils.of(exists, new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), BIGINT.toString())))),
                 parent.getCorrelation(),
                 INNER,
                 parent.getOriginSubqueryError());

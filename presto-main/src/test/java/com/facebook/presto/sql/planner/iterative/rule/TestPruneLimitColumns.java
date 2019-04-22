@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -62,7 +62,7 @@ public class TestPruneLimitColumns
         Symbol a = planBuilder.symbol("a");
         Symbol b = planBuilder.symbol("b");
         return planBuilder.project(
-                Assignments.identity(Stream.of(a, b).filter(projectionFilter).collect(toImmutableSet())),
+                AssignmentsUtils.identity(Stream.of(a, b).filter(projectionFilter).collect(toImmutableSet())),
                 planBuilder.limit(1, planBuilder.values(a, b)));
     }
 }

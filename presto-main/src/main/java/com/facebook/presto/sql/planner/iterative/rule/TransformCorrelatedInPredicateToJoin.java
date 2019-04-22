@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -174,7 +175,7 @@ public class TransformCorrelatedInPredicateToJoin
         ProjectNode buildSide = new ProjectNode(
                 idAllocator.getNextId(),
                 decorrelatedBuildSource,
-                Assignments.builder()
+                AssignmentsUtils.builder()
                         .putIdentities(decorrelatedBuildSource.getOutputSymbols())
                         .put(buildSideKnownNonNull, bigint(0))
                         .build());
@@ -224,7 +225,7 @@ public class TransformCorrelatedInPredicateToJoin
         return new ProjectNode(
                 idAllocator.getNextId(),
                 aggregation,
-                Assignments.builder()
+                AssignmentsUtils.builder()
                         .putIdentities(apply.getInput().getOutputSymbols())
                         .put(inPredicateOutputSymbol, inPredicateEquivalent)
                         .build());
@@ -322,7 +323,7 @@ public class TransformCorrelatedInPredicateToJoin
 
             Optional<Decorrelated> result = decorrelate(node.getSource());
             return result.map(decorrelated -> {
-                Assignments.Builder assignments = Assignments.builder()
+                AssignmentsUtils.Builder assignments = AssignmentsUtils.builder()
                         .putAll(node.getAssignments());
 
                 // Pull up all symbols used by a filter (except correlation)

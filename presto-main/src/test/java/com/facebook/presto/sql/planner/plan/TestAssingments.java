@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableCollection;
 import org.testng.annotations.Test;
@@ -22,7 +23,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestAssingments
 {
-    private final Assignments assignments = Assignments.of(new Symbol("test"), TRUE_LITERAL);
+    private final Assignments assignments = AssignmentsUtils.of(new Symbol("test"), TRUE_LITERAL);
 
     @Test
     public void testOutputsImmutable()

@@ -14,8 +14,8 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -29,7 +29,7 @@ public class TestRemoveUnreferencedScalarApplyNodes
     {
         tester().assertThat(new RemoveUnreferencedScalarApplyNodes())
                 .on(p -> p.apply(
-                        Assignments.of(p.symbol("z"), p.expression("x IN (y)")),
+                        AssignmentsUtils.of(p.symbol("z"), p.expression("x IN (y)")),
                         ImmutableList.of(),
                         p.values(p.symbol("x")),
                         p.values(p.symbol("y"))))
@@ -41,7 +41,7 @@ public class TestRemoveUnreferencedScalarApplyNodes
     {
         tester().assertThat(new RemoveUnreferencedScalarApplyNodes())
                 .on(p -> p.apply(
-                        Assignments.of(),
+                        AssignmentsUtils.of(),
                         ImmutableList.of(),
                         p.values(p.symbol("x")),
                         p.values(p.symbol("y"))))
