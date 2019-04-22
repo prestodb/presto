@@ -58,6 +58,8 @@ import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggregation;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
@@ -117,7 +119,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                 return context.defaultRewrite(node);
             }
 
-            Expression expression = getOnlyElement(node.getSubqueryAssignments().getExpressions());
+            Expression expression = castToExpression(getOnlyElement(node.getSubqueryAssignments().getExpressions()));
             if (!(expression instanceof QuantifiedComparisonExpression)) {
                 return context.defaultRewrite(node);
             }
@@ -181,7 +183,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
 
             Symbol quantifiedComparisonSymbol = getOnlyElement(node.getSubqueryAssignments().getSymbols());
 
-            return projectExpressions(lateralJoinNode, AssignmentsUtils.of(quantifiedComparisonSymbol, valueComparedToSubquery));
+            return projectExpressions(lateralJoinNode, AssignmentsUtils.of(quantifiedComparisonSymbol, castToRowExpression(valueComparedToSubquery)));
         }
 
         public Expression rewriteUsingBounds(QuantifiedComparisonExpression quantifiedComparison, Symbol minValue, Symbol maxValue, Symbol countAllValue, Symbol countNonNullValue)

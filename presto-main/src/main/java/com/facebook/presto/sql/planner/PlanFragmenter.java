@@ -41,6 +41,8 @@ import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
@@ -67,7 +69,6 @@ import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.sanity.PlanSanityChecker;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -102,6 +103,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonFragmentPlan;
+import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
@@ -493,13 +495,13 @@ public class PlanFragmenter
         private PartitioningSymbolAssignments assignPartitioningSymbols(Partitioning partitioning)
         {
             ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
-            ImmutableMap.Builder<Symbol, Expression> constants = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, RowExpression> constants = ImmutableMap.builder();
             for (ArgumentBinding argumentBinding : partitioning.getArguments()) {
                 Symbol symbol;
                 if (argumentBinding.isConstant()) {
                     NullableValue constant = argumentBinding.getConstant();
-                    Expression expression = literalEncoder.toExpression(constant.getValue(), constant.getType());
-                    symbol = symbolAllocator.newSymbol(expression, constant.getType());
+                    RowExpression expression = constant(constant.getValue(), constant.getType());
+                    symbol = symbolAllocator.newSymbol("constant_partition", constant.getType());
                     constants.put(symbol, expression);
                 }
                 else {
@@ -569,7 +571,7 @@ public class PlanFragmenter
                 List<Symbol> outputs,
                 List<List<Symbol>> inputs,
                 List<PlanNode> sources,
-                Map<Symbol, Expression> constantExpressions,
+                Map<Symbol, RowExpression> constantExpressions,
                 PartitioningMetadata partitioningMetadata)
         {
             if (!constantExpressions.isEmpty()) {
@@ -593,7 +595,7 @@ public class PlanFragmenter
                 sources = sources.stream()
                         .map(source -> {
                             AssignmentsUtils.Builder assignments = AssignmentsUtils.builder();
-                            assignments.putIdentities(source.getOutputSymbols());
+                            source.getOutputSymbols().forEach(symbol -> assignments.put(symbol, new VariableReferenceExpression(symbol.getName(), symbolAllocator.getTypes().get(symbol))));
                             constantSymbols.forEach(symbol -> assignments.put(symbol, constantExpressions.get(symbol)));
                             return new ProjectNode(idAllocator.getNextId(), source, assignments.build());
                         })
@@ -1082,9 +1084,9 @@ public class PlanFragmenter
     private static class PartitioningSymbolAssignments
     {
         private final List<Symbol> symbols;
-        private final Map<Symbol, Expression> constants;
+        private final Map<Symbol, RowExpression> constants;
 
-        private PartitioningSymbolAssignments(List<Symbol> symbols, Map<Symbol, Expression> constants)
+        private PartitioningSymbolAssignments(List<Symbol> symbols, Map<Symbol, RowExpression> constants)
         {
             this.symbols = ImmutableList.copyOf(requireNonNull(symbols, "symbols is null"));
             this.constants = ImmutableMap.copyOf(requireNonNull(constants, "constants is null"));
@@ -1098,7 +1100,7 @@ public class PlanFragmenter
             return symbols;
         }
 
-        public Map<Symbol, Expression> getConstants()
+        public Map<Symbol, RowExpression> getConstants()
         {
             return constants;
         }

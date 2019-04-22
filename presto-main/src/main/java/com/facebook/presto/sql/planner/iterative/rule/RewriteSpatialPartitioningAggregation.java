@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.planner.AssignmentsUtils;
@@ -38,6 +39,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -89,7 +91,7 @@ public class RewriteSpatialPartitioningAggregation
     {
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
         Symbol partitionCountSymbol = context.getSymbolAllocator().newSymbol("partition_count", INTEGER);
-        ImmutableMap.Builder<Symbol, Expression> envelopeAssignments = ImmutableMap.builder();
+        ImmutableMap.Builder<Symbol, RowExpression> envelopeAssignments = ImmutableMap.builder();
         for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
             FunctionCall call = aggregation.getCall();
@@ -99,10 +101,10 @@ public class RewriteSpatialPartitioningAggregation
                 Expression geometry = getOnlyElement(call.getArguments());
                 Symbol envelopeSymbol = context.getSymbolAllocator().newSymbol("envelope", geometryType);
                 if (geometry instanceof FunctionCall && ((FunctionCall) geometry).getName().toString().equalsIgnoreCase("ST_Envelope")) {
-                    envelopeAssignments.put(envelopeSymbol, geometry);
+                    envelopeAssignments.put(envelopeSymbol, castToRowExpression(geometry));
                 }
                 else {
-                    envelopeAssignments.put(envelopeSymbol, new FunctionCall(QualifiedName.of("ST_Envelope"), ImmutableList.of(geometry)));
+                    envelopeAssignments.put(envelopeSymbol, castToRowExpression(new FunctionCall(QualifiedName.of("ST_Envelope"), ImmutableList.of(geometry))));
                 }
                 aggregations.put(entry.getKey(),
                         new Aggregation(
@@ -123,7 +125,7 @@ public class RewriteSpatialPartitioningAggregation
                                 node.getSource(),
                                 AssignmentsUtils.builder()
                                         .putIdentities(node.getSource().getOutputSymbols())
-                                        .put(partitionCountSymbol, new LongLiteral(Integer.toString(getHashPartitionCount(context.getSession()))))
+                                        .put(partitionCountSymbol, castToRowExpression(new LongLiteral(Integer.toString(getHashPartitionCount(context.getSession())))))
                                         .putAll(envelopeAssignments.build())
                                         .build()),
                     aggregations.build(),

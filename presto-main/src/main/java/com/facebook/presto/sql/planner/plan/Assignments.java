@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.Expression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -31,10 +31,10 @@ import static java.util.Objects.requireNonNull;
 
 public class Assignments
 {
-    private final Map<Symbol, Expression> assignments;
+    private final Map<Symbol, RowExpression> assignments;
 
     @JsonCreator
-    public Assignments(@JsonProperty("assignments") Map<Symbol, Expression> assignments)
+    public Assignments(@JsonProperty("assignments") Map<Symbol, RowExpression> assignments)
     {
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
     }
@@ -45,12 +45,12 @@ public class Assignments
     }
 
     @JsonProperty("assignments")
-    public Map<Symbol, Expression> getMap()
+    public Map<Symbol, RowExpression> getMap()
     {
         return assignments;
     }
 
-    public Collection<Expression> getExpressions()
+    public Collection<RowExpression> getExpressions()
     {
         return assignments.values();
     }
@@ -60,12 +60,12 @@ public class Assignments
         return assignments.keySet();
     }
 
-    public Set<Entry<Symbol, Expression>> entrySet()
+    public Set<Entry<Symbol, RowExpression>> entrySet()
     {
         return assignments.entrySet();
     }
 
-    public Expression get(Symbol symbol)
+    public RowExpression get(Symbol symbol)
     {
         return assignments.get(symbol);
     }
@@ -80,7 +80,7 @@ public class Assignments
         return size() == 0;
     }
 
-    public void forEach(BiConsumer<Symbol, Expression> consumer)
+    public void forEach(BiConsumer<Symbol, RowExpression> consumer)
     {
         assignments.forEach(consumer);
     }

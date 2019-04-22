@@ -93,6 +93,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialComparisons;
@@ -589,7 +590,7 @@ public class ExtractSpatialJoins
             projections.putIdentity(outputSymbol);
         }
 
-        projections.put(symbol, expression);
+        projections.put(symbol, castToRowExpression(expression));
         return new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build());
     }
 
@@ -607,7 +608,7 @@ public class ExtractSpatialJoins
 
         FunctionCall partitioningFunction = new FunctionCall(QualifiedName.of("spatial_partitions"), partitioningArguments.build());
         Symbol partitionsSymbol = context.getSymbolAllocator().newSymbol(partitioningFunction, new ArrayType(INTEGER));
-        projections.put(partitionsSymbol, partitioningFunction);
+        projections.put(partitionsSymbol, castToRowExpression(partitioningFunction));
 
         return new UnnestNode(
                 context.getIdAllocator().getNextId(),

@@ -181,7 +181,7 @@ class RelationPlanner
                 Field field = subPlan.getDescriptor().getFieldByIndex(i);
                 if (!field.isHidden()) {
                     Symbol aliasedColumn = symbolAllocator.newSymbol(field);
-                    assignments.put(aliasedColumn, subPlan.getFieldMappings().get(i).toSymbolReference());
+                    assignments.put(aliasedColumn, castToRowExpression(subPlan.getFieldMappings().get(i).toSymbolReference()));
                     newMappings.add(aliasedColumn);
                 }
             }
@@ -440,21 +440,21 @@ class RelationPlanner
             // compute the coercion for the field on the left to the common supertype of left & right
             Symbol leftOutput = symbolAllocator.newSymbol(identifier, type);
             int leftField = joinAnalysis.getLeftJoinFields().get(i);
-            leftCoercions.put(leftOutput, new Cast(
+            leftCoercions.put(leftOutput, castToRowExpression(new Cast(
                     left.getSymbol(leftField).toSymbolReference(),
                     type.getTypeSignature().toString(),
                     false,
-                    metadata.getTypeManager().isTypeOnlyCoercion(left.getDescriptor().getFieldByIndex(leftField).getType(), type)));
+                    metadata.getTypeManager().isTypeOnlyCoercion(left.getDescriptor().getFieldByIndex(leftField).getType(), type))));
             leftJoinColumns.put(identifier, leftOutput);
 
             // compute the coercion for the field on the right to the common supertype of left & right
             Symbol rightOutput = symbolAllocator.newSymbol(identifier, type);
             int rightField = joinAnalysis.getRightJoinFields().get(i);
-            rightCoercions.put(rightOutput, new Cast(
+            rightCoercions.put(rightOutput, castToRowExpression(new Cast(
                     right.getSymbol(rightField).toSymbolReference(),
                     type.getTypeSignature().toString(),
                     false,
-                    metadata.getTypeManager().isTypeOnlyCoercion(right.getDescriptor().getFieldByIndex(rightField).getType(), type)));
+                    metadata.getTypeManager().isTypeOnlyCoercion(right.getDescriptor().getFieldByIndex(rightField).getType(), type))));
             rightJoinColumns.put(identifier, rightOutput);
 
             clauses.add(new JoinNode.EquiJoinClause(leftOutput, rightOutput));
@@ -486,21 +486,21 @@ class RelationPlanner
         for (Identifier column : joinColumns) {
             Symbol output = symbolAllocator.newSymbol(column, analysis.getType(column));
             outputs.add(output);
-            assignments.put(output, new CoalesceExpression(
+            assignments.put(output, castToRowExpression(new CoalesceExpression(
                     leftJoinColumns.get(column).toSymbolReference(),
-                    rightJoinColumns.get(column).toSymbolReference()));
+                    rightJoinColumns.get(column).toSymbolReference())));
         }
 
         for (int field : joinAnalysis.getOtherLeftFields()) {
             Symbol symbol = left.getFieldMappings().get(field);
             outputs.add(symbol);
-            assignments.put(symbol, symbol.toSymbolReference());
+            assignments.put(symbol, castToRowExpression(symbol.toSymbolReference()));
         }
 
         for (int field : joinAnalysis.getOtherRightFields()) {
             Symbol symbol = right.getFieldMappings().get(field);
             outputs.add(symbol);
-            assignments.put(symbol, symbol.toSymbolReference());
+            assignments.put(symbol, castToRowExpression(symbol.toSymbolReference()));
         }
 
         return new RelationPlan(
@@ -730,13 +730,13 @@ class RelationPlanner
             if (!outputType.equals(inputType)) {
                 Expression cast = new Cast(inputSymbol.toSymbolReference(), outputType.getTypeSignature().toString());
                 Symbol outputSymbol = symbolAllocator.newSymbol(cast, outputType);
-                assignments.put(outputSymbol, cast);
+                assignments.put(outputSymbol, castToRowExpression(cast));
                 newSymbols.add(outputSymbol);
             }
             else {
                 SymbolReference symbolReference = inputSymbol.toSymbolReference();
                 Symbol outputSymbol = symbolAllocator.newSymbol(symbolReference, outputType);
-                assignments.put(outputSymbol, symbolReference);
+                assignments.put(outputSymbol, castToRowExpression(symbolReference));
                 newSymbols.add(outputSymbol);
             }
             Field oldField = oldDescriptor.getFieldByIndex(i);

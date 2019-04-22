@@ -87,6 +87,8 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
@@ -528,7 +530,12 @@ public class PruneUnreferencedOutputs
             AssignmentsUtils.Builder builder = AssignmentsUtils.builder();
             node.getAssignments().forEach((symbol, expression) -> {
                 if (context.get().contains(symbol)) {
-                    expectedInputs.addAll(SymbolsExtractor.extractUnique(expression));
+                    if (isExpression(expression)) {
+                        expectedInputs.addAll(SymbolsExtractor.extractUnique(castToExpression(expression)));
+                    }
+                    else {
+                        expectedInputs.addAll(SymbolsExtractor.extractUnique(expression));
+                    }
                     builder.put(symbol, expression);
                 }
             });
@@ -779,12 +786,12 @@ public class PruneUnreferencedOutputs
             // extract symbols required subquery plan
             ImmutableSet.Builder<Symbol> subqueryAssignmentsSymbolsBuilder = ImmutableSet.builder();
             AssignmentsUtils.Builder subqueryAssignments = AssignmentsUtils.builder();
-            for (Map.Entry<Symbol, Expression> entry : node.getSubqueryAssignments().getMap().entrySet()) {
+            for (Map.Entry<Symbol, RowExpression> entry : node.getSubqueryAssignments().getMap().entrySet()) {
                 Symbol output = entry.getKey();
-                Expression expression = entry.getValue();
+                Expression expression = castToExpression(entry.getValue());
                 if (context.get().contains(output)) {
                     subqueryAssignmentsSymbolsBuilder.addAll(SymbolsExtractor.extractUnique(expression));
-                    subqueryAssignments.put(output, expression);
+                    subqueryAssignments.put(output, castToRowExpression(expression));
                 }
             }
 

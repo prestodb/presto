@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
@@ -336,13 +337,13 @@ class QueryPlanner
         for (Expression expression : expressions) {
             if (expression instanceof SymbolReference) {
                 Symbol symbol = Symbol.from(expression);
-                projections.put(symbol, expression);
+                projections.put(symbol, castToRowExpression(expression));
                 outputTranslations.put(expression, symbol);
                 continue;
             }
 
             Symbol symbol = symbolAllocator.newSymbol(expression, analysis.getTypeWithCoercions(expression));
-            projections.put(symbol, subPlan.rewrite(expression));
+            projections.put(symbol, castToRowExpression(subPlan.rewrite(expression)));
             outputTranslations.put(expression, symbol);
         }
 
@@ -353,9 +354,9 @@ class QueryPlanner
                 analysis.getParameters());
     }
 
-    private Map<Symbol, Expression> coerce(Iterable<? extends Expression> expressions, PlanBuilder subPlan, TranslationMap translations)
+    private Map<Symbol, RowExpression> coerce(Iterable<? extends Expression> expressions, PlanBuilder subPlan, TranslationMap translations)
     {
-        ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
+        ImmutableMap.Builder<Symbol, RowExpression> projections = ImmutableMap.builder();
 
         for (Expression expression : expressions) {
             Type type = analysis.getType(expression);
@@ -369,7 +370,7 @@ class QueryPlanner
                         false,
                         metadata.getTypeManager().isTypeOnlyCoercion(type, coercion));
             }
-            projections.put(symbol, rewritten);
+            projections.put(symbol, castToRowExpression(rewritten));
             translations.put(expression, symbol);
         }
 
@@ -388,13 +389,13 @@ class QueryPlanner
                 // If this is an identity projection, no need to rewrite it
                 // This is needed because certain synthetic identity expressions such as "group id" introduced when planning GROUPING
                 // don't have a corresponding analysis, so the code below doesn't work for them
-                projections.put(Symbol.from(expression), expression);
+                projections.put(Symbol.from(expression), castToRowExpression(expression));
                 continue;
             }
 
             Symbol symbol = symbolAllocator.newSymbol(expression, analysis.getType(expression));
             Expression rewritten = subPlan.rewrite(expression);
-            projections.put(symbol, rewritten);
+            projections.put(symbol, castToRowExpression(rewritten));
             translations.put(expression, symbol);
         }
 
@@ -534,7 +535,7 @@ class QueryPlanner
         else {
             AssignmentsUtils.Builder assignments = AssignmentsUtils.builder();
             aggregationArguments.forEach(assignments::putIdentity);
-            groupingSetMappings.forEach((key, value) -> assignments.put(key, value.toSymbolReference()));
+            groupingSetMappings.forEach((key, value) -> assignments.put(key, castToRowExpression(value.toSymbolReference())));
 
             ProjectNode project = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build());
             subPlan = new PlanBuilder(groupingTranslations, project, analysis.getParameters());
@@ -681,7 +682,7 @@ class QueryPlanner
                         false,
                         metadata.getTypeManager().isTypeOnlyCoercion(analysis.getType(groupingOperation), coercion));
             }
-            projections.put(symbol, rewritten);
+            projections.put(symbol, castToRowExpression(rewritten));
             newTranslations.put(groupingOperation, symbol);
         }
 

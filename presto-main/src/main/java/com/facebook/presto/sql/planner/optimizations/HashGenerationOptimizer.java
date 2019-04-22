@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
@@ -79,6 +80,8 @@ import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -625,7 +628,7 @@ public class HashGenerationOptimizer
                 else {
                     hashExpression = hashSymbol.toSymbolReference();
                 }
-                newAssignments.put(hashSymbol, hashExpression);
+                newAssignments.put(hashSymbol, castToRowExpression(hashExpression));
                 allHashSymbols.put(hashComputation, hashSymbol);
             }
 
@@ -722,7 +725,7 @@ public class HashGenerationOptimizer
             for (Symbol symbol : planWithProperties.getNode().getOutputSymbols()) {
                 HashComputation partitionSymbols = resultHashSymbols.get(symbol);
                 if (partitionSymbols == null || requiredHashes.getHashes().contains(partitionSymbols)) {
-                    assignments.put(symbol, symbol.toSymbolReference());
+                    assignments.put(symbol, castToRowExpression(symbol.toSymbolReference()));
 
                     if (partitionSymbols != null) {
                         outputHashSymbols.put(partitionSymbols, symbol);
@@ -735,7 +738,7 @@ public class HashGenerationOptimizer
                 if (!planWithProperties.getHashSymbols().containsKey(hashComputation)) {
                     Expression hashExpression = hashComputation.getHashExpression();
                     Symbol hashSymbol = symbolAllocator.newHashSymbol();
-                    assignments.put(hashSymbol, hashExpression);
+                    assignments.put(hashSymbol, castToRowExpression(hashExpression));
                     outputHashSymbols.put(hashComputation, hashSymbol);
                 }
             }
@@ -969,12 +972,12 @@ public class HashGenerationOptimizer
         }
     }
 
-    private static Map<Symbol, Symbol> computeIdentityTranslations(Map<Symbol, Expression> assignments)
+    private static Map<Symbol, Symbol> computeIdentityTranslations(Map<Symbol, RowExpression> assignments)
     {
         Map<Symbol, Symbol> outputToInput = new HashMap<>();
-        for (Map.Entry<Symbol, Expression> assignment : assignments.entrySet()) {
-            if (assignment.getValue() instanceof SymbolReference) {
-                outputToInput.put(assignment.getKey(), Symbol.from(assignment.getValue()));
+        for (Map.Entry<Symbol, RowExpression> assignment : assignments.entrySet()) {
+            if (castToExpression(assignment.getValue()) instanceof SymbolReference) {
+                outputToInput.put(assignment.getKey(), Symbol.from(castToExpression(assignment.getValue())));
             }
         }
         return outputToInput;

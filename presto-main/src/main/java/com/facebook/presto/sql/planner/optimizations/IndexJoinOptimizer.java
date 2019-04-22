@@ -327,8 +327,8 @@ public class IndexJoinOptimizer
             // Rewrite the lookup symbols in terms of only the pre-projected symbols that have direct translations
             Set<Symbol> newLookupSymbols = context.get().getLookupSymbols().stream()
                     .map(node.getAssignments()::get)
-                    .filter(SymbolReference.class::isInstance)
-                    .map(Symbol::from)
+                    .filter(value -> castToExpression(value) instanceof SymbolReference)
+                    .map(value -> Symbol.from(castToExpression(value)))
                     .collect(toImmutableSet());
 
             if (newLookupSymbols.isEmpty()) {
@@ -486,7 +486,9 @@ public class IndexJoinOptimizer
             public Map<Symbol, Symbol> visitProject(ProjectNode node, Set<Symbol> lookupSymbols)
             {
                 // Map from output Symbols to source Symbols
-                Map<Symbol, Symbol> directSymbolTranslationOutputMap = Maps.transformValues(Maps.filterValues(node.getAssignments().getMap(), SymbolReference.class::isInstance), Symbol::from);
+                Map<Symbol, Symbol> directSymbolTranslationOutputMap = Maps.transformValues(
+                        Maps.filterValues(node.getAssignments().getMap(), value -> (castToExpression(value) instanceof SymbolReference)),
+                        value -> Symbol.from(castToExpression(value)));
                 Map<Symbol, Symbol> outputToSourceMap = lookupSymbols.stream()
                         .filter(directSymbolTranslationOutputMap.keySet()::contains)
                         .collect(toImmutableMap(identity(), directSymbolTranslationOutputMap::get));

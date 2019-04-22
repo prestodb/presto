@@ -603,8 +603,8 @@ public class UnaliasSymbolReferences
         {
             Map<Expression, Symbol> computedExpressions = new HashMap<>();
             AssignmentsUtils.Builder assignments = AssignmentsUtils.builder();
-            for (Map.Entry<Symbol, Expression> entry : oldAssignments.getMap().entrySet()) {
-                Expression expression = canonicalize(entry.getValue());
+            for (Map.Entry<Symbol, RowExpression> entry : oldAssignments.getMap().entrySet()) {
+                Expression expression = canonicalize(castToExpression(entry.getValue()));
 
                 if (expression instanceof SymbolReference) {
                     // Always map a trivial symbol projection
@@ -629,7 +629,7 @@ public class UnaliasSymbolReferences
                 }
 
                 Symbol canonical = canonicalize(entry.getKey());
-                assignments.put(canonical, expression);
+                assignments.put(canonical, castToRowExpression(expression));
             }
             return assignments.build();
         }

@@ -67,6 +67,7 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupin
 import static com.facebook.presto.sql.planner.plan.Patterns.Apply.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -118,7 +119,7 @@ public class TransformCorrelatedInPredicateToJoin
         if (subqueryAssignments.size() != 1) {
             return Result.empty();
         }
-        Expression assignmentExpression = getOnlyElement(subqueryAssignments.getExpressions());
+        Expression assignmentExpression = castToExpression(getOnlyElement(subqueryAssignments.getExpressions()));
         if (!(assignmentExpression instanceof InPredicate)) {
             return Result.empty();
         }
@@ -177,7 +178,7 @@ public class TransformCorrelatedInPredicateToJoin
                 decorrelatedBuildSource,
                 AssignmentsUtils.builder()
                         .putIdentities(decorrelatedBuildSource.getOutputSymbols())
-                        .put(buildSideKnownNonNull, bigint(0))
+                        .put(buildSideKnownNonNull, castToRowExpression(bigint(0)))
                         .build());
 
         Symbol probeSideSymbol = Symbol.from(inPredicate.getValue());
@@ -227,7 +228,7 @@ public class TransformCorrelatedInPredicateToJoin
                 aggregation,
                 AssignmentsUtils.builder()
                         .putIdentities(apply.getInput().getOutputSymbols())
-                        .put(inPredicateOutputSymbol, inPredicateEquivalent)
+                        .put(inPredicateOutputSymbol, castToRowExpression(inPredicateEquivalent))
                         .build());
     }
 

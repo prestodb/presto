@@ -199,7 +199,7 @@ class SubqueryPlanner
 
         subPlan.getTranslations().put(inPredicate, inPredicateSubquerySymbol);
 
-        return appendApplyNode(subPlan, inPredicate, subqueryPlan.getRoot(), AssignmentsUtils.of(inPredicateSubquerySymbol, inPredicateSubqueryExpression), correlationAllowed);
+        return appendApplyNode(subPlan, inPredicate, subqueryPlan.getRoot(), AssignmentsUtils.of(inPredicateSubquerySymbol, castToRowExpression(inPredicateSubqueryExpression)), correlationAllowed);
     }
 
     private PlanBuilder appendScalarSubqueryApplyNodes(PlanBuilder builder, Set<SubqueryExpression> scalarSubqueries, boolean correlationAllowed)
@@ -298,7 +298,7 @@ class SubqueryPlanner
                 subPlan,
                 existsPredicate.getSubquery(),
                 subqueryNode,
-                AssignmentsUtils.of(exists, rewrittenExistsPredicate),
+                AssignmentsUtils.of(exists, castToRowExpression(rewrittenExistsPredicate)),
                 correlationAllowed);
     }
 
@@ -396,7 +396,7 @@ class SubqueryPlanner
                 subPlan,
                 quantifiedComparison.getSubquery(),
                 subqueryPlan.getRoot(),
-                AssignmentsUtils.of(coercedQuantifiedComparisonSymbol, coercedQuantifiedComparison),
+                AssignmentsUtils.of(coercedQuantifiedComparisonSymbol, castToRowExpression(coercedQuantifiedComparison)),
                 correlationAllowed);
     }
 

@@ -97,7 +97,7 @@ public class ImplementFilteredAggregations
                 Expression filter = call.getFilter().get();
                 Symbol symbol = context.getSymbolAllocator().newSymbol(filter, BOOLEAN);
                 verify(!mask.isPresent(), "Expected aggregation without mask symbols, see Rule pattern");
-                newAssignments.put(symbol, filter);
+                newAssignments.put(symbol, castToRowExpression(filter));
                 mask = Optional.of(symbol);
 
                 maskSymbols.add(symbol.toSymbolReference());

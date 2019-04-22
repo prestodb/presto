@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.sanity;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
@@ -62,7 +63,6 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -258,8 +258,14 @@ public final class ValidateDependenciesChecker
             source.accept(this, boundSymbols); // visit child
 
             Set<Symbol> inputs = createInputs(source, boundSymbols);
-            for (Expression expression : node.getAssignments().getExpressions()) {
-                Set<Symbol> dependencies = SymbolsExtractor.extractUnique(expression);
+            for (RowExpression expression : node.getAssignments().getExpressions()) {
+                Set<Symbol> dependencies;
+                if (isExpression(expression)) {
+                    dependencies = SymbolsExtractor.extractUnique(castToExpression(expression));
+                }
+                else {
+                    dependencies = SymbolsExtractor.extractUnique(expression);
+                }
                 checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
             }
 
@@ -626,8 +632,14 @@ public final class ValidateDependenciesChecker
                     .addAll(createInputs(node.getInput(), boundSymbols))
                     .build();
 
-            for (Expression expression : node.getSubqueryAssignments().getExpressions()) {
-                Set<Symbol> dependencies = SymbolsExtractor.extractUnique(expression);
+            for (RowExpression expression : node.getSubqueryAssignments().getExpressions()) {
+                Set<Symbol> dependencies;
+                if (isExpression(expression)) {
+                    dependencies = SymbolsExtractor.extractUnique(castToExpression(expression));
+                }
+                else {
+                    dependencies = SymbolsExtractor.extractUnique(expression);
+                }
                 checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
             }
 

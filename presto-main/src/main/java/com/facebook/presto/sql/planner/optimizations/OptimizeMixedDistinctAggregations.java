@@ -56,6 +56,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.SystemSessionProperties.isOptimizeDistinctAggregationEnabled;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -204,7 +205,7 @@ public class OptimizeMixedDistinctAggregations
             for (Symbol symbol : aggregationNode.getOutputSymbols()) {
                 if (coalesceSymbols.containsKey(symbol)) {
                     Expression expression = new CoalesceExpression(symbol.toSymbolReference(), new Cast(new LongLiteral("0"), "bigint"));
-                    outputSymbols.put(coalesceSymbols.get(symbol), expression);
+                    outputSymbols.put(coalesceSymbols.get(symbol), castToRowExpression(expression));
                 }
                 else {
                     outputSymbols.putIdentity(symbol);
@@ -334,7 +335,7 @@ public class OptimizeMixedDistinctAggregations
                             ComparisonExpression.Operator.EQUAL,
                             symbol.toSymbolReference(),
                             symbolAllocator.getTypes().get(symbol));
-                    outputSymbols.put(newSymbol, expression);
+                    outputSymbols.put(newSymbol, castToRowExpression(expression));
                 }
                 else if (aggregationOutputSymbolsMap.containsKey(symbol)) {
                     Symbol newSymbol = symbolAllocator.newSymbol("expr", symbolAllocator.getTypes().get(symbol));
@@ -346,19 +347,19 @@ public class OptimizeMixedDistinctAggregations
                             ComparisonExpression.Operator.EQUAL,
                             symbol.toSymbolReference(),
                             symbolAllocator.getTypes().get(symbol));
-                    outputSymbols.put(newSymbol, expression);
+                    outputSymbols.put(newSymbol, castToRowExpression(expression));
                 }
 
                 // A symbol can appear both in groupBy and distinct/non-distinct aggregation
                 if (groupBySymbols.contains(symbol)) {
                     Expression expression = symbol.toSymbolReference();
-                    outputSymbols.put(symbol, expression);
+                    outputSymbols.put(symbol, castToRowExpression(expression));
                 }
             }
 
             // add null assignment for mask
             // unused mask will be removed by PruneUnreferencedOutputs
-            outputSymbols.put(aggregateInfo.getMask(), new NullLiteral());
+            outputSymbols.put(aggregateInfo.getMask(), castToRowExpression(new NullLiteral()));
 
             aggregateInfo.setNewNonDistinctAggregateSymbols(outputNonDistinctAggregateSymbols.build());
 

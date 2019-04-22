@@ -26,12 +26,15 @@ import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.OrderingScheme;
+import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
@@ -624,28 +627,49 @@ public class PropertyDerivations
 
             // Extract additional constants
             Map<Symbol, NullableValue> constants = new HashMap<>();
-            for (Map.Entry<Symbol, Expression> assignment : node.getAssignments().entrySet()) {
-                Expression expression = assignment.getValue();
+            for (Map.Entry<Symbol, RowExpression> assignment : node.getAssignments().entrySet()) {
+                RowExpression expression = assignment.getValue();
 
-                Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, parser, types, expression, emptyList(), WarningCollector.NOOP);
-                Type type = requireNonNull(expressionTypes.get(NodeRef.of(expression)));
-                ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
-                // TODO:
-                // We want to use a symbol resolver that looks up in the constants from the input subplan
-                // to take advantage of constant-folding for complex expressions
-                // However, that currently causes errors when those expressions operate on arrays or row types
-                // ("ROW comparison not supported for fields with null elements", etc)
-                Object value = optimizer.optimize(NoOpSymbolResolver.INSTANCE);
+                if (isExpression(expression)) {
+                    Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, parser, types, castToExpression(expression), emptyList(), WarningCollector.NOOP);
+                    Type type = requireNonNull(expressionTypes.get(NodeRef.of(castToExpression(expression))));
+                    ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(castToExpression(expression), metadata, session, expressionTypes);
+                    // TODO:
+                    // We want to use a symbol resolver that looks up in the constants from the input subplan
+                    // to take advantage of constant-folding for complex expressions
+                    // However, that currently causes errors when those expressions operate on arrays or row types
+                    // ("ROW comparison not supported for fields with null elements", etc)
+                    Object value = optimizer.optimize(NoOpSymbolResolver.INSTANCE);
 
-                if (value instanceof SymbolReference) {
-                    Symbol symbol = Symbol.from((SymbolReference) value);
-                    NullableValue existingConstantValue = constants.get(symbol);
-                    if (existingConstantValue != null) {
+                    if (value instanceof SymbolReference) {
+                        Symbol symbol = Symbol.from((SymbolReference) value);
+                        NullableValue existingConstantValue = constants.get(symbol);
+                        if (existingConstantValue != null) {
+                            constants.put(assignment.getKey(), new NullableValue(type, value));
+                        }
+                    }
+                    else if (!(value instanceof Expression)) {
                         constants.put(assignment.getKey(), new NullableValue(type, value));
                     }
                 }
-                else if (!(value instanceof Expression)) {
-                    constants.put(assignment.getKey(), new NullableValue(type, value));
+                else {
+                    // TODO:
+                    // We want to use a symbol resolver that looks up in the constants from the input subplan
+                    // to take advantage of constant-folding for complex expressions
+                    // However, that currently causes errors when those expressions operate on arrays or row types
+                    // ("ROW comparison not supported for fields with null elements", etc)
+                    Object value = new RowExpressionInterpreter(expression, metadata, session.toConnectorSession(), true).optimize();
+
+                    if (value instanceof VariableReferenceExpression) {
+                        Symbol symbol = new Symbol(((VariableReferenceExpression) value).getName());
+                        NullableValue existingConstantValue = constants.get(symbol);
+                        if (existingConstantValue != null) {
+                            constants.put(assignment.getKey(), new NullableValue(((VariableReferenceExpression) value).getType(), value));
+                        }
+                    }
+                    else if (!(value instanceof RowExpression)) {
+                        constants.put(assignment.getKey(), new NullableValue(expression.getType(), value));
+                    }
                 }
             }
             constants.putAll(translatedProperties.getConstants());
@@ -776,12 +800,20 @@ public class PropertyDerivations
             return Optional.of(ImmutableList.copyOf(builder.build()));
         }
 
-        private static Map<Symbol, Symbol> computeIdentityTranslations(Map<Symbol, Expression> assignments)
+        private static Map<Symbol, Symbol> computeIdentityTranslations(Map<Symbol, RowExpression> assignments)
         {
             Map<Symbol, Symbol> inputToOutput = new HashMap<>();
-            for (Map.Entry<Symbol, Expression> assignment : assignments.entrySet()) {
-                if (assignment.getValue() instanceof SymbolReference) {
-                    inputToOutput.put(Symbol.from(assignment.getValue()), assignment.getKey());
+            for (Map.Entry<Symbol, RowExpression> assignment : assignments.entrySet()) {
+                RowExpression expression = assignment.getValue();
+                if (isExpression(expression)) {
+                    if (castToExpression(expression) instanceof SymbolReference) {
+                        inputToOutput.put(Symbol.from(castToExpression(expression)), assignment.getKey());
+                    }
+                }
+                else {
+                    if (expression instanceof VariableReferenceExpression) {
+                        inputToOutput.put(new Symbol(((VariableReferenceExpression) expression).getName()), assignment.getKey());
+                    }
                 }
             }
             return inputToOutput;

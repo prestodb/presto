@@ -106,7 +106,7 @@ public class ExpressionExtractor
         @Override
         public Void visitProject(ProjectNode node, ImmutableList.Builder<RowExpression> context)
         {
-            context.addAll(node.getAssignments().getExpressions().stream().map(OriginalExpressionUtils::castToRowExpression).collect(toImmutableList()));
+            context.addAll(node.getAssignments().getExpressions().stream().collect(toImmutableList()));
             return super.visitProject(node, context);
         }
 
@@ -130,7 +130,6 @@ public class ExpressionExtractor
             context.addAll(node.getSubqueryAssignments()
                     .getExpressions()
                     .stream()
-                    .map(OriginalExpressionUtils::castToRowExpression)
                     .collect(toImmutableList()));
             return super.visitApply(node, context);
         }

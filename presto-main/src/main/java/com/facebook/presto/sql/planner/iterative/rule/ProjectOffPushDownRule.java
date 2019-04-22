@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
@@ -30,6 +31,7 @@ import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.pruneInputs;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
+import static java.util.stream.Collectors.toList;
 
 /**
  * @param <N> The node type to look for under the ProjectNode
@@ -60,7 +62,7 @@ public abstract class ProjectOffPushDownRule<N extends PlanNode>
     {
         N targetNode = captures.get(targetCapture);
 
-        return pruneInputs(targetNode.getOutputSymbols(), parent.getAssignments().getExpressions())
+        return pruneInputs(targetNode.getOutputSymbols(), parent.getAssignments().getExpressions().stream().map(OriginalExpressionUtils::castToExpression).collect(toList()))
                 .flatMap(prunedOutputs -> this.pushDownProjectOff(context.getIdAllocator(), targetNode, prunedOutputs))
                 .map(newChild -> parent.replaceChildren(ImmutableList.of(newChild)))
                 .map(Result::ofPlanNode)

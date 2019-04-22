@@ -109,6 +109,7 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.FunctionType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.PartitioningSpillerFactory;
@@ -273,7 +274,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.DiscreteDomain.integers;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Range.closedOpen;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -1143,7 +1143,12 @@ public class LocalExecutionPlanner
             RowExpression filterExpression = node.getPredicate();
             List<Symbol> outputSymbols = node.getOutputSymbols();
 
-            return visitScanFilterAndProject(context, node.getId(), sourceNode, Optional.of(filterExpression), AssignmentsUtils.identity(outputSymbols), outputSymbols);
+            AssignmentsUtils.Builder identities = AssignmentsUtils.builder();
+            for (Symbol symbol : outputSymbols) {
+                Type type = requireNonNull(context.getTypes().get(symbol), format("No type for symbol %s", symbol));
+                identities.put(symbol, new VariableReferenceExpression(symbol.getName(), type));
+            }
+            return visitScanFilterAndProject(context, node.getId(), sourceNode, Optional.of(filterExpression), identities.build(), outputSymbols);
         }
 
         @Override
@@ -1218,30 +1223,15 @@ public class LocalExecutionPlanner
             Map<Symbol, Integer> outputMappings = outputMappingsBuilder.build();
 
             // compiler uses inputs instead of symbols, so rewrite the expressions first
-
-            List<Expression> projections = new ArrayList<>();
-            for (Symbol symbol : outputSymbols) {
-                projections.add(assignments.get(symbol));
-            }
-
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
-                    context.getSession(),
-                    metadata,
-                    sqlParser,
-                    context.getTypes(),
-                    concat(assignments.getExpressions()),
-                    emptyList(),
-                    NOOP,
-                    false);
-
-            List<RowExpression> translatedProjections = projections.stream()
-                    .map(expression -> toRowExpression(expression, expressionTypes, sourceLayout))
+            List<RowExpression> projections = outputSymbols.stream()
+                    .map(assignments::get)
+                    .map(expression -> bindChannels(expression, sourceLayout))
                     .collect(toImmutableList());
 
             try {
                 if (columns != null) {
-                    Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(filterExpression, translatedProjections, sourceNode.getId());
-                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(filterExpression, translatedProjections, Optional.of(context.getStageId() + "_" + planNodeId));
+                    Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(filterExpression, projections, sourceNode.getId());
+                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(filterExpression, projections, Optional.of(context.getStageId() + "_" + planNodeId));
 
                     SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
@@ -1251,20 +1241,20 @@ public class LocalExecutionPlanner
                             cursorProcessor,
                             pageProcessor,
                             columns,
-                            getTypes(projections, expressionTypes),
+                            projections.stream().map(RowExpression::getType).collect(toImmutableList()),
                             getFilterAndProjectMinOutputPageSize(session),
                             getFilterAndProjectMinOutputPageRowCount(session));
 
                     return new PhysicalOperation(operatorFactory, outputMappings, context, stageExecutionDescriptor.isScanGroupedExecution(sourceNode.getId()) ? GROUPED_EXECUTION : UNGROUPED_EXECUTION);
                 }
                 else {
-                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(filterExpression, translatedProjections, Optional.of(context.getStageId() + "_" + planNodeId));
+                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(filterExpression, projections, Optional.of(context.getStageId() + "_" + planNodeId));
 
                     OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
                             planNodeId,
                             pageProcessor,
-                            getTypes(projections, expressionTypes),
+                            projections.stream().map(RowExpression::getType).collect(toImmutableList()),
                             getFilterAndProjectMinOutputPageSize(session),
                             getFilterAndProjectMinOutputPageRowCount(session));
 
@@ -2794,14 +2784,6 @@ public class LocalExecutionPlanner
                         useSystemMemory);
             }
         }
-    }
-
-    private static List<Type> getTypes(List<Expression> expressions, Map<NodeRef<Expression>, Type> expressionTypes)
-    {
-        return expressions.stream()
-                .map(NodeRef::of)
-                .map(expressionTypes::get)
-                .collect(toImmutableList());
     }
 
     private static TableFinisher createTableFinisher(Session session, TableFinishNode node, Metadata metadata)

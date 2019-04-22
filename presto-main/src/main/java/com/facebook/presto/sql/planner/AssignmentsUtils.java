@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -27,6 +28,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collector;
 
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Arrays.asList;
 
@@ -53,7 +56,7 @@ public class AssignmentsUtils
         return builder().putIdentities(symbols).build();
     }
 
-    public static Assignments copyOf(Map<Symbol, Expression> assignments)
+    public static Assignments copyOf(Map<Symbol, RowExpression> assignments)
     {
         return builder()
                 .putAll(assignments)
@@ -65,12 +68,12 @@ public class AssignmentsUtils
         return builder().build();
     }
 
-    public static Assignments of(Symbol symbol, Expression expression)
+    public static Assignments of(Symbol symbol, RowExpression expression)
     {
         return builder().put(symbol, expression).build();
     }
 
-    public static Assignments of(Symbol symbol1, Expression expression1, Symbol symbol2, Expression expression2)
+    public static Assignments of(Symbol symbol1, RowExpression expression1, Symbol symbol2, RowExpression expression2)
     {
         return builder().put(symbol1, expression1).put(symbol2, expression2).build();
     }
@@ -84,7 +87,7 @@ public class AssignmentsUtils
     public static Assignments rewrite(Assignments assignments, Function<Expression, Expression> rewrite)
     {
         return assignments.entrySet().stream()
-                .map(entry -> Maps.immutableEntry(entry.getKey(), rewrite.apply(entry.getValue())))
+                .map(entry -> Maps.immutableEntry(entry.getKey(), castToRowExpression(rewrite.apply(castToExpression(entry.getValue())))))
                 .collect(toAssignments());
     }
 
@@ -102,12 +105,12 @@ public class AssignmentsUtils
 
     public static boolean isIdentity(Assignments assignments, Symbol output)
     {
-        Expression expression = assignments.get(output);
+        Expression expression = castToExpression(assignments.get(output));
 
         return expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(output.getName());
     }
 
-    private static Collector<Map.Entry<Symbol, Expression>, Builder, Assignments> toAssignments()
+    private static Collector<Map.Entry<Symbol, RowExpression>, Builder, Assignments> toAssignments()
     {
         return Collector.of(
                 AssignmentsUtils::builder,
@@ -122,25 +125,25 @@ public class AssignmentsUtils
     // Originally, the following class is also static
     public static class Builder
     {
-        private final Map<Symbol, Expression> assignments = new LinkedHashMap<>();
+        private final Map<Symbol, RowExpression> assignments = new LinkedHashMap<>();
 
         public Builder putAll(Assignments assignments)
         {
             return putAll(assignments.getMap());
         }
 
-        public Builder putAll(Map<Symbol, Expression> assignments)
+        public Builder putAll(Map<Symbol, RowExpression> assignments)
         {
-            for (Map.Entry<Symbol, Expression> assignment : assignments.entrySet()) {
+            for (Map.Entry<Symbol, RowExpression> assignment : assignments.entrySet()) {
                 put(assignment.getKey(), assignment.getValue());
             }
             return this;
         }
 
-        public Builder put(Symbol symbol, Expression expression)
+        public Builder put(Symbol symbol, RowExpression expression)
         {
             if (assignments.containsKey(symbol)) {
-                Expression assignment = assignments.get(symbol);
+                RowExpression assignment = assignments.get(symbol);
                 checkState(
                         assignment.equals(expression),
                         "Symbol %s already has assignment %s, while adding %s",
@@ -152,7 +155,7 @@ public class AssignmentsUtils
             return this;
         }
 
-        public Builder put(Map.Entry<Symbol, Expression> assignment)
+        public Builder put(Map.Entry<Symbol, RowExpression> assignment)
         {
             put(assignment.getKey(), assignment.getValue());
             return this;
@@ -168,7 +171,7 @@ public class AssignmentsUtils
 
         public Builder putIdentity(Symbol symbol)
         {
-            put(symbol, symbol.toSymbolReference());
+            put(symbol, castToRowExpression(symbol.toSymbolReference()));
             return this;
         }
 

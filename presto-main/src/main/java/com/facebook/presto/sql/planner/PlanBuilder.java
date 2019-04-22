@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static java.util.Objects.requireNonNull;
 
 class PlanBuilder
@@ -96,13 +97,13 @@ class PlanBuilder
 
         // add an identity projection for underlying plan
         for (Symbol symbol : getRoot().getOutputSymbols()) {
-            projections.put(symbol, symbol.toSymbolReference());
+            projections.put(symbol, castToRowExpression(symbol.toSymbolReference()));
         }
 
         ImmutableMap.Builder<Symbol, Expression> newTranslations = ImmutableMap.builder();
         for (Expression expression : expressions) {
             Symbol symbol = symbolAllocator.newSymbol(expression, getAnalysis().getTypeWithCoercions(expression));
-            projections.put(symbol, translations.rewrite(expression));
+            projections.put(symbol, castToRowExpression(translations.rewrite(expression)));
             newTranslations.put(symbol, expression);
         }
         // Now append the new translations into the TranslationMap

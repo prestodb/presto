@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -20,14 +21,16 @@ import com.facebook.presto.sql.tree.SymbolReference;
 
 import java.util.Map;
 
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+
 public class ProjectNodeUtils
 {
     private ProjectNodeUtils() {}
 
     public static boolean isIdentity(ProjectNode projectNode)
     {
-        for (Map.Entry<Symbol, Expression> entry : projectNode.getAssignments().entrySet()) {
-            Expression expression = entry.getValue();
+        for (Map.Entry<Symbol, RowExpression> entry : projectNode.getAssignments().entrySet()) {
+            Expression expression = castToExpression(entry.getValue());
             Symbol symbol = entry.getKey();
             if (!(expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(symbol.getName()))) {
                 return false;

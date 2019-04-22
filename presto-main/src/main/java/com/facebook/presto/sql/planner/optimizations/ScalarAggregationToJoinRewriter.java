@@ -47,6 +47,7 @@ import java.util.Set;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -82,7 +83,7 @@ public class ScalarAggregationToJoinRewriter
         Symbol nonNull = symbolAllocator.newSymbol("non_null", BooleanType.BOOLEAN);
         Assignments scalarAggregationSourceAssignments = AssignmentsUtils.builder()
                 .putIdentities(source.get().getNode().getOutputSymbols())
-                .put(nonNull, TRUE_LITERAL)
+                .put(nonNull, castToRowExpression(TRUE_LITERAL))
                 .build();
         ProjectNode scalarAggregationSourceWithNonNullableSymbol = new ProjectNode(
                 idAllocator.getNextId(),

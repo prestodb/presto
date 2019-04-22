@@ -38,6 +38,7 @@ import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static java.util.Objects.requireNonNull;
 
 public class SimplifyCountOverConstant
@@ -106,7 +107,7 @@ public class SimplifyCountOverConstant
 
         Expression argument = aggregation.getCall().getArguments().get(0);
         if (argument instanceof SymbolReference) {
-            argument = inputs.get(Symbol.from(argument));
+            argument = castToExpression(inputs.get(Symbol.from(argument)));
         }
 
         return argument instanceof Literal && !(argument instanceof NullLiteral);

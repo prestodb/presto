@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -24,6 +25,7 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
@@ -40,6 +42,8 @@ import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutput
 import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 
 /**
  * Transforms:
@@ -97,13 +101,13 @@ public class PushProjectionThroughExchange
                     .map(outputToInputMap::get)
                     .forEach(nameReference -> {
                         Symbol symbol = Symbol.from(nameReference);
-                        projections.put(symbol, nameReference);
+                        projections.put(symbol, castToRowExpression(nameReference));
                         inputs.add(symbol);
                     });
 
             if (exchange.getPartitioningScheme().getHashColumn().isPresent()) {
                 // Need to retain the hash symbol for the exchange
-                projections.put(exchange.getPartitioningScheme().getHashColumn().get(), exchange.getPartitioningScheme().getHashColumn().get().toSymbolReference());
+                projections.put(exchange.getPartitioningScheme().getHashColumn().get(), castToRowExpression(exchange.getPartitioningScheme().getHashColumn().get().toSymbolReference()));
                 inputs.add(exchange.getPartitioningScheme().getHashColumn().get());
             }
 
@@ -115,16 +119,16 @@ public class PushProjectionThroughExchange
                         .map(outputToInputMap::get)
                         .forEach(nameReference -> {
                             Symbol symbol = Symbol.from(nameReference);
-                            projections.put(symbol, nameReference);
+                            projections.put(symbol, castToRowExpression(nameReference));
                             inputs.add(symbol);
                         });
             }
 
-            for (Map.Entry<Symbol, Expression> projection : project.getAssignments().entrySet()) {
-                Expression translatedExpression = inlineSymbols(outputToInputMap, projection.getValue());
+            for (Map.Entry<Symbol, RowExpression> projection : project.getAssignments().entrySet()) {
+                Expression translatedExpression = inlineSymbols(outputToInputMap, castToExpression(projection.getValue()));
                 Type type = context.getSymbolAllocator().getTypes().get(projection.getKey());
                 Symbol symbol = context.getSymbolAllocator().newSymbol(translatedExpression, type);
-                projections.put(symbol, translatedExpression);
+                projections.put(symbol, castToRowExpression(translatedExpression));
                 inputs.add(symbol);
             }
             newSourceBuilder.add(new ProjectNode(context.getIdAllocator().getNextId(), exchange.getSources().get(i), projections.build()));
@@ -140,7 +144,7 @@ public class PushProjectionThroughExchange
                     .filter(symbol -> !partitioningColumns.contains(symbol))
                     .forEach(outputBuilder::add);
         }
-        for (Map.Entry<Symbol, Expression> projection : project.getAssignments().entrySet()) {
+        for (Map.Entry<Symbol, RowExpression> projection : project.getAssignments().entrySet()) {
             outputBuilder.add(projection.getKey());
         }
 
@@ -167,7 +171,7 @@ public class PushProjectionThroughExchange
 
     private static boolean isSymbolToSymbolProjection(ProjectNode project)
     {
-        return project.getAssignments().getExpressions().stream().allMatch(e -> e instanceof SymbolReference);
+        return project.getAssignments().getExpressions().stream().map(OriginalExpressionUtils::castToExpression).allMatch(e -> e instanceof SymbolReference);
     }
 
     private static Map<Symbol, SymbolReference> extractExchangeOutputToInput(ExchangeNode exchange, int sourceIndex)

@@ -47,6 +47,8 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggrega
 import static com.facebook.presto.sql.planner.plan.LateralJoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.LateralJoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static com.google.common.base.Preconditions.checkState;
@@ -101,7 +103,7 @@ public class TransformExistsApplyToLateralNode
             return Result.empty();
         }
 
-        Expression expression = getOnlyElement(parent.getSubqueryAssignments().getExpressions());
+        Expression expression = castToExpression(getOnlyElement(parent.getSubqueryAssignments().getExpressions()));
         if (!(expression instanceof ExistsPredicate)) {
             return Result.empty();
         }
@@ -121,7 +123,7 @@ public class TransformExistsApplyToLateralNode
 
         AssignmentsUtils.Builder assignments = AssignmentsUtils.builder();
         assignments.putIdentities(applyNode.getInput().getOutputSymbols());
-        assignments.put(exists, new CoalesceExpression(ImmutableList.of(subqueryTrue.toSymbolReference(), BooleanLiteral.FALSE_LITERAL)));
+        assignments.put(exists, castToRowExpression(new CoalesceExpression(ImmutableList.of(subqueryTrue.toSymbolReference(), BooleanLiteral.FALSE_LITERAL))));
 
         PlanNode subquery = new ProjectNode(
                 context.getIdAllocator().getNextId(),
@@ -130,7 +132,7 @@ public class TransformExistsApplyToLateralNode
                         applyNode.getSubquery(),
                         1L,
                         false),
-                AssignmentsUtils.of(subqueryTrue, TRUE_LITERAL));
+                AssignmentsUtils.of(subqueryTrue, castToRowExpression(TRUE_LITERAL)));
 
         PlanNodeDecorrelator decorrelator = new PlanNodeDecorrelator(context.getIdAllocator(), context.getLookup());
         if (!decorrelator.decorrelateFilters(subquery, applyNode.getCorrelation()).isPresent()) {
@@ -170,7 +172,7 @@ public class TransformExistsApplyToLateralNode
                                 AggregationNode.Step.SINGLE,
                                 Optional.empty(),
                                 Optional.empty()),
-                        AssignmentsUtils.of(exists, new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), BIGINT.toString())))),
+                        AssignmentsUtils.of(exists, castToRowExpression(new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), BIGINT.toString()))))),
                 parent.getCorrelation(),
                 INNER,
                 parent.getOriginSubqueryError());

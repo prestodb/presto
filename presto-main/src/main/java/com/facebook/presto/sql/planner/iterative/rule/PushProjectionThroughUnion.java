@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.AssignmentsUtils;
 import com.facebook.presto.sql.planner.Symbol;
@@ -38,6 +39,8 @@ import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineSymb
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.union;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 
 public class PushProjectionThroughUnion
         implements Rule<ProjectNode>
@@ -75,11 +78,11 @@ public class PushProjectionThroughUnion
             Map<Symbol, Symbol> projectSymbolMapping = new HashMap<>();
 
             // Translate the assignments in the ProjectNode using symbols of the source of the UnionNode
-            for (Map.Entry<Symbol, Expression> entry : parent.getAssignments().entrySet()) {
-                Expression translatedExpression = inlineSymbols(outputToInput, entry.getValue());
+            for (Map.Entry<Symbol, RowExpression> entry : parent.getAssignments().entrySet()) {
+                Expression translatedExpression = inlineSymbols(outputToInput, castToExpression(entry.getValue()));
                 Type type = context.getSymbolAllocator().getTypes().get(entry.getKey());
                 Symbol symbol = context.getSymbolAllocator().newSymbol(translatedExpression, type);
-                assignments.put(symbol, translatedExpression);
+                assignments.put(symbol, castToRowExpression(translatedExpression));
                 projectSymbolMapping.put(entry.getKey(), symbol);
             }
             outputSources.add(new ProjectNode(context.getIdAllocator().getNextId(), source.getSources().get(i), assignments.build()));
