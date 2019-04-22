@@ -17,11 +17,11 @@ import com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePriv
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
-import com.facebook.presto.spi.security.RowLevelSecurityResponse;
 import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
@@ -172,7 +172,7 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public RowLevelSecurityResponse performRowLevelAuthorization(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columns)
+    public RowExpression performRowLevelAuthorization(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columns)
     {
         // TODO : Implement row level permissions
         return null;

@@ -34,21 +34,19 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCode;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.predicate.SpiExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.security.RowLevelSecurityResponse;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
-import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.relational.RowExpressionToSqlTranslator;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
@@ -271,23 +269,24 @@ class StatementAnalyzer
                     Map<Analysis.AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = analysis.getTableColumnReferences();
                     Set<String> accessedColumns = tableColumnReferences.get(accessControlInfo).get(tableName);
                     ImmutableList<SelectItem> selectItems = accessedColumns.stream().map(accessedColumn -> (SelectItem) new SingleColumn(new Identifier(accessedColumn))).collect(toImmutableList());
-                    RowLevelSecurityResponse response = accessControlInfo.getAccessControl().performRowLevelAuthorization(
+                    RowExpression rowExpression = accessControlInfo.getAccessControl().performRowLevelAuthorization(
                             session.getRequiredTransactionId(),
                             accessControlInfo.getIdentity(),
                             tableName,
                             accessedColumns);
-                    if (response == null) {
+                    if (rowExpression == null) {
                         return;
                     }
-                    SpiExpression expression = response.getSpiExpression();
-                    String warning = response.getWarning();
+                    Expression expr = RowExpressionToSqlTranslator.translate(rowExpression);
+                    //                    SpiExpression expression = response.getSpiExpression();
+                    String warning = ""; // TODO
                     int numWarnings = warningCollector.getWarnings().size() + 1;
                     //TODO Warning code
                     String warningMessage = "Row Level security applied on table, " + tableName + " for user, " + accessControlInfo.getIdentity().getUser() + " : " + warning;
                     warningCollector.add(new PrestoWarning(new WarningCode(numWarnings, "CODE_" + numWarnings), warningMessage));
-                    LiteralEncoder literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
-                    ExpressionDomainTranslator domainTranslator = new ExpressionDomainTranslator(literalEncoder);
-                    Expression expr = domainTranslator.toPredicateFromSpiExpression(expression);
+                    //                    LiteralEncoder literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
+                    //                    ExpressionDomainTranslator domainTranslator = new ExpressionDomainTranslator(literalEncoder);
+                    //                    Expression expr = domainTranslator.toPredicateFromSpiExpression(expression);
                     nodeRefs.forEach(nodeRef -> {
                         Table table = (Table) nodeRef.getNode();
                         QuerySpecification querySpec =

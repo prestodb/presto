@@ -14,10 +14,10 @@
 package com.facebook.presto.spi.connector;
 
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
-import com.facebook.presto.spi.security.RowLevelSecurityResponse;
 
 import java.util.Optional;
 import java.util.Set;
@@ -336,7 +336,7 @@ public interface ConnectorAccessControl
     /**
      * Check the row level access restrictions for the identity.  The column set can be empty.
      */
-    default RowLevelSecurityResponse performRowLevelAuthorization(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columns)
+    default RowExpression performRowLevelAuthorization(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columns)
     {
         return null;
     }

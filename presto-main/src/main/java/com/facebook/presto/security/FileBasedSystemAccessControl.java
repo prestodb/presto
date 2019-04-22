@@ -18,10 +18,10 @@ import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
-import com.facebook.presto.spi.security.RowLevelSecurityResponse;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.google.common.collect.ImmutableList;
@@ -315,7 +315,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public RowLevelSecurityResponse performRowLevelAuthorization(Identity identity, CatalogSchemaTableName table, Set<String> columns)
+    public RowExpression performRowLevelAuthorization(Identity identity, CatalogSchemaTableName table, Set<String> columns)
     {
         return null;
     }

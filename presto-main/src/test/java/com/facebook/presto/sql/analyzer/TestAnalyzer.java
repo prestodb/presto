@@ -47,17 +47,18 @@ import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.Range;
-import com.facebook.presto.spi.predicate.SpiUnaryExpression;
-import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
-import com.facebook.presto.spi.security.RowLevelSecurityResponse;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -73,6 +74,7 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -1557,20 +1559,20 @@ public class TestAnalyzer
     public void testRLS()
     {
         // Basic query
-        assertEquivalence("SELECT * FROM c4.s4.t8", "SELECT * FROM (SELECT a , b , c , d FROM c4.s4.t8 WHERE (a = BIGINT '2') )");
+        assertEquivalence("SELECT * FROM c4.s4.t8", "SELECT * FROM (SELECT a , b , c , d FROM c4.s4.t8 WHERE (a IN (2)) )");
         // Table in WHERE clause
         assertEquivalence("SELECT a FROM c4.s4.t8 WHERE b IN (SELECT b FROM c4.s4.t8)",
-                "SELECT a FROM (SELECT b FROM c4.s4.t8 WHERE (a = BIGINT '2') ) WHERE (b IN (SELECT b FROM (SELECT b FROM c4.s4.t8 WHERE (a = BIGINT '2') ) ))");
+                "SELECT a FROM (SELECT b FROM c4.s4.t8 WHERE (a IN (2)) ) WHERE (b IN (SELECT b FROM (SELECT b FROM c4.s4.t8 WHERE (a IN (2)) ) ))");
         // Order by and Limit
         assertEquivalence("SELECT a FROM c4.s4.t8 WHERE b IN (SELECT b FROM c4.s4.t8) ORDER BY a LIMIT 10",
-                "SELECT a FROM (SELECT b FROM c4.s4.t8 WHERE (a = BIGINT '2') ) WHERE (b IN (SELECT b FROM (SELECT b FROM c4.s4.t8 WHERE (a = BIGINT '2') ) )) ORDER BY a ASC LIMIT 10");
+                "SELECT a FROM (SELECT b FROM c4.s4.t8 WHERE (a IN (2)) ) WHERE (b IN (SELECT b FROM (SELECT b FROM c4.s4.t8 WHERE (a IN (2)) ) )) ORDER BY a ASC LIMIT 10");
         // Ensuring projection in the RLS rewrite contains all needed columns
-        assertEquivalence("SELECT a FROM c4.s4.t8 WHERE b = 10", "SELECT a FROM (SELECT a , b FROM c4.s4.t8 WHERE (a = BIGINT '2') ) WHERE (b = 10)");
+        assertEquivalence("SELECT a FROM c4.s4.t8 WHERE b = 10", "SELECT a FROM (SELECT a , b FROM c4.s4.t8 WHERE (a IN (2)) ) WHERE (b = 10)");
         // WITH query
-        assertEquivalence("WITH t1 AS (SELECT a FROM c4.s4.t8) SELECT * FROM t1", "WITH t1 AS ( SELECT a FROM ( SELECT a FROM c4.s4.t8 WHERE (a = BIGINT '2') ) ) SELECT * FROM t1");
+        assertEquivalence("WITH t1 AS (SELECT a FROM c4.s4.t8) SELECT * FROM t1", "WITH t1 AS ( SELECT a FROM ( SELECT a FROM c4.s4.t8 WHERE (a IN (2)) ) ) SELECT * FROM t1");
         // JOIN
         assertEquivalence("SELECT t1.b FROM c4.s4.t8 as t1 JOIN c4.s4.t9 as t2 ON t1.a = t2.a",
-                "SELECT t1.b FROM ( (SELECT a , b FROM c4.s4.t8 WHERE (a = BIGINT '2') ) t1 INNER JOIN c4.s4.t9 t2 ON (t1.a = t2.a))");
+                "SELECT t1.b FROM ( (SELECT a , b FROM c4.s4.t8 WHERE (a IN (2)) ) t1 INNER JOIN c4.s4.t9 t2 ON (t1.a = t2.a))");
         // INSERT
         assertEquivalence("INSERT INTO c4.s4.t8 VALUES (1, 2, 'abcd', array[1,2])", "INSERT INTO c4.s4.t8 VALUES ROW (1, 2, 'abcd', ARRAY[1,2])");
         // DELETE
@@ -2042,11 +2044,13 @@ public class TestAnalyzer
         }
 
         @Override
-        public RowLevelSecurityResponse performRowLevelAuthorization(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columns)
+        public RowExpression performRowLevelAuthorization(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columns)
         {
             if (identity.getUser().equals("user") && tableName.getSchemaName().equals("s4") && tableName.getTableName().equals("t8") && (columns.contains("a") || columns.contains("b"))) {
-                Domain domain = Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 2L)), false);
-                return new RowLevelSecurityResponse(new SpiUnaryExpression("a", domain), "");
+                List<RowExpression> values = new ArrayList<>();
+                values.add(new VariableReferenceExpression("a", BigintType.BIGINT));
+                values.add(new ConstantExpression(2L, BigintType.BIGINT));
+                return new SpecialFormExpression(SpecialFormExpression.Form.IN, BooleanType.BOOLEAN, values);
             }
             return null;
         }

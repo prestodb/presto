@@ -15,7 +15,6 @@ package com.facebook.presto.connector.thrift.api;
 
 import com.facebook.presto.connector.thrift.api.valuesets.PrestoThriftValueSet;
 import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
@@ -83,10 +82,5 @@ public final class PrestoThriftDomain
     public static PrestoThriftDomain fromDomain(Domain domain)
     {
         return new PrestoThriftDomain(fromValueSet(domain.getValues()), domain.isNullAllowed());
-    }
-
-    public static Domain toDomain(PrestoThriftDomain domain, Type type)
-    {
-        return Domain.create(PrestoThriftValueSet.toValueSet(domain.getValueSet(), type), domain.isNullAllowed());
     }
 }

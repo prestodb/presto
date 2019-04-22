@@ -16,6 +16,7 @@ package com.facebook.presto.spi.security;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.relation.RowExpression;
 
 import java.security.Principal;
 import java.util.Collections;
@@ -305,7 +306,7 @@ public interface SystemAccessControl
     /**
      * Check the row level access restrictions for the identity.  The column set can be empty.
      */
-    default RowLevelSecurityResponse performRowLevelAuthorization(Identity identity, CatalogSchemaTableName table, Set<String> columns)
+    default RowExpression performRowLevelAuthorization(Identity identity, CatalogSchemaTableName table, Set<String> columns)
     {
         return null;
     }

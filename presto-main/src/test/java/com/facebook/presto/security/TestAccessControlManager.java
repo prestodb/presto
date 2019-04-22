@@ -28,19 +28,20 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.Range;
-import com.facebook.presto.spi.predicate.SpiUnaryExpression;
-import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.BasicPrincipal;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
-import com.facebook.presto.spi.security.RowLevelSecurityResponse;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.testing.TestingConnectorContext;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.transaction.TransactionManager;
@@ -50,6 +51,8 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.security.Principal;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -58,11 +61,11 @@ import static com.facebook.presto.connector.ConnectorId.createInformationSchemaC
 import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestAccessControlManager
@@ -208,10 +211,14 @@ public class TestAccessControlManager
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    RowLevelSecurityResponse response = accessControlManager.performRowLevelAuthorization(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of("column"));
-                    assertEquals(((SpiUnaryExpression) response.getSpiExpression()).getDomain(), Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 2L)), false));
-                    assertEquals(response.getWarning(), "warn");
-                    RowLevelSecurityResponse superUserResponse = accessControlManager.performRowLevelAuthorization(transactionId, new Identity("superuser", Optional.of(PRINCIPAL)), new QualifiedObjectName("connector", "schema", "table"), ImmutableSet.of("a", "b"));
+                    RowExpression rowExpression = accessControlManager.performRowLevelAuthorization(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of("column"));
+                    assertTrue(rowExpression instanceof SpecialFormExpression);
+                    SpecialFormExpression specialFormExpression = (SpecialFormExpression) rowExpression;
+                    assertEquals(specialFormExpression.getArguments().size(), 2);
+                    assertEquals(specialFormExpression.getArguments().get(0), new VariableReferenceExpression("a", BigintType.BIGINT));
+                    assertEquals(specialFormExpression.getArguments().get(1), new ConstantExpression(2L, BigintType.BIGINT));
+                    // No RLS for superuser
+                    RowExpression superUserResponse = accessControlManager.performRowLevelAuthorization(transactionId, new Identity("superuser", Optional.of(PRINCIPAL)), new QualifiedObjectName("connector", "schema", "table"), ImmutableSet.of("a", "b"));
                     assertEquals(superUserResponse, null);
                 });
     }
@@ -432,11 +439,13 @@ public class TestAccessControlManager
             implements ConnectorAccessControl
     {
         @Override
-        public RowLevelSecurityResponse performRowLevelAuthorization(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columns)
+        public RowExpression performRowLevelAuthorization(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columns)
         {
             if (identity.getUser().equals(USER_NAME) && tableName.getSchemaName().equals("schema") && tableName.getTableName().equals("table") && columns.contains("column")) {
-                Domain domain = Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 2L)), false);
-                return new RowLevelSecurityResponse(new SpiUnaryExpression("a", domain), "warn");
+                List<RowExpression> values = new ArrayList<>();
+                values.add(new VariableReferenceExpression("a", BigintType.BIGINT));
+                values.add(new ConstantExpression(2L, BigintType.BIGINT));
+                return new SpecialFormExpression(SpecialFormExpression.Form.IN, BooleanType.BOOLEAN, values);
             }
             return null;
         }

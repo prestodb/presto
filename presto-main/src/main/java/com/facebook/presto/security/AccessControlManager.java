@@ -20,10 +20,10 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
-import com.facebook.presto.spi.security.RowLevelSecurityResponse;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.transaction.TransactionId;
@@ -666,7 +666,7 @@ public class AccessControlManager
     }
 
     @Override
-    public RowLevelSecurityResponse performRowLevelAuthorization(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
+    public RowExpression performRowLevelAuthorization(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(tableName, "tableName is null");
@@ -678,8 +678,7 @@ public class AccessControlManager
         if (entry != null) {
             try {
                 authorizationSuccess.update(1);
-                RowLevelSecurityResponse response = entry.getAccessControl().performRowLevelAuthorization(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(tableName.getCatalogName()), tableName.asSchemaTableName(), columnNames);
-                return response;
+                return entry.getAccessControl().performRowLevelAuthorization(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(tableName.getCatalogName()), tableName.asSchemaTableName(), columnNames);
             }
             catch (PrestoException e) {
                 authorizationFail.update(1);

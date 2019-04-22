@@ -14,7 +14,6 @@
 package com.facebook.presto.connector.thrift.api.valuesets;
 
 import com.facebook.presto.spi.predicate.AllOrNoneValueSet;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
@@ -71,10 +70,5 @@ public final class PrestoThriftAllOrNoneValueSet
     public static PrestoThriftAllOrNoneValueSet fromAllOrNoneValueSet(AllOrNoneValueSet valueSet)
     {
         return new PrestoThriftAllOrNoneValueSet(valueSet.isAll());
-    }
-
-    public static AllOrNoneValueSet toAllOrNoneValueSet(PrestoThriftAllOrNoneValueSet valueSet, Type type)
-    {
-        return new AllOrNoneValueSet(type, valueSet.isAll());
     }
 }

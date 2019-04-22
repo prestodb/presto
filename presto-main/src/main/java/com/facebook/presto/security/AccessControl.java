@@ -16,10 +16,10 @@ package com.facebook.presto.security;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
-import com.facebook.presto.spi.security.RowLevelSecurityResponse;
 import com.facebook.presto.transaction.TransactionId;
 
 import java.security.Principal;
@@ -268,5 +268,5 @@ public interface AccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if timeout occurs
      */
-    public RowLevelSecurityResponse performRowLevelAuthorization(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columns);
+    public RowExpression performRowLevelAuthorization(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columns);
 }

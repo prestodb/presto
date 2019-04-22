@@ -16,10 +16,10 @@ package com.facebook.presto.plugin.base.security;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
-import com.facebook.presto.spi.security.RowLevelSecurityResponse;
 import com.facebook.presto.spi.security.SystemAccessControl;
 
 import java.security.Principal;
@@ -204,7 +204,7 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public RowLevelSecurityResponse performRowLevelAuthorization(Identity identity, CatalogSchemaTableName table, Set<String> columns)
+    public RowExpression performRowLevelAuthorization(Identity identity, CatalogSchemaTableName table, Set<String> columns)
     {
         return null;
     }
