@@ -73,9 +73,19 @@ public class AssignmentsUtils
         return builder().put(symbol, expression).build();
     }
 
+    public static Assignments of(Symbol symbol, Expression expression)
+    {
+        return builder().put(symbol, castToRowExpression(expression)).build();
+    }
+
     public static Assignments of(Symbol symbol1, RowExpression expression1, Symbol symbol2, RowExpression expression2)
     {
         return builder().put(symbol1, expression1).put(symbol2, expression2).build();
+    }
+
+    public static Assignments of(Symbol symbol1, Expression expression1, Symbol symbol2, Expression expression2)
+    {
+        return builder().put(symbol1, castToRowExpression(expression1)).put(symbol2, castToRowExpression(expression2)).build();
     }
 
     // Originally, the following functions are not static move assignments as member variables
@@ -153,6 +163,11 @@ public class AssignmentsUtils
             }
             assignments.put(symbol, expression);
             return this;
+        }
+
+        public Builder put(Symbol symbol, Expression expression)
+        {
+            return put(symbol, castToRowExpression(expression));
         }
 
         public Builder put(Map.Entry<Symbol, RowExpression> assignment)

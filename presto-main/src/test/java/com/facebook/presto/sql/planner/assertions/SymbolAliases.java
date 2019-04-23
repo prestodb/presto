@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.sql.planner.assertions;
 
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableMap;
 
@@ -24,6 +25,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -97,9 +100,16 @@ public final class SymbolAliases
     private Map<String, SymbolReference> getUpdatedAssignments(Assignments assignments)
     {
         ImmutableMap.Builder<String, SymbolReference> mapUpdate = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Expression> assignment : assignments.getMap().entrySet()) {
+        for (Map.Entry<Symbol, RowExpression> assignment : assignments.getMap().entrySet()) {
             for (Map.Entry<String, SymbolReference> existingAlias : map.entrySet()) {
-                if (assignment.getValue().equals(existingAlias.getValue())) {
+                RowExpression expression = assignment.getValue();
+                if (isExpression(expression) && castToExpression(expression).equals(existingAlias.getValue())) {
+                    // Simple symbol rename
+                    mapUpdate.put(existingAlias.getKey(), assignment.getKey().toSymbolReference());
+                }
+                else if (!isExpression(expression) &&
+                        (expression instanceof VariableReferenceExpression) &&
+                        new SymbolReference(((VariableReferenceExpression) expression).getName()).equals(existingAlias.getValue())) {
                     // Simple symbol rename
                     mapUpdate.put(existingAlias.getKey(), assignment.getKey().toSymbolReference());
                 }
