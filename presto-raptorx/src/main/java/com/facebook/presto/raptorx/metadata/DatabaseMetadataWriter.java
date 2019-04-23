@@ -569,14 +569,14 @@ public class DatabaseMetadataWriter
     @Override
     public void insertWorkerTransaction(long transactionId, long nodeId)
     {
-        ShardWriterDao dao = shardDbi.get(getNodeShard(nodeId)).onDemand(ShardWriterDao.class);
+        ShardWriterDao dao = shardDbi.get(getTableShard(nodeId)).onDemand(ShardWriterDao.class);
         dao.insertWorkerTransaction(transactionId, nodeId, System.currentTimeMillis());
     }
 
     @Override
     public void updateWorkerTransaction(boolean success, long transactionId, long nodeId)
     {
-        ShardWriterDao dao = shardDbi.get(getNodeShard(nodeId)).onDemand(ShardWriterDao.class);
+        ShardWriterDao dao = shardDbi.get(getTableShard(nodeId)).onDemand(ShardWriterDao.class);
         dao.updateWorkerTransaction(success, transactionId, nodeId, System.currentTimeMillis());
     }
 

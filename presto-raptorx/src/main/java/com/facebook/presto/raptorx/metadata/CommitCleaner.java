@@ -32,6 +32,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.raptorx.RaptorErrorCode.RAPTOR_INTERNAL_ERROR;
 import static com.facebook.presto.raptorx.metadata.IndexWriter.chunkIndexTable;
@@ -44,6 +45,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.partition;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 public class CommitCleaner
@@ -220,8 +222,7 @@ public class CommitCleaner
                     if (chunks.isEmpty()) {
                         break;
                     }
-                    deletedChunksDao.insertDeletedChunks(now, purgeTime, chunks);
-                    shard.deleteCreatedChunks(toChunkIds(chunks));
+                    moveCreatedToDeleted(now, purgeTime, chunks, shard);
                 }
             }
             masterDao.cleanupTransactions(ids);
@@ -231,36 +232,54 @@ public class CommitCleaner
     // TODO(taozhao) For workers, shardDao doesn't have to be a list, each one only deals with its own node_id. May write a separate Cleaner later.
     public void removeOldWorkerTransactions(long nodeId)
     {
-        ShardCommitCleanerDao thisNodeDao = shardDao.get(dbShard(nodeId, shardDao.size()));
+        for (int i = 0; i < shardDao.size(); i++) {
+            ShardCommitCleanerDao thisDao = shardDao.get(i);
 
-        Set<Long> transactionIds = thisNodeDao.getSuccessfulTransactionIds(nodeId);
-        // TODO: May need to shard CreatedChunks by nodeId too; but in the near future there is only one Mysql, so can live with it for some time.
-        for (Iterable<Long> ids : partition(transactionIds, 1000)) {
-            for (ShardCommitCleanerDao shard : shardDao) {
-                shard.cleanupCreatedChunks(ids);
-            }
-            thisNodeDao.cleanupTransactions(ids);
-        }
-
-        // transactionManager here contains only this node self's transactions
-        thisNodeDao.abortTransactions(transactionManager.activeTransactions(), clock.millis(), nodeId);
-        transactionIds = thisNodeDao.getFailedTransactions(nodeId);
-
-        long now = clock.millis();
-        for (Iterable<Long> ids : partition(transactionIds, 1000)) {
-            // move created chunks to deletion queue
-            for (ShardCommitCleanerDao shard : shardDao) {
-                while (true) {
-                    List<TableChunk> chunks = shard.getCreatedChunks(ids, chunkBatchSize);
-                    if (chunks.isEmpty()) {
-                        break;
-                    }
-                    deletedChunksDao.insertDeletedChunks(now, now, chunks);
-                    shard.deleteCreatedChunks(toChunkIds(chunks));
+            Set<Long> transactionIds = thisDao.getSuccessfulTransactionIds(nodeId);
+            // TODO: May need to shard CreatedChunks by nodeId too; but in the near future there is only one Mysql, so can live with it for some time.
+            for (Iterable<Long> ids : partition(transactionIds, 1000)) {
+                for (ShardCommitCleanerDao shard : shardDao) {
+                    shard.cleanupCreatedChunks(ids);
                 }
+                thisDao.cleanupTransactions(ids);
             }
-            thisNodeDao.cleanupTransactions(ids);
+
+            // transactionManager here contains only this node self's transactions
+            thisDao.abortTransactions(transactionManager.activeTransactions(), clock.millis(), nodeId);
+            transactionIds = thisDao.getFailedTransactions(nodeId);
+
+            long now = clock.millis();
+            for (Iterable<Long> ids : partition(transactionIds, 1000)) {
+                // move created chunks to deletion queue
+                for (ShardCommitCleanerDao shard : shardDao) {
+                    while (true) {
+                        List<TableChunk> chunks = shard.getCreatedChunks(ids, chunkBatchSize);
+                        if (chunks.isEmpty()) {
+                            break;
+                        }
+                        moveCreatedToDeleted(now, now, chunks, shard);
+                    }
+                }
+                thisDao.cleanupTransactions(ids);
+            }
         }
+    }
+
+    private void moveCreatedToDeleted(long deleteTime, long purgeTime, List<TableChunk> chunks, ShardCommitCleanerDao dao)
+    {
+        Set<Long> chunkIds = chunks.stream()
+                .map(TableChunk::getChunkId)
+                .collect(toSet());
+        Set<Long> existing = dao.getExistChunks(chunkIds);
+        if (!existing.isEmpty()) {
+            log.warn("chunkIDs:%s , exist in chunks, do not delete", existing);
+        }
+        List<TableChunk> toDeleteChunks = chunks.stream()
+                .filter(tableChunk -> !existing.contains(tableChunk.getChunkId()))
+                .collect(Collectors.toList());
+        log.info("move chunkIDs:%s to deleted_chunks", toDeleteChunks.stream().map(TableChunk::getChunkId).collect(toList()));
+        deletedChunksDao.insertDeletedChunks(deleteTime, purgeTime, toDeleteChunks);
+        dao.deleteCreatedChunks(toChunkIds(chunks));
     }
 
     private void cleanupChunks(ShardCommitCleanerDao shard, long now, List<TableChunk> chunks, Set<Long> droppedTableIds)

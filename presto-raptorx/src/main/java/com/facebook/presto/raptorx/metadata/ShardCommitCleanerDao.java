@@ -48,6 +48,11 @@ public interface ShardCommitCleanerDao
             @BindList Set<Long> tableIds,
             @Define int limit);
 
+    @SqlQuery("SELECT chunk_id\n" +
+            "FROM chunks\n" +
+            "WHERE chunk_id IN (<chunkIds>)")
+    Set<Long> getExistChunks(@BindList Set<Long> chunkIds);
+
     @SqlUpdate("DELETE FROM chunks WHERE chunk_id IN (<chunkIds>)")
     void deleteChunks(
             @BindList Set<Long> chunkIds);

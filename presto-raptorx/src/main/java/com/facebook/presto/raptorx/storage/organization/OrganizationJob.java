@@ -42,6 +42,7 @@ import static com.facebook.presto.raptorx.util.DatabaseUtil.verifyMetadata;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -157,8 +158,12 @@ class OrganizationJob
 
                 // Don't INSERT and DELETE like in DatabaseMetadataWriter, to prevent too many rows.
                 dao.updateTableSize(chunkCount, compressedSize, uncompressedSize, tableId);
+
+                // this needs to be in the same transaction
+                if (dao.updateWorkerTransaction(true, transaction.getTransactionId(), nodeId, System.currentTimeMillis()) != 1) {
+                    throw new PrestoException(TRANSACTION_CONFLICT, format("Update WorkerTransaction failed: tableID:%d, transactionID:%d", tableId, transaction.getTransactionId()));
+                }
             });
-            metadataWriter.updateWorkerTransaction(true, transaction.getTransactionId(), nodeId);
             log.info("Compacted chunks %s into %s, tableID: %d", chunkIds, newChunks.stream().map(ChunkInfo::getChunkId).collect(toList()), tableId);
         }
         catch (Exception e) {
