@@ -22,6 +22,7 @@ import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.ArrayType;
@@ -643,13 +644,24 @@ public class TestOrcFileRewriter
                 new BitSet(5));
         assertEquals(info.getRowCount(), 1);
 
-        ConnectorPageSource source = storageManager.getPageSource(
-                uuid,
-                OptionalInt.empty(),
-                ImmutableList.of(3L, 7L, 8L),
-                ImmutableList.of(createVarcharType(5), createVarcharType(20), INTEGER),
-                 TupleDomain.all(),
-                READER_ATTRIBUTES);
+        ConnectorPageSource source = null;
+        try {
+            source = storageManager.getPageSource(
+                    uuid,
+                    OptionalInt.empty(),
+                    ImmutableList.of(3L, 7L, 8L),
+                    ImmutableList.of(createVarcharType(5), createVarcharType(20), INTEGER),
+                    TupleDomain.all(),
+                    READER_ATTRIBUTES);
+        }
+        catch (PrestoException e) {
+            if (useOptimizedOrcWriter) {
+                fail();
+            }
+            else {
+                return;
+            }
+        }
 
         Page page = null;
         while (page == null) {

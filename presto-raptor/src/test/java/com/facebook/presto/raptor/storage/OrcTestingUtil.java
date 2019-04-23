@@ -26,6 +26,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
 
@@ -59,7 +60,7 @@ final class OrcTestingUtil
             throws IOException
     {
         OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
-
+        StorageTypeConverter storageTypeConverter = getStorageTypeConverter();
         List<String> columnNames = orcReader.getColumnNames();
         assertEquals(columnNames.size(), columnIds.size());
 
@@ -67,7 +68,7 @@ final class OrcTestingUtil
         int ordinal = 0;
         for (long columnId : columnIds) {
             assertEquals(columnNames.get(ordinal), String.valueOf(columnId));
-            includedColumns.put(ordinal, types.get(ordinal));
+            includedColumns.put(ordinal, storageTypeConverter.toStorageType(types.get(ordinal)));
             ordinal++;
         }
 
@@ -114,5 +115,13 @@ final class OrcTestingUtil
             return new OrcFileWriter(columnIds, columnTypes, file, true, true, new OrcWriterStats(), typeManager, ZSTD);
         }
         return new OrcRecordWriter(columnIds, columnTypes, file, SNAPPY, true);
+    }
+
+    public static StorageTypeConverter getStorageTypeConverter()
+    {
+        TypeRegistry typeManager = new TypeRegistry(ImmutableSet.of(), new FeaturesConfig());
+        // Sets the functionManager for the type registry in the constructor
+        FunctionManager unused = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        return new StorageTypeConverter(typeManager);
     }
 }
