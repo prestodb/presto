@@ -28,6 +28,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
@@ -83,6 +84,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -801,7 +803,9 @@ public class PruneUnreferencedOutputs
                     .addAll(subqueryAssignmentsSymbols) // need to include those: e.g: "expr" from "expr IN (SELECT 1)"
                     .build();
             PlanNode input = context.rewrite(node.getInput(), inputContext);
-            return new ApplyNode(node.getId(), input, subquery, subqueryAssignments.build(), newCorrelation, node.getOriginSubqueryError());
+            Assignments assignments = subqueryAssignments.build();
+            verifySubquerySupported(assignments);
+            return new ApplyNode(node.getId(), input, subquery, assignments, newCorrelation, node.getOriginSubqueryError());
         }
 
         @Override

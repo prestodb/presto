@@ -14,10 +14,6 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.ExistsPredicate;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -84,22 +80,12 @@ public class ApplyNode
         requireNonNull(originSubqueryError, "originSubqueryError is null");
 
         checkArgument(input.getOutputSymbols().containsAll(correlation), "Input does not contain symbols from correlation");
-        checkArgument(
-                subqueryAssignments.getExpressions().stream().allMatch(ApplyNode::isSupportedSubqueryExpression),
-                "Unexpected expression used for subquery expression");
 
         this.input = input;
         this.subquery = subquery;
         this.subqueryAssignments = subqueryAssignments;
         this.correlation = ImmutableList.copyOf(correlation);
         this.originSubqueryError = originSubqueryError;
-    }
-
-    private static boolean isSupportedSubqueryExpression(Expression expression)
-    {
-        return expression instanceof InPredicate ||
-                expression instanceof ExistsPredicate ||
-                expression instanceof QuantifiedComparisonExpression;
     }
 
     @JsonProperty("input")
