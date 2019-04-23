@@ -13,23 +13,33 @@
  */
 package com.facebook.presto.raptorx.storage.organization;
 
-import com.facebook.presto.raptorx.RaptorConnector;
+import com.facebook.presto.raptorx.TransactionManager;
+import com.facebook.presto.raptorx.metadata.ChunkMetadata;
+import com.facebook.presto.raptorx.metadata.ChunkSummary;
 import com.facebook.presto.raptorx.metadata.ColumnInfo;
+import com.facebook.presto.raptorx.metadata.IndexWriter;
+import com.facebook.presto.raptorx.metadata.MetadataWriter;
 import com.facebook.presto.raptorx.metadata.TableInfo;
+import com.facebook.presto.raptorx.metadata.TableSize;
 import com.facebook.presto.raptorx.storage.ChunkInfo;
 import com.facebook.presto.raptorx.storage.CompressionType;
 import com.facebook.presto.raptorx.transaction.Transaction;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
+import static com.facebook.presto.raptorx.metadata.IndexWriter.chunkIndexTable;
+import static com.facebook.presto.raptorx.util.DatabaseUtil.metadataError;
+import static com.facebook.presto.raptorx.util.DatabaseUtil.verifyMetadata;
+import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Collections.nCopies;
@@ -43,48 +53,125 @@ class OrganizationJob
 
     private final ChunkCompactor compactor;
     private final OrganizationSet organizationSet;
-    private final RaptorConnector raptorConnector;
+    private final MetadataWriter metadataWriter;
+    private final TransactionManager transactionManager;
+    private final long nodeId;
 
-    public OrganizationJob(OrganizationSet organizationSet, ChunkCompactor compactor, RaptorConnector raptorConnector)
+    public OrganizationJob(OrganizationSet organizationSet, ChunkCompactor compactor, MetadataWriter metadataWriter, TransactionManager transactionManager, long nodeId)
     {
         this.compactor = requireNonNull(compactor, "compactor is null");
         this.organizationSet = requireNonNull(organizationSet, "organizationSet is null");
-        this.raptorConnector = requireNonNull(raptorConnector, "transactionManager is null");
+        this.metadataWriter = requireNonNull(metadataWriter, "metadataWriter is null");
+        this.transactionManager = requireNonNull(transactionManager, "sequenceManager is null");
+        this.nodeId = nodeId;
     }
 
     @Override
     public void run()
     {
         try {
-            runJob(organizationSet.getTableId(), organizationSet.getBucketNumber(), organizationSet.getChunkIds());
+            runJob(organizationSet.getTableInfo(), organizationSet.getBucketNumber(), organizationSet.getChunkIds());
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
     }
 
-    private void runJob(long tableId, int bucketNumber, Set<Long> chunkIds)
+    private void runJob(TableInfo tableInfo, int bucketNumber, Set<Long> chunkIds)
             throws IOException
     {
-        ConnectorTransactionHandle transactionHandle = raptorConnector.beginTransaction(IsolationLevel.REPEATABLE_READ, false);
-        Transaction transaction = raptorConnector.getTransactionManager().get(transactionHandle);
-        runJob(transaction, bucketNumber, tableId, chunkIds);
-        raptorConnector.commit(transactionHandle);
+        long tableId = tableInfo.getTableId();
+        if (metadataWriter.isMaintenanceBlocked(tableId)) { // this check is for outside Mysql LOCK, otherwise it still contends the LOCK.
+            throw new PrestoException(TRANSACTION_CONFLICT, "tableID " + tableId + " is blocked by DELETE");
+        }
+
+        ConnectorTransactionHandle transactionHandle = transactionManager.create();
+        Transaction transaction = transactionManager.get(transactionHandle);
+        metadataWriter.insertWorkerTransaction(transaction.getTransactionId(), nodeId);
+        TableMetadata tableMetadata = getTableMetadata(tableInfo);
+        try {
+            List<ChunkInfo> newChunks = performCompaction(transaction.getTransactionId(), bucketNumber, chunkIds, tableMetadata);
+            metadataWriter.runWorkerTransaction(tableId, (dao) -> {
+                // 2 parties get this same LOCK. DatabaseMetadataWriter.writeShard(), and this.
+                Long lockedTableId = dao.getLockedTableId(tableId);
+                log.info("got LOCK, tableID: %s, chunks: %s", tableId, chunkIds);
+                verifyMetadata(lockedTableId != null, " Cannot get LOCK for tableID " + lockedTableId + ", the table may not exist");
+
+                if (metadataWriter.isMaintenanceBlocked(tableId)) { // here checks again, because the above check can be far away in time
+                    throw new PrestoException(TRANSACTION_CONFLICT, "tableID " + tableId + " is blocked by DELETE");
+                }
+
+                TableSize tableSize = dao.getTableSize(tableId);
+                if (tableSize == null) {
+                    throw new PrestoException(TRANSACTION_CONFLICT, "tableID " + lockedTableId + " already changed.");
+                }
+                // An interesting data race to rule out here:
+                // 1. DatabaseMetadataWriter.dropTable(), deleteTable() done;
+                //        DatabaseMetadataWriter.dropTable(), deleteTableSize() not started yet;
+                // 2. the compact happens,  chunkA+chunkB changes to chunkC;
+                // 3. DatabaseMetadataWriter.dropTable(), deleteTableSize() done;
+                // CommitCleaner cannot jump in between <1,2> or <2,3>, CommitCleaner can only happen after 3
+                // because CommitCleaner only handles inActive transactions.
+                // So when CommitCleaner later deals with this table, it can still deal with chunkC;
+
+                // this commitId is just CurrentCommitID, and doesn't need to be a new or a larger value.
+                long commitId = transaction.getCommitId();
+
+                // There are 3 changing conditions:
+                // 1. chunk changes;  2. table changes; 3. column changes;
+                // 1 is what "dao.getChunkSummary" is for
+                // 2 is handled in above codes
+                // 3 doesn't matter, as long as the following is in one Mysql transaction, the new Chunks are as good as old ones.
+                ChunkSummary summary = dao.getChunkSummary(chunkIds);
+                if (summary.getChunkCount() != chunkIds.size()) {
+                    throw new PrestoException(TRANSACTION_CONFLICT, "Chunks in this organize set are changed, abort, tableID:" + tableId);
+                }
+
+                long currentTime = System.currentTimeMillis();
+                dao.insertChunks(commitId, tableId, currentTime, newChunks.stream()
+                        .map(chunk -> ChunkMetadata.from(tableInfo, chunk))
+                        .iterator());
+
+                try (IndexWriter writer = new IndexWriter(dao.getHandle().getConnection(), commitId, tableId, tableMetadata.getColumns())) {
+                    for (ChunkInfo chunk : newChunks) {
+                        writer.add(chunk.getChunkId(), chunk.getBucketNumber(), chunk.getColumnStats());
+                    }
+                    writer.execute();
+                }
+                catch (SQLException e) {
+                    throw metadataError(e);
+                }
+
+                // delete oldChunks
+                dao.deleteChunks(commitId, chunkIds);
+                dao.deleteIndexChunks(chunkIndexTable(tableId), commitId, chunkIds);
+
+                // change tableStats
+                long chunkCount = tableSize.getChunkCount();
+                long compressedSize = tableSize.getCompressedSize();
+                long uncompressedSize = tableSize.getUncompressedSize();
+
+                chunkCount += newChunks.size() - summary.getChunkCount();
+                compressedSize += newChunks.stream().mapToLong(ChunkInfo::getCompressedSize).sum() - summary.getCompressedSize();
+                uncompressedSize += newChunks.stream().mapToLong(ChunkInfo::getUncompressedSize).sum() - summary.getUncompressedSize();
+
+                // Don't INSERT and DELETE like in DatabaseMetadataWriter, to prevent too many rows.
+                dao.updateTableSize(chunkCount, compressedSize, uncompressedSize, tableId);
+            });
+            metadataWriter.updateWorkerTransaction(true, transaction.getTransactionId(), nodeId);
+            log.info("Compacted chunks %s into %s, tableID: %d", chunkIds, newChunks.stream().map(ChunkInfo::getChunkId).collect(toList()), tableId);
+        }
+        catch (Exception e) {
+            metadataWriter.updateWorkerTransaction(false, transaction.getTransactionId(), nodeId);
+            throw e;
+        }
+        finally {
+            transactionManager.remove(transactionHandle);
+        }
     }
 
-    private void runJob(Transaction transaction, int bucketNumber, long tableId, Set<Long> oldChunkIds)
-            throws IOException
+    private TableMetadata getTableMetadata(TableInfo tableInfo)
     {
-        TableMetadata metadata = getTableMetadata(transaction, tableId);
-        List<ChunkInfo> newChunks = performCompaction(transaction, bucketNumber, oldChunkIds, metadata);
-        log.info("Compacted chunks %s into %s", oldChunkIds, newChunks.stream().map(ChunkInfo::getChunkId).collect(toList()));
-        transaction.insertChunks(tableId, newChunks);
-        transaction.deleteChunks(tableId, oldChunkIds);
-    }
-
-    private TableMetadata getTableMetadata(Transaction transaction, long tableId)
-    {
-        TableInfo tableInfo = transaction.getTableInfo(tableId);
         List<ColumnInfo> sortColumns = tableInfo.getSortColumns();
 
         List<Long> sortColumnIds = sortColumns.stream()
@@ -92,17 +179,17 @@ class OrganizationJob
                 .collect(toList());
 
         List<ColumnInfo> columns = tableInfo.getColumns();
-        return new TableMetadata(tableId, columns, sortColumnIds, tableInfo.getCompressionType());
+        return new TableMetadata(tableInfo.getTableId(), columns, sortColumnIds, tableInfo.getCompressionType());
     }
 
-    private List<ChunkInfo> performCompaction(Transaction transaction, int bucketNumber, Set<Long> oldChunkIds, TableMetadata tableMetadata)
+    private List<ChunkInfo> performCompaction(long transactionId, int bucketNumber, Set<Long> oldChunkIds, TableMetadata tableMetadata)
             throws IOException
     {
         if (tableMetadata.getSortColumnIds().isEmpty()) {
-            return compactor.compact(transaction.getTransactionId(), tableMetadata.getTableId(), bucketNumber, oldChunkIds, tableMetadata.getColumns(), tableMetadata.getCompressionType());
+            return compactor.compact(transactionId, tableMetadata.getTableId(), bucketNumber, oldChunkIds, tableMetadata.getColumns(), tableMetadata.getCompressionType());
         }
         return compactor.compactSorted(
-                transaction.getTransactionId(),
+                transactionId,
                 tableMetadata.getTableId(),
                 bucketNumber,
                 oldChunkIds,

@@ -40,6 +40,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -109,6 +110,8 @@ import static org.joda.time.DateTimeZone.UTC;
 public class OrcStorageManager
         implements StorageManager
 {
+    private static final Logger log = Logger.get(OrcStorageManager.class);
+
     private static final JsonCodec<ChunkDelta> CHUNK_DELTA_CODEC = jsonCodec(ChunkDelta.class);
 
     private static final long MAX_CHUNK_ROWS = 1_000_000_000;
@@ -331,7 +334,7 @@ public class OrcStorageManager
     private OrcDataSource openChunk(long tableId, long chunkId, ReaderAttributes readerAttributes)
     {
         File file = storageService.getStorageFile(chunkId).getAbsoluteFile();
-
+        log.info("tableID: %d, chunkId: %d, file: %s", tableId, chunkId, file.getAbsolutePath());
         if (!file.exists()) {
             try {
                 Future<?> future = recoveryManager.recoverChunk(tableId, chunkId);

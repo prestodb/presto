@@ -708,13 +708,50 @@ public class TestRaptorSmoke
     }
 
     @Test
-    public void testInsertSelectDecimal()
-    {
+    public void testInsertSelectDecimal() {
         assertUpdate("CREATE TABLE test_decimal(short_decimal DECIMAL(5,2), long_decimal DECIMAL(25,20))");
         assertUpdate("INSERT INTO test_decimal VALUES(DECIMAL '123.45', DECIMAL '12345.12345678901234567890')", "VALUES(1)");
         assertUpdate("INSERT INTO test_decimal VALUES(NULL, NULL)", "VALUES(1)");
         assertQuery("SELECT * FROM test_decimal", "VALUES (123.45, 12345.12345678901234567890), (NULL, NULL)");
         assertUpdate("DROP TABLE test_decimal");
+    }
+
+    @Test
+    public void testColumnRangesSystemTable()
+    {
+        assertQuery("SELECT orderkey_min, orderkey_max, custkey_min, custkey_max, orderdate_min, orderdate_max FROM \"orders$column_ranges\"",
+                "SELECT min(orderkey), max(orderkey), min(custkey), max(custkey), min(orderdate), max(orderdate) FROM orders");
+
+        assertQuery("SELECT orderkey_min, orderkey_max FROM \"orders$column_ranges\"",
+                "SELECT min(orderkey), max(orderkey) FROM orders");
+
+        // No such table test
+        assertQueryFails("SELECT * FROM \"no_table$column_ranges\"", ".*raptor\\.tpch\\.no_table\\$column_ranges does not exist.*");
+
+        // No range column for DOUBLE, INTEGER or VARCHAR
+        assertQueryFails("SELECT totalprice_min FROM \"orders$column_ranges\"", ".*Column 'totalprice_min' cannot be resolved.*");
+        assertQueryFails("SELECT shippriority_min FROM \"orders$column_ranges\"", ".*Column 'shippriority_min' cannot be resolved.*");
+        assertQueryFails("SELECT orderstatus_min FROM \"orders$column_ranges\"", ".*Column 'orderstatus_min' cannot be resolved.*");
+        assertQueryFails("SELECT orderpriority_min FROM \"orders$column_ranges\"", ".*Column 'orderpriority_min' cannot be resolved.*");
+        assertQueryFails("SELECT clerk_min FROM \"orders$column_ranges\"", ".*Column 'clerk_min' cannot be resolved.*");
+        assertQueryFails("SELECT comment_min FROM \"orders$column_ranges\"", ".*Column 'comment_min' cannot be resolved.*");
+
+        // Empty table
+        assertUpdate("CREATE TABLE column_ranges_test (a BIGINT, b BIGINT)");
+        assertQuery("SELECT a_min, a_max, b_min, b_max FROM \"column_ranges_test$column_ranges\"", "SELECT NULL, NULL, NULL, NULL");
+
+        // Table with NULL values
+        assertUpdate("INSERT INTO column_ranges_test VALUES (1, NULL)", 1);
+        assertQuery("SELECT a_min, a_max, b_min, b_max FROM \"column_ranges_test$column_ranges\"", "SELECT 1, 1, NULL, NULL");
+        assertUpdate("INSERT INTO column_ranges_test VALUES (NULL, 99)", 1);
+        assertQuery("SELECT a_min, a_max, b_min, b_max FROM \"column_ranges_test$column_ranges\"", "SELECT 1, 1, 99, 99");
+        assertUpdate("INSERT INTO column_ranges_test VALUES (50, 50)", 1);
+        assertQuery("SELECT a_min, a_max, b_min, b_max FROM \"column_ranges_test$column_ranges\"", "SELECT 1, 50, 50, 99");
+
+        // Drop table
+        assertUpdate("DROP TABLE column_ranges_test");
+        assertQueryFails("SELECT a_min, a_max, b_min, b_max FROM \"column_ranges_test$column_ranges\"",
+                ".*raptor\\.tpch\\.column_ranges_test\\$column_ranges does not exist.*");
     }
 
     protected void assertQueryValue(@Language("SQL") String sql, String expected)

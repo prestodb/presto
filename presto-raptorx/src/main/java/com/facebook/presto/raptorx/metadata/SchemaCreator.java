@@ -69,6 +69,8 @@ public class SchemaCreator
                 dao.createChunks();
                 dao.createTableSizes();
                 dao.createCreatedChunks();
+                dao.createWorkerTransactions();
+                dao.createMaintenance();
 
                 insertIgnore(database.getType(), handle, "aborted_commit (singleton, commit_id) VALUES ('X', 0)");
             });

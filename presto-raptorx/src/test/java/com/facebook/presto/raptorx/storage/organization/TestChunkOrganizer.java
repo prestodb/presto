@@ -34,7 +34,8 @@ public class TestChunkOrganizer
         ChunkOrganizer organizer = createChunkOrganizer();
 
         Set<Long> chunks = ImmutableSet.of(123L);
-        OrganizationSet organizationSet = new OrganizationSet(1L, chunks, 10);
+        // TODO verify TableInfo
+        OrganizationSet organizationSet = new OrganizationSet(null, chunks, 10);
 
         organizer.enqueue(organizationSet);
 

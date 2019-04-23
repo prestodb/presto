@@ -61,6 +61,8 @@ public class StorageConfig
     private Duration organizationDiscoveryInterval = new Duration(6, TimeUnit.HOURS);
     private Duration organizationInterval = new Duration(7, TimeUnit.DAYS);
 
+    private int chunkSequenceCacheCount = 1000;
+
     @NotNull
     public File getDataDirectory()
     {
@@ -307,6 +309,18 @@ public class StorageConfig
     public StorageConfig setOrganizationEnabled(boolean organizationEnabled)
     {
         this.organizationEnabled = organizationEnabled;
+        return this;
+    }
+
+    public int getChunkSequenceCacheCount()
+    {
+        return chunkSequenceCacheCount;
+    }
+
+    @Config("storage.chunk-sequence-cachecount")
+    public StorageConfig setChunkSequenceCacheCount(int count)
+    {
+        this.chunkSequenceCacheCount = count;
         return this;
     }
 }

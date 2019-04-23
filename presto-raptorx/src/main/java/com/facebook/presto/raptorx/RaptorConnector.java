@@ -17,6 +17,7 @@ import com.facebook.presto.raptorx.metadata.BucketManager;
 import com.facebook.presto.raptorx.metadata.NodeSupplier;
 import com.facebook.presto.raptorx.transaction.Transaction;
 import com.facebook.presto.raptorx.transaction.TransactionWriter;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -28,10 +29,14 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.SetMultimap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 
+import javax.annotation.PostConstruct;
+import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
 import java.util.List;
@@ -39,6 +44,7 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.transaction.IsolationLevel.REPEATABLE_READ;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class RaptorConnector
@@ -59,6 +65,10 @@ public class RaptorConnector
     private final List<PropertyMetadata<?>> tableProperties;
     private final Set<Procedure> procedures;
     private final Set<SystemTable> systemTables;
+    private final boolean coordinator;
+
+    @GuardedBy("this")
+    private final SetMultimap<Long, Long> maintenances = HashMultimap.create();
 
     @Inject
     public RaptorConnector(
@@ -74,7 +84,8 @@ public class RaptorConnector
             RaptorSessionProperties sessionProperties,
             RaptorTableProperties tableProperties,
             Set<Procedure> procedures,
-            Set<SystemTable> systemTables)
+            Set<SystemTable> systemTables,
+            NodeManager nodeManager)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -89,6 +100,15 @@ public class RaptorConnector
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null").getTableProperties();
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
         this.systemTables = ImmutableSet.copyOf(requireNonNull(systemTables, "systemTables is null"));
+        this.coordinator = nodeManager.getCurrentNode().isCoordinator();
+    }
+
+    @PostConstruct
+    public void start()
+    {
+        if (coordinator) {
+            transactionWriter.clearAllMaintenance();
+        }
     }
 
     @Override
@@ -106,6 +126,7 @@ public class RaptorConnector
             transactionWriter.write(transaction.getActions(), transaction.getRegisteredTransactionId());
         }
         finally {
+            endBlock(transaction.getTransactionId());
             transactionManager.remove(transactionHandle);
         }
     }
@@ -113,13 +134,15 @@ public class RaptorConnector
     @Override
     public void rollback(ConnectorTransactionHandle transactionHandle)
     {
+        Transaction transaction = transactionManager.get(transactionHandle);
+        endBlock(transaction.getTransactionId());
         transactionManager.remove(transactionHandle);
     }
 
     @Override
     public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
     {
-        return new RaptorMetadata(nodeSupplier, bucketManager, transactionManager.get(transactionHandle));
+        return new RaptorMetadata(nodeSupplier, bucketManager, transactionManager.get(transactionHandle), this);
     }
 
     public TransactionManager getTransactionManager()
@@ -184,5 +207,28 @@ public class RaptorConnector
         catch (Exception e) {
             log.error(e, "Error shutting down connector");
         }
+    }
+
+    public synchronized void beginBlock(long tableId, long transactionId)
+    {
+        boolean isFirst = !maintenances.containsKey(tableId);
+        verify(maintenances.put(tableId, transactionId));
+        if (isFirst) {
+            transactionWriter.blockMaintenance(tableId);
+        }
+    }
+
+    private synchronized void endBlock(long transactionId)
+    {
+        maintenances.entries().stream()
+                .filter(entry -> entry.getValue().equals(transactionId))
+                .findFirst()
+                .ifPresent(entry -> {
+                    long tableId = entry.getKey();
+                    maintenances.remove(tableId, transactionId);
+                    if (!maintenances.containsKey(tableId)) {
+                        transactionWriter.unBlockMaintenance(tableId);
+                    }
+                });
     }
 }

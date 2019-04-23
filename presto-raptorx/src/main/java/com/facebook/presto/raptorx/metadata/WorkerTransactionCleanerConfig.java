@@ -22,10 +22,9 @@ import javax.validation.constraints.NotNull;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-public class CommitCleanerConfig
+public class WorkerTransactionCleanerConfig
 {
     private Duration interval = new Duration(5, MINUTES);
-    private int chunkBatchSize = 10000;
 
     @NotNull
     @MinDuration("1s")
@@ -34,24 +33,11 @@ public class CommitCleanerConfig
         return interval;
     }
 
-    @Config("metadata.commit-cleaner-interval")
-    @ConfigDescription("How often to cleanup data for old commits")
-    public CommitCleanerConfig setInterval(Duration interval)
+    @Config("metadata.worker-transaction-cleaner-interval")
+    @ConfigDescription("How often to cleanup for old worker transactions")
+    public WorkerTransactionCleanerConfig setInterval(Duration interval)
     {
         this.interval = interval;
-        return this;
-    }
-
-    public int getChunkBatchSize()
-    {
-        return chunkBatchSize;
-    }
-
-    @Config("metadata.commit-cleaner-chunk-batch")
-    @ConfigDescription("How large to cleanup chunk")
-    public CommitCleanerConfig setChunkBatchSize(int size)
-    {
-        this.chunkBatchSize = size;
         return this;
     }
 }

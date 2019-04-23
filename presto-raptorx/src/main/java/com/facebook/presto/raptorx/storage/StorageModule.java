@@ -18,6 +18,8 @@ import com.facebook.presto.raptorx.metadata.ChunkRecorder;
 import com.facebook.presto.raptorx.metadata.DatabaseChunkManager;
 import com.facebook.presto.raptorx.metadata.DatabaseChunkRecorder;
 import com.facebook.presto.raptorx.metadata.SequenceManager;
+import com.facebook.presto.raptorx.metadata.WorkerTransactionCleanerConfig;
+import com.facebook.presto.raptorx.metadata.WorkerTransactionCleanerJob;
 import com.facebook.presto.raptorx.storage.organization.ChunkCompactionManager;
 import com.facebook.presto.raptorx.storage.organization.ChunkCompactor;
 import com.facebook.presto.raptorx.storage.organization.ChunkOrganizationManager;
@@ -61,12 +63,16 @@ public class StorageModule
         binder.bind(ChunkOrganizationManager.class).in(Scopes.SINGLETON);
         binder.bind(ChunkOrganizer.class).in(Scopes.SINGLETON);
         binder.bind(JobFactory.class).to(OrganizationJobFactory.class).in(Scopes.SINGLETON);
+
+        // For cleaning worker's garbage in db and backup store.
+        configBinder(binder).bindConfig(WorkerTransactionCleanerConfig.class);
+        binder.bind(WorkerTransactionCleanerJob.class).in(SINGLETON);
     }
 
     @Provides
     @Singleton
-    public static ChunkIdSequence createChunkIdSequence(SequenceManager sequenceManager)
+    public static ChunkIdSequence createChunkIdSequence(SequenceManager sequenceManager, StorageConfig storageConfig)
     {
-        return () -> sequenceManager.nextValue("chunk_id", 100);
+        return () -> sequenceManager.nextValue("chunk_id", storageConfig.getChunkSequenceCacheCount());
     }
 }

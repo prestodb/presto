@@ -47,6 +47,6 @@ public class ForceCommitCleanupProcedure
     @SuppressWarnings("unused")
     public void forceCommitCleanup()
     {
-        cleaner.removeOldCommits();
+        cleaner.coordinatorRemoveOldCommits();
     }
 }

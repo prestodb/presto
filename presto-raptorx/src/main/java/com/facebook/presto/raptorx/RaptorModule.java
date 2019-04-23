@@ -16,6 +16,7 @@ package com.facebook.presto.raptorx;
 import com.facebook.presto.raptorx.metadata.BucketManager;
 import com.facebook.presto.raptorx.metadata.ChunkSupplier;
 import com.facebook.presto.raptorx.metadata.CommitCleaner;
+import com.facebook.presto.raptorx.metadata.CommitCleanerConfig;
 import com.facebook.presto.raptorx.metadata.DatabaseMetadata;
 import com.facebook.presto.raptorx.metadata.DatabaseMetadataWriter;
 import com.facebook.presto.raptorx.metadata.Metadata;
@@ -42,6 +43,7 @@ import com.google.inject.multibindings.Multibinder;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class RaptorModule
         implements Module
@@ -71,6 +73,7 @@ public class RaptorModule
         binder.bind(NodeIdCache.class).in(SINGLETON);
         binder.bind(NodeSupplier.class).to(RaptorNodeSupplier.class).in(SINGLETON);
 
+        configBinder(binder).bindConfig(CommitCleanerConfig.class);
         binder.bind(CommitCleaner.class).in(SINGLETON);
 
         Multibinder<Procedure> procedureBinder = newSetBinder(binder, Procedure.class);

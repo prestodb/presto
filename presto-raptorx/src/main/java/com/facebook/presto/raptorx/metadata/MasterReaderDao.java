@@ -82,7 +82,7 @@ public interface MasterReaderDao
 
     @SqlQuery("SELECT *\n" +
             "FROM tables\n" +
-            "WHERE end_commit_id IS NULL)\n" +
+            "WHERE (end_commit_id IS NULL)\n" +
             "  AND table_id = :tableId")
     @UseRowMapper(TableInfo.Mapper.class)
     TableInfo getTableInfo(@Bind long tableId);
@@ -110,7 +110,7 @@ public interface MasterReaderDao
 
     @SqlQuery("SELECT *\n" +
             "FROM columns\n" +
-            "WHERE end_commit_id IS NULL)\n" +
+            "WHERE (end_commit_id IS NULL)\n" +
             "  AND table_id = :tableId")
     List<ColumnInfo> getColumnInfo(@Bind long tableId);
 

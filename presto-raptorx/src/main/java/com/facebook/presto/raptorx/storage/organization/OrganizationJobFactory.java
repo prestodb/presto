@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.raptorx.storage.organization;
 
-import com.facebook.presto.raptorx.RaptorConnector;
-import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.raptorx.TransactionManager;
+import com.facebook.presto.raptorx.metadata.MetadataWriter;
+import com.facebook.presto.raptorx.metadata.NodeIdCache;
+import com.facebook.presto.spi.NodeManager;
 
 import javax.inject.Inject;
 
@@ -24,18 +26,24 @@ public class OrganizationJobFactory
         implements JobFactory
 {
     private final ChunkCompactor compactor;
-    private final RaptorConnector raptorConnector;
+    private final MetadataWriter metadataWriter;
+    private final TransactionManager transactionManager;
+    private final NodeManager nodeManager;
+    private final NodeIdCache nodeIdCache;
 
     @Inject
-    public OrganizationJobFactory(ChunkCompactor compactor, Connector raptorConnector)
+    public OrganizationJobFactory(NodeManager nodeManager, NodeIdCache nodeIdCache, ChunkCompactor compactor, MetadataWriter metadataWriter, TransactionManager transactionManager)
     {
         this.compactor = requireNonNull(compactor, "compactor is null");
-        this.raptorConnector = (RaptorConnector) requireNonNull(raptorConnector, "transactionManager is null");
+        this.metadataWriter = requireNonNull(metadataWriter, "metadataWriter is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.nodeIdCache = requireNonNull(nodeIdCache, "nodeIdCache is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
     }
 
     @Override
     public Runnable create(OrganizationSet organizationSet)
     {
-        return new OrganizationJob(organizationSet, compactor, raptorConnector);
+        return new OrganizationJob(organizationSet, compactor, metadataWriter, transactionManager, nodeIdCache.getNodeId(nodeManager.getCurrentNode().getNodeIdentifier()));
     }
 }

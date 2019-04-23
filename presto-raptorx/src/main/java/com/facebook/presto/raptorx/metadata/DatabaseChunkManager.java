@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.raptorx.metadata.ShardHashing.tableShard;
+import static com.facebook.presto.raptorx.metadata.ShardHashing.dbShard;
 import static com.facebook.presto.raptorx.util.DatabaseUtil.createJdbi;
 import static com.facebook.presto.raptorx.util.DatabaseUtil.verifyMetadata;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -36,6 +36,7 @@ public class DatabaseChunkManager
 {
     private final NodeIdCache nodeIdCache;
     private final DistributionDao distributionDao;
+    private final MasterReaderDao masterDao;
     private final List<ChunkManagerDao> shardDao;
 
     @Inject
@@ -44,7 +45,7 @@ public class DatabaseChunkManager
         this.nodeIdCache = requireNonNull(nodeIdCache, "nodeIdCache is null");
 
         this.distributionDao = createJdbi(database.getMasterConnection()).onDemand(DistributionDao.class);
-
+        this.masterDao = createJdbi(database.getMasterConnection()).onDemand(MasterReaderDao.class);
         this.shardDao = database.getShards().stream()
                 .map(shard -> createJdbi(shard.getConnection()))
                 .map(dbi -> dbi.onDemand(ChunkManagerDao.class))
@@ -57,9 +58,12 @@ public class DatabaseChunkManager
         long nodeId = nodeIdCache.getNodeId(nodeIdentifier);
 
         Map<Integer, List<TableBucket>> shards = distributionDao.getTableBuckets(nodeId).stream()
-                .collect(groupingBy(bucket -> tableShard(bucket.getTableId(), shardDao.size())));
+                .collect(groupingBy(bucket -> dbShard(bucket.getTableId(), shardDao.size())));
 
         ImmutableSet.Builder<ChunkMetadata> chunks = ImmutableSet.builder();
+
+        // This is for getting only committed Chunks.
+        long currentCommitId = masterDao.getCurrentCommitId();
 
         shards.forEach((i, shardTables) -> {
             ChunkManagerDao dao = shardDao.get(i);
@@ -68,7 +72,7 @@ public class DatabaseChunkManager
                     .collect(groupingBy(TableBucket::getTableId));
 
             tables.forEach((tableId, buckets) ->
-                    chunks.addAll(dao.getChunkMetas(tableId, buckets.stream()
+                    chunks.addAll(dao.getChunkMetas(tableId, currentCommitId, buckets.stream()
                             .map(TableBucket::getBucketNumber)
                             .collect(toSet()))));
         });
@@ -82,7 +86,7 @@ public class DatabaseChunkManager
         long nodeId = nodeIdCache.getNodeId(nodeIdentifier);
 
         Map<Integer, List<TableBucket>> shards = distributionDao.getTableBuckets(nodeId).stream()
-                .collect(groupingBy(bucket -> tableShard(bucket.getTableId(), shardDao.size())));
+                .collect(groupingBy(bucket -> dbShard(bucket.getTableId(), shardDao.size())));
 
         ImmutableSet.Builder<ChunkFile> chunks = ImmutableSet.builder();
 
@@ -104,7 +108,7 @@ public class DatabaseChunkManager
     @Override
     public ChunkFile getChunk(long tableId, long chunkId)
     {
-        ChunkManagerDao dao = shardDao.get(tableShard(tableId, shardDao.size()));
+        ChunkManagerDao dao = shardDao.get(dbShard(tableId, shardDao.size()));
         ChunkFile chunk = dao.getChunk(tableId, chunkId);
         verifyMetadata(chunk != null, "Chunk ID (%s) for table ID (%s) does not exist", chunkId, tableId);
         return chunk;

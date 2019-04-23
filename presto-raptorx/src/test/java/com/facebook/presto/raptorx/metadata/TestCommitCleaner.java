@@ -42,7 +42,7 @@ public class TestCommitCleaner
         Metadata metadata = environment.getMetadata();
 
         TransactionManager transactionManager = new TransactionManager(metadata);
-        CommitCleaner cleaner = new CommitCleaner(transactionManager, database);
+        CommitCleaner cleaner = new CommitCleaner(transactionManager, database, new CommitCleanerConfig());
 
         createTestingSchema(environment);
 
@@ -61,7 +61,7 @@ public class TestCommitCleaner
         }
 
         // clean commits
-        cleaner.removeOldCommits();
+        cleaner.coordinatorRemoveOldCommits();
 
         // verify the extra table row is gone
         assertThat(master.commitIds()).containsExactly(1L);
@@ -85,7 +85,7 @@ public class TestCommitCleaner
         assertThat(master.deletedChunkIds()).isEmpty();
 
         // clean commits
-        cleaner.removeOldCommits();
+        cleaner.coordinatorRemoveOldCommits();
 
         // verify sizes
         assertThat(master.commitIds()).containsExactly(2L);
@@ -109,7 +109,7 @@ public class TestCommitCleaner
         assertThat(master.deletedChunkIds()).isEmpty();
 
         // clean commits
-        cleaner.removeOldCommits();
+        cleaner.coordinatorRemoveOldCommits();
 
         // verify chunk is deleted
         assertThat(master.commitIds()).containsExactly(3L);
@@ -128,7 +128,7 @@ public class TestCommitCleaner
         transaction = new Transaction(metadata, metadata.nextTransactionId(), metadata.getCurrentCommitId());
         transaction.dropTable(1L);
         environment.getTransactionWriter().write(transaction.getActions(), OptionalLong.empty());
-        cleaner.removeOldCommits();
+        cleaner.coordinatorRemoveOldCommits();
 
         // verify tables, chunks and index tables are dropped
         assertThat(master.commitIds()).containsExactly(4L);
@@ -147,7 +147,7 @@ public class TestCommitCleaner
         transaction = new Transaction(metadata, metadata.nextTransactionId(), metadata.getCurrentCommitId());
         transaction.dropSchema("tpch");
         environment.getTransactionWriter().write(transaction.getActions(), OptionalLong.empty());
-        cleaner.removeOldCommits();
+        cleaner.coordinatorRemoveOldCommits();
 
         // verify sizes
         assertThat(master.commitIds()).containsExactly(5L);

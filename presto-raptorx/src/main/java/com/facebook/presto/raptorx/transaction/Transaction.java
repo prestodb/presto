@@ -26,6 +26,7 @@ import com.facebook.presto.raptorx.metadata.ViewInfo;
 import com.facebook.presto.raptorx.storage.ChunkInfo;
 import com.facebook.presto.raptorx.storage.CompressionType;
 import com.facebook.presto.raptorx.util.CloseableIterator;
+import com.facebook.presto.raptorx.util.ColumnRange;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
@@ -538,6 +539,11 @@ public class Transaction
         }
 
         return metadata.listTableStats(commitId, schemaId, tableId);
+    }
+
+    public List<ColumnRange> getColumnRanges(long tableId, List<ColumnInfo> columns)
+    {
+        return metadata.getColumnRanges(commitId, tableId, columns);
     }
 
     private long getRequiredSchemaId(String schemaName)

@@ -17,6 +17,7 @@ import com.facebook.presto.raptorx.metadata.Metadata;
 import com.facebook.presto.raptorx.transaction.Transaction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import io.airlift.log.Logger;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -24,6 +25,7 @@ import javax.inject.Inject;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.facebook.presto.raptorx.RaptorErrorCode.RAPTOR_INTERNAL_ERROR;
@@ -33,6 +35,8 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 public class TransactionManager
 {
+    private static final Logger log = Logger.get(TransactionManager.class);
+
     private final Metadata metadata;
 
     @GuardedBy("this")
@@ -52,6 +56,7 @@ public class TransactionManager
 
         RaptorTransactionHandle handle = new RaptorTransactionHandle(transactionId, commitId);
         transactions.put(handle, transaction);
+        log.debug("ActiveCommitId add: " + transaction.getTransactionId() + ", " + transactions.size() + ", " + transaction.getCommitId());
         return handle;
     }
 
@@ -66,11 +71,22 @@ public class TransactionManager
 
     public synchronized void remove(ConnectorTransactionHandle handle)
     {
+        Transaction transaction = transactions.get(handle);
         transactions.remove(handle);
+        log.debug("ActiveCommitId remove: " + transaction.getTransactionId() + ", " + transactions.size() + ", " + transaction.getCommitId());
     }
 
     public synchronized long oldestActiveCommitId()
     {
+        OptionalLong m = transactions.values().stream()
+                .mapToLong(Transaction::getCommitId)
+                .min();
+        if (m.isPresent()) {
+            log.debug("oldestActiveCommitId in mem: " + m.getAsLong());
+        }
+        else {
+            log.debug("oldestActiveCommitId go to db");
+        }
         return transactions.values().stream()
                 .mapToLong(Transaction::getCommitId)
                 .min()

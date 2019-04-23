@@ -41,7 +41,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import static com.facebook.presto.raptorx.metadata.IndexWriter.chunkIndexTable;
-import static com.facebook.presto.raptorx.metadata.ShardHashing.tableShard;
+import static com.facebook.presto.raptorx.metadata.ShardHashing.dbShard;
 import static com.facebook.presto.raptorx.util.Closeables.closeWithSuppression;
 import static com.facebook.presto.raptorx.util.DatabaseUtil.createJdbi;
 import static com.facebook.presto.raptorx.util.DatabaseUtil.enableStreamingResults;
@@ -74,7 +74,7 @@ public class ChunkSupplier
             Collection<ChunkMetadata> addedChunks,
             Set<Long> deletedChunks)
     {
-        Jdbi dbi = shardDbi.get(tableShard(tableId, shardDbi.size()));
+        Jdbi dbi = shardDbi.get(dbShard(tableId, shardDbi.size()));
         ChunkSupplierDao dao = dbi.onDemand(ChunkSupplierDao.class);
 
         ImmutableList.Builder<ChunkMetadata> list = ImmutableList.builder();
@@ -108,7 +108,7 @@ public class ChunkSupplier
                 predicate.getPredicate(),
                 merged ? "\nORDER BY bucket_number" : "");
 
-        Jdbi dbi = shardDbi.get(tableShard(tableId, shardDbi.size()));
+        Jdbi dbi = shardDbi.get(dbShard(tableId, shardDbi.size()));
         Connection connection = dbi.open().getConnection();
         PreparedStatement statement = null;
         ResultSet resultSet;

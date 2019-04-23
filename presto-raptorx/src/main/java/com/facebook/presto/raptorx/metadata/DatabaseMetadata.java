@@ -15,15 +15,22 @@ package com.facebook.presto.raptorx.metadata;
 
 import com.facebook.presto.raptorx.storage.ChunkInfo;
 import com.facebook.presto.raptorx.util.CloseableIterator;
+import com.facebook.presto.raptorx.util.ColumnRange;
 import com.facebook.presto.raptorx.util.Database;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
 import javax.inject.Inject;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -31,10 +38,17 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.raptorx.metadata.ShardHashing.tableShard;
+import static com.facebook.presto.raptorx.metadata.ShardHashing.dbShard;
+import static com.facebook.presto.raptorx.util.Closeables.closeWithSuppression;
 import static com.facebook.presto.raptorx.util.DatabaseUtil.createJdbi;
+import static com.facebook.presto.raptorx.util.DatabaseUtil.enableStreamingResults;
+import static com.facebook.presto.raptorx.util.DatabaseUtil.metadataError;
 import static com.facebook.presto.raptorx.util.DatabaseUtil.utf8Bytes;
 import static com.facebook.presto.raptorx.util.DatabaseUtil.verifyMetadata;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Streams.stream;
@@ -204,6 +218,24 @@ public class DatabaseMetadata
     }
 
     @Override
+    public TableInfo getTableInfoForBgJob(long tableId)
+    {
+        // this function is called by Compactor and Organizor, no need to use currentCommitID;
+        // even if we use, the whole process is not atomic, doesn't help much;
+        // So if this table of these chunks are modified, it's all handled in OrganizationJob.runJob()
+        TableInfo table = dao.getTableInfo(tableId);
+        verifyMetadata(table != null, "Invalid table ID: %s", tableId);
+
+        List<ColumnInfo> columns = dao.getColumnInfo(tableId);
+        verifyMetadata(columns != null, "Invalid table ID: %s", tableId);
+        verifyMetadata(!columns.isEmpty(), "No columns for table ID: %s", tableId);
+
+        return table.builder()
+                .setColumns(columns)
+                .build();
+    }
+
+    @Override
     public TableInfo getTableInfo(long commitId, long tableId)
     {
         TableInfo table = dao.getTableInfo(commitId, tableId);
@@ -233,7 +265,7 @@ public class DatabaseMetadata
                 .collect(toMap(Map.Entry::getKey, value -> new String(value.getValue(), UTF_8)));
 
         List<Jdbi> filteredDbi = tableId
-                .map(table -> singletonList(shardDbi.get(tableShard(table, shardDbi.size()))))
+                .map(table -> singletonList(shardDbi.get(dbShard(table, shardDbi.size()))))
                 .orElse(shardDbi);
 
         Map<Long, TableSize> tableSizes = new HashMap<>();
@@ -263,7 +295,7 @@ public class DatabaseMetadata
     @Override
     public long getChunkRowCount(long commitId, long tableId, Set<Long> chunkIds)
     {
-        try (Handle handle = shardDbi.get(tableShard(tableId, shardDbi.size())).open()) {
+        try (Handle handle = shardDbi.get(dbShard(tableId, shardDbi.size())).open()) {
             ShardReaderDao dao = handle.attach(ShardReaderDao.class);
             return stream(partition(chunkIds, 1000))
                     .mapToLong(ids -> dao.getChunkRowCount(commitId, ids))
@@ -299,7 +331,6 @@ public class DatabaseMetadata
                 merged);
     }
 
-    // test
     @Override
     public List<DistributionInfo> getActiveDistributions()
     {
@@ -322,5 +353,47 @@ public class DatabaseMetadata
     public void updateBucketAssignment(long distributionId, int bucketNumber, long nodeId)
     {
         distributionDao.updateBucketNode(distributionId, bucketNumber, nodeId);
+    }
+
+    @Override
+    public List<ColumnRange> getColumnRanges(long commitId, long tableId, List<ColumnInfo> columns)
+    {
+        String sql = ColumnRange.getColumnRangesMetadataSqlQuery(commitId, tableId, columns);
+
+        Jdbi dbi = shardDbi.get(dbShard(tableId, shardDbi.size()));
+        Connection connection = dbi.open().getConnection();
+        PreparedStatement statement = null;
+        ResultSet resultSet;
+        ImmutableList.Builder<ColumnRange> res = ImmutableList.builder();
+        try {
+            statement = connection.prepareStatement(sql);
+            enableStreamingResults(statement);
+            resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                for (int i = 0; i < columns.size() * 2; ++i) {
+                    Object value = null;
+                    Type columnType = columns.get(i / 2).getType();
+                    if (columnType.equals(BIGINT) || columnType.equals(DATE) || columnType.equals(TIMESTAMP)) {
+                        value = resultSet.getLong(i + 1);
+                    }
+                    else if (columnType.equals(BOOLEAN)) {
+                        value = resultSet.getBoolean(i + 1);
+                    }
+                    else {
+                        throw new VerifyException("Unknown or unsupported column type: " + columnType);
+                    }
+                    res.add(new ColumnRange(columnType, resultSet.wasNull() ? null : value));
+                }
+            }
+        }
+        catch (SQLException e) {
+            closeWithSuppression(e, statement, connection);
+            throw metadataError(e);
+        }
+        catch (Throwable t) {
+            closeWithSuppression(t, statement, connection);
+            throw t;
+        }
+        return res.build();
     }
 }

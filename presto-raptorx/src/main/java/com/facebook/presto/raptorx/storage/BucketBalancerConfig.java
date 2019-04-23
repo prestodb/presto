@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 public class BucketBalancerConfig
 {
     private boolean balancerEnabled = true;
-    private Duration balancerInterval = new Duration(6, TimeUnit.HOURS);
+    private Duration balancerInterval = new Duration(1, TimeUnit.HOURS);
 
     public boolean isBalancerEnabled()
     {

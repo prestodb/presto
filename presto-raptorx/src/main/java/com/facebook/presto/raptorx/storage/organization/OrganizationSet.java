@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.raptorx.storage.organization;
 
+import com.facebook.presto.raptorx.metadata.TableInfo;
+
 import java.util.Objects;
 import java.util.Set;
 
@@ -21,20 +23,20 @@ import static java.util.Objects.requireNonNull;
 
 public class OrganizationSet
 {
-    private final long tableId;
+    private final TableInfo tableInfo;
     private final Set<Long> chunkIds;
     private final int bucketNumber;
 
-    public OrganizationSet(long tableId, Set<Long> chunkIds, int bucketNumber)
+    public OrganizationSet(TableInfo tableInfo, Set<Long> chunkIds, int bucketNumber)
     {
-        this.tableId = tableId;
+        this.tableInfo = tableInfo;
         this.chunkIds = requireNonNull(chunkIds, "ChunkIds is null");
         this.bucketNumber = bucketNumber;
     }
 
-    public long getTableId()
+    public TableInfo getTableInfo()
     {
-        return tableId;
+        return tableInfo;
     }
 
     public Set<Long> getChunkIds()
@@ -57,7 +59,7 @@ public class OrganizationSet
             return false;
         }
         OrganizationSet that = (OrganizationSet) o;
-        return tableId == that.tableId &&
+        return tableInfo.equals(that.tableInfo) &&
                 Objects.equals(chunkIds, that.chunkIds) &&
                 Objects.equals(bucketNumber, that.bucketNumber);
     }
@@ -65,14 +67,14 @@ public class OrganizationSet
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableId, chunkIds, bucketNumber);
+        return Objects.hash(tableInfo, chunkIds, bucketNumber);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("tableId", tableId)
+                .add("tableInfo", tableInfo.toString())
                 .add("chunkIds", chunkIds)
                 .add("bucketNumber", bucketNumber)
                 .omitNullValues()

@@ -16,6 +16,7 @@ package com.facebook.presto.raptorx.storage.organization;
 import com.facebook.presto.raptorx.metadata.ChunkManager;
 import com.facebook.presto.raptorx.metadata.ChunkMetadata;
 import com.facebook.presto.raptorx.metadata.MasterReaderDao;
+import com.facebook.presto.raptorx.metadata.Metadata;
 import com.facebook.presto.raptorx.metadata.NodeIdCache;
 import com.facebook.presto.raptorx.metadata.TableInfo;
 import com.facebook.presto.raptorx.storage.StorageConfig;
@@ -85,6 +86,7 @@ public class ChunkOrganizationManager
     private final ChunkOrganizer organizer;
 
     private final Set<Long> tablesInProgress = newConcurrentHashSet();
+    private Metadata metadata;
 
     @Inject
     public ChunkOrganizationManager(
@@ -94,6 +96,7 @@ public class ChunkOrganizationManager
             ChunkManager chunkManager,
             ChunkOrganizer organizer,
             TemporalFunction temporalFunction,
+            Metadata metadata,
             StorageConfig config)
     {
         this(database,
@@ -102,6 +105,7 @@ public class ChunkOrganizationManager
                 chunkManager,
                 organizer,
                 temporalFunction,
+                metadata,
                 config.isOrganizationEnabled(),
                 config.getOrganizationInterval(),
                 config.getOrganizationDiscoveryInterval());
@@ -114,6 +118,7 @@ public class ChunkOrganizationManager
             ChunkManager chunkManager,
             ChunkOrganizer organizer,
             TemporalFunction temporalFunction,
+            Metadata metadata,
             boolean enabled,
             Duration organizationInterval,
             Duration organizationDiscoveryInterval)
@@ -126,6 +131,7 @@ public class ChunkOrganizationManager
 
         requireNonNull(nodeIdCache, "nodeIdCache is null");
         this.organizer = requireNonNull(organizer, "organizer is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.chunkManager = requireNonNull(chunkManager, "chunkManager is null");
         this.currentNodeIdentifier = requireNonNull(currentNodeIdentifier, "currentNodeIdentifier is null");
         this.currentNodeId = nodeIdCache.getNodeId(currentNodeIdentifier);
@@ -202,7 +208,7 @@ public class ChunkOrganizationManager
     private void runOrganization(long tableId)
     {
         Set<ChunkMetadata> chunkMetadatas = chunkManager.getNodeChunkMetas(currentNodeIdentifier);
-        TableInfo tableInfo = masterReaderDao.getTableInfo(tableId);
+        TableInfo tableInfo = metadata.getTableInfoForBgJob(tableId);
         Set<ChunkMetadata> filteredChunks = chunkMetadatas.stream()
                 .filter(chunk -> !organizer.inProgress(chunk.getChunkId()))
                 .collect(toSet());
@@ -290,7 +296,7 @@ public class ChunkOrganizationManager
             else {
                 Set<ChunkIndexInfo> indexInfos = builder.build();
                 if (indexInfos.size() > 1) {
-                    organizationSets.add(createOrganizationSet(tableInfo.getTableId(), indexInfos));
+                    organizationSets.add(createOrganizationSet(tableInfo, indexInfos));
                 }
                 builder = ImmutableSet.builder();
                 previousRange = nextRange;
@@ -301,7 +307,7 @@ public class ChunkOrganizationManager
 
         Set<ChunkIndexInfo> indexInfos = builder.build();
         if (indexInfos.size() > 1) {
-            organizationSets.add(createOrganizationSet(tableInfo.getTableId(), indexInfos));
+            organizationSets.add(createOrganizationSet(tableInfo, indexInfos));
         }
         return organizationSets;
     }

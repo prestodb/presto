@@ -18,6 +18,7 @@ import com.facebook.presto.raptorx.storage.ChunkInfo;
 import java.util.Collection;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public interface MetadataWriter
 {
@@ -52,4 +53,18 @@ public interface MetadataWriter
     void insertChunks(long commitId, long tableId, Collection<ChunkInfo> chunks);
 
     void deleteChunks(long commitId, long tableId, Set<Long> chunkIds);
+
+    void insertWorkerTransaction(long transactionId, long nodeId);
+
+    void updateWorkerTransaction(boolean success, long transactionId, long nodeId);
+
+    void runWorkerTransaction(long tableId, Consumer<ShardWriterDao> writer);
+
+    void blockMaintenance(long tableId);
+
+    void unBlockMaintenance(long tableId);
+
+    boolean isMaintenanceBlocked(long tableId);
+
+    void clearAllMaintenance();
 }

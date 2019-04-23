@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptorx.metadata;
 
+import com.facebook.presto.spi.NodeManager;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
@@ -24,30 +25,37 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class CommitCleanerJob
+public class WorkerTransactionCleanerJob
 {
-    private static final Logger log = Logger.get(CommitCleanerJob.class);
+    private static final Logger log = Logger.get(WorkerTransactionCleanerJob.class);
 
-    private final ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(2);
+    private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("worker-cleaner"));
+    private final long nodeId;
     private final CommitCleaner cleaner;
     private final Duration interval;
     private final AtomicBoolean started = new AtomicBoolean();
     private final CounterStat jobErrors = new CounterStat();
 
     @Inject
-    public CommitCleanerJob(CommitCleaner cleaner, CommitCleanerConfig config)
+    public WorkerTransactionCleanerJob(NodeManager nodeManager, NodeIdCache nodeIdCache, CommitCleaner cleaner, WorkerTransactionCleanerConfig config)
     {
-        this(cleaner, config.getInterval());
+        this(nodeManager, nodeIdCache, cleaner, config.getInterval());
     }
 
-    public CommitCleanerJob(CommitCleaner cleaner, Duration interval)
+    public WorkerTransactionCleanerJob(NodeManager nodeManager, NodeIdCache nodeIdCache, CommitCleaner cleaner, Duration interval)
     {
+        requireNonNull(nodeManager, "nodeManager is null");
+        requireNonNull(nodeIdCache, "nodeIdCache is null");
+        this.nodeId = nodeIdCache.getNodeId(nodeManager.getCurrentNode().getNodeIdentifier());
         this.cleaner = requireNonNull(cleaner, "cleaner is null");
         this.interval = requireNonNull(interval, "interval is null");
     }
@@ -56,8 +64,7 @@ public class CommitCleanerJob
     public void start()
     {
         if (!started.getAndSet(true)) {
-            executor.scheduleWithFixedDelay(this::runChunks, 0, interval.toMillis() / 10, MILLISECONDS);
-            executor.scheduleWithFixedDelay(this::runOthers, interval.toMillis(), interval.toMillis(), MILLISECONDS);
+            executor.scheduleWithFixedDelay(this::run, interval.toMillis(), interval.toMillis(), MILLISECONDS);
         }
     }
 
@@ -74,24 +81,16 @@ public class CommitCleanerJob
         return jobErrors;
     }
 
-    private void runChunks()
+    private void run()
     {
         try {
-            cleaner.coordinatorRemoveChunks();
+            // jitter to avoid overloading database
+            long seconds = (long) interval.convertTo(SECONDS).getValue();
+            SECONDS.sleep(ThreadLocalRandom.current().nextLong(1, seconds));
+            cleaner.removeOldWorkerTransactions(nodeId);
         }
         catch (Throwable t) {
-            log.error(t, "Error cleaning chunks");
-            jobErrors.update(1);
-        }
-    }
-
-    private void runOthers()
-    {
-        try {
-            cleaner.coordinatorRemoveTableAndTransaction();
-        }
-        catch (Throwable t) {
-            log.error(t, "Error cleaning other commits");
+            log.error(t, "Error cleaning worker transactions, nodeID: " + nodeId);
             jobErrors.update(1);
         }
     }

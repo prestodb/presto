@@ -292,7 +292,7 @@ public class TestChunkCompactor
         sink.flush();
     }
 
-    private static List<ChunkInfo> createChunks(StorageManager storageManager, List<Long> columnIds, List<Type> columnTypes, int chunkCount)
+    public static List<ChunkInfo> createChunks(StorageManager storageManager, List<Long> columnIds, List<Type> columnTypes, int chunkCount)
     {
         StoragePageSink sink = createStoragePageSink(storageManager, columnIds, columnTypes);
         for (int i = 0; i < chunkCount; i++) {
@@ -308,18 +308,26 @@ public class TestChunkCompactor
         return manager.createStoragePageSink(transactionId, tableId, bucketNumber, columnIds, columnTypes, CompressionType.ZSTD);
     }
 
+    private static int[] genRandom(int len)
+    {
+        int[] vals = new int[len];
+        for (int i = 0; i < len; i++) {
+            vals[i] = (int) (Math.random() % 100);
+        }
+        return vals;
+    }
+
     private static List<Page> createPages(List<Type> columnTypes)
     {
         // Creates 10 pages with 10 rows each
         int rowCount = 10;
         int pageCount = 10;
 
-        // some random values to start off the blocks
-        int[][] initialValues = {{17, 15, 16, 18, 14}, {59, 55, 54, 53, 58}};
-
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         for (int i = 0; i < pageCount; i++) {
-            pages.add(SequencePageBuilder.createSequencePage(columnTypes, rowCount, initialValues[i % 2]));
+            // some random values to start off the blocks
+            int[] initialValues = genRandom(columnTypes.size());
+            pages.add(SequencePageBuilder.createSequencePage(columnTypes, rowCount, initialValues));
         }
         return pages.build();
     }

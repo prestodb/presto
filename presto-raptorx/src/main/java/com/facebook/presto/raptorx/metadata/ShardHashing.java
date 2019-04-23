@@ -21,8 +21,8 @@ public final class ShardHashing
 {
     private ShardHashing() {}
 
-    public static int tableShard(long tableId, int shardCount)
+    public static int dbShard(long someId, int shardCount)
     {
-        return mod(XxHash64.hash(tableId), shardCount);
+        return mod(XxHash64.hash(someId), shardCount);
     }
 }

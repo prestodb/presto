@@ -19,11 +19,13 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -92,6 +94,16 @@ public final class PageListBuilder
     public void appendTimestamp(long value)
     {
         TIMESTAMP.writeLong(nextColumn(), value);
+    }
+
+    public void appendDate(long value)
+    {
+        DateType.DATE.writeLong(nextColumn(), value);
+    }
+
+    public void appendBoolean(boolean value)
+    {
+        BOOLEAN.writeBoolean(nextColumn(), value);
     }
 
     public void appendVarchar(String value)

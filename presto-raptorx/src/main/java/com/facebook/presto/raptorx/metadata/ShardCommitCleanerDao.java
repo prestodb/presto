@@ -21,6 +21,7 @@ import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jdbi.v3.sqlobject.statement.UseRowMapper;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
@@ -58,9 +59,16 @@ public interface ShardCommitCleanerDao
 
     // sizes
 
-    @SqlUpdate("DELETE FROM table_sizes WHERE end_commit_id <= :activeCommitId")
-    void cleanupTableSizes(
-            @Bind long activeCommitId);
+    @SqlQuery("SELECT row_id\n" +
+            "FROM table_sizes\n" +
+            "WHERE end_commit_id <= :activeCommitId\n" +
+            "LIMIT <limit>")
+    List<Long> getDeletedTableSize(
+            @Bind long activeCommitId,
+            @Define int limit);
+
+    @SqlUpdate("DELETE FROM table_sizes WHERE row_id IN (<rowIds>)")
+    void cleanupTableSizes(@BindList List<Long> rowIds);
 
     // created chunks
 
@@ -80,4 +88,57 @@ public interface ShardCommitCleanerDao
     @SqlUpdate("DELETE FROM created_chunks WHERE chunk_id IN (<chunkIds>)")
     void deleteCreatedChunks(
             @BindList Set<Long> chunkIds);
+
+    // worker transactions
+
+    default void abortTransactions(Collection<Long> excludedTransactionIds, long endTime, long nodeId)
+    {
+        if (excludedTransactionIds.isEmpty()) {
+            doAbortTransactions(endTime, nodeId);
+        }
+        else {
+            doAbortTransactions(excludedTransactionIds, endTime, nodeId);
+        }
+    }
+
+    @SqlUpdate("UPDATE worker_transactions SET successful = FALSE, end_time = :endTime\n" +
+            "WHERE successful IS NULL AND node_id = :nodeId")
+    void doAbortTransactions(@Bind long endTime, @Bind long nodeId);
+
+    @SqlUpdate("UPDATE worker_transactions SET successful = FALSE, end_time = :endTime\n" +
+            "WHERE successful IS NULL\n" +
+            "  AND transaction_id NOT IN (<excludedTransactionIds>)\n" +
+            "  AND node_id = :nodeId")
+    void doAbortTransactions(
+            @BindList Iterable<Long> excludedTransactionIds,
+            @Bind long endTime,
+            @Bind long nodeId);
+
+    @SqlQuery("SELECT transaction_id FROM worker_transactions WHERE successful = TRUE AND node_id = :nodeId")
+    Set<Long> getSuccessfulTransactionIds(@Bind long nodeId);
+
+    @SqlUpdate("DELETE FROM worker_transactions WHERE transaction_id IN (<transactionIds>)")
+    void cleanupTransactions(@BindList Iterable<Long> transactionIds);
+
+    // only for uni-testing purpose
+    @SqlQuery("SELECT transaction_id FROM worker_transactions")
+    Set<Long> getAllTransactions();
+
+    @SqlQuery("SELECT transaction_id\n" +
+            "FROM worker_transactions\n" +
+            "WHERE successful = FALSE\n" +
+            " AND node_id = :nodeId")
+    Set<Long> getFailedTransactions(@Bind long nodeId);
+
+    @SqlQuery("SELECT transaction_id\n" +
+            "FROM worker_transactions\n" +
+            "WHERE successful = TRUE\n" +
+            "  AND end_time <= :maxEndTime")
+    Set<Long> getOldestSuccessfulTransactions(@Bind long maxEndTime);
+
+    @SqlQuery("SELECT transaction_id\n" +
+            "FROM worker_transactions\n" +
+            "WHERE successful = FALSE\n" +
+            "  AND end_time <= :maxEndTime")
+    Set<Long> getOldestFailedTransactions(@Bind long maxEndTime);
 }

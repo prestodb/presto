@@ -61,7 +61,7 @@ public class ChunkOrganizer
     {
         checkArgument(threads > 0, "threads must be > 0");
         this.jobFactory = requireNonNull(jobFactory, "jobFactory is null");
-        this.executorService = newFixedThreadPool(threads, daemonThreadsNamed("shard-organizer-%s"));
+        this.executorService = newFixedThreadPool(threads, daemonThreadsNamed("chunk-organizer-%s"));
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executorService);
     }
 

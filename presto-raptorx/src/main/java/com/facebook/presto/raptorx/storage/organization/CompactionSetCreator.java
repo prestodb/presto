@@ -60,7 +60,6 @@ public class CompactionSetCreator
 
     private Set<OrganizationSet> buildCompactionSets(TableInfo tableInfo, Set<ChunkIndexInfo> chunkIndexInfos)
     {
-        long tableId = tableInfo.getTableId();
         List<ChunkIndexInfo> chunks = chunkIndexInfos.stream()
                 .sorted(getChunkIndexInfoComparator(tableInfo))
                 .collect(toCollection(ArrayList::new));
@@ -77,7 +76,7 @@ public class CompactionSetCreator
                 Set<ChunkIndexInfo> chunksToCompact = builder.build();
 
                 if (chunksToCompact.size() > 1) {
-                    compactionSets.add(createOrganizationSet(tableId, chunksToCompact));
+                    compactionSets.add(createOrganizationSet(tableInfo, chunksToCompact));
                 }
 
                 builder = ImmutableSet.builder();
@@ -92,7 +91,7 @@ public class CompactionSetCreator
         // create compaction set for the remaining chunks of this day
         Set<ChunkIndexInfo> chunksToCompact = builder.build();
         if (chunksToCompact.size() > 1) {
-            compactionSets.add(createOrganizationSet(tableId, chunksToCompact));
+            compactionSets.add(createOrganizationSet(tableInfo, chunksToCompact));
         }
         return compactionSets.build();
     }

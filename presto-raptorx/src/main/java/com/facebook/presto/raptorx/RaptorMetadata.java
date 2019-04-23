@@ -22,6 +22,7 @@ import com.facebook.presto.raptorx.metadata.SchemaInfo;
 import com.facebook.presto.raptorx.metadata.TableInfo;
 import com.facebook.presto.raptorx.storage.ChunkDelta;
 import com.facebook.presto.raptorx.storage.ChunkInfo;
+import com.facebook.presto.raptorx.systemtable.ColumnRangesSystemTable;
 import com.facebook.presto.raptorx.transaction.Transaction;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -41,6 +42,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
@@ -82,6 +84,7 @@ import static com.facebook.presto.raptorx.RaptorTableProperties.getDistributionN
 import static com.facebook.presto.raptorx.RaptorTableProperties.getSortColumns;
 import static com.facebook.presto.raptorx.RaptorTableProperties.getTemporalColumn;
 import static com.facebook.presto.raptorx.RaptorTableProperties.isOrganized;
+import static com.facebook.presto.raptorx.systemtable.ColumnRangesSystemTable.getSourceTable;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
@@ -111,12 +114,14 @@ public class RaptorMetadata
     private final NodeSupplier nodeSupplier;
     private final BucketManager bucketManager;
     private final Transaction transaction;
+    private final RaptorConnector raptorConnector;
 
-    public RaptorMetadata(NodeSupplier nodeSupplier, BucketManager bucketManager, Transaction transaction)
+    public RaptorMetadata(NodeSupplier nodeSupplier, BucketManager bucketManager, Transaction transaction, RaptorConnector raptorConnector)
     {
         this.nodeSupplier = requireNonNull(nodeSupplier, "nodeSupplier is null");
         this.bucketManager = requireNonNull(bucketManager, "bucketManager is null");
         this.transaction = requireNonNull(transaction, "transaction is null");
+        this.raptorConnector = requireNonNull(raptorConnector, "raptorConnector is null");
     }
 
     @Override
@@ -155,6 +160,14 @@ public class RaptorMetadata
         return transaction.getTableId(tableName)
                 .map(tableId -> new RaptorTableHandle(tableId, OptionalLong.empty()))
                 .orElse(null);
+    }
+
+    @Override
+    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        return getSourceTable(tableName)
+                .map((SchemaTableName name) -> getTableHandle(session, name))
+                .map(handle -> new ColumnRangesSystemTable((RaptorTableHandle) handle, transaction));
     }
 
     @Override
@@ -534,6 +547,7 @@ public class RaptorMetadata
     public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         RaptorTableHandle table = (RaptorTableHandle) tableHandle;
+        raptorConnector.beginBlock(table.getTableId(), transaction.getTransactionId());
         transaction.registerTable(table.getTableId());
         return new RaptorTableHandle(table.getTableId(), OptionalLong.of(transaction.getTransactionId()));
     }
@@ -672,7 +686,7 @@ public class RaptorMetadata
                 .map(RaptorNode::getNodeId)
                 .collect(toImmutableSet());
 
-        int bucketCount = nodes.size() * 8; // TODO: make this configurable
+        int bucketCount = nodes.size() * 2; // TODO: make this configurable
 
         // bucket count
         OptionalInt declaredBucketCount = getBucketCount(properties);

@@ -25,12 +25,13 @@ public class TestingEnvironment
     private final TransactionWriter transactionWriter;
     private final NodeIdCache nodeIdCache;
     private final TypeManager typeManager;
+    private final MetadataWriter metadataWriter;
 
     public TestingEnvironment(Database database)
     {
         sequenceManager = new SequenceManager(database);
         typeManager = new TypeRegistry();
-        MetadataWriter metadataWriter = new DatabaseMetadataWriter(sequenceManager, database, typeManager);
+        metadataWriter = new DatabaseMetadataWriter(sequenceManager, database, typeManager);
         ChunkSupplier chunkSupplier = new ChunkSupplier(database);
         metadata = new DatabaseMetadata(sequenceManager, chunkSupplier, database, typeManager);
         transactionWriter = new TransactionWriter(metadataWriter);
@@ -60,5 +61,10 @@ public class TestingEnvironment
     public TypeManager getTypeManager()
     {
         return typeManager;
+    }
+
+    public MetadataWriter getMetadataWriter()
+    {
+        return metadataWriter;
     }
 }

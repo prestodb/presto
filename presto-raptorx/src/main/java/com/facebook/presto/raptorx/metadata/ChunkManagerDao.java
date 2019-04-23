@@ -27,10 +27,12 @@ public interface ChunkManagerDao
             "FROM chunks\n" +
             "WHERE table_id = :tableId\n" +
             "  AND end_commit_id is NULL\n" +
+            "  AND start_commit_id <= :currentCommitId\n" +
             "  AND bucket_number IN (<bucketNumbers>)")
     @UseRowMapper(ChunkMetadata.Mapper.class)
     List<ChunkMetadata> getChunkMetas(
             @Bind long tableId,
+            @Bind long currentCommitId,
             @BindList Set<Integer> bucketNumbers);
 
     @SqlQuery("SELECT chunk_id, compressed_size, xxhash64, table_id\n" +

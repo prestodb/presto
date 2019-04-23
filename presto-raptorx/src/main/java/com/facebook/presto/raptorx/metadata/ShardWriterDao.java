@@ -31,21 +31,39 @@ public interface ShardWriterDao
 {
     // transaction
 
-    @SqlQuery("SELECT commit_id FROM aborted_commit FOR UPDATE")
-    Long getLockedAbortedCommitId();
+    @SqlQuery("SELECT table_id FROM table_sizes WHERE table_id = :tableId AND end_commit_id is NULL FOR UPDATE")
+    Long getLockedTableId(@Bind("tableId") long tableId);
 
     @SqlUpdate("UPDATE aborted_commit SET commit_id = :commitId")
     void updateAbortedCommitId(
             @Bind long commitId);
 
-    default void rollback(long commitId)
+    default void rollback(long tableId, long commitId)
     {
-        rollbackCreatedChunks(commitId);
-        rollbackDeletedChunks(commitId);
+        rollbackCreatedChunks(tableId, commitId);
+        rollbackDeletedChunks(tableId, commitId);
 
-        rollbackCreatedTableSizes(commitId);
-        rollbackDeletedTableSizes(commitId);
+        rollbackCreatedTableSizes(tableId, commitId);
+        rollbackDeletedTableSizes(tableId, commitId);
     }
+
+    // worker transaction
+    @SqlUpdate("INSERT INTO worker_transactions (transaction_id, node_id, start_time)\n" +
+            "VALUES (:transactionId, :nodeId, :startTime)")
+    void insertWorkerTransaction(
+            @Bind long transactionId,
+            @Bind long nodeId,
+            @Bind long startTime);
+
+    @SqlUpdate("UPDATE worker_transactions SET successful = :success, end_time = :endTime\n" +
+            "WHERE successful IS NULL\n" +
+            "  AND transaction_id = :transactionId\n" +
+            "  AND node_id = :nodeId")
+    int updateWorkerTransaction(
+            @Bind boolean success,
+            @Bind long transactionId,
+            @Bind long nodeId,
+            @Bind long endTime);
 
     // chunk
 
@@ -92,13 +110,15 @@ public interface ShardWriterDao
             @Bind long commitId,
             @BindList Set<Long> chunkIds);
 
-    @SqlUpdate("DELETE FROM chunks WHERE start_commit_id = :commitId")
+    @SqlUpdate("DELETE FROM chunks WHERE table_id = :tableId AND start_commit_id = :commitId")
     void rollbackCreatedChunks(
+            @Bind long tableId,
             @Bind long commitId);
 
     @SqlUpdate("UPDATE chunks SET end_commit_id = NULL\n" +
-            "WHERE end_commit_id = :commitId")
+            "WHERE table_id = :tableId AND end_commit_id = :commitId")
     void rollbackDeletedChunks(
+            @Bind long tableId,
             @Bind long commitId);
 
     @SqlUpdate("DELETE FROM <table> WHERE start_commit_id = :commitId")
@@ -122,7 +142,6 @@ public interface ShardWriterDao
             "  AND chunk_id IN (<chunkIds>)")
     @UseRowMapper(ChunkSummary.Mapper.class)
     ChunkSummary getChunkSummary(
-            @Bind long commitId,
             @BindList Set<Long> chunkIds);
 
     // table size
@@ -152,14 +171,25 @@ public interface ShardWriterDao
     int deleteTableSize(
             @Bind long commitId,
             @Bind long tableId);
+    @SqlUpdate("UPDATE table_sizes SET chunk_count = :chunkCount,\n" +
+            " compressed_size = :compressedSize,\n" +
+            " uncompressed_size = :uncompressedSize\n" +
+            "WHERE table_id = :tableId AND end_commit_id is NULL")
+    void updateTableSize(
+            @Bind long chunkCount,
+            @Bind long compressedSize,
+            @Bind long uncompressedSize,
+            @Bind long tableId);
 
-    @SqlUpdate("DELETE FROM table_sizes WHERE start_commit_id = :commitId")
+    @SqlUpdate("DELETE FROM table_sizes WHERE table_id = :tableId AND start_commit_id = :commitId")
     void rollbackCreatedTableSizes(
+            @Bind long tableId,
             @Bind long commitId);
 
     @SqlUpdate("UPDATE table_sizes SET end_commit_id = NULL\n" +
-            "WHERE end_commit_id = :commitId")
+            "WHERE table_id = :tableId AND end_commit_id = :commitId")
     void rollbackDeletedTableSizes(
+            @Bind long tableId,
             @Bind long commitId);
 
     @SqlQuery("SELECT *\n" +
@@ -169,4 +199,22 @@ public interface ShardWriterDao
     @UseRowMapper(TableSize.Mapper.class)
     TableSize getTableSize(
             @Bind long tableId);
+
+    @SqlUpdate("INSERT IGNORE INTO maintenance \n" +
+            " VALUES (\n" +
+            " :tableId,\n" +
+            " :now)")
+    void blockMaintenance(
+            @Bind long tableId,
+            @Bind long now);
+
+    @SqlUpdate("DELETE FROM maintenance \n" +
+            " WHERE table_id = :tableId")
+    void unBlockMaintenance(@Bind long tableId);
+
+    @SqlQuery("SELECT table_id FROM maintenance WHERE table_id = :tableId")
+    Long getMaintinanceInfo(@Bind long tableId);
+
+    @SqlUpdate("DELETE FROM maintenance")
+    void clearAllMaintenance();
 }

@@ -38,7 +38,7 @@ import static com.facebook.presto.raptorx.metadata.IndexWriter.chunkIndexTable;
 import static com.facebook.presto.raptorx.metadata.IndexWriter.jdbcType;
 import static com.facebook.presto.raptorx.metadata.IndexWriter.maxColumn;
 import static com.facebook.presto.raptorx.metadata.IndexWriter.minColumn;
-import static com.facebook.presto.raptorx.metadata.ShardHashing.tableShard;
+import static com.facebook.presto.raptorx.metadata.ShardHashing.dbShard;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.partition;
@@ -83,7 +83,7 @@ public class ChunkOrganizerUtil
 
         ImmutableList.Builder<ChunkIndexInfo> indexInfoBuilder = ImmutableList.builder();
 
-        Jdbi dbi = shardDbi.get(tableShard(tableId, shardDbi.size()));
+        Jdbi dbi = shardDbi.get(dbShard(tableId, shardDbi.size()));
         try (Connection connection = dbi.open().getConnection()) {
             for (List<ChunkMetadata> partitionedChunks : partition(chunks, 1000)) {
                 String chunkIds = Joiner.on(",").join(nCopies(partitionedChunks.size(), "?"));
@@ -235,7 +235,7 @@ public class ChunkOrganizerUtil
         throw new IllegalArgumentException("Unhandled type: " + type);
     }
 
-    static OrganizationSet createOrganizationSet(long tableId, Set<ChunkIndexInfo> chunksToCompact)
+    static OrganizationSet createOrganizationSet(TableInfo tableInfo, Set<ChunkIndexInfo> chunksToCompact)
     {
         Set<Long> chunkIds = chunksToCompact.stream()
                 .map(ChunkIndexInfo::getChunkId)
@@ -246,6 +246,6 @@ public class ChunkOrganizerUtil
                 .collect(toSet());
 
         checkArgument(bucketNumber.size() == 1);
-        return new OrganizationSet(tableId, chunkIds, getOnlyElement(bucketNumber));
+        return new OrganizationSet(tableInfo, chunkIds, getOnlyElement(bucketNumber));
     }
 }

@@ -19,6 +19,7 @@ import com.facebook.presto.raptorx.storage.ColumnStats;
 import com.facebook.presto.raptorx.util.Database;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.TypeManager;
+import io.airlift.log.Logger;
 import org.jdbi.v3.core.Jdbi;
 
 import javax.inject.Inject;
@@ -39,7 +40,7 @@ import static com.facebook.presto.raptorx.metadata.IndexWriter.chunkIndexTable;
 import static com.facebook.presto.raptorx.metadata.IndexWriter.createIndexTable;
 import static com.facebook.presto.raptorx.metadata.IndexWriter.dropIndexTable;
 import static com.facebook.presto.raptorx.metadata.IndexWriter.dropIndexTableColumn;
-import static com.facebook.presto.raptorx.metadata.ShardHashing.tableShard;
+import static com.facebook.presto.raptorx.metadata.ShardHashing.dbShard;
 import static com.facebook.presto.raptorx.util.DatabaseUtil.boxedInt;
 import static com.facebook.presto.raptorx.util.DatabaseUtil.boxedLong;
 import static com.facebook.presto.raptorx.util.DatabaseUtil.createJdbi;
@@ -51,9 +52,12 @@ import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.partition;
+import static com.mysql.jdbc.MysqlErrorNumbers.ER_TRANS_CACHE_FULL;
+import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 
 /**
@@ -130,6 +134,7 @@ import static java.util.stream.Collectors.toSet;
 public class DatabaseMetadataWriter
         implements MetadataWriter
 {
+    private static final Logger log = Logger.get(DatabaseMetadataWriter.class);
     private final SequenceManager sequenceManager;
     private final Database.Type databaseType;
     private final Jdbi masterDbi;
@@ -183,32 +188,20 @@ public class DatabaseMetadataWriter
         long commitId = activeCommit.getCommitId();
         RollbackInfo rollbackInfo = activeCommit.getRollbackInfo();
 
-        // rollback shards
-        for (Jdbi shardDbi : shardDbi) {
-            shardDbi.useTransaction(handle -> {
-                ShardWriterDao dao = handle.attach(ShardWriterDao.class);
-
-                // acquire shard lock
-                long abortedCommitId = getLockedAbortedCommitId(dao);
-
-                // skip if no rollback needed
-                if (abortedCommitId > commitId) {
-                    return;
-                }
-
-                dao.updateAbortedCommitId(commitId);
-
-                // rollback shard
-                dao.rollback(commitId);
-
-                for (long tableId : rollbackInfo.getWrittenTableIds()) {
-                    dao.rollbackCreatedIndexChunks(chunkIndexTable(tableId), commitId);
-                    dao.rollbackDeletedIndexChunks(chunkIndexTable(tableId), commitId);
-                }
+        // rollback chunks
+        for (long tableId : rollbackInfo.getWrittenTableIds()) {
+            retryWriteShard(tableId, false, getTableShard(tableId), dao -> {
+                // no need to lock here:
+                // case 1:  CommmitID 3 INSERT chunkA, here delete chunkA, meanwhile compact never sees chunkA
+                // case 2:  CommmitID 3 DELETE chunkA, here put it back, compact may have seen and Deleted chunkA,
+                //               if compact DELETE before here, then here put back nothing;
+                //               if compact DELETE after here,  then conflict, fails.
+                dao.rollback(tableId, commitId);
+                dao.rollbackCreatedIndexChunks(chunkIndexTable(tableId), commitId);
+                dao.rollbackDeletedIndexChunks(chunkIndexTable(tableId), commitId);
             });
         }
 
-        // rollback indexes
         for (long tableId : rollbackInfo.getCreatedTableIds()) {
             shardDbi.get(getTableShard(tableId)).useHandle(handle ->
                     dropIndexTable(handle, tableId));
@@ -328,7 +321,7 @@ public class DatabaseMetadataWriter
                     .toBytes());
         });
 
-        writeShard(commitId, getTableShard(table.getTableId()), dao -> {
+        writeShard(table.getTableId(), false, getTableShard(table.getTableId()), dao -> {
             createIndexTable(
                     databaseType,
                     dao.getHandle(),
@@ -366,7 +359,8 @@ public class DatabaseMetadataWriter
             deleteTable(dao, commitId, tableId);
         });
 
-        writeShard(commitId, getTableShard(tableId), dao ->
+        // need LOCK here, to exclude with OrganizationJob.runJob
+        writeShard(tableId, true, getTableShard(tableId), dao ->
                 deleteTableSize(dao, commitId, tableId));
     }
 
@@ -393,7 +387,7 @@ public class DatabaseMetadataWriter
                     .toBytes());
         });
 
-        writeShard(commitId, getTableShard(tableId), dao ->
+        writeShard(tableId, false, getTableShard(tableId), dao ->
                 addIndexTableColumn(databaseType, dao.getHandle(), tableId, column));
     }
 
@@ -496,8 +490,9 @@ public class DatabaseMetadataWriter
                     .toBytes());
         });
 
+        // The following writeShard() doesn't need Lock, ChunkIDs are always brand-new, no writing set conflicts.
         for (Collection<ChunkInfo> batch : partition(chunks, 10000)) {
-            writeShard(commitId, getTableShard(tableId), dao -> {
+            writeShard(tableId, false, getTableShard(tableId), dao -> {
                 dao.insertChunks(commitId, tableId, currentTime, batch.stream()
                         .map(chunk -> ChunkMetadata.from(table.get(), chunk))
                         .iterator());
@@ -514,7 +509,7 @@ public class DatabaseMetadataWriter
             });
         }
 
-        writeShard(commitId, getTableShard(tableId), dao -> {
+        retryWriteShard(tableId, true, getTableShard(tableId), dao -> {
             TableSize tableSize = dao.getTableSize(tableId);
             long chunkCount = tableSize.getChunkCount();
             long compressedSize = tableSize.getCompressedSize();
@@ -541,11 +536,12 @@ public class DatabaseMetadataWriter
 
         AtomicLong rowCount = new AtomicLong();
 
-        writeShard(commitId, getTableShard(tableId), dao -> {
-            ChunkSummary summary = dao.getChunkSummary(commitId, chunkIds);
+        retryWriteShard(tableId, true, getTableShard(tableId), dao -> {
+            ChunkSummary summary = dao.getChunkSummary(chunkIds);
             checkTableConflict(summary.getChunkCount() == chunkIds.size());
             rowCount.set(summary.getRowCount());
 
+            // Here although it's batch, it doesn't batch into multiple transactions, because it has to be in the same transaction with checkTableConflict
             for (Set<Long> batch : partitionSet(chunkIds, 1000)) {
                 deleteChunks(dao, commitId, tableId, batch);
             }
@@ -570,6 +566,72 @@ public class DatabaseMetadataWriter
         });
     }
 
+    @Override
+    public void insertWorkerTransaction(long transactionId, long nodeId)
+    {
+        ShardWriterDao dao = shardDbi.get(getNodeShard(nodeId)).onDemand(ShardWriterDao.class);
+        dao.insertWorkerTransaction(transactionId, nodeId, System.currentTimeMillis());
+    }
+
+    @Override
+    public void updateWorkerTransaction(boolean success, long transactionId, long nodeId)
+    {
+        ShardWriterDao dao = shardDbi.get(getNodeShard(nodeId)).onDemand(ShardWriterDao.class);
+        dao.updateWorkerTransaction(success, transactionId, nodeId, System.currentTimeMillis());
+    }
+
+    @Override
+    public void runWorkerTransaction(long tableId, Consumer<ShardWriterDao> writer)
+    {
+        // For now, don't retry Worker Transaction, if fails, just wait for next hour.
+        try {
+            shardDbi.get(getTableShard(tableId)).useTransaction(handle -> {
+                ShardWriterDao dao = handle.attach(ShardWriterDao.class);
+                writer.accept(dao);
+            });
+        }
+        catch (Exception e) {
+            if (e instanceof PrestoException && ((PrestoException) e).getErrorCode() == TRANSACTION_CONFLICT.toErrorCode()) {
+                // Even if change to retry in the future, shouldn't retry on Conflict
+                log.warn(e, "Failed worker transactions due to transaction conflict, tableID: " + tableId);
+            }
+            else {
+                log.warn(e, "Failed to run worker transactions, tableID: " + tableId);
+            }
+            throw metadataError(e);
+        }
+    }
+
+    @Override
+    public void blockMaintenance(long tableId)
+    {
+        ShardWriterDao dao = shardDbi.get(getTableShard(tableId)).onDemand(ShardWriterDao.class);
+        dao.blockMaintenance(tableId, System.currentTimeMillis());
+    }
+
+    @Override
+    public void unBlockMaintenance(long tableId)
+    {
+        ShardWriterDao dao = shardDbi.get(getTableShard(tableId)).onDemand(ShardWriterDao.class);
+        dao.unBlockMaintenance(tableId);
+    }
+
+    @Override
+    public boolean isMaintenanceBlocked(long tableId)
+    {
+        ShardWriterDao dao = shardDbi.get(getTableShard(tableId)).onDemand(ShardWriterDao.class);
+        return dao.getMaintinanceInfo(tableId) != null;
+    }
+
+    @Override
+    public void clearAllMaintenance()
+    {
+        for (Jdbi dbi : shardDbi) {
+            ShardWriterDao dao = dbi.onDemand(ShardWriterDao.class);
+            dao.clearAllMaintenance();
+        }
+    }
+
     private void writeMaster(long commitId, BiConsumer<MasterWriterDao, ActiveCommit> writer)
     {
         masterDbi.useTransaction(handle -> {
@@ -579,13 +641,45 @@ public class DatabaseMetadataWriter
         });
     }
 
-    private void writeShard(long commitId, int shard, Consumer<ShardWriterDao> writer)
+    private void retryWriteShard(long tableId, boolean needLock, int shard, Consumer<ShardWriterDao> writer)
+    {
+        // This function is similar to above runWorkerTransactionWithRetry, but with some differences. May merge later.
+        int maxAttempts = 10;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                writeShard(tableId, needLock, shard, writer);
+                break;
+            }
+            catch (Exception e) {
+                if (e instanceof PrestoException && ((PrestoException) e).getErrorCode() == TRANSACTION_CONFLICT.toErrorCode()) {
+                    // shouldn't retry on Conflict
+                    throw metadataError(e);
+                }
+                if (e instanceof SQLException && ((SQLException) e).getErrorCode() == ER_TRANS_CACHE_FULL) {
+                    // shouldn't retry on too large Transaction
+                    throw metadataError(e);
+                }
+                if (attempt == maxAttempts) {
+                    throw metadataError(e);
+                }
+                log.warn(e, "Failed to write shard on attempt %d, will retry. tableID: %d, needLock: %d", attempt, tableId, needLock ? 1 : 0);
+                try {
+                    SECONDS.sleep(multiplyExact(attempt, 2));
+                }
+                catch (InterruptedException ie) {
+                    throw metadataError(ie);
+                }
+            }
+        }
+    }
+
+    private void writeShard(long tableId, boolean needLock, int shard, Consumer<ShardWriterDao> writer)
     {
         shardDbi.get(shard).useTransaction(handle -> {
             ShardWriterDao dao = handle.attach(ShardWriterDao.class);
-            long abortedCommitId = getLockedAbortedCommitId(dao);
-            if (abortedCommitId >= commitId) {
-                throw new PrestoException(RAPTOR_INTERNAL_ERROR, "Commit is no longer active: " + commitId);
+            if (needLock) {
+                Long lockedTableId = dao.getLockedTableId(tableId);
+                verifyMetadata(lockedTableId != null, "tableID " + lockedTableId + " not valid!");
             }
             writer.accept(dao);
         });
@@ -593,7 +687,12 @@ public class DatabaseMetadataWriter
 
     private int getTableShard(long tableId)
     {
-        return tableShard(tableId, shardDbi.size());
+        return dbShard(tableId, shardDbi.size());
+    }
+
+    private int getNodeShard(long nodeId)
+    {
+        return dbShard(nodeId, shardDbi.size());
     }
 
     private static void failIfRelationExists(MasterWriterDao dao, long schemaId, String name)
@@ -710,13 +809,6 @@ public class DatabaseMetadataWriter
     {
         Long id = dao.getLockedCurrentCommitId();
         verifyMetadata(id != null, "No current_commit row");
-        return id;
-    }
-
-    private static long getLockedAbortedCommitId(ShardWriterDao dao)
-    {
-        Long id = dao.getLockedAbortedCommitId();
-        verifyMetadata(id != null, "No aborted_commit row");
         return id;
     }
 

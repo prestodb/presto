@@ -16,7 +16,7 @@ package com.facebook.presto.raptorx.storage.organization;
 import com.facebook.presto.raptorx.metadata.ChunkManager;
 import com.facebook.presto.raptorx.metadata.ChunkMetadata;
 import com.facebook.presto.raptorx.metadata.ColumnInfo;
-import com.facebook.presto.raptorx.metadata.MasterReaderDao;
+import com.facebook.presto.raptorx.metadata.Metadata;
 import com.facebook.presto.raptorx.metadata.TableInfo;
 import com.facebook.presto.raptorx.storage.StorageConfig;
 import com.facebook.presto.raptorx.util.Database;
@@ -78,7 +78,7 @@ public class ChunkCompactionManager
     private final long maxChunkRows;
 
     private final List<Jdbi> shardDbi;
-    private final MasterReaderDao masterReaderDao;
+    private Metadata metadata;
 
     @Inject
     public ChunkCompactionManager(Database database,
@@ -86,13 +86,15 @@ public class ChunkCompactionManager
             ChunkManager chunkManager,
             ChunkOrganizer organizer,
             TemporalFunction temporalFunction,
-            StorageConfig config)
+            StorageConfig config,
+            Metadata metadata)
     {
         this(database,
                 nodeManager.getCurrentNode().getNodeIdentifier(),
                 chunkManager,
                 organizer,
                 temporalFunction,
+                metadata,
                 config.getCompactionInterval(),
                 config.getMaxChunkSize(),
                 config.getMaxChunkRows(),
@@ -105,16 +107,16 @@ public class ChunkCompactionManager
             ChunkManager chunkManager,
             ChunkOrganizer organizer,
             TemporalFunction temporalFunction,
+            Metadata metadata,
             Duration compactionDiscoveryInterval,
             DataSize maxChunkSize,
             long maxChunkRows,
             boolean compactionEnabled)
     {
-        this.masterReaderDao = createJdbi(database.getMasterConnection()).onDemand(MasterReaderDao.class);
         this.shardDbi = database.getShards().stream()
                 .map(shard -> createJdbi(shard.getConnection()))
                 .collect(toImmutableList());
-
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.currentNodeIdentifier = requireNonNull(currentNodeIdentifier, "currentNodeIdentifier is null");
         this.chunkManager = requireNonNull(chunkManager, "chunkManager is null");
         this.organizer = requireNonNull(organizer, "organizer is null");
@@ -178,7 +180,7 @@ public class ChunkCompactionManager
 
         for (Entry<Long, List<ChunkMetadata>> entry : Multimaps.asMap(tableChunks).entrySet()) {
             long tableId = entry.getKey();
-            TableInfo tableInfo = masterReaderDao.getTableInfo(tableId);
+            TableInfo tableInfo = metadata.getTableInfoForBgJob(tableId);
             List<ChunkMetadata> chunks = entry.getValue();
             Collection<OrganizationSet> organizationSets = filterAndCreateCompactionSets(tableInfo, chunks);
             log.info("Created %s organization set(s) for table ID %s", organizationSets.size(), tableId);

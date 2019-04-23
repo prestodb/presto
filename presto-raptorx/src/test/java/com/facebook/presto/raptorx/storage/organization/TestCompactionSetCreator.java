@@ -124,8 +124,8 @@ public class TestCompactionSetCreator
         assertEquals(actual.size(), 2);
 
         Set<OrganizationSet> expected = ImmutableSet.of(
-                new OrganizationSet(temporalTableInfo.getTableId(), extractIndexes(inputChunks, 0, 3), 1),
-                new OrganizationSet(temporalTableInfo.getTableId(), extractIndexes(inputChunks, 1, 2), 1));
+                new OrganizationSet(temporalTableInfo, extractIndexes(inputChunks, 0, 3), 1),
+                new OrganizationSet(temporalTableInfo, extractIndexes(inputChunks, 1, 2), 1));
         assertEquals(actual, expected);
     }
 
@@ -152,8 +152,8 @@ public class TestCompactionSetCreator
         assertEquals(compactionSets.size(), 2);
 
         Set<OrganizationSet> expected = ImmutableSet.of(
-                new OrganizationSet(tableId, extractIndexes(inputChunks, 0, 1, 5, 6), 1),
-                new OrganizationSet(tableId, extractIndexes(inputChunks, 2, 3, 4), 1));
+                new OrganizationSet(temporalTableInfo, extractIndexes(inputChunks, 0, 1, 5, 6), 1),
+                new OrganizationSet(temporalTableInfo, extractIndexes(inputChunks, 2, 3, 4), 1));
         assertEquals(compactionSets, expected);
     }
 
@@ -178,8 +178,8 @@ public class TestCompactionSetCreator
         assertEquals(actual.size(), 2);
 
         Set<OrganizationSet> expected = ImmutableSet.of(
-                new OrganizationSet(tableId, extractIndexes(inputChunks, 0, 3, 5), 1),
-                new OrganizationSet(tableId, extractIndexes(inputChunks, 1, 4), 1));
+                new OrganizationSet(temporalTableInfo, extractIndexes(inputChunks, 0, 3, 5), 1),
+                new OrganizationSet(temporalTableInfo, extractIndexes(inputChunks, 1, 4), 1));
         assertEquals(actual, expected);
     }
 
@@ -200,8 +200,8 @@ public class TestCompactionSetCreator
         assertEquals(actual.size(), 2);
 
         Set<OrganizationSet> expected = ImmutableSet.of(
-                new OrganizationSet(tableId, extractIndexes(inputChunks, 0, 3, 5), 1),
-                new OrganizationSet(tableId, extractIndexes(inputChunks, 1, 2, 4), 2));
+                new OrganizationSet(bucketedTableInfo, extractIndexes(inputChunks, 0, 3, 5), 1),
+                new OrganizationSet(bucketedTableInfo, extractIndexes(inputChunks, 1, 2, 4), 2));
         assertEquals(actual, expected);
     }
 
@@ -236,8 +236,8 @@ public class TestCompactionSetCreator
         assertEquals(actual.size(), 2);
 
         Set<OrganizationSet> expected = ImmutableSet.of(
-                new OrganizationSet(tableId, extractIndexes(inputChunks, 0, 2), 1),
-                new OrganizationSet(tableId, extractIndexes(inputChunks, 1, 3), 2));
+                new OrganizationSet(bucketedTemporalTableInfo, extractIndexes(inputChunks, 0, 2), 1),
+                new OrganizationSet(bucketedTemporalTableInfo, extractIndexes(inputChunks, 1, 3), 2));
         assertEquals(actual, expected);
     }
 

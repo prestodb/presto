@@ -237,6 +237,7 @@ public class TestChunkOrganizationManager
                 chunkManager,
                 createChunkOrganizer(),
                 TEMPORAL_FUNCTION,
+                metadata,
                 true,
                 new Duration(intervalMillis, MILLISECONDS),
                 new Duration(5, MINUTES));

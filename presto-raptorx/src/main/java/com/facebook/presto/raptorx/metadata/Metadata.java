@@ -15,6 +15,7 @@ package com.facebook.presto.raptorx.metadata;
 
 import com.facebook.presto.raptorx.storage.ChunkInfo;
 import com.facebook.presto.raptorx.util.CloseableIterator;
+import com.facebook.presto.raptorx.util.ColumnRange;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 
@@ -63,6 +64,8 @@ public interface Metadata
 
     TableInfo getTableInfo(long commitId, long tableId);
 
+    TableInfo getTableInfoForBgJob(long tableId);
+
     ViewInfo getViewInfo(long commitId, long viewId);
 
     Collection<TableStats> listTableStats(long commitId, Optional<Long> schemaId, Optional<Long> tableId);
@@ -90,4 +93,6 @@ public interface Metadata
     List<BucketNode> getBucketNodes(long distibutionId);
 
     void updateBucketAssignment(long distributionId, int bucketNumber, long nodeId);
+
+    List<ColumnRange> getColumnRanges(long commitId, long tableId, List<ColumnInfo> columns);
 }

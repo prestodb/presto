@@ -89,6 +89,21 @@ public class TransactionWriter
         writer.finishCommit(commitId, transactionId);
     }
 
+    public void clearAllMaintenance()
+    {
+        writer.clearAllMaintenance();
+    }
+
+    public void blockMaintenance(long tableId)
+    {
+        writer.blockMaintenance(tableId);
+    }
+
+    public void unBlockMaintenance(long tableId)
+    {
+        writer.unBlockMaintenance(tableId);
+    }
+
     private static class ActionWriter
             implements ActionVisitor
     {

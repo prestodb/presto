@@ -104,9 +104,7 @@ public class TableStatsSystemTable
         PageListBuilder builder = PageListBuilder.forTable(tableMetadata);
 
         for (TableStats table : tables) {
-            builder.beginRow();
             writeTable(builder, table);
-            builder.endRow();
         }
 
         return new FixedPageSource(builder.build());
@@ -114,6 +112,8 @@ public class TableStatsSystemTable
 
     private static void writeTable(PageListBuilder builder, TableStats stats)
     {
+        builder.beginRow();
+
         builder.appendVarchar(stats.getTableSchema());
         builder.appendVarchar(stats.getTableName());
         builder.appendTimestamp(stats.getCreateTime());
@@ -123,5 +123,7 @@ public class TableStatsSystemTable
         builder.appendBigint(stats.getRowCount());
         builder.appendBigint(stats.getCompressedSize());
         builder.appendBigint(stats.getUncompressedSize());
+
+        builder.endRow();
     }
 }
