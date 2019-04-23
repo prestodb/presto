@@ -218,16 +218,18 @@ public class QueryStateMachine
             Metadata metadata,
             WarningCollector warningCollector)
     {
+        Session newSession = null;
         // If there is not an existing transaction, begin an auto commit transaction
         if (!session.getTransactionId().isPresent() && !transactionControl) {
             // TODO: make autocommit isolation level a session parameter
             TransactionId transactionId = transactionManager.beginTransaction(true);
-            session = session.beginTransactionId(transactionId, transactionManager, accessControl);
+            newSession = session.beginTransactionId(transactionId, transactionManager, accessControl);
+            session.setTransactionId(transactionId);
         }
 
         QueryStateMachine queryStateMachine = new QueryStateMachine(
                 query,
-                session,
+                newSession,
                 self,
                 Optional.of(resourceGroup),
                 queryType,

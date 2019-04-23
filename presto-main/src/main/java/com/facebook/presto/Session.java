@@ -56,7 +56,7 @@ import static java.util.Objects.requireNonNull;
 public final class Session
 {
     private final QueryId queryId;
-    private final Optional<TransactionId> transactionId;
+    private Optional<TransactionId> transactionId;
     private final boolean clientTransactionSupport;
     private final Identity identity;
     private final Optional<String> source;
@@ -284,6 +284,11 @@ public final class Session
         String sql = preparedStatements.get(name);
         checkCondition(sql != null, NOT_FOUND, "Prepared statement not found: " + name);
         return sql;
+    }
+
+    public void setTransactionId(TransactionId transactionId)
+    {
+        this.transactionId = Optional.of(transactionId);
     }
 
     public Session beginTransactionId(TransactionId transactionId, TransactionManager transactionManager, AccessControl accessControl)

@@ -376,28 +376,25 @@ public class SqlQueryManager
             // it's not safe to do any of this, and we had bugs before where people reused this code in a method
 
             // if session creation failed, create a minimal session object
-            if (session == null) {
-                session = Session.builder(new SessionPropertyManager())
-                        .setQueryId(queryId)
-                        .setIdentity(sessionContext.getIdentity())
-                        .setPath(new SqlPath(Optional.empty()))
-                        .build();
-            }
-            QUERY_STATE_LOG.debug(e, "Query %s failed", session.getQueryId());
-
-            // query failure fails the transaction
-            session.getTransactionId().ifPresent(transactionManager::fail);
-
-            QueryExecution execution = new FailedQueryExecution(
-                    session,
-                    query,
-                    locationFactory.createQueryLocation(queryId),
-                    Optional.ofNullable(selectionContext).map(SelectionContext::getResourceGroupId),
-                    queryType,
-                    queryExecutor,
-                    e);
-
             try {
+                if (session == null) {
+                    session = Session.builder(new SessionPropertyManager())
+                            .setQueryId(queryId)
+                            .setIdentity(sessionContext.getIdentity())
+                            .setPath(new SqlPath(Optional.empty()))
+                            .build();
+                }
+                QUERY_STATE_LOG.debug(e, "Query %s failed", session.getQueryId());
+
+                QueryExecution execution = new FailedQueryExecution(
+                        session,
+                        query,
+                        locationFactory.createQueryLocation(queryId),
+                        Optional.ofNullable(selectionContext).map(SelectionContext::getResourceGroupId),
+                        queryType,
+                        queryExecutor,
+                        e);
+
                 queryTracker.addQuery(execution);
 
                 BasicQueryInfo queryInfo = execution.getBasicQueryInfo();
@@ -409,6 +406,9 @@ public class SqlQueryManager
                 stats.queryFinished(execution.getQueryInfo());
             }
             finally {
+                // query failure fails the transaction
+                session.getTransactionId().ifPresent(transactionManager::fail);
+                log.debug("createQueryInternal exeception, transactionId:" + (session.getTransactionId().isPresent() ? session.getTransactionId().isPresent() : "NULL") + ", called fail");
                 // execution MUST be added to the expiration queue or there will be a leak
                 queryTracker.expireQuery(queryId);
             }
