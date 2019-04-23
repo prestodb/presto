@@ -82,6 +82,7 @@ public final class HiveSessionProperties
     public static final String WRITING_STAGING_FILES_ENABLED = "writing_staging_files_enabled";
     private static final String TEMPORARY_TABLE_SCHEMA = "temporary_table_schema";
     private static final String TEMPORARY_TABLE_STORAGE_FORMAT = "temporary_table_storage_format";
+    public static final String USE_REWINDABLE_SPLIT_SOURCE = "use_rewindable_split_source";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -336,7 +337,12 @@ public final class HiveSessionProperties
                         hiveClientConfig.getTemporaryTableStorageFormat(),
                         false,
                         value -> HiveStorageFormat.valueOf(((String) value).toUpperCase()),
-                        HiveStorageFormat::name));
+                        HiveStorageFormat::name),
+                booleanProperty(
+                        USE_REWINDABLE_SPLIT_SOURCE,
+                        "Use rewindable hive split source",
+                        hiveClientConfig.isUseRewindableSplitSource(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -563,6 +569,11 @@ public final class HiveSessionProperties
     public static HiveStorageFormat getTemporaryTableStorageFormat(ConnectorSession session)
     {
         return session.getProperty(TEMPORARY_TABLE_STORAGE_FORMAT, HiveStorageFormat.class);
+    }
+
+    public static boolean isUseRewindableSplitSource(ConnectorSession session)
+    {
+        return session.getProperty(USE_REWINDABLE_SPLIT_SOURCE, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)

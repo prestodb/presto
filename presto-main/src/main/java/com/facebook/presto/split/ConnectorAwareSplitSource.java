@@ -72,6 +72,12 @@ public class ConnectorAwareSplitSource
     }
 
     @Override
+    public void rewind(ConnectorPartitionHandle partitionHandle)
+    {
+        source.rewind(partitionHandle);
+    }
+
+    @Override
     public void close()
     {
         source.close();

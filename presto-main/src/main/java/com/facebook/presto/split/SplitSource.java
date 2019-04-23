@@ -34,6 +34,8 @@ public interface SplitSource
 
     ListenableFuture<SplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, Lifespan lifespan, int maxSize);
 
+    void rewind(ConnectorPartitionHandle partitionHandle);
+
     @Override
     void close();
 
