@@ -77,6 +77,7 @@ import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createMaterializeExchangesSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
+import static com.facebook.presto.hive.HiveQueryRunner.createRewindableSplitSourceSession;
 import static com.facebook.presto.hive.HiveSessionProperties.RCFILE_OPTIMIZED_WRITER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.WRITING_STAGING_FILES_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.getInsertExistingPartitionsBehavior;
@@ -139,6 +140,7 @@ public class TestHiveIntegrationSmokeTest
     private final String catalog;
     private final Session bucketedSession;
     private final Session materializeExchangesSession;
+    private final Session rewindableSplitSourceSession;
     private final TypeTranslator typeTranslator;
 
     @SuppressWarnings("unused")
@@ -147,6 +149,7 @@ public class TestHiveIntegrationSmokeTest
         this(() -> createQueryRunner(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER),
                 createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
                 createMaterializeExchangesSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
+                createRewindableSplitSourceSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
                 HIVE_CATALOG,
                 new HiveTypeTranslator());
     }
@@ -155,6 +158,7 @@ public class TestHiveIntegrationSmokeTest
             QueryRunnerSupplier queryRunnerSupplier,
             Session bucketedSession,
             Session materializeExchangesSession,
+            Session rewindableSplitSourceSession,
             String catalog,
             TypeTranslator typeTranslator)
     {
@@ -162,6 +166,7 @@ public class TestHiveIntegrationSmokeTest
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.bucketedSession = requireNonNull(bucketedSession, "bucketSession is null");
         this.materializeExchangesSession = requireNonNull(materializeExchangesSession, "materializeExchangesSession is null");
+        this.rewindableSplitSourceSession = requireNonNull(rewindableSplitSourceSession, "rewindableSplitSourceSession is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
     }
 
@@ -1865,8 +1870,14 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testBucketedCatalog()
     {
-        String bucketedCatalog = bucketedSession.getCatalog().get();
-        String bucketedSchema = bucketedSession.getSchema().get();
+        testBucketedCatalog(bucketedSession);
+        testBucketedCatalog(rewindableSplitSourceSession);
+    }
+
+    private void testBucketedCatalog(Session session)
+    {
+        String bucketedCatalog = session.getCatalog().get();
+        String bucketedSchema = session.getSchema().get();
 
         TableMetadata ordersTableMetadata = getTableMetadata(bucketedCatalog, bucketedSchema, "orders");
         assertEquals(ordersTableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("custkey"));
@@ -1880,15 +1891,21 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testBucketedExecution()
     {
-        assertQuery(bucketedSession, "select count(*) a from orders t1 join orders t2 on t1.custkey=t2.custkey");
-        assertQuery(bucketedSession, "select count(*) a from orders t1 join customer t2 on t1.custkey=t2.custkey", "SELECT count(*) from orders");
-        assertQuery(bucketedSession, "select count(distinct custkey) from orders");
+        testBucketedExecution(bucketedSession);
+        testBucketedExecution(rewindableSplitSourceSession);
+    }
+
+    private void testBucketedExecution(Session session)
+    {
+        assertQuery(session, "select count(*) a from orders t1 join orders t2 on t1.custkey=t2.custkey");
+        assertQuery(session, "select count(*) a from orders t1 join customer t2 on t1.custkey=t2.custkey", "SELECT count(*) from orders");
+        assertQuery(session, "select count(distinct custkey) from orders");
 
         assertQuery(
-                Session.builder(bucketedSession).setSystemProperty("task_writer_count", "1").build(),
+                Session.builder(session).setSystemProperty("task_writer_count", "1").build(),
                 "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
         assertQuery(
-                Session.builder(bucketedSession).setSystemProperty("task_writer_count", "4").build(),
+                Session.builder(session).setSystemProperty("task_writer_count", "4").build(),
                 "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
     }
 
@@ -2418,22 +2435,26 @@ public class TestHiveIntegrationSmokeTest
     {
         testMismatchedBucketing(getSession());
         testMismatchedBucketing(materializeExchangesSession);
+        testMismatchedBucketing(rewindableSplitSourceSession);
     }
 
     public void testMismatchedBucketing(Session session)
     {
         try {
             assertUpdate(
+                    session,
                     "CREATE TABLE test_mismatch_bucketing16\n" +
                             "WITH (bucket_count = 16, bucketed_by = ARRAY['key16']) AS\n" +
                             "SELECT orderkey key16, comment value16 FROM orders",
                     15000);
             assertUpdate(
+                    session,
                     "CREATE TABLE test_mismatch_bucketing32\n" +
                             "WITH (bucket_count = 32, bucketed_by = ARRAY['key32']) AS\n" +
                             "SELECT orderkey key32, comment value32 FROM orders",
                     15000);
             assertUpdate(
+                    session,
                     "CREATE TABLE test_mismatch_bucketingN AS\n" +
                             "SELECT orderkey keyN, comment valueN FROM orders",
                     15000);
@@ -2473,21 +2494,21 @@ public class TestHiveIntegrationSmokeTest
                     "ON key16=keyN";
 
             assertUpdate(withoutMismatchOptimization, writeToTableWithMoreBuckets, 15000, assertRemoteExchangesCount(4));
-            assertQuery("SELECT * FROM test_mismatch_bucketing_out32", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
-            assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_out32");
+            assertQuery(withoutMismatchOptimization, "SELECT * FROM test_mismatch_bucketing_out32", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
+            assertUpdate(withoutMismatchOptimization, "DROP TABLE IF EXISTS test_mismatch_bucketing_out32");
 
             assertUpdate(withMismatchOptimization, writeToTableWithMoreBuckets, 15000, assertRemoteExchangesCount(2));
-            assertQuery("SELECT * FROM test_mismatch_bucketing_out32", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
+            assertQuery(withMismatchOptimization, "SELECT * FROM test_mismatch_bucketing_out32", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
 
             assertUpdate(withMismatchOptimization, writeToTableWithFewerBuckets, 15000, assertRemoteExchangesCount(2));
-            assertQuery("SELECT * FROM test_mismatch_bucketing_out8", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
+            assertQuery(withMismatchOptimization, "SELECT * FROM test_mismatch_bucketing_out8", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
         }
         finally {
-            assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing16");
-            assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing32");
-            assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketingN");
-            assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_out32");
-            assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_out8");
+            assertUpdate(session, "DROP TABLE IF EXISTS test_mismatch_bucketing16");
+            assertUpdate(session, "DROP TABLE IF EXISTS test_mismatch_bucketing32");
+            assertUpdate(session, "DROP TABLE IF EXISTS test_mismatch_bucketingN");
+            assertUpdate(session, "DROP TABLE IF EXISTS test_mismatch_bucketing_out32");
+            assertUpdate(session, "DROP TABLE IF EXISTS test_mismatch_bucketing_out8");
         }
     }
 
@@ -2614,41 +2635,49 @@ public class TestHiveIntegrationSmokeTest
     {
         testGroupedExecution(getSession());
         testGroupedExecution(materializeExchangesSession);
+        testGroupedExecution(rewindableSplitSourceSession);
     }
 
-    public void testGroupedExecution(Session session)
+    private void testGroupedExecution(Session session)
     {
         try {
             assertUpdate(
+                    session,
                     "CREATE TABLE test_grouped_join1\n" +
                             "WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
                             "SELECT orderkey key1, comment value1 FROM orders",
                     15000);
             assertUpdate(
+                    session,
                     "CREATE TABLE test_grouped_join2\n" +
                             "WITH (bucket_count = 13, bucketed_by = ARRAY['key2']) AS\n" +
                             "SELECT orderkey key2, comment value2 FROM orders",
                     15000);
             assertUpdate(
+                    session,
                     "CREATE TABLE test_grouped_join3\n" +
                             "WITH (bucket_count = 13, bucketed_by = ARRAY['key3']) AS\n" +
                             "SELECT orderkey key3, comment value3 FROM orders",
                     15000);
             assertUpdate(
+                    session,
                     "CREATE TABLE test_grouped_join4\n" +
                             "WITH (bucket_count = 13, bucketed_by = ARRAY['key4_bucket']) AS\n" +
                             "SELECT orderkey key4_bucket, orderkey key4_non_bucket, comment value4 FROM orders",
                     15000);
             assertUpdate(
+                    session,
                     "CREATE TABLE test_grouped_joinN AS\n" +
                             "SELECT orderkey keyN, comment valueN FROM orders",
                     15000);
             assertUpdate(
+                    session,
                     "CREATE TABLE test_grouped_joinDual\n" +
                             "WITH (bucket_count = 13, bucketed_by = ARRAY['keyD']) AS\n" +
                             "SELECT orderkey keyD, comment valueD FROM orders CROSS JOIN UNNEST(repeat(NULL, 2))",
                     30000);
             assertUpdate(
+                    session,
                     "CREATE TABLE test_grouped_window\n" +
                             "WITH (bucket_count = 5, bucketed_by = ARRAY['key']) AS\n" +
                             "SELECT custkey key, orderkey value FROM orders WHERE custkey <= 5 ORDER BY orderkey LIMIT 10",
@@ -2696,7 +2725,7 @@ public class TestHiveIntegrationSmokeTest
                     .build();
 
             // Broadcast JOIN, 1 group per worker at a time, dynamic schedule
-            Session broadcastOneGroupAtATimeDynamic = Session.builder(getSession())
+            Session broadcastOneGroupAtATimeDynamic = Session.builder(session)
                     .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                     .setSystemProperty(COLOCATED_JOIN, "true")
                     .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")

@@ -124,7 +124,8 @@ public class TestHiveClientConfig
                 .setTemporaryStagingDirectoryPath("/tmp/presto-${USER}")
                 .setWritingStagingFilesEnabled(false)
                 .setTemporaryTableSchema("default")
-                .setTemporaryTableStorageFormat(ORC));
+                .setTemporaryTableStorageFormat(ORC)
+                .setUseRewindableSplitSource(false));
     }
 
     @Test
@@ -215,6 +216,7 @@ public class TestHiveClientConfig
                 .put("hive.writing-staging-files-enabled", "true")
                 .put("hive.temporary-table-schema", "other")
                 .put("hive.temporary-table-storage-format", "DWRF")
+                .put("hive.use-rewindable-split-source", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -302,7 +304,8 @@ public class TestHiveClientConfig
                 .setTemporaryStagingDirectoryPath("updated")
                 .setWritingStagingFilesEnabled(true)
                 .setTemporaryTableSchema("other")
-                .setTemporaryTableStorageFormat(DWRF);
+                .setTemporaryTableStorageFormat(DWRF)
+                .setUseRewindableSplitSource(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

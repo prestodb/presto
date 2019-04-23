@@ -65,6 +65,12 @@ public class SampledSplitSource
     }
 
     @Override
+    public void rewind(ConnectorPartitionHandle partitionHandle)
+    {
+        splitSource.rewind(partitionHandle);
+    }
+
+    @Override
     public void close()
     {
         splitSource.close();

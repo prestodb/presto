@@ -138,6 +138,12 @@ public class MockSplitSource
     }
 
     @Override
+    public void rewind(ConnectorPartitionHandle partitionHandle)
+    {
+        throw new UnsupportedOperationException("rewind is not supported in MockSplitSource");
+    }
+
+    @Override
     public void close()
     {
     }

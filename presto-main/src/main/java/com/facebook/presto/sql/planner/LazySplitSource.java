@@ -61,6 +61,12 @@ public class LazySplitSource
     }
 
     @Override
+    public void rewind(ConnectorPartitionHandle partitionHandle)
+    {
+        getDelegate().rewind(partitionHandle);
+    }
+
+    @Override
     public boolean isFinished()
     {
         return getDelegate().isFinished();
