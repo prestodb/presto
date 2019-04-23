@@ -58,4 +58,9 @@ public class FixedBucketNodeMap
     {
         return false;
     }
+
+    public List<InternalNode> getBucketToNode()
+    {
+        return bucketToNode;
+    }
 }
