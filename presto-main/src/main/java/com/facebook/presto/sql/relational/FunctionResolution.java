@@ -94,6 +94,7 @@ public final class FunctionResolution
         return functionManager.lookupFunction("LIKE_PATTERN", fromTypes(VARCHAR, VARCHAR));
     }
 
+    @Override
     public boolean isCastFunction(FunctionHandle functionHandle)
     {
         return functionManager.getFunctionMetadata(functionHandle).getName().equals(mangleOperatorName(OperatorType.CAST.name()));
