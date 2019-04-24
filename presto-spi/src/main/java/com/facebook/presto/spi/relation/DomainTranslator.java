@@ -16,10 +16,17 @@ package com.facebook.presto.spi.relation;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.predicate.TupleDomain;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public interface DomainTranslator
 {
+    interface ColumnExtractor<T>
+    {
+        Optional<T> extract(RowExpression expression);
+    }
+
     RowExpression toPredicate(TupleDomain<VariableReferenceExpression> tupleDomain);
 
     /**
@@ -28,20 +35,20 @@ public interface DomainTranslator
      * 2) An RowExpression fragment which represents the part of the original RowExpression that will need to be re-evaluated
      * after filtering with the TupleDomain.
      */
-    ExtractionResult fromPredicate(ConnectorSession session, RowExpression predicate);
+    <T> ExtractionResult<T> fromPredicate(ConnectorSession session, RowExpression predicate, ColumnExtractor<T> columnExtractor);
 
-    class ExtractionResult
+    class ExtractionResult<T>
     {
-        private final TupleDomain<VariableReferenceExpression> tupleDomain;
+        private final TupleDomain<T> tupleDomain;
         private final RowExpression remainingExpression;
 
-        public ExtractionResult(TupleDomain<VariableReferenceExpression> tupleDomain, RowExpression remainingExpression)
+        public ExtractionResult(TupleDomain<T> tupleDomain, RowExpression remainingExpression)
         {
             this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
             this.remainingExpression = requireNonNull(remainingExpression, "remainingExpression is null");
         }
 
-        public TupleDomain<VariableReferenceExpression> getTupleDomain()
+        public TupleDomain<T> getTupleDomain()
         {
             return tupleDomain;
         }
@@ -51,4 +58,11 @@ public interface DomainTranslator
             return remainingExpression;
         }
     }
+
+    ColumnExtractor<VariableReferenceExpression> BASIC_COLUMN_EXTRACTOR = expression -> {
+        if (expression instanceof VariableReferenceExpression) {
+            return Optional.of((VariableReferenceExpression) expression);
+        }
+        return Optional.empty();
+    };
 }

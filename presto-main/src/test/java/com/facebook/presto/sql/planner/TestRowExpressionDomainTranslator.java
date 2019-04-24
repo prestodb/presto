@@ -51,6 +51,7 @@ import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUA
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
+import static com.facebook.presto.spi.relation.DomainTranslator.BASIC_COLUMN_EXTRACTOR;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IN;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -1074,46 +1075,47 @@ public class TestRowExpressionDomainTranslator
     @Test
     public void testLegacyCharComparedToVarcharExpression()
     {
-        RowExpressionDomainTranslator domainTranslator = new RowExpressionDomainTranslator(createTestMetadataManager(new FeaturesConfig().setLegacyCharToVarcharCoercion(true)));
+        metadata = createTestMetadataManager(new FeaturesConfig().setLegacyCharToVarcharCoercion(true));
+        domainTranslator = new RowExpressionDomainTranslator(metadata);
 
         String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));
 
         // greater than or equal
-        testSimpleComparison(greaterThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("123456789")), C_CHAR, Range.greaterThan(createCharType(10), utf8Slice("123456788" + maxCodePoint)), domainTranslator);
-        testSimpleComparison(greaterThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("1234567890")), C_CHAR, Range.greaterThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")), domainTranslator);
-        testSimpleComparison(greaterThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("12345678901")), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890")), domainTranslator);
+        testSimpleComparison(greaterThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("123456789")), C_CHAR, Range.greaterThan(createCharType(10), utf8Slice("123456788" + maxCodePoint)));
+        testSimpleComparison(greaterThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("1234567890")), C_CHAR, Range.greaterThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
+        testSimpleComparison(greaterThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("12345678901")), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890")));
 
         // greater than
-        testSimpleComparison(greaterThan(cast(C_CHAR, VARCHAR), stringLiteral("123456789")), C_CHAR, Range.greaterThan(createCharType(10), utf8Slice("123456788" + maxCodePoint)), domainTranslator);
-        testSimpleComparison(greaterThan(cast(C_CHAR, VARCHAR), stringLiteral("1234567890")), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890")), domainTranslator);
-        testSimpleComparison(greaterThan(cast(C_CHAR, VARCHAR), stringLiteral("12345678901")), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890")), domainTranslator);
+        testSimpleComparison(greaterThan(cast(C_CHAR, VARCHAR), stringLiteral("123456789")), C_CHAR, Range.greaterThan(createCharType(10), utf8Slice("123456788" + maxCodePoint)));
+        testSimpleComparison(greaterThan(cast(C_CHAR, VARCHAR), stringLiteral("1234567890")), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890")));
+        testSimpleComparison(greaterThan(cast(C_CHAR, VARCHAR), stringLiteral("12345678901")), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890")));
 
         // less than or equal
-        testSimpleComparison(lessThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("123456789")), C_CHAR, Range.lessThanOrEqual(createCharType(10), utf8Slice("123456788" + maxCodePoint)), domainTranslator);
-        testSimpleComparison(lessThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("1234567890")), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")), domainTranslator);
-        testSimpleComparison(lessThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("12345678901")), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")), domainTranslator);
+        testSimpleComparison(lessThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("123456789")), C_CHAR, Range.lessThanOrEqual(createCharType(10), utf8Slice("123456788" + maxCodePoint)));
+        testSimpleComparison(lessThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("1234567890")), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
+        testSimpleComparison(lessThanOrEqual(cast(C_CHAR, VARCHAR), stringLiteral("12345678901")), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
 
         // less than
-        testSimpleComparison(lessThan(cast(C_CHAR, VARCHAR), stringLiteral("123456789")), C_CHAR, Range.lessThanOrEqual(createCharType(10), utf8Slice("123456788" + maxCodePoint)), domainTranslator);
-        testSimpleComparison(lessThan(cast(C_CHAR, VARCHAR), stringLiteral("1234567890")), C_CHAR, Range.lessThan(createCharType(10), Slices.utf8Slice("1234567890")), domainTranslator);
-        testSimpleComparison(lessThan(cast(C_CHAR, VARCHAR), stringLiteral("12345678901")), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")), domainTranslator);
+        testSimpleComparison(lessThan(cast(C_CHAR, VARCHAR), stringLiteral("123456789")), C_CHAR, Range.lessThanOrEqual(createCharType(10), utf8Slice("123456788" + maxCodePoint)));
+        testSimpleComparison(lessThan(cast(C_CHAR, VARCHAR), stringLiteral("1234567890")), C_CHAR, Range.lessThan(createCharType(10), Slices.utf8Slice("1234567890")));
+        testSimpleComparison(lessThan(cast(C_CHAR, VARCHAR), stringLiteral("12345678901")), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
 
         // equal
-        testSimpleComparison(equal(cast(C_CHAR, VARCHAR), stringLiteral("123456789")), C_CHAR, Domain.none(createCharType(10)), domainTranslator);
-        testSimpleComparison(equal(cast(C_CHAR, VARCHAR), stringLiteral("1234567890")), C_CHAR, Range.equal(createCharType(10), Slices.utf8Slice("1234567890")), domainTranslator);
-        testSimpleComparison(equal(cast(C_CHAR, VARCHAR), stringLiteral("12345678901")), C_CHAR, Domain.none(createCharType(10)), domainTranslator);
+        testSimpleComparison(equal(cast(C_CHAR, VARCHAR), stringLiteral("123456789")), C_CHAR, Domain.none(createCharType(10)));
+        testSimpleComparison(equal(cast(C_CHAR, VARCHAR), stringLiteral("1234567890")), C_CHAR, Range.equal(createCharType(10), Slices.utf8Slice("1234567890")));
+        testSimpleComparison(equal(cast(C_CHAR, VARCHAR), stringLiteral("12345678901")), C_CHAR, Domain.none(createCharType(10)));
 
         // not equal
-        testSimpleComparison(notEqual(cast(C_CHAR, VARCHAR), stringLiteral("123456789")), C_CHAR, Domain.notNull(createCharType(10)), domainTranslator);
+        testSimpleComparison(notEqual(cast(C_CHAR, VARCHAR), stringLiteral("123456789")), C_CHAR, Domain.notNull(createCharType(10)));
         testSimpleComparison(notEqual(cast(C_CHAR, VARCHAR), stringLiteral("1234567890")), C_CHAR, Domain.create(ValueSet.ofRanges(
-                Range.lessThan(createCharType(10), Slices.utf8Slice("1234567890")), Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890"))), false), domainTranslator);
-        testSimpleComparison(notEqual(cast(C_CHAR, VARCHAR), stringLiteral("12345678901")), C_CHAR, Domain.notNull(createCharType(10)), domainTranslator);
+                Range.lessThan(createCharType(10), Slices.utf8Slice("1234567890")), Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890"))), false));
+        testSimpleComparison(notEqual(cast(C_CHAR, VARCHAR), stringLiteral("12345678901")), C_CHAR, Domain.notNull(createCharType(10)));
 
         // is distinct from
-        testSimpleComparison(isDistinctFrom(cast(C_CHAR, VARCHAR), stringLiteral("123456789")), C_CHAR, Domain.all(createCharType(10)), domainTranslator);
+        testSimpleComparison(isDistinctFrom(cast(C_CHAR, VARCHAR), stringLiteral("123456789")), C_CHAR, Domain.all(createCharType(10)));
         testSimpleComparison(isDistinctFrom(cast(C_CHAR, VARCHAR), stringLiteral("1234567890")), C_CHAR, Domain.create(ValueSet.ofRanges(
-                Range.lessThan(createCharType(10), Slices.utf8Slice("1234567890")), Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890"))), true), domainTranslator);
-        testSimpleComparison(isDistinctFrom(cast(C_CHAR, VARCHAR), stringLiteral("12345678901")), C_CHAR, Domain.all(createCharType(10)), domainTranslator);
+                Range.lessThan(createCharType(10), Slices.utf8Slice("1234567890")), Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890"))), true));
+        testSimpleComparison(isDistinctFrom(cast(C_CHAR, VARCHAR), stringLiteral("12345678901")), C_CHAR, Domain.all(createCharType(10)));
     }
 
     @Test
@@ -1154,12 +1156,7 @@ public class TestRowExpressionDomainTranslator
 
     private ExtractionResult fromPredicate(RowExpression originalPredicate)
     {
-        return fromPredicate(originalPredicate, domainTranslator);
-    }
-
-    private ExtractionResult fromPredicate(RowExpression originalPredicate, RowExpressionDomainTranslator domainTranslator)
-    {
-        return domainTranslator.fromPredicate(TEST_SESSION.toConnectorSession(), originalPredicate);
+        return domainTranslator.fromPredicate(TEST_SESSION.toConnectorSession(), originalPredicate, BASIC_COLUMN_EXTRACTOR);
     }
 
     private RowExpression nullLiteral(Type type)
@@ -1330,19 +1327,9 @@ public class TestRowExpressionDomainTranslator
         testSimpleComparison(expression, input, Domain.create(ValueSet.ofRanges(expectedDomainRange), false));
     }
 
-    private void testSimpleComparison(RowExpression expression, VariableReferenceExpression input, Range expectedDomainRange, RowExpressionDomainTranslator domainTranslator)
-    {
-        testSimpleComparison(expression, input, Domain.create(ValueSet.ofRanges(expectedDomainRange), false), domainTranslator);
-    }
-
     private void testSimpleComparison(RowExpression expression, VariableReferenceExpression input, Domain domain)
     {
-        testSimpleComparison(expression, input, domain, domainTranslator);
-    }
-
-    private void testSimpleComparison(RowExpression expression, VariableReferenceExpression input, Domain domain, RowExpressionDomainTranslator domainTranslator)
-    {
-        ExtractionResult result = fromPredicate(expression, domainTranslator);
+        ExtractionResult result = fromPredicate(expression);
         assertEquals(result.getRemainingExpression(), TRUE);
         TupleDomain<VariableReferenceExpression> actual = result.getTupleDomain();
         TupleDomain<VariableReferenceExpression> expected = withColumnDomains(ImmutableMap.of(input, domain));
