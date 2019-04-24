@@ -361,8 +361,7 @@ public class PlanBuilder
 
     public ApplyNode apply(Assignments subqueryAssignments, List<Symbol> correlation, PlanNode input, PlanNode subquery)
     {
-        NullLiteral originSubquery = new NullLiteral(); // does not matter for tests
-        return new ApplyNode(idAllocator.getNextId(), input, subquery, subqueryAssignments, correlation, originSubquery);
+        return new ApplyNode(idAllocator.getNextId(), input, subquery, subqueryAssignments, correlation, "");
     }
 
     public AssignUniqueId assignUniqueId(Symbol unique, PlanNode source)
@@ -373,7 +372,7 @@ public class PlanBuilder
     public LateralJoinNode lateral(List<Symbol> correlation, PlanNode input, PlanNode subquery)
     {
         NullLiteral originSubquery = new NullLiteral(); // does not matter for tests
-        return new LateralJoinNode(idAllocator.getNextId(), input, subquery, correlation, LateralJoinNode.Type.INNER, originSubquery);
+        return new LateralJoinNode(idAllocator.getNextId(), input, subquery, correlation, LateralJoinNode.Type.INNER, "");
     }
 
     public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
@@ -761,6 +760,7 @@ public class PlanBuilder
                 unnestSymbols,
                 ordinalitySymbol);
     }
+
     public static Expression expression(String sql)
     {
         return ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql));

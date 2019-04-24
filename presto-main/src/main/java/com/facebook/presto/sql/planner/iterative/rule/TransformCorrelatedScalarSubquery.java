@@ -112,7 +112,7 @@ public class TransformCorrelatedScalarSubquery
                     rewrittenSubquery,
                     lateralJoinNode.getCorrelation(),
                     lateralJoinNode.getType(),
-                    lateralJoinNode.getOriginSubquery()));
+                    lateralJoinNode.getOriginSubqueryError()));
         }
 
         Symbol unique = context.getSymbolAllocator().newSymbol("unique", BigintType.BIGINT);
@@ -126,7 +126,7 @@ public class TransformCorrelatedScalarSubquery
                 rewrittenSubquery,
                 lateralJoinNode.getCorrelation(),
                 lateralJoinNode.getType(),
-                lateralJoinNode.getOriginSubquery());
+                lateralJoinNode.getOriginSubqueryError());
 
         Symbol isDistinct = context.getSymbolAllocator().newSymbol("is_distinct", BooleanType.BOOLEAN);
         MarkDistinctNode markDistinctNode = new MarkDistinctNode(

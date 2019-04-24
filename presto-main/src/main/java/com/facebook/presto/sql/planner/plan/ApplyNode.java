@@ -17,7 +17,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -64,10 +63,9 @@ public class ApplyNode
     private final Assignments subqueryAssignments;
 
     /**
-     * HACK!
-     * Used for error reporting in case this ApplyNode is not supported
+     * This information is only used for sanity check.
      */
-    private final Node originSubquery;
+    private final String originSubqueryError;
 
     @JsonCreator
     public ApplyNode(
@@ -76,14 +74,14 @@ public class ApplyNode
             @JsonProperty("subquery") PlanNode subquery,
             @JsonProperty("subqueryAssignments") Assignments subqueryAssignments,
             @JsonProperty("correlation") List<Symbol> correlation,
-            @JsonProperty("originSubquery") Node originSubquery)
+            @JsonProperty("originSubqueryError") String originSubqueryError)
     {
         super(id);
         requireNonNull(input, "input is null");
         requireNonNull(subquery, "right is null");
         requireNonNull(subqueryAssignments, "assignments is null");
         requireNonNull(correlation, "correlation is null");
-        requireNonNull(originSubquery, "originSubquery is null");
+        requireNonNull(originSubqueryError, "originSubqueryError is null");
 
         checkArgument(input.getOutputSymbols().containsAll(correlation), "Input does not contain symbols from correlation");
         checkArgument(
@@ -94,7 +92,7 @@ public class ApplyNode
         this.subquery = subquery;
         this.subqueryAssignments = subqueryAssignments;
         this.correlation = ImmutableList.copyOf(correlation);
-        this.originSubquery = originSubquery;
+        this.originSubqueryError = originSubqueryError;
     }
 
     private static boolean isSupportedSubqueryExpression(Expression expression)
@@ -128,10 +126,10 @@ public class ApplyNode
         return correlation;
     }
 
-    @JsonProperty("originSubquery")
-    public Node getOriginSubquery()
+    @JsonProperty("originSubqueryError")
+    public String getOriginSubqueryError()
     {
-        return originSubquery;
+        return originSubqueryError;
     }
 
     @Override
@@ -160,6 +158,6 @@ public class ApplyNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new ApplyNode(getId(), newChildren.get(0), newChildren.get(1), subqueryAssignments, correlation, originSubquery);
+        return new ApplyNode(getId(), newChildren.get(0), newChildren.get(1), subqueryAssignments, correlation, originSubqueryError);
     }
 }

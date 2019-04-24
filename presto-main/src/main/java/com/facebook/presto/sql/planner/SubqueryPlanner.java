@@ -57,6 +57,7 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
+import static com.facebook.presto.sql.analyzer.SemanticExceptions.subQueryNotSupportedError;
 import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
@@ -250,7 +251,7 @@ class SubqueryPlanner
                         subqueryNode,
                         ImmutableList.copyOf(SymbolsExtractor.extractUnique(correlation.values())),
                         type,
-                        query),
+                        subQueryNotSupportedError(query, "Given correlated subquery")),
                 analysis.getParameters());
     }
 
@@ -427,12 +428,7 @@ class SubqueryPlanner
                 .collect(toImmutableList());
     }
 
-    private PlanBuilder appendApplyNode(
-            PlanBuilder subPlan,
-            Node subquery,
-            PlanNode subqueryNode,
-            Assignments subqueryAssignments,
-            boolean correlationAllowed)
+    private PlanBuilder appendApplyNode(PlanBuilder subPlan, Node subquery, PlanNode subqueryNode, Assignments subqueryAssignments, boolean correlationAllowed)
     {
         Map<Expression, Expression> correlation = extractCorrelation(subPlan, subqueryNode);
         if (!correlationAllowed && !correlation.isEmpty()) {
@@ -449,7 +445,7 @@ class SubqueryPlanner
                         subqueryNode,
                         subqueryAssignments,
                         ImmutableList.copyOf(SymbolsExtractor.extractUnique(correlation.values())),
-                        subquery),
+                        subQueryNotSupportedError(subquery, "Given correlated subquery")),
                 analysis.getParameters());
     }
 
