@@ -144,7 +144,7 @@ public class TransformExistsApplyToLateralNode
                         subquery,
                         applyNode.getCorrelation(),
                         LEFT,
-                        applyNode.getOriginSubquery()),
+                        applyNode.getOriginSubqueryError()),
                 assignments.build()));
     }
 
@@ -173,6 +173,6 @@ public class TransformExistsApplyToLateralNode
                         Assignments.of(exists, new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), BIGINT.toString())))),
                 parent.getCorrelation(),
                 INNER,
-                parent.getOriginSubquery());
+                parent.getOriginSubqueryError());
     }
 }

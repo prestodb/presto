@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.Node;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -65,10 +64,9 @@ public class LateralJoinNode
     private final Type type;
 
     /**
-     * HACK!
-     * Used for error reporting in case this ApplyNode is not supported
+     * This information is only used for sanity check.
      */
-    private final Node originSubquery;
+    private final String originSubqueryError;
 
     @JsonCreator
     public LateralJoinNode(
@@ -77,13 +75,13 @@ public class LateralJoinNode
             @JsonProperty("subquery") PlanNode subquery,
             @JsonProperty("correlation") List<Symbol> correlation,
             @JsonProperty("type") Type type,
-            @JsonProperty("originSubquery") Node originSubquery)
+            @JsonProperty("originSubqueryError") String originSubqueryError)
     {
         super(id);
         requireNonNull(input, "input is null");
         requireNonNull(subquery, "right is null");
         requireNonNull(correlation, "correlation is null");
-        requireNonNull(originSubquery, "originSubquery is null");
+        requireNonNull(originSubqueryError, "originSubqueryError is null");
 
         checkArgument(input.getOutputSymbols().containsAll(correlation), "Input does not contain symbols from correlation");
 
@@ -91,7 +89,7 @@ public class LateralJoinNode
         this.subquery = subquery;
         this.correlation = ImmutableList.copyOf(correlation);
         this.type = type;
-        this.originSubquery = originSubquery;
+        this.originSubqueryError = originSubqueryError;
     }
 
     @JsonProperty("input")
@@ -118,10 +116,10 @@ public class LateralJoinNode
         return type;
     }
 
-    @JsonProperty("originSubquery")
-    public Node getOriginSubquery()
+    @JsonProperty("originSubqueryError")
+    public String getOriginSubqueryError()
     {
-        return originSubquery;
+        return originSubqueryError;
     }
 
     @Override
@@ -144,7 +142,7 @@ public class LateralJoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new LateralJoinNode(getId(), newChildren.get(0), newChildren.get(1), correlation, type, originSubquery);
+        return new LateralJoinNode(getId(), newChildren.get(0), newChildren.get(1), correlation, type, originSubqueryError);
     }
 
     @Override

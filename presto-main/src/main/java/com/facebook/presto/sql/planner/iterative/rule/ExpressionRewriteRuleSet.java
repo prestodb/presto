@@ -321,7 +321,7 @@ public class ExpressionRewriteRuleSet
                     applyNode.getSubquery(),
                     subqueryAssignments,
                     applyNode.getCorrelation(),
-                    applyNode.getOriginSubquery()));
+                    applyNode.getOriginSubqueryError()));
         }
     }
 }
