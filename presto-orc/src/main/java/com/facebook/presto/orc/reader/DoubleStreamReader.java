@@ -209,7 +209,7 @@ public class DoubleStreamReader
         if (filter != null) {
             output.reset(rowsInRange);
         }
-        ensureValuesCapacity(end, false);
+        ensureValuesCapacity(numValues + inputQualifyingSet.getPositionCount(), false);
 
         if (dataStream == null) {
             processAllNulls();
@@ -307,7 +307,6 @@ public class DoubleStreamReader
         }
 
         int position = numValues + numResults;
-        ensureValuesCapacity(position + 1, false);
         values[position] = doubleToLongBits(value);
         if (valueIsNull != null) {
             valueIsNull[position] = false;

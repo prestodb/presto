@@ -271,7 +271,7 @@ public class TimestampStreamReader
         if (filter != null) {
             output.reset(rowsInRange);
         }
-        ensureValuesCapacity(end, false);
+        ensureValuesCapacity(numValues + inputQualifyingSet.getPositionCount(), false);
 
         if (secondsStream == null) {
             processAllNulls();
@@ -297,6 +297,7 @@ public class TimestampStreamReader
                     if (toSkip > 0) {
                         secondsStream.skip(toSkip);
                         nanosStream.skip(toSkip);
+                        toSkip = 0;
                     }
                     long value = decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds);
                     if (filter != null) {
@@ -341,7 +342,6 @@ public class TimestampStreamReader
         }
 
         int position = numValues + numResults;
-        ensureValuesCapacity(position + 1, false);
         values[position] = value;
         if (valueIsNull != null) {
             valueIsNull[position] = false;

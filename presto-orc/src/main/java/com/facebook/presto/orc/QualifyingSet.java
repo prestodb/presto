@@ -18,6 +18,7 @@ import com.facebook.presto.spi.PrestoException;
 
 import java.util.Arrays;
 
+import static com.facebook.presto.orc.ResizedArrays.newIntArrayForReuse;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -126,18 +127,12 @@ public class QualifyingSet
 
     public void ensureCapacity(int capacity)
     {
-        if (positions == null) {
-            positions = new int[capacity];
-        }
-        else if (positions.length < capacity) {
-            positions = Arrays.copyOf(positions, capacity);
+        if (positions == null || positions.length < capacity) {
+            positions = newIntArrayForReuse(capacity);
         }
 
-        if (inputNumbers == null) {
-            inputNumbers = new int[capacity];
-        }
-        else if (inputNumbers.length < capacity) {
-            inputNumbers = Arrays.copyOf(inputNumbers, capacity);
+        if (inputNumbers == null || inputNumbers.length < capacity) {
+            inputNumbers = newIntArrayForReuse(capacity);
         }
     }
 

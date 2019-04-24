@@ -282,7 +282,7 @@ public class DecimalStreamReader
         if (filter != null) {
             output.reset(rowsInRange);
         }
-        ensureValuesCapacity(end * numLongsPerValue, false);
+        ensureValuesCapacity(numValues + inputQualifyingSet.getPositionCount(), false);
 
         if (decimalStream == null) {
             processAllNulls();
@@ -308,6 +308,7 @@ public class DecimalStreamReader
                     if (toSkip > 0) {
                         decimalStream.skip(toSkip);
                         scaleStream.skip(toSkip);
+                        toSkip = 0;
                     }
 
                     long sourceScale = scaleStream.next();
@@ -374,7 +375,6 @@ public class DecimalStreamReader
         }
 
         int position = numValues + numResults;
-        ensureValuesCapacity(position + 1, false);
         values[position] = value;
         if (valueIsNull != null) {
             valueIsNull[position] = false;
@@ -389,7 +389,6 @@ public class DecimalStreamReader
         }
 
         int position = numValues + numResults;
-        ensureValuesCapacity(position + 1, false);
         values[2 * position] = value.getLong(0);
         values[2 * position + 1] = value.getLong(SIZE_OF_LONG);
         if (valueIsNull != null) {
@@ -410,7 +409,7 @@ public class DecimalStreamReader
             }
         }
         if (includeNulls && valueIsNull == null) {
-            valueIsNull = new boolean[values.length];
+            valueIsNull = new boolean[values.length / numLongsPerValue];
         }
     }
 

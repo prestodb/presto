@@ -210,7 +210,7 @@ public class FloatStreamReader
         if (filter != null) {
             output.reset(rowsInRange);
         }
-        ensureValuesCapacity(end, false);
+        ensureValuesCapacity(numValues + inputQualifyingSet.getPositionCount(), false);
 
         if (dataStream == null) {
             processAllNulls();
@@ -235,6 +235,7 @@ public class FloatStreamReader
                     // Non-null row in qualifying set.
                     if (toSkip > 0) {
                         dataStream.skip(toSkip);
+                        toSkip = 0;
                     }
                     float value = dataStream.next();
                     if (filter != null) {
@@ -278,7 +279,6 @@ public class FloatStreamReader
         }
 
         int position = numValues + numResults;
-        ensureValuesCapacity(position + 1, false);
         values[position] = value;
         if (valueIsNull != null) {
             valueIsNull[position] = false;
@@ -322,7 +322,7 @@ public class FloatStreamReader
     @Override
     public void compactValues(int[] surviving, int base, int numSurviving)
     {
-        if (!outputChannelSet) {
+        if (outputChannelSet) {
             StreamReaders.compactArrays(surviving, base, numSurviving, values, valueIsNull);
             numValues = base + numSurviving;
         }

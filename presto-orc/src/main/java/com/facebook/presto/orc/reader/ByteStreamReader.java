@@ -209,7 +209,7 @@ public class ByteStreamReader
         if (filter != null) {
             output.reset(rowsInRange);
         }
-        ensureValuesCapacity(end, false);
+        ensureValuesCapacity(numValues + inputQualifyingSet.getPositionCount(), false);
 
         if (dataStream == null) {
             processAllNulls();
@@ -234,6 +234,7 @@ public class ByteStreamReader
                     // Non-null row in qualifying set.
                     if (toSkip > 0) {
                         dataStream.skip(toSkip);
+                        toSkip = 0;
                     }
                     byte value = dataStream.next();
                     if (filter != null) {
@@ -277,7 +278,6 @@ public class ByteStreamReader
         }
 
         int position = numValues + numResults;
-        ensureValuesCapacity(position + 1, false);
         values[position] = value;
         if (valueIsNull != null) {
             valueIsNull[position] = false;

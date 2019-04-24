@@ -208,7 +208,7 @@ public class BooleanStreamReader
         if (filter != null) {
             output.reset(rowsInRange);
         }
-        ensureValuesCapacity(end, false);
+        ensureValuesCapacity(numValues + inputQualifyingSet.getPositionCount(), false);
 
         if (dataStream == null) {
             processAllNulls();
@@ -233,6 +233,7 @@ public class BooleanStreamReader
                     // Non-null row in qualifying set.
                     if (toSkip > 0) {
                         dataStream.skip(toSkip);
+                        toSkip = 0;
                     }
                     boolean value = dataStream.nextBit();
                     if (filter != null) {
@@ -276,7 +277,6 @@ public class BooleanStreamReader
         }
 
         int position = numValues + numResults;
-        ensureValuesCapacity(position + 1, false);
         values[position] = value ? (byte) 1 : 0;
         if (valueIsNull != null) {
             valueIsNull[position] = false;
