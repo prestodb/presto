@@ -55,8 +55,12 @@ public final class NullabilityAnalyzer
         @Override
         protected Void visitCast(Cast node, AtomicBoolean result)
         {
-            // try_cast and cast(JSON 'null' AS ...) can return null
-            result.set(true);
+            // Certain casts (e.g., try_cast, cast(JSON 'null' AS ...)) can return
+            // null on non-null input.
+            // Type only casts are not evaluated by the execution, thus cannot return
+            // null on non-null input.
+            // TODO: This should be a part of a cast operator metadata
+            result.set(node.isSafe() || !node.isTypeOnly());
             return null;
         }
 

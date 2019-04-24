@@ -953,4 +953,43 @@ public class TestLogicalPlanner
                                                 tableScan("orders", ImmutableMap.of(
                                                         "ORDERKEY", "orderkey")))))));
     }
+
+    @Test
+    public void testEqualityInference()
+    {
+        assertPlan("" +
+                        "SELECT l.comment, p.partkey " +
+                        "FROM lineitem l " +
+                        "JOIN partsupp p " +
+                        "ON l.suppkey = p.suppkey " +
+                        "AND l.partkey = p.partkey " +
+                        "WHERE l.partkey = 42",
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("l_suppkey", "p_suppkey")),
+                                anyTree(
+                                        filter(
+                                                "l_partkey = 42",
+                                                tableScan("lineitem", ImmutableMap.of("l_partkey", "partkey", "l_suppkey", "suppkey", "l_comment", "comment")))),
+                                anyTree(
+                                        filter(
+                                                "p_partkey = 42",
+                                                tableScan("partsupp", ImmutableMap.of("p_partkey", "partkey", "p_suppkey", "suppkey")))))));
+        assertPlan("" +
+                        "SELECT l.comment, p.partkey " +
+                        "FROM lineitem l " +
+                        "JOIN partsupp p " +
+                        "ON l.suppkey = p.suppkey " +
+                        "AND l.comment = p.comment " +
+                        "WHERE l.comment = '42'",
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("l_suppkey", "p_suppkey")),
+                                anyTree(
+                                        filter(
+                                                "l_comment = '42'",
+                                                tableScan("lineitem", ImmutableMap.of("l_suppkey", "suppkey", "l_comment", "comment")))),
+                                anyTree(
+                                        filter(
+                                                "p_comment = '42'",
+                                                tableScan("partsupp", ImmutableMap.of("p_suppkey", "suppkey", "p_partkey", "partkey", "p_comment", "comment")))))));
+    }
 }
