@@ -48,4 +48,6 @@ public interface StandardFunctionResolution
     FunctionHandle subscriptFunction(Type baseType, Type indexType);
 
     boolean isSubscriptFunction(FunctionHandle functionHandle);
+
+    boolean isCastFunction(FunctionHandle functionHandle);
 }
