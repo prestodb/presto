@@ -122,7 +122,6 @@ public class TestHiveClientConfig
                 .setS3SelectPushdownMaxConnections(500)
                 .setTemporaryStagingDirectoryEnabled(true)
                 .setTemporaryStagingDirectoryPath("/tmp/presto-${USER}")
-                .setPreloadSplitsForGroupedExecution(false)
                 .setWritingStagingFilesEnabled(false)
                 .setTemporaryTableSchema("default")
                 .setTemporaryTableStorageFormat(ORC));
@@ -213,7 +212,6 @@ public class TestHiveClientConfig
                 .put("hive.s3select-pushdown.max-connections", "1234")
                 .put("hive.temporary-staging-directory-enabled", "false")
                 .put("hive.temporary-staging-directory-path", "updated")
-                .put("hive.preload-splits-for-grouped-execution", "true")
                 .put("hive.writing-staging-files-enabled", "true")
                 .put("hive.temporary-table-schema", "other")
                 .put("hive.temporary-table-storage-format", "DWRF")
@@ -302,7 +300,6 @@ public class TestHiveClientConfig
                 .setS3SelectPushdownMaxConnections(1234)
                 .setTemporaryStagingDirectoryEnabled(false)
                 .setTemporaryStagingDirectoryPath("updated")
-                .setPreloadSplitsForGroupedExecution(true)
                 .setWritingStagingFilesEnabled(true)
                 .setTemporaryTableSchema("other")
                 .setTemporaryTableStorageFormat(DWRF);
