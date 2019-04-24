@@ -52,13 +52,21 @@ public class TestPrestoVerifierIntegrationSmokeTest
     private static final String SUITE = "integration_test";
 
     private static StandaloneQueryRunner queryRunner;
-    private static TestingMySqlServer mySqlServer;
-    private static Handle handle;
+
+    private final TestingMySqlServer mySqlServer;
+    private final Handle handle;
 
     private File configDirectory;
     private File configFile;
     private File jsonLogFile;
     private File humanReadableLogFile;
+
+    public TestPrestoVerifierIntegrationSmokeTest()
+            throws Exception
+    {
+        this.mySqlServer = setupMySql();
+        this.handle = getHandle(mySqlServer);
+    }
 
     @BeforeClass
     public void setup()
@@ -66,8 +74,6 @@ public class TestPrestoVerifierIntegrationSmokeTest
     {
         queryRunner = setupPresto();
         queryRunner.execute("CREATE SCHEMA local");
-        mySqlServer = setupMySql();
-        handle = getHandle(mySqlServer);
 
         // Create test cases
         queryRunner.execute("CREATE TABLE table1 AS SELECT * FROM (VALUES (1, '2', 3.0), (2, '3', 4.0)) t(a, b, c)");
@@ -76,10 +82,11 @@ public class TestPrestoVerifierIntegrationSmokeTest
         insertSourceQuery(handle, SUITE, "query_2", "SELECT * FROM table1 CROSS JOIN table2");
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void teardown()
     {
         closeQuietly(handle);
+        mySqlServer.close();
     }
 
     @BeforeMethod

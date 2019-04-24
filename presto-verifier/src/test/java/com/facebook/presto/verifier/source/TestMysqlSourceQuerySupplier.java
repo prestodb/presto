@@ -17,7 +17,6 @@ import io.airlift.testing.mysql.TestingMySqlServer;
 import org.jdbi.v3.core.Handle;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.verifier.VerifierTestUtil.VERIFIER_QUERIES_TABLE;
@@ -34,25 +33,26 @@ import static org.testng.Assert.assertTrue;
 public class TestMysqlSourceQuerySupplier
 {
     private static final String SUITE = "test";
-    private static TestingMySqlServer mySqlServer;
-    private static Handle handle;
-    private static MySqlSourceQueryConfig config;
 
-    @BeforeClass
-    public void setup()
+    private final TestingMySqlServer mySqlServer;
+    private final Handle handle;
+    private final MySqlSourceQueryConfig config;
+
+    public TestMysqlSourceQuerySupplier()
             throws Exception
     {
-        mySqlServer = setupMySql();
-        handle = getHandle(mySqlServer);
-        config = new MySqlSourceQueryConfig()
+        this.mySqlServer = setupMySql();
+        this.handle = getHandle(mySqlServer);
+        this.config = new MySqlSourceQueryConfig()
                 .setDatabase(mySqlServer.getJdbcUrl(XDB))
                 .setTableName(VERIFIER_QUERIES_TABLE);
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void teardown()
     {
         closeQuietly(handle);
+        mySqlServer.close();
     }
 
     @AfterMethod
