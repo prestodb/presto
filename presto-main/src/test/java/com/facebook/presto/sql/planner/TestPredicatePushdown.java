@@ -53,7 +53,7 @@ public class TestPredicatePushdown
                                 any(
                                         tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
                                 anyTree(
-                                        filter("cast(LINEITEM_LINENUMBER as varchar) = cast('2' as varchar)",
+                                        filter("cast('2' as varchar) = cast(LINEITEM_LINENUMBER as varchar)",
                                                 tableScan("lineitem", ImmutableMap.of(
                                                         "LINEITEM_OK", "orderkey",
                                                         "LINEITEM_LINENUMBER", "linenumber")))))));
