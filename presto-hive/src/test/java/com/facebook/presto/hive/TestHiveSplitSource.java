@@ -13,12 +13,10 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.SettableFuture;
@@ -33,6 +31,7 @@ import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -40,10 +39,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -177,17 +173,17 @@ public class TestHiveSplitSource
 
         try {
             // wait for the thread to be started
-            assertTrue(started.await(1, SECONDS));
+            assertTrue(started.await(1, TimeUnit.SECONDS));
 
             // sleep for a bit, and assure the thread is blocked
-            MILLISECONDS.sleep(200);
+            TimeUnit.MILLISECONDS.sleep(200);
             assertTrue(!splits.isDone());
 
             // add a split
             hiveSplitSource.addToQueue(new TestSplit(33));
 
             // wait for thread to get the split
-            ConnectorSplit split = splits.get(800, MILLISECONDS);
+            ConnectorSplit split = splits.get(800, TimeUnit.MILLISECONDS);
             assertEquals(((HiveSplit) split).getSchema().getProperty("id"), "33");
         }
         finally {
@@ -254,69 +250,6 @@ public class TestHiveSplitSource
         assertEquals(getSplits(hiveSplitSource, OptionalInt.of(1), 10).size(), 0);
         assertEquals(getSplits(hiveSplitSource, OptionalInt.of(2), 10).size(), 1);
         assertEquals(getSplits(hiveSplitSource, OptionalInt.of(3), 10).size(), 0);
-    }
-
-    @Test
-    public void testPreloadSplitsForGroupedExecution()
-            throws Exception
-    {
-        // TODO: Use Session::builder after HiveTestUtils::SESSION is refactored to Session.
-        ConnectorSession session = new TestingConnectorSession(
-                new HiveSessionProperties(
-                        new HiveClientConfig().setPreloadSplitsForGroupedExecution(true),
-                        new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig()).getSessionProperties());
-        HiveSplitSource hiveSplitSource = HiveSplitSource.bucketed(
-                session,
-                "database",
-                "table",
-                TupleDomain.all(),
-                10,
-                10,
-                new DataSize(1, MEGABYTE),
-                new TestingHiveSplitLoader(),
-                EXECUTOR,
-                new CounterStat());
-        for (int i = 0; i < 10; i++) {
-            hiveSplitSource.addToQueue(new TestSplit(i, OptionalInt.of(0)));
-            assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), i + 1);
-        }
-
-        SettableFuture<List<ConnectorSplit>> splits = SettableFuture.create();
-
-        // create a thread that will get the splits
-        CountDownLatch started = new CountDownLatch(1);
-        Thread getterThread = new Thread(() -> {
-            try {
-                started.countDown();
-                List<ConnectorSplit> batch = getSplits(hiveSplitSource, OptionalInt.of(0), 10);
-                splits.set(batch);
-            }
-            catch (Throwable e) {
-                splits.setException(e);
-            }
-        });
-        getterThread.start();
-
-        try {
-            // wait for the thread to be started
-            assertTrue(started.await(1, SECONDS));
-
-            // scheduling will not start before noMoreSplits is called to ensure we preload all splits.
-            MILLISECONDS.sleep(200);
-            assertFalse(splits.isDone());
-
-            // wait for thread to get the splits after noMoreSplit signal is sent
-            hiveSplitSource.noMoreSplits();
-            List<ConnectorSplit> connectorSplits = splits.get(800, MILLISECONDS);
-            assertEquals(connectorSplits.size(), 10);
-            for (int i = 0; i < 10; i++) {
-                assertEquals(((HiveSplit) connectorSplits.get(i)).getSchema().getProperty("id"), Integer.toString(i));
-            }
-        }
-        finally {
-            getterThread.interrupt();
-        }
     }
 
     private static List<ConnectorSplit> getSplits(ConnectorSplitSource source, int maxSize)
