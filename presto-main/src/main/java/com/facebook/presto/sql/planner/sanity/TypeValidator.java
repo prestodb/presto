@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
@@ -41,8 +42,10 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
@@ -170,10 +173,33 @@ public final class TypeValidator
         private void checkAggregation(Map<VariableReferenceExpression, Aggregation> aggregations)
         {
             for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
+                VariableReferenceExpression variable = entry.getKey();
+                Aggregation aggregation = entry.getValue();
+                FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle());
                 verifyTypeSignature(
-                        entry.getKey(),
-                        metadata.getFunctionManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getReturnType());
-                // TODO check if the argument type agrees with function handle (will be added once Aggregation is using CallExpression).
+                        variable,
+                        functionMetadata.getReturnType());
+                verifyTypeSignature(
+                        variable,
+                        aggregation.getCall().getType().getTypeSignature());
+                int argumentSize = aggregation.getArguments().size();
+                int expectedArgumentSize = functionMetadata.getArgumentTypes().size();
+                checkArgument(argumentSize == functionMetadata.getArgumentTypes().size(),
+                        "Number of arguments is different from function signature: expected %s but got %s", expectedArgumentSize, argumentSize);
+                List<TypeSignature> argumentTypes = aggregation.getArguments()
+                        .stream()
+                        .map(argument -> isExpression(argument) ?
+                                UNKNOWN.getTypeSignature() : argument.getType().getTypeSignature())
+                        .collect(toImmutableList());
+                for (int i = 0; i < functionMetadata.getArgumentTypes().size(); i++) {
+                    TypeSignature expected = functionMetadata.getArgumentTypes().get(i);
+                    TypeSignature actual = argumentTypes.get(i);
+                    TypeManager typeManager = metadata.getTypeManager();
+                    if (!actual.equals(UNKNOWN.getTypeSignature()) && !typeManager.isTypeOnlyCoercion(typeManager.getType(actual), typeManager.getType(expected))) {
+                        checkArgument(expected.equals(actual),
+                                "Expected input types are %s but getting %s", functionMetadata.getArgumentTypes(), argumentTypes);
+                    }
+                }
             }
         }
 

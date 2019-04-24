@@ -249,8 +249,7 @@ public class TestTypeValidator
         assertTypesValid(node);
     }
 
-    // This test will be disable temporarily until we converted Aggregation to use CallExpression
-    @Test(enabled = false, expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of variable 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Expected input types are \\[double\\] but getting \\[bigint\\]")
     public void testInvalidAggregationFunctionCall()
     {
         VariableReferenceExpression aggregationVariable = symbolAllocator.newVariable("sum", DOUBLE);
