@@ -31,7 +31,6 @@ import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -39,6 +38,8 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -173,17 +174,17 @@ public class TestHiveSplitSource
 
         try {
             // wait for the thread to be started
-            assertTrue(started.await(1, TimeUnit.SECONDS));
+            assertTrue(started.await(10, SECONDS));
 
             // sleep for a bit, and assure the thread is blocked
-            TimeUnit.MILLISECONDS.sleep(200);
+            MILLISECONDS.sleep(200);
             assertTrue(!splits.isDone());
 
             // add a split
             hiveSplitSource.addToQueue(new TestSplit(33));
 
             // wait for thread to get the split
-            ConnectorSplit split = splits.get(800, TimeUnit.MILLISECONDS);
+            ConnectorSplit split = splits.get(10, SECONDS);
             assertEquals(((HiveSplit) split).getSchema().getProperty("id"), "33");
         }
         finally {
@@ -230,7 +231,7 @@ public class TestHiveSplitSource
         }
     }
 
-    @Test
+    @Test(timeOut = 10_000)
     public void testEmptyBucket()
     {
         final HiveSplitSource hiveSplitSource = HiveSplitSource.bucketed(
