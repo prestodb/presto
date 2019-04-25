@@ -513,7 +513,7 @@ public class FilterStatsCalculator
         public PlanNodeStatsEstimate visitConstant(ConstantExpression node, Void context)
         {
             if (node.getType().equals(BOOLEAN)) {
-                if ((boolean) node.getValue()) {
+                if (node.getValue() != null && (boolean) node.getValue()) {
                     return input;
                 }
                 PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
