@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -22,6 +23,7 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import java.util.Map;
 
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 
 public class ProjectNodeUtils
 {
@@ -30,10 +32,18 @@ public class ProjectNodeUtils
     public static boolean isIdentity(ProjectNode projectNode)
     {
         for (Map.Entry<Symbol, RowExpression> entry : projectNode.getAssignments().entrySet()) {
-            Expression expression = castToExpression(entry.getValue());
+            RowExpression value = entry.getValue();
             Symbol symbol = entry.getKey();
-            if (!(expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(symbol.getName()))) {
-                return false;
+            if (isExpression(value)) {
+                Expression expression = castToExpression(value);
+                if (!(expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(symbol.getName()))) {
+                    return false;
+                }
+            }
+            else {
+                if (!(value instanceof VariableReferenceExpression && ((VariableReferenceExpression) value).getName().equals(symbol.getName()))) {
+                    return false;
+                }
             }
         }
         return true;
