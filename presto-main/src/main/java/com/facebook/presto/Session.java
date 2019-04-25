@@ -561,7 +561,7 @@ public final class Session
             this.clientTags = ImmutableSet.copyOf(session.clientTags);
             this.startTime = session.startTime;
             this.systemProperties.putAll(session.systemProperties);
-            this.catalogSessionProperties.putAll(session.unprocessedCatalogProperties);
+            session.unprocessedCatalogProperties.forEach((key, value) -> this.catalogSessionProperties.put(key, new HashMap<>(value)));
             this.preparedStatements.putAll(session.preparedStatements);
         }
 
