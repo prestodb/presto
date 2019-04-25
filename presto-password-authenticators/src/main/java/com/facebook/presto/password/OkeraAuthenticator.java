@@ -77,13 +77,13 @@ public class OkeraAuthenticator
         if (envVarSet("SYSTEM_TOKEN") || envVarSet("KERBEROS_KEYTAB_FILE")) {
             LOG.info("Configuring CDAS_REST_SERVER for authentication.");
 
-            if (!envVarSet("CDAS_REST_SERVER_SERVICE_HOST") && !envVarSet("CDAS_REST_SERVER_SERVICE_HOST")) {
-                throw new IllegalStateException("Expecting CDAS_REST_SERVER_SERVICE_HOST or CDAS_REST_SERVER_SERVICE_HOST to be set in the environment.");
+            if (!envVarSet("CDAS_REST_SERVER_SERVICE_HOST") && !envVarSet("CEREBRO_REST_FQDN")) {
+                throw new IllegalStateException("Expecting CDAS_REST_SERVER_SERVICE_HOST or CEREBRO_REST_FQDN to be set in the environment.");
             }
 
             String host;
             String port;
-            if (envVarSet("CDAS_REST_SERVER_SERVICE_HOST")) {
+            if (envVarSet("CEREBRO_REST_FQDN")) {
                 // Configured it explicitly
                 host = System.getenv("CEREBRO_REST_FQDN");
                 if (host == null) {
