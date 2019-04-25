@@ -158,6 +158,27 @@ public class TestFilterStatsCalculator
                 .symbolStats("rightOpen", SymbolStatsAssertion::empty)
                 .symbolStats("emptyRange", SymbolStatsAssertion::empty)
                 .symbolStats("unknownRange", SymbolStatsAssertion::empty);
+
+        // `null AND null` is interpreted as null
+        assertExpression("cast(null as boolean) AND cast(null as boolean)")
+                .outputRowsCount(0.0)
+                .symbolStats("x", SymbolStatsAssertion::empty)
+                .symbolStats("y", SymbolStatsAssertion::empty)
+                .symbolStats("z", SymbolStatsAssertion::empty)
+                .symbolStats("leftOpen", SymbolStatsAssertion::empty)
+                .symbolStats("rightOpen", SymbolStatsAssertion::empty)
+                .symbolStats("emptyRange", SymbolStatsAssertion::empty)
+                .symbolStats("unknownRange", SymbolStatsAssertion::empty);
+
+        // more complicated expressions with null
+        assertExpression("cast(null as boolean) OR sin(x) > x").outputRowsCount(NaN);
+
+        // RowExpressionInterpreter does more aggressive constant folding than ExpressionInterpreter.
+        // For ExpressionInterpreter, cast will return unknown; but RowExpressionInterpreter can actually evaluate cast.
+        Expression expression = expression("cast(null as boolean) AND sin(x) > x");
+        RowExpression rowExpression = translator.translateAndOptimize(expression, standardTypes);
+        PlanNodeStatsEstimate rowExpressionStatsEstimate = statsCalculator.filterStats(standardInputStatistics, rowExpression, session, standardTypes);
+        PlanNodeStatsAssertion.assertThat(rowExpressionStatsEstimate).outputRowsCount(0.0);
     }
 
     @Test
