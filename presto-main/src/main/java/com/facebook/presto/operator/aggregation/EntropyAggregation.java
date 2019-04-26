@@ -61,7 +61,7 @@ public final class EntropyAggregation
         state.setNull(state.getNull() || otherState.getNull());
     }
 
-    @OutputFunction(StandardTypes.BIGINT)
+    @OutputFunction(StandardTypes.DOUBLE)
     public static void output(@AggregationState EntropyState state, BlockBuilder out)
     {
         if (state.getNull()) {
