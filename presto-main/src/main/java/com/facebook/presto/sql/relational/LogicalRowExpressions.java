@@ -15,6 +15,7 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
@@ -47,7 +48,7 @@ public final class LogicalRowExpressions
 
     public LogicalRowExpressions(FunctionManager functionManager)
     {
-        this.determinismEvaluator = new DeterminismEvaluator(requireNonNull(functionManager, "functionManager is null"));
+        this.determinismEvaluator = new RowExpressionDeterminismEvaluator(requireNonNull(functionManager, "functionManager is null"));
     }
 
     public static List<RowExpression> extractConjuncts(RowExpression expression)

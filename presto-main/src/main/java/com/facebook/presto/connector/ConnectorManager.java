@@ -41,6 +41,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -102,6 +103,7 @@ public class ConnectorManager
     private final TransactionManager transactionManager;
     private final DomainTranslator domainTranslator;
     private final PredicateCompiler predicateCompiler;
+    private final DeterminismEvaluator determinismEvaluator;
 
     @GuardedBy("this")
     private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
@@ -129,7 +131,8 @@ public class ConnectorManager
             PageIndexerFactory pageIndexerFactory,
             TransactionManager transactionManager,
             DomainTranslator domainTranslator,
-            PredicateCompiler predicateCompiler)
+            PredicateCompiler predicateCompiler,
+            DeterminismEvaluator determinismEvaluator)
     {
         this.metadataManager = metadataManager;
         this.catalogManager = catalogManager;
@@ -148,6 +151,7 @@ public class ConnectorManager
         this.transactionManager = transactionManager;
         this.domainTranslator = domainTranslator;
         this.predicateCompiler = predicateCompiler;
+        this.determinismEvaluator = determinismEvaluator;
     }
 
     @PreDestroy
@@ -331,7 +335,7 @@ public class ConnectorManager
                 new FunctionResolution(metadataManager.getFunctionManager()),
                 pageSorter,
                 pageIndexerFactory,
-                new ConnectorRowExpressionService(domainTranslator, new RowExpressionOptimizer(metadataManager), predicateCompiler));
+                new ConnectorRowExpressionService(domainTranslator, new RowExpressionOptimizer(metadataManager), predicateCompiler, determinismEvaluator));
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             return factory.create(connectorId.getCatalogName(), properties, context);
