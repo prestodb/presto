@@ -84,6 +84,7 @@ public final class Partitioning
                 .collect(toImmutableSet());
     }
 
+    @Deprecated
     public boolean isCompatibleWith(
             Partitioning right,
             Metadata metadata,
@@ -96,6 +97,7 @@ public final class Partitioning
         return arguments.equals(right.arguments);
     }
 
+    @Deprecated
     public boolean isCompatibleWith(
             Partitioning right,
             Function<Symbol, Set<Symbol>> leftToRightMappings,
