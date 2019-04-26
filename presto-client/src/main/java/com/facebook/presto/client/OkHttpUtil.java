@@ -24,9 +24,11 @@ import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
 import okhttp3.Response;
 
+import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
@@ -164,10 +166,20 @@ public final class OkHttpUtil
                     }
                 }
             };
+
+            HostnameVerifier hv = new HostnameVerifier() {
+                @Override
+                public boolean verify(String urlHostName, SSLSession session)
+                {
+                    return true;
+                }
+            };
+
             X509TrustManager trustManager = (X509TrustManager) trustAllCerts[0];
             SSLContext sslContext = SSLContext.getInstance("SSL");
             sslContext.init(null, trustAllCerts, null);
             builder.sslSocketFactory(sslContext.getSocketFactory(), trustManager);
+            builder.hostnameVerifier(hv);
         }
         catch (GeneralSecurityException e) {
             throw new ClientException("Error setting up SSL: " + e.getMessage(), e);
