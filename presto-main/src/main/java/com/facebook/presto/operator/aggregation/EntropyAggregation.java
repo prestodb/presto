@@ -68,11 +68,11 @@ public final class EntropyAggregation
             out.appendNull();
             return;
         }
-        if (state.getsumC() == 0) {
+        if (state.getSumC() == 0) {
             DOUBLE.writeDouble(out, 0);
             return;
         }
-        double entropy = (-state.getsumCLogC() / state.getsumC()) + Math.log(state.getsumC()) / Math.log(2);
+        double entropy = (-state.getSumCLogC() / state.getSumC()) + Math.log(state.getSumC()) / Math.log(2);
         entropy = Math.max(entropy, 0);
         DOUBLE.writeDouble(out, entropy);
     }
