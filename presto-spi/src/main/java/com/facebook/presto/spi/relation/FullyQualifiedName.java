@@ -131,6 +131,12 @@ public class FullyQualifiedName
             this.parts = unmodifiableList(parts);
         }
 
+        public static Prefix of(String dottedName)
+        {
+            String[] parts = dottedName.split("\\.");
+            return new Prefix(asList(parts));
+        }
+
         @Override
         public String toString()
         {

@@ -15,6 +15,7 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -50,7 +51,7 @@ public class Column
     private static final TypeRegistry typeRegistry = new TypeRegistry();
 
     static {
-        new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+        new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig(), new HandleResolver());
     }
 
     private final String name;

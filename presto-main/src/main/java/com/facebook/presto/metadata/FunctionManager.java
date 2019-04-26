@@ -23,6 +23,8 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
+import com.facebook.presto.spi.function.FunctionNamespaceManager;
+import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
@@ -40,13 +42,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 
 import javax.annotation.concurrent.ThreadSafe;
+import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
@@ -79,20 +84,54 @@ public class FunctionManager
     private final TypeManager typeManager;
     private final BuiltInFunctionNamespaceManager builtInFunctionNamespace;
     private final FunctionInvokerProvider functionInvokerProvider;
+    private final Map<String, FunctionNamespaceManagerFactory> functionNamespaceFactories = new ConcurrentHashMap<>();
+    private final HandleResolver handleResolver;
+    private final Map<FullyQualifiedName.Prefix, FunctionNamespaceManager> functionNamespaces = new ConcurrentHashMap<>();
 
-    public FunctionManager(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FeaturesConfig featuresConfig)
+    @Inject
+    public FunctionManager(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FeaturesConfig featuresConfig, HandleResolver handleResolver)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.builtInFunctionNamespace = new BuiltInFunctionNamespaceManager(typeManager, blockEncodingSerde, featuresConfig, this);
         this.functionInvokerProvider = new FunctionInvokerProvider(this);
+        this.handleResolver = handleResolver;
         if (typeManager instanceof TypeRegistry) {
             ((TypeRegistry) typeManager).setFunctionManager(this);
+        }
+    }
+
+    @VisibleForTesting
+    public FunctionManager(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FeaturesConfig featuresConfig)
+    {
+        this(typeManager, blockEncodingSerde, featuresConfig, new HandleResolver());
+    }
+
+    public void loadFunctionNamespaces(String functionNamespaceManagerName, List<String> functionNamespacePrefixes, Map<String, String> properties)
+    {
+        requireNonNull(functionNamespaceManagerName, "connectorName is null");
+        FunctionNamespaceManagerFactory factory = functionNamespaceFactories.get(functionNamespaceManagerName);
+        checkState(factory != null, "No function namespace manager for %s", functionNamespaceManagerName);
+        FunctionNamespaceManager manager = factory.create(properties);
+
+        for (String functionNamespacePrefix : functionNamespacePrefixes) {
+            FullyQualifiedName.Prefix prefix = FullyQualifiedName.Prefix.of(functionNamespacePrefix);
+            if (functionNamespaces.putIfAbsent(FullyQualifiedName.Prefix.of(functionNamespacePrefix), manager) != null) {
+                throw new IllegalArgumentException(format("Function namespace manager '%s' already registered to handle function namespace '%s'", factory.getName(), functionNamespacePrefix));
+            }
         }
     }
 
     public FunctionInvokerProvider getFunctionInvokerProvider()
     {
         return functionInvokerProvider;
+    }
+
+    public void addFunctionNamespaceFactory(FunctionNamespaceManagerFactory factory)
+    {
+        if (functionNamespaceFactories.putIfAbsent(factory.getName(), factory) != null) {
+            throw new IllegalArgumentException(format("Resource group configuration manager '%s' is already registered", factory.getName()));
+        }
+        handleResolver.addFunctionNamepsace(factory.getName(), factory.getHandleResolver());
     }
 
     public void addFunctions(List<? extends SqlFunction> functions)

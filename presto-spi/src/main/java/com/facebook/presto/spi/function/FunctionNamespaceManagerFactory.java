@@ -13,9 +13,13 @@
  */
 package com.facebook.presto.spi.function;
 
+import java.util.Map;
+
 public interface FunctionNamespaceManagerFactory
 {
     String getName();
 
     FunctionHandleResolver getHandleResolver();
+
+    FunctionNamespaceManager create(Map<String, String> config);
 }

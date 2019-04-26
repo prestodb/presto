@@ -26,7 +26,12 @@ import static org.testng.Assert.assertEquals;
 
 public class TestRowExpressionVariableInliner
 {
-    private static final FunctionHandle TEST_FUNCTION = () -> null;
+    private static class TestFunctionHandle
+            implements FunctionHandle
+    {
+    }
+
+    private static final FunctionHandle TEST_FUNCTION = new TestFunctionHandle();
 
     @Test
     public void testInlineVariable()

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.Signature;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -26,7 +25,6 @@ import static java.util.Objects.requireNonNull;
 public class BuiltInFunctionHandle
         implements FunctionHandle
 {
-    private static final CatalogSchemaName STATIC_FUNCTION_NAMESPACE_CATALOG_SCHEMA_NAME = new CatalogSchemaName("static", "system");
     private final Signature signature;
 
     @JsonCreator
@@ -53,12 +51,6 @@ public class BuiltInFunctionHandle
         }
         BuiltInFunctionHandle that = (BuiltInFunctionHandle) o;
         return Objects.equals(signature, that.signature);
-    }
-
-    @Override
-    public CatalogSchemaName getCatalogSchemaName()
-    {
-        return STATIC_FUNCTION_NAMESPACE_CATALOG_SCHEMA_NAME;
     }
 
     @Override

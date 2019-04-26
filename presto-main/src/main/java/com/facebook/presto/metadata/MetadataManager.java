@@ -134,7 +134,9 @@ public class MetadataManager
 
     private final ConcurrentMap<String, Collection<ConnectorMetadata>> catalogsByQueryId = new ConcurrentHashMap<>();
 
-    public MetadataManager(FeaturesConfig featuresConfig,
+    @VisibleForTesting
+    public MetadataManager(
+            FeaturesConfig featuresConfig,
             TypeManager typeManager,
             BlockEncodingSerde blockEncodingSerde,
             SessionPropertyManager sessionPropertyManager,
@@ -144,8 +146,7 @@ public class MetadataManager
             AnalyzePropertyManager analyzePropertyManager,
             TransactionManager transactionManager)
     {
-        this(featuresConfig,
-                typeManager,
+        this(typeManager,
                 createTestingViewCodec(),
                 blockEncodingSerde,
                 sessionPropertyManager,
@@ -153,11 +154,12 @@ public class MetadataManager
                 tablePropertyManager,
                 columnPropertyManager,
                 analyzePropertyManager,
-                transactionManager);
+                transactionManager,
+                new FunctionManager(typeManager, blockEncodingSerde, featuresConfig));
     }
 
     @Inject
-    public MetadataManager(FeaturesConfig featuresConfig,
+    public MetadataManager(
             TypeManager typeManager,
             JsonCodec<ViewDefinition> viewCodec,
             BlockEncodingSerde blockEncodingSerde,
@@ -166,9 +168,9 @@ public class MetadataManager
             TablePropertyManager tablePropertyManager,
             ColumnPropertyManager columnPropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
-            TransactionManager transactionManager)
+            TransactionManager transactionManager,
+            FunctionManager functionManager)
     {
-        functions = new FunctionManager(typeManager, blockEncodingSerde, featuresConfig);
         procedures = new ProcedureRegistry(typeManager);
         this.typeManager = requireNonNull(typeManager, "types is null");
         this.viewCodec = requireNonNull(viewCodec, "viewCodec is null");
@@ -179,6 +181,7 @@ public class MetadataManager
         this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.functions = requireNonNull(functionManager, "functionManager is null");
 
         verifyComparableOrderableContract();
     }
