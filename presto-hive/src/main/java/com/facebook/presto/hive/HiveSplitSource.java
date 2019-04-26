@@ -158,7 +158,7 @@ class HiveSplitSource
                     }
 
                     @Override
-                    public void finish()
+                    public void noMoreSplits()
                     {
                         queue.finish();
                     }
@@ -217,7 +217,7 @@ class HiveSplitSource
                     }
 
                     @Override
-                    public void finish()
+                    public void noMoreSplits()
                     {
                         if (finished.compareAndSet(false, true)) {
                             queues.values().forEach(AsyncQueue::finish);
@@ -302,13 +302,13 @@ class HiveSplitSource
             // Once the queue is finished, it will always return a completed future to avoid blocking any caller.
             // This could lead to a short period of busy loop in splitLoader (although unlikely in general setup).
             splitLoader.stop();
-            queues.finish();
+            queues.noMoreSplits();
         }
     }
 
     void fail(Throwable e)
     {
-        // The error must be recorded before setting the finish marker to make sure
+        // The error must be recorded before setting the noMoreSplits marker to make sure
         // isFinished will observe failure instead of successful completion.
         // Only record the first error message.
         if (setIf(stateReference, State.failed(e), state -> state.getKind() == INITIAL)) {
@@ -316,7 +316,7 @@ class HiveSplitSource
             // Once the queue is finished, it will always return a completed future to avoid blocking any caller.
             // This could lead to a short period of busy loop in splitLoader (although unlikely in general setup).
             splitLoader.stop();
-            queues.finish();
+            queues.noMoreSplits();
         }
     }
 
@@ -448,7 +448,7 @@ class HiveSplitSource
             // Once the queue is finished, it will always return a completed future to avoid blocking any caller.
             // This could lead to a short period of busy loop in splitLoader (although unlikely in general setup).
             splitLoader.stop();
-            queues.finish();
+            queues.noMoreSplits();
         }
     }
 
@@ -490,7 +490,7 @@ class HiveSplitSource
 
         ListenableFuture<List<ConnectorSplit>> borrowBatchAsync(OptionalInt bucketNumber, int maxSize, Function<List<InternalHiveSplit>, BorrowResult<InternalHiveSplit, List<ConnectorSplit>>> function);
 
-        void finish();
+        void noMoreSplits();
 
         boolean isFinished(OptionalInt bucketNumber);
     }
