@@ -39,6 +39,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIO
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_TASK;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
@@ -70,6 +71,7 @@ public class PrestoExceptionClassifier
             PAGE_TRANSPORT_ERROR,
             PAGE_TRANSPORT_TIMEOUT,
             REMOTE_HOST_GONE,
+            ABANDONED_TASK,
             // From HiveErrorCode
             HIVE_CURSOR_ERROR,
             HIVE_FILE_NOT_FOUND,
