@@ -385,7 +385,7 @@ public final class GraphvizPrinter
                     // skip identity assignments
                     continue;
                 }
-                builder.append(format("%s := %s\\n", entry.getKey(), entry.getValue()));
+                builder.append(format("%s := %s\\n", entry.getKey(), formatter.formatRowExpression(entry.getValue())));
             }
 
             printNode(node, "Project", builder.toString(), NODE_COLORS.get(NodeType.PROJECT));
