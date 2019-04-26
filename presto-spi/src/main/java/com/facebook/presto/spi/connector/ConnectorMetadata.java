@@ -125,6 +125,7 @@ public interface ConnectorMetadata
     /**
      * Return a partitioning handle which the connector can transparently convert both {@code left} and {@code right} into.
      */
+    @Deprecated
     default Optional<ConnectorPartitioningHandle> getCommonPartitioningHandle(ConnectorSession session, ConnectorPartitioningHandle left, ConnectorPartitioningHandle right)
     {
         if (left.equals(right)) {

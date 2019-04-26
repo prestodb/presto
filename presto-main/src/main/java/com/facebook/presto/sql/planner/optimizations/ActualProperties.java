@@ -119,11 +119,13 @@ public class ActualProperties
         return global.isNodePartitionedOn(columns, constants.keySet(), nullsAndAnyReplicated);
     }
 
+    @Deprecated
     public boolean isCompatibleTablePartitioningWith(Partitioning partitioning, boolean nullsAndAnyReplicated, Metadata metadata, Session session)
     {
         return global.isCompatibleTablePartitioningWith(partitioning, nullsAndAnyReplicated, metadata, session);
     }
 
+    @Deprecated
     public boolean isCompatibleTablePartitioningWith(ActualProperties other, Function<Symbol, Set<Symbol>> symbolMappings, Metadata metadata, Session session)
     {
         return global.isCompatibleTablePartitioningWith(

@@ -541,6 +541,7 @@ public final class HiveSessionProperties
         return session.getProperty(COLLECT_COLUMN_STATISTICS_ON_WRITE, Boolean.class);
     }
 
+    @Deprecated
     public static boolean isOptimizedMismatchedBucketCount(ConnectorSession session)
     {
         return session.getProperty(OPTIMIZE_MISMATCHED_BUCKET_COUNT, Boolean.class);

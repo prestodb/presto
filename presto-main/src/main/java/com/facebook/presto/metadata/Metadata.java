@@ -92,6 +92,7 @@ public interface Metadata
     /**
      * Return a partitioning handle which the connector can transparently convert both {@code left} and {@code right} into.
      */
+    @Deprecated
     Optional<PartitioningHandle> getCommonPartitioning(Session session, PartitioningHandle left, PartitioningHandle right);
 
     /**
