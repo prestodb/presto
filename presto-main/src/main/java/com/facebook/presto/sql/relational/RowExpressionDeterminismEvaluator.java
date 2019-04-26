@@ -14,10 +14,12 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -25,18 +27,28 @@ import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 
+import javax.inject.Inject;
+
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static java.util.Objects.requireNonNull;
 
-public class DeterminismEvaluator
+public class RowExpressionDeterminismEvaluator
+        implements DeterminismEvaluator
 {
-    final FunctionManager functionManager;
+    private final FunctionManager functionManager;
 
-    public DeterminismEvaluator(FunctionManager functionManager)
+    @Inject
+    public RowExpressionDeterminismEvaluator(Metadata metadata)
+    {
+        this(requireNonNull(metadata, "metadata is null").getFunctionManager());
+    }
+
+    public RowExpressionDeterminismEvaluator(FunctionManager functionManager)
     {
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
     }
 
+    @Override
     public boolean isDeterministic(RowExpression expression)
     {
         return expression.accept(new Visitor(functionManager), null);

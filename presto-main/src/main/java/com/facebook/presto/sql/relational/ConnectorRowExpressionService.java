@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.PredicateCompiler;
@@ -26,12 +27,14 @@ public final class ConnectorRowExpressionService
     private final DomainTranslator domainTranslator;
     private final ExpressionOptimizer expressionOptimizer;
     private final PredicateCompiler predicateCompiler;
+    private final DeterminismEvaluator determinismEvaluator;
 
-    public ConnectorRowExpressionService(DomainTranslator domainTranslator, ExpressionOptimizer expressionOptimizer, PredicateCompiler predicateCompiler)
+    public ConnectorRowExpressionService(DomainTranslator domainTranslator, ExpressionOptimizer expressionOptimizer, PredicateCompiler predicateCompiler, DeterminismEvaluator determinismEvaluator)
     {
         this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
         this.expressionOptimizer = requireNonNull(expressionOptimizer, "expressionOptimizer is null");
         this.predicateCompiler = requireNonNull(predicateCompiler, "predicateCompiler is null");
+        this.determinismEvaluator = requireNonNull(determinismEvaluator, "determinismEvaluator is null");
     }
 
     @Override
@@ -50,5 +53,11 @@ public final class ConnectorRowExpressionService
     public PredicateCompiler getPredicateCompiler()
     {
         return predicateCompiler;
+    }
+
+    @Override
+    public DeterminismEvaluator getDeterminismEvaluator()
+    {
+        return determinismEvaluator;
     }
 }

@@ -13,16 +13,7 @@
  */
 package com.facebook.presto.spi.relation;
 
-/**
- * A set of services/utilities that are helpful for connectors to operate on row expressions
- */
-public interface RowExpressionService
+public interface DeterminismEvaluator
 {
-    DomainTranslator getDomainTranslator();
-
-    ExpressionOptimizer getExpressionOptimizer();
-
-    PredicateCompiler getPredicateCompiler();
-
-    DeterminismEvaluator getDeterminismEvaluator();
+    boolean isDeterministic(RowExpression expression);
 }

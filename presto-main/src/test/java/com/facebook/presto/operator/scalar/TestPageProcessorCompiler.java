@@ -27,7 +27,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.relational.DeterminismEvaluator;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -216,7 +216,7 @@ public class TestPageProcessorCompiler
 
         PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(lessThanRandomExpression), MAX_BATCH_SIZE).get();
 
-        assertFalse(new DeterminismEvaluator(metadataManager.getFunctionManager()).isDeterministic(lessThanRandomExpression));
+        assertFalse(new RowExpressionDeterminismEvaluator(metadataManager.getFunctionManager()).isDeterministic(lessThanRandomExpression));
 
         Page page = new Page(createLongDictionaryBlock(1, 100));
         Page outputPage = getOnlyElement(

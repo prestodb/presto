@@ -37,7 +37,7 @@ public class TestDeterminismEvaluator
     public void testDeterminismEvaluator()
     {
         FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
-        DeterminismEvaluator determinismEvaluator = new DeterminismEvaluator(functionManager);
+        RowExpressionDeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionManager);
 
         CallExpression random = new CallExpression(
                 "random",

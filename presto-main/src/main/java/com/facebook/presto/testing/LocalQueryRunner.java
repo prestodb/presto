@@ -139,6 +139,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.sql.planner.sanity.PlanSanityChecker;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -345,7 +346,8 @@ public class LocalQueryRunner
                 pageIndexerFactory,
                 transactionManager,
                 new RowExpressionDomainTranslator(metadata),
-                new RowExpressionPredicateCompiler(metadata));
+                new RowExpressionPredicateCompiler(metadata),
+                new RowExpressionDeterminismEvaluator(metadata.getFunctionManager()));
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),

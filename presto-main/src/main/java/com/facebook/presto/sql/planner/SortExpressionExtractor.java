@@ -18,6 +18,7 @@ import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -25,6 +26,7 @@ import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.relational.LogicalRowExpressions;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -68,7 +70,7 @@ public final class SortExpressionExtractor
         List<RowExpression> filterConjuncts = LogicalRowExpressions.extractConjuncts(filter);
         SortExpressionVisitor visitor = new SortExpressionVisitor(buildSymbols, functionManager);
 
-        com.facebook.presto.sql.relational.DeterminismEvaluator determinismEvaluator = new com.facebook.presto.sql.relational.DeterminismEvaluator(functionManager);
+        DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionManager);
         List<SortExpressionContext> sortExpressionCandidates = filterConjuncts.stream()
                 .filter(determinismEvaluator::isDeterministic)
                 .map(conjunct -> conjunct.accept(visitor, null))

@@ -37,6 +37,7 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.planner.Interpreters.LambdaSymbolResolver;
 import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.util.Failures;
 import com.google.common.annotations.VisibleForTesting;
@@ -106,7 +107,7 @@ public class RowExpressionInterpreter
     private final ConnectorSession session;
     private final boolean optimize;
     private final InterpretedFunctionInvoker functionInvoker;
-    private final com.facebook.presto.sql.relational.DeterminismEvaluator determinismEvaluator;
+    private final RowExpressionDeterminismEvaluator determinismEvaluator;
     private final FunctionResolution resolution;
 
     private final Visitor visitor;
@@ -131,7 +132,7 @@ public class RowExpressionInterpreter
         this.session = requireNonNull(session, "session is null");
         this.optimize = optimize;
         this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionManager());
-        this.determinismEvaluator = new com.facebook.presto.sql.relational.DeterminismEvaluator(metadata.getFunctionManager());
+        this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata.getFunctionManager());
         this.resolution = new FunctionResolution(metadata.getFunctionManager());
 
         this.visitor = new Visitor();

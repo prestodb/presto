@@ -34,6 +34,7 @@ import com.facebook.presto.spi.predicate.Utils;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
@@ -309,7 +310,7 @@ public final class RowExpressionDomainTranslator
             this.session = session;
             this.functionManager = metadata.getFunctionManager();
             this.logicalRowExpressions = new LogicalRowExpressions(functionManager);
-            this.determinismEvaluator = new DeterminismEvaluator(functionManager);
+            this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionManager);
             this.resolution = new FunctionResolution(functionManager);
             this.columnExtractor = requireNonNull(columnExtractor, "columnExtractor is null");
         }
