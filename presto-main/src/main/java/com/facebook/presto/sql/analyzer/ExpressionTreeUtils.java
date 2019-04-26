@@ -50,9 +50,16 @@ public final class ExpressionTreeUtils
 
     private static Predicate<FunctionCall> isAggregationPredicate(FunctionManager functionManager)
     {
-        return ((functionCall) -> (functionManager.isAggregationFunction(functionCall.getName())
-                || functionCall.getFilter().isPresent()) && !functionCall.getWindow().isPresent()
-                || functionCall.getOrderBy().isPresent());
+//        return ((functionCall) -> (functionManager.isAggregationFunction(functionCall.getName())));
+//        return ((functionCall) -> (functionManager.isAggregationFunction(functionCall.getName()) || functionCall.getFilter().isPresent())
+//                && !functionCall.getWindow().isPresent() || functionCall.getOrderBy().isPresent());
+        return ((functionCall -> {
+            boolean a = functionManager.isAggregationFunction(functionCall.getName());
+            boolean b = functionCall.getFilter().isPresent();
+            boolean c = functionCall.getWindow().isPresent();
+            boolean d = functionCall.getOrderBy().isPresent();
+            return a && !c || d;
+        }));
     }
 
     private static boolean isWindowFunction(FunctionCall functionCall)
