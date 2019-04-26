@@ -28,7 +28,7 @@ import java.math.BigInteger;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 
-@AggregationFunction("entopy")
+@AggregationFunction("entropy")
 public final class EntropyAggregation
 {
     @InputFunction
