@@ -20,7 +20,7 @@ public interface EntropyState
 {
     void setSumC(double sumC);
 
-    double getsumC();
+    double getSumC();
 
     void setSumCLogC(double sumCLogC);
 

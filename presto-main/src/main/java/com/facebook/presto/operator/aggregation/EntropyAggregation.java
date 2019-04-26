@@ -20,8 +20,10 @@ import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
+import java.math.BigInteger;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
@@ -34,12 +36,16 @@ public final class EntropyAggregation
             @AggregationState EntropyState state,
             @SqlNullable @SqlType(StandardTypes.BIGINT) BigInteger count)
     {
-        if (count == null || count == 0) {
+        if (count == null) {
             return;
         }
 
-        if (count < 0) {
-            state.setNull();
+        final int cmpToZero = count.compareTo(BigInteger.ZERO);
+        if (cmpToZero == 0) {
+            return;
+        }
+        if (cmpToZero == -1) {
+            state.setNull(true);
             return;
         }
 
