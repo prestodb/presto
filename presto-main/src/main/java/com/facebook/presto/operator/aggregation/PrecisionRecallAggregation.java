@@ -15,12 +15,17 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.PrecisionRecallState;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.*;
+import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
+import com.facebook.presto.spi.function.CombineFunction;
+import com.facebook.presto.spi.function.InputFunction;
+import com.facebook.presto.spi.function.OutputFunction;
+import com.facebook.presto.spi.function.SqlNullable;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 
 import java.math.BigInteger;
-import java.util.Arrays;
-
+import java.util.ArrayList;
 
 @AggregationFunction("precision_recall")
 public final class PrecisionRecallAggregation
@@ -32,9 +37,9 @@ public final class PrecisionRecallAggregation
             @SqlType(StandardTypes.DOUBLE) Double pred,
             @SqlNullable @SqlType(StandardTypes.BOOLEAN) Boolean outcome)
     {
-        state.setNumBins(numBins);
+        state.setNumBins(numBins.intValue());
 
-        if (pred == null || weight == 0) {
+        if (pred == null) {
             return;
         }
 
@@ -43,16 +48,20 @@ public final class PrecisionRecallAggregation
             return;
         }
 
-        weight = 1;
-        if (weight < 0) {
+        Double weight = 1.0;
+        if (weight == 0.0) {
+            return;
+        }
+        if (weight < 0.0) {
             state.setNull(true);
         }
         state.setWeight(state.getWeight() + weight);
 
-        final Array<double> weights = initializeWeightsIfNeeded(
-            numBins,
-            outcome? state.getTrueWeights(): state.getFalseWeights());
-        weights[pred / numBins] += weight;
+        final ArrayList<Double> weights = initializeWeightsIfNeeded(
+                numBins.intValue(),
+                outcome ? state.getTrueWeights() : state.getFalseWeights());
+        final int ind = (int) (pred / numBins.doubleValue());
+        weights.set(ind, weights.get(ind) + weight);
         if (outcome) {
             state.setTrueWeights(weights);
         }
@@ -62,18 +71,22 @@ public final class PrecisionRecallAggregation
     }
 
     @CombineFunction
-    public static void combine(@AggregationState PrecisionRecallState state, @AggregationState PrecisionRecallState otherState)
+    public static void combine(
+            @AggregationState PrecisionRecallState state,
+            @AggregationState PrecisionRecallState otherState)
     {
-        state.setNull(state.getNull() | otherState.getNull());
-        state.setNumBins(Math.max(state.getNumBins(), otherState.getNumBins());
+        state.setNull(state.getNull() || otherState.getNull());
 
-        final Array<double> trueWeights = initializeWeightsIfNeeded(numBins, state.getTrueWeights();
-        final Array<double> falseWeights = initializeWeightsIfNeeded(numBins, state.getFalseWeights());
-        final Array<double> otherTrueWeights = initializeWeightsIfNeeded(numBins, otherState.getTrueWeights();
-        final Array<double> otherFalseWeights = initializeWeightsIfNeeded(numBins, otherState.getFalseWeights());
+        final int numBins = Math.max(state.getNumBins(), otherState.getNumBins());
+        state.setNumBins(numBins);
+
+        final ArrayList<Double> trueWeights = initializeWeightsIfNeeded(numBins, state.getTrueWeights());
+        final ArrayList<Double> falseWeights = initializeWeightsIfNeeded(numBins, state.getFalseWeights());
+        final ArrayList<Double> otherTrueWeights = initializeWeightsIfNeeded(numBins, otherState.getTrueWeights());
+        final ArrayList<Double> otherFalseWeights = initializeWeightsIfNeeded(numBins, otherState.getFalseWeights());
         for (int i = 0; i < trueWeights.size(); ++i) {
-            trueWeights[i] += otherTrueWeights[i];
-            falseWeights[i] += otherFalseWeights[i];
+            trueWeights.set(i, trueWeights.get(i) + otherTrueWeights.get(i));
+            falseWeights.set(i, falseWeights.get(i) + otherFalseWeights.get(i));
         }
         state.setTrueWeights(trueWeights);
         state.setFalseWeights(falseWeights);
@@ -87,23 +100,22 @@ public final class PrecisionRecallAggregation
             return;
         }
 
-        final ArrayList<double> trueWeights = initializeWeightsIfNeeded(state.getNumBins(), state.getTrueWeights());
-        final ArrayList<double> falseWeights = initializeWeightsIfNeeded(state.getNumBins(), state.getFalseWeights());
+        final ArrayList<Double> trueWeights = initializeWeightsIfNeeded(state.getNumBins(), state.getTrueWeights());
+        final ArrayList<Double> falseWeights = initializeWeightsIfNeeded(state.getNumBins(), state.getFalseWeights());
 
-        final double trueWeight = trueWeights.stream().sum();
-        final Array<double> recall = Arrays
-            .parallelPrefix(trueWeights, Double::sum)
-            .stream()
-            .toDouble(w -> safeDiv(w, trueWeight))
-            .collect(Collectors.toList());
+        final Double totalTrueWeight = trueWeights.stream()
+                .mapToDouble(Double::doubleValue)
+                .sum();
+        final ArrayList<Double> precision = new ArrayList<Double>(state.getNumBins());
+        final ArrayList<Double> recall = new ArrayList<Double>(state.getNumBins());
+        Double runningWeight = 0.0;
+        Double runningTrueWeight = 0.0;
+        for (int i = trueWeights.size() - 1; i >= 0; --i) {
+            runningWeight += trueWeights.get(i) + falseWeights.get(i);
+            runningTrueWeight += trueWeights.get(i);
+            precision.set(i, safeDiv(runningTrueWeight, runningWeight));
 
-        final ArrayList<double> precision = new double[state.getNumBins()];
-        double totalWeight = 0;
-        double totalTrueWeight = 0;
-        for (int i = 0; i < trueWeights.size(); ++i) {
-            totalWeight += trueWeights[i] + falseWeights[i];
-            totalTrueWeight += trueWeights[i];
-            precision[i] = safeDiv(totalTrueWeight, totalWeight);
+            recall.set(i, safeDiv(runningTrueWeight, totalTrueWeight));
         }
 
         // Tmp Ami - to map, and write out
@@ -111,11 +123,13 @@ public final class PrecisionRecallAggregation
 
     private PrecisionRecallAggregation() {}
 
-    private static ArrayList<double> initializeWeightsIfNeeded(BigInteger numBins, ArrayList<douhle> weights) {
-        return weights.isEmpty(): new double[numBins]: weights;
+    private static ArrayList<Double> initializeWeightsIfNeeded(int numBins, ArrayList<Double> weights)
+    {
+        return weights.isEmpty() ? new ArrayList<Double>(numBins) : weights;
     }
 
-    private static double safeDiv(double nom, double denom) {
-        return nom = denom? 1: nom / denom;
+    private static Double safeDiv(Double nom, Double denom)
+    {
+        return denom == 0.0 ? 1.0 : nom / denom;
     }
 }

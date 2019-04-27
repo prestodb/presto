@@ -15,28 +15,28 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.spi.function.AccumulatorState;
 
-import java.math.BigInteger;
+import java.util.ArrayList;
 
 public interface PrecisionRecallState
         extends AccumulatorState
 {
-    void setNull(boolean Null);
+    void setNull(boolean isNull);
 
     boolean getNull();
 
-    void setNumBins(BigInteger numBins);
+    void setNumBins(int numBins);
 
-    BigInteger getNumBins();
+    int getNumBins();
 
     void setWeight(double weight);
 
     double getWeight();
 
-    ArrayList<double> getTrueWeights();
+    ArrayList<Double> getTrueWeights();
 
-    void setTrue(ArrayList<double> trueWeights);
+    void setTrueWeights(ArrayList<Double> trueWeights);
 
-    ArrayList<double> getFalseWeights();
+    ArrayList<Double> getFalseWeights();
 
-    void setTrues(ArrayList<double> falseWeights);
+    void setFalseWeights(ArrayList<Double> falseWeights);
 }

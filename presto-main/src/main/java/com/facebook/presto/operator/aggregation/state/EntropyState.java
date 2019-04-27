@@ -18,15 +18,15 @@ import com.facebook.presto.spi.function.AccumulatorState;
 public interface EntropyState
         extends AccumulatorState
 {
+    void setNull(boolean isNull);
+
+    boolean getNull();
+
     void setSumC(double sumC);
 
     double getSumC();
 
     void setSumCLogC(double sumCLogC);
 
-    double getsumCLogC();
-
-    void setNull(boolean neg);
-
-    boolean getNull();
+    double getSumCLogC();
 }

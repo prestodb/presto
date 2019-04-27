@@ -23,10 +23,10 @@ import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
+
 import java.math.BigInteger;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 @AggregationFunction("entropy")
 public final class EntropyAggregation
@@ -49,8 +49,9 @@ public final class EntropyAggregation
             return;
         }
 
-        state.setSumC(state.getSumC() + count);
-        state.setSumCLogC(state.getSumC() + count * Math.log(count));
+        final double countVal = count.doubleValue();
+        state.setSumC(state.getSumC() + countVal);
+        state.setSumCLogC(state.getSumC() + countVal * Math.log(countVal));
     }
 
     @CombineFunction
@@ -72,9 +73,9 @@ public final class EntropyAggregation
             DOUBLE.writeDouble(out, 0);
             return;
         }
-        final double entropy = Math.max(
-            (-state.getSumCLogC() / state.getSumC() + Math.log(state.getSumC())) / Math.log(2),
-            0);
+        double entropy = Math.max(
+                (-state.getSumCLogC() / state.getSumC() + Math.log(state.getSumC())) / Math.log(2),
+                0);
         entropy = Math.max(entropy, 0);
         DOUBLE.writeDouble(out, entropy);
     }

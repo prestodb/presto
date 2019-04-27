@@ -39,13 +39,13 @@ public class TestEntropyAggregation
     @Override
     public Number getExpectedValue(int start, int length)
     {
-        final ArrayList<Integer> counts = IntStream.range(start, start + length).toArray();;
+        final ArrayList<Integer> counts = IntStream.range(start, start + length).toArray();
         final double sum = IntStream.of(counts).sum();
         final ArrayList<Double> entropies = counts.stream()
                 .filter(c -> c > 0)
                 .map(c -> (c / sum) * Math.log(sum / c))
                 .collect(Collectors.toList());
-        return entropies.isEmpty()? 0: entropies.stream().sum();
+        return entropies.isEmpty() ? 0 : entropies.stream().sum();
     }
 
     @Override
