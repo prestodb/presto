@@ -22,6 +22,7 @@ import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
 
 import java.math.BigInteger;
@@ -92,7 +93,7 @@ public final class PrecisionRecallAggregation
         state.setFalseWeights(falseWeights);
     }
 
-    @OutputFunction(StandardTypes.DOUBLE)
+    @OutputFunction("map(double,double)")
     public static void output(@AggregationState PrecisionRecallState state, BlockBuilder out)
     {
         if (state.getNull()) {
@@ -106,19 +107,20 @@ public final class PrecisionRecallAggregation
         final Double totalTrueWeight = trueWeights.stream()
                 .mapToDouble(Double::doubleValue)
                 .sum();
-        final ArrayList<Double> precision = new ArrayList<Double>(state.getNumBins());
-        final ArrayList<Double> recall = new ArrayList<Double>(state.getNumBins());
         Double runningWeight = 0.0;
         Double runningTrueWeight = 0.0;
+        BlockBuilder entryBuilder = out.beginBlockEntry();
         for (int i = trueWeights.size() - 1; i >= 0; --i) {
             runningWeight += trueWeights.get(i) + falseWeights.get(i);
             runningTrueWeight += trueWeights.get(i);
-            precision.set(i, safeDiv(runningTrueWeight, runningWeight));
 
-            recall.set(i, safeDiv(runningTrueWeight, totalTrueWeight));
+            final Double recall = safeDiv(runningTrueWeight, totalTrueWeight);
+            final Double precision = safeDiv(runningTrueWeight, runningWeight);
+
+            DoubleType.DOUBLE.writeDouble(entryBuilder, recall);
+            DoubleType.DOUBLE.writeDouble(entryBuilder, precision);
         }
-
-        // Tmp Ami - to map, and write out
+        out.closeEntry();
     }
 
     private PrecisionRecallAggregation() {}
