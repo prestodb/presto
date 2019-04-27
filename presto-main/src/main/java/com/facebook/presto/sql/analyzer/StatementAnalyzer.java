@@ -2110,14 +2110,7 @@ class StatementAnalyzer
                     expression = new FieldReference(toIntExact(ordinal - 1));
                 }
 
-                ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
-                        metadata,
-                        accessControl,
-                        sqlParser,
-                        orderByScope,
-                        analysis,
-                        expression,
-                        WarningCollector.NOOP);
+                ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, orderByScope);
                 analysis.recordSubqueries(node, expressionAnalysis);
 
                 Type type = analysis.getType(expression);
