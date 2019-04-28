@@ -18,7 +18,13 @@ import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.TaskCountEstimator;
+import com.facebook.presto.matching.Captures;
+import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.matching.pattern.TypeOfPattern;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ConnectorRule;
+import com.facebook.presto.spi.connector.ConnectorRuleProvider;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -134,7 +140,7 @@ import java.util.Set;
 
 public class PlanOptimizers
 {
-    private final List<PlanOptimizer> optimizers;
+    private List<PlanOptimizer> optimizers;
     private final RuleStatsRecorder ruleStats = new RuleStatsRecorder();
     private final OptimizerStatsRecorder optimizerStats = new OptimizerStatsRecorder();
     private final MBeanExporter exporter;
@@ -527,5 +533,32 @@ public class PlanOptimizers
     public List<PlanOptimizer> get()
     {
         return optimizers;
+    }
+
+    public void addOptimizerProvider(StatsCalculator statsCalculator, CostCalculator costCalculator, ConnectorRuleProvider connectorRuleProvider)
+    {
+        Set<ConnectorRule> connectorRules = connectorRuleProvider.createRuleSet();
+        ImmutableSet.Builder<Rule<?>> rules = ImmutableSet.builder();
+        for (ConnectorRule connectorRule : connectorRules) {
+            rules.add(new Rule<PlanNode>() {
+                @Override
+                public Pattern<PlanNode> getPattern()
+                {
+                    return new TypeOfPattern(connectorRule.match().getClass());
+                }
+
+                @Override
+                public Result apply(PlanNode node, Captures captures, Context context)
+                {
+                    ConnectorRule.Result result = connectorRule.apply(node);
+                    if (result.isEmpty()) {
+                        return Result.empty();
+                    }
+                    return Result.ofPlanNode(result.getTransformedPlan());
+                }
+            });
+        }
+        PlanOptimizer optimizer = new IterativeOptimizer(ruleStats, statsCalculator, costCalculator, rules.build());
+        optimizers = ImmutableList.<PlanOptimizer>builder().addAll(optimizers).add(optimizer).build();
     }
 }

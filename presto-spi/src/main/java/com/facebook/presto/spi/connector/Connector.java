@@ -132,6 +132,11 @@ public interface Connector
         return emptyList();
     }
 
+    default ConnectorRuleProvider getConnectorOptimizerProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
+
     /**
      * @throws UnsupportedOperationException if this connector does not have an access control
      */

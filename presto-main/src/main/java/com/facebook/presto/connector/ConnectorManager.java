@@ -19,6 +19,8 @@ import com.facebook.presto.connector.system.MetadataBasedSystemTablesProvider;
 import com.facebook.presto.connector.system.StaticSystemTablesProvider;
 import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.connector.system.SystemTablesProvider;
+import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
@@ -39,6 +41,7 @@ import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorRuleProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.relation.DomainTranslator;
@@ -49,6 +52,7 @@ import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.RecordPageSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.relational.ConnectorRowExpressionService;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.transaction.TransactionManager;
@@ -99,6 +103,9 @@ public class ConnectorManager
     private final NodeInfo nodeInfo;
     private final TransactionManager transactionManager;
     private final DomainTranslator domainTranslator;
+    private final PlanOptimizers planOptimizers;
+    private final StatsCalculator statsCalculator;
+    private final CostCalculator costCalculator;
 
     @GuardedBy("this")
     private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
@@ -117,6 +124,9 @@ public class ConnectorManager
             PageSourceManager pageSourceManager,
             IndexManager indexManager,
             NodePartitioningManager nodePartitioningManager,
+            PlanOptimizers planOptimizers,
+            StatsCalculator statsCalculator,
+            CostCalculator costCalculator,
             PageSinkManager pageSinkManager,
             HandleResolver handleResolver,
             InternalNodeManager nodeManager,
@@ -134,6 +144,9 @@ public class ConnectorManager
         this.pageSourceManager = pageSourceManager;
         this.indexManager = indexManager;
         this.nodePartitioningManager = nodePartitioningManager;
+        this.planOptimizers = planOptimizers;
+        this.statsCalculator = statsCalculator;
+        this.costCalculator = costCalculator;
         this.pageSinkManager = pageSinkManager;
         this.handleResolver = handleResolver;
         this.nodeManager = nodeManager;
@@ -266,6 +279,9 @@ public class ConnectorManager
         connector.getPartitioningProvider()
                 .ifPresent(partitioningProvider -> nodePartitioningManager.addPartitioningProvider(connectorId, partitioningProvider));
 
+        connector.getOptimizerProvider()
+                .ifPresent(optimizerProvider -> planOptimizers.addOptimizerProvider(statsCalculator, costCalculator, optimizerProvider));
+
         metadataManager.getProcedureRegistry().addProcedures(connectorId, connector.getProcedures());
 
         connector.getAccessControl()
@@ -345,6 +361,7 @@ public class ConnectorManager
         private final Optional<ConnectorIndexProvider> indexProvider;
         private final Optional<ConnectorNodePartitioningProvider> partitioningProvider;
         private final Optional<ConnectorAccessControl> accessControl;
+        private final Optional<ConnectorRuleProvider> optimizerProvider;
         private final List<PropertyMetadata<?>> sessionProperties;
         private final List<PropertyMetadata<?>> tableProperties;
         private final List<PropertyMetadata<?>> schemaProperties;
@@ -414,6 +431,15 @@ public class ConnectorManager
             catch (UnsupportedOperationException ignored) {
             }
             this.partitioningProvider = Optional.ofNullable(partitioningProvider);
+
+            ConnectorRuleProvider optimizerProvider = null;
+            try {
+                optimizerProvider = connector.getConnectorOptimizerProvider();
+                requireNonNull(optimizerProvider, format("Connector %s returned a null optimizer provider", connectorId));
+            }
+            catch (UnsupportedOperationException ignored) {
+            }
+            this.optimizerProvider = Optional.ofNullable(optimizerProvider);
 
             ConnectorAccessControl accessControl = null;
             try {
@@ -487,6 +513,11 @@ public class ConnectorManager
         public Optional<ConnectorNodePartitioningProvider> getPartitioningProvider()
         {
             return partitioningProvider;
+        }
+
+        public Optional<ConnectorRuleProvider> getOptimizerProvider()
+        {
+            return optimizerProvider;
         }
 
         public Optional<ConnectorAccessControl> getAccessControl()
