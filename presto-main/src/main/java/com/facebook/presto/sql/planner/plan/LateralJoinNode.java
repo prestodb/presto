@@ -146,8 +146,8 @@ public class LateralJoinNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IRVisitor<R, C> visitor, C context)
     {
-        return visitor.visitLateralJoin(this, context);
+        return ((PlanVisitor<R, C>) visitor).visitLateralJoin(this, context);
     }
 }

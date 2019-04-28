@@ -88,9 +88,9 @@ public class SampleNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IRVisitor<R, C> visitor, C context)
     {
-        return visitor.visitSample(this, context);
+        return ((PlanVisitor<R, C>) visitor).visitSample(this, context);
     }
 
     @Override

@@ -77,9 +77,9 @@ public class ExplainAnalyzeNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IRVisitor<R, C> visitor, C context)
     {
-        return visitor.visitExplainAnalyze(this, context);
+        return ((PlanVisitor<R, C>) visitor).visitExplainAnalyze(this, context);
     }
 
     @Override

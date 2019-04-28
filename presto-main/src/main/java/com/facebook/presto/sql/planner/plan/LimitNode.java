@@ -82,9 +82,9 @@ public class LimitNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IRVisitor<R, C> visitor, C context)
     {
-        return visitor.visitLimit(this, context);
+        return ((PlanVisitor<R, C>) visitor).visitLimit(this, context);
     }
 
     @Override

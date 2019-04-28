@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.plan.IRVisitor;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
@@ -46,9 +47,9 @@ public class GroupReference
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IRVisitor<R, C> visitor, C context)
     {
-        return visitor.visitGroupReference(this, context);
+        return ((PlanVisitor<R, C>) visitor).visitGroupReference(this, context);
     }
 
     @Override

@@ -37,9 +37,9 @@ public class IntersectNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IRVisitor<R, C> visitor, C context)
     {
-        return visitor.visitIntersect(this, context);
+        return ((PlanVisitor<R, C>) visitor).visitIntersect(this, context);
     }
 
     @Override

@@ -69,9 +69,9 @@ public class SortNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IRVisitor<R, C> visitor, C context)
     {
-        return visitor.visitSort(this, context);
+        return ((PlanVisitor<R, C>) visitor).visitSort(this, context);
     }
 
     @Override

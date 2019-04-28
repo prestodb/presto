@@ -44,7 +44,7 @@ public abstract class PlanNode
 
     public abstract PlanNode replaceChildren(List<PlanNode> newChildren);
 
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IRVisitor<R, C> visitor, C context)
     {
         return visitor.visitPlan(this, context);
     }

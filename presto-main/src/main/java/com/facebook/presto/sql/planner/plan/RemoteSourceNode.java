@@ -91,9 +91,9 @@ public class RemoteSourceNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IRVisitor<R, C> visitor, C context)
     {
-        return visitor.visitRemoteSource(this, context);
+        return ((PlanVisitor<R, C>) visitor).visitRemoteSource(this, context);
     }
 
     @Override

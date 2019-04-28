@@ -101,9 +101,9 @@ public class TableFinishNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IRVisitor<R, C> visitor, C context)
     {
-        return visitor.visitTableFinish(this, context);
+        return ((PlanVisitor<R, C>) visitor).visitTableFinish(this, context);
     }
 
     @Override

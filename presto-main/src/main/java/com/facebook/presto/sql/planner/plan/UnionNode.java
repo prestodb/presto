@@ -37,9 +37,9 @@ public class UnionNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IRVisitor<R, C> visitor, C context)
     {
-        return visitor.visitUnion(this, context);
+        return ((PlanVisitor<R, C>) visitor).visitUnion(this, context);
     }
 
     @Override

@@ -104,9 +104,9 @@ public final class RowNumberNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IRVisitor<R, C> visitor, C context)
     {
-        return visitor.visitRowNumber(this, context);
+        return ((PlanVisitor<R, C>) visitor).visitRowNumber(this, context);
     }
 
     @Override

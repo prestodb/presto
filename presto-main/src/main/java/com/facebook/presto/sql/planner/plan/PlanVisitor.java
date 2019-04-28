@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 
 public abstract class PlanVisitor<R, C>
+        extends IRVisitor<R, C>
 {
     protected abstract R visitPlan(PlanNode node, C context);
 
@@ -25,11 +26,6 @@ public abstract class PlanVisitor<R, C>
     }
 
     public R visitAggregation(AggregationNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
-    public R visitFilter(FilterNode node, C context)
     {
         return visitPlan(node, context);
     }
