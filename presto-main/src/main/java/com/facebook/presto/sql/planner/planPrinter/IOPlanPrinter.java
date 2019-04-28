@@ -33,8 +33,8 @@ import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
@@ -462,7 +462,7 @@ public class IOPlanPrinter
     }
 
     private class IOPlanVisitor
-            extends PlanVisitor<Void, IOPlanBuilder>
+            extends InternalPlanVisitor<Void, IOPlanBuilder>
     {
         @Override
         protected Void visitPlan(PlanNode node, IOPlanBuilder context)

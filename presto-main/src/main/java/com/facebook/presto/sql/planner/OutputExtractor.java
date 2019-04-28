@@ -16,8 +16,8 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.Output;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 
 import java.util.Optional;
@@ -42,7 +42,7 @@ public class OutputExtractor
     }
 
     private class Visitor
-            extends PlanVisitor<Void, Void>
+            extends InternalPlanVisitor<Void, Void>
     {
         private ConnectorId connectorId;
         private SchemaTableName schemaTableName;

@@ -24,8 +24,8 @@ import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.sanity.PlanSanityChecker.Checker;
 
 import java.util.List;
@@ -65,7 +65,7 @@ public class ValidateAggregationsWithDefaultValues
     }
 
     private class Visitor
-            extends PlanVisitor<Optional<SeenExchanges>, Void>
+            extends InternalPlanVisitor<Optional<SeenExchanges>, Void>
     {
         final Session session;
         final Metadata metadata;

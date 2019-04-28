@@ -29,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class OutputNode
-        extends PlanNode
+        extends InternalPlanNode
 {
     private final PlanNode source;
     private final List<String> columnNames;
@@ -78,7 +78,7 @@ public class OutputNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitOutput(this, context);
     }

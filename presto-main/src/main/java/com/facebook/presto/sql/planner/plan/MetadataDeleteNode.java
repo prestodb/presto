@@ -28,7 +28,7 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class MetadataDeleteNode
-        extends PlanNode
+        extends InternalPlanNode
 {
     private final DeleteHandle target;
     private final Symbol output;
@@ -70,7 +70,7 @@ public class MetadataDeleteNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitMetadataDelete(this, context);
     }

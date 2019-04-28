@@ -31,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class TableFinishNode
-        extends PlanNode
+        extends InternalPlanNode
 {
     private final PlanNode source;
     private final WriterTarget target;
@@ -102,7 +102,7 @@ public class TableFinishNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitTableFinish(this, context);
     }

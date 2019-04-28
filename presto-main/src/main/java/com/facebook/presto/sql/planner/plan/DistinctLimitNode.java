@@ -30,7 +30,7 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class DistinctLimitNode
-        extends PlanNode
+        extends InternalPlanNode
 {
     private final PlanNode source;
     private final long limit;
@@ -103,7 +103,7 @@ public class DistinctLimitNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitDistinctLimit(this, context);
     }

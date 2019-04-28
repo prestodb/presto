@@ -29,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class SemiJoinNode
-        extends PlanNode
+        extends InternalPlanNode
 {
     private final PlanNode source;
     private final PlanNode filteringSource;
@@ -135,7 +135,7 @@ public class SemiJoinNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitSemiJoin(this, context);
     }

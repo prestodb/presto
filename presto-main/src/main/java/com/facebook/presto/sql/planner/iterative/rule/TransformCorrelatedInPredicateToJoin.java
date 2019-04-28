@@ -28,9 +28,9 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -293,7 +293,7 @@ public class TransformCorrelatedInPredicateToJoin
     }
 
     private static class DecorrelatingVisitor
-            extends PlanVisitor<Optional<Decorrelated>, PlanNode>
+            extends InternalPlanVisitor<Optional<Decorrelated>, PlanNode>
     {
         private final Lookup lookup;
         private final Set<Symbol> correlation;

@@ -31,6 +31,7 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
@@ -38,7 +39,6 @@ import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
@@ -208,7 +208,7 @@ public final class GraphvizPrinter
     }
 
     private static class NodePrinter
-            extends PlanVisitor<Void, Void>
+            extends InternalPlanVisitor<Void, Void>
     {
         private static final int MAX_NAME_WIDTH = 100;
         private final StringBuilder output;
@@ -627,7 +627,7 @@ public final class GraphvizPrinter
     }
 
     private static class EdgePrinter
-            extends PlanVisitor<Void, Void>
+            extends InternalPlanVisitor<Void, Void>
     {
         private final StringBuilder output;
         private final Map<PlanFragmentId, PlanFragment> fragmentsById;

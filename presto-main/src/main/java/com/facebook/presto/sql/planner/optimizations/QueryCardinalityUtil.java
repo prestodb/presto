@@ -19,9 +19,9 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.collect.Range;
@@ -73,7 +73,7 @@ public final class QueryCardinalityUtil
     }
 
     private static final class CardinalityExtractorPlanVisitor
-            extends PlanVisitor<Range<Long>, Void>
+            extends InternalPlanVisitor<Range<Long>, Void>
     {
         private final Lookup lookup;
 

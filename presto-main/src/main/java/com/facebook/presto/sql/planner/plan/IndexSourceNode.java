@@ -33,7 +33,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class IndexSourceNode
-        extends PlanNode
+        extends InternalPlanNode
 {
     private final IndexHandle indexHandle;
     private final TableHandle tableHandle;
@@ -109,7 +109,7 @@ public class IndexSourceNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitIndexSource(this, context);
     }

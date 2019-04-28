@@ -35,7 +35,7 @@ import static java.util.Objects.requireNonNull;
  */
 @Immutable
 public class LateralJoinNode
-        extends PlanNode
+        extends InternalPlanNode
 {
     public enum Type
     {
@@ -147,7 +147,7 @@ public class LateralJoinNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitLateralJoin(this, context);
     }

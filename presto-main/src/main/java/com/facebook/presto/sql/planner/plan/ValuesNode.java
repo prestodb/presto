@@ -29,7 +29,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 @Immutable
 public class ValuesNode
-        extends PlanNode
+        extends InternalPlanNode
 {
     private final List<Symbol> outputSymbols;
     private final List<List<RowExpression>> rows;
@@ -69,7 +69,7 @@ public class ValuesNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitValues(this, context);
     }

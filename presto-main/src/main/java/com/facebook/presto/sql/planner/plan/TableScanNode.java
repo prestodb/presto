@@ -20,17 +20,17 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.unmodifiableList;
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -39,14 +39,16 @@ public class TableScanNode
 {
     private final TableHandle table;
     private final List<Symbol> outputSymbols;
-    private final Map<Symbol, ColumnHandle> assignments; // symbol -> column
+    private final Map<Symbol, ColumnHandle> assignments;
 
     // Used during predicate refinement over multiple passes of predicate pushdown
     // TODO: think about how to get rid of this in new planner
+    // TODO: these two fields will not be effective if they are created by connectors until we have refactored PickTableLayout
     private final TupleDomain<ColumnHandle> currentConstraint;
 
     private final TupleDomain<ColumnHandle> enforcedConstraint;
 
+    // TODO: this flag will be remove with #12776; the caller should always set it to false until it is removed.
     private final boolean temporaryTable;
 
     @JsonCreator
@@ -60,8 +62,8 @@ public class TableScanNode
         // This constructor is for JSON deserialization only. Do not use.
         super(id);
         this.table = requireNonNull(table, "table is null");
-        this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
-        this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
+        this.outputSymbols = unmodifiableList(new ArrayList<>(requireNonNull(outputs, "outputs is null")));
+        this.assignments = unmodifiableMap(new HashMap<>(requireNonNull(assignments, "assignments is null")));
         checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
         this.temporaryTable = temporaryTable;
         this.currentConstraint = null;
@@ -99,8 +101,8 @@ public class TableScanNode
     {
         super(id);
         this.table = requireNonNull(table, "table is null");
-        this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
-        this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
+        this.outputSymbols = unmodifiableList(new ArrayList<>(requireNonNull(outputs, "outputs is null")));
+        this.assignments = unmodifiableMap(new HashMap<>(requireNonNull(assignments, "assignments is null")));
         checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
         this.currentConstraint = requireNonNull(currentConstraint, "currentConstraint is null");
         this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
@@ -110,19 +112,18 @@ public class TableScanNode
         }
     }
 
+    /**
+     * Get the table handle provided by connector
+     */
     @JsonProperty("table")
     public TableHandle getTable()
     {
         return table;
     }
 
-    @Override
-    @JsonProperty("outputSymbols")
-    public List<Symbol> getOutputSymbols()
-    {
-        return outputSymbols;
-    }
-
+    /**
+     * Get the mapping from symbols to columns
+     */
     @JsonProperty("assignments")
     public Map<Symbol, ColumnHandle> getAssignments()
     {
@@ -167,7 +168,15 @@ public class TableScanNode
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of();
+        // table scan should be the leaf node
+        return emptyList();
+    }
+
+    @Override
+    @JsonProperty("outputSymbols")
+    public List<Symbol> getOutputSymbols()
+    {
+        return outputSymbols;
     }
 
     @Override
@@ -179,13 +188,15 @@ public class TableScanNode
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("table", table)
-                .add("outputSymbols", outputSymbols)
-                .add("assignments", assignments)
-                .add("currentConstraint", currentConstraint)
-                .add("enforcedConstraint", enforcedConstraint)
-                .toString();
+        StringBuilder stringBuilder = new StringBuilder(this.getClass().getSimpleName());
+        stringBuilder.append(" {");
+        stringBuilder.append("table='").append(table).append('\'');
+        stringBuilder.append(", outputSymbols='").append(outputSymbols).append('\'');
+        stringBuilder.append(", assignments='").append(assignments).append('\'');
+        stringBuilder.append(", currentConstraint='").append(currentConstraint).append('\'');
+        stringBuilder.append(", enforcedConstraint='").append(enforcedConstraint).append('\'');
+        stringBuilder.append('}');
+        return stringBuilder.toString();
     }
 
     @Override
@@ -193,5 +204,19 @@ public class TableScanNode
     {
         checkArgument(newChildren.isEmpty(), "newChildren is not empty");
         return this;
+    }
+
+    private static void checkArgument(boolean test, String errorMessage)
+    {
+        if (!test) {
+            throw new IllegalArgumentException(errorMessage);
+        }
+    }
+
+    private static void checkState(boolean test, String errorMessage)
+    {
+        if (!test) {
+            throw new IllegalStateException(errorMessage);
+        }
     }
 }

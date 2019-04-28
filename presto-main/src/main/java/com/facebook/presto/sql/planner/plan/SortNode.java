@@ -26,7 +26,7 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 
 public class SortNode
-        extends PlanNode
+        extends InternalPlanNode
 {
     private final PlanNode source;
     private final OrderingScheme orderingScheme;
@@ -70,7 +70,7 @@ public class SortNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitSort(this, context);
     }

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative;
 
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -30,7 +30,7 @@ public class Plans
     }
 
     private static class ResolvingVisitor
-            extends PlanVisitor<PlanNode, Void>
+            extends InternalPlanVisitor<PlanNode, Void>
     {
         private final Lookup lookup;
 

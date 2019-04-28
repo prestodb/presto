@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
 
 public class SimplePlanVisitor<C>
-        extends PlanVisitor<Void, C>
+        extends InternalPlanVisitor<Void, C>
 {
     @Override
     protected Void visitPlan(PlanNode node, C context)

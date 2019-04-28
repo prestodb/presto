@@ -19,10 +19,10 @@ import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 
@@ -45,7 +45,7 @@ public final class DistinctOutputQueryUtil
     }
 
     private static final class IsDistinctPlanVisitor
-            extends PlanVisitor<Boolean, Void>
+            extends InternalPlanVisitor<Boolean, Void>
     {
         /*
         With the iterative optimizer, plan nodes are replaced with
