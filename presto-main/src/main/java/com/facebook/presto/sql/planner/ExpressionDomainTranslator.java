@@ -105,7 +105,7 @@ public final class ExpressionDomainTranslator
         Map<Symbol, Domain> domains = tupleDomain.getDomains().get();
         return domains.entrySet().stream()
                 .sorted(comparing(entry -> entry.getKey().getName()))
-                .map(entry -> toPredicate(entry.getValue(), entry.getKey().toSymbolReference()))
+                .map(entry -> toPredicate(entry.getValue(), SymbolUtils.toSymbolReference(entry.getKey())))
                 .collect(collectingAndThen(toImmutableList(), ExpressionUtils::combineConjuncts));
     }
 
@@ -398,7 +398,7 @@ public final class ExpressionDomainTranslator
 
             Expression symbolExpression = normalized.getSymbolExpression();
             if (symbolExpression instanceof SymbolReference) {
-                Symbol symbol = Symbol.from(symbolExpression);
+                Symbol symbol = SymbolUtils.from(symbolExpression);
                 NullableValue value = normalized.getValue();
                 Type type = value.getType(); // common type for symbol and value
                 return createComparisonExtractionResult(normalized.getComparisonOperator(), symbol, type, value.getValue(), complement);
@@ -720,7 +720,7 @@ public final class ExpressionDomainTranslator
                 return super.visitIsNullPredicate(node, complement);
             }
 
-            Symbol symbol = Symbol.from(node.getValue());
+            Symbol symbol = SymbolUtils.from(node.getValue());
             Type columnType = checkedTypeLookup(symbol);
             Domain domain = complementIfNecessary(Domain.onlyNull(columnType), complement);
             return new ExtractionResult(
@@ -735,7 +735,7 @@ public final class ExpressionDomainTranslator
                 return super.visitIsNotNullPredicate(node, complement);
             }
 
-            Symbol symbol = Symbol.from(node.getValue());
+            Symbol symbol = SymbolUtils.from(node.getValue());
             Type columnType = checkedTypeLookup(symbol);
 
             Domain domain = complementIfNecessary(Domain.notNull(columnType), complement);

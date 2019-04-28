@@ -64,7 +64,7 @@ public final class ExpressionSymbolInliner
                 return node;
             }
 
-            Expression expression = mapping.apply(Symbol.from(node));
+            Expression expression = mapping.apply(SymbolUtils.from(node));
             checkState(expression != null, "Cannot resolve symbol %s", node.getName());
             return expression;
         }

@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -623,7 +624,7 @@ public class HashGenerationOptimizer
                     hashExpression = hashComputation.getHashExpression();
                 }
                 else {
-                    hashExpression = hashSymbol.toSymbolReference();
+                    hashExpression = SymbolUtils.toSymbolReference(hashSymbol);
                 }
                 newAssignments.put(hashSymbol, hashExpression);
                 allHashSymbols.put(hashComputation, hashSymbol);
@@ -722,7 +723,7 @@ public class HashGenerationOptimizer
             for (Symbol symbol : planWithProperties.getNode().getOutputSymbols()) {
                 HashComputation partitionSymbols = resultHashSymbols.get(symbol);
                 if (partitionSymbols == null || requiredHashes.getHashes().contains(partitionSymbols)) {
-                    assignments.put(symbol, symbol.toSymbolReference());
+                    assignments.put(symbol, SymbolUtils.toSymbolReference(symbol));
 
                     if (partitionSymbols != null) {
                         outputHashSymbols.put(partitionSymbols, symbol);
@@ -902,7 +903,7 @@ public class HashGenerationOptimizer
                     QualifiedName.of(HASH_CODE),
                     Optional.empty(),
                     false,
-                    ImmutableList.of(symbol.toSymbolReference()));
+                    ImmutableList.of(SymbolUtils.toSymbolReference(symbol)));
             List<Expression> arguments = ImmutableList.of(previousHashValue, orNullHashCode(functionCall));
             return new FunctionCall(QualifiedName.of("combine_hash"), arguments);
         }
@@ -974,7 +975,7 @@ public class HashGenerationOptimizer
         Map<Symbol, Symbol> outputToInput = new HashMap<>();
         for (Map.Entry<Symbol, Expression> assignment : assignments.entrySet()) {
             if (assignment.getValue() instanceof SymbolReference) {
-                outputToInput.put(assignment.getKey(), Symbol.from(assignment.getValue()));
+                outputToInput.put(assignment.getKey(), SymbolUtils.from(assignment.getValue()));
             }
         }
         return outputToInput;

@@ -16,6 +16,7 @@ package com.facebook.presto.cost;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -87,7 +88,7 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
     @Test(dataProvider = "toRowExpression")
     public void testFilterPositiveSemiJoin(boolean toRowExpression)
     {
-        getStatsCalculatorAssertion(new Symbol("sjo").toSymbolReference(), toRowExpression)
+        getStatsCalculatorAssertion(SymbolUtils.toSymbolReference(new Symbol("sjo")), toRowExpression)
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
                         .addSymbolStatistics(new Symbol("a"), aStats)

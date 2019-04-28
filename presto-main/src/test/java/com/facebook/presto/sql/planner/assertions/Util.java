@@ -21,6 +21,7 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern.Ordering;
 
 import java.util.List;
@@ -76,7 +77,7 @@ final class Util
 
         for (int i = 0; i < expectedOrderBy.size(); ++i) {
             Ordering ordering = expectedOrderBy.get(i);
-            Symbol symbol = Symbol.from(symbolAliases.get(ordering.getField()));
+            Symbol symbol = SymbolUtils.from(symbolAliases.get(ordering.getField()));
             if (!symbol.equals(orderingScheme.getOrderBy().get(i))) {
                 return false;
             }

@@ -13,24 +13,15 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class Symbol
         implements Comparable<Symbol>
 {
     private final String name;
-
-    public static Symbol from(Expression expression)
-    {
-        checkArgument(expression instanceof SymbolReference, "Unexpected expression: %s", expression);
-        return new Symbol(((SymbolReference) expression).getName());
-    }
 
     @JsonCreator
     public Symbol(String name)
@@ -43,11 +34,6 @@ public class Symbol
     public String getName()
     {
         return name;
-    }
-
-    public SymbolReference toSymbolReference()
-    {
-        return new SymbolReference(name);
     }
 
     @Override

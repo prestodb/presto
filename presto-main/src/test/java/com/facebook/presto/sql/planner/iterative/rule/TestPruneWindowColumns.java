@@ -17,6 +17,7 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -215,7 +216,7 @@ public class TestPruneWindowColumns
                         ImmutableMap.of(
                                 output1,
                                 new WindowNode.Function(
-                                        new FunctionCall(QualifiedName.of("min"), ImmutableList.of(input1.toSymbolReference())),
+                                        new FunctionCall(QualifiedName.of("min"), ImmutableList.of(SymbolUtils.toSymbolReference(input1))),
                                         FUNCTION_HANDLE,
                                         new WindowNode.Frame(
                                                 RANGE,
@@ -223,11 +224,11 @@ public class TestPruneWindowColumns
                                                 Optional.of(startValue1),
                                                 CURRENT_ROW,
                                                 Optional.of(endValue1),
-                                                Optional.of(startValue1.toSymbolReference()).map(Expression::toString),
-                                                Optional.of(endValue2.toSymbolReference()).map(Expression::toString))),
+                                                Optional.of(SymbolUtils.toSymbolReference(startValue1)).map(Expression::toString),
+                                                Optional.of(SymbolUtils.toSymbolReference(endValue2)).map(Expression::toString))),
                                 output2,
                                 new WindowNode.Function(
-                                        new FunctionCall(QualifiedName.of("min"), ImmutableList.of(input2.toSymbolReference())),
+                                        new FunctionCall(QualifiedName.of("min"), ImmutableList.of(SymbolUtils.toSymbolReference(input2))),
                                         FUNCTION_HANDLE,
                                         new WindowNode.Frame(
                                                 RANGE,
@@ -235,8 +236,8 @@ public class TestPruneWindowColumns
                                                 Optional.of(startValue2),
                                                 CURRENT_ROW,
                                                 Optional.of(endValue2),
-                                                Optional.of(startValue2.toSymbolReference()).map(Expression::toString),
-                                                Optional.of(endValue2.toSymbolReference()).map(Expression::toString)))),
+                                                Optional.of(SymbolUtils.toSymbolReference(startValue2)).map(Expression::toString),
+                                                Optional.of(SymbolUtils.toSymbolReference(endValue2)).map(Expression::toString)))),
                         hash,
                         p.values(
                                 inputs.stream()

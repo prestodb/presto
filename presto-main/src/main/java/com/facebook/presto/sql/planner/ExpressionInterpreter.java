@@ -338,7 +338,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitSymbolReference(SymbolReference node, Object context)
         {
-            return ((SymbolResolver) context).getValue(Symbol.from(node));
+            return ((SymbolResolver) context).getValue(SymbolUtils.from(node));
         }
 
         @Override

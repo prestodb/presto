@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.assertions;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.OrderBy;
@@ -94,7 +94,7 @@ class FunctionCallProvider
         if (!orderBy.isEmpty()) {
             orderByClause = Optional.of(new OrderBy(orderBy.stream()
                     .map(item -> new SortItem(
-                            Symbol.from(aliases.get(item.getField())).toSymbolReference(),
+                            SymbolUtils.toSymbolReference(SymbolUtils.from(aliases.get(item.getField()))),
                             item.getOrdering(),
                             item.getNullOrdering()))
                     .collect(Collectors.toList())));

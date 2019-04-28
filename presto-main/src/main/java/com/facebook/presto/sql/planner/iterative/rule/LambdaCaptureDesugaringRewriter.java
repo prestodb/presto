@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.BindExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -89,7 +90,7 @@ public class LambdaCaptureDesugaringRewriter
             newLambdaArguments.addAll(node.getArguments());
 
             ImmutableMap<Symbol, Symbol> symbolsMap = captureSymbolToExtraSymbol.build();
-            Function<Symbol, Expression> symbolMapping = symbol -> symbolsMap.getOrDefault(symbol, symbol).toSymbolReference();
+            Function<Symbol, Expression> symbolMapping = symbol -> SymbolUtils.toSymbolReference(symbolsMap.getOrDefault(symbol, symbol));
             Expression rewrittenExpression = new LambdaExpression(newLambdaArguments.build(), inlineSymbols(symbolMapping, rewrittenBody));
 
             if (captureSymbols.size() != 0) {

@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.google.common.collect.ImmutableMap;
@@ -53,7 +54,7 @@ public class TestPushLimitThroughProject
                     Symbol a = p.symbol("a");
                     return p.limit(1,
                             p.project(
-                                    Assignments.of(a, a.toSymbolReference()),
+                                    Assignments.of(a, SymbolUtils.toSymbolReference(a)),
                                     p.values(a)));
                 }).doesNotFire();
     }

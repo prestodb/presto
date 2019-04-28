@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -101,9 +102,9 @@ public final class SymbolAliases
             for (Map.Entry<String, SymbolReference> existingAlias : map.entrySet()) {
                 if (assignment.getValue().equals(existingAlias.getValue())) {
                     // Simple symbol rename
-                    mapUpdate.put(existingAlias.getKey(), assignment.getKey().toSymbolReference());
+                    mapUpdate.put(existingAlias.getKey(), SymbolUtils.toSymbolReference(assignment.getKey()));
                 }
-                else if (assignment.getKey().toSymbolReference().equals(existingAlias.getValue())) {
+                else if (SymbolUtils.toSymbolReference(assignment.getKey()).equals(existingAlias.getValue())) {
                     /*
                      * Special case for nodes that can alias symbols in the node's assignment map.
                      * In this case, we've already added the alias in the map, but we won't include it

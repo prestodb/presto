@@ -21,6 +21,7 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
@@ -723,7 +724,7 @@ public final class PlanMatchPattern
     {
         return aliases
                 .stream()
-                .map(arg -> arg.toSymbol(symbolAliases).toSymbolReference())
+                .map(arg -> SymbolUtils.toSymbolReference(arg.toSymbol(symbolAliases)))
                 .collect(toImmutableList());
     }
 

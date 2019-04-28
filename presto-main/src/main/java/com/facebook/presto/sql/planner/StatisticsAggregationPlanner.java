@@ -111,19 +111,19 @@ public class StatisticsAggregationPlanner
     {
         switch (statisticType) {
             case MIN_VALUE:
-                return createAggregation("min", input.toSymbolReference(), inputType, inputType);
+                return createAggregation("min", SymbolUtils.toSymbolReference(input), inputType, inputType);
             case MAX_VALUE:
-                return createAggregation("max", input.toSymbolReference(), inputType, inputType);
+                return createAggregation("max", SymbolUtils.toSymbolReference(input), inputType, inputType);
             case NUMBER_OF_DISTINCT_VALUES:
-                return createAggregation("approx_distinct", input.toSymbolReference(), inputType, BIGINT);
+                return createAggregation("approx_distinct", SymbolUtils.toSymbolReference(input), inputType, BIGINT);
             case NUMBER_OF_NON_NULL_VALUES:
-                return createAggregation("count", input.toSymbolReference(), inputType, BIGINT);
+                return createAggregation("count", SymbolUtils.toSymbolReference(input), inputType, BIGINT);
             case NUMBER_OF_TRUE_VALUES:
-                return createAggregation("count_if", input.toSymbolReference(), BOOLEAN, BIGINT);
+                return createAggregation("count_if", SymbolUtils.toSymbolReference(input), BOOLEAN, BIGINT);
             case TOTAL_SIZE_IN_BYTES:
-                return createAggregation(SumDataSizeForStats.NAME, input.toSymbolReference(), inputType, BIGINT);
+                return createAggregation(SumDataSizeForStats.NAME, SymbolUtils.toSymbolReference(input), inputType, BIGINT);
             case MAX_VALUE_SIZE_IN_BYTES:
-                return createAggregation(MaxDataSizeForStats.NAME, input.toSymbolReference(), inputType, BIGINT);
+                return createAggregation(MaxDataSizeForStats.NAME, SymbolUtils.toSymbolReference(input), inputType, BIGINT);
             default:
                 throw new IllegalArgumentException("Unsupported statistic type: " + statisticType);
         }

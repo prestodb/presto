@@ -18,6 +18,7 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -106,7 +107,7 @@ public class SimplifyCountOverConstant
 
         Expression argument = aggregation.getCall().getArguments().get(0);
         if (argument instanceof SymbolReference) {
-            argument = inputs.get(Symbol.from(argument));
+            argument = inputs.get(SymbolUtils.from(argument));
         }
 
         return argument instanceof Literal && !(argument instanceof NullLiteral);

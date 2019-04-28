@@ -18,6 +18,7 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -182,7 +183,7 @@ public class AddIntermediateAggregations
             builder.put(
                     output,
                     new Aggregation(
-                            new FunctionCall(aggregation.getCall().getName(), ImmutableList.of(output.toSymbolReference())),
+                            new FunctionCall(aggregation.getCall().getName(), ImmutableList.of(SymbolUtils.toSymbolReference(output))),
                             aggregation.getFunctionHandle(),
                             Optional.empty()));  // No mask for INTERMEDIATE
         }

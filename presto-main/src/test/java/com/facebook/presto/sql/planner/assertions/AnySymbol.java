@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.SymbolReference;
 
 class AnySymbol
         extends Symbol
@@ -29,12 +28,6 @@ class AnySymbol
     public Symbol toSymbol(SymbolAliases aliases)
     {
         return this;
-    }
-
-    @Override
-    public SymbolReference toSymbolReference()
-    {
-        return new AnySymbolReference();
     }
 
     @Override

@@ -38,6 +38,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.sql.tree.Expression;
@@ -1529,7 +1530,7 @@ public class TestExpressionInterpreter
         Object expressionResult = interpreter.optimize(symbol -> {
             Object value = symbolConstant(symbol);
             if (value == null) {
-                return symbol.toSymbolReference();
+                return SymbolUtils.toSymbolReference(symbol);
             }
             return value;
         });

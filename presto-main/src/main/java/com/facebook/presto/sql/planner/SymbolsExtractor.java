@@ -143,7 +143,7 @@ public final class SymbolsExtractor
         @Override
         protected Void visitSymbolReference(SymbolReference node, ImmutableList.Builder<Symbol> builder)
         {
-            builder.add(Symbol.from(node));
+            builder.add(SymbolUtils.from(node));
             return null;
         }
     }

@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 
 import static java.util.Objects.requireNonNull;
 
@@ -29,7 +30,7 @@ class SymbolAlias
 
     public Symbol toSymbol(SymbolAliases aliases)
     {
-        return Symbol.from(aliases.get(alias));
+        return SymbolUtils.from(aliases.get(alias));
     }
 
     @Override

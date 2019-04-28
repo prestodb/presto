@@ -97,7 +97,7 @@ class PlanBuilder
 
         // add an identity projection for underlying plan
         for (Symbol symbol : getRoot().getOutputSymbols()) {
-            projections.put(symbol, symbol.toSymbolReference());
+            projections.put(symbol, SymbolUtils.toSymbolReference(symbol));
         }
 
         ImmutableMap.Builder<Symbol, Expression> newTranslations = ImmutableMap.builder();

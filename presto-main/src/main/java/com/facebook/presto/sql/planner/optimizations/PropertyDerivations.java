@@ -33,6 +33,7 @@ import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -639,7 +640,7 @@ public class PropertyDerivations
                 Object value = optimizer.optimize(NoOpSymbolResolver.INSTANCE);
 
                 if (value instanceof SymbolReference) {
-                    Symbol symbol = Symbol.from((SymbolReference) value);
+                    Symbol symbol = SymbolUtils.from((SymbolReference) value);
                     NullableValue existingConstantValue = constants.get(symbol);
                     if (existingConstantValue != null) {
                         constants.put(assignment.getKey(), new NullableValue(type, value));
@@ -780,7 +781,7 @@ public class PropertyDerivations
             Map<Symbol, Symbol> inputToOutput = new HashMap<>();
             for (Map.Entry<Symbol, Expression> assignment : assignments.entrySet()) {
                 if (assignment.getValue() instanceof SymbolReference) {
-                    inputToOutput.put(Symbol.from(assignment.getValue()), assignment.getKey());
+                    inputToOutput.put(SymbolUtils.from(assignment.getValue()), assignment.getKey());
                 }
             }
             return inputToOutput;

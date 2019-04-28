@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
@@ -66,7 +67,7 @@ public class MarkDistinctMatcher
             return NO_MATCH;
         }
 
-        return match(markerSymbol.toString(), markDistinctNode.getMarkerSymbol().toSymbolReference());
+        return match(markerSymbol.toString(), SymbolUtils.toSymbolReference(markDistinctNode.getMarkerSymbol()));
     }
 
     @Override

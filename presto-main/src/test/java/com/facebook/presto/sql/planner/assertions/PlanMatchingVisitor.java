@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -65,7 +66,7 @@ final class PlanMatchingVisitor
         for (List<Symbol> inputs : allInputs) {
             Assignments.Builder assignments = Assignments.builder();
             for (int i = 0; i < inputs.size(); ++i) {
-                assignments.put(outputs.get(i), inputs.get(i).toSymbolReference());
+                assignments.put(outputs.get(i), SymbolUtils.toSymbolReference(inputs.get(i)));
             }
             newAliases = newAliases.updateAssignments(assignments.build());
         }

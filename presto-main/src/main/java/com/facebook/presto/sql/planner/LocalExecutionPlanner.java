@@ -920,7 +920,7 @@ public class LocalExecutionPlanner
                 FunctionHandle functionHandle = entry.getValue().getFunctionHandle();
                 ImmutableList.Builder<Integer> arguments = ImmutableList.builder();
                 for (Expression argument : functionCall.getArguments()) {
-                    Symbol argumentSymbol = Symbol.from(argument);
+                    Symbol argumentSymbol = SymbolUtils.from(argument);
                     arguments.add(source.getLayout().get(argumentSymbol));
                 }
                 Symbol symbol = entry.getKey();
@@ -1671,10 +1671,10 @@ public class LocalExecutionPlanner
                 return Optional.of(createSpatialLookupJoin(
                         node,
                         probeNode,
-                        Symbol.from(firstSymbol),
+                        SymbolUtils.from(firstSymbol),
                         buildNode,
-                        Symbol.from(secondSymbol),
-                        radius.map(Symbol::from),
+                        SymbolUtils.from(secondSymbol),
+                        radius.map(SymbolUtils::from),
                         spatialTest(spatialFunction, true, comparisonOperator),
                         filterExpression,
                         context));
@@ -1683,10 +1683,10 @@ public class LocalExecutionPlanner
                 return Optional.of(createSpatialLookupJoin(
                         node,
                         probeNode,
-                        Symbol.from(secondSymbol),
+                        SymbolUtils.from(secondSymbol),
                         buildNode,
-                        Symbol.from(firstSymbol),
-                        radius.map(Symbol::from),
+                        SymbolUtils.from(firstSymbol),
+                        radius.map(SymbolUtils::from),
                         spatialTest(spatialFunction, false, comparisonOperator),
                         filterExpression,
                         context));
@@ -1736,7 +1736,7 @@ public class LocalExecutionPlanner
 
         private Set<SymbolReference> getSymbolReferences(Collection<Symbol> symbols)
         {
-            return symbols.stream().map(Symbol::toSymbolReference).collect(toImmutableSet());
+            return symbols.stream().map(SymbolUtils::toSymbolReference).collect(toImmutableSet());
         }
 
         private PhysicalOperation createNestedLoopJoin(JoinNode node, LocalExecutionPlanContext context)
@@ -2537,7 +2537,7 @@ public class LocalExecutionPlanner
             List<Integer> valueChannels = new ArrayList<>();
             for (Expression argument : aggregation.getCall().getArguments()) {
                 if (!(argument instanceof LambdaExpression)) {
-                    Symbol argumentSymbol = Symbol.from(argument);
+                    Symbol argumentSymbol = SymbolUtils.from(argument);
                     valueChannels.add(source.getLayout().get(argumentSymbol));
                 }
             }
@@ -2616,7 +2616,7 @@ public class LocalExecutionPlanner
 
                 sortKeys = orderBy.getSortItems().stream()
                         .map(SortItem::getSortKey)
-                        .map(Symbol::from)
+                        .map(SymbolUtils::from)
                         .collect(toImmutableList());
 
                 sortOrders = orderBy.getSortItems().stream()

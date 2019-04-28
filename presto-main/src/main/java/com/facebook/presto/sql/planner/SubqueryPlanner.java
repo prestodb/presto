@@ -190,10 +190,10 @@ class SubqueryPlanner
         PlanBuilder subqueryPlan = createPlanBuilder(uncoercedValueListSubquery);
 
         subqueryPlan = subqueryPlan.appendProjections(ImmutableList.of(valueListSubquery), symbolAllocator, idAllocator);
-        SymbolReference valueList = subqueryPlan.translate(valueListSubquery).toSymbolReference();
+        SymbolReference valueList = SymbolUtils.toSymbolReference(subqueryPlan.translate(valueListSubquery));
 
         Symbol rewrittenValue = subPlan.translate(inPredicate.getValue());
-        InPredicate inPredicateSubqueryExpression = new InPredicate(rewrittenValue.toSymbolReference(), valueList);
+        InPredicate inPredicateSubqueryExpression = new InPredicate(SymbolUtils.toSymbolReference(rewrittenValue), valueList);
         Symbol inPredicateSubquerySymbol = symbolAllocator.newSymbol(inPredicateSubqueryExpression, BOOLEAN);
 
         subPlan.getTranslations().put(inPredicate, inPredicateSubquerySymbol);
@@ -385,8 +385,8 @@ class SubqueryPlanner
         QuantifiedComparisonExpression coercedQuantifiedComparison = new QuantifiedComparisonExpression(
                 quantifiedComparison.getOperator(),
                 quantifiedComparison.getQuantifier(),
-                subPlan.translate(quantifiedComparison.getValue()).toSymbolReference(),
-                subqueryPlan.translate(quantifiedSubquery).toSymbolReference());
+                SymbolUtils.toSymbolReference(subPlan.translate(quantifiedComparison.getValue())),
+                SymbolUtils.toSymbolReference(subqueryPlan.translate(quantifiedSubquery)));
 
         Symbol coercedQuantifiedComparisonSymbol = symbolAllocator.newSymbol(coercedQuantifiedComparison, BOOLEAN);
         subPlan.getTranslations().put(quantifiedComparison, coercedQuantifiedComparisonSymbol);

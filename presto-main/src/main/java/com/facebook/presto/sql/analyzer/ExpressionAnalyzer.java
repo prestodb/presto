@@ -37,7 +37,7 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
@@ -385,7 +385,7 @@ public class ExpressionAnalyzer
                     return setExpressionType(node, resolvedField.get().getType());
                 }
             }
-            Type type = symbolTypes.get(Symbol.from(node));
+            Type type = symbolTypes.get(SymbolUtils.from(node));
             return setExpressionType(node, type);
         }
 

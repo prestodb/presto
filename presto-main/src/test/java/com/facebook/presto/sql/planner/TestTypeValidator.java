@@ -116,8 +116,8 @@ public class TestTypeValidator
     @Test
     public void testValidProject()
     {
-        Expression expression1 = new Cast(columnB.toSymbolReference(), StandardTypes.BIGINT);
-        Expression expression2 = new Cast(columnC.toSymbolReference(), StandardTypes.BIGINT);
+        Expression expression1 = new Cast(SymbolUtils.toSymbolReference(columnB), StandardTypes.BIGINT);
+        Expression expression2 = new Cast(SymbolUtils.toSymbolReference(columnC), StandardTypes.BIGINT);
         Assignments assignments = Assignments.builder()
                 .put(symbolAllocator.newSymbol(expression1, BIGINT), expression1)
                 .put(symbolAllocator.newSymbol(expression2, BIGINT), expression2)
@@ -153,7 +153,7 @@ public class TestTypeValidator
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
         FunctionHandle functionHandle = FUNCTION_MANAGER.lookupFunction("sum", fromTypes(DOUBLE));
-        FunctionCall functionCall = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference()));
+        FunctionCall functionCall = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(SymbolUtils.toSymbolReference(columnC)));
 
         WindowNode.Frame frame = new WindowNode.Frame(
                 RANGE,
@@ -189,7 +189,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())),
+                        new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(SymbolUtils.toSymbolReference(columnC))),
                         FUNCTION_MANAGER.lookupFunction("sum", fromTypes(DOUBLE)),
                         Optional.empty())),
                 singleGroupingSet(ImmutableList.of(columnA, columnB)),
@@ -204,10 +204,10 @@ public class TestTypeValidator
     @Test
     public void testValidTypeOnlyCoercion()
     {
-        Expression expression = new Cast(columnB.toSymbolReference(), StandardTypes.BIGINT);
+        Expression expression = new Cast(SymbolUtils.toSymbolReference(columnB), StandardTypes.BIGINT);
         Assignments assignments = Assignments.builder()
                 .put(symbolAllocator.newSymbol(expression, BIGINT), expression)
-                .put(symbolAllocator.newSymbol(columnE.toSymbolReference(), VARCHAR), columnE.toSymbolReference()) // implicit coercion from varchar(3) to varchar
+                .put(symbolAllocator.newSymbol(SymbolUtils.toSymbolReference(columnE), VARCHAR), SymbolUtils.toSymbolReference(columnE)) // implicit coercion from varchar(3) to varchar
                 .build();
         PlanNode node = new ProjectNode(newId(), baseTableScan, assignments);
 
@@ -217,8 +217,8 @@ public class TestTypeValidator
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'expr(_[0-9]+)?' is expected to be bigint, but the actual type is integer")
     public void testInvalidProject()
     {
-        Expression expression1 = new Cast(columnB.toSymbolReference(), StandardTypes.INTEGER);
-        Expression expression2 = new Cast(columnA.toSymbolReference(), StandardTypes.INTEGER);
+        Expression expression1 = new Cast(SymbolUtils.toSymbolReference(columnB), StandardTypes.INTEGER);
+        Expression expression2 = new Cast(SymbolUtils.toSymbolReference(columnA), StandardTypes.INTEGER);
         Assignments assignments = Assignments.builder()
                 .put(symbolAllocator.newSymbol(expression1, BIGINT), expression1) // should be INTEGER
                 .put(symbolAllocator.newSymbol(expression1, INTEGER), expression2)
@@ -240,7 +240,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnA.toSymbolReference())),
+                        new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(SymbolUtils.toSymbolReference(columnA))),
                         FUNCTION_MANAGER.lookupFunction("sum", fromTypes(DOUBLE)),
                         Optional.empty())),
                 singleGroupingSet(ImmutableList.of(columnA, columnB)),
@@ -261,7 +261,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())),
+                        new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(SymbolUtils.toSymbolReference(columnC))),
                         FUNCTION_MANAGER.lookupFunction("sum", fromTypes(BIGINT)), // should be DOUBLE
                         Optional.empty())),
                 singleGroupingSet(ImmutableList.of(columnA, columnB)),
@@ -278,7 +278,7 @@ public class TestTypeValidator
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
         FunctionHandle functionHandle = FUNCTION_MANAGER.lookupFunction("sum", fromTypes(DOUBLE));
-        FunctionCall functionCall = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnA.toSymbolReference())); // should be columnC
+        FunctionCall functionCall = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(SymbolUtils.toSymbolReference(columnA))); // should be columnC
 
         WindowNode.Frame frame = new WindowNode.Frame(
                 RANGE,
@@ -310,7 +310,7 @@ public class TestTypeValidator
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
         FunctionHandle functionHandle = FUNCTION_MANAGER.lookupFunction("sum", fromTypes(BIGINT)); // should be DOUBLE
-        FunctionCall functionCall = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference()));
+        FunctionCall functionCall = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(SymbolUtils.toSymbolReference(columnC)));
 
         WindowNode.Frame frame = new WindowNode.Frame(
                 RANGE,

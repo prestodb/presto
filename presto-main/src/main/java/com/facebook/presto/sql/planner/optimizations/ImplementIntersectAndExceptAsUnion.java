@@ -22,6 +22,7 @@ import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -206,7 +207,7 @@ public class ImplementIntersectAndExceptAsUnion
         {
             ImmutableList.Builder<PlanNode> result = ImmutableList.builder();
             for (int i = 0; i < nodes.size(); i++) {
-                result.add(appendMarkers(nodes.get(i), i, markers, Maps.transformValues(node.sourceSymbolMap(i), Symbol::toSymbolReference)));
+                result.add(appendMarkers(nodes.get(i), i, markers, Maps.transformValues(node.sourceSymbolMap(i), SymbolUtils::toSymbolReference)));
             }
             return result.build();
         }
@@ -249,7 +250,7 @@ public class ImplementIntersectAndExceptAsUnion
                 Symbol output = aggregationOutputs.get(i);
                 QualifiedName name = QualifiedName.of("count");
                 aggregations.put(output, new Aggregation(
-                        new FunctionCall(name, ImmutableList.of(markers.get(i).toSymbolReference())),
+                        new FunctionCall(name, ImmutableList.of(SymbolUtils.toSymbolReference(markers.get(i)))),
                         functionManager.lookupFunction(name.getSuffix(), fromTypes(BIGINT)),
                         Optional.empty()));
             }
@@ -267,7 +268,7 @@ public class ImplementIntersectAndExceptAsUnion
         private FilterNode addFilterForIntersect(AggregationNode aggregation)
         {
             ImmutableList<Expression> predicates = aggregation.getAggregations().keySet().stream()
-                    .map(column -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, column.toSymbolReference(), new GenericLiteral("BIGINT", "1")))
+                    .map(column -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, SymbolUtils.toSymbolReference(column), new GenericLiteral("BIGINT", "1")))
                     .collect(toImmutableList());
             return new FilterNode(idAllocator.getNextId(), aggregation, castToRowExpression(ExpressionUtils.and(predicates)));
         }
@@ -275,9 +276,9 @@ public class ImplementIntersectAndExceptAsUnion
         private FilterNode addFilterForExcept(AggregationNode aggregation, Symbol firstSource, List<Symbol> remainingSources)
         {
             ImmutableList.Builder<Expression> predicatesBuilder = ImmutableList.builder();
-            predicatesBuilder.add(new ComparisonExpression(GREATER_THAN_OR_EQUAL, firstSource.toSymbolReference(), new GenericLiteral("BIGINT", "1")));
+            predicatesBuilder.add(new ComparisonExpression(GREATER_THAN_OR_EQUAL, SymbolUtils.toSymbolReference(firstSource), new GenericLiteral("BIGINT", "1")));
             for (Symbol symbol : remainingSources) {
-                predicatesBuilder.add(new ComparisonExpression(EQUAL, symbol.toSymbolReference(), new GenericLiteral("BIGINT", "0")));
+                predicatesBuilder.add(new ComparisonExpression(EQUAL, SymbolUtils.toSymbolReference(symbol), new GenericLiteral("BIGINT", "0")));
             }
 
             return new FilterNode(idAllocator.getNextId(), aggregation, castToRowExpression(ExpressionUtils.and(predicatesBuilder.build())));

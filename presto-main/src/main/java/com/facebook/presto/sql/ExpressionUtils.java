@@ -15,6 +15,7 @@ package com.facebook.presto.sql;
 
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -275,7 +276,7 @@ public final class ExpressionUtils
 
                 ImmutableList.Builder<Expression> nullConjuncts = ImmutableList.builder();
                 for (Symbol symbol : symbols) {
-                    nullConjuncts.add(new IsNullPredicate(symbol.toSymbolReference()));
+                    nullConjuncts.add(new IsNullPredicate(SymbolUtils.toSymbolReference(symbol)));
                 }
 
                 resultDisjunct.add(and(nullConjuncts.build()));

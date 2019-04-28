@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -48,7 +49,7 @@ public class TestPruneTableScanColumns
                     Symbol orderdate = p.symbol("orderdate", DATE);
                     Symbol totalprice = p.symbol("totalprice", DOUBLE);
                     return p.project(
-                            Assignments.of(p.symbol("x"), totalprice.toSymbolReference()),
+                            Assignments.of(p.symbol("x"), SymbolUtils.toSymbolReference(totalprice)),
                             p.tableScan(
                                     new TableHandle(
                                             new ConnectorId("local"),

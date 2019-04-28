@@ -17,6 +17,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -288,8 +289,8 @@ public class PlanNodeDecorrelator
                     continue;
                 }
 
-                Symbol left = Symbol.from(comparison.getLeft());
-                Symbol right = Symbol.from(comparison.getRight());
+                Symbol left = SymbolUtils.from(comparison.getLeft());
+                Symbol right = SymbolUtils.from(comparison.getRight());
 
                 if (correlation.contains(left) && !correlation.contains(right)) {
                     mapping.put(left, right);

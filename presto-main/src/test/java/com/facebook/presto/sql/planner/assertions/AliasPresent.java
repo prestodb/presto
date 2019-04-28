@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
@@ -39,7 +40,7 @@ class AliasPresent
     public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         return symbolAliases.getOptional(alias)
-                .map(Symbol::from);
+                .map(SymbolUtils::from);
     }
 
     @Override

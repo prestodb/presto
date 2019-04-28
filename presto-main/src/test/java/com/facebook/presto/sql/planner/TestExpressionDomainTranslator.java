@@ -558,43 +558,43 @@ public class TestExpressionDomainTranslator
     {
         // Test out the extraction of all basic comparisons where the reference literal ordering is flipped
         assertPredicateTranslates(
-                comparison(GREATER_THAN, bigintLiteral(2L), C_BIGINT.toSymbolReference()),
+                comparison(GREATER_THAN, bigintLiteral(2L), SymbolUtils.toSymbolReference(C_BIGINT)),
                 withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L)), false))));
 
         assertPredicateTranslates(
-                comparison(GREATER_THAN_OR_EQUAL, bigintLiteral(2L), C_BIGINT.toSymbolReference()),
+                comparison(GREATER_THAN_OR_EQUAL, bigintLiteral(2L), SymbolUtils.toSymbolReference(C_BIGINT)),
                 withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 2L)), false))));
 
         assertPredicateTranslates(
-                comparison(LESS_THAN, bigintLiteral(2L), C_BIGINT.toSymbolReference()),
+                comparison(LESS_THAN, bigintLiteral(2L), SymbolUtils.toSymbolReference(C_BIGINT)),
                 withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 2L)), false))));
 
         assertPredicateTranslates(
-                comparison(LESS_THAN_OR_EQUAL, bigintLiteral(2L), C_BIGINT.toSymbolReference()),
+                comparison(LESS_THAN_OR_EQUAL, bigintLiteral(2L), SymbolUtils.toSymbolReference(C_BIGINT)),
                 withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, 2L)), false))));
 
-        assertPredicateTranslates(comparison(EQUAL, bigintLiteral(2L), C_BIGINT.toSymbolReference()),
+        assertPredicateTranslates(comparison(EQUAL, bigintLiteral(2L), SymbolUtils.toSymbolReference(C_BIGINT)),
                 withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 2L)), false))));
 
-        assertPredicateTranslates(comparison(EQUAL, colorLiteral(COLOR_VALUE_1), C_COLOR.toSymbolReference()),
+        assertPredicateTranslates(comparison(EQUAL, colorLiteral(COLOR_VALUE_1), SymbolUtils.toSymbolReference(C_COLOR)),
                 withColumnDomains(ImmutableMap.of(C_COLOR, Domain.create(ValueSet.of(COLOR, COLOR_VALUE_1), false))));
 
-        assertPredicateTranslates(comparison(NOT_EQUAL, bigintLiteral(2L), C_BIGINT.toSymbolReference()),
+        assertPredicateTranslates(comparison(NOT_EQUAL, bigintLiteral(2L), SymbolUtils.toSymbolReference(C_BIGINT)),
                 withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L), Range.greaterThan(BIGINT, 2L)), false))));
 
         assertPredicateTranslates(
-                comparison(NOT_EQUAL, colorLiteral(COLOR_VALUE_1), C_COLOR.toSymbolReference()),
+                comparison(NOT_EQUAL, colorLiteral(COLOR_VALUE_1), SymbolUtils.toSymbolReference(C_COLOR)),
                 withColumnDomains(ImmutableMap.of(C_COLOR, Domain.create(ValueSet.of(COLOR, COLOR_VALUE_1).complement(), false))));
 
-        assertPredicateTranslates(comparison(IS_DISTINCT_FROM, bigintLiteral(2L), C_BIGINT.toSymbolReference()),
+        assertPredicateTranslates(comparison(IS_DISTINCT_FROM, bigintLiteral(2L), SymbolUtils.toSymbolReference(C_BIGINT)),
                 withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L), Range.greaterThan(BIGINT, 2L)), true))));
 
         assertPredicateTranslates(
-                comparison(IS_DISTINCT_FROM, colorLiteral(COLOR_VALUE_1), C_COLOR.toSymbolReference()),
+                comparison(IS_DISTINCT_FROM, colorLiteral(COLOR_VALUE_1), SymbolUtils.toSymbolReference(C_COLOR)),
                 withColumnDomains(ImmutableMap.of(C_COLOR, Domain.create(ValueSet.of(COLOR, COLOR_VALUE_1).complement(), true))));
 
         assertPredicateTranslates(
-                comparison(IS_DISTINCT_FROM, nullLiteral(BIGINT), C_BIGINT.toSymbolReference()),
+                comparison(IS_DISTINCT_FROM, nullLiteral(BIGINT), SymbolUtils.toSymbolReference(C_BIGINT)),
                 withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.notNull(BIGINT))));
     }
 
@@ -649,10 +649,10 @@ public class TestExpressionDomainTranslator
         // we expect TupleDomain.all here().
         // see comment in ExpressionDomainTranslator.Visitor.visitComparisonExpression()
         assertUnsupportedPredicate(equal(
-                new Cast(C_TIMESTAMP.toSymbolReference(), DATE.toString()),
+                new Cast(SymbolUtils.toSymbolReference(C_TIMESTAMP), DATE.toString()),
                 toExpression(DATE_VALUE, DATE)));
         assertUnsupportedPredicate(equal(
-                new Cast(C_DECIMAL_12_2.toSymbolReference(), BIGINT.toString()),
+                new Cast(SymbolUtils.toSymbolReference(C_DECIMAL_12_2), BIGINT.toString()),
                 bigintLiteral(135L)));
     }
 
@@ -660,19 +660,19 @@ public class TestExpressionDomainTranslator
     void testNoSaturatedFloorCastFromUnsupportedApproximateDomain()
     {
         assertUnsupportedPredicate(equal(
-                new Cast(C_DECIMAL_12_2.toSymbolReference(), DOUBLE.toString()),
+                new Cast(SymbolUtils.toSymbolReference(C_DECIMAL_12_2), DOUBLE.toString()),
                 toExpression(12345.56, DOUBLE)));
 
         assertUnsupportedPredicate(equal(
-                new Cast(C_BIGINT.toSymbolReference(), DOUBLE.toString()),
+                new Cast(SymbolUtils.toSymbolReference(C_BIGINT), DOUBLE.toString()),
                 toExpression(12345.56, DOUBLE)));
 
         assertUnsupportedPredicate(equal(
-                new Cast(C_BIGINT.toSymbolReference(), REAL.toString()),
+                new Cast(SymbolUtils.toSymbolReference(C_BIGINT), REAL.toString()),
                 toExpression(realValue(12345.56f), REAL)));
 
         assertUnsupportedPredicate(equal(
-                new Cast(C_INTEGER.toSymbolReference(), REAL.toString()),
+                new Cast(SymbolUtils.toSymbolReference(C_INTEGER), REAL.toString()),
                 toExpression(realValue(12345.56f), REAL)));
     }
 
@@ -816,10 +816,10 @@ public class TestExpressionDomainTranslator
     public void testFromUnprocessableInPredicate()
     {
         assertUnsupportedPredicate(new InPredicate(unprocessableExpression1(C_BIGINT), new InListExpression(ImmutableList.of(TRUE_LITERAL))));
-        assertUnsupportedPredicate(new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(unprocessableExpression1(C_BOOLEAN)))));
+        assertUnsupportedPredicate(new InPredicate(SymbolUtils.toSymbolReference(C_BOOLEAN), new InListExpression(ImmutableList.of(unprocessableExpression1(C_BOOLEAN)))));
         assertUnsupportedPredicate(
-                new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(TRUE_LITERAL, unprocessableExpression1(C_BOOLEAN)))));
-        assertUnsupportedPredicate(not(new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(unprocessableExpression1(C_BOOLEAN))))));
+                new InPredicate(SymbolUtils.toSymbolReference(C_BOOLEAN), new InListExpression(ImmutableList.of(TRUE_LITERAL, unprocessableExpression1(C_BOOLEAN)))));
+        assertUnsupportedPredicate(not(new InPredicate(SymbolUtils.toSymbolReference(C_BOOLEAN), new InListExpression(ImmutableList.of(unprocessableExpression1(C_BOOLEAN))))));
     }
 
     @Test
@@ -872,7 +872,7 @@ public class TestExpressionDomainTranslator
     {
         assertPredicateTranslates(
                 new InPredicate(
-                        C_BIGINT.toSymbolReference(),
+                        SymbolUtils.toSymbolReference(C_BIGINT),
                         new InListExpression(ImmutableList.of(cast(toExpression(1L, SMALLINT), BIGINT)))),
                 withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.singleValue(BIGINT, 1L))));
 
@@ -891,7 +891,7 @@ public class TestExpressionDomainTranslator
     public void testFromInPredicateWithCastsAndNulls()
     {
         assertPredicateIsAlwaysFalse(new InPredicate(
-                C_BIGINT.toSymbolReference(),
+                SymbolUtils.toSymbolReference(C_BIGINT),
                 new InListExpression(ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT)))));
 
         assertUnsupportedPredicate(not(new InPredicate(
@@ -900,12 +900,12 @@ public class TestExpressionDomainTranslator
 
         assertPredicateTranslates(
                 new InPredicate(
-                        C_BIGINT.toSymbolReference(),
+                        SymbolUtils.toSymbolReference(C_BIGINT),
                         new InListExpression(ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT), toExpression(1L, BIGINT)))),
                 withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L)), false))));
 
         assertPredicateIsAlwaysFalse(not(new InPredicate(
-                C_BIGINT.toSymbolReference(),
+                SymbolUtils.toSymbolReference(C_BIGINT),
                 new InListExpression(ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT), toExpression(1L, SMALLINT))))));
     }
 
@@ -995,22 +995,22 @@ public class TestExpressionDomainTranslator
     @Test
     public void testExpressionConstantFolding()
     {
-        Expression originalExpression = comparison(GREATER_THAN, C_VARBINARY.toSymbolReference(), function("from_hex", stringLiteral("123456")));
+        Expression originalExpression = comparison(GREATER_THAN, SymbolUtils.toSymbolReference(C_VARBINARY), function("from_hex", stringLiteral("123456")));
         ExtractionResult result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Slice value = Slices.wrappedBuffer(BaseEncoding.base16().decode("123456"));
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_VARBINARY, Domain.create(ValueSet.ofRanges(Range.greaterThan(VARBINARY, value)), false))));
 
         Expression expression = toPredicate(result.getTupleDomain());
-        assertEquals(expression, comparison(GREATER_THAN, C_VARBINARY.toSymbolReference(), varbinaryLiteral(value)));
+        assertEquals(expression, comparison(GREATER_THAN, SymbolUtils.toSymbolReference(C_VARBINARY), varbinaryLiteral(value)));
     }
 
     @Test
     public void testConjunctExpression()
     {
         Expression expression = and(
-                comparison(GREATER_THAN, C_DOUBLE.toSymbolReference(), doubleLiteral(0)),
-                comparison(GREATER_THAN, C_BIGINT.toSymbolReference(), bigintLiteral(0)));
+                comparison(GREATER_THAN, SymbolUtils.toSymbolReference(C_DOUBLE), doubleLiteral(0)),
+                comparison(GREATER_THAN, SymbolUtils.toSymbolReference(C_BIGINT), bigintLiteral(0)));
         assertPredicateTranslates(
                 expression,
                 withColumnDomains(ImmutableMap.of(
@@ -1020,8 +1020,8 @@ public class TestExpressionDomainTranslator
         assertEquals(
                 toPredicate(fromPredicate(expression).getTupleDomain()),
                 and(
-                        comparison(GREATER_THAN, C_BIGINT.toSymbolReference(), bigintLiteral(0)),
-                        comparison(GREATER_THAN, C_DOUBLE.toSymbolReference(), doubleLiteral(0))));
+                        comparison(GREATER_THAN, SymbolUtils.toSymbolReference(C_BIGINT), bigintLiteral(0)),
+                        comparison(GREATER_THAN, SymbolUtils.toSymbolReference(C_DOUBLE), doubleLiteral(0))));
     }
 
     @Test
@@ -1087,7 +1087,7 @@ public class TestExpressionDomainTranslator
         }
 
         Symbol columnSymbol = columnValues.getColumn();
-        Expression columnExpression = columnSymbol.toSymbolReference();
+        Expression columnExpression = SymbolUtils.toSymbolReference(columnSymbol);
 
         if (!columnType.equals(superType)) {
             columnExpression = cast(columnExpression, superType);
@@ -1261,72 +1261,72 @@ public class TestExpressionDomainTranslator
 
     private static Expression unprocessableExpression1(Symbol symbol)
     {
-        return comparison(GREATER_THAN, symbol.toSymbolReference(), symbol.toSymbolReference());
+        return comparison(GREATER_THAN, SymbolUtils.toSymbolReference(symbol), SymbolUtils.toSymbolReference(symbol));
     }
 
     private static Expression unprocessableExpression2(Symbol symbol)
     {
-        return comparison(LESS_THAN, symbol.toSymbolReference(), symbol.toSymbolReference());
+        return comparison(LESS_THAN, SymbolUtils.toSymbolReference(symbol), SymbolUtils.toSymbolReference(symbol));
     }
 
     private static Expression randPredicate(Symbol symbol, Type type)
     {
-        return comparison(GREATER_THAN, symbol.toSymbolReference(), cast(new FunctionCall(QualifiedName.of("rand"), ImmutableList.of()), type));
+        return comparison(GREATER_THAN, SymbolUtils.toSymbolReference(symbol), cast(new FunctionCall(QualifiedName.of("rand"), ImmutableList.of()), type));
     }
 
     private static ComparisonExpression equal(Symbol symbol, Expression expression)
     {
-        return equal(symbol.toSymbolReference(), expression);
+        return equal(SymbolUtils.toSymbolReference(symbol), expression);
     }
 
     private static ComparisonExpression notEqual(Symbol symbol, Expression expression)
     {
-        return notEqual(symbol.toSymbolReference(), expression);
+        return notEqual(SymbolUtils.toSymbolReference(symbol), expression);
     }
 
     private static ComparisonExpression greaterThan(Symbol symbol, Expression expression)
     {
-        return greaterThan(symbol.toSymbolReference(), expression);
+        return greaterThan(SymbolUtils.toSymbolReference(symbol), expression);
     }
 
     private static ComparisonExpression greaterThanOrEqual(Symbol symbol, Expression expression)
     {
-        return greaterThanOrEqual(symbol.toSymbolReference(), expression);
+        return greaterThanOrEqual(SymbolUtils.toSymbolReference(symbol), expression);
     }
 
     private static ComparisonExpression lessThan(Symbol symbol, Expression expression)
     {
-        return lessThan(symbol.toSymbolReference(), expression);
+        return lessThan(SymbolUtils.toSymbolReference(symbol), expression);
     }
 
     private static ComparisonExpression lessThanOrEqual(Symbol symbol, Expression expression)
     {
-        return lessThanOrEqual(symbol.toSymbolReference(), expression);
+        return lessThanOrEqual(SymbolUtils.toSymbolReference(symbol), expression);
     }
 
     private static ComparisonExpression isDistinctFrom(Symbol symbol, Expression expression)
     {
-        return isDistinctFrom(symbol.toSymbolReference(), expression);
+        return isDistinctFrom(SymbolUtils.toSymbolReference(symbol), expression);
     }
 
     private static Expression isNotNull(Symbol symbol)
     {
-        return isNotNull(symbol.toSymbolReference());
+        return isNotNull(SymbolUtils.toSymbolReference(symbol));
     }
 
     private static IsNullPredicate isNull(Symbol symbol)
     {
-        return new IsNullPredicate(symbol.toSymbolReference());
+        return new IsNullPredicate(SymbolUtils.toSymbolReference(symbol));
     }
 
     private InPredicate in(Symbol symbol, List<?> values)
     {
-        return in(symbol.toSymbolReference(), TYPES.get(symbol), values);
+        return in(SymbolUtils.toSymbolReference(symbol), TYPES.get(symbol), values);
     }
 
     private static BetweenPredicate between(Symbol symbol, Expression min, Expression max)
     {
-        return new BetweenPredicate(symbol.toSymbolReference(), min, max);
+        return new BetweenPredicate(SymbolUtils.toSymbolReference(symbol), min, max);
     }
 
     private static Expression isNotNull(Expression expression)
@@ -1431,7 +1431,7 @@ public class TestExpressionDomainTranslator
 
     private static Expression cast(Symbol symbol, Type type)
     {
-        return cast(symbol.toSymbolReference(), type);
+        return cast(SymbolUtils.toSymbolReference(symbol), type);
     }
 
     private static Expression cast(Expression expression, Type type)

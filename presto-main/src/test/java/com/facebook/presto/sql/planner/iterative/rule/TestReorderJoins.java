@@ -20,6 +20,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
@@ -327,7 +328,7 @@ public class TestReorderJoins
                                 p.values(new PlanNodeId("valuesB"), p.symbol("B1")),
                                 ImmutableList.of(new EquiJoinClause(p.symbol("A1"), p.symbol("B1"))),
                                 ImmutableList.of(p.symbol("A1"), p.symbol("B1")),
-                                Optional.of(new ComparisonExpression(LESS_THAN, p.symbol("A1").toSymbolReference(), new FunctionCall(QualifiedName.of("random"), ImmutableList.of())))))
+                                Optional.of(new ComparisonExpression(LESS_THAN, SymbolUtils.toSymbolReference(p.symbol("A1")), new FunctionCall(QualifiedName.of("random"), ImmutableList.of())))))
                 .doesNotFire();
     }
 
@@ -349,7 +350,7 @@ public class TestReorderJoins
                                 ImmutableList.of(
                                         new EquiJoinClause(p.symbol("B2"), p.symbol("C1"))),
                                 ImmutableList.of(p.symbol("A1")),
-                                Optional.of(new ComparisonExpression(EQUAL, p.symbol("A1").toSymbolReference(), p.symbol("B1").toSymbolReference()))))
+                                Optional.of(new ComparisonExpression(EQUAL, SymbolUtils.toSymbolReference(p.symbol("A1")), SymbolUtils.toSymbolReference(p.symbol("B1"))))))
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 100, 10)))
@@ -394,7 +395,7 @@ public class TestReorderJoins
                                 ImmutableList.of(
                                         new EquiJoinClause(p.symbol("B2"), p.symbol("C1"))),
                                 ImmutableList.of(p.symbol("A1")),
-                                Optional.of(new ComparisonExpression(EQUAL, p.symbol("A1").toSymbolReference(), p.symbol("B1").toSymbolReference()))))
+                                Optional.of(new ComparisonExpression(EQUAL, SymbolUtils.toSymbolReference(p.symbol("A1")), SymbolUtils.toSymbolReference(p.symbol("B1"))))))
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(40)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 100, 10)))

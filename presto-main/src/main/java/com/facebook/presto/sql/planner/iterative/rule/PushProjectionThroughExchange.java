@@ -19,6 +19,7 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -96,14 +97,14 @@ public class PushProjectionThroughExchange
             partitioningColumns.stream()
                     .map(outputToInputMap::get)
                     .forEach(nameReference -> {
-                        Symbol symbol = Symbol.from(nameReference);
+                        Symbol symbol = SymbolUtils.from(nameReference);
                         projections.put(symbol, nameReference);
                         inputs.add(symbol);
                     });
 
             if (exchange.getPartitioningScheme().getHashColumn().isPresent()) {
                 // Need to retain the hash symbol for the exchange
-                projections.put(exchange.getPartitioningScheme().getHashColumn().get(), exchange.getPartitioningScheme().getHashColumn().get().toSymbolReference());
+                projections.put(exchange.getPartitioningScheme().getHashColumn().get(), SymbolUtils.toSymbolReference(exchange.getPartitioningScheme().getHashColumn().get()));
                 inputs.add(exchange.getPartitioningScheme().getHashColumn().get());
             }
 
@@ -114,7 +115,7 @@ public class PushProjectionThroughExchange
                         .filter(symbol -> !partitioningColumns.contains(symbol))
                         .map(outputToInputMap::get)
                         .forEach(nameReference -> {
-                            Symbol symbol = Symbol.from(nameReference);
+                            Symbol symbol = SymbolUtils.from(nameReference);
                             projections.put(symbol, nameReference);
                             inputs.add(symbol);
                         });
@@ -174,7 +175,7 @@ public class PushProjectionThroughExchange
     {
         Map<Symbol, SymbolReference> outputToInputMap = new HashMap<>();
         for (int i = 0; i < exchange.getOutputSymbols().size(); i++) {
-            outputToInputMap.put(exchange.getOutputSymbols().get(i), exchange.getInputs().get(sourceIndex).get(i).toSymbolReference());
+            outputToInputMap.put(exchange.getOutputSymbols().get(i), SymbolUtils.toSymbolReference(exchange.getInputs().get(sourceIndex).get(i)));
         }
         return outputToInputMap;
     }

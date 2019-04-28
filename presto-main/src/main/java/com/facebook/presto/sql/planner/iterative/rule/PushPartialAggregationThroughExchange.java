@@ -22,6 +22,7 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.SymbolMapper;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -167,7 +168,7 @@ public class PushPartialAggregationThroughExchange
 
             for (Symbol output : aggregation.getOutputSymbols()) {
                 Symbol input = symbolMapper.map(output);
-                assignments.put(output, input.toSymbolReference());
+                assignments.put(output, SymbolUtils.toSymbolReference(input));
             }
             partials.add(new ProjectNode(context.getIdAllocator().getNextId(), mappedPartial, assignments.build()));
         }
@@ -216,7 +217,7 @@ public class PushPartialAggregationThroughExchange
                             new FunctionCall(
                                     functionName,
                                     ImmutableList.<Expression>builder()
-                                            .add(intermediateSymbol.toSymbolReference())
+                                            .add(SymbolUtils.toSymbolReference(intermediateSymbol))
                                             .addAll(originalAggregation.getCall().getArguments().stream()
                                                     .filter(LambdaExpression.class::isInstance)
                                                     .collect(toImmutableList()))

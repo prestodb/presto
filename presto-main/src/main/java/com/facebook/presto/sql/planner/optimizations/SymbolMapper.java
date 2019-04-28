@@ -18,6 +18,7 @@ import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -72,8 +73,8 @@ public class SymbolMapper
             @Override
             public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                Symbol canonical = map(Symbol.from(node));
-                return canonical.toSymbolReference();
+                Symbol canonical = map(SymbolUtils.from(node));
+                return SymbolUtils.toSymbolReference(canonical);
             }
         }, value);
     }

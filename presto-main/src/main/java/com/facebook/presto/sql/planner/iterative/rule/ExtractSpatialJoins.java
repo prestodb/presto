@@ -40,6 +40,7 @@ import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.split.SplitSource.SplitBatch;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.Rule.Context;
 import com.facebook.presto.sql.planner.iterative.Rule.Result;
@@ -561,7 +562,7 @@ public class ExtractSpatialJoins
 
     private static Expression toExpression(Optional<Symbol> optionalSymbol, Expression defaultExpression)
     {
-        return optionalSymbol.map(symbol -> (Expression) symbol.toSymbolReference()).orElse(defaultExpression);
+        return optionalSymbol.map(symbol -> (Expression) SymbolUtils.toSymbolReference(symbol)).orElse(defaultExpression);
     }
 
     private static Optional<Symbol> newGeometrySymbol(Context context, Expression expression, Metadata metadata)

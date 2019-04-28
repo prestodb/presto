@@ -21,6 +21,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -255,10 +256,10 @@ public class PushAggregationThroughOuterJoin
         Assignments.Builder assignmentsBuilder = Assignments.builder();
         for (Symbol symbol : outerJoin.getOutputSymbols()) {
             if (aggregationNode.getAggregations().containsKey(symbol)) {
-                assignmentsBuilder.put(symbol, new CoalesceExpression(symbol.toSymbolReference(), sourceAggregationToOverNullMapping.get(symbol).toSymbolReference()));
+                assignmentsBuilder.put(symbol, new CoalesceExpression(SymbolUtils.toSymbolReference(symbol), SymbolUtils.toSymbolReference(sourceAggregationToOverNullMapping.get(symbol))));
             }
             else {
-                assignmentsBuilder.put(symbol, symbol.toSymbolReference());
+                assignmentsBuilder.put(symbol, SymbolUtils.toSymbolReference(symbol));
             }
         }
         return Optional.of(new ProjectNode(idAllocator.getNextId(), crossJoin, assignmentsBuilder.build()));
@@ -277,7 +278,7 @@ public class PushAggregationThroughOuterJoin
             nullLiterals.add(castToRowExpression(nullLiteral));
             Symbol nullSymbol = symbolAllocator.newSymbol(nullLiteral, symbolAllocator.getTypes().get(sourceSymbol));
             nullSymbols.add(nullSymbol);
-            sourcesSymbolMappingBuilder.put(sourceSymbol, nullSymbol.toSymbolReference());
+            sourcesSymbolMappingBuilder.put(sourceSymbol, SymbolUtils.toSymbolReference(nullSymbol));
         }
         ValuesNode nullRow = new ValuesNode(
                 idAllocator.getNextId(),
@@ -301,7 +302,7 @@ public class PushAggregationThroughOuterJoin
             AggregationNode.Aggregation overNullAggregation = new AggregationNode.Aggregation(
                     (FunctionCall) inlineSymbols(sourcesSymbolMapping, aggregation.getCall()),
                     aggregation.getFunctionHandle(),
-                    aggregation.getMask().map(x -> Symbol.from(sourcesSymbolMapping.get(x))));
+                    aggregation.getMask().map(x -> SymbolUtils.from(sourcesSymbolMapping.get(x))));
             Symbol overNullSymbol = symbolAllocator.newSymbol(overNullAggregation.getCall(), symbolAllocator.getTypes().get(aggregationSymbol));
             aggregationsOverNullBuilder.put(overNullSymbol, overNullAggregation);
             aggregationsSymbolMappingBuilder.put(aggregationSymbol, overNullSymbol);
@@ -326,7 +327,7 @@ public class PushAggregationThroughOuterJoin
     {
         List<Expression> functionArguments = aggregation.getCall().getArguments();
         return sourceSymbols.stream()
-                .map(Symbol::toSymbolReference)
+                .map(SymbolUtils::toSymbolReference)
                 .anyMatch(functionArguments::contains);
     }
 

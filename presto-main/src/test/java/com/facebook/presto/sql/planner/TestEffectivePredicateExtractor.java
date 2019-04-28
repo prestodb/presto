@@ -104,13 +104,13 @@ public class TestEffectivePredicateExtractor
     private static final Symbol E = new Symbol("e");
     private static final Symbol F = new Symbol("f");
     private static final Symbol G = new Symbol("g");
-    private static final Expression AE = A.toSymbolReference();
-    private static final Expression BE = B.toSymbolReference();
-    private static final Expression CE = C.toSymbolReference();
-    private static final Expression DE = D.toSymbolReference();
-    private static final Expression EE = E.toSymbolReference();
-    private static final Expression FE = F.toSymbolReference();
-    private static final Expression GE = G.toSymbolReference();
+    private static final Expression AE = SymbolUtils.toSymbolReference(A);
+    private static final Expression BE = SymbolUtils.toSymbolReference(B);
+    private static final Expression CE = SymbolUtils.toSymbolReference(C);
+    private static final Expression DE = SymbolUtils.toSymbolReference(D);
+    private static final Expression EE = SymbolUtils.toSymbolReference(E);
+    private static final Expression FE = SymbolUtils.toSymbolReference(F);
+    private static final Expression GE = SymbolUtils.toSymbolReference(G);
 
     private final Metadata metadata = MetadataManager.createTestMetadataManager();
     private final EffectivePredicateExtractor effectivePredicateExtractor = new EffectivePredicateExtractor(new ExpressionDomainTranslator(new LiteralEncoder(metadata.getBlockEncodingSerde())));

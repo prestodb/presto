@@ -28,6 +28,7 @@ import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -184,7 +185,7 @@ public class PredicatePushDown
                 for (int index = 0; index < node.getInputs().get(i).size(); index++) {
                     outputsToInputs.put(
                             node.getOutputSymbols().get(index),
-                            node.getInputs().get(i).get(index).toSymbolReference());
+                            SymbolUtils.toSymbolReference(node.getInputs().get(i).get(index)));
                 }
 
                 Expression sourcePredicate = inlineSymbols(outputsToInputs, context.get());
@@ -301,7 +302,7 @@ public class PredicatePushDown
         {
             Map<Symbol, SymbolReference> commonGroupingSymbolMapping = node.getGroupingColumns().entrySet().stream()
                     .filter(entry -> node.getCommonGroupingColumns().contains(entry.getKey()))
-                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));
+                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> SymbolUtils.toSymbolReference(entry.getValue())));
 
             Predicate<Expression> pushdownEligiblePredicate = conjunct -> SymbolsExtractor.extractUnique(conjunct).stream()
                     .allMatch(commonGroupingSymbolMapping.keySet()::contains);
@@ -346,7 +347,7 @@ public class PredicatePushDown
             boolean modified = false;
             ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
             for (int i = 0; i < node.getSources().size(); i++) {
-                Expression sourcePredicate = inlineSymbols(Maps.transformValues(node.sourceSymbolMap(i), Symbol::toSymbolReference), context.get());
+                Expression sourcePredicate = inlineSymbols(Maps.transformValues(node.sourceSymbolMap(i), SymbolUtils::toSymbolReference), context.get());
                 PlanNode source = node.getSources().get(i);
                 PlanNode rewrittenSource = context.rewrite(source, sourcePredicate);
                 if (rewrittenSource != source) {
@@ -456,12 +457,12 @@ public class PredicatePushDown
             Assignments.Builder leftProjections = Assignments.builder();
             leftProjections.putAll(node.getLeft()
                     .getOutputSymbols().stream()
-                    .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
+                    .collect(Collectors.toMap(key -> key, SymbolUtils::toSymbolReference)));
 
             Assignments.Builder rightProjections = Assignments.builder();
             rightProjections.putAll(node.getRight()
                     .getOutputSymbols().stream()
-                    .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
+                    .collect(Collectors.toMap(key -> key, SymbolUtils::toSymbolReference)));
 
             // Create new projections for the new join clauses
             List<JoinNode.EquiJoinClause> equiJoinClauses = new ArrayList<>();
@@ -605,12 +606,12 @@ public class PredicatePushDown
                 Assignments.Builder leftProjections = Assignments.builder();
                 leftProjections.putAll(node.getLeft()
                         .getOutputSymbols().stream()
-                        .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
+                        .collect(Collectors.toMap(key -> key, SymbolUtils::toSymbolReference)));
 
                 Assignments.Builder rightProjections = Assignments.builder();
                 rightProjections.putAll(node.getRight()
                         .getOutputSymbols().stream()
-                        .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
+                        .collect(Collectors.toMap(key -> key, SymbolUtils::toSymbolReference)));
 
                 leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
                 rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
@@ -637,7 +638,7 @@ public class PredicatePushDown
         private Symbol symbolForExpression(Expression expression)
         {
             if (expression instanceof SymbolReference) {
-                return Symbol.from(expression);
+                return SymbolUtils.from(expression);
             }
 
             return symbolAllocator.newSymbol(expression, extractType(expression));
@@ -981,7 +982,7 @@ public class PredicatePushDown
                     emptyList(), /* parameters have already been replaced */
                     WarningCollector.NOOP);
             return ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes)
-                    .optimize(symbol -> nullSymbols.contains(symbol) ? null : symbol.toSymbolReference());
+                    .optimize(symbol -> nullSymbols.contains(symbol) ? null : SymbolUtils.toSymbolReference(symbol));
         }
 
         private static Predicate<Expression> joinEqualityExpression(final Collection<Symbol> leftSymbols)
@@ -1008,7 +1009,7 @@ public class PredicatePushDown
         public PlanNode visitSemiJoin(SemiJoinNode node, RewriteContext<Expression> context)
         {
             Expression inheritedPredicate = context.get();
-            if (!extractConjuncts(inheritedPredicate).contains(node.getSemiJoinOutput().toSymbolReference())) {
+            if (!extractConjuncts(inheritedPredicate).contains(SymbolUtils.toSymbolReference(node.getSemiJoinOutput()))) {
                 return visitNonFilteringSemiJoin(node, context);
             }
             return visitFilteringSemiJoin(node, context);
@@ -1064,8 +1065,8 @@ public class PredicatePushDown
             Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicateExtractor.extract(node.getFilteringSource()));
             Expression joinExpression = new ComparisonExpression(
                     ComparisonExpression.Operator.EQUAL,
-                    node.getSourceJoinSymbol().toSymbolReference(),
-                    node.getFilteringSourceJoinSymbol().toSymbolReference());
+                    SymbolUtils.toSymbolReference(node.getSourceJoinSymbol()),
+                    SymbolUtils.toSymbolReference(node.getFilteringSourceJoinSymbol()));
 
             List<Symbol> sourceSymbols = node.getSource().getOutputSymbols();
             List<Symbol> filteringSourceSymbols = node.getFilteringSource().getOutputSymbols();

@@ -335,7 +335,7 @@ class QueryPlanner
         Assignments.Builder projections = Assignments.builder();
         for (Expression expression : expressions) {
             if (expression instanceof SymbolReference) {
-                Symbol symbol = Symbol.from(expression);
+                Symbol symbol = SymbolUtils.from(expression);
                 projections.put(symbol, expression);
                 outputTranslations.put(expression, symbol);
                 continue;
@@ -388,7 +388,7 @@ class QueryPlanner
                 // If this is an identity projection, no need to rewrite it
                 // This is needed because certain synthetic identity expressions such as "group id" introduced when planning GROUPING
                 // don't have a corresponding analysis, so the code below doesn't work for them
-                projections.put(Symbol.from(expression), expression);
+                projections.put(SymbolUtils.from(expression), expression);
                 continue;
             }
 
@@ -534,7 +534,7 @@ class QueryPlanner
         else {
             Assignments.Builder assignments = Assignments.builder();
             aggregationArguments.forEach(assignments::putIdentity);
-            groupingSetMappings.forEach((key, value) -> assignments.put(key, value.toSymbolReference()));
+            groupingSetMappings.forEach((key, value) -> assignments.put(key, SymbolUtils.toSymbolReference(value)));
 
             ProjectNode project = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build());
             subPlan = new PlanBuilder(groupingTranslations, project, analysis.getParameters());
@@ -597,7 +597,7 @@ class QueryPlanner
         if (needPostProjectionCoercion) {
             ImmutableList.Builder<Expression> alreadyCoerced = ImmutableList.builder();
             alreadyCoerced.addAll(groupByExpressions);
-            groupIdSymbol.map(Symbol::toSymbolReference).ifPresent(alreadyCoerced::add);
+            groupIdSymbol.map(SymbolUtils::toSymbolReference).ifPresent(alreadyCoerced::add);
 
             subPlan = explicitCoercionFields(subPlan, alreadyCoerced.build(), analysis.getAggregates(node));
         }
@@ -924,7 +924,7 @@ class QueryPlanner
     private static List<Expression> toSymbolReferences(List<Symbol> symbols)
     {
         return symbols.stream()
-                .map(Symbol::toSymbolReference)
+                .map(SymbolUtils::toSymbolReference)
                 .collect(toImmutableList());
     }
 

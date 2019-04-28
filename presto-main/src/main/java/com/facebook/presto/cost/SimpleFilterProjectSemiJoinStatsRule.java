@@ -20,6 +20,7 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -197,7 +198,7 @@ public class SimpleFilterProjectSemiJoinStatsRule
 
     private static boolean isSemiJoinOutputReference(Expression conjunct, Symbol semiJoinOutput)
     {
-        SymbolReference semiJoinOuputSymbolReference = semiJoinOutput.toSymbolReference();
+        SymbolReference semiJoinOuputSymbolReference = SymbolUtils.toSymbolReference(semiJoinOutput);
         return conjunct.equals(semiJoinOuputSymbolReference) ||
                 (conjunct instanceof NotExpression && ((NotExpression) conjunct).getValue().equals(semiJoinOuputSymbolReference));
     }

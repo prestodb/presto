@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.google.common.collect.ImmutableList;
@@ -39,7 +40,7 @@ public class TestPruneMarkDistinctColumns
                     Symbol mark = p.symbol("mark");
                     Symbol unused = p.symbol("unused");
                     return p.project(
-                            Assignments.of(key2, key.toSymbolReference()),
+                            Assignments.of(key2, SymbolUtils.toSymbolReference(key)),
                             p.markDistinct(mark, ImmutableList.of(key), p.values(key, unused)));
                 })
                 .matches(

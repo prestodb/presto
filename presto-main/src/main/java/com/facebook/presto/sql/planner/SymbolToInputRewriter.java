@@ -43,7 +43,7 @@ public class SymbolToInputRewriter
             @Override
             public Expression rewriteSymbolReference(SymbolReference node, Context context, ExpressionTreeRewriter<Context> treeRewriter)
             {
-                Integer channel = symbolToChannelMapping.get(Symbol.from(node));
+                Integer channel = symbolToChannelMapping.get(SymbolUtils.from(node));
                 if (channel == null) {
                     Preconditions.checkArgument(context.isInLambda(), "Cannot resolve symbol %s", node.getName());
                     return node;

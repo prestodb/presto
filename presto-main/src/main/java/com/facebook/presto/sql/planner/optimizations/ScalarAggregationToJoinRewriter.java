@@ -20,6 +20,7 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelator.DecorrelatedNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -181,7 +182,7 @@ public class ScalarAggregationToJoinRewriter
                 aggregations.put(symbol, new Aggregation(
                         new FunctionCall(
                                 COUNT,
-                                ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference())),
+                                ImmutableList.of(SymbolUtils.toSymbolReference(nonNullableAggregationSourceSymbol))),
                         functionManager.lookupFunction(
                                 COUNT.getSuffix(),
                                 fromTypeSignatures(scalarAggregationSourceTypeSignatures)),

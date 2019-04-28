@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.MultiJoinNode;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -164,13 +165,13 @@ public class TestJoinNodeFlattener
         ValuesNode valuesB = p.values(b1, b2);
         ValuesNode valuesC = p.values(c1, c2);
         Expression bcFilter = and(
-                new ComparisonExpression(GREATER_THAN, c2.toSymbolReference(), new LongLiteral("0")),
-                new ComparisonExpression(NOT_EQUAL, c2.toSymbolReference(), new LongLiteral("7")),
-                new ComparisonExpression(GREATER_THAN, b2.toSymbolReference(), c2.toSymbolReference()));
+                new ComparisonExpression(GREATER_THAN, SymbolUtils.toSymbolReference(c2), new LongLiteral("0")),
+                new ComparisonExpression(NOT_EQUAL, SymbolUtils.toSymbolReference(c2), new LongLiteral("7")),
+                new ComparisonExpression(GREATER_THAN, SymbolUtils.toSymbolReference(b2), SymbolUtils.toSymbolReference(c2)));
         ComparisonExpression abcFilter = new ComparisonExpression(
                 LESS_THAN,
-                new ArithmeticBinaryExpression(ADD, a1.toSymbolReference(), c1.toSymbolReference()),
-                b1.toSymbolReference());
+                new ArithmeticBinaryExpression(ADD, SymbolUtils.toSymbolReference(a1), SymbolUtils.toSymbolReference(c1)),
+                SymbolUtils.toSymbolReference(b1));
         JoinNode joinNode = p.join(
                 INNER,
                 valuesA,
@@ -190,7 +191,7 @@ public class TestJoinNodeFlattener
                 Optional.of(abcFilter));
         MultiJoinNode expected = new MultiJoinNode(
                 new LinkedHashSet<>(ImmutableList.of(valuesA, valuesB, valuesC)),
-                and(new ComparisonExpression(EQUAL, b1.toSymbolReference(), c1.toSymbolReference()), new ComparisonExpression(EQUAL, a1.toSymbolReference(), b1.toSymbolReference()), bcFilter, abcFilter),
+                and(new ComparisonExpression(EQUAL, SymbolUtils.toSymbolReference(b1), SymbolUtils.toSymbolReference(c1)), new ComparisonExpression(EQUAL, SymbolUtils.toSymbolReference(a1), SymbolUtils.toSymbolReference(b1)), bcFilter, abcFilter),
                 ImmutableList.of(a1, b1, b2, c1, c2));
         assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT), expected);
     }
@@ -323,7 +324,7 @@ public class TestJoinNodeFlattener
 
     private ComparisonExpression createEqualsExpression(Symbol left, Symbol right)
     {
-        return new ComparisonExpression(EQUAL, left.toSymbolReference(), right.toSymbolReference());
+        return new ComparisonExpression(EQUAL, SymbolUtils.toSymbolReference(left), SymbolUtils.toSymbolReference(right));
     }
 
     private EquiJoinClause equiJoinClause(Symbol symbol1, Symbol symbol2)

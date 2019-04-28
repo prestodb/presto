@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -106,7 +107,7 @@ public class RewriteSpatialPartitioningAggregation
                 }
                 aggregations.put(entry.getKey(),
                         new Aggregation(
-                                new FunctionCall(name, ImmutableList.of(envelopeSymbol.toSymbolReference(), partitionCountSymbol.toSymbolReference())),
+                                new FunctionCall(name, ImmutableList.of(SymbolUtils.toSymbolReference(envelopeSymbol), SymbolUtils.toSymbolReference(partitionCountSymbol))),
                                 metadata.getFunctionManager().lookupFunction(NAME, fromTypes(geometryType, INTEGER)),
                                 aggregation.getMask()));
             }

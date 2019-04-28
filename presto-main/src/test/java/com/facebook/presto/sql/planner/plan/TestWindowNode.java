@@ -23,6 +23,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -90,7 +91,7 @@ public class TestWindowNode
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", BIGINT);
         FunctionHandle functionHandle = createTestMetadataManager().getFunctionManager().lookupFunction("sum", fromTypes(BIGINT));
-        FunctionCall functionCall = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference()));
+        FunctionCall functionCall = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(SymbolUtils.toSymbolReference(columnC)));
         WindowNode.Frame frame = new WindowNode.Frame(
                 RANGE,
                 UNBOUNDED_PRECEDING,

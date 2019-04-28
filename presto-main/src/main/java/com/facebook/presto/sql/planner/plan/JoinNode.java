@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.planner.SortExpressionContext;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Join;
@@ -330,7 +331,7 @@ public class JoinNode
 
         public ComparisonExpression toExpression()
         {
-            return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, left.toSymbolReference(), right.toSymbolReference());
+            return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, SymbolUtils.toSymbolReference(left), SymbolUtils.toSymbolReference(right));
         }
 
         public EquiJoinClause flip()

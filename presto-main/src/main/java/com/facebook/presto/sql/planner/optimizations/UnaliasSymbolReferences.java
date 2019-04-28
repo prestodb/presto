@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -604,7 +605,7 @@ public class UnaliasSymbolReferences
 
                 if (expression instanceof SymbolReference) {
                     // Always map a trivial symbol projection
-                    Symbol symbol = Symbol.from(expression);
+                    Symbol symbol = SymbolUtils.from(expression);
                     if (!symbol.equals(entry.getKey())) {
                         map(entry.getKey(), symbol);
                     }
@@ -661,8 +662,8 @@ public class UnaliasSymbolReferences
                 @Override
                 public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
                 {
-                    Symbol canonical = canonicalize(Symbol.from(node));
-                    return canonical.toSymbolReference();
+                    Symbol canonical = canonicalize(SymbolUtils.from(node));
+                    return SymbolUtils.toSymbolReference(canonical);
                 }
             }, value);
         }

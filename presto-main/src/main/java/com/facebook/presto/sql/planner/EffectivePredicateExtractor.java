@@ -69,11 +69,11 @@ import static java.util.Objects.requireNonNull;
 public class EffectivePredicateExtractor
 {
     private static final Predicate<Map.Entry<Symbol, ? extends Expression>> SYMBOL_MATCHES_EXPRESSION =
-            entry -> entry.getValue().equals(entry.getKey().toSymbolReference());
+            entry -> entry.getValue().equals(SymbolUtils.toSymbolReference(entry.getKey()));
 
     private static final Function<Map.Entry<Symbol, ? extends Expression>, Expression> ENTRY_TO_EQUALITY =
             entry -> {
-                SymbolReference reference = entry.getKey().toSymbolReference();
+                SymbolReference reference = SymbolUtils.toSymbolReference(entry.getKey());
                 Expression expression = entry.getValue();
                 // TODO: this is not correct with respect to NULLs ('reference IS NULL' would be correct, rather than 'reference = NULL')
                 // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
@@ -146,7 +146,7 @@ public class EffectivePredicateExtractor
                 for (int i = 0; i < node.getInputs().get(source).size(); i++) {
                     mappings.put(
                             node.getOutputSymbols().get(i),
-                            node.getInputs().get(source).get(i).toSymbolReference());
+                            SymbolUtils.toSymbolReference(node.getInputs().get(source).get(i)));
                 }
                 return mappings.entrySet();
             });
@@ -218,7 +218,7 @@ public class EffectivePredicateExtractor
         @Override
         public Expression visitUnion(UnionNode node, Void context)
         {
-            return deriveCommonPredicates(node, source -> Multimaps.transformValues(node.outputSymbolMap(source), Symbol::toSymbolReference).entries());
+            return deriveCommonPredicates(node, source -> Multimaps.transformValues(node.outputSymbolMap(source), SymbolUtils::toSymbolReference).entries());
         }
 
         @Override
