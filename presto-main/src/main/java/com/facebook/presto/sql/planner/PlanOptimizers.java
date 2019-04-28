@@ -402,7 +402,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        new PushdownSubfieldsIntoConnector(metadata).rules()),
+                        ImmutableSet.of(new PushdownSubfieldsIntoConnector(metadata))),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,

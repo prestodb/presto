@@ -752,7 +752,9 @@ public class TestCostCalculator
                 symbolsList,
                 assignments.build(),
                 TupleDomain.all(),
-                TupleDomain.all());
+                TupleDomain.all(),
+                false,
+                ImmutableMap.of());
     }
 
     private PlanNode project(String id, PlanNode source, String symbol, Expression expression)

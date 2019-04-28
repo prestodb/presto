@@ -13,44 +13,29 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.operator.scalar.FilterBySubscriptPathsFunction;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.FilterNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.tree.ArrayConstructor;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.StringLiteral;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
 
-import static com.facebook.presto.SystemSessionProperties.isPushdownSubfields;
-import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.sql.planner.plan.Patterns.filter;
-import static com.facebook.presto.sql.planner.plan.Patterns.project;
-import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class PushdownSubfieldsIntoConnector
+        implements Rule<TableScanNode>
 {
+    private static final Pattern<TableScanNode> PATTERN = tableScan()
+            .matching(node -> !node.getRequiredSubfieldPaths().isEmpty());
+
     private final Metadata metadata;
 
     public PushdownSubfieldsIntoConnector(Metadata metadata)
@@ -58,141 +43,36 @@ public class PushdownSubfieldsIntoConnector
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
-    public Set<Rule<?>> rules()
+    @Override
+    public Pattern<TableScanNode> getPattern()
     {
-        return ImmutableSet.of(
-                new PushdownSubfieldsIntoConnectorWithoutFilter(metadata),
-                new PushdownSubfieldsIntoConnectorWithFilter(metadata));
+        return PATTERN;
     }
 
-    private static final class PushdownSubfieldsIntoConnectorWithoutFilter
-            extends AbstractPushdownSubfieldsIntoConnector
+    @Override
+    public Result apply(TableScanNode tableScan, Captures captures, Context context)
     {
-        private static final Capture<TableScanNode> TABLE_SCAN = newCapture();
+        Map<ColumnHandle, List<Subfield>> subfields = tableScan.getRequiredSubfieldPaths().entrySet().stream()
+                .collect(toImmutableMap(e -> tableScan.getAssignments().get(e.getKey()), Map.Entry::getValue));
 
-        private static final Pattern<ProjectNode> PATTERN = project()
-                .with(source().matching(tableScan().capturedAs(TABLE_SCAN)));
-
-        private PushdownSubfieldsIntoConnectorWithoutFilter(Metadata metadata)
-        {
-            super(metadata);
+        Map<ColumnHandle, ColumnHandle> prunedColumns = metadata.pushdownSubfieldPruning(context.getSession(), tableScan.getTable(), subfields);
+        if (prunedColumns.isEmpty()) {
+            return Result.empty();
         }
 
-        @Override
-        public Pattern<ProjectNode> getPattern()
-        {
-            return PATTERN;
-        }
+        Map<Symbol, ColumnHandle> newAssignments = tableScan.getAssignments().entrySet().stream()
+                .collect(toImmutableMap(Map.Entry::getKey, e -> prunedColumns.getOrDefault(e.getValue(), e.getValue())));
 
-        @Override
-        public Result apply(ProjectNode projectNode, Captures captures, Context context)
-        {
-            return apply(projectNode, Optional.empty(), captures.get(TABLE_SCAN), context);
-        }
-    }
+        TableScanNode newTableScanNode = new TableScanNode(
+                tableScan.getId(),
+                tableScan.getTable(),
+                tableScan.getOutputSymbols(),
+                newAssignments,
+                tableScan.getCurrentConstraint(),
+                tableScan.getEnforcedConstraint(),
+                tableScan.isTemporaryTable(),
+                ImmutableMap.of());
 
-    private static final class PushdownSubfieldsIntoConnectorWithFilter
-            extends AbstractPushdownSubfieldsIntoConnector
-    {
-        private static final Capture<FilterNode> FILTER = newCapture();
-        private static final Capture<TableScanNode> TABLE_SCAN = newCapture();
-
-        private static final Pattern<ProjectNode> PATTERN = project()
-                .with(source().matching(filter().capturedAs(FILTER)
-                        .with(source().matching(tableScan().capturedAs(TABLE_SCAN)))));
-
-        private PushdownSubfieldsIntoConnectorWithFilter(Metadata metadata)
-        {
-            super(metadata);
-        }
-
-        @Override
-        public Pattern<ProjectNode> getPattern()
-        {
-            return PATTERN;
-        }
-
-        @Override
-        public Result apply(ProjectNode projectNode, Captures captures, Context context)
-        {
-            return apply(projectNode, Optional.of(captures.get(FILTER)), captures.get(TABLE_SCAN), context);
-        }
-    }
-
-    private abstract static class AbstractPushdownSubfieldsIntoConnector
-            implements Rule<ProjectNode>
-    {
-        private static final QualifiedName FILTER_BY_SUBSCRIPT_PATHS = QualifiedName.of(FilterBySubscriptPathsFunction.FILTER_BY_SUBSCRIPT_PATHS);
-
-        private final Metadata metadata;
-
-        private AbstractPushdownSubfieldsIntoConnector(Metadata metadata)
-        {
-            this.metadata = requireNonNull(metadata, "metadata is null");
-        }
-
-        @Override
-        public boolean isEnabled(Session session)
-        {
-            return isPushdownSubfields(session);
-        }
-
-        protected Result apply(ProjectNode project, Optional<FilterNode> filter, TableScanNode tableScan, Context context)
-        {
-            Map<Symbol, Symbol> symbolsToPrune = project.getAssignments().getMap().entrySet().stream()
-                    .filter(e -> e.getValue() instanceof FunctionCall)
-                    .filter(e -> ((FunctionCall) e.getValue()).getName().equals(FILTER_BY_SUBSCRIPT_PATHS))
-                    .collect(toImmutableMap(
-                            Map.Entry::getKey,
-                            e -> Symbol.from(((FunctionCall) e.getValue()).getArguments().get(0))));
-
-            Map<ColumnHandle, List<Subfield>> subfields = project.getAssignments().getExpressions().stream()
-                    .filter(FunctionCall.class::isInstance)
-                    .map(FunctionCall.class::cast)
-                    .filter(e -> e.getName().equals(FILTER_BY_SUBSCRIPT_PATHS))
-                    .collect(toImmutableMap(
-                            e -> tableScan.getAssignments().get(Symbol.from(e.getArguments().get(0))),
-                            e -> ((ArrayConstructor) e.getArguments().get(1)).getValues().stream()
-                                    .map(path -> new Subfield(((StringLiteral) path).getValue()))
-                                    .collect(toImmutableList())));
-            if (subfields.isEmpty()) {
-                return Result.empty();
-            }
-
-            Map<ColumnHandle, ColumnHandle> prunedColumns = metadata.pushdownSubfieldPruning(context.getSession(), tableScan.getTable(), subfields);
-            if (prunedColumns.isEmpty()) {
-                return Result.empty();
-            }
-
-            Assignments.Builder newAssignments = Assignments.builder();
-            for (Map.Entry<Symbol, Expression> entry : project.getAssignments().entrySet()) {
-                Symbol projectSymbol = entry.getKey();
-                Symbol tableScanSymbol = symbolsToPrune.get(projectSymbol);
-                if (tableScanSymbol != null && prunedColumns.containsKey(tableScan.getAssignments().get(tableScanSymbol))) {
-                    newAssignments.put(projectSymbol, tableScanSymbol.toSymbolReference());
-                }
-                else {
-                    newAssignments.put(entry);
-                }
-            }
-
-            TableScanNode newTableScanNode = new TableScanNode(
-                    tableScan.getId(),
-                    tableScan.getTable(),
-                    tableScan.getOutputSymbols(),
-                    tableScan.getAssignments().entrySet().stream()
-                            .collect(toImmutableMap(Map.Entry::getKey, e -> prunedColumns.getOrDefault(e.getValue(), e.getValue()))),
-                    tableScan.getCurrentConstraint(),
-                    tableScan.getEnforcedConstraint());
-
-            if (filter.isPresent()) {
-                return Result.ofPlanNode(new ProjectNode(
-                        project.getId(),
-                        new FilterNode(filter.get().getId(), newTableScanNode, filter.get().getPredicate()),
-                        newAssignments.build()));
-            }
-
-            return Result.ofPlanNode(new ProjectNode(project.getId(), newTableScanNode, newAssignments.build()));
-        }
+        return Result.ofPlanNode(newTableScanNode);
     }
 }

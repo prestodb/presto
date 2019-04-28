@@ -14,14 +14,8 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.Subfield;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
@@ -41,20 +35,21 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
-import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.tests.QueryTemplate;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.util.MorePredicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -67,8 +62,6 @@ import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.spi.predicate.Domain.singleValue;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
-import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
@@ -118,7 +111,6 @@ import static com.facebook.presto.util.MorePredicates.isInstanceOfAny;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -1022,35 +1014,26 @@ public class TestLogicalPlanner
         assertPlanWithSession(
                 "SELECT ints[2] FROM lineitem_ext",
                 pushdownSubfields, false,
-                anyTree(
-                        project(
-                                ImmutableMap.of("ints_filtered", expression(format("filter_by_subscript_paths(ints, %s)[bigint '2']", optimizeExpression("array['ints[2]']", new ArrayType(createVarcharType(7)))))),
-                                tableScan("lineitem_ext", ImmutableMap.of("ints", "ints")))));
+                anyTree(tableScan("lineitem_ext", ImmutableMap.of("ints", "ints"))),
+                plan -> assertSubfieldsInTableScan(plan, "lineitem_ext", ImmutableMap.of("ints", ImmutableSet.of(new Subfield("ints[2]")))));
 
         assertPlanWithSession(
                 "SELECT ints[2] + 10 FROM lineitem_ext",
                 pushdownSubfields, false,
-                anyTree(
-                        project(
-                                ImmutableMap.of("ints_filtered", expression(format("filter_by_subscript_paths(ints, %s)[bigint '2'] + bigint '10'", optimizeExpression("array['ints[2]']", new ArrayType(createVarcharType(7)))))),
-                                tableScan("lineitem_ext", ImmutableMap.of("ints", "ints")))));
+                anyTree(tableScan("lineitem_ext", ImmutableMap.of("ints", "ints"))),
+                plan -> assertSubfieldsInTableScan(plan, "lineitem_ext", ImmutableMap.of("ints", ImmutableSet.of(new Subfield("ints[2]")))));
 
         assertPlanWithSession(
                 "SELECT power(ints[2], 2) FROM lineitem_ext",
                 pushdownSubfields, false,
-                anyTree(
-                        project(
-                                ImmutableMap.of("ints_filtered", expression(format("power(cast(filter_by_subscript_paths(ints, %s)[bigint '2'] as double), 2e0)", optimizeExpression("array['ints[2]']", new ArrayType(createVarcharType(7)))))),
-                                tableScan("lineitem_ext", ImmutableMap.of("ints", "ints")))));
+                anyTree(tableScan("lineitem_ext", ImmutableMap.of("ints", "ints"))),
+                plan -> assertSubfieldsInTableScan(plan, "lineitem_ext", ImmutableMap.of("ints", ImmutableSet.of(new Subfield("ints[2]")))));
 
         assertPlanWithSession(
                 "SELECT ints[2] FROM lineitem_ext WHERE ints[4] > 0",
                 pushdownSubfields, false,
-                anyTree(
-                        project(
-                                ImmutableMap.of("ints_filtered", expression(format("filter_by_subscript_paths(ints, %s)[bigint '2']", optimizeExpression("array['ints[4]', 'ints[2]']", new ArrayType(createVarcharType(7)))))),
-                                filter(format("filter_by_subscript_paths(ints, %s)[bigint '4'] > bigint '0'", optimizeExpression("array['ints[4]', 'ints[2]']", new ArrayType(createVarcharType(7)))),
-                                        tableScan("lineitem_ext", ImmutableMap.of("ints", "ints"))))));
+                anyTree(tableScan("lineitem_ext", ImmutableMap.of("ints", "ints"))),
+                plan -> assertSubfieldsInTableScan(plan, "lineitem_ext", ImmutableMap.of("ints", ImmutableSet.of(new Subfield("ints[2]"), new Subfield("ints[4]")))));
 
         assertPlanWithSession(
                 "SELECT ints[2] FROM orders o, lineitem_ext l " +
@@ -1061,9 +1044,8 @@ public class TestLogicalPlanner
                                 anyTree(
                                         tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey"))),
                                 anyTree(
-                                        project(
-                                                ImmutableMap.of("ints_filtered", expression(format("filter_by_subscript_paths(ints, %s)", optimizeExpression("array['ints[2]']", new ArrayType(createVarcharType(7)))))),
-                                                tableScan("lineitem_ext", ImmutableMap.of("ints", "ints", "l_orderkey", "orderkey")))))));
+                                        tableScan("lineitem_ext", ImmutableMap.of("ints", "ints", "l_orderkey", "orderkey"))))),
+                plan -> assertSubfieldsInTableScan(plan, "lineitem_ext", ImmutableMap.of("ints", ImmutableSet.of(new Subfield("ints[2]")))));
 
         assertPlanWithSession(
                 "SELECT shipinfo.shipdate FROM orders o, lineitem_ext l " +
@@ -1073,31 +1055,26 @@ public class TestLogicalPlanner
                         join(INNER, ImmutableList.of(equiJoinClause("o_orderkey", "l_orderkey")),
                                 anyTree(
                                         tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey"))),
-                                anyTree(
-                                        project(
-                                                ImmutableMap.of("shipdate_filtered", expression(format("filter_by_subscript_paths(shipinfo, %s)", optimizeExpression("array['shipinfo.shipdate']", new ArrayType(createVarcharType(17)))))),
-                                                tableScan("lineitem_ext", ImmutableMap.of("shipinfo", "shipinfo", "l_orderkey", "orderkey")))))));
+                                anyTree(tableScan("lineitem_ext", ImmutableMap.of("shipinfo", "shipinfo", "l_orderkey", "orderkey"))))),
+                plan -> assertSubfieldsInTableScan(plan, "lineitem_ext", ImmutableMap.of("shipinfo", ImmutableSet.of(new Subfield("shipinfo.shipdate")))));
 
         assertPlanWithSession(
                 "SELECT o.orderkey FROM orders o, lineitem_ext l " +
                         "WHERE o.orderkey = l.orderkey AND o.custkey > l.ints[2]",
                 pushdownSubfields, true,
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("o_orderkey", "l_orderkey")), Optional.of("custkey > ints_filtered[2]"),
+                        join(INNER, ImmutableList.of(equiJoinClause("o_orderkey", "l_orderkey")), Optional.of("custkey > ints[2]"),
                                 anyTree(
                                         tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey", "custkey", "custkey"))),
                                 anyTree(
-                                        project(
-                                                ImmutableMap.of("ints_filtered", expression(format("filter_by_subscript_paths(ints, %s)", optimizeExpression("array['ints[2]']", new ArrayType(createVarcharType(7)))))),
-                                                tableScan("lineitem_ext", ImmutableMap.of("ints", "ints", "l_orderkey", "orderkey")))))));
+                                        tableScan("lineitem_ext", ImmutableMap.of("ints", "ints", "l_orderkey", "orderkey"))))),
+                plan -> assertSubfieldsInTableScan(plan, "lineitem_ext", ImmutableMap.of("ints", ImmutableSet.of(new Subfield("ints[2]")))));
 
         assertPlanWithSession(
                 "SELECT t.ints[2] FROM lineitem_ext CROSS JOIN UNNEST (nested_ints) AS t(ints)",
                 pushdownSubfields, true,
-                anyTree(
-                        project(
-                                ImmutableMap.of("nested_ints_filtered", expression(format("filter_by_subscript_paths(nested_ints, %s)", optimizeExpression("array['nested_ints[*][2]']", new ArrayType(createVarcharType(17)))))),
-                                tableScan("lineitem_ext", ImmutableMap.of("nested_ints", "nested_ints")))));
+                anyTree(tableScan("lineitem_ext", ImmutableMap.of("nested_ints", "nested_ints"))),
+                plan -> assertSubfieldsInTableScan(plan, "lineitem_ext", ImmutableMap.of("nested_ints", ImmutableSet.of(new Subfield("nested_ints[*][2]")))));
 
         // No pushdown
         assertPlanWithSession(
@@ -1106,7 +1083,8 @@ public class TestLogicalPlanner
                 anyTree(
                         strictProject(
                                 ImmutableMap.of("int_2", expression("ints[bigint '2']"), "cardinality", expression("cardinality(ints)")),
-                                tableScan("lineitem_ext", ImmutableMap.of("ints", "ints")))));
+                                tableScan("lineitem_ext", ImmutableMap.of("ints", "ints")))),
+                plan -> assertSubfieldsInTableScan(plan, "lineitem_ext", ImmutableMap.of()));
     }
 
     @Test
@@ -1124,7 +1102,7 @@ public class TestLogicalPlanner
                         project(
                                 ImmutableMap.of("ints_2", expression("ints[bigint '2']")),
                                 tableScan("lineitem_ext", ImmutableMap.of("ints", "ints")))),
-                plan -> assertSubfieldPaths(plan, "lineitem_ext", ImmutableMap.of("ints", ImmutableList.of(new Subfield("ints[2]")))));
+                plan -> assertSubfieldsInColumnHandles(plan, "lineitem_ext", ImmutableMap.of("ints", ImmutableSet.of(new Subfield("ints[2]")))));
 
         assertPlanWithSession(
                 "SELECT ints[2] + 10 FROM lineitem_ext",
@@ -1133,7 +1111,7 @@ public class TestLogicalPlanner
                         project(
                                 ImmutableMap.of("ints_2", expression("ints[bigint '2'] + bigint '10'")),
                                 tableScan("lineitem_ext", ImmutableMap.of("ints", "ints")))),
-                plan -> assertSubfieldPaths(plan, "lineitem_ext", ImmutableMap.of("ints", ImmutableList.of(new Subfield("ints[2]")))));
+                plan -> assertSubfieldsInColumnHandles(plan, "lineitem_ext", ImmutableMap.of("ints", ImmutableSet.of(new Subfield("ints[2]")))));
 
         assertPlanWithSession(
                 "SELECT power(ints[2], 2) FROM lineitem_ext",
@@ -1142,7 +1120,7 @@ public class TestLogicalPlanner
                         project(
                                 ImmutableMap.of("power", expression("power(cast(ints[bigint '2'] as double), 2e0)")),
                                 tableScan("lineitem_ext", ImmutableMap.of("ints", "ints")))),
-                plan -> assertSubfieldPaths(plan, "lineitem_ext", ImmutableMap.of("ints", ImmutableList.of(new Subfield("ints[2]")))));
+                plan -> assertSubfieldsInColumnHandles(plan, "lineitem_ext", ImmutableMap.of("ints", ImmutableSet.of(new Subfield("ints[2]")))));
 
         assertPlanWithSession(
                 "SELECT ints[2] FROM lineitem_ext WHERE ints[4] > 0",
@@ -1153,7 +1131,7 @@ public class TestLogicalPlanner
                                 filter(
                                         "ints[bigint '4'] > bigint '0'",
                                         tableScan("lineitem_ext", ImmutableMap.of("ints", "ints"))))),
-                plan -> assertSubfieldPaths(plan, "lineitem_ext", ImmutableMap.of("ints", ImmutableList.of(new Subfield("ints[4]"), new Subfield("ints[2]")))));
+                plan -> assertSubfieldsInColumnHandles(plan, "lineitem_ext", ImmutableMap.of("ints", ImmutableSet.of(new Subfield("ints[2]"), new Subfield("ints[4]")))));
 
         assertPlanWithSession(
                 "SELECT ints[2] FROM orders o, lineitem_ext l " +
@@ -1166,42 +1144,44 @@ public class TestLogicalPlanner
                                 anyTree(
                                         project(
                                                 tableScan("lineitem_ext", ImmutableMap.of("ints", "ints", "l_orderkey", "orderkey")))))),
-                plan -> assertSubfieldPaths(plan, "lineitem_ext", ImmutableMap.of("ints", ImmutableList.of(new Subfield("ints[2]")))));
+                plan -> assertSubfieldsInColumnHandles(plan, "lineitem_ext", ImmutableMap.of("ints", ImmutableSet.of(new Subfield("ints[2]")))));
 
         assertPlanWithSession(
                 "SELECT t.ints[2] FROM lineitem_ext CROSS JOIN UNNEST (nested_ints) AS t(ints)",
                 pushdownSubfieldsIntoConnector, true,
                 anyTree(
                         tableScan("lineitem_ext", ImmutableMap.of("nested_ints", "nested_ints"))),
-                plan -> assertSubfieldPaths(plan, "lineitem_ext", ImmutableMap.of("nested_ints", ImmutableList.of(new Subfield("nested_ints[*][2]")))));
+                plan -> assertSubfieldsInColumnHandles(plan, "lineitem_ext", ImmutableMap.of("nested_ints", ImmutableSet.of(new Subfield("nested_ints[*][2]")))));
     }
 
-    private void assertSubfieldPaths(Plan plan, String tableName, Map<String, List<Subfield>> expectedSubfieldPathsPerColumn)
+    private void assertSubfieldsInTableScan(Plan plan, String tableName, Map<String, Set<Subfield>> expectedSubfieldPathsPerColumn)
     {
         TableScanNode tableScan = searchFrom(plan.getRoot())
                 .where(node -> node instanceof TableScanNode && ((TpchTableHandle) ((TableScanNode) node).getTable().getConnectorHandle()).getTableName().equals(tableName))
                 .findOnlyElement();
 
-        Map<String, List<Subfield>> actual = tableScan.getAssignments().values().stream()
-                .map(TpchColumnHandle.class::cast)
-                .filter(column -> expectedSubfieldPathsPerColumn.containsKey(column.getColumnName()))
-                .collect(toImmutableMap(TpchColumnHandle::getColumnName, TpchColumnHandle::getSubfieldPaths));
-        assertEquals(actual, expectedSubfieldPathsPerColumn);
+        Map<Symbol, Set<Subfield>> subfieldPaths = tableScan.getRequiredSubfieldPaths().entrySet().stream()
+                .collect(toImmutableMap(Map.Entry::getKey, e -> new HashSet(e.getValue())));
+
+        Map<Symbol, String> symbolToColumnName = tableScan.getAssignments().entrySet().stream()
+                .collect(toImmutableMap(Map.Entry::getKey, e -> ((TpchColumnHandle) e.getValue()).getColumnName()));
+
+        Map<String, Set<Subfield>> actualSubfieldPathsPerColumn = subfieldPaths.entrySet().stream()
+                .collect(toImmutableMap(e -> symbolToColumnName.get(e.getKey()), Map.Entry::getValue));
+
+        assertEquals(actualSubfieldPathsPerColumn, expectedSubfieldPathsPerColumn);
     }
 
-    private Expression optimizeExpression(String sql, Type expectedType)
+    private void assertSubfieldsInColumnHandles(Plan plan, String tableName, Map<String, Set<Subfield>> expectedSubfieldPathsPerColumn)
     {
-        Metadata metadata = getQueryRunner().getMetadata();
-        SqlParser sqlParser = getQueryRunner().getSqlParser();
-        Session session = getQueryRunner().getDefaultSession();
+        TableScanNode tableScan = searchFrom(plan.getRoot())
+                .where(node -> node instanceof TableScanNode && ((TpchTableHandle) ((TableScanNode) node).getTable().getConnectorHandle()).getTableName().equals(tableName))
+                .findOnlyElement();
 
-        Expression parsedExpression = FunctionAssertions.createExpression(sql, metadata, TypeProvider.empty());
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, TypeProvider.empty(), parsedExpression, emptyList(), WarningCollector.NOOP);
-        ExpressionInterpreter interpreter = expressionOptimizer(parsedExpression, metadata, session, expressionTypes);
-
-        Object expression = interpreter.evaluateConstantExpression(parsedExpression, expectedType, metadata, session, ImmutableList.of());
-
-        LiteralEncoder literalEncoder = new LiteralEncoder(getQueryRunner().getBlockEncodingManager());
-        return literalEncoder.toExpression(expression, expectedType);
+        Map<String, Set<Subfield>> actualSubfieldsPerColumn = tableScan.getAssignments().values().stream()
+                .map(TpchColumnHandle.class::cast)
+                .filter(column -> expectedSubfieldPathsPerColumn.containsKey(column.getColumnName()))
+                .collect(toImmutableMap(TpchColumnHandle::getColumnName, e -> new HashSet(e.getSubfieldPaths())));
+        assertEquals(actualSubfieldsPerColumn, expectedSubfieldPathsPerColumn);
     }
 }

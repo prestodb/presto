@@ -15,11 +15,13 @@ package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -50,6 +52,7 @@ public class TableScanNode
 
     // TODO: this flag will be remove with #12776; the caller should always set it to false until it is removed.
     private final boolean temporaryTable;
+    private final Map<Symbol, List<Subfield>> requiredSubfieldPaths;
 
     @JsonCreator
     public TableScanNode(
@@ -68,6 +71,7 @@ public class TableScanNode
         this.temporaryTable = temporaryTable;
         this.currentConstraint = null;
         this.enforcedConstraint = null;
+        this.requiredSubfieldPaths = ImmutableMap.of();
     }
 
     public TableScanNode(
@@ -76,18 +80,7 @@ public class TableScanNode
             List<Symbol> outputs,
             Map<Symbol, ColumnHandle> assignments)
     {
-        this(id, table, outputs, assignments, TupleDomain.all(), TupleDomain.all(), false);
-    }
-
-    public TableScanNode(
-            PlanNodeId id,
-            TableHandle table,
-            List<Symbol> outputs,
-            Map<Symbol, ColumnHandle> assignments,
-            TupleDomain<ColumnHandle> currentConstraint,
-            TupleDomain<ColumnHandle> enforcedConstraint)
-    {
-        this(id, table, outputs, assignments, currentConstraint, enforcedConstraint, false);
+        this(id, table, outputs, assignments, TupleDomain.all(), TupleDomain.all(), false, ImmutableMap.of());
     }
 
     public TableScanNode(
@@ -97,7 +90,8 @@ public class TableScanNode
             Map<Symbol, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> currentConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint,
-            boolean temporaryTable)
+            boolean temporaryTable,
+            Map<Symbol, List<Subfield>> requiredSubfieldPaths)
     {
         super(id);
         this.table = requireNonNull(table, "table is null");
@@ -110,6 +104,7 @@ public class TableScanNode
         if (!currentConstraint.isAll() || !enforcedConstraint.isAll()) {
             checkArgument(table.getLayout().isPresent(), "tableLayout must be present when currentConstraint or enforcedConstraint is non-trivial");
         }
+        this.requiredSubfieldPaths = requireNonNull(requiredSubfieldPaths, "requiredSubfieldPaths is null");
     }
 
     /**
@@ -179,6 +174,11 @@ public class TableScanNode
         return outputSymbols;
     }
 
+    public Map<Symbol, List<Subfield>> getRequiredSubfieldPaths()
+    {
+        return requiredSubfieldPaths;
+    }
+
     @Override
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
@@ -195,6 +195,7 @@ public class TableScanNode
         stringBuilder.append(", assignments='").append(assignments).append('\'');
         stringBuilder.append(", currentConstraint='").append(currentConstraint).append('\'');
         stringBuilder.append(", enforcedConstraint='").append(enforcedConstraint).append('\'');
+        stringBuilder.append(", requiredSubfieldPaths='").append(requiredSubfieldPaths).append('\'');
         stringBuilder.append('}');
         return stringBuilder.toString();
     }

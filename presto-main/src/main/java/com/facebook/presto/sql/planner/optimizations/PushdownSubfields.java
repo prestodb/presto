@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.operator.scalar.FilterBySubscriptPathsFunction;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.Subfield.NestedField;
@@ -35,14 +34,10 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
-import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
@@ -62,7 +57,6 @@ import static com.facebook.presto.spi.Subfield.allSubscripts;
 import static com.facebook.presto.sql.planner.SubfieldUtils.deferenceOrSubscriptExpressionToPath;
 import static com.facebook.presto.sql.planner.SubfieldUtils.isDereferenceOrSubscriptExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class PushdownSubfields
@@ -81,27 +75,17 @@ public class PushdownSubfields
             return plan;
         }
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator, symbolAllocator), plan, null);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(), plan, null);
     }
 
     private static class Rewriter
             extends SimplePlanRewriter<Void>
     {
-        private static final QualifiedName FILTER_BY_SUBSCRIPT_PATHS = QualifiedName.of(FilterBySubscriptPathsFunction.FILTER_BY_SUBSCRIPT_PATHS);
-
         private final SubfieldExtractor subfieldExtractor = new SubfieldExtractor();
-        private final PlanNodeIdAllocator idAllocator;
-        private final SymbolAllocator symbolAllocator;
 
         // TODO Move these into context
         private Set<Symbol> fullColumnUses = new HashSet<>();
         private Set<Subfield> subfieldPaths = new HashSet<>();
-
-        private Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
-        {
-            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
-            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
-        }
 
         @Override
         public PlanNode visitJoin(JoinNode node, RewriteContext<Void> context)
@@ -136,13 +120,10 @@ public class PushdownSubfields
                 return node;
             }
 
-            Assignments.Builder projections = Assignments.builder();
-            ImmutableMap.Builder<Symbol, ColumnHandle> newAssignments = ImmutableMap.builder();
-            ImmutableMap.Builder<Symbol, Symbol> symbolMapBuilder = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, List<Subfield>> leafSubfieldsBuilder = ImmutableMap.builder();
+
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
                 if (fullColumnUses.contains(entry.getKey())) {
-                    newAssignments.put(entry);
-                    projections.putIdentity(entry.getKey());
                     continue;
                 }
 
@@ -152,11 +133,11 @@ public class PushdownSubfields
                         subfields.add(path);
                     }
                 }
+
                 if (subfields.isEmpty()) {
-                    newAssignments.put(entry);
-                    projections.putIdentity(entry.getKey());
                     continue;
                 }
+
                 // Compute the leaf subfields. If we have a.b.c and
                 // a.b then a.b is the result. If a path is a prefix
                 // of another path, then the longer is discarded.
@@ -167,35 +148,23 @@ public class PushdownSubfields
                     }
                 }
 
-                Symbol newSymbol = symbolAllocator.newSymbol(entry.getKey());
-                projections.put(entry.getKey(),
-                        new FunctionCall(
-                                FILTER_BY_SUBSCRIPT_PATHS,
-                                ImmutableList.of(
-                                        newSymbol.toSymbolReference(),
-                                        new ArrayConstructor(leafPaths.stream()
-                                                .map(p -> new StringLiteral(p.serialize()))
-                                                .collect(toImmutableList())))));
-                newAssignments.put(newSymbol, entry.getValue());
-                symbolMapBuilder.put(entry.getKey(), newSymbol);
+                leafSubfieldsBuilder.put(entry.getKey(), leafPaths);
             }
 
-            Map<Symbol, Symbol> symbolMap = symbolMapBuilder.build();
-            if (symbolMap.isEmpty()) {
+            Map<Symbol, List<Subfield>> leafSubfields = leafSubfieldsBuilder.build();
+            if (leafSubfields.isEmpty()) {
                 return node;
             }
 
-            TableScanNode tableScanNode = new TableScanNode(
+            return new TableScanNode(
                     node.getId(),
                     node.getTable(),
-                    node.getOutputSymbols().stream()
-                            .map(s -> symbolMap.getOrDefault(s, s))
-                            .collect(toImmutableList()),
-                    newAssignments.build(),
+                    node.getOutputSymbols(),
+                    node.getAssignments(),
                     node.getCurrentConstraint(),
-                    node.getEnforcedConstraint());
-
-            return new ProjectNode(idAllocator.getNextId(), tableScanNode, projections.build());
+                    node.getEnforcedConstraint(),
+                    node.isTemporaryTable(),
+                    leafSubfields);
         }
 
         @Override

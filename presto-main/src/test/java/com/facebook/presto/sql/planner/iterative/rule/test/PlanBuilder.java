@@ -414,7 +414,9 @@ public class PlanBuilder
                 symbols,
                 assignments,
                 currentConstraint,
-                enforcedConstraint);
+                enforcedConstraint,
+                false,
+                ImmutableMap.of());
     }
 
     public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)

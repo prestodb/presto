@@ -252,7 +252,9 @@ public class PickTableLayout
                     tableScanNode.getOutputSymbols(),
                     tableScanNode.getAssignments(),
                     layout.getLayout().getPredicate(),
-                    TupleDomain.all()));
+                    TupleDomain.all(),
+                    tableScanNode.isTemporaryTable(),
+                    tableScanNode.getRequiredSubfieldPaths()));
         }
     }
 
@@ -362,7 +364,9 @@ public class PickTableLayout
                     node.getOutputSymbols(),
                     node.getAssignments(),
                     layout.getPredicate(),
-                    TupleDomain.none());
+                    TupleDomain.none(),
+                    node.isTemporaryTable(),
+                    node.getRequiredSubfieldPaths());
 
             RowExpression unenforcedConstraint = result.getUnenforcedConstraint()
                     .accept(new TranslateVariableNamesVisitor(), symbolToColumnNameMap.inverse());
@@ -430,7 +434,9 @@ public class PickTableLayout
                 node.getOutputSymbols(),
                 node.getAssignments(),
                 layout.getLayout().getPredicate(),
-                computeEnforced(newDomain, layout.getUnenforcedConstraint()));
+                computeEnforced(newDomain, layout.getUnenforcedConstraint()),
+                node.isTemporaryTable(),
+                node.getRequiredSubfieldPaths());
 
         // The order of the arguments to combineConjuncts matters:
         // * Unenforced constraints go first because they can only be simple column references,
