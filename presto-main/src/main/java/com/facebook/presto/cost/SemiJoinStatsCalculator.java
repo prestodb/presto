@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.cost;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.Symbol;
 
 import java.util.function.BiFunction;
 

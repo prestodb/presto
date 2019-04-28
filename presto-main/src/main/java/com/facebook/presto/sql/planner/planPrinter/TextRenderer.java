@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.Symbol;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 

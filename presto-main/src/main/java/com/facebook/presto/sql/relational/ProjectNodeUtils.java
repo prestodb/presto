@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.relational;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;

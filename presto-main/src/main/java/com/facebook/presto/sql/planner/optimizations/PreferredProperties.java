@@ -14,8 +14,8 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.spi.LocalProperty;
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.sql.planner.Partitioning;
-import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;

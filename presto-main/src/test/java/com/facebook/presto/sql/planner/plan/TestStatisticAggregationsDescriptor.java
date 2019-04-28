@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;

@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.cost.StatsAndCosts;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNode;
 
 import static java.util.Objects.requireNonNull;
 

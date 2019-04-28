@@ -16,11 +16,11 @@ package com.facebook.presto.sql.planner.sanity;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.analyzer.ExpressionTreeUtils;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Identifier;
 

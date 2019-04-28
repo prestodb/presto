@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;

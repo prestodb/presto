@@ -17,7 +17,7 @@ import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.TableWriterOperator;
 import com.facebook.presto.spi.eventlistener.StageGcStatistics;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;

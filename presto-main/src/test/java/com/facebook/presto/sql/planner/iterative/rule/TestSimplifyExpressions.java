@@ -14,10 +14,10 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LiteralEncoder;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.tree.Expression;

@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.spi.predicate.DiscreteValues;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Marker;

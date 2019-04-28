@@ -14,8 +14,8 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.JoinNode;

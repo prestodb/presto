@@ -18,8 +18,8 @@ import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;

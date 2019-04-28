@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.assertions;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.sql.planner.SymbolUtils;
 
 import static java.util.Objects.requireNonNull;

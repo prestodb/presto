@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.Symbol;
 import com.google.common.collect.ImmutableCollection;
 import org.testng.annotations.Test;
 

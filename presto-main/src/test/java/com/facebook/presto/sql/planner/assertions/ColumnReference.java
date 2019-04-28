@@ -18,9 +18,9 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 
 import java.util.Map;

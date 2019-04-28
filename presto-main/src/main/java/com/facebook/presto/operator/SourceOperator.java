@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.UpdatablePageSource;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeId;
 
 import java.util.Optional;
 import java.util.function.Supplier;

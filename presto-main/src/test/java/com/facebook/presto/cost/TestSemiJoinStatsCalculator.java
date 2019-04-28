@@ -14,7 +14,7 @@
 
 package com.facebook.presto.cost;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.Symbol;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 

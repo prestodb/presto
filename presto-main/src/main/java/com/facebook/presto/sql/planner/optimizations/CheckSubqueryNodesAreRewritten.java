@@ -16,14 +16,14 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.List;
 

@@ -26,6 +26,8 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.matching.Match;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -35,8 +37,6 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.iterative.PlanNodeMatcher;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
 

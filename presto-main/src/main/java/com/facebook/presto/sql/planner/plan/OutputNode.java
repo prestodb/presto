@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.IRVisitor;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;

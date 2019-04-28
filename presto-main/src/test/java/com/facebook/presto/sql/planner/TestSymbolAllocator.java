@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.spi.type.BigintType;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;

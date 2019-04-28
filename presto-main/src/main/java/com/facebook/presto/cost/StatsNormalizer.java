@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
@@ -21,7 +22,6 @@ import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.google.common.collect.ImmutableSet;
 

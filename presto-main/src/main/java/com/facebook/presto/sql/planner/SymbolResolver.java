@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.plan.Symbol;
+
 public interface SymbolResolver
 {
     Object getValue(Symbol symbol);

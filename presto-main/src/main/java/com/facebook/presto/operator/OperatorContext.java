@@ -21,7 +21,7 @@ import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;

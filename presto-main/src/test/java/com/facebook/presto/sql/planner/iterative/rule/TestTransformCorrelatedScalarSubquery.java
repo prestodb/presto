@@ -15,9 +15,9 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.Assignments;

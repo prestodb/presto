@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.tree.ComparisonExpression;

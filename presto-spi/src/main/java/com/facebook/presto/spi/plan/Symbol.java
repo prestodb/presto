@@ -11,32 +11,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
-import javax.annotation.concurrent.Immutable;
-
 import static java.util.Objects.requireNonNull;
 
-@Immutable
-public class PlanNodeId
+public class Symbol
+        implements Comparable<Symbol>
 {
-    private final String id;
+    private final String name;
 
     @JsonCreator
-    public PlanNodeId(String id)
+    public Symbol(String name)
     {
-        requireNonNull(id, "id is null");
-        this.id = id;
+        requireNonNull(name, "name is null");
+        this.name = name;
+    }
+
+    @JsonValue
+    public String getName()
+    {
+        return name;
     }
 
     @Override
-    @JsonValue
     public String toString()
     {
-        return id;
+        return name;
     }
 
     @Override
@@ -49,9 +52,9 @@ public class PlanNodeId
             return false;
         }
 
-        PlanNodeId that = (PlanNodeId) o;
+        Symbol symbol = (Symbol) o;
 
-        if (!id.equals(that.id)) {
+        if (!name.equals(symbol.name)) {
             return false;
         }
 
@@ -61,6 +64,12 @@ public class PlanNodeId
     @Override
     public int hashCode()
     {
-        return id.hashCode();
+        return name.hashCode();
+    }
+
+    @Override
+    public int compareTo(Symbol o)
+    {
+        return name.compareTo(o.name);
     }
 }

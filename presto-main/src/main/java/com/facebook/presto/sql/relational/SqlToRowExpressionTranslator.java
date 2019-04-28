@@ -15,6 +15,7 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
@@ -33,7 +34,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolUtils;
 import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;

@@ -14,7 +14,7 @@
 
 package com.facebook.presto.cost;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.Symbol;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import org.testng.annotations.Test;

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.sql.planner.SymbolUtils;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;

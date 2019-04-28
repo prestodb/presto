@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.tree.BindExpression;
 import com.facebook.presto.sql.tree.Identifier;

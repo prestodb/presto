@@ -19,9 +19,9 @@ import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.plan.PlanNode;
+
 import java.util.List;
 
 public class ChildReplacer

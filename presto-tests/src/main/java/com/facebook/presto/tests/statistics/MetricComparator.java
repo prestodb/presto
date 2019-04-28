@@ -17,7 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;

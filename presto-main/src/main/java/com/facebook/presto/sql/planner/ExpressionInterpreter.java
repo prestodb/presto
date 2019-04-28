@@ -25,6 +25,7 @@ import com.facebook.presto.spi.block.RowBlockBuilder;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.FunctionType;
 import com.facebook.presto.spi.type.RowType;

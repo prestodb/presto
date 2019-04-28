@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.google.common.collect.ImmutableMap;
 

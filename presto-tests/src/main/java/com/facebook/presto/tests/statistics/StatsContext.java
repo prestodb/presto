@@ -14,7 +14,7 @@
 package com.facebook.presto.tests.statistics;
 
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.google.common.collect.ImmutableMap;
 

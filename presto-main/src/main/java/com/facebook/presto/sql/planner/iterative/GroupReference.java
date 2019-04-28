@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.planner.iterative;
 
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.IRVisitor;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.IRVisitor;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.google.common.collect.ImmutableList;
 

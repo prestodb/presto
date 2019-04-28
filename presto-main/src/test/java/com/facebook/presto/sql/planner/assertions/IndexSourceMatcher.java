@@ -17,9 +17,9 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;

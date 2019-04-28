@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.Optional;

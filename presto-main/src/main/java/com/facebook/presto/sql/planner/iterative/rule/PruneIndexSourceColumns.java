@@ -14,11 +14,11 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.Maps;
 
 import java.util.List;

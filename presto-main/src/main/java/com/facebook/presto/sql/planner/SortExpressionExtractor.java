@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.ComparisonExpression;

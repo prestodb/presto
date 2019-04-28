@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;

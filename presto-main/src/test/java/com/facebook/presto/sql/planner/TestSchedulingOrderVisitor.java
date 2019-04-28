@@ -15,10 +15,11 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.TestingColumnHandle;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

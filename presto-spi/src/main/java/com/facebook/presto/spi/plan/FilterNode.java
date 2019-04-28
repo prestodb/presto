@@ -11,18 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Collections;
 import java.util.List;
+
+import static java.util.Arrays.asList;
 
 @Immutable
 public class FilterNode
@@ -57,7 +57,7 @@ public class FilterNode
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of(source);
+        return Collections.unmodifiableList(asList(source));
     }
 
     @JsonProperty("source")
@@ -75,6 +75,6 @@ public class FilterNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new FilterNode(getId(), Iterables.getOnlyElement(newChildren), predicate);
+        return new FilterNode(getId(), newChildren.get(0), predicate);
     }
 }

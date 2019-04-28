@@ -18,7 +18,7 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.FunctionCall;
 

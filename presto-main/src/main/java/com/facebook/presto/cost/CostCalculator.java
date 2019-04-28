@@ -15,8 +15,8 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.inject.BindingAnnotation;
 
 import javax.annotation.concurrent.ThreadSafe;

@@ -15,12 +15,12 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LiteralEncoder;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DecimalLiteral;

@@ -26,7 +26,7 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.util.DateTimeUtils;
 import com.google.common.collect.ImmutableList;

@@ -17,7 +17,7 @@ import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.Symbol;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;

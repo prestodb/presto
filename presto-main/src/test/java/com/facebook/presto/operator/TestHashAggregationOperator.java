@@ -25,13 +25,13 @@ import com.facebook.presto.operator.aggregation.builder.InMemoryHashAggregationB
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.PageBuilderStatus;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.Spiller;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
