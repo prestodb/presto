@@ -37,7 +37,7 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public abstract class SetOperationNode
-        extends PlanNode
+        extends InternalPlanNode
 {
     private final List<PlanNode> sources;
     private final ListMultimap<Symbol, Symbol> outputToInputs;

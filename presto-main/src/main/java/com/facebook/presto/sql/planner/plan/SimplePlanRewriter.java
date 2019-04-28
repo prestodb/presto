@@ -20,7 +20,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public abstract class SimplePlanRewriter<C>
-        extends PlanVisitor<PlanNode, SimplePlanRewriter.RewriteContext<C>>
+        extends InternalPlanVisitor<PlanNode, SimplePlanRewriter.RewriteContext<C>>
 {
     public static <C> PlanNode rewriteWith(SimplePlanRewriter<C> rewriter, PlanNode node)
     {

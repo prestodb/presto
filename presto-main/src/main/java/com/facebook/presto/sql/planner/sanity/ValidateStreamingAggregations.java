@@ -24,8 +24,8 @@ import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.LocalProperties;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.sanity.PlanSanityChecker.Checker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
@@ -50,7 +50,7 @@ public class ValidateStreamingAggregations
     }
 
     private static final class Visitor
-            extends PlanVisitor<Void, Void>
+            extends InternalPlanVisitor<Void, Void>
     {
         private final Session sesstion;
         private final Metadata metadata;

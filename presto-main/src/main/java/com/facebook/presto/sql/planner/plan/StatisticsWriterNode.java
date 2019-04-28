@@ -29,7 +29,7 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 
 public class StatisticsWriterNode
-        extends PlanNode
+        extends InternalPlanNode
 {
     private final PlanNode source;
     private final Symbol rowCountSymbol;
@@ -109,7 +109,7 @@ public class StatisticsWriterNode
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitStatisticsWriterNode(this, context);
     }

@@ -18,12 +18,13 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+
+import static java.util.Collections.singletonList;
+import static java.util.Collections.unmodifiableList;
 
 @Immutable
 public class FilterNode
@@ -43,10 +44,23 @@ public class FilterNode
         this.predicate = predicate;
     }
 
+    /**
+     * Get the predicate (a RowExpression of boolean type) of the FilterNode.
+     * It serves as the criteria to determine whether the incoming rows should be filtered out or not.
+     */
     @JsonProperty("predicate")
     public RowExpression getPredicate()
     {
         return predicate;
+    }
+
+    /**
+     * FilterNode only expects a single upstream PlanNode.
+     */
+    @JsonProperty("source")
+    public PlanNode getSource()
+    {
+        return source;
     }
 
     @Override
@@ -58,13 +72,7 @@ public class FilterNode
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of(source);
-    }
-
-    @JsonProperty("source")
-    public PlanNode getSource()
-    {
-        return source;
+        return unmodifiableList(singletonList(source));
     }
 
     @Override
@@ -76,6 +84,10 @@ public class FilterNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new FilterNode(getId(), Iterables.getOnlyElement(newChildren), predicate);
+        // FilterNode only expects a single upstream PlanNode
+        if (newChildren == null || newChildren.size() != 1) {
+            throw new IllegalArgumentException("Expect exactly one child to replace");
+        }
+        return new FilterNode(getId(), newChildren.get(0), predicate);
     }
 }

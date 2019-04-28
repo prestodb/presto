@@ -15,14 +15,15 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.plan.InternalPlanNode;
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
 public class GroupReference
-        extends PlanNode
+        extends InternalPlanNode
 {
     private final int groupId;
     private final List<Symbol> outputs;
@@ -46,7 +47,7 @@ public class GroupReference
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitGroupReference(this, context);
     }

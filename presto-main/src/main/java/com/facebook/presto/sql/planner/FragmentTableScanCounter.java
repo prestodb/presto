@@ -14,8 +14,8 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 
 import java.util.Collection;
@@ -50,7 +50,7 @@ public final class FragmentTableScanCounter
     }
 
     private static class Visitor
-            extends PlanVisitor<Integer, Void>
+            extends InternalPlanVisitor<Integer, Void>
     {
         @Override
         public Integer visitTableScan(TableScanNode node, Void context)
