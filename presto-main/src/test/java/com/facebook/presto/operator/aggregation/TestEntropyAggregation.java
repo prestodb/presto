@@ -18,8 +18,10 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 
@@ -31,7 +33,7 @@ public class TestEntropyAggregation
     {
         BlockBuilder blockBuilder = INTEGER.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
-            INTEGER.writeInteger(i);
+            blockBuilder.writeInt(i);
         }
         return new Block[] {blockBuilder.build()};
     }
@@ -39,13 +41,18 @@ public class TestEntropyAggregation
     @Override
     public Number getExpectedValue(int start, int length)
     {
-        final ArrayList<Integer> counts = IntStream.range(start, start + length).toArray();
-        final double sum = IntStream.of(counts).sum();
+        final ArrayList<Integer> counts = IntStream
+                .range(start, start + length)
+                .boxed()
+                .collect(Collectors.toCollection(ArrayList::new));
+        final double sum = counts.stream().mapToDouble(c -> c).sum();
         final ArrayList<Double> entropies = counts.stream()
                 .filter(c -> c > 0)
                 .map(c -> (c / sum) * Math.log(sum / c))
-                .collect(Collectors.toList());
-        return entropies.isEmpty() ? 0 : entropies.stream().sum();
+                .collect(Collectors.toCollection(ArrayList::new));
+        return entropies.isEmpty() ?
+                0 :
+                entropies.stream().mapToDouble(c -> c).sum() / Math.log(2);
     }
 
     @Override
@@ -57,6 +64,6 @@ public class TestEntropyAggregation
     @Override
     protected List<String> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.INTEGER);
+        return ImmutableList.of(StandardTypes.BIGINT);
     }
 }
