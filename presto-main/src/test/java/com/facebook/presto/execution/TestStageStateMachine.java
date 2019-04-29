@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.operator.StageExecutionDescriptor;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -48,7 +49,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestStageStateMachine
 {
-    private static final StageId STAGE_ID = new StageId("query", 0);
+    private static final StageId STAGE_ID = new StageId(new QueryId("query"), 0);
     private static final URI LOCATION = URI.create("fake://fake-stage");
     private static final PlanFragment PLAN_FRAGMENT = createValuesPlan();
     private static final SQLException FAILED_CAUSE = new SQLException("FAILED");

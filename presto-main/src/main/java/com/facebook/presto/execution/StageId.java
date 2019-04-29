@@ -41,11 +41,6 @@ public class StageId
     private final QueryId queryId;
     private final int id;
 
-    public StageId(String queryId, int id)
-    {
-        this(new QueryId(queryId), id);
-    }
-
     public StageId(QueryId queryId, int id)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
