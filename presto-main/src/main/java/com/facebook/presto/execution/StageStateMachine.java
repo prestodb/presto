@@ -219,7 +219,7 @@ public class StageStateMachine
         requireNonNull(finalTaskInfos, "finalTaskInfos is null");
         checkState(stageState.get().isDone());
         StageInfo stageInfo = getStageInfo(() -> finalTaskInfos);
-        checkArgument(stageInfo.isCompleteInfo(), "finalTaskInfos are not all done");
+        checkArgument(stageInfo.isFinalStageInfo(), "finalTaskInfos are not all done");
         finalStageInfo.compareAndSet(Optional.empty(), Optional.of(stageInfo));
     }
 
