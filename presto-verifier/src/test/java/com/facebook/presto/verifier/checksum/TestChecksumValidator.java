@@ -67,6 +67,7 @@ public class TestChecksumValidator
     private static final Column MAP_ARRAY_COLUMN = new Column("map_array", SIMPLE, typeRegistry.getType(parseTypeSignature("array(map(int,varchar))")));
 
     private static final double RELATIVE_ERROR_MARGIN = 1e-4;
+    private static final double ABSOLUTE_ERROR_MARGIN = 1e-12;
     private static final Map<String, Object> FLOATING_POINT_COUNTS = ImmutableMap.<String, Object>builder()
             .put("double_nan_count", 2L)
             .put("double_pos_inf_count", 3L)
@@ -79,7 +80,7 @@ public class TestChecksumValidator
 
     private final ChecksumValidator checksumValidator = new ChecksumValidator(
             new SimpleColumnValidator(),
-            new FloatingPointColumnValidator(new VerifierConfig().setRelativeErrorMargin(RELATIVE_ERROR_MARGIN)),
+            new FloatingPointColumnValidator(new VerifierConfig().setRelativeErrorMargin(RELATIVE_ERROR_MARGIN).setAbsoluteErrorMargin(ABSOLUTE_ERROR_MARGIN)),
             new OrderableArrayColumnValidator());
 
     @Test
@@ -225,6 +226,51 @@ public class TestChecksumValidator
                 ImmutableMap.builder()
                         .put(DOUBLE_COLUMN, new ColumnMatchResult(false, "control(sum: 1.0) test(sum: null)"))
                         .put(REAL_COLUMN, new ColumnMatchResult(false, "control(sum: null) test(sum: 1.0)"))
+                        .build());
+    }
+
+    @Test
+    public void testFloatingPointCloseToZero()
+    {
+        List<Column> columns = ImmutableList.of(DOUBLE_COLUMN, REAL_COLUMN);
+
+        // Matched
+        ChecksumResult controlChecksum = new ChecksumResult(
+                5,
+                ImmutableMap.<String, Object>builder()
+                        .putAll(FLOATING_POINT_COUNTS)
+                        .put("double_sum", 0.0)
+                        .put("real_sum", 4.9e-12)
+                        .build());
+        ChecksumResult testChecksum = new ChecksumResult(
+                5,
+                ImmutableMap.<String, Object>builder()
+                        .putAll(FLOATING_POINT_COUNTS)
+                        .put("double_sum", 4.9e-12)
+                        .put("real_sum", 0.0)
+                        .build());
+        assertTrue(checksumValidator.getMismatchedColumns(columns, controlChecksum, testChecksum).isEmpty());
+
+        // Mismatched
+        controlChecksum = new ChecksumResult(
+                5,
+                ImmutableMap.<String, Object>builder()
+                        .putAll(FLOATING_POINT_COUNTS)
+                        .put("double_sum", 0.0)
+                        .put("real_sum", 5.1e-12)
+                        .build());
+        testChecksum = new ChecksumResult(
+                5,
+                ImmutableMap.<String, Object>builder()
+                        .putAll(FLOATING_POINT_COUNTS)
+                        .put("double_sum", 5.1e-12)
+                        .put("real_sum", 0.0)
+                        .build());
+        assertEquals(
+                checksumValidator.getMismatchedColumns(columns, controlChecksum, testChecksum),
+                ImmutableMap.builder()
+                        .put(DOUBLE_COLUMN, new ColumnMatchResult(false, "control(mean: 0.0) test(mean: 1.0199999999999999E-12) difference: 1.0199999999999999E-12"))
+                        .put(REAL_COLUMN, new ColumnMatchResult(false, "control(mean: 1.0199999999999999E-12) test(mean: 0.0) difference: 1.0199999999999999E-12"))
                         .build());
     }
 
