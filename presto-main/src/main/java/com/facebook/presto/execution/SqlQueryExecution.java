@@ -608,7 +608,7 @@ public class SqlQueryExecution
     {
         Optional<StageInfo> stageInfo = Optional.empty();
         if (scheduler != null) {
-            stageInfo = Optional.ofNullable(scheduler.getStageInfo());
+            stageInfo = Optional.of(scheduler.getStageInfo());
         }
 
         QueryInfo queryInfo = stateMachine.updateQueryInfo(stageInfo);
