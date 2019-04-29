@@ -38,6 +38,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_TASK;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
@@ -76,8 +77,9 @@ public class PrestoExceptionClassifier
             HIVE_CURSOR_ERROR,
             HIVE_FILE_NOT_FOUND,
             HIVE_TOO_MANY_OPEN_PARTITIONS,
-            HIVE_WRITER_DATA_ERROR,
+            HIVE_WRITER_OPEN_ERROR,
             HIVE_WRITER_CLOSE_ERROR,
+            HIVE_WRITER_DATA_ERROR,
             HIVE_FILESYSTEM_ERROR,
             HIVE_CANNOT_OPEN_SPLIT,
             HIVE_METASTORE_ERROR,
