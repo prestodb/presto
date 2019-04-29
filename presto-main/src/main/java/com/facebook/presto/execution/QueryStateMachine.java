@@ -370,7 +370,7 @@ public class QueryStateMachine
             }
         }
 
-        boolean completeInfo = getAllStages(rootStage).stream().allMatch(StageInfo::isCompleteInfo);
+        boolean completeInfo = getAllStages(rootStage).stream().allMatch(StageInfo::isFinalStageInfo);
         boolean isScheduled = isScheduled(rootStage);
 
         return new QueryInfo(
@@ -479,7 +479,7 @@ public class QueryStateMachine
 
             stageGcStatistics.add(stageStats.getGcInfo());
 
-            completeInfo = completeInfo && stageInfo.isCompleteInfo();
+            completeInfo = completeInfo && stageInfo.isFinalStageInfo();
             operatorStatsSummary.addAll(stageInfo.getStageStats().getOperatorSummaries());
         }
 
