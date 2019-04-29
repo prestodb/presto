@@ -119,11 +119,11 @@ public class FloatingPointColumnValidator
                     format(
                             "control(NaN: %s, +infinity: %s, -infinity: %s) test(NaN: %s, +infinity: %s, -infinity: %s)",
                             controlNanCount,
-                            testNanCount,
                             controlPositiveInfinityCount,
-                            testPositiveInfinityCount,
                             controlNegativeInfinityCount,
-                            testNanCount));
+                            testNanCount,
+                            testPositiveInfinityCount,
+                            testNegativeInfinityCount));
         }
 
         Object controlSumObject = controlResult.getChecksum(sumColumnAlias);
