@@ -278,11 +278,11 @@ public class SqlQueryScheduler
         // when query is done or any time a stage completes, attempt to transition query to "final query info ready"
         queryStateMachine.addStateChangeListener(newState -> {
             if (newState.isDone()) {
-                queryStateMachine.updateQueryInfo(Optional.ofNullable(getStageInfo()));
+                queryStateMachine.updateQueryInfo(Optional.of(getStageInfo()));
             }
         });
         for (SqlStageExecution stage : stages.values()) {
-            stage.addFinalStageInfoListener(status -> queryStateMachine.updateQueryInfo(Optional.ofNullable(getStageInfo())));
+            stage.addFinalStageInfoListener(status -> queryStateMachine.updateQueryInfo(Optional.of(getStageInfo())));
         }
     }
 
