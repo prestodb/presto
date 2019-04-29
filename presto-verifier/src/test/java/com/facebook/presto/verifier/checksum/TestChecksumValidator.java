@@ -64,6 +64,7 @@ public class TestChecksumValidator
     private static final Column DOUBLE_COLUMN = new Column("double", FLOATING_POINT, DOUBLE);
     private static final Column REAL_COLUMN = new Column("real", FLOATING_POINT, REAL);
     private static final Column INT_ARRAY_COLUMN = new Column("int_array", ORDERABLE_ARRAY, new ArrayType(INTEGER));
+    private static final Column ROW_ARRAY_COLUMN = new Column("row_array", ORDERABLE_ARRAY, typeRegistry.getType(parseTypeSignature("array(row(a int,b varchar))")));
     private static final Column MAP_ARRAY_COLUMN = new Column("map_array", SIMPLE, typeRegistry.getType(parseTypeSignature("array(map(int,varchar))")));
 
     private static final double RELATIVE_ERROR_MARGIN = 1e-4;
@@ -94,6 +95,7 @@ public class TestChecksumValidator
                         DOUBLE_COLUMN,
                         REAL_COLUMN,
                         INT_ARRAY_COLUMN,
+                        ROW_ARRAY_COLUMN,
                         MAP_ARRAY_COLUMN));
         Statement expectedChecksumQuery = sqlParser.createStatement(
                 "SELECT\n" +
@@ -108,7 +110,8 @@ public class TestChecksumValidator
                         ", \"count\"(\"real\") FILTER (WHERE \"is_nan\"(\"real\")) \"real_nan_count\"\n" +
                         ", \"count\"(\"real\") FILTER (WHERE (\"real\" = \"infinity\"())) \"real_pos_inf_count\"\n" +
                         ", \"count\"(\"real\") FILTER (WHERE (\"real\" = -\"infinity\"())) \"real_neg_inf_count\"\n" +
-                        ", \"checksum\"(\"array_sort\"(\"int_array\")) int_array_sorted_checksum\n" +
+                        ", \"checksum\"(\"array_sort\"(\"int_array\")) int_array_checksum\n" +
+                        ", COALESCE(\"checksum\"(TRY(\"array_sort\"(\"row_array\"))), \"checksum\"(\"row_array\")) \"row_array_checksum\"" +
                         ", \"checksum\"(\"map_array\") \"map_array_checksum\"\n" +
                         "FROM\n" +
                         "  test:di",
@@ -281,7 +284,7 @@ public class TestChecksumValidator
         ChecksumResult controlChecksum = new ChecksumResult(
                 5,
                 ImmutableMap.<String, Object>builder()
-                        .put("int_array_sorted_checksum", new SqlVarbinary(new byte[] {0xa}))
+                        .put("int_array_checksum", new SqlVarbinary(new byte[] {0xa}))
                         .put("map_array_checksum", new SqlVarbinary(new byte[] {0xb}))
                         .build());
 
@@ -292,13 +295,13 @@ public class TestChecksumValidator
         ChecksumResult testChecksum = new ChecksumResult(
                 5,
                 ImmutableMap.<String, Object>builder()
-                        .put("int_array_sorted_checksum", new SqlVarbinary(new byte[] {0x1a}))
+                        .put("int_array_checksum", new SqlVarbinary(new byte[] {0x1a}))
                         .put("map_array_checksum", new SqlVarbinary(new byte[] {0x1b}))
                         .build());
         assertEquals(
                 checksumValidator.getMismatchedColumns(columns, controlChecksum, testChecksum),
                 ImmutableMap.builder()
-                        .put(INT_ARRAY_COLUMN, new ColumnMatchResult(false, "control(sorted_checksum: 0a) test(sorted_checksum: 1a)"))
+                        .put(INT_ARRAY_COLUMN, new ColumnMatchResult(false, "control(checksum: 0a) test(checksum: 1a)"))
                         .put(MAP_ARRAY_COLUMN, new ColumnMatchResult(false, "control(checksum: 0b) test(checksum: 1b)"))
                         .build());
     }
