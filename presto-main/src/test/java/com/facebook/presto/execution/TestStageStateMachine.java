@@ -43,7 +43,6 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
@@ -300,18 +299,18 @@ public class TestStageStateMachine
         assertEquals(stageInfo.getSubStages(), ImmutableList.of());
         assertEquals(stageInfo.getTasks(), ImmutableList.of());
         assertEquals(stageInfo.getTypes(), ImmutableList.of(VARCHAR));
-        assertSame(stageInfo.getPlan(), PLAN_FRAGMENT);
+        assertSame(stageInfo.getPlan().get(), PLAN_FRAGMENT);
 
         assertEquals(stateMachine.getState(), expectedState);
         assertEquals(stageInfo.getState(), expectedState);
 
         if (expectedState == StageState.FAILED) {
-            ExecutionFailureInfo failure = stageInfo.getFailureCause();
+            ExecutionFailureInfo failure = stageInfo.getFailureCause().get();
             assertEquals(failure.getMessage(), FAILED_CAUSE.getMessage());
             assertEquals(failure.getType(), FAILED_CAUSE.getClass().getName());
         }
         else {
-            assertNull(stageInfo.getFailureCause());
+            assertFalse(stageInfo.getFailureCause().isPresent());
         }
     }
 

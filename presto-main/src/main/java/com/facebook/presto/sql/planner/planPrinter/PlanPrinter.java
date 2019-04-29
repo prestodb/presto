@@ -225,10 +225,11 @@ public class PlanPrinter
         List<StageInfo> allStages = getAllStages(Optional.of(outputStageInfo));
         List<PlanFragment> allFragments = allStages.stream()
                 .map(StageInfo::getPlan)
+                .map(Optional::get)
                 .collect(toImmutableList());
         Map<PlanNodeId, PlanNodeStats> aggregatedStats = aggregateStageStats(allStages);
         for (StageInfo stageInfo : allStages) {
-            builder.append(formatFragment(functionManager, session, stageInfo.getPlan(), Optional.of(stageInfo), Optional.of(aggregatedStats), verbose, allFragments));
+            builder.append(formatFragment(functionManager, session, stageInfo.getPlan().get(), Optional.of(stageInfo), Optional.of(aggregatedStats), verbose, allFragments));
         }
 
         return builder.toString();
