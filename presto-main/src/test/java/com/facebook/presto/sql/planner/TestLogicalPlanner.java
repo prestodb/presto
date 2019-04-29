@@ -730,7 +730,7 @@ public class TestLogicalPlanner
                                 anyTree(tableScan("orders")))));
     }
 
-    @Test
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Given correlated subquery is not supported.*")
     public void testDoubleNestedCorrelatedSubqueries()
     {
         assertPlan(
@@ -749,7 +749,7 @@ public class TestLogicalPlanner
                                                 any(
                                                         any(
                                                                 tableScan("lineitem", ImmutableMap.of("L", "orderkey")))))))),
-                MorePredicates.<PlanOptimizer>isInstanceOfAny(AddLocalExchanges.class, CheckSubqueryNodesAreRewritten.class).negate());
+                MorePredicates.<PlanOptimizer>isInstanceOfAny(AddLocalExchanges.class).negate());
     }
 
     @Test
