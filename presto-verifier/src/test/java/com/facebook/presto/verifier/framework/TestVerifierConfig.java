@@ -61,6 +61,7 @@ public class TestVerifierConfig
                 .setSuiteRepetitions(1)
                 .setQueryRepetitions(1)
                 .setRelativeErrorMargin(1e-4)
+                .setAbsoluteErrorMargin(1e-12)
                 .setRunTearDownOnResultMismatch(false));
     }
 
@@ -98,6 +99,7 @@ public class TestVerifierConfig
                 .put("suite-repetitions", "2")
                 .put("query-repetitions", "3")
                 .put("relative-error-margin", "2e-5")
+                .put("absolute-error-margin", "1e-14")
                 .put("run-teardown-on-result-mismatch", "true")
                 .build();
         VerifierConfig expected = new VerifierConfig()
@@ -131,6 +133,7 @@ public class TestVerifierConfig
                 .setSuiteRepetitions(2)
                 .setQueryRepetitions(3)
                 .setRelativeErrorMargin(2e-5)
+                .setAbsoluteErrorMargin(1e-14)
                 .setRunTearDownOnResultMismatch(true);
 
         assertFullMapping(properties, expected);

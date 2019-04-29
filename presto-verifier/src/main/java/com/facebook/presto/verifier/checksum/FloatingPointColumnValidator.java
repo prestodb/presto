@@ -34,6 +34,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.facebook.presto.verifier.framework.VerifierUtil.delimitedIdentifier;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.abs;
@@ -44,11 +45,13 @@ public class FloatingPointColumnValidator
         implements ColumnValidator
 {
     private final double relativeErrorMargin;
+    private final double absoluteErrorMargin;
 
     @Inject
     public FloatingPointColumnValidator(VerifierConfig config)
     {
         this.relativeErrorMargin = config.getRelativeErrorMargin();
+        this.absoluteErrorMargin = config.getAbsoluteErrorMargin();
     }
 
     @Override
@@ -100,6 +103,12 @@ public class FloatingPointColumnValidator
     @Override
     public ColumnMatchResult validate(Column column, ChecksumResult controlResult, ChecksumResult testResult)
     {
+        checkArgument(
+                controlResult.getRowCount() == testResult.getRowCount(),
+                "Test row count (%s) does not match control row count (%s)",
+                testResult.getRowCount(),
+                controlResult.getRowCount());
+
         String sumColumnAlias = getSumColumnAlias(column);
         String nanCountColumnAlias = getNanCountColumnAlias(column);
         String positiveInfinityCountColumnAlias = getPositiveInfinityCountColumnAlias(column);
@@ -145,15 +154,18 @@ public class FloatingPointColumnValidator
                     format("control(sum: %s) test(sum: %s)", controlSum, testSum));
         }
 
-        // Handles small values and small differences
-        double difference = abs(controlSum - testSum);
-        if (controlSum == 0 || testSum == 0 || difference < Double.MIN_NORMAL) {
+        // Use absolute error margin if either control sum or test sum is 0
+        if (controlSum == 0 || testSum == 0) {
+            double controlMean = controlSum / controlResult.getRowCount();
+            double testMean = testSum / controlResult.getRowCount();
+            double difference = abs(controlMean - testMean);
             return new ColumnMatchResult(
-                    difference < relativeErrorMargin * Double.MIN_NORMAL,
-                    format("control(sum: %s) test(sum: %s) difference: %s", controlSum, testSum, difference));
+                    difference < absoluteErrorMargin,
+                    format("control(mean: %s) test(mean: %s) difference: %s", controlMean, testMean, difference));
         }
 
-        // Use safe relative error
+        // Use relative error margin for the common cases
+        double difference = abs(controlSum - testSum);
         double relativeError = difference / min((abs(controlSum) + abs(testSum)) / 2, Double.MAX_VALUE);
         return new ColumnMatchResult(
                 relativeError < relativeErrorMargin,
