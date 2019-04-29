@@ -254,7 +254,7 @@ public class SqlQueryScheduler
                     return;
                 }
                 if (state == FAILED) {
-                    queryStateMachine.transitionToFailed(stage.getStageInfo().getFailureCause().toException());
+                    queryStateMachine.transitionToFailed(stage.getStageInfo().getFailureCause().get().toException());
                 }
                 else if (state == ABORTED) {
                     // this should never happen, since abort can only be triggered in query clean up after the query is finished

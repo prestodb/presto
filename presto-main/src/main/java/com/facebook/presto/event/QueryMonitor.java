@@ -287,8 +287,8 @@ public class QueryMonitor
             if (queryInfo.getOutputStage().isPresent()) {
                 ImmutableSortedMap.Builder<PlanFragmentId, JsonPlanFragment> fragmentJsonMap = ImmutableSortedMap.naturalOrder();
                 for (StageInfo stage : getAllStages(queryInfo.getOutputStage())) {
-                    PlanFragmentId fragmentId = stage.getPlan().getId();
-                    JsonPlanFragment jsonPlanFragment = new JsonPlanFragment(stage.getPlan().getJsonRepresentation().get());
+                    PlanFragmentId fragmentId = stage.getPlan().get().getId();
+                    JsonPlanFragment jsonPlanFragment = new JsonPlanFragment(stage.getPlan().get().getJsonRepresentation().get());
                     fragmentJsonMap.put(fragmentId, jsonPlanFragment);
                 }
                 return Optional.of(PLAN_MAP_CODEC.toJson(fragmentJsonMap.build()));

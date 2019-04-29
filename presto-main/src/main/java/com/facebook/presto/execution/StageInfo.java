@@ -19,7 +19,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
@@ -36,41 +35,34 @@ public class StageInfo
     private final StageId stageId;
     private final StageState state;
     private final URI self;
-    private final PlanFragment plan;
+    private final Optional<PlanFragment> plan;
     private final List<Type> types;
     private final StageStats stageStats;
     private final List<TaskInfo> tasks;
     private final List<StageInfo> subStages;
-    private final ExecutionFailureInfo failureCause;
+    private final Optional<ExecutionFailureInfo> failureCause;
 
     @JsonCreator
     public StageInfo(
             @JsonProperty("stageId") StageId stageId,
             @JsonProperty("state") StageState state,
             @JsonProperty("self") URI self,
-            @JsonProperty("plan") @Nullable PlanFragment plan,
+            @JsonProperty("plan") Optional<PlanFragment> plan,
             @JsonProperty("types") List<Type> types,
             @JsonProperty("stageStats") StageStats stageStats,
             @JsonProperty("tasks") List<TaskInfo> tasks,
             @JsonProperty("subStages") List<StageInfo> subStages,
-            @JsonProperty("failureCause") ExecutionFailureInfo failureCause)
+            @JsonProperty("failureCause") Optional<ExecutionFailureInfo> failureCause)
     {
-        requireNonNull(stageId, "stageId is null");
-        requireNonNull(state, "state is null");
-        requireNonNull(self, "self is null");
-        requireNonNull(stageStats, "stageStats is null");
-        requireNonNull(tasks, "tasks is null");
-        requireNonNull(subStages, "subStages is null");
-
-        this.stageId = stageId;
-        this.state = state;
-        this.self = self;
-        this.plan = plan;
-        this.types = types;
-        this.stageStats = stageStats;
-        this.tasks = ImmutableList.copyOf(tasks);
-        this.subStages = subStages;
-        this.failureCause = failureCause;
+        this.stageId = requireNonNull(stageId, "stageId is null");
+        this.state = requireNonNull(state, "state is null");
+        this.self = requireNonNull(self, "self is null");
+        this.plan = requireNonNull(plan, "plan is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.stageStats = requireNonNull(stageStats, "stageStats is null");
+        this.tasks = ImmutableList.copyOf(requireNonNull(tasks, "tasks is null"));
+        this.subStages = ImmutableList.copyOf(requireNonNull(subStages, "subStages is null"));
+        this.failureCause = requireNonNull(failureCause, "failureCause is null");
     }
 
     @JsonProperty
@@ -92,8 +84,7 @@ public class StageInfo
     }
 
     @JsonProperty
-    @Nullable
-    public PlanFragment getPlan()
+    public Optional<PlanFragment> getPlan()
     {
         return plan;
     }
@@ -123,7 +114,7 @@ public class StageInfo
     }
 
     @JsonProperty
-    public ExecutionFailureInfo getFailureCause()
+    public Optional<ExecutionFailureInfo> getFailureCause()
     {
         return failureCause;
     }
