@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.graph.Traverser.forTree;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -141,19 +142,13 @@ public class StageInfo
                 .toString();
     }
 
-    public static List<StageInfo> getAllStages(Optional<StageInfo> stageInfo)
+    public List<StageInfo> getAllStages()
     {
-        ImmutableList.Builder<StageInfo> collector = ImmutableList.builder();
-        addAllStages(stageInfo, collector);
-        return collector.build();
+        return ImmutableList.copyOf(forTree(StageInfo::getSubStages).depthFirstPreOrder(this));
     }
 
-    private static void addAllStages(Optional<StageInfo> stageInfo, ImmutableList.Builder<StageInfo> collector)
+    public static List<StageInfo> getAllStages(Optional<StageInfo> stageInfo)
     {
-        stageInfo.ifPresent(stage -> {
-            collector.add(stage);
-            stage.getSubStages().stream()
-                    .forEach(subStage -> addAllStages(Optional.ofNullable(subStage), collector));
-        });
+        return stageInfo.map(StageInfo::getAllStages).orElse(ImmutableList.of());
     }
 }
