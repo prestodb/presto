@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.presto.connector.thrift.ThriftErrorCode;
 import com.facebook.presto.hive.HiveErrorCode;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.plugin.jdbc.JdbcErrorCode;
@@ -30,6 +31,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
 
+import static com.facebook.presto.connector.thrift.ThriftErrorCode.THRIFT_SERVICE_CONNECTION_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
@@ -60,6 +62,7 @@ public class PrestoExceptionClassifier
             .addAll(asList(StandardErrorCode.values()))
             .addAll(asList(HiveErrorCode.values()))
             .addAll(asList(JdbcErrorCode.values()))
+            .addAll(asList(ThriftErrorCode.values()))
             .build();
 
     private static final Set<ErrorCodeSupplier> DEFAULT_RETRYABLE_ERRORS = ImmutableSet.of(
@@ -84,7 +87,9 @@ public class PrestoExceptionClassifier
             HIVE_CANNOT_OPEN_SPLIT,
             HIVE_METASTORE_ERROR,
             // From JdbcErrorCode
-            JDBC_ERROR);
+            JDBC_ERROR,
+            // From ThriftErrorCode
+            THRIFT_SERVICE_CONNECTION_ERROR);
 
     private final Map<Integer, ErrorCodeSupplier> errorByCode;
     private final Set<ErrorCodeSupplier> retryableErrors;
