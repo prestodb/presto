@@ -205,6 +205,27 @@ public class TestDataVerification
                         "  _col0 \\(double\\): control\\(sum: .*\\) test\\(sum: 2.0\\) relative error: .*\n"));
     }
 
+    @Test
+    public void testArrayOfRow()
+    {
+        Optional<VerifierQueryEvent> event = createVerification("SELECT ARRAY[ROW(1, 'a'), ROW(2, null)]", "SELECT ARRAY[ROW(1, 'a'), ROW(2, null)]").run();
+        assertTrue(event.isPresent());
+        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+
+        event = createVerification("SELECT ARRAY[ROW(1, 'a'), ROW(2, 'b')]", "SELECT ARRAY[ROW(1, 'a'), ROW(2, null)]").run();
+        assertTrue(event.isPresent());
+        assertEvent(
+                event.get(),
+                FAILED,
+                Optional.of(true),
+                Optional.of("COLUMN_MISMATCH"),
+                Optional.of("Test state SUCCEEDED, Control state SUCCEEDED\n" +
+                        "COLUMN MISMATCH\n" +
+                        "Control 1 rows, Test 1 rows\n" +
+                        "Mismatched Columns:\n" +
+                        "  _col0 \\(array\\(row\\(integer, varchar\\(1\\)\\)\\)\\): control\\(checksum: 71 b5 2f 7f 1e 9b a6 a4\\) test\\(checksum: b4 3c 7d 02 2b 14 77 12\\)\n"));
+    }
+
     private void assertEvent(
             VerifierQueryEvent event,
             EventStatus expectedStatus,
