@@ -24,8 +24,6 @@ import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 
-import java.math.BigInteger;
-
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 @AggregationFunction("entropy")
@@ -34,22 +32,21 @@ public final class EntropyAggregation
     @InputFunction
     public static void input(
             @AggregationState EntropyState state,
-            @SqlNullable @SqlType(StandardTypes.BIGINT) BigInteger count)
+            @SqlNullable @SqlType(StandardTypes.BIGINT) long count)
     {
-        if (count == null) {
+        /*if (count == null) {
             return;
-        }
+        }*/
 
-        final int cmpToZero = count.compareTo(BigInteger.ZERO);
-        if (cmpToZero == 0) {
+        if (count == 0) {
             return;
         }
-        if (cmpToZero == -1) {
+        if (count < 0) {
             state.setNull(true);
             return;
         }
 
-        final double countVal = count.doubleValue();
+        final double countVal = count;
         state.setSumC(state.getSumC() + countVal);
         state.setSumCLogC(state.getSumC() + countVal * Math.log(countVal));
     }

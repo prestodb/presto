@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestEntropyAggregation
         extends AbstractTestAggregationFunction
@@ -31,9 +31,9 @@ public class TestEntropyAggregation
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = INTEGER.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
-            blockBuilder.writeInt(i);
+            BIGINT.writeLong(blockBuilder, i);
         }
         return new Block[] {blockBuilder.build()};
     }
@@ -64,6 +64,6 @@ public class TestEntropyAggregation
     @Override
     protected List<String> getFunctionParameterTypes()
     {
-        return ImmutableList.of(StandardTypes.BIGINT);
+        return ImmutableList.of(StandardTypes.INTEGER);
     }
 }
