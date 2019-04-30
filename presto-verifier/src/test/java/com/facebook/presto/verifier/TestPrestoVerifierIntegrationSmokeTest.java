@@ -79,7 +79,7 @@ public class TestPrestoVerifierIntegrationSmokeTest
     @AfterClass
     public void teardown()
     {
-        closeQuietly(handle);
+        closeQuietly(queryRunner, mySqlServer, handle);
     }
 
     @BeforeMethod
