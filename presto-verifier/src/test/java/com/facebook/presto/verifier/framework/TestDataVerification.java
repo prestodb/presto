@@ -76,7 +76,8 @@ public class TestDataVerification
         verifierConfig = new VerifierConfig()
                 .setControlJdbcUrl(jdbcUrl)
                 .setTestJdbcUrl(jdbcUrl)
-                .setTestId(TEST_ID);
+                .setTestId(TEST_ID)
+                .setFailureResolverEnabled(false);
         prestoAction = new PrestoAction(
                 new PrestoExceptionClassifier(ImmutableSet.of(), ImmutableSet.of()),
                 verifierConfig,
