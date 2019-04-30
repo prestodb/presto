@@ -31,7 +31,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
-public class TestMysqlSourceQuerySupplier
+public class TestMySqlSourceQuerySupplier
 {
     private static final String SUITE = "test";
     private static TestingMySqlServer mySqlServer;
