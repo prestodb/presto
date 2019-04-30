@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.server.remotetask;
 
-import com.google.common.util.concurrent.AtomicDouble;
 import io.airlift.stats.DistributionStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -113,18 +112,17 @@ public class RemoteTaskStats
     private static class IncrementalAverage
     {
         private long count;
-        private final AtomicDouble average = new AtomicDouble();
+        private volatile double average;
 
         synchronized void add(long value)
         {
             count++;
-            double oldAverage = average.get();
-            average.set(oldAverage + ((value - oldAverage) / count));
+            average = average + (value - average) / count;
         }
 
         double get()
         {
-            return average.get();
+            return average;
         }
     }
 }
