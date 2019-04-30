@@ -66,6 +66,7 @@ public abstract class AbstractVerification
 
     private final String testId;
     private final boolean runTearDownOnResultMismatch;
+    private final boolean failureResolverEnabled;
 
     private final VerificationContext verificationContext = new VerificationContext();
 
@@ -85,6 +86,7 @@ public abstract class AbstractVerification
 
         this.testId = requireNonNull(config.getTestId(), "testId is null");
         this.runTearDownOnResultMismatch = config.isRunTearDownOnResultMismatch();
+        this.failureResolverEnabled = config.isFailureResolverEnabled();
     }
 
     protected abstract VerificationResult verify(QueryBundle control, QueryBundle test);
@@ -279,6 +281,9 @@ public abstract class AbstractVerification
 
     private Optional<String> resolveFailure(QueryStats controlStats, QueryException queryException)
     {
+        if (!failureResolverEnabled) {
+            return Optional.empty();
+        }
         for (FailureResolver failureResolver : failureResolvers) {
             Optional<String> resolveMessage = failureResolver.resolve(controlStats, queryException);
             if (resolveMessage.isPresent()) {

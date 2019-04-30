@@ -73,6 +73,7 @@ public class VerifierConfig
     private double relativeErrorMargin = 1e-4;
     private double absoluteErrorMargin = 1e-12;
     private boolean runTearDownOnResultMismatch;
+    private boolean failureResolverEnabled = true;
 
     @NotNull
     public Optional<String> getAdditionalJdbcDriverPath()
@@ -519,6 +520,18 @@ public class VerifierConfig
     public VerifierConfig setRunTearDownOnResultMismatch(boolean runTearDownOnResultMismatch)
     {
         this.runTearDownOnResultMismatch = runTearDownOnResultMismatch;
+        return this;
+    }
+
+    public boolean isFailureResolverEnabled()
+    {
+        return failureResolverEnabled;
+    }
+
+    @Config("failure-resolver.enabled")
+    public VerifierConfig setFailureResolverEnabled(boolean failureResolverEnabled)
+    {
+        this.failureResolverEnabled = failureResolverEnabled;
         return this;
     }
 }
