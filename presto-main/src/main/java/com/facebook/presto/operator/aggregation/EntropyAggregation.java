@@ -20,7 +20,6 @@ import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
-import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 
@@ -32,12 +31,8 @@ public final class EntropyAggregation
     @InputFunction
     public static void input(
             @AggregationState EntropyState state,
-            @SqlNullable @SqlType(StandardTypes.BIGINT) long count)
+            @SqlType(StandardTypes.BIGINT) long count)
     {
-        /*if (count == null) {
-            return;
-        }*/
-
         if (count == 0) {
             return;
         }
@@ -48,7 +43,7 @@ public final class EntropyAggregation
 
         final double countVal = count;
         state.setSumC(state.getSumC() + countVal);
-        state.setSumCLogC(state.getSumC() + countVal * Math.log(countVal));
+        state.setSumCLogC(state.getSumCLogC() + countVal * Math.log(countVal));
     }
 
     @CombineFunction

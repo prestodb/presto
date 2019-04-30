@@ -45,7 +45,15 @@ public class TestEntropyAggregation
                 .range(start, start + length)
                 .boxed()
                 .collect(Collectors.toCollection(ArrayList::new));
-        final double sum = counts.stream().mapToDouble(c -> c).sum();
+        if (counts.stream().anyMatch(c -> c < 0)) {
+            return null;
+        }
+        final double sum = counts.stream()
+                .mapToDouble(c -> Math.max(c, 0.0))
+                .sum();
+        if (sum == 0) {
+            return 0.0;
+        }
         final ArrayList<Double> entropies = counts.stream()
                 .filter(c -> c > 0)
                 .map(c -> (c / sum) * Math.log(sum / c))
