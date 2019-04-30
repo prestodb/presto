@@ -193,7 +193,6 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
@@ -683,11 +682,6 @@ class StaticFunctionNamespace
         return functions.list().stream()
                 .filter(function -> !function.isHidden())
                 .collect(toImmutableList());
-    }
-
-    public boolean isAggregationFunction(QualifiedName name)
-    {
-        return Iterables.any(functions.get(name), function -> function.getSignature().getKind() == AGGREGATE);
     }
 
     @Override

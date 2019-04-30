@@ -457,6 +457,11 @@ public class Analysis
         return functionHandles.get(NodeRef.of(function));
     }
 
+    public Map<NodeRef<FunctionCall>, FunctionHandle> getFunctionHandles()
+    {
+        return ImmutableMap.copyOf(functionHandles);
+    }
+
     public void addFunctionHandles(Map<NodeRef<FunctionCall>, FunctionHandle> infos)
     {
         functionHandles.putAll(infos);

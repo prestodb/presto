@@ -100,11 +100,6 @@ public class FunctionManager
         return staticFunctionNamespace.getScalarFunctionImplementation(functionHandle);
     }
 
-    public boolean isAggregationFunction(QualifiedName name)
-    {
-        return staticFunctionNamespace.isAggregationFunction(name);
-    }
-
     public FunctionHandle resolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)
     {
         return staticFunctionNamespace.resolveOperator(operatorType, argumentTypes);
