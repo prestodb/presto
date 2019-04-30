@@ -98,6 +98,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.http.client.HttpStatus.NO_CONTENT;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
@@ -431,7 +432,7 @@ public final class HttpRemoteTask
                 if (response == null) {
                     throw new PrestoException(GENERIC_INTERNAL_ERROR, "Request failed with null response");
                 }
-                if (response.getStatusCode() != OK.code()) {
+                if (response.getStatusCode() != OK.code() && response.getStatusCode() != NO_CONTENT.code()) {
                     throw new PrestoException(GENERIC_INTERNAL_ERROR, "Request failed with HTTP status " + response.getStatusCode());
                 }
                 future.set(null);
