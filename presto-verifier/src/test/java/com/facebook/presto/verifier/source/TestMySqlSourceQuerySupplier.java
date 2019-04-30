@@ -52,7 +52,7 @@ public class TestMySqlSourceQuerySupplier
     @AfterClass
     public void teardown()
     {
-        closeQuietly(handle);
+        closeQuietly(mySqlServer, handle);
     }
 
     @AfterMethod
