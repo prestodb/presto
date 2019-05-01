@@ -74,6 +74,19 @@ implementation as exchange compression when they are sufficiently compressible.
 Enabling this feature can reduce the amount of disk IO at the cost
 of extra CPU load to compress and decompress spilled pages.
 
+Spill Encryption
+----------------
+
+When spill encryption is enabled (``spill-encryption-enabled`` property in
+:ref:`tuning-spilling`), spill contents will be encrypted with a randomly generated
+(per spill file) secret key. Enabling this will decrease the performance of spilling
+to disk but can protect spilled data from being recovered from the files written to disk.
+
+**Note**: Some distributions of Java ship with policy files that limit the strength
+of the cryptographic keys that can be used. Spill encryption uses
+256-bit AES keys and may require Unlimited Strength :abbr:`JCE (Java Cryptography Extension)`
+policy files to work correctly.
+
 Supported Operations
 --------------------
 

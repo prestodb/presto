@@ -17,6 +17,7 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.TestingTypeManager;
+import com.facebook.presto.spiller.SpillCipher;
 import io.airlift.compress.Compressor;
 import io.airlift.compress.Decompressor;
 import io.airlift.compress.lz4.Lz4Compressor;
@@ -38,15 +39,16 @@ public class TestingPagesSerdeFactory
         return new SynchronizedPagesSerde(
                 new BlockEncodingManager(new TestingTypeManager()),
                 Optional.of(new Lz4Compressor()),
-                Optional.of(new Lz4Decompressor()));
+                Optional.of(new Lz4Decompressor()),
+                Optional.empty());
     }
 
     private static class SynchronizedPagesSerde
             extends PagesSerde
     {
-        public SynchronizedPagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<Compressor> compressor, Optional<Decompressor> decompressor)
+        public SynchronizedPagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<Compressor> compressor, Optional<Decompressor> decompressor, Optional<SpillCipher> spillCipher)
         {
-            super(blockEncodingSerde, compressor, decompressor);
+            super(blockEncodingSerde, compressor, decompressor, spillCipher);
         }
 
         @Override

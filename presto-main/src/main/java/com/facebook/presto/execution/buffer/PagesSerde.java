@@ -15,22 +15,25 @@ package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spiller.SpillCipher;
 import io.airlift.compress.Compressor;
 import io.airlift.compress.Decompressor;
 import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
+import java.nio.ByteBuffer;
 import java.util.Optional;
 
 import static com.facebook.presto.execution.buffer.PageCodecMarker.COMPRESSED;
+import static com.facebook.presto.execution.buffer.PageCodecMarker.ENCRYPTED;
 import static com.facebook.presto.execution.buffer.PagesSerdeUtil.readRawPage;
 import static com.facebook.presto.execution.buffer.PagesSerdeUtil.writeRawPage;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.compress.lz4.Lz4RawCompressor.maxCompressedLength;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -42,51 +45,73 @@ public class PagesSerde
     private final BlockEncodingSerde blockEncodingSerde;
     private final Optional<Compressor> compressor;
     private final Optional<Decompressor> decompressor;
+    private final Optional<SpillCipher> spillCipher;
 
-    public PagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<Compressor> compressor, Optional<Decompressor> decompressor)
+    public PagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<Compressor> compressor, Optional<Decompressor> decompressor, Optional<SpillCipher> spillCipher)
     {
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
+        checkArgument(compressor.isPresent() == decompressor.isPresent(), "compressor and decompressor must both be present or both be absent");
         this.compressor = requireNonNull(compressor, "compressor is null");
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
-        checkArgument(compressor.isPresent() == decompressor.isPresent(), "compressor and decompressor must both be present or both be absent");
+        this.spillCipher = requireNonNull(spillCipher, "spillCipher is null");
+        checkState(!spillCipher.isPresent() || !spillCipher.get().isDestroyed(), "spillCipher is already destroyed");
     }
 
     public SerializedPage serialize(Page page)
     {
-        SliceOutput serializationBuffer = new DynamicSliceOutput(toIntExact((page.getSizeInBytes() + Integer.BYTES))); // block length is an int
+        SliceOutput serializationBuffer = new DynamicSliceOutput(toIntExact(page.getSizeInBytes() + Integer.BYTES)); // block length is an int
         writeRawPage(page, serializationBuffer, blockEncodingSerde);
+        Slice slice = serializationBuffer.slice();
+        int uncompressedSize = serializationBuffer.size();
+        byte markers = PageCodecMarker.none();
 
-        if (!compressor.isPresent()) {
-            return new SerializedPage(serializationBuffer.slice(), PageCodecMarker.none(), page.getPositionCount(), serializationBuffer.size());
+        if (compressor.isPresent()) {
+            ByteBuffer compressionBuffer = ByteBuffer.allocate(compressor.get().maxCompressedLength(uncompressedSize));
+            compressor.get().compress(slice.toByteBuffer(), compressionBuffer);
+            compressionBuffer.flip();
+            if ((((double) compressionBuffer.remaining()) / uncompressedSize) <= MINIMUM_COMPRESSION_RATIO) {
+                slice = Slices.wrappedBuffer(compressionBuffer);
+                markers = COMPRESSED.set(markers);
+            }
         }
 
-        int maxCompressedLength = maxCompressedLength(serializationBuffer.size());
-        byte[] compressionBuffer = new byte[maxCompressedLength];
-        int actualCompressedLength = compressor.get().compress(serializationBuffer.slice().getBytes(), 0, serializationBuffer.size(), compressionBuffer, 0, maxCompressedLength);
-
-        if (((1.0 * actualCompressedLength) / serializationBuffer.size()) > MINIMUM_COMPRESSION_RATIO) {
-            return new SerializedPage(serializationBuffer.slice(), PageCodecMarker.none(), page.getPositionCount(), serializationBuffer.size());
+        if (spillCipher.isPresent()) {
+            slice = Slices.wrappedBuffer(spillCipher.get().encrypt(slice.toByteBuffer()));
+            markers = ENCRYPTED.set(markers);
         }
-        return new SerializedPage(
-                Slices.copyOf(Slices.wrappedBuffer(compressionBuffer, 0, actualCompressedLength)),
-                COMPRESSED.set(PageCodecMarker.none()),
-                page.getPositionCount(),
-                serializationBuffer.size());
+        else {
+            //  Encryption disabled, slice data is likely much smaller than its backing buffer
+            //  either because of compression or dynamic sizing of the initial output slice
+            slice = Slices.copyOf(slice);
+        }
+
+        return new SerializedPage(slice, markers, page.getPositionCount(), uncompressedSize);
     }
 
     public Page deserialize(SerializedPage serializedPage)
     {
         checkArgument(serializedPage != null, "serializedPage is null");
 
-        if (!decompressor.isPresent() || !COMPRESSED.isSet(serializedPage.getPageCodecMarkers())) {
-            return readRawPage(serializedPage.getPositionCount(), serializedPage.getSlice().getInput(), blockEncodingSerde);
+        Slice slice = serializedPage.getSlice();
+
+        if (ENCRYPTED.isSet(serializedPage.getPageCodecMarkers())) {
+            checkState(spillCipher.isPresent(), "Page is encrypted, but spill cipher is missing");
+            slice = Slices.wrappedBuffer(spillCipher.get().decrypt(slice.toByteBuffer()));
         }
 
-        int uncompressedSize = serializedPage.getUncompressedSizeInBytes();
-        byte[] decompressed = new byte[uncompressedSize];
-        int actualUncompressedSize = decompressor.get().decompress(serializedPage.getSlice().getBytes(), 0, serializedPage.getSlice().length(), decompressed, 0, uncompressedSize);
-        checkState(uncompressedSize == actualUncompressedSize);
+        if (COMPRESSED.isSet(serializedPage.getPageCodecMarkers())) {
+            checkState(decompressor.isPresent(), "Page is compressed, but decompressor is missing");
 
-        return readRawPage(serializedPage.getPositionCount(), Slices.wrappedBuffer(decompressed, 0, uncompressedSize).getInput(), blockEncodingSerde);
+            int uncompressedSize = serializedPage.getUncompressedSizeInBytes();
+            ByteBuffer decompressionBuffer = ByteBuffer.allocate(uncompressedSize);
+
+            decompressor.get().decompress(slice.toByteBuffer(), decompressionBuffer);
+            decompressionBuffer.flip();
+            checkState(decompressionBuffer.remaining() == uncompressedSize);
+
+            slice = Slices.wrappedBuffer(decompressionBuffer);
+        }
+
+        return readRawPage(serializedPage.getPositionCount(), slice.getInput(), blockEncodingSerde);
     }
 }

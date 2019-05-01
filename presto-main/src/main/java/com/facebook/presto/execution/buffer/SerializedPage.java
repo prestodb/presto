@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.execution.buffer.PageCodecMarker.COMPRESSED;
+import static com.facebook.presto.execution.buffer.PageCodecMarker.ENCRYPTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -36,13 +37,16 @@ public class SerializedPage
         this.positionCount = positionCount;
         checkArgument(uncompressedSizeInBytes >= 0, "uncompressedSizeInBytes is negative");
         this.uncompressedSizeInBytes = uncompressedSizeInBytes;
-        if (COMPRESSED.isSet(pageCodecMarkers)) {
-            checkArgument(uncompressedSizeInBytes > slice.length(), "compressed size must be smaller than uncompressed size when compressed");
-        }
-        else {
-            checkArgument(uncompressedSizeInBytes == slice.length(), "uncompressed size must be equal to slice length when uncompressed");
-        }
         this.pageCodecMarkers = pageCodecMarkers;
+        //  Encrypted pages may include arbitrary overhead from ciphers, sanity checks skipped
+        if (!ENCRYPTED.isSet(pageCodecMarkers)) {
+            if (COMPRESSED.isSet(pageCodecMarkers)) {
+                checkArgument(uncompressedSizeInBytes > slice.length(), "compressed size must be smaller than uncompressed size when compressed");
+            }
+            else {
+                checkArgument(uncompressedSizeInBytes == slice.length(), "uncompressed size must be equal to slice length when uncompressed");
+            }
+        }
     }
 
     public int getSizeInBytes()

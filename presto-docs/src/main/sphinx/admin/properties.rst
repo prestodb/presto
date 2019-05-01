@@ -202,6 +202,15 @@ Spilling Properties
 
     Enables data compression for pages spilled to disk
 
+``experimental.spill-encryption-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``false``
+
+    Enables using a randomly generated secret key (per spill file) to encrypt and decrypt
+    data spilled to disk
+
 
 Exchange Properties
 -------------------

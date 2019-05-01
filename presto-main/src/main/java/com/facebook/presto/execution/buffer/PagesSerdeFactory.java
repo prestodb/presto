@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spiller.SpillCipher;
 import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.lz4.Lz4Decompressor;
 
@@ -34,10 +35,20 @@ public class PagesSerdeFactory
 
     public PagesSerde createPagesSerde()
     {
+        return createPagesSerdeInternal(Optional.empty());
+    }
+
+    public PagesSerde createPagesSerdeForSpill(Optional<SpillCipher> spillCipher)
+    {
+        return createPagesSerdeInternal(spillCipher);
+    }
+
+    private PagesSerde createPagesSerdeInternal(Optional<SpillCipher> spillCipher)
+    {
         if (compressionEnabled) {
-            return new PagesSerde(blockEncodingSerde, Optional.of(new Lz4Compressor()), Optional.of(new Lz4Decompressor()));
+            return new PagesSerde(blockEncodingSerde, Optional.of(new Lz4Compressor()), Optional.of(new Lz4Decompressor()), spillCipher);
         }
 
-        return new PagesSerde(blockEncodingSerde, Optional.empty(), Optional.empty());
+        return new PagesSerde(blockEncodingSerde, Optional.empty(), Optional.empty(), spillCipher);
     }
 }
