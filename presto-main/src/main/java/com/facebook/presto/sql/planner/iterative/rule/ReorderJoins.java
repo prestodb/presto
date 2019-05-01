@@ -63,7 +63,7 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStra
 import static com.facebook.presto.sql.planner.DeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
 import static com.facebook.presto.sql.planner.EqualityInference.nonInferrableConjuncts;
-import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType.canReplicate;
+import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType.isBelowMaxBroadcastSize;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult.INFINITE_COST_RESULT;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult.UNKNOWN_COST_RESULT;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.MultiJoinNode.toMultiJoinNode;
@@ -394,7 +394,7 @@ public class ReorderJoins
                 case AUTOMATIC:
                     ImmutableList.Builder<JoinEnumerationResult> result = ImmutableList.builder();
                     result.addAll(getPossibleJoinNodes(joinNode, PARTITIONED));
-                    if (canReplicate(joinNode, context)) {
+                    if (isBelowMaxBroadcastSize(joinNode, context)) {
                         result.addAll(getPossibleJoinNodes(joinNode, REPLICATED));
                     }
                     return result.build();
