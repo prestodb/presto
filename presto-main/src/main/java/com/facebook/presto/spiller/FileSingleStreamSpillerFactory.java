@@ -65,7 +65,7 @@ public class FileSingleStreamSpillerFactory
     private int roundRobinIndex;
 
     @Inject
-    public FileSingleStreamSpillerFactory(BlockEncodingSerde blockEncodingSerde, SpillerStats spillerStats, FeaturesConfig featuresConfig)
+    public FileSingleStreamSpillerFactory(BlockEncodingSerde blockEncodingSerde, SpillerStats spillerStats, FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig)
     {
         this(
                 listeningDecorator(newFixedThreadPool(
@@ -74,7 +74,8 @@ public class FileSingleStreamSpillerFactory
                 blockEncodingSerde,
                 spillerStats,
                 requireNonNull(featuresConfig, "featuresConfig is null").getSpillerSpillPaths(),
-                requireNonNull(featuresConfig, "featuresConfig is null").getSpillMaxUsedSpaceThreshold());
+                requireNonNull(featuresConfig, "featuresConfig is null").getSpillMaxUsedSpaceThreshold(),
+                requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").isSpillCompressionEnabled());
     }
 
     @VisibleForTesting
@@ -83,9 +84,10 @@ public class FileSingleStreamSpillerFactory
             BlockEncodingSerde blockEncodingSerde,
             SpillerStats spillerStats,
             List<Path> spillPaths,
-            double maxUsedSpaceThreshold)
+            double maxUsedSpaceThreshold,
+            boolean spillCompressionEnabled)
     {
-        this.serdeFactory = new PagesSerdeFactory(requireNonNull(blockEncodingSerde, "blockEncodingSerde is null"), false);
+        this.serdeFactory = new PagesSerdeFactory(requireNonNull(blockEncodingSerde, "blockEncodingSerde is null"), spillCompressionEnabled);
         this.executor = requireNonNull(executor, "executor is null");
         this.spillerStats = requireNonNull(spillerStats, "spillerStats can not be null");
         requireNonNull(spillPaths, "spillPaths is null");

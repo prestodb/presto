@@ -23,6 +23,8 @@ public class NodeSpillConfig
     private DataSize maxSpillPerNode = new DataSize(100, DataSize.Unit.GIGABYTE);
     private DataSize queryMaxSpillPerNode = new DataSize(100, DataSize.Unit.GIGABYTE);
 
+    private boolean spillCompressionEnabled;
+
     @NotNull
     public DataSize getMaxSpillPerNode()
     {
@@ -46,6 +48,18 @@ public class NodeSpillConfig
     public NodeSpillConfig setQueryMaxSpillPerNode(DataSize queryMaxSpillPerNode)
     {
         this.queryMaxSpillPerNode = queryMaxSpillPerNode;
+        return this;
+    }
+
+    public boolean isSpillCompressionEnabled()
+    {
+        return spillCompressionEnabled;
+    }
+
+    @Config("experimental.spill-compression-enabled")
+    public NodeSpillConfig setSpillCompressionEnabled(boolean spillCompressionEnabled)
+    {
+        this.spillCompressionEnabled = spillCompressionEnabled;
         return this;
     }
 }

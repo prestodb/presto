@@ -32,7 +32,8 @@ public class TestNodeSpillConfig
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(NodeSpillConfig.class)
                 .setMaxSpillPerNode(new DataSize(100, GIGABYTE))
-                .setQueryMaxSpillPerNode(new DataSize(100, GIGABYTE)));
+                .setQueryMaxSpillPerNode(new DataSize(100, GIGABYTE))
+                .setSpillCompressionEnabled(false));
     }
 
     @Test
@@ -41,11 +42,13 @@ public class TestNodeSpillConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("experimental.max-spill-per-node", "10MB")
                 .put("experimental.query-max-spill-per-node", "15 MB")
+                .put("experimental.spill-compression-enabled", "true")
                 .build();
 
         NodeSpillConfig expected = new NodeSpillConfig()
                 .setMaxSpillPerNode(new DataSize(10, MEGABYTE))
-                .setQueryMaxSpillPerNode(new DataSize(15, MEGABYTE));
+                .setQueryMaxSpillPerNode(new DataSize(15, MEGABYTE))
+                .setSpillCompressionEnabled(true);
 
         assertFullMapping(properties, expected);
     }
