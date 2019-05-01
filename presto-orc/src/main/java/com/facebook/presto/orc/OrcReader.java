@@ -26,7 +26,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
 
@@ -116,19 +115,19 @@ public class OrcReader
         }
 
         // Read the tail of the file
-        byte[] buffer = new byte[toIntExact(min(size, EXPECTED_FOOTER_SIZE))];
-        orcDataSource.readFully(size - buffer.length, buffer);
+        int expectedBufferSize = toIntExact(min(size, EXPECTED_FOOTER_SIZE));
+        Slice buffer = orcDataSource.readFully(size - expectedBufferSize, expectedBufferSize);
 
         // get length of PostScript - last byte of the file
-        int postScriptSize = buffer[buffer.length - SIZE_OF_BYTE] & 0xff;
-        if (postScriptSize >= buffer.length) {
+        int postScriptSize = buffer.getUnsignedByte(buffer.length() - SIZE_OF_BYTE);
+        if (postScriptSize >= buffer.length()) {
             throw new OrcCorruptionException(orcDataSource.getId(), "Invalid postscript length %s", postScriptSize);
         }
 
         // decode the post script
         PostScript postScript;
         try {
-            postScript = metadataReader.readPostScript(buffer, buffer.length - SIZE_OF_BYTE - postScriptSize, postScriptSize);
+            postScript = metadataReader.readPostScript(buffer.slice(buffer.length() - SIZE_OF_BYTE - postScriptSize, postScriptSize).getInput());
         }
         catch (OrcCorruptionException e) {
             // check if this is an ORC file and not an RCFile or something else
@@ -157,20 +156,13 @@ public class OrcReader
         // check if extra bytes need to be read
         Slice completeFooterSlice;
         int completeFooterSize = footerSize + metadataSize + postScriptSize + SIZE_OF_BYTE;
-        if (completeFooterSize > buffer.length) {
-            // allocate a new buffer large enough for the complete footer
-            byte[] newBuffer = new byte[completeFooterSize];
-            completeFooterSlice = Slices.wrappedBuffer(newBuffer);
-
-            // initial read was not large enough, so read missing section
-            orcDataSource.readFully(size - completeFooterSize, newBuffer, 0, completeFooterSize - buffer.length);
-
-            // copy already read bytes into the new buffer
-            completeFooterSlice.setBytes(completeFooterSize - buffer.length, buffer);
+        if (completeFooterSize > buffer.length()) {
+            // initial read was not large enough, so just read again with the correct size
+            completeFooterSlice = orcDataSource.readFully(size - completeFooterSize, completeFooterSize);
         }
         else {
             // footer is already in the bytes in buffer, just adjust position, length
-            completeFooterSlice = Slices.wrappedBuffer(buffer, buffer.length - completeFooterSize, completeFooterSize);
+            completeFooterSlice = buffer.slice(buffer.length() - completeFooterSize, completeFooterSize);
         }
 
         // read metadata
@@ -281,10 +273,8 @@ public class OrcReader
     private static boolean isValidHeaderMagic(OrcDataSource source)
             throws IOException
     {
-        byte[] headerMagic = new byte[MAGIC.length()];
-        source.readFully(0, headerMagic);
-
-        return MAGIC.equals(Slices.wrappedBuffer(headerMagic));
+        Slice headerMagic = source.readFully(0, MAGIC.length());
+        return MAGIC.equals(headerMagic);
     }
 
     /**

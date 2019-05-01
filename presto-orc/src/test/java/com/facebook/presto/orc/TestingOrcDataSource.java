@@ -14,6 +14,7 @@
 package com.facebook.presto.orc;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.util.List;
@@ -69,21 +70,12 @@ class TestingOrcDataSource
     }
 
     @Override
-    public void readFully(long position, byte[] buffer)
+    public Slice readFully(long position, int length)
             throws IOException
     {
         readCount++;
-        lastReadRanges = ImmutableList.of(new DiskRange(position, buffer.length));
-        delegate.readFully(position, buffer);
-    }
-
-    @Override
-    public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
-            throws IOException
-    {
-        readCount++;
-        lastReadRanges = ImmutableList.of(new DiskRange(position, bufferLength));
-        delegate.readFully(position, buffer, bufferOffset, bufferLength);
+        lastReadRanges = ImmutableList.of(new DiskRange(position, length));
+        return delegate.readFully(position, length);
     }
 
     @Override

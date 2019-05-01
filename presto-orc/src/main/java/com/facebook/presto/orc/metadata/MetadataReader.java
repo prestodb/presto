@@ -22,7 +22,7 @@ import java.util.List;
 
 public interface MetadataReader
 {
-    PostScript readPostScript(byte[] data, int offset, int length)
+    PostScript readPostScript(InputStream inputStream)
             throws IOException;
 
     Metadata readMetadata(HiveWriterVersion hiveWriterVersion, InputStream inputStream)

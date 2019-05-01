@@ -15,6 +15,7 @@ package com.facebook.presto.orc;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
@@ -31,13 +32,13 @@ public class CachingOrcDataSource
 
     private long cachePosition;
     private int cacheLength;
-    private byte[] cache;
+    private Slice cache;
 
     public CachingOrcDataSource(OrcDataSource dataSource, RegionFinder regionFinder)
     {
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
         this.regionFinder = requireNonNull(regionFinder, "regionFinder is null");
-        this.cache = new byte[0];
+        this.cache = Slices.EMPTY_SLICE;
     }
 
     @Override
@@ -71,21 +72,11 @@ public class CachingOrcDataSource
         DiskRange newCacheRange = regionFinder.getRangeFor(offset);
         cachePosition = newCacheRange.getOffset();
         cacheLength = newCacheRange.getLength();
-        if (cache.length < cacheLength) {
-            cache = new byte[cacheLength];
-        }
-        dataSource.readFully(newCacheRange.getOffset(), cache, 0, cacheLength);
+        cache = dataSource.readFully(newCacheRange.getOffset(), cacheLength);
     }
 
     @Override
-    public void readFully(long position, byte[] buffer)
-            throws IOException
-    {
-        readFully(position, buffer, 0, buffer.length);
-    }
-
-    @Override
-    public void readFully(long position, byte[] buffer, int bufferOffset, int length)
+    public Slice readFully(long position, int length)
             throws IOException
     {
         if (position < cachePosition) {
@@ -97,7 +88,7 @@ public class CachingOrcDataSource
         if (position + length > cachePosition + cacheLength) {
             throw new IllegalArgumentException(String.format("read request (offset %d length %d) partially overlaps cache (offset %d length %d)", position, length, cachePosition, cacheLength));
         }
-        System.arraycopy(cache, toIntExact(position - cachePosition), buffer, bufferOffset, length);
+        return cache.slice(toIntExact(position - cachePosition), length);
     }
 
     @Override
@@ -110,9 +101,8 @@ public class CachingOrcDataSource
         // will not result in eviction of cache that otherwise could have served any of the DiskRanges provided.
         for (Map.Entry<K, DiskRange> entry : diskRanges.entrySet()) {
             DiskRange diskRange = entry.getValue();
-            byte[] buffer = new byte[diskRange.getLength()];
-            readFully(diskRange.getOffset(), buffer);
-            builder.put(entry.getKey(), new OrcDataSourceInput(Slices.wrappedBuffer(buffer).getInput(), buffer.length));
+            Slice buffer = readFully(diskRange.getOffset(), diskRange.getLength());
+            builder.put(entry.getKey(), new OrcDataSourceInput(buffer.getInput(), buffer.length()));
         }
         return builder.build();
     }

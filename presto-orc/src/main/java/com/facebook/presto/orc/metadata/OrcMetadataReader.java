@@ -75,10 +75,10 @@ public class OrcMetadataReader
     private static final int PROTOBUF_MESSAGE_MAX_LIMIT = toIntExact(new DataSize(1, GIGABYTE).toBytes());
 
     @Override
-    public PostScript readPostScript(byte[] data, int offset, int length)
+    public PostScript readPostScript(InputStream inputStream)
             throws IOException
     {
-        CodedInputStream input = CodedInputStream.newInstance(data, offset, length);
+        CodedInputStream input = CodedInputStream.newInstance(inputStream);
         OrcProto.PostScript postScript = OrcProto.PostScript.parseFrom(input);
 
         return new PostScript(

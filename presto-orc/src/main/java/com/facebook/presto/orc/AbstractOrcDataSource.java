@@ -90,14 +90,15 @@ public abstract class AbstractOrcDataSource
     }
 
     @Override
-    public final void readFully(long position, byte[] buffer)
+    public final Slice readFully(long position, int length)
             throws IOException
     {
-        readFully(position, buffer, 0, buffer.length);
+        byte[] buffer = new byte[length];
+        readFully(position, buffer, 0, length);
+        return Slices.wrappedBuffer(buffer);
     }
 
-    @Override
-    public final void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
+    private void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
             throws IOException
     {
         long start = System.nanoTime();
@@ -168,11 +169,10 @@ public abstract class AbstractOrcDataSource
             }
         }
         else {
-            Map<DiskRange, byte[]> buffers = new LinkedHashMap<>();
+            Map<DiskRange, Slice> buffers = new LinkedHashMap<>();
             for (DiskRange mergedRange : mergedRanges) {
                 // read full range in one request
-                byte[] buffer = new byte[mergedRange.getLength()];
-                readFully(mergedRange.getOffset(), buffer);
+                Slice buffer = readFully(mergedRange.getOffset(), mergedRange.getLength());
                 buffers.put(mergedRange, buffer);
             }
 
@@ -233,9 +233,7 @@ public abstract class AbstractOrcDataSource
                 return;
             }
             try {
-                byte[] buffer = new byte[diskRange.getLength()];
-                readFully(diskRange.getOffset(), buffer);
-                bufferSlice = Slices.wrappedBuffer(buffer);
+                bufferSlice = readFully(diskRange.getOffset(), diskRange.getLength());
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);

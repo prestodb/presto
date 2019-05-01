@@ -63,10 +63,10 @@ public class DwrfMetadataReader
         implements MetadataReader
 {
     @Override
-    public PostScript readPostScript(byte[] data, int offset, int length)
+    public PostScript readPostScript(InputStream inputStream)
             throws IOException
     {
-        CodedInputStream input = CodedInputStream.newInstance(data, offset, length);
+        CodedInputStream input = CodedInputStream.newInstance(inputStream);
         DwrfProto.PostScript postScript = DwrfProto.PostScript.parseFrom(input);
 
         HiveWriterVersion writerVersion = postScript.hasWriterVersion() && postScript.getWriterVersion() > 0 ? ORC_HIVE_8732 : ORIGINAL;

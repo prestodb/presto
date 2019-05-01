@@ -41,11 +41,11 @@ public class ExceptionWrappingMetadataReader
     }
 
     @Override
-    public PostScript readPostScript(byte[] data, int offset, int length)
+    public PostScript readPostScript(InputStream inputStream)
             throws OrcCorruptionException
     {
         try {
-            return delegate.readPostScript(data, offset, length);
+            return delegate.readPostScript(inputStream);
         }
         catch (IOException | RuntimeException e) {
             throw propagate(e, "Invalid postscript");

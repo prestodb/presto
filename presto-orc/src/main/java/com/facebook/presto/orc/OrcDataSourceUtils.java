@@ -15,7 +15,6 @@ package com.facebook.presto.orc;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
@@ -76,14 +75,14 @@ public final class OrcDataSourceUtils
      * to exactly match {@code diskRange}, but {@code diskRange} must be completely contained within
      * one of the buffer ranges.
      */
-    public static Slice getDiskRangeSlice(DiskRange diskRange, Map<DiskRange, byte[]> buffers)
+    public static Slice getDiskRangeSlice(DiskRange diskRange, Map<DiskRange, Slice> buffers)
     {
-        for (Entry<DiskRange, byte[]> bufferEntry : buffers.entrySet()) {
+        for (Entry<DiskRange, Slice> bufferEntry : buffers.entrySet()) {
             DiskRange bufferRange = bufferEntry.getKey();
-            byte[] buffer = bufferEntry.getValue();
+            Slice buffer = bufferEntry.getValue();
             if (bufferRange.contains(diskRange)) {
                 int offset = toIntExact(diskRange.getOffset() - bufferRange.getOffset());
-                return Slices.wrappedBuffer(buffer, offset, diskRange.getLength());
+                return buffer.slice(offset, diskRange.getLength());
             }
         }
         throw new IllegalStateException("No matching buffer for disk range");
