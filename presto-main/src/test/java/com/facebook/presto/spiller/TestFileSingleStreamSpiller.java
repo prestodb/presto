@@ -69,17 +69,32 @@ public class TestFileSingleStreamSpiller
     public void testSpill()
             throws Exception
     {
-        assertSpill(false);
+        assertSpill(false, false);
     }
 
     @Test
     public void testSpillCompression()
             throws Exception
     {
-        assertSpill(true);
+        assertSpill(true, false);
     }
 
-    private void assertSpill(boolean compression)
+    @Test
+    public void testSpillEncryption()
+            throws Exception
+    {
+        // Both with compression enabled and disabled
+        assertSpill(false, true);
+    }
+
+    @Test
+    public void testSpillEncryptionWithCompression()
+            throws Exception
+    {
+        assertSpill(true, true);
+    }
+
+    private void assertSpill(boolean compression, boolean encryption)
             throws Exception
     {
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
@@ -88,7 +103,8 @@ public class TestFileSingleStreamSpiller
                 new SpillerStats(),
                 ImmutableList.of(spillPath.toPath()),
                 1.0,
-                compression);
+                compression,
+                encryption);
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext("test");
         SingleStreamSpiller singleStreamSpiller = spillerFactory.create(TYPES, bytes -> {}, memoryContext);
         assertTrue(singleStreamSpiller instanceof FileSingleStreamSpiller);
@@ -108,6 +124,7 @@ public class TestFileSingleStreamSpiller
             assertTrue(serializedPages.hasNext(), "at least one page should be successfully read back");
             byte markers = serializedPages.next().getPageCodecMarkers();
             assertEquals(PageCodecMarker.COMPRESSED.isSet(markers), compression);
+            assertEquals(PageCodecMarker.ENCRYPTED.isSet(markers), encryption);
         }
 
         // The spillers release their memory reservations when they are closed, therefore at this point
