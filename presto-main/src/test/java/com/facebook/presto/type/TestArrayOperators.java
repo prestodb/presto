@@ -946,6 +946,14 @@ public class TestArrayOperators
                 "ARRAY_SORT(ARRAY[1, null], (x, y) -> x / COALESCE(y, 0))",
                 INVALID_FUNCTION_ARGUMENT,
                 "Lambda comparator must return either -1, 0, or 1");
+        assertInvalidFunction(
+                "ARRAY_SORT(ARRAY[ARRAY[1], ARRAY[null]])",
+                INVALID_FUNCTION_ARGUMENT,
+                "Array contains elements not supported for comparison");
+        assertInvalidFunction(
+                "ARRAY_SORT(ARRAY[ROW(1), ROW(null)])",
+                INVALID_FUNCTION_ARGUMENT,
+                "Array contains elements not supported for comparison");
 
         assertCachedInstanceHasBoundedRetainedSize("ARRAY_SORT(ARRAY[2, 3, 4, 1])");
     }
