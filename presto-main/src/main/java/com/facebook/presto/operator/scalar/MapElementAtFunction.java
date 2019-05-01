@@ -22,6 +22,7 @@ import com.facebook.presto.spi.block.SingleMapBlock;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -30,6 +31,7 @@ import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 
+import static com.facebook.presto.metadata.StaticFunctionNamespace.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
@@ -52,7 +54,7 @@ public class MapElementAtFunction
     protected MapElementAtFunction()
     {
         super(new Signature(
-                "element_at",
+                FullyQualifiedName.of(DEFAULT_NAMESPACE, "element_at"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("K"), typeVariable("V")),
                 ImmutableList.of(),

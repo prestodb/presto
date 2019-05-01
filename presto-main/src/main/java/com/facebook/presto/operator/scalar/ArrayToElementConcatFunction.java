@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -26,6 +27,7 @@ import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 
+import static com.facebook.presto.metadata.StaticFunctionNamespace.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
@@ -36,7 +38,6 @@ public class ArrayToElementConcatFunction
         extends SqlScalarFunction
 {
     public static final ArrayToElementConcatFunction ARRAY_TO_ELEMENT_CONCAT_FUNCTION = new ArrayToElementConcatFunction();
-    private static final String FUNCTION_NAME = "concat";
 
     private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(ArrayConcatUtils.class, "appendElement", Type.class, Block.class, boolean.class);
     private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(ArrayConcatUtils.class, "appendElement", Type.class, Block.class, long.class);
@@ -46,7 +47,8 @@ public class ArrayToElementConcatFunction
 
     public ArrayToElementConcatFunction()
     {
-        super(new Signature(FUNCTION_NAME,
+        super(new Signature(
+                FullyQualifiedName.of(DEFAULT_NAMESPACE, "concat"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("E")),
                 ImmutableList.of(),

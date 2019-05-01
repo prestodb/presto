@@ -15,8 +15,8 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
-import com.facebook.presto.sql.tree.QualifiedName;
 
 import java.util.List;
 
@@ -26,7 +26,7 @@ public interface FunctionNamespace
 
     List<SqlFunction> listFunctions();
 
-    FunctionHandle resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes);
+    FunctionHandle resolveFunction(FullyQualifiedName name, List<TypeSignatureProvider> parameterTypes);
 
     FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle);
 }

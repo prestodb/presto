@@ -22,8 +22,6 @@ import com.facebook.presto.spi.type.TypeSignature;
 
 import java.util.List;
 
-import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
-
 public abstract class SqlOperator
         extends SqlScalarFunction
 {
@@ -33,7 +31,7 @@ public abstract class SqlOperator
     {
         // TODO This should take Signature!
         super(new Signature(
-                mangleOperatorName(operatorType),
+                operatorType.getFunctionName(),
                 FunctionKind.SCALAR,
                 typeVariableConstraints,
                 longVariableConstraints,

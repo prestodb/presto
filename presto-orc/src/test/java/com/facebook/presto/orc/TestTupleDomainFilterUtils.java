@@ -510,7 +510,7 @@ public class TestTupleDomainFilterUtils
 
     private static FunctionCall colorLiteral(long value)
     {
-        return new FunctionCall(QualifiedName.of(getMagicLiteralFunctionSignature(COLOR).getName()), ImmutableList.of(bigintLiteral(value)));
+        return new FunctionCall(QualifiedName.of(getMagicLiteralFunctionSignature(COLOR).getName().getParts()), ImmutableList.of(bigintLiteral(value)));
     }
 
     private Expression varbinaryLiteral(Slice value)

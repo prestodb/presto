@@ -122,6 +122,7 @@ import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -204,7 +205,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -1688,37 +1688,38 @@ public class LocalExecutionPlanner
 
         private SpatialPredicate spatialTest(CallExpression functionCall, boolean probeFirst, Optional<OperatorType> comparisonOperator)
         {
-            String functionName = metadata.getFunctionManager().getFunctionMetadata(functionCall.getFunctionHandle()).getName();
-            switch (functionName.toLowerCase(Locale.ENGLISH)) {
-                case ST_CONTAINS:
-                    if (probeFirst) {
-                        return (buildGeometry, probeGeometry, radius) -> probeGeometry.contains(buildGeometry);
-                    }
-                    else {
-                        return (buildGeometry, probeGeometry, radius) -> buildGeometry.contains(probeGeometry);
-                    }
-                case ST_WITHIN:
-                    if (probeFirst) {
-                        return (buildGeometry, probeGeometry, radius) -> probeGeometry.within(buildGeometry);
-                    }
-                    else {
-                        return (buildGeometry, probeGeometry, radius) -> buildGeometry.within(probeGeometry);
-                    }
-                case ST_INTERSECTS:
-                    return (buildGeometry, probeGeometry, radius) -> buildGeometry.intersects(probeGeometry);
-                case ST_DISTANCE:
-                    if (comparisonOperator.get() == OperatorType.LESS_THAN) {
-                        return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) < radius.getAsDouble();
-                    }
-                    else if (comparisonOperator.get() == OperatorType.LESS_THAN_OR_EQUAL) {
-                        return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) <= radius.getAsDouble();
-                    }
-                    else {
-                        throw new UnsupportedOperationException("Unsupported comparison operator: " + comparisonOperator.get());
-                    }
-                default:
-                    throw new UnsupportedOperationException("Unsupported spatial function: " + functionName);
+            FullyQualifiedName functionName = metadata.getFunctionManager().getFunctionMetadata(functionCall.getFunctionHandle()).getName();
+            if (functionName.equals(ST_CONTAINS)) {
+                if (probeFirst) {
+                    return (buildGeometry, probeGeometry, radius) -> probeGeometry.contains(buildGeometry);
+                }
+                else {
+                    return (buildGeometry, probeGeometry, radius) -> buildGeometry.contains(probeGeometry);
+                }
             }
+            if (functionName.equals(ST_WITHIN)) {
+                if (probeFirst) {
+                    return (buildGeometry, probeGeometry, radius) -> probeGeometry.within(buildGeometry);
+                }
+                else {
+                    return (buildGeometry, probeGeometry, radius) -> buildGeometry.within(probeGeometry);
+                }
+            }
+            if (functionName.equals(ST_INTERSECTS)) {
+                return (buildGeometry, probeGeometry, radius) -> buildGeometry.intersects(probeGeometry);
+            }
+            if (functionName.equals(ST_DISTANCE)) {
+                if (comparisonOperator.get() == OperatorType.LESS_THAN) {
+                    return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) < radius.getAsDouble();
+                }
+                else if (comparisonOperator.get() == OperatorType.LESS_THAN_OR_EQUAL) {
+                    return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) <= radius.getAsDouble();
+                }
+                else {
+                    throw new UnsupportedOperationException("Unsupported comparison operator: " + comparisonOperator.get());
+                }
+            }
+            throw new UnsupportedOperationException("Unsupported spatial function: " + functionName);
         }
 
         private Set<SymbolReference> getSymbolReferences(Collection<VariableReferenceExpression> variables)

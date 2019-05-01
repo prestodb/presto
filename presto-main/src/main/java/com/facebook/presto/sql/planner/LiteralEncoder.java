@@ -18,6 +18,7 @@ import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.CharType;
@@ -52,6 +53,7 @@ import io.airlift.slice.SliceUtf8;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.metadata.StaticFunctionNamespace.DEFAULT_NAMESPACE;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -233,11 +235,11 @@ public final class LiteralEncoder
             // able to encode it in the plan that gets sent to workers.
             // We do this by transforming the in-memory varbinary into a call to from_base64(<base64-encoded value>)
             FunctionCall fromBase64 = new FunctionCall(QualifiedName.of("from_base64"), ImmutableList.of(new StringLiteral(VarbinaryFunctions.toBase64((Slice) object).toStringUtf8())));
-            return new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(fromBase64));
+            return new FunctionCall(QualifiedName.of(signature.getNameSuffix()), ImmutableList.of(fromBase64));
         }
         Expression rawLiteral = toExpression(object, typeForMagicLiteral(type));
 
-        return new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(rawLiteral));
+        return new FunctionCall(QualifiedName.of(signature.getNameSuffix()), ImmutableList.of(rawLiteral));
     }
 
     public static boolean isSupportedLiteralType(Type type)
@@ -257,7 +259,7 @@ public final class LiteralEncoder
     {
         TypeSignature argumentType = typeForMagicLiteral(type).getTypeSignature();
 
-        return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getTypeSignature(),
+        return new Signature(FullyQualifiedName.of(DEFAULT_NAMESPACE, MAGIC_LITERAL_FUNCTION_PREFIX + type.getTypeSignature()),
                 SCALAR,
                 type.getTypeSignature(),
                 argumentType);

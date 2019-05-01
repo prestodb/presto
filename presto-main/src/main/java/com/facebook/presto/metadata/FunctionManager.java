@@ -22,6 +22,7 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -32,6 +33,8 @@ import com.facebook.presto.type.TypeRegistry;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
+
+import static com.facebook.presto.metadata.StaticFunctionNamespace.DEFAULT_NAMESPACE;
 
 @ThreadSafe
 public class FunctionManager
@@ -76,7 +79,7 @@ public class FunctionManager
         // This is likely to be in terms of SQL path. Currently we still don't have support multiple function namespaces, nor
         // SQL path. As a result, session is not used here. We still add this to distinguish the two versions of resolveFunction
         // while the refactoring is on-going.
-        return staticFunctionNamespace.resolveFunction(name, parameterTypes);
+        return staticFunctionNamespace.resolveFunction(FullyQualifiedName.of(DEFAULT_NAMESPACE, name.getSuffix()), parameterTypes);
     }
 
     @Override
@@ -113,7 +116,7 @@ public class FunctionManager
      */
     public FunctionHandle lookupFunction(String name, List<TypeSignatureProvider> parameterTypes)
     {
-        return staticFunctionNamespace.lookupFunction(QualifiedName.of(name), parameterTypes);
+        return staticFunctionNamespace.lookupFunction(FullyQualifiedName.of(DEFAULT_NAMESPACE, name), parameterTypes);
     }
 
     public FunctionHandle lookupCast(CastType castType, TypeSignature fromType, TypeSignature toType)

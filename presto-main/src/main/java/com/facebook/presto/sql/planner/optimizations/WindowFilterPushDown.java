@@ -17,8 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
-import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -28,7 +28,6 @@ import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.LiteralEncoder;
@@ -47,10 +46,8 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.SystemSessionProperties.isOptimizeTopNRowNumber;
-import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static com.facebook.presto.spi.predicate.Marker.Bound.BELOW;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.planner.ExpressionDomainTranslator.ExtractionResult;
 import static com.facebook.presto.sql.planner.ExpressionDomainTranslator.fromPredicate;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
@@ -66,8 +63,6 @@ import static java.util.stream.Collectors.toMap;
 public class WindowFilterPushDown
         implements PlanOptimizer
 {
-    private static final Signature ROW_NUMBER_SIGNATURE = new Signature("row_number", WINDOW, parseTypeSignature(StandardTypes.BIGINT), ImmutableList.of());
-
     private final Metadata metadata;
     private final ExpressionDomainTranslator domainTranslator;
 
@@ -281,15 +276,13 @@ public class WindowFilterPushDown
                 return false;
             }
             VariableReferenceExpression rowNumberVariable = getOnlyElement(node.getWindowFunctions().keySet());
-            return isRowNumberMetadata(functionManager.getFunctionMetadata(node.getWindowFunctions().get(rowNumberVariable).getFunctionHandle()));
+            return isRowNumberMetadata(functionManager, functionManager.getFunctionMetadata(node.getWindowFunctions().get(rowNumberVariable).getFunctionHandle()));
         }
 
-        private static boolean isRowNumberMetadata(FunctionMetadata functionMetadata)
+        private static boolean isRowNumberMetadata(FunctionManager functionManager, FunctionMetadata functionMetadata)
         {
-            return functionMetadata.getName().equals(ROW_NUMBER_SIGNATURE.getName())
-                    && functionMetadata.getFunctionKind().equals(ROW_NUMBER_SIGNATURE.getKind())
-                    && functionMetadata.getArgumentTypes().equals(ROW_NUMBER_SIGNATURE.getArgumentTypes())
-                    && functionMetadata.getReturnType().equals(ROW_NUMBER_SIGNATURE.getReturnType());
+            FunctionHandle rowNumberFunction = functionManager.lookupFunction("row_number", ImmutableList.of());
+            return functionMetadata.equals(functionManager.getFunctionMetadata(rowNumberFunction));
         }
     }
 }

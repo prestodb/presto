@@ -151,7 +151,7 @@ public abstract class AbstractMinMaxBy
         MethodHandle combineMethod = methodHandle(generatedClass, "combine", stateClazz, stateClazz);
         MethodHandle outputMethod = methodHandle(generatedClass, "output", stateClazz, BlockBuilder.class);
         AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(getSignature().getName(), valueType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
+                generateAggregationName(getSignature().getNameSuffix(), valueType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(valueType, keyType),
                 inputMethod,
                 combineMethod,
@@ -162,7 +162,7 @@ public abstract class AbstractMinMaxBy
                         stateFactory)),
                 valueType);
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(getSignature().getName(), inputTypes, ImmutableList.of(intermediateType), valueType, true, false, factory);
+        return new InternalAggregationFunction(getSignature().getNameSuffix(), inputTypes, ImmutableList.of(intermediateType), valueType, true, false, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type value, Type key)

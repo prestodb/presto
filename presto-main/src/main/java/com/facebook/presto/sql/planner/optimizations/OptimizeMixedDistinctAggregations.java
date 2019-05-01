@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BigintType;
@@ -55,6 +56,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isOptimizeDistinctAggregationEnabled;
+import static com.facebook.presto.metadata.StaticFunctionNamespace.DEFAULT_NAMESPACE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
@@ -191,8 +193,10 @@ public class OptimizeMixedDistinctAggregations
                             Optional.empty(),
                             false,
                             Optional.empty());
-                    String functionName = metadata.getFunctionManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getName();
-                    if (functionName.equals("count") || functionName.equals("count_if") || functionName.equals("approx_distinct")) {
+                    FullyQualifiedName functionName = metadata.getFunctionManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getName();
+                    if (functionName.equals(FullyQualifiedName.of(DEFAULT_NAMESPACE, "count")) ||
+                            functionName.equals(FullyQualifiedName.of(DEFAULT_NAMESPACE, "count_if")) ||
+                            functionName.equals(FullyQualifiedName.of(DEFAULT_NAMESPACE, "approx_distinct"))) {
                         VariableReferenceExpression newVariable = variableAllocator.newVariable("expr", entry.getKey().getType());
                         aggregations.put(newVariable, aggregation);
                         coalesceVariablesBuilder.put(newVariable, entry.getKey());

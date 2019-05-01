@@ -20,6 +20,7 @@ import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.Argument
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -29,6 +30,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static com.facebook.presto.metadata.CastType.CAST;
+import static com.facebook.presto.metadata.StaticFunctionNamespace.DEFAULT_NAMESPACE;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.invoke.MethodHandles.catchException;
@@ -45,7 +47,7 @@ public class TryCastFunction
     public TryCastFunction()
     {
         super(new Signature(
-                TRY_CAST_NAME,
+                FullyQualifiedName.of(DEFAULT_NAMESPACE, TRY_CAST_NAME),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("F"), typeVariable("T")),
                 ImmutableList.of(),

@@ -22,6 +22,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -35,6 +36,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.presto.metadata.StaticFunctionNamespace.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
@@ -153,7 +155,7 @@ public class TestProvidedBlockBuilderReturnPlaceConvention
         protected FunctionWithProvidedBlockReturnPlaceConvention1()
         {
             super(new Signature(
-                    "identity1",
+                    FullyQualifiedName.of(DEFAULT_NAMESPACE, "identity1"),
                     FunctionKind.SCALAR,
                     ImmutableList.of(typeVariable("T")),
                     ImmutableList.of(),
@@ -273,7 +275,7 @@ public class TestProvidedBlockBuilderReturnPlaceConvention
         protected FunctionWithProvidedBlockReturnPlaceConvention2()
         {
             super(new Signature(
-                    "identity2",
+                    FullyQualifiedName.of(DEFAULT_NAMESPACE, "identity2"),
                     FunctionKind.SCALAR,
                     ImmutableList.of(typeVariable("T")),
                     ImmutableList.of(),

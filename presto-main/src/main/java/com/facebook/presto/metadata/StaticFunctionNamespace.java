@@ -156,12 +156,12 @@ import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
 import com.facebook.presto.type.CharOperators;
@@ -218,7 +218,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.CastType.toOperatorType;
-import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ChecksumAggregationFunction.CHECKSUM_AGGREGATION;
@@ -362,9 +361,11 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
-class StaticFunctionNamespace
+public class StaticFunctionNamespace
         implements FunctionNamespace
 {
+    public static final FullyQualifiedName.Prefix DEFAULT_NAMESPACE = FullyQualifiedName.of("presto.default.foo").getPrefix();
+
     private final TypeManager typeManager;
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
     private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
@@ -729,7 +730,7 @@ class StaticFunctionNamespace
         }
     }
 
-    public FunctionHandle lookupFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    public FunctionHandle lookupFunction(FullyQualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         Collection<SqlFunction> allCandidates = functions.get(name);
         List<SqlFunction> exactCandidates = allCandidates.stream()
@@ -750,11 +751,11 @@ class StaticFunctionNamespace
             return new StaticFunctionHandle(match.get());
         }
 
-        throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(name, parameterTypes, allCandidates));
+        throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(name.getSuffix(), parameterTypes, allCandidates));
     }
 
     @Override
-    public FunctionHandle resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    public FunctionHandle resolveFunction(FullyQualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         try {
             return lookupFunction(name, parameterTypes);
@@ -784,10 +785,10 @@ class StaticFunctionNamespace
             return new StaticFunctionHandle(getMagicLiteralFunctionSignature(type));
         }
 
-        throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(name, parameterTypes, allCandidates));
+        throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(name.getSuffix(), parameterTypes, allCandidates));
     }
 
-    private String constructFunctionNotFoundErrorMessage(QualifiedName name, List<TypeSignatureProvider> parameterTypes, Collection<SqlFunction> candidates)
+    private String constructFunctionNotFoundErrorMessage(String name, List<TypeSignatureProvider> parameterTypes, Collection<SqlFunction> candidates)
     {
         List<String> expectedParameters = new ArrayList<>();
         for (SqlFunction function : candidates) {
@@ -1049,7 +1050,7 @@ class StaticFunctionNamespace
 
     private SpecializedFunctionKey doGetSpecializedFunctionKey(Signature signature)
     {
-        Iterable<SqlFunction> candidates = functions.get(QualifiedName.of(signature.getName()));
+        Iterable<SqlFunction> candidates = functions.get(signature.getName());
         // search for exact match
         Type returnType = typeManager.getType(signature.getReturnType());
         List<TypeSignatureProvider> argumentTypeSignatureProviders = fromTypeSignatures(signature.getArgumentTypes());
@@ -1091,10 +1092,10 @@ class StaticFunctionNamespace
         }
 
         // TODO: this is a hack and should be removed
-        if (signature.getName().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
+        if (signature.getNameSuffix().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
             List<TypeSignature> parameterTypes = signature.getArgumentTypes();
             // extract type from function name
-            String typeName = signature.getName().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
+            String typeName = signature.getNameSuffix().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
 
             // lookup the type
             Type type = typeManager.getType(parseTypeSignature(typeName));
@@ -1119,8 +1120,8 @@ class StaticFunctionNamespace
     @VisibleForTesting
     public List<SqlFunction> listOperators()
     {
-        Set<String> operatorNames = Arrays.asList(OperatorType.values()).stream()
-                .map(OperatorSignatureUtils::mangleOperatorName)
+        Set<FullyQualifiedName> operatorNames = Arrays.asList(OperatorType.values()).stream()
+                .map(OperatorType::getFunctionName)
                 .collect(toImmutableSet());
 
         return functions.list().stream()
@@ -1132,7 +1133,7 @@ class StaticFunctionNamespace
             throws OperatorNotFoundException
     {
         try {
-            return resolveFunction(QualifiedName.of(mangleOperatorName(operatorType)), argumentTypes);
+            return resolveFunction(operatorType.getFunctionName(), argumentTypes);
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
@@ -1189,7 +1190,7 @@ class StaticFunctionNamespace
 
     private static class FunctionMap
     {
-        private final Multimap<QualifiedName, SqlFunction> functions;
+        private final Multimap<FullyQualifiedName, SqlFunction> functions;
 
         public FunctionMap()
         {
@@ -1198,13 +1199,13 @@ class StaticFunctionNamespace
 
         public FunctionMap(FunctionMap map, Iterable<? extends SqlFunction> functions)
         {
-            this.functions = ImmutableListMultimap.<QualifiedName, SqlFunction>builder()
+            this.functions = ImmutableListMultimap.<FullyQualifiedName, SqlFunction>builder()
                     .putAll(map.functions)
-                    .putAll(Multimaps.index(functions, function -> QualifiedName.of(function.getSignature().getName())))
+                    .putAll(Multimaps.index(functions, function -> function.getSignature().getName()))
                     .build();
 
             // Make sure all functions with the same name are aggregations or none of them are
-            for (Map.Entry<QualifiedName, Collection<SqlFunction>> entry : this.functions.asMap().entrySet()) {
+            for (Map.Entry<FullyQualifiedName, Collection<SqlFunction>> entry : this.functions.asMap().entrySet()) {
                 Collection<SqlFunction> values = entry.getValue();
                 long aggregations = values.stream()
                         .map(function -> function.getSignature().getKind())
@@ -1219,7 +1220,7 @@ class StaticFunctionNamespace
             return ImmutableList.copyOf(functions.values());
         }
 
-        public Collection<SqlFunction> get(QualifiedName name)
+        public Collection<SqlFunction> get(FullyQualifiedName name)
         {
             return functions.get(name);
         }
@@ -1263,7 +1264,7 @@ class StaticFunctionNamespace
 
         MagicLiteralFunction(BlockEncodingSerde blockEncodingSerde)
         {
-            super(new Signature(MAGIC_LITERAL_FUNCTION_PREFIX, SCALAR, TypeSignature.parseTypeSignature("R"), TypeSignature.parseTypeSignature("T")));
+            super(new Signature(FullyQualifiedName.of(DEFAULT_NAMESPACE, MAGIC_LITERAL_FUNCTION_PREFIX), SCALAR, TypeSignature.parseTypeSignature("R"), TypeSignature.parseTypeSignature("T")));
             this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         }
 

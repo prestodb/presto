@@ -30,6 +30,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -55,6 +56,7 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.lessTh
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.subtract;
 import static com.facebook.presto.bytecode.instruction.VariableInstruction.incrementVariable;
+import static com.facebook.presto.metadata.StaticFunctionNamespace.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
@@ -74,7 +76,7 @@ public final class ArrayTransformFunction
     private ArrayTransformFunction()
     {
         super(new Signature(
-                "transform",
+                FullyQualifiedName.of(DEFAULT_NAMESPACE, "transform"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T"), typeVariable("U")),
                 ImmutableList.of(),

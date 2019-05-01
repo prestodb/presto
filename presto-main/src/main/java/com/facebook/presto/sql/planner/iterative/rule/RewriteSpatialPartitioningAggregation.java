@@ -17,6 +17,7 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
@@ -36,6 +37,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
+import static com.facebook.presto.metadata.StaticFunctionNamespace.DEFAULT_NAMESPACE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -66,7 +68,7 @@ public class RewriteSpatialPartitioningAggregation
         implements Rule<AggregationNode>
 {
     private static final TypeSignature GEOMETRY_TYPE_SIGNATURE = parseTypeSignature("Geometry");
-    private static final String NAME = "spatial_partitioning";
+    private static final FullyQualifiedName NAME = FullyQualifiedName.of(DEFAULT_NAMESPACE, "spatial_partitioning");
     private final Pattern<AggregationNode> pattern = aggregation().matching(this::hasSpatialPartitioningAggregation);
 
     private final Metadata metadata;
@@ -97,7 +99,7 @@ public class RewriteSpatialPartitioningAggregation
         ImmutableMap.Builder<VariableReferenceExpression, RowExpression> envelopeAssignments = ImmutableMap.builder();
         for (Map.Entry<VariableReferenceExpression, Aggregation> entry : node.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
-            String name = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName();
+            FullyQualifiedName name = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName();
             Type geometryType = metadata.getType(GEOMETRY_TYPE_SIGNATURE);
             if (name.equals(NAME) && aggregation.getArguments().size() == 1) {
                 RowExpression geometry = getOnlyElement(aggregation.getArguments());
@@ -111,8 +113,8 @@ public class RewriteSpatialPartitioningAggregation
                 aggregations.put(entry.getKey(),
                         new Aggregation(
                                 new CallExpression(
-                                        name,
-                                        metadata.getFunctionManager().lookupFunction(NAME, fromTypes(geometryType, INTEGER)),
+                                        name.getSuffix(),
+                                        metadata.getFunctionManager().lookupFunction(NAME.getSuffix(), fromTypes(geometryType, INTEGER)),
                                         entry.getKey().getType(),
                                         ImmutableList.of(
                                                 castToRowExpression(asSymbolReference(envelopeVariable)),

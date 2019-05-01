@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
@@ -26,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 
+import static com.facebook.presto.metadata.StaticFunctionNamespace.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -45,7 +47,7 @@ public final class InvokeFunction
     private InvokeFunction()
     {
         super(new Signature(
-                "invoke",
+                FullyQualifiedName.of(DEFAULT_NAMESPACE, "invoke"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),

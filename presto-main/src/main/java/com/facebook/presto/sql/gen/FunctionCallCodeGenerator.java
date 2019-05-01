@@ -49,7 +49,7 @@ public class FunctionCallCodeGenerator
         }
 
         return context.generateCall(
-                functionManager.getFunctionMetadata(functionHandle).getName(),
+                functionManager.getFunctionMetadata(functionHandle).getName().getSuffix(),
                 function,
                 argumentsBytecode,
                 outputBlockVariable.map(variable -> new OutputBlockVariableAndType(variable, returnType)));

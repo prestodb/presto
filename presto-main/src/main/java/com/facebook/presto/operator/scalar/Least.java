@@ -14,6 +14,9 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
+
+import static com.facebook.presto.metadata.StaticFunctionNamespace.DEFAULT_NAMESPACE;
 
 public final class Least
         extends AbstractGreatestLeast
@@ -22,7 +25,7 @@ public final class Least
 
     public Least()
     {
-        super("least", OperatorType.LESS_THAN);
+        super(FullyQualifiedName.of(DEFAULT_NAMESPACE, "least"), OperatorType.LESS_THAN);
     }
 
     @Override

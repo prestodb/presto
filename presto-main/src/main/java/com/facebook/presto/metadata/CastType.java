@@ -14,8 +14,9 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 
-import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
+import static com.facebook.presto.metadata.StaticFunctionNamespace.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static com.facebook.presto.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
 import static com.facebook.presto.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
@@ -24,23 +25,23 @@ import static java.lang.String.format;
 
 public enum CastType
 {
-    CAST(mangleOperatorName(OperatorType.CAST.name()), true),
-    SATURATED_FLOOR_CAST(mangleOperatorName(OperatorType.SATURATED_FLOOR_CAST.name()), true),
-    TRY_CAST(TRY_CAST_NAME, false),
-    JSON_TO_ARRAY_CAST(JSON_STRING_TO_ARRAY_NAME, false),
-    JSON_TO_MAP_CAST(JSON_STRING_TO_MAP_NAME, false),
-    JSON_TO_ROW_CAST(JSON_STRING_TO_ROW_NAME, false);
+    CAST(OperatorType.CAST.getFunctionName(), true),
+    SATURATED_FLOOR_CAST(OperatorType.SATURATED_FLOOR_CAST.getFunctionName(), true),
+    TRY_CAST(FullyQualifiedName.of(DEFAULT_NAMESPACE, TRY_CAST_NAME), false),
+    JSON_TO_ARRAY_CAST(FullyQualifiedName.of(DEFAULT_NAMESPACE, JSON_STRING_TO_ARRAY_NAME), false),
+    JSON_TO_MAP_CAST(FullyQualifiedName.of(DEFAULT_NAMESPACE, JSON_STRING_TO_MAP_NAME), false),
+    JSON_TO_ROW_CAST(FullyQualifiedName.of(DEFAULT_NAMESPACE, JSON_STRING_TO_ROW_NAME), false);
 
-    private final String castName;
+    private final FullyQualifiedName castName;
     private final boolean isOperatorType;
 
-    CastType(String castName, boolean isOperatorType)
+    CastType(FullyQualifiedName castName, boolean isOperatorType)
     {
         this.castName = castName;
         this.isOperatorType = isOperatorType;
     }
 
-    public String getCastName()
+    public FullyQualifiedName getCastName()
     {
         return castName;
     }

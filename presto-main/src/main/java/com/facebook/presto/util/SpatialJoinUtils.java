@@ -16,6 +16,7 @@ package com.facebook.presto.util;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.relation.LogicalRowExpressions;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -25,16 +26,17 @@ import com.facebook.presto.sql.tree.FunctionCall;
 
 import java.util.List;
 
+import static com.facebook.presto.metadata.StaticFunctionNamespace.DEFAULT_NAMESPACE;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class SpatialJoinUtils
 {
-    public static final String ST_CONTAINS = "st_contains";
-    public static final String ST_WITHIN = "st_within";
-    public static final String ST_INTERSECTS = "st_intersects";
-    public static final String ST_DISTANCE = "st_distance";
+    public static final FullyQualifiedName ST_CONTAINS = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_contains");
+    public static final FullyQualifiedName ST_WITHIN = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_within");
+    public static final FullyQualifiedName ST_INTERSECTS = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_intersects");
+    public static final FullyQualifiedName ST_DISTANCE = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_distance");
 
     private SpatialJoinUtils() {}
 
@@ -66,16 +68,16 @@ public class SpatialJoinUtils
 
     private static boolean isSupportedSpatialFunction(FunctionCall functionCall)
     {
-        String functionName = functionCall.getName().toString();
-        return functionName.equalsIgnoreCase(ST_CONTAINS) || functionName.equalsIgnoreCase(ST_WITHIN)
-                || functionName.equalsIgnoreCase(ST_INTERSECTS);
+        String functionName = functionCall.getName().getSuffix();
+        return functionName.equalsIgnoreCase(ST_CONTAINS.getSuffix()) || functionName.equalsIgnoreCase(ST_WITHIN.getSuffix())
+                || functionName.equalsIgnoreCase(ST_INTERSECTS.getSuffix());
     }
 
     private static boolean isSupportedSpatialFunction(CallExpression call, FunctionManager functionManager)
     {
-        String functionName = functionManager.getFunctionMetadata(call.getFunctionHandle()).getName();
-        return functionName.equalsIgnoreCase(ST_CONTAINS) || functionName.equalsIgnoreCase(ST_WITHIN)
-                || functionName.equalsIgnoreCase(ST_INTERSECTS);
+        FullyQualifiedName functionName = functionManager.getFunctionMetadata(call.getFunctionHandle()).getName();
+        return functionName.equals(ST_CONTAINS) || functionName.equals(ST_WITHIN)
+                || functionName.equals(ST_INTERSECTS);
     }
 
     /**
@@ -140,7 +142,7 @@ public class SpatialJoinUtils
     private static boolean isSTDistance(Expression expression)
     {
         if (expression instanceof FunctionCall) {
-            return ((FunctionCall) expression).getName().toString().equalsIgnoreCase(ST_DISTANCE);
+            return ((FunctionCall) expression).getName().getSuffix().equalsIgnoreCase(ST_DISTANCE.getSuffix());
         }
 
         return false;
@@ -149,7 +151,7 @@ public class SpatialJoinUtils
     private static boolean isSTDistance(RowExpression expression, FunctionManager functionManager)
     {
         if (expression instanceof CallExpression) {
-            return functionManager.getFunctionMetadata(((CallExpression) expression).getFunctionHandle()).getName().equalsIgnoreCase(ST_DISTANCE);
+            return functionManager.getFunctionMetadata(((CallExpression) expression).getFunctionHandle()).getName().equals(ST_DISTANCE);
         }
 
         return false;

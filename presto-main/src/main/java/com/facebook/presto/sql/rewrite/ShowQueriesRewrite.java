@@ -525,7 +525,7 @@ final class ShowQueriesRewrite
             ImmutableList.Builder<Expression> rows = ImmutableList.builder();
             for (SqlFunction function : metadata.listFunctions()) {
                 rows.add(row(
-                        new StringLiteral(function.getSignature().getName()),
+                        new StringLiteral(function.getSignature().getNameSuffix()),
                         new StringLiteral(function.getSignature().getReturnType().toString()),
                         new StringLiteral(Joiner.on(", ").join(function.getSignature().getArgumentTypes())),
                         new StringLiteral(getFunctionType(function)),

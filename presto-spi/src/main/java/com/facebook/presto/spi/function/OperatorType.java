@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.function;
 
+import com.facebook.presto.spi.relation.FullyQualifiedName;
+
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
@@ -43,16 +45,16 @@ public enum OperatorType
     XX_HASH_64("XX HASH 64", false),
     INDETERMINATE("INDETERMINATE", true);
 
-    private static final Map<String, OperatorType> OPERATOR_TYPES = Arrays.stream(OperatorType.values()).collect(toMap(OperatorType::getFunctionName, Function.identity()));
+    private static final Map<FullyQualifiedName, OperatorType> OPERATOR_TYPES = Arrays.stream(OperatorType.values()).collect(toMap(OperatorType::getFunctionName, Function.identity()));
 
     private final String operator;
-    private final String functionName;
+    private final FullyQualifiedName functionName;
     private final boolean calledOnNullInput;
 
     OperatorType(String operator, boolean calledOnNullInput)
     {
         this.operator = operator;
-        this.functionName = "$operator$" + name();
+        this.functionName = FullyQualifiedName.of("presto.default.$operator$" + name());
         this.calledOnNullInput = calledOnNullInput;
     }
 
@@ -61,7 +63,7 @@ public enum OperatorType
         return operator;
     }
 
-    public String getFunctionName()
+    public FullyQualifiedName getFunctionName()
     {
         return functionName;
     }
@@ -71,7 +73,7 @@ public enum OperatorType
         return calledOnNullInput;
     }
 
-    public static Optional<OperatorType> tryGetOperatorType(String operatorName)
+    public static Optional<OperatorType> tryGetOperatorType(FullyQualifiedName operatorName)
     {
         return Optional.ofNullable(OPERATOR_TYPES.get(operatorName));
     }
