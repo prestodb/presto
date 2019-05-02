@@ -65,12 +65,14 @@ public class TestPickTableLayout
                 connectorId,
                 nationTpchTableHandle,
                 TestingTransactionHandle.create(),
-                Optional.of(new TpchTableLayoutHandle(nationTpchTableHandle, TupleDomain.all())));
+                Optional.of(new TpchTableLayoutHandle(nationTpchTableHandle, TupleDomain.all())),
+                false);
         ordersTableHandle = new TableHandle(
                 connectorId,
                 orderTpchTableHandle,
                 TestingTransactionHandle.create(),
-                Optional.of(new TpchTableLayoutHandle(orderTpchTableHandle, TupleDomain.all())));
+                Optional.of(new TpchTableLayoutHandle(orderTpchTableHandle, TupleDomain.all())),
+                false);
     }
 
     @Test
@@ -144,7 +146,8 @@ public class TestPickTableLayout
                                 connectorId,
                                 new TpchTableHandle("nation", 1.0),
                                 TestingTransactionHandle.create(),
-                                Optional.empty()),
+                                Optional.empty(),
+                                false),
                         ImmutableList.of(p.symbol("nationkey", BIGINT)),
                         ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT))))
                 .matches(

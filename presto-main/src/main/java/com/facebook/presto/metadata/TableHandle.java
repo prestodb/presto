@@ -36,17 +36,21 @@ public final class TableHandle
     // TODO remove table layout once it is fully deprecated.
     private final Optional<ConnectorTableLayoutHandle> layout;
 
+    private final boolean temporaryTable;
+
     @JsonCreator
     public TableHandle(
             @JsonProperty("connectorId") ConnectorId connectorId,
             @JsonProperty("connectorHandle") ConnectorTableHandle connectorHandle,
             @JsonProperty("transaction") ConnectorTransactionHandle transaction,
-            @JsonProperty("connectorTableLayout") Optional<ConnectorTableLayoutHandle> layout)
+            @JsonProperty("connectorTableLayout") Optional<ConnectorTableLayoutHandle> layout,
+            @JsonProperty("temporaryTable") boolean temporaryTable)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
         this.transaction = requireNonNull(transaction, "transaction is null");
         this.layout = requireNonNull(layout, "layout is null");
+        this.temporaryTable = temporaryTable;
     }
 
     @JsonProperty
@@ -71,6 +75,12 @@ public final class TableHandle
     public Optional<ConnectorTableLayoutHandle> getLayout()
     {
         return layout;
+    }
+
+    @JsonProperty
+    public boolean isTemporaryTable()
+    {
+        return temporaryTable;
     }
 
     @Override

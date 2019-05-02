@@ -38,8 +38,9 @@ public class TableLayout
     private final ConnectorTableHandle connectorTableHandle;
     private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorTableLayout layout;
+    private final boolean temporaryTable;
 
-    public TableLayout(ConnectorId connectorId, ConnectorTableHandle connectorTableHandle, ConnectorTransactionHandle transactionHandle, ConnectorTableLayout layout)
+    public TableLayout(ConnectorId connectorId, ConnectorTableHandle connectorTableHandle, ConnectorTransactionHandle transactionHandle, ConnectorTableLayout layout, boolean temporaryTable)
     {
         requireNonNull(connectorId, "connectorId is null");
         requireNonNull(connectorTableHandle, "connectorTableHandle is null");
@@ -49,6 +50,7 @@ public class TableLayout
         this.connectorId = connectorId;
         this.transactionHandle = transactionHandle;
         this.layout = layout;
+        this.temporaryTable = temporaryTable;
     }
 
     public ConnectorId getConnectorId()
@@ -78,7 +80,7 @@ public class TableLayout
 
     public TableHandle getNewTableHandle()
     {
-        return new TableHandle(connectorId, connectorTableHandle, transactionHandle, Optional.of(layout.getHandle()));
+        return new TableHandle(connectorId, connectorTableHandle, transactionHandle, Optional.of(layout.getHandle()), temporaryTable);
     }
 
     public Optional<TablePartitioning> getTablePartitioning()
@@ -102,9 +104,9 @@ public class TableLayout
         return layout.getDiscretePredicates();
     }
 
-    public static TableLayout fromConnectorLayout(ConnectorId connectorId, ConnectorTableHandle connectorTableHandle, ConnectorTransactionHandle transactionHandle, ConnectorTableLayout layout)
+    public static TableLayout fromConnectorLayout(ConnectorId connectorId, ConnectorTableHandle connectorTableHandle, ConnectorTransactionHandle transactionHandle, ConnectorTableLayout layout, boolean temporaryTable)
     {
-        return new TableLayout(connectorId, connectorTableHandle, transactionHandle, layout);
+        return new TableLayout(connectorId, connectorTableHandle, transactionHandle, layout, temporaryTable);
     }
 
     public static class TablePartitioning

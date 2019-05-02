@@ -128,7 +128,7 @@ public class SplitSourceFactory
                     node.getTable(),
                     stageExecutionDescriptor.isScanGroupedExecution(node.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING);
 
-            SplitSource splitSource = node.isTemporaryTable() ? new LazySplitSource(splitSourceSupplier) : splitSourceSupplier.get();
+            SplitSource splitSource = node.getTable().isTemporaryTable() ? new LazySplitSource(splitSourceSupplier) : splitSourceSupplier.get();
 
             splitSources.add(splitSource);
 

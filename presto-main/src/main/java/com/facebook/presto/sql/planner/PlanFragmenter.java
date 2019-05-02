@@ -552,8 +552,7 @@ public class PlanFragmenter
                     outputSymbols,
                     assignments,
                     TupleDomain.all(),
-                    TupleDomain.all(),
-                    true);
+                    TupleDomain.all());
         }
 
         private TableFinishNode createTemporaryTableWrite(
@@ -1070,8 +1069,7 @@ public class PlanFragmenter
                     node.getOutputSymbols(),
                     node.getAssignments(),
                     node.getCurrentConstraint(),
-                    node.getEnforcedConstraint(),
-                    node.isTemporaryTable());
+                    node.getEnforcedConstraint());
         }
     }
 

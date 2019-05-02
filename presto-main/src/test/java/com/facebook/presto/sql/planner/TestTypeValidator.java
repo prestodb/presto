@@ -75,7 +75,8 @@ public class TestTypeValidator
             new ConnectorId("test"),
             new TestingTableHandle(),
             TestingTransactionHandle.create(),
-            Optional.empty());
+            Optional.empty(),
+            false);
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final TypeValidator TYPE_VALIDATOR = new TypeValidator();
     private static final FunctionManager FUNCTION_MANAGER = createTestMetadataManager().getFunctionManager();

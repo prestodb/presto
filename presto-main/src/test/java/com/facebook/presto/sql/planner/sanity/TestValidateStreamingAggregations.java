@@ -59,7 +59,8 @@ public class TestValidateStreamingAggregations
                 connectorId,
                 nationTpchTableHandle,
                 TestingTransactionHandle.create(),
-                Optional.of(new TpchTableLayoutHandle(nationTpchTableHandle, TupleDomain.all())));
+                Optional.of(new TpchTableLayoutHandle(nationTpchTableHandle, TupleDomain.all())),
+                false);
     }
 
     @Test

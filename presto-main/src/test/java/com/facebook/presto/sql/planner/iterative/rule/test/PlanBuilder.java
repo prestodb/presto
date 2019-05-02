@@ -381,7 +381,8 @@ public class PlanBuilder
                 new ConnectorId("testConnector"),
                 new TestingTableHandle(),
                 TestingTransactionHandle.create(),
-                Optional.empty());
+                Optional.empty(),
+                false);
         return tableScan(tableHandle, symbols, assignments, TupleDomain.all(), TupleDomain.all());
     }
 
@@ -416,7 +417,8 @@ public class PlanBuilder
                         new ConnectorId("testConnector"),
                         new TestingTableHandle(),
                         TestingTransactionHandle.create(),
-                        Optional.empty()),
+                        Optional.empty(),
+                        false),
                 schemaTableName);
         return new TableFinishNode(
                 idAllocator.getNextId(),

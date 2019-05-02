@@ -54,7 +54,8 @@ public class TestPruneTableScanColumns
                                             new ConnectorId("local"),
                                             new TpchTableHandle("orders", TINY_SCALE_FACTOR),
                                             TestingTransactionHandle.create(),
-                                            Optional.empty()),
+                                            Optional.empty(),
+                                            false),
                                     ImmutableList.of(orderdate, totalprice),
                                     ImmutableMap.of(
                                             orderdate, new TpchColumnHandle(orderdate.getName(), DATE),

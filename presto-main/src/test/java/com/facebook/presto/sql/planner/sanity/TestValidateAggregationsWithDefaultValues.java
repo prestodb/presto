@@ -68,7 +68,8 @@ public class TestValidateAggregationsWithDefaultValues
                 connectorId,
                 nationTpchTableHandle,
                 TestingTransactionHandle.create(),
-                Optional.of(new TpchTableLayoutHandle(nationTpchTableHandle, TupleDomain.all())));
+                Optional.of(new TpchTableLayoutHandle(nationTpchTableHandle, TupleDomain.all())),
+                false);
         TpchColumnHandle nationkeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
         symbol = new Symbol("nationkey");
         tableScanNode = builder.tableScan(nationTableHandle, ImmutableList.of(symbol), ImmutableMap.of(symbol, nationkeyColumnHandle));

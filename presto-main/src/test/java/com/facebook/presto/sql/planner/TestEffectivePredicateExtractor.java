@@ -77,6 +77,7 @@ import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.or;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggregation;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.planner.plan.TableScanNode.createTableScanNode;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -89,13 +90,15 @@ public class TestEffectivePredicateExtractor
             new ConnectorId("test"),
             new TestingTableHandle(),
             TestingTransactionHandle.create(),
-            Optional.empty());
+            Optional.empty(),
+            false);
 
     private static final TableHandle DUAL_TABLE_HANDLE_WITH_LAYOUT = new TableHandle(
             new ConnectorId("test"),
             new TestingTableHandle(),
             TestingTransactionHandle.create(),
-            Optional.of(TestingHandle.INSTANCE));
+            Optional.of(TestingHandle.INSTANCE),
+            false);
 
     private static final Symbol A = new Symbol("a");
     private static final Symbol B = new Symbol("b");
@@ -132,7 +135,7 @@ public class TestEffectivePredicateExtractor
                 .build();
 
         Map<Symbol, ColumnHandle> assignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(A, B, C, D, E, F)));
-        baseTableScan = new TableScanNode(
+        baseTableScan = createTableScanNode(
                 newId(),
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
@@ -327,7 +330,7 @@ public class TestEffectivePredicateExtractor
     {
         // Effective predicate is True if there is no effective predicate
         Map<Symbol, ColumnHandle> assignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(A, B, C, D)));
-        PlanNode node = new TableScanNode(
+        PlanNode node = createTableScanNode(
                 newId(),
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),

@@ -325,7 +325,8 @@ public class MetadataManager
                         connectorId,
                         tableHandle,
                         catalogMetadata.getTransactionHandleFor(connectorId),
-                        Optional.empty()));
+                        Optional.empty(),
+                        false));
             }
         }
         return Optional.empty();
@@ -348,7 +349,8 @@ public class MetadataManager
                         connectorId,
                         tableHandle,
                         catalogMetadata.getTransactionHandleFor(connectorId),
-                        Optional.empty()));
+                        Optional.empty(),
+                        false));
             }
         }
         return Optional.empty();
@@ -390,7 +392,14 @@ public class MetadataManager
             throw new PrestoException(NOT_SUPPORTED, "Connector returned multiple layouts for table " + table);
         }
 
-        return new TableLayoutResult(fromConnectorLayout(connectorId, table.getConnectorHandle(), table.getTransaction(), layouts.get(0).getTableLayout()), layouts.get(0).getUnenforcedConstraint());
+        return new TableLayoutResult(
+                fromConnectorLayout(
+                        connectorId,
+                        table.getConnectorHandle(),
+                        table.getTransaction(),
+                        layouts.get(0).getTableLayout(),
+                        table.isTemporaryTable()),
+                layouts.get(0).getUnenforcedConstraint());
     }
 
     @Override
@@ -399,7 +408,12 @@ public class MetadataManager
         ConnectorId connectorId = handle.getConnectorId();
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
-        return fromConnectorLayout(connectorId, handle.getConnectorHandle(), handle.getTransaction(), metadata.getTableLayout(session.toConnectorSession(connectorId), resolveTableLayout(session, handle)));
+        return fromConnectorLayout(
+                connectorId,
+                handle.getConnectorHandle(),
+                handle.getTransaction(),
+                metadata.getTableLayout(session.toConnectorSession(connectorId), resolveTableLayout(session, handle)),
+                handle.isTemporaryTable());
     }
 
     @Override
@@ -411,7 +425,7 @@ public class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
         ConnectorTableLayoutHandle newTableLayoutHandle = metadata.getAlternativeLayoutHandle(session.toConnectorSession(connectorId), tableHandle.getLayout().get(), partitioningHandle.getConnectorHandle());
-        return new TableHandle(tableHandle.getConnectorId(), tableHandle.getConnectorHandle(), tableHandle.getTransaction(), Optional.of(newTableLayoutHandle));
+        return new TableHandle(tableHandle.getConnectorId(), tableHandle.getConnectorHandle(), tableHandle.getTransaction(), Optional.of(newTableLayoutHandle), tableHandle.isTemporaryTable());
     }
 
     @Override
@@ -626,7 +640,7 @@ public class MetadataManager
                 session.toConnectorSession(connectorId),
                 columns,
                 partitioningMetadata.map(partitioning -> createConnectorPartitioningMetadata(connectorId, partitioning)));
-        return new TableHandle(connectorId, connectorTableHandle, catalogMetadata.getTransactionHandleFor(connectorId), Optional.empty());
+        return new TableHandle(connectorId, connectorTableHandle, catalogMetadata.getTransactionHandleFor(connectorId), Optional.empty(), true);
     }
 
     private static ConnectorPartitioningMetadata createConnectorPartitioningMetadata(ConnectorId connectorId, PartitioningMetadata partitioningMetadata)
@@ -860,7 +874,8 @@ public class MetadataManager
                 tableHandle.getConnectorId(),
                 newHandle,
                 tableHandle.getTransaction(),
-                Optional.empty());
+                Optional.empty(),
+                false);
     }
 
     @Override

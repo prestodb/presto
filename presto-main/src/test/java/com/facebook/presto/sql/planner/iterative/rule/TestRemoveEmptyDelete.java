@@ -42,7 +42,8 @@ public class TestRemoveEmptyDelete
                                         CONNECTOR_ID,
                                         new TpchTableHandle("nation", 1.0),
                                         TestingTransactionHandle.create(),
-                                        Optional.empty()),
+                                        Optional.empty(),
+                                        false),
                                 ImmutableList.of(),
                                 ImmutableMap.of()),
                         p.symbol("a", BigintType.BIGINT)))
