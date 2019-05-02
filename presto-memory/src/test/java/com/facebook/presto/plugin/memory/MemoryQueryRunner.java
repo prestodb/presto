@@ -30,7 +30,7 @@ import static io.airlift.testing.Closeables.closeAllSuppress;
 
 public final class MemoryQueryRunner
 {
-    public static final String CATALOG = "memory";
+    private static final String CATALOG = "memory";
 
     private MemoryQueryRunner() {}
 

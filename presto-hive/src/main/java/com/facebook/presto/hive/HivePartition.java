@@ -18,11 +18,9 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.google.common.collect.ImmutableMap;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static java.util.Objects.requireNonNull;
 
 public class HivePartition
@@ -32,23 +30,20 @@ public class HivePartition
     private final SchemaTableName tableName;
     private final String partitionId;
     private final Map<ColumnHandle, NullableValue> keys;
-    private final List<HiveBucket> buckets;
 
-    public HivePartition(SchemaTableName tableName, List<HiveBucket> buckets)
+    public HivePartition(SchemaTableName tableName)
     {
-        this(tableName, UNPARTITIONED_ID, ImmutableMap.of(), buckets);
+        this(tableName, UNPARTITIONED_ID, ImmutableMap.of());
     }
 
     public HivePartition(
             SchemaTableName tableName,
             String partitionId,
-            Map<ColumnHandle, NullableValue> keys,
-            List<HiveBucket> buckets)
+            Map<ColumnHandle, NullableValue> keys)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.partitionId = requireNonNull(partitionId, "partitionId is null");
         this.keys = ImmutableMap.copyOf(requireNonNull(keys, "keys is null"));
-        this.buckets = requireNonNull(buckets, "bucket number is null");
     }
 
     public SchemaTableName getTableName()
@@ -64,11 +59,6 @@ public class HivePartition
     public Map<ColumnHandle, NullableValue> getKeys()
     {
         return keys;
-    }
-
-    public List<HiveBucket> getBuckets()
-    {
-        return buckets;
     }
 
     @Override

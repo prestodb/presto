@@ -14,6 +14,7 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientSession;
+import com.facebook.presto.client.SocketChannelSocketFactory;
 import com.facebook.presto.client.StatementClient;
 import com.google.common.net.HostAndPort;
 import okhttp3.OkHttpClient;
@@ -32,6 +33,7 @@ import static com.facebook.presto.client.OkHttpUtil.setupKerberos;
 import static com.facebook.presto.client.OkHttpUtil.setupSocksProxy;
 import static com.facebook.presto.client.OkHttpUtil.setupSsl;
 import static com.facebook.presto.client.OkHttpUtil.setupTimeouts;
+import static com.facebook.presto.client.OkHttpUtil.tokenAuth;
 import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -54,6 +56,7 @@ public class QueryRunner
             Optional<String> keystorePassword,
             Optional<String> truststorePath,
             Optional<String> truststorePassword,
+            Optional<String> accessToken,
             Optional<String> user,
             Optional<String> password,
             Optional<String> kerberosPrincipal,
@@ -70,11 +73,14 @@ public class QueryRunner
 
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
 
+        builder.socketFactory(new SocketChannelSocketFactory());
+
         setupTimeouts(builder, 30, SECONDS);
         setupCookieJar(builder);
         setupSocksProxy(builder, socksProxy);
         setupHttpProxy(builder, httpProxy);
         setupBasicAuth(builder, session, user, password);
+        setupTokenAuth(builder, session, accessToken);
 
         if (kerberosRemoteServiceName.isPresent()) {
             checkArgument(session.getServer().getScheme().equalsIgnoreCase("https"),
@@ -143,6 +149,18 @@ public class QueryRunner
             checkArgument(session.getServer().getScheme().equalsIgnoreCase("https"),
                     "Authentication using username/password requires HTTPS to be enabled");
             clientBuilder.addInterceptor(basicAuth(user.get(), password.get()));
+        }
+    }
+
+    private static void setupTokenAuth(
+            OkHttpClient.Builder clientBuilder,
+            ClientSession session,
+            Optional<String> accessToken)
+    {
+        if (accessToken.isPresent()) {
+            checkArgument(session.getServer().getScheme().equalsIgnoreCase("https"),
+                    "Authentication using an access token requires HTTPS to be enabled");
+            clientBuilder.addInterceptor(tokenAuth(accessToken.get()));
         }
     }
 }

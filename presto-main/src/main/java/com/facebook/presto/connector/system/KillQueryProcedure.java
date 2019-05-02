@@ -14,7 +14,6 @@
 package com.facebook.presto.connector.system;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
-import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.spi.PrestoException;
@@ -29,6 +28,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.NoSuchElementException;
 
 import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
+import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -55,19 +55,17 @@ public class KillQueryProcedure
         QueryId query = parseQueryId(queryId);
 
         try {
-            QueryInfo queryInfo = queryManager.getQueryInfo(query);
+            QueryState state = queryManager.getQueryState(query);
 
             // check before killing to provide the proper error message (this is racy)
-            if (queryInfo.getState().isDone()) {
+            if (state.isDone()) {
                 throw new PrestoException(NOT_SUPPORTED, "Target query is not running: " + queryId);
             }
 
             queryManager.failQuery(query, createKillQueryException(message));
 
             // verify if the query was killed (if not, we lost the race)
-            queryInfo = queryManager.getQueryInfo(query);
-            if ((queryInfo.getState() != QueryState.FAILED) ||
-                    !ADMINISTRATIVELY_KILLED.toErrorCode().equals(queryInfo.getErrorCode())) {
+            if (!ADMINISTRATIVELY_KILLED.toErrorCode().equals(queryManager.getQueryInfo(query).getErrorCode())) {
                 throw new PrestoException(NOT_SUPPORTED, "Target query is not running: " + queryId);
             }
         }
@@ -91,6 +89,12 @@ public class KillQueryProcedure
     public static PrestoException createKillQueryException(String message)
     {
         return new PrestoException(ADMINISTRATIVELY_KILLED, "Query killed. " +
+                (isNullOrEmpty(message) ? "No message provided." : "Message: " + message));
+    }
+
+    public static PrestoException createPreemptQueryException(String message)
+    {
+        return new PrestoException(ADMINISTRATIVELY_PREEMPTED, "Query preempted. " +
                 (isNullOrEmpty(message) ? "No message provided." : "Message: " + message));
     }
 

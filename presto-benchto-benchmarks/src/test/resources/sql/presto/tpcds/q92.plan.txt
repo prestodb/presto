@@ -1,0 +1,30 @@
+final aggregation over ()
+    local exchange (GATHER, SINGLE, [])
+        remote exchange (GATHER, SINGLE, [])
+            partial aggregation over ()
+                cross join:
+                    join (RIGHT, PARTITIONED):
+                        final aggregation over (ws_item_sk_3)
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["ws_item_sk_3"])
+                                    partial aggregation over (ws_item_sk_3)
+                                        join (INNER, REPLICATED):
+                                            scan web_sales
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    scan date_dim
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["ws_item_sk"])
+                                join (INNER, REPLICATED):
+                                    join (INNER, REPLICATED):
+                                        scan web_sales
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                scan item
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            scan date_dim
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPLICATE, BROADCAST, [])
+                            single aggregation over ()
+                                values (1 rows)

@@ -1,4 +1,4 @@
--- delimiter: |; types: CHAR|CHAR|LONGNVARCHAR|INTEGER|INTEGER|DECIMAL|DECIMAL|DECIMAL|DECIMAL
+-- delimiter: |; types: CHAR|CHAR|VARCHAR|INTEGER|INTEGER|DECIMAL|DECIMAL|DECIMAL|DECIMAL
 Shoes                                             |importoedu pack #1                                |North Midwest|1999|3|7101.78|2518.33|5264.86|3066.29|
 Men                                               |edu packimporto #1                                |NY Metro|1999|4|7659.24|3227.88|4759.01|4664.83|
 Music                                             |amalgscholar #1                                   |Mid Atlantic|1999|1|6659.49|2291.60|14178.45|4267.08|

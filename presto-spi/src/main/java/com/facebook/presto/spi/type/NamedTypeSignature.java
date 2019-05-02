@@ -17,33 +17,40 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class NamedTypeSignature
 {
-    private final String name;
+    private final Optional<RowFieldName> fieldName;
     private final TypeSignature typeSignature;
 
     @JsonCreator
     public NamedTypeSignature(
-            @JsonProperty("name") String name,
+            @JsonProperty("fieldName") Optional<RowFieldName> fieldName,
             @JsonProperty("typeSignature") TypeSignature typeSignature)
     {
-        this.name = name;
-        this.typeSignature = typeSignature;
+        this.fieldName = requireNonNull(fieldName, "fieldName is null");
+        this.typeSignature = requireNonNull(typeSignature, "typeSignature is null");
     }
 
     @JsonProperty
-    public String getName()
+    public Optional<RowFieldName> getFieldName()
     {
-        return name;
+        return fieldName;
     }
 
     @JsonProperty
     public TypeSignature getTypeSignature()
     {
         return typeSignature;
+    }
+
+    public Optional<String> getName()
+    {
+        return getFieldName().map(RowFieldName::getName);
     }
 
     @Override
@@ -58,19 +65,22 @@ public class NamedTypeSignature
 
         NamedTypeSignature other = (NamedTypeSignature) o;
 
-        return Objects.equals(this.name, other.name) &&
+        return Objects.equals(this.fieldName, other.fieldName) &&
                 Objects.equals(this.typeSignature, other.typeSignature);
     }
 
     @Override
     public String toString()
     {
-        return format("%s %s", name, typeSignature);
+        if (fieldName.isPresent()) {
+            return format("%s %s", fieldName.get(), typeSignature);
+        }
+        return typeSignature.toString();
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, typeSignature);
+        return Objects.hash(fieldName, typeSignature);
     }
 }

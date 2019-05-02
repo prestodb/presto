@@ -67,6 +67,9 @@ Property Name                                      Description
 ``cassandra.password``                             Password used for authentication to the Cassandra cluster.
                                                    This is a global setting used for all connections, regardless
                                                    of the user who is connected to Presto.
+
+``cassandra.protocol-version``                     It is possible to override the protocol version for older Cassandra clusters.
+                                                   This property defaults to ``V3``. Possible values include ``V2``, ``V3`` and ``V4``.
 ================================================== ======================================================================
 
 .. note::
@@ -87,6 +90,11 @@ Property Name                                                 Description
                                                               single partion key column table.
 
 ``cassandra.split-size``                                      Number of keys per split when querying Cassandra.
+
+``cassandra.splits-per-node``                                 Number of splits per node. By default, the values from the
+                                                              ``system.size_estimates`` table are used. Only override when
+                                                              connecting to Cassandra versions < 2.1.5, which lacks
+                                                              the ``system.size_estimates`` table.
 
 ``cassandra.client.read-timeout``                             Maximum time the Cassandra driver will wait for an
                                                               answer to a query from one Cassandra node. Note that the underlying

@@ -24,6 +24,8 @@ import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
 import io.airlift.slice.Slice;
 
+import java.util.function.Supplier;
+
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -110,21 +112,6 @@ public final class TryFunction
         }
     }
 
-    @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = void.class)
-    @SqlNullable
-    @SqlType("T")
-    public static Void tryVoid(@SqlType("function(T)") TryVoidLambda function)
-    {
-        try {
-            return function.apply();
-        }
-        catch (PrestoException e) {
-            propagateIfUnhandled(e);
-            return null;
-        }
-    }
-
     @FunctionalInterface
     public interface TryLongLambda
             extends LambdaFunctionInterface
@@ -160,11 +147,15 @@ public final class TryFunction
         Block apply();
     }
 
-    @FunctionalInterface
-    public interface TryVoidLambda
-            extends LambdaFunctionInterface
+    public static <T> T evaluate(Supplier<T> supplier, T defaultValue)
     {
-        Void apply();
+        try {
+            return supplier.get();
+        }
+        catch (PrestoException e) {
+            propagateIfUnhandled(e);
+            return defaultValue;
+        }
     }
 
     private static void propagateIfUnhandled(PrestoException e)

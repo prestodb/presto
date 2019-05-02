@@ -156,7 +156,6 @@ public class ArrayType
         }
         else {
             block.writePositionTo(position, blockBuilder);
-            blockBuilder.closeEntry();
         }
     }
 
@@ -187,7 +186,7 @@ public class ArrayType
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        blockBuilder.writeObject(value).closeEntry();
+        blockBuilder.appendStructure((Block) value);
     }
 
     @Override

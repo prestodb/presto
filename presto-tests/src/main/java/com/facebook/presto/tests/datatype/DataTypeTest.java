@@ -29,7 +29,7 @@ import static org.testng.Assert.assertEquals;
 
 public class DataTypeTest
 {
-    private List<Input<?>> inputs = new ArrayList<>();
+    private final List<Input<?>> inputs = new ArrayList<>();
 
     private DataTypeTest() {}
 

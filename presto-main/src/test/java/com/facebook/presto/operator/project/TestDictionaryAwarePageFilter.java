@@ -183,9 +183,7 @@ public class TestDictionaryAwarePageFilter
     {
         IntSet actualSelectedPositions = toSet(filter.filter(null, new Page(block)));
 
-        if (block instanceof LazyBlock) {
-            block = ((LazyBlock) block).getBlock();
-        }
+        block = block.getLoadedBlock();
 
         IntSet expectedSelectedPositions = new IntArraySet(block.getPositionCount());
         for (int position = 0; position < block.getPositionCount(); position++) {

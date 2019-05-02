@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.plugin.geospatial;
 
+import com.facebook.presto.plugin.geospatial.BingTileFunctions.BingTileCoordinatesFunction;
+import com.facebook.presto.plugin.geospatial.aggregation.ConvexHullAggregation;
+import com.facebook.presto.plugin.geospatial.aggregation.GeometryUnionAgg;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -22,6 +25,8 @@ import java.util.Set;
 
 import static com.facebook.presto.plugin.geospatial.BingTileType.BING_TILE;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
+import static com.facebook.presto.plugin.geospatial.KdbTreeType.KDB_TREE;
+import static com.facebook.presto.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
 
 public class GeoPlugin
         implements Plugin
@@ -29,7 +34,7 @@ public class GeoPlugin
     @Override
     public Iterable<Type> getTypes()
     {
-        return ImmutableList.of(GEOMETRY, BING_TILE);
+        return ImmutableList.of(GEOMETRY, BING_TILE, KDB_TREE, SPHERICAL_GEOGRAPHY);
     }
 
     @Override
@@ -39,6 +44,12 @@ public class GeoPlugin
                 .add(GeoFunctions.class)
                 .add(BingTileOperators.class)
                 .add(BingTileFunctions.class)
+                .add(BingTileCoordinatesFunction.class)
+                .add(ConvexHullAggregation.class)
+                .add(GeometryUnionAgg.class)
+                .add(KdbTreeCasts.class)
+                .add(SpatialPartitioningAggregateFunction.class)
+                .add(SpatialPartitioningInternalAggregateFunction.class)
                 .build();
     }
 }

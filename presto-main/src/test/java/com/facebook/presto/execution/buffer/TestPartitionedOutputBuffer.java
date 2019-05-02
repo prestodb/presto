@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.execution.buffer;
 
-import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.StateMachine;
+import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.BigintType;
@@ -30,13 +29,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.facebook.presto.OutputBuffers.BufferType.PARTITIONED;
-import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.facebook.presto.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.MAX_WAIT;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.NO_WAIT;
+import static com.facebook.presto.execution.buffer.BufferTestUtils.PAGES_SERDE;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.acknowledgeBufferResult;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.addPage;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.assertBufferResultEquals;
@@ -50,6 +48,8 @@ import static com.facebook.presto.execution.buffer.BufferTestUtils.enqueuePage;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.getBufferResult;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.getFuture;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.sizeOfPages;
+import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
+import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -800,15 +800,54 @@ public class TestPartitionedOutputBuffer
         assertTrue(buffer.isFinished());
     }
 
+    @Test
+    public void testBufferPeakMemoryUsage()
+    {
+        PartitionedOutputBuffer buffer = createPartitionedBuffer(
+                createInitialEmptyOutputBuffers(PARTITIONED)
+                        .withBuffer(FIRST, 0)
+                        .withNoMoreBufferIds(),
+                sizeOfPages(5));
+        Page page = createPage(1);
+        long serializePageSize = PAGES_SERDE.serialize(page).getRetainedSizeInBytes();
+        for (int i = 0; i < 5; i++) {
+            addPage(buffer, page, 0);
+            assertEquals(buffer.getPeakMemoryUsage(), (i + 1) * serializePageSize);
+        }
+    }
+
+    @Test
+    public void testForceFreeMemory()
+            throws Throwable
+    {
+        PartitionedOutputBuffer buffer = createPartitionedBuffer(
+                createInitialEmptyOutputBuffers(PARTITIONED)
+                        .withBuffer(FIRST, 0)
+                        .withNoMoreBufferIds(),
+                sizeOfPages(10));
+        for (int i = 0; i < 5; i++) {
+            addPage(buffer, createPage(1), 0);
+        }
+        OutputBufferMemoryManager memoryManager = buffer.getMemoryManager();
+        assertTrue(memoryManager.getBufferedBytes() > 0);
+        buffer.forceFreeMemory();
+        assertEquals(memoryManager.getBufferedBytes(), 0);
+        // adding a page after forceFreeMemory() should be NOOP
+        addPage(buffer, createPage(1));
+        assertEquals(memoryManager.getBufferedBytes(), 0);
+    }
+
     private PartitionedOutputBuffer createPartitionedBuffer(OutputBuffers buffers, DataSize dataSize)
     {
-        return new PartitionedOutputBuffer(
+        PartitionedOutputBuffer buffer = new PartitionedOutputBuffer(
                 TASK_INSTANCE_ID,
                 new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
                 buffers,
                 dataSize,
-                () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),
+                () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 stateNotificationExecutor);
+        buffer.registerLifespanCompletionCallback(ignore -> {});
+        return buffer;
     }
 
     private static BufferResult bufferResult(long token, Page firstPage, Page... otherPages)

@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -34,21 +34,21 @@ public class WindowFunctionMatcher
         implements RvalueMatcher
 {
     private final ExpectedValueProvider<FunctionCall> callMaker;
-    private final Optional<Signature> signature;
+    private final Optional<FunctionHandle> functionHandle;
     private final Optional<ExpectedValueProvider<WindowNode.Frame>> frameMaker;
 
     /**
      * @param callMaker Always validates the function call
-     * @param signature Optionally validates the signature
+     * @param functionHandle Optionally validates the function handle
      * @param frameMaker Optionally validates the frame
      */
     public WindowFunctionMatcher(
             ExpectedValueProvider<FunctionCall> callMaker,
-            Optional<Signature> signature,
+            Optional<FunctionHandle> functionHandle,
             Optional<ExpectedValueProvider<WindowNode.Frame>> frameMaker)
     {
         this.callMaker = requireNonNull(callMaker, "functionCall is null");
-        this.signature = requireNonNull(signature, "signature is null");
+        this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
         this.frameMaker = requireNonNull(frameMaker, "frameMaker is null");
     }
 
@@ -68,7 +68,7 @@ public class WindowFunctionMatcher
         List<Symbol> matchedOutputs = windowNode.getWindowFunctions().entrySet().stream()
                 .filter(assignment ->
                         expectedCall.equals(assignment.getValue().getFunctionCall())
-                                && signature.map(assignment.getValue().getSignature()::equals).orElse(true)
+                                && functionHandle.map(assignment.getValue().getFunctionHandle()::equals).orElse(true)
                                 && expectedFrame.map(assignment.getValue().getFrame()::equals).orElse(true))
                 .map(Map.Entry::getKey)
                 .collect(toImmutableList());
@@ -88,7 +88,7 @@ public class WindowFunctionMatcher
         return toStringHelper(this)
                 .omitNullValues()
                 .add("callMaker", callMaker)
-                .add("signature", signature.orElse(null))
+                .add("functionHandle", functionHandle.orElse(null))
                 .add("frameMaker", frameMaker.orElse(null))
                 .toString();
     }

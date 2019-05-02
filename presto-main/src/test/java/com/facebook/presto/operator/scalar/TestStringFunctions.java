@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -389,6 +390,7 @@ public class TestStringFunctions
         assertFunction("SPLIT('a.b.c.', '.', 3)", new ArrayType(createVarcharType(6)), ImmutableList.of("a", "b", "c."));
         assertFunction("SPLIT('...', '.')", new ArrayType(createVarcharType(3)), ImmutableList.of("", "", "", ""));
         assertFunction("SPLIT('..a...a..', '.')", new ArrayType(createVarcharType(9)), ImmutableList.of("", "", "a", "", "", "a", "", ""));
+        assertFunction("SPLIT('a.b.', '')", new ArrayType(createVarcharType(4)), ImmutableList.of("a", ".", "b", ".", ""));
 
         // Test SPLIT for non-ASCII
         assertFunction("SPLIT('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 3)", new ArrayType(createVarcharType(7)), ImmutableList.of("\u4FE1\u5FF5", "\u7231", "\u5E0C\u671B"));
@@ -400,7 +402,6 @@ public class TestStringFunctions
         assertFunction("SPLIT('a..b..c', '.', 3)", new ArrayType(createVarcharType(7)), ImmutableList.of("a", "", "b..c"));
         assertFunction("SPLIT('a.b..', '.', 3)", new ArrayType(createVarcharType(5)), ImmutableList.of("a", "b", "."));
 
-        assertInvalidFunction("SPLIT('a.b.c', '', 1)", "The delimiter may not be the empty string");
         assertInvalidFunction("SPLIT('a.b.c', '.', 0)", "Limit must be positive");
         assertInvalidFunction("SPLIT('a.b.c', '.', -1)", "Limit must be positive");
         assertInvalidFunction("SPLIT('a.b.c', '.', 2147483648)", "Limit is too large");
@@ -416,6 +417,8 @@ public class TestStringFunctions
         assertFunction("SPLIT_TO_MAP('=', ',', '=')", expectedType, ImmutableMap.of("", ""));
         assertFunction("SPLIT_TO_MAP('key=>value', ',', '=>')", expectedType, ImmutableMap.of("key", "value"));
         assertFunction("SPLIT_TO_MAP('key => value', ',', '=>')", expectedType, ImmutableMap.of("key ", " value"));
+        assertFunction("SPLIT_TO_MAP('a:1;b:2;a:3', ';', ':', (k, v1, v2) -> v1)", expectedType, ImmutableMap.of("a", "1", "b", "2"));
+        assertFunction("SPLIT_TO_MAP('a:1;b:2;a:3', ';', ':', (k, v1, v2) -> CONCAT(v1, v2))", expectedType, ImmutableMap.of("a", "13", "b", "2"));
 
         // Test SPLIT_TO_MAP for non-ASCII
         assertFunction("SPLIT_TO_MAP('\u4EA0\u4EFF\u4EA1', '\u4E00', '\u4EFF')", expectedType, ImmutableMap.of("\u4EA0", "\u4EA1"));
@@ -429,8 +432,10 @@ public class TestStringFunctions
         assertInvalidFunction("SPLIT_TO_MAP('a=123,b=.4,c=', '=', '=')", "entryDelimiter and keyValueDelimiter must not be the same");
 
         // Duplicate keys are not allowed to exist.
-        assertInvalidFunction("SPLIT_TO_MAP('a=123,a=.4', ',', '=')", "Duplicate keys (a) are not allowed");
-        assertInvalidFunction("SPLIT_TO_MAP('\u4EA0\u4EFF\u4EA1\u4E00\u4EA0\u4EFF\u4EB1', '\u4E00', '\u4EFF')", "Duplicate keys (\u4EA0) are not allowed");
+        assertInvalidFunction("SPLIT_TO_MAP('a=123,a=.4', ',', '=')", "Duplicate keys (a) are not allowed. Specifying a lambda to resolve conflicts can avoid this error");
+        assertInvalidFunction(
+                "SPLIT_TO_MAP('\u4EA0\u4EFF\u4EA1\u4E00\u4EA0\u4EFF\u4EB1', '\u4E00', '\u4EFF')",
+                "Duplicate keys (\u4EA0) are not allowed. Specifying a lambda to resolve conflicts can avoid this error");
 
         // Key-value delimiter must appear exactly once in each entry.
         assertInvalidFunction("SPLIT_TO_MAP('key', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: 'key'");
@@ -438,6 +443,58 @@ public class TestStringFunctions
         assertInvalidFunction("SPLIT_TO_MAP('key=va=lue', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: 'key=va=lue'");
 
         assertCachedInstanceHasBoundedRetainedSize("SPLIT_TO_MAP('a=123,b=.4,c=,=d', ',', '=')");
+    }
+
+    @Test
+    public void testSplitToMultimap()
+    {
+        MapType expectedType = mapType(VARCHAR, new ArrayType(VARCHAR));
+
+        assertFunction("SPLIT_TO_MULTIMAP('', ',', '=')", expectedType, ImmutableMap.of());
+        assertFunction(
+                "SPLIT_TO_MULTIMAP('a=123,b=.4,c=,=d', ',', '=')",
+                expectedType,
+                ImmutableMap.of(
+                        "a", ImmutableList.of("123"),
+                        "b", ImmutableList.of(".4"),
+                        "c", ImmutableList.of(""),
+                        "", ImmutableList.of("d")));
+        assertFunction("SPLIT_TO_MULTIMAP('=', ',', '=')", expectedType, ImmutableMap.of("", ImmutableList.of("")));
+
+        // Test multiple values of the same key preserve the order as they appear in input
+        assertFunction("SPLIT_TO_MULTIMAP('a=123,a=.4,a=5.67', ',', '=')", expectedType, ImmutableMap.of("a", ImmutableList.of("123", ".4", "5.67")));
+
+        // Test multi-character delimiters
+        assertFunction("SPLIT_TO_MULTIMAP('key=>value,key=>value', ',', '=>')", expectedType, ImmutableMap.of("key", ImmutableList.of("value", "value")));
+        assertFunction(
+                "SPLIT_TO_MULTIMAP('key => value, key => value', ',', '=>')",
+                expectedType,
+                ImmutableMap.of(
+                        "key ", ImmutableList.of(" value"),
+                        " key ", ImmutableList.of(" value")));
+        assertFunction(
+                "SPLIT_TO_MULTIMAP('key => value, key => value', ', ', '=>')",
+                expectedType,
+                ImmutableMap.of(
+                        "key ", ImmutableList.of(" value", " value")));
+
+        // Test non-ASCII
+        assertFunction("SPLIT_TO_MULTIMAP('\u4EA0\u4EFF\u4EA1', '\u4E00', '\u4EFF')", expectedType, ImmutableMap.of("\u4EA0", ImmutableList.of("\u4EA1")));
+        assertFunction(
+                "SPLIT_TO_MULTIMAP('\u4EA0\u4EFF\u4EA1\u4E00\u4EA0\u4EFF\u4EB1', '\u4E00', '\u4EFF')",
+                expectedType,
+                ImmutableMap.of("\u4EA0", ImmutableList.of("\u4EA1", "\u4EB1")));
+
+        // Entry delimiter and key-value delimiter must not be the same.
+        assertInvalidFunction("SPLIT_TO_MULTIMAP('', '\u4EFF', '\u4EFF')", "entryDelimiter and keyValueDelimiter must not be the same");
+        assertInvalidFunction("SPLIT_TO_MULTIMAP('a=123,b=.4,c=', '=', '=')", "entryDelimiter and keyValueDelimiter must not be the same");
+
+        // Key-value delimiter must appear exactly once in each entry.
+        assertInvalidFunction("SPLIT_TO_MULTIMAP('key', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: key");
+        assertInvalidFunction("SPLIT_TO_MULTIMAP('key==value', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: key==value");
+        assertInvalidFunction("SPLIT_TO_MULTIMAP('key=va=lue', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: key=va=lue");
+
+        assertCachedInstanceHasBoundedRetainedSize("SPLIT_TO_MULTIMAP('a=123,b=.4,c=,=d', ',', '=')");
     }
 
     @Test
@@ -916,5 +973,24 @@ public class TestStringFunctions
 
         assertInvalidFunction("from_utf8(to_utf8('hello'), 'foo')", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("from_utf8(to_utf8('hello'), 1114112)", INVALID_FUNCTION_ARGUMENT);
+    }
+
+    @Test
+    public void testCharConcat()
+    {
+        assertFunction("concat('ab ', cast(' ' as char(1)))", createCharType(4), "ab  ");
+        assertFunction("concat('ab ', cast(' ' as char(1))) = 'ab'", BOOLEAN, true);
+
+        assertFunction("concat('ab ', cast('a' as char(2)))", createCharType(5), "ab a ");
+        assertFunction("concat('ab ', cast('a' as char(2))) = 'ab a'", BOOLEAN, true);
+
+        assertFunction("concat('ab ', cast('' as char(0)))", createCharType(3), "ab ");
+        assertFunction("concat('ab ', cast('' as char(0))) = 'ab'", BOOLEAN, true);
+
+        assertFunction("concat('hello na\u00EFve', cast(' world' as char(6)))", createCharType(17), "hello na\u00EFve world");
+
+        assertInvalidFunction("concat(cast('ab ' as char(40000)), cast('' as char(40000)))", "CHAR length scale must be in range [0, 65536]");
+
+        assertFunction("concat(cast(null as char(1)), cast(' ' as char(1)))", createCharType(2), null);
     }
 }

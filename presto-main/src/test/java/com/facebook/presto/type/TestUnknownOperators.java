@@ -20,6 +20,7 @@ import com.facebook.presto.spi.function.SqlType;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -38,7 +39,7 @@ public class TestUnknownOperators
     @ScalarFunction(value = "null_function", deterministic = false)
     @SqlNullable
     @SqlType("unknown")
-    public static Void nullFunction()
+    public static Boolean nullFunction()
     {
         return null;
     }
@@ -123,5 +124,12 @@ public class TestUnknownOperators
     public void testIsDistinctFrom()
     {
         assertFunction("NULL IS DISTINCT FROM NULL", BOOLEAN, false);
+    }
+
+    @Test
+    public void testIndeterminate()
+            throws Exception
+    {
+        assertOperator(INDETERMINATE, "null", BOOLEAN, true);
     }
 }

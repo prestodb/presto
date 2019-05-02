@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.connector.thrift.api;
 
-import com.facebook.swift.codec.ThriftConstructor;
-import com.facebook.swift.codec.ThriftField;
-import com.facebook.swift.codec.ThriftStruct;
+import io.airlift.drift.annotations.ThriftConstructor;
+import io.airlift.drift.annotations.ThriftField;
+import io.airlift.drift.annotations.ThriftStruct;
 
 import javax.annotation.Nullable;
 
 import java.util.Objects;
 
-import static com.facebook.swift.codec.ThriftField.Requiredness.OPTIONAL;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 
 @ThriftStruct
 public final class PrestoThriftNullableTableMetadata

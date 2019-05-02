@@ -15,8 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.FunctionKind;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -35,7 +34,6 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -48,7 +46,6 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.WhenClause;
-import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.util.AstUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -65,6 +62,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.or;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.plan.Patterns.Apply.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -97,6 +95,13 @@ public class TransformCorrelatedInPredicateToJoin
 {
     private static final Pattern<ApplyNode> PATTERN = applyNode()
             .with(nonEmpty(correlation()));
+
+    private final FunctionManager functionManager;
+
+    public TransformCorrelatedInPredicateToJoin(FunctionManager functionManager)
+    {
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+    }
 
     @Override
     public Pattern<ApplyNode> getPattern()
@@ -179,7 +184,7 @@ public class TransformCorrelatedInPredicateToJoin
         Expression joinExpression = and(
                 or(
                         new IsNullPredicate(probeSideSymbol.toSymbolReference()),
-                        new ComparisonExpression(ComparisonExpressionType.EQUAL, probeSideSymbol.toSymbolReference(), buildSideSymbol.toSymbolReference()),
+                        new ComparisonExpression(ComparisonExpression.Operator.EQUAL, probeSideSymbol.toSymbolReference(), buildSideSymbol.toSymbolReference()),
                         new IsNullPredicate(buildSideSymbol.toSymbolReference())),
                 correlationCondition);
 
@@ -203,7 +208,8 @@ public class TransformCorrelatedInPredicateToJoin
                         .put(countMatchesSymbol, countWithFilter(matchCondition))
                         .put(countNullMatchesSymbol, countWithFilter(nullMatchCondition))
                         .build(),
-                ImmutableList.of(probeSide.getOutputSymbols()),
+                singleGroupingSet(probeSide.getOutputSymbols()),
+                ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 Optional.empty());
@@ -241,11 +247,11 @@ public class TransformCorrelatedInPredicateToJoin
                 Optional.empty());
     }
 
-    private static AggregationNode.Aggregation countWithFilter(Expression condition)
+    private AggregationNode.Aggregation countWithFilter(Expression condition)
     {
         FunctionCall countCall = new FunctionCall(
                 QualifiedName.of("count"),
-                Optional.<Window>empty(),
+                Optional.empty(),
                 Optional.of(condition),
                 Optional.empty(),
                 false,
@@ -253,14 +259,14 @@ public class TransformCorrelatedInPredicateToJoin
 
         return new AggregationNode.Aggregation(
                 countCall,
-                new Signature("count", FunctionKind.AGGREGATE, BIGINT.getTypeSignature()),
+                functionManager.lookupFunction(QualifiedName.of("count"), ImmutableList.of()),
                 Optional.<Symbol>empty()); /* mask */
     }
 
     private static Expression isGreaterThan(Symbol symbol, long value)
     {
         return new ComparisonExpression(
-                ComparisonExpressionType.GREATER_THAN,
+                ComparisonExpression.Operator.GREATER_THAN,
                 symbol.toSymbolReference(),
                 bigint(value));
     }

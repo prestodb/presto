@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.toIntExact;
@@ -203,6 +204,12 @@ public class DwrfMetadataWriter
             builder.setStringStatistics(statisticsBuilder.build());
         }
 
+        if (columnStatistics.getBinaryStatistics() != null) {
+            builder.setBinaryStatistics(DwrfProto.BinaryStatistics.newBuilder()
+                    .setSum(columnStatistics.getBinaryStatistics().getSum())
+                    .build());
+        }
+
         return builder.build();
     }
 
@@ -263,6 +270,10 @@ public class DwrfMetadataWriter
 
     private static DwrfProto.ColumnEncoding toColumnEncoding(ColumnEncoding columnEncodings)
     {
+        checkArgument(
+                !columnEncodings.getAdditionalSequenceEncodings().isPresent(),
+                "DWRF writer doesn't support writing columns with non-zero sequence IDs: " + columnEncodings);
+
         return DwrfProto.ColumnEncoding.newBuilder()
                 .setKind(toColumnEncoding(columnEncodings.getColumnEncodingKind()))
                 .setDictionarySize(columnEncodings.getDictionarySize())
@@ -313,6 +324,8 @@ public class DwrfMetadataWriter
                 return DwrfProto.CompressionKind.SNAPPY;
             case LZ4:
                 return DwrfProto.CompressionKind.LZ4;
+            case ZSTD:
+                return DwrfProto.CompressionKind.ZSTD;
         }
         throw new IllegalArgumentException("Unsupported compression kind: " + compressionKind);
     }

@@ -15,11 +15,15 @@ package com.facebook.presto.spi.block;
 
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
+import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
+import static com.facebook.presto.spi.block.BlockUtil.countUsedPositions;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
 
@@ -30,15 +34,16 @@ public class LongArrayBlock
 
     private final int arrayOffset;
     private final int positionCount;
+    @Nullable
     private final boolean[] valueIsNull;
     private final long[] values;
 
     private final long sizeInBytes;
     private final long retainedSizeInBytes;
 
-    public LongArrayBlock(int positionCount, boolean[] valueIsNull, long[] values)
+    public LongArrayBlock(int positionCount, Optional<boolean[]> valueIsNull, long[] values)
     {
-        this(0, positionCount, valueIsNull, values);
+        this(0, positionCount, valueIsNull.orElse(null), values);
     }
 
     LongArrayBlock(int arrayOffset, int positionCount, boolean[] valueIsNull, long[] values)
@@ -57,7 +62,7 @@ public class LongArrayBlock
         }
         this.values = values;
 
-        if (valueIsNull.length - arrayOffset < positionCount) {
+        if (valueIsNull != null && valueIsNull.length - arrayOffset < positionCount) {
             throw new IllegalArgumentException("isNull length is less than positionCount");
         }
         this.valueIsNull = valueIsNull;
@@ -79,16 +84,30 @@ public class LongArrayBlock
     }
 
     @Override
+    public long getPositionsSizeInBytes(boolean[] positions)
+    {
+        return (Long.BYTES + Byte.BYTES) * (long) countUsedPositions(positions);
+    }
+
+    @Override
     public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
     }
 
     @Override
+    public long getEstimatedDataSizeForStats(int position)
+    {
+        return isNull(position) ? 0 : Long.BYTES;
+    }
+
+    @Override
     public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
         consumer.accept(values, sizeOf(values));
-        consumer.accept(valueIsNull, sizeOf(valueIsNull));
+        if (valueIsNull != null) {
+            consumer.accept(valueIsNull, sizeOf(valueIsNull));
+        }
         consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
@@ -155,10 +174,16 @@ public class LongArrayBlock
     }
 
     @Override
+    public boolean mayHaveNull()
+    {
+        return valueIsNull != null;
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
-        return valueIsNull[position + arrayOffset];
+        return valueIsNull != null && valueIsNull[position + arrayOffset];
     }
 
     @Override
@@ -166,6 +191,7 @@ public class LongArrayBlock
     {
         checkReadablePosition(position);
         blockBuilder.writeLong(values[position + arrayOffset]);
+        blockBuilder.closeEntry();
     }
 
     @Override
@@ -173,8 +199,9 @@ public class LongArrayBlock
     {
         checkReadablePosition(position);
         return new LongArrayBlock(
+                0,
                 1,
-                new boolean[] {valueIsNull[position + arrayOffset]},
+                isNull(position) ? new boolean[] {true} : null,
                 new long[] {values[position + arrayOffset]});
     }
 
@@ -183,15 +210,20 @@ public class LongArrayBlock
     {
         checkArrayRange(positions, offset, length);
 
-        boolean[] newValueIsNull = new boolean[length];
+        boolean[] newValueIsNull = null;
+        if (valueIsNull != null) {
+            newValueIsNull = new boolean[length];
+        }
         long[] newValues = new long[length];
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
             checkReadablePosition(position);
-            newValueIsNull[i] = valueIsNull[position + arrayOffset];
+            if (valueIsNull != null) {
+                newValueIsNull[i] = valueIsNull[position + arrayOffset];
+            }
             newValues[i] = values[position + arrayOffset];
         }
-        return new LongArrayBlock(length, newValueIsNull, newValues);
+        return new LongArrayBlock(0, length, newValueIsNull, newValues);
     }
 
     @Override
@@ -208,19 +240,19 @@ public class LongArrayBlock
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         positionOffset += arrayOffset;
-        boolean[] newValueIsNull = compactArray(valueIsNull, positionOffset, length);
+        boolean[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
         long[] newValues = compactArray(values, positionOffset, length);
 
         if (newValueIsNull == valueIsNull && newValues == values) {
             return this;
         }
-        return new LongArrayBlock(length, newValueIsNull, newValues);
+        return new LongArrayBlock(0, length, newValueIsNull, newValues);
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new LongArrayBlockEncoding();
+        return LongArrayBlockEncoding.NAME;
     }
 
     @Override

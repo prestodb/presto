@@ -14,13 +14,14 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.raptor.storage.OrcFileRewriter.OrcFileInfo;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -36,6 +37,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.math.BigDecimal;
 import java.util.BitSet;
 import java.util.List;
 
@@ -87,25 +89,27 @@ public class TestOrcFileRewriter
             throws Exception
     {
         TypeManager typeManager = new TypeRegistry();
-        // associate typeManager with a function registry
-        new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        // associate typeManager with a function manager
+        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
 
         ArrayType arrayType = new ArrayType(BIGINT);
         ArrayType arrayOfArrayType = new ArrayType(arrayType);
         Type mapType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.of(createVarcharType(5).getTypeSignature()),
                 TypeSignatureParameter.of(BOOLEAN.getTypeSignature())));
-        List<Long> columnIds = ImmutableList.of(3L, 7L, 9L, 10L, 11L);
-        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20), arrayType, mapType, arrayOfArrayType);
+        List<Long> columnIds = ImmutableList.of(3L, 7L, 9L, 10L, 11L, 12L);
+        DecimalType decimalType = DecimalType.createDecimalType(4, 4);
+
+        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20), arrayType, mapType, arrayOfArrayType, decimalType);
 
         File file = new File(temporary, randomUUID().toString());
         try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
             List<Page> pages = rowPagesBuilder(columnTypes)
-                    .row(123L, "hello", arrayBlockOf(BIGINT, 1, 2), mapBlockOf(createVarcharType(5), BOOLEAN, "k1", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5)))
-                    .row(777L, "sky", arrayBlockOf(BIGINT, 3, 4), mapBlockOf(createVarcharType(5), BOOLEAN, "k2", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 6)))
-                    .row(456L, "bye", arrayBlockOf(BIGINT, 5, 6), mapBlockOf(createVarcharType(5), BOOLEAN, "k3", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 7)))
-                    .row(888L, "world", arrayBlockOf(BIGINT, 7, 8), mapBlockOf(createVarcharType(5), BOOLEAN, "k4", true), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 8), null))
-                    .row(999L, "done", arrayBlockOf(BIGINT, 9, 10), mapBlockOf(createVarcharType(5), BOOLEAN, "k5", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 9, 10)))
+                    .row(123L, "hello", arrayBlockOf(BIGINT, 1, 2), mapBlockOf(createVarcharType(5), BOOLEAN, "k1", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5)), new BigDecimal("2.3"))
+                    .row(777L, "sky", arrayBlockOf(BIGINT, 3, 4), mapBlockOf(createVarcharType(5), BOOLEAN, "k2", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 6)), new BigDecimal("2.3"))
+                    .row(456L, "bye", arrayBlockOf(BIGINT, 5, 6), mapBlockOf(createVarcharType(5), BOOLEAN, "k3", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 7)), new BigDecimal("2.3"))
+                    .row(888L, "world", arrayBlockOf(BIGINT, 7, 8), mapBlockOf(createVarcharType(5), BOOLEAN, "k4", true), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 8), null), new BigDecimal("2.3"))
+                    .row(999L, "done", arrayBlockOf(BIGINT, 9, 10), mapBlockOf(createVarcharType(5), BOOLEAN, "k5", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 9, 10)), new BigDecimal("2.3"))
                     .build();
             writer.appendPages(pages);
         }
@@ -183,6 +187,7 @@ public class TestOrcFileRewriter
                     .put(9L, arrayType.getTypeSignature())
                     .put(10L, mapType.getTypeSignature())
                     .put(11L, arrayOfArrayType.getTypeSignature())
+                    .put(12L, decimalType.getTypeSignature())
                     .build()));
         }
 
@@ -194,7 +199,7 @@ public class TestOrcFileRewriter
         File newFile = new File(temporary, randomUUID().toString());
         OrcFileInfo info = OrcFileRewriter.rewrite(file, newFile, rowsToDelete);
         assertEquals(info.getRowCount(), 2);
-        assertEquals(info.getUncompressedSize(), 78);
+        assertEquals(info.getUncompressedSize(), 94);
 
         try (OrcDataSource dataSource = fileOrcDataSource(newFile)) {
             OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
@@ -254,6 +259,7 @@ public class TestOrcFileRewriter
                     .put(9L, arrayType.getTypeSignature())
                     .put(10L, mapType.getTypeSignature())
                     .put(11L, arrayOfArrayType.getTypeSignature())
+                    .put(12L, decimalType.getTypeSignature())
                     .build()));
         }
     }

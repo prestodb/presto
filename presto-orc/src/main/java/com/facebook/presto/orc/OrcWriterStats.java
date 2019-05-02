@@ -32,8 +32,8 @@ public class OrcWriterStats
     }
 
     private final OrcWriterFlushStats allFlush = new OrcWriterFlushStats("ALL");
-    private final OrcWriterFlushStats maxRowsFlush = new OrcWriterFlushStats(MAX_BYTES.name());
-    private final OrcWriterFlushStats maxBytesFlush = new OrcWriterFlushStats(MAX_ROWS.name());
+    private final OrcWriterFlushStats maxRowsFlush = new OrcWriterFlushStats(MAX_ROWS.name());
+    private final OrcWriterFlushStats maxBytesFlush = new OrcWriterFlushStats(MAX_BYTES.name());
     private final OrcWriterFlushStats dictionaryFullFlush = new OrcWriterFlushStats(DICTIONARY_FULL.name());
     private final OrcWriterFlushStats closedFlush = new OrcWriterFlushStats(CLOSED.name());
     private final AtomicLong writerSizeInBytes = new AtomicLong();

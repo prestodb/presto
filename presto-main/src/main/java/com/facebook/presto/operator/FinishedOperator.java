@@ -14,9 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-
-import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
@@ -24,24 +21,16 @@ public class FinishedOperator
         implements Operator
 {
     private final OperatorContext operatorContext;
-    private final List<Type> types;
 
-    public FinishedOperator(OperatorContext operatorContext, List<Type> types)
+    public FinishedOperator(OperatorContext operatorContext)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.types = requireNonNull(types, "types is null");
     }
 
     @Override
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override

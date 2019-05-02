@@ -29,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * This page builder creates pages with dictionary blocks:
  * normal dictionary blocks for the probe side and the original blocks for the build side.
- *
+ * <p>
  * TODO use dictionary blocks (probably extended kind) to avoid data copying for build side
  */
 public class LookupJoinPageBuilder

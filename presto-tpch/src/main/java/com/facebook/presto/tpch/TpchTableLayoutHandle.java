@@ -44,11 +44,6 @@ public class TpchTableLayoutHandle
         return predicate;
     }
 
-    public String getConnectorId()
-    {
-        return table.getConnectorId();
-    }
-
     @Override
     public String toString()
     {

@@ -15,17 +15,16 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.SingleRowBlockWriter;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.RowType.RowField;
+import com.facebook.presto.spi.type.RowType.Field;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.util.JsonCastException;
@@ -40,10 +39,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.Signature.withVariadicBound;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.spi.function.Signature.withVariadicBound;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.JsonUtil.BlockBuilderAppender.createBlockBuilderAppender;
@@ -75,13 +74,13 @@ public class JsonToRowCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         checkArgument(arity == 1, "Expected arity to be 1");
         RowType rowType = (RowType) boundVariables.getTypeVariable("T");
         checkCondition(canCastFromJson(rowType), INVALID_CAST_ARGUMENT, "Cannot cast JSON to %s", rowType);
 
-        List<RowField> rowFields = rowType.getFields();
+        List<Field> rowFields = rowType.getFields();
         BlockBuilderAppender[] fieldAppenders = rowFields.stream()
                 .map(rowField -> createBlockBuilderAppender(rowField.getType()))
                 .toArray(BlockBuilderAppender[]::new);
@@ -111,7 +110,7 @@ public class JsonToRowCast
                 throw new JsonCastException(format("Expected a json array or object, but got %s", jsonParser.getText()));
             }
 
-            BlockBuilder rowBlockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1);
+            BlockBuilder rowBlockBuilder = rowType.createBlockBuilder(null, 1);
             parseJsonToSingleRowBlock(
                     jsonParser,
                     (SingleRowBlockWriter) rowBlockBuilder.beginBlockEntry(),

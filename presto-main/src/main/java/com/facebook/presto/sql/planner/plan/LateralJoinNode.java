@@ -39,8 +39,20 @@ public class LateralJoinNode
 {
     public enum Type
     {
-        INNER,
-        LEFT
+        INNER(JoinNode.Type.INNER),
+        LEFT(JoinNode.Type.LEFT);
+
+        Type(JoinNode.Type joinNodeType)
+        {
+            this.joinNodeType = joinNodeType;
+        }
+
+        private final JoinNode.Type joinNodeType;
+
+        public JoinNode.Type toJoinNodeType()
+        {
+            return joinNodeType;
+        }
     }
 
     private final PlanNode input;

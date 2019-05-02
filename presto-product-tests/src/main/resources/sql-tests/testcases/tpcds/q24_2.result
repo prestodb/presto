@@ -1,2 +1,2 @@
--- delimiter: |; types: CHAR|CHAR|LONGNVARCHAR|DECIMAL
+-- delimiter: |; types: CHAR|CHAR|VARCHAR|DECIMAL
 Griffith                      |Ray                 |able|161564.48|

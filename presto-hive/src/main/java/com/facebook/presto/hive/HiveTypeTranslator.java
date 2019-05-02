@@ -138,7 +138,10 @@ public class HiveTypeTranslator
                     throw new IllegalArgumentException(format("Expected all parameters to be named type, but got %s", parameter));
                 }
                 NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
-                fieldNames.add(namedTypeSignature.getName());
+                if (!namedTypeSignature.getName().isPresent()) {
+                    throw new PrestoException(NOT_SUPPORTED, format("Anonymous row type is not supported in Hive. Please give each field a name: %s", type));
+                }
+                fieldNames.add(namedTypeSignature.getName().get());
             }
             return getStructTypeInfo(
                     fieldNames.build(),

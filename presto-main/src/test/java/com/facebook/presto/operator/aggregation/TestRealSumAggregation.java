@@ -15,7 +15,6 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
 
@@ -30,7 +29,7 @@ public class TestRealSumAggregation
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = REAL.createBlockBuilder(new BlockBuilderStatus(), length);
+        BlockBuilder blockBuilder = REAL.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
             REAL.writeLong(blockBuilder, floatToRawIntBits((float) i));
         }

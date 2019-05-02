@@ -14,9 +14,10 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.TypeManager;
 
-import static com.facebook.presto.metadata.FunctionKind.SCALAR;
+import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -37,10 +38,10 @@ public abstract class SqlScalarFunction
         return signature;
     }
 
-    public abstract ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry);
+    public abstract ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager);
 
-    public static SqlScalarFunctionBuilder builder(Class<?> clazz)
+    public static PolymorphicScalarFunctionBuilder builder(Class<?> clazz)
     {
-        return new SqlScalarFunctionBuilder(clazz);
+        return new PolymorphicScalarFunctionBuilder(clazz);
     }
 }

@@ -13,25 +13,26 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.base.Preconditions;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
 
 import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.sql.gen.SpecialFormBytecodeGenerator.generateWrite;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.instruction.Constant.loadBoolean;
 
 public class IsNullCodeGenerator
-        implements BytecodeGenerator
+        implements SpecialFormBytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         Preconditions.checkArgument(arguments.size() == 1);
 
@@ -40,7 +41,7 @@ public class IsNullCodeGenerator
             return loadBoolean(true);
         }
 
-        BytecodeNode value = generatorContext.generate(argument);
+        BytecodeNode value = generatorContext.generate(argument, Optional.empty());
 
         // evaluate the expression, pop the produced value, and load the null flag
         Variable wasNull = generatorContext.wasNull();
@@ -53,6 +54,7 @@ public class IsNullCodeGenerator
         // clear the null flag
         block.append(wasNull.set(constantFalse()));
 
+        outputBlockVariable.ifPresent(output -> block.append(generateWrite(generatorContext, returnType, output)));
         return block;
     }
 }

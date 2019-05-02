@@ -28,13 +28,18 @@ import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.stats.CounterStat;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
+import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -63,13 +68,18 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_PATH;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_ROLE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -81,6 +91,9 @@ public class StatementResource
     private static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
     private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
 
+    private static final DataSize DEFAULT_TARGET_RESULT_SIZE = new DataSize(1, MEGABYTE);
+    private static final DataSize MAX_TARGET_RESULT_SIZE = new DataSize(128, MEGABYTE);
+
     private final QueryManager queryManager;
     private final SessionPropertyManager sessionPropertyManager;
     private final ExchangeClientSupplier exchangeClientSupplier;
@@ -90,6 +103,8 @@ public class StatementResource
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
     private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("query-purger"));
+
+    private final CounterStat createQueryRequests = new CounterStat();
 
     @Inject
     public StatementResource(
@@ -118,12 +133,14 @@ public class StatementResource
 
     @POST
     @Produces(MediaType.APPLICATION_JSON)
-    public void createQuery(
+    public Response createQuery(
             String statement,
+            @HeaderParam(X_FORWARDED_PROTO) String proto,
             @Context HttpServletRequest servletRequest,
-            @Context UriInfo uriInfo,
-            @Suspended AsyncResponse asyncResponse)
+            @Context UriInfo uriInfo)
     {
+        createQueryRequests.update(1);
+
         if (isNullOrEmpty(statement)) {
             throw new WebApplicationException(Response
                     .status(Status.BAD_REQUEST)
@@ -131,10 +148,13 @@ public class StatementResource
                     .entity("SQL statement is empty")
                     .build());
         }
+        if (isNullOrEmpty(proto)) {
+            proto = uriInfo.getRequestUri().getScheme();
+        }
 
         SessionContext sessionContext = new HttpRequestSessionContext(servletRequest);
 
-        ExchangeClient exchangeClient = exchangeClientSupplier.get(new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()));
+        ExchangeClient exchangeClient = exchangeClientSupplier.get(new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), StatementResource.class.getSimpleName()));
         Query query = Query.create(
                 sessionContext,
                 statement,
@@ -146,7 +166,8 @@ public class StatementResource
                 blockEncodingSerde);
         queries.put(query.getQueryId(), query);
 
-        asyncQueryResults(query, OptionalLong.empty(), new Duration(1, MILLISECONDS), uriInfo, asyncResponse);
+        QueryResults queryResults = query.getNextResult(OptionalLong.empty(), uriInfo, proto, DEFAULT_TARGET_RESULT_SIZE);
+        return toResponse(query, queryResults);
     }
 
     @GET
@@ -156,6 +177,8 @@ public class StatementResource
             @PathParam("queryId") QueryId queryId,
             @PathParam("token") long token,
             @QueryParam("maxWait") Duration maxWait,
+            @QueryParam("targetResultSize") DataSize targetResultSize,
+            @HeaderParam(X_FORWARDED_PROTO) String proto,
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
@@ -164,16 +187,32 @@ public class StatementResource
             asyncResponse.resume(Response.status(Status.NOT_FOUND).build());
             return;
         }
+        if (isNullOrEmpty(proto)) {
+            proto = uriInfo.getRequestUri().getScheme();
+        }
 
-        asyncQueryResults(query, OptionalLong.of(token), maxWait, uriInfo, asyncResponse);
+        asyncQueryResults(query, OptionalLong.of(token), maxWait, targetResultSize, uriInfo, proto, asyncResponse);
     }
 
-    private void asyncQueryResults(Query query, OptionalLong token, Duration maxWait, UriInfo uriInfo, AsyncResponse asyncResponse)
+    private void asyncQueryResults(
+            Query query,
+            OptionalLong token,
+            Duration maxWait,
+            DataSize targetResultSize,
+            UriInfo uriInfo,
+            String scheme,
+            AsyncResponse asyncResponse)
     {
         Duration wait = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait);
-        ListenableFuture<QueryResults> queryResultsFuture = query.waitForResults(token, uriInfo, wait);
+        if (targetResultSize == null) {
+            targetResultSize = DEFAULT_TARGET_RESULT_SIZE;
+        }
+        else {
+            targetResultSize = Ordering.natural().min(targetResultSize, MAX_TARGET_RESULT_SIZE);
+        }
+        ListenableFuture<QueryResults> queryResultsFuture = query.waitForResults(token, uriInfo, scheme, wait, targetResultSize);
 
-        ListenableFuture<Response> response = Futures.transform(queryResultsFuture, queryResults -> toResponse(query, queryResults));
+        ListenableFuture<Response> response = Futures.transform(queryResultsFuture, queryResults -> toResponse(query, queryResults), directExecutor());
 
         bindAsyncResponse(asyncResponse, response, responseExecutor);
     }
@@ -182,9 +221,9 @@ public class StatementResource
     {
         ResponseBuilder response = Response.ok(queryResults);
 
-        // add set catalog and schema
         query.getSetCatalog().ifPresent(catalog -> response.header(PRESTO_SET_CATALOG, catalog));
         query.getSetSchema().ifPresent(schema -> response.header(PRESTO_SET_SCHEMA, schema));
+        query.getSetPath().ifPresent(path -> response.header(PRESTO_SET_PATH, path));
 
         // add set session properties
         query.getSetSessionProperties().entrySet()
@@ -193,6 +232,10 @@ public class StatementResource
         // add clear session properties
         query.getResetSessionProperties()
                 .forEach(name -> response.header(PRESTO_CLEAR_SESSION, name));
+
+        // add set roles
+        query.getSetRoles().entrySet()
+                .forEach(entry -> response.header(PRESTO_SET_ROLE, entry.getKey() + '=' + urlEncode(entry.getValue().toString())));
 
         // add added prepare statements
         for (Entry<String, String> entry : query.getAddedPreparedStatements().entrySet()) {
@@ -240,5 +283,12 @@ public class StatementResource
         catch (UnsupportedEncodingException e) {
             throw new AssertionError(e);
         }
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getCreateQueryRequests()
+    {
+        return createQueryRequests;
     }
 }

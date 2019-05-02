@@ -15,7 +15,6 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
 
@@ -29,7 +28,7 @@ public class TestCountIfAggregation
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), length);
+        BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
             BOOLEAN.writeBoolean(blockBuilder, i % 2 == 0);
         }

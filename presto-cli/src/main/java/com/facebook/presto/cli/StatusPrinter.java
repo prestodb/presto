@@ -24,6 +24,8 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.io.PrintStream;
+import java.util.List;
+import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.cli.FormatUtils.formatCount;
@@ -40,8 +42,11 @@ import static io.airlift.units.Duration.nanosSince;
 import static java.lang.Character.toUpperCase;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.IntStream.range;
 
 public class StatusPrinter
 {
@@ -73,6 +78,8 @@ Splits:   646 queued, 34 running, 175 done
 CPU Time: 33.7s total,  191K rows/s, 16.6MB/s, 22% active
 Per Node: 2.5 parallelism,  473K rows/s, 41.1MB/s
 Parallelism: 2.5
+Peak Memory: 1.97GB
+Spilled: 20GB
 0:13 [6.45M rows,  560MB] [ 473K rows/s, 41.1MB/s] [=========>>           ] 20%
 
      STAGES   ROWS  ROWS/s  BYTES  BYTES/s   PEND    RUN   DONE
@@ -86,6 +93,7 @@ Parallelism: 2.5
     {
         long lastPrint = System.nanoTime();
         try {
+            WarningsPrinter warningsPrinter = new ConsoleWarningsPrinter(console);
             while (client.isRunning()) {
                 try {
                     // exit status loop if there is pending output
@@ -102,7 +110,7 @@ Parallelism: 2.5
                         client.cancelLeafStage();
                     }
                     else if (key == CTRL_C) {
-                        updateScreen();
+                        updateScreen(warningsPrinter);
                         update = false;
                         client.close();
                     }
@@ -114,7 +122,7 @@ Parallelism: 2.5
 
                     // update screen
                     if (update) {
-                        updateScreen();
+                        updateScreen(warningsPrinter);
                         lastPrint = System.nanoTime();
                     }
 
@@ -134,10 +142,10 @@ Parallelism: 2.5
         }
     }
 
-    private void updateScreen()
+    private void updateScreen(WarningsPrinter warningsPrinter)
     {
         console.repositionCursor();
-        printQueryInfo(client.currentStatusInfo());
+        printQueryInfo(client.currentStatusInfo(), warningsPrinter);
     }
 
     public void printFinalInfo()
@@ -156,7 +164,7 @@ Parallelism: 2.5
         out.println();
 
         // Query 12, FINISHED, 1 node
-        String querySummary = String.format("Query %s, %s, %,d %s",
+        String querySummary = format("Query %s, %s, %,d %s",
                 results.getId(),
                 stats.getState(),
                 nodes,
@@ -168,7 +176,7 @@ Parallelism: 2.5
         }
 
         // Splits: 1000 total, 842 done (84.20%)
-        String splitsSummary = String.format("Splits: %,d total, %,d done (%.2f%%)",
+        String splitsSummary = format("Splits: %,d total, %,d done (%.2f%%)",
                 stats.getTotalSplits(),
                 stats.getCompletedSplits(),
                 stats.getProgressPercentage().orElse(0.0));
@@ -177,7 +185,7 @@ Parallelism: 2.5
         if (debug) {
             // CPU Time: 565.2s total,   26K rows/s, 3.85MB/s
             Duration cpuTime = millis(stats.getCpuTimeMillis());
-            String cpuTimeSummary = String.format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
+            String cpuTimeSummary = format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
                     cpuTime.getValue(SECONDS),
                     formatCountRate(stats.getProcessedRows(), cpuTime, false),
                     formatDataRate(bytes(stats.getProcessedBytes()), cpuTime, true),
@@ -187,17 +195,26 @@ Parallelism: 2.5
             double parallelism = cpuTime.getValue(MILLISECONDS) / wallTime.getValue(MILLISECONDS);
 
             // Per Node: 3.5 parallelism, 83.3K rows/s, 0.7 MB/s
-            String perNodeSummary = String.format("Per Node: %.1f parallelism, %5s rows/s, %8s",
+            String perNodeSummary = format("Per Node: %.1f parallelism, %5s rows/s, %8s",
                     parallelism / nodes,
                     formatCountRate((double) stats.getProcessedRows() / nodes, wallTime, false),
                     formatDataRate(bytes(stats.getProcessedBytes() / nodes), wallTime, true));
             reprintLine(perNodeSummary);
 
-            out.println(String.format("Parallelism: %.1f", parallelism));
+            // Parallelism: 5.3
+            out.println(format("Parallelism: %.1f", parallelism));
+
+            // Peak Memory: 1.97GB
+            reprintLine("Peak Memory: " + formatDataSize(bytes(stats.getPeakMemoryBytes()), true));
+
+            // Spilled Data: 20GB
+            if (stats.getSpilledBytes() > 0) {
+                reprintLine("Spilled: " + formatDataSize(bytes(stats.getSpilledBytes()), true));
+            }
         }
 
         // 0:32 [2.12GB, 15M rows] [67MB/s, 463K rows/s]
-        String statsLine = String.format("%s [%s rows, %s] [%s rows/s, %s]",
+        String statsLine = format("%s [%s rows, %s] [%s rows/s, %s]",
                 formatTime(wallTime),
                 formatCount(stats.getProcessedRows()),
                 formatDataSize(bytes(stats.getProcessedBytes()), true),
@@ -210,7 +227,7 @@ Parallelism: 2.5
         out.println();
     }
 
-    private void printQueryInfo(QueryStatusInfo results)
+    private void printQueryInfo(QueryStatusInfo results, WarningsPrinter warningsPrinter)
     {
         StatementStats stats = results.getStats();
         Duration wallTime = nanosSince(start);
@@ -230,14 +247,14 @@ Parallelism: 2.5
                 reprintLine("80 characters wide");
                 reprintLine("");
                 reprintLine(stats.getState());
-                reprintLine(String.format("%s %d%%", formatTime(wallTime), progressPercentage));
+                reprintLine(format("%s %d%%", formatTime(wallTime), progressPercentage));
                 return;
             }
 
             int nodes = stats.getNodes();
 
             // Query 10, RUNNING, 1 node, 778 splits
-            String querySummary = String.format("Query %s, %s, %,d %s, %,d splits",
+            String querySummary = format("Query %s, %s, %,d %s, %,d splits",
                     results.getId(),
                     stats.getState(),
                     nodes,
@@ -256,7 +273,7 @@ Parallelism: 2.5
 
             if (debug) {
                 // Splits:   620 queued, 34 running, 124 done
-                String splitsSummary = String.format("Splits:   %,d queued, %,d running, %,d done",
+                String splitsSummary = format("Splits:   %,d queued, %,d running, %,d done",
                         stats.getQueuedSplits(),
                         stats.getRunningSplits(),
                         stats.getCompletedSplits());
@@ -264,7 +281,7 @@ Parallelism: 2.5
 
                 // CPU Time: 56.5s total, 36.4K rows/s, 4.44MB/s, 60% active
                 Duration cpuTime = millis(stats.getCpuTimeMillis());
-                String cpuTimeSummary = String.format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
+                String cpuTimeSummary = format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
                         cpuTime.getValue(SECONDS),
                         formatCountRate(stats.getProcessedRows(), cpuTime, false),
                         formatDataRate(bytes(stats.getProcessedBytes()), cpuTime, true),
@@ -274,13 +291,22 @@ Parallelism: 2.5
                 double parallelism = cpuTime.getValue(MILLISECONDS) / wallTime.getValue(MILLISECONDS);
 
                 // Per Node: 3.5 parallelism, 83.3K rows/s, 0.7 MB/s
-                String perNodeSummary = String.format("Per Node: %.1f parallelism, %5s rows/s, %8s",
+                String perNodeSummary = format("Per Node: %.1f parallelism, %5s rows/s, %8s",
                         parallelism / nodes,
                         formatCountRate((double) stats.getProcessedRows() / nodes, wallTime, false),
                         formatDataRate(bytes(stats.getProcessedBytes() / nodes), wallTime, true));
                 reprintLine(perNodeSummary);
 
-                reprintLine(String.format("Parallelism: %.1f", parallelism));
+                // Parallelism: 5.3
+                reprintLine(format("Parallelism: %.1f", parallelism));
+
+                // Peak Memory: 1.97GB
+                reprintLine("Peak Memory: " + formatDataSize(bytes(stats.getPeakMemoryBytes()), true));
+
+                // Spilled Data: 20GB
+                if (stats.getSpilledBytes() > 0) {
+                    reprintLine("Spilled: " + formatDataSize(bytes(stats.getSpilledBytes()), true));
+                }
             }
 
             verify(terminalWidth >= 75); // otherwise handled above
@@ -293,7 +319,7 @@ Parallelism: 2.5
                         stats.getTotalSplits());
 
                 // 0:17 [ 103MB,  802K rows] [5.74MB/s, 44.9K rows/s] [=====>>                                   ] 10%
-                String progressLine = String.format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s] %d%%",
+                String progressLine = format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s] %d%%",
                         formatTime(wallTime),
                         formatCount(stats.getProcessedRows()),
                         formatDataSize(bytes(stats.getProcessedBytes()), true),
@@ -308,7 +334,7 @@ Parallelism: 2.5
                 String progressBar = formatProgressBar(progressWidth, Ints.saturatedCast(nanosSince(start).roundTo(SECONDS)));
 
                 // 0:17 [ 103MB,  802K rows] [5.74MB/s, 44.9K rows/s] [    <=>                                  ]
-                String progressLine = String.format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s]",
+                String progressLine = format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s]",
                         formatTime(wallTime),
                         formatCount(stats.getProcessedRows()),
                         formatDataSize(bytes(stats.getProcessedBytes()), true),
@@ -319,13 +345,11 @@ Parallelism: 2.5
                 reprintLine(progressLine);
             }
 
-            // todo Mem: 1949M shared, 7594M private
-
             // blank line
             reprintLine("");
 
             // STAGE  S    ROWS    RPS  BYTES    BPS   QUEUED    RUN   DONE
-            String stagesHeader = String.format("%10s%1s  %5s  %6s  %5s  %7s  %6s  %5s  %5s",
+            String stagesHeader = format("%10s%1s  %5s  %6s  %5s  %7s  %6s  %5s  %5s",
                     "STAGE",
                     "S",
                     "ROWS",
@@ -341,7 +365,7 @@ Parallelism: 2.5
         }
         else {
             // Query 31 [S] i[2.7M 67.3MB 62.7MBps] o[35 6.1KB 1KBps] splits[252/16/380]
-            String querySummary = String.format("Query %s [%s] i[%s %s %s] o[%s %s %s] splits[%,d/%,d/%,d]",
+            String querySummary = format("Query %s [%s] i[%s %s %s] o[%s %s %s] splits[%,d/%,d/%,d]",
                     results.getId(),
                     stats.getState(),
 
@@ -358,6 +382,7 @@ Parallelism: 2.5
                     stats.getCompletedSplits());
             reprintLine(querySummary);
         }
+        warningsPrinter.print(results.getWarnings(), false, false);
     }
 
     private void printStageTree(StageStats stage, String indent, AtomicInteger stageNumberCounter)
@@ -386,7 +411,7 @@ Parallelism: 2.5
             rowsPerSecond = formatCountRate(stage.getProcessedRows(), elapsedTime, false);
         }
 
-        String stageSummary = String.format("%10s%1s  %5s  %6s  %5s  %7s  %6s  %5s  %5s",
+        String stageSummary = format("%10s%1s  %5s  %6s  %5s  %7s  %6s  %5s  %5s",
                 name,
                 stageStateCharacter(stage.getState()),
 
@@ -432,5 +457,36 @@ Parallelism: 2.5
             return 0;
         }
         return min(100, (count * 100.0) / total);
+    }
+
+    private static class ConsoleWarningsPrinter
+            extends AbstractWarningsPrinter
+    {
+        private static final int DISPLAYED_WARNINGS = 5;
+        private final ConsolePrinter console;
+
+        ConsoleWarningsPrinter(ConsolePrinter console)
+        {
+            super(OptionalInt.of(DISPLAYED_WARNINGS));
+            this.console = requireNonNull(console, "console is null");
+        }
+
+        @Override
+        protected void print(List<String> warnings)
+        {
+            console.reprintLine("");
+            warnings.stream()
+                    .forEach(console::reprintLine);
+
+            // Remove warnings from previous screen
+            range(0, DISPLAYED_WARNINGS - warnings.size())
+                    .forEach(line -> console.reprintLine(""));
+        }
+
+        @Override
+        protected void printSeparator()
+        {
+            console.reprintLine("");
+        }
     }
 }

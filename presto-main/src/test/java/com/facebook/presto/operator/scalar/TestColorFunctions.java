@@ -24,11 +24,14 @@ import static com.facebook.presto.operator.scalar.ColorFunctions.getRed;
 import static com.facebook.presto.operator.scalar.ColorFunctions.parseRgb;
 import static com.facebook.presto.operator.scalar.ColorFunctions.render;
 import static com.facebook.presto.operator.scalar.ColorFunctions.rgb;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public class TestColorFunctions
+        extends AbstractTestFunctions
 {
     @Test
     public void testParseRgb()
@@ -149,6 +152,13 @@ public class TestColorFunctions
         assertEquals(color(1.0f, color(toSlice("#000")), color(toSlice("#fff"))), 0xFF_FF_FF);
         assertEquals(color(-0.0f, color(toSlice("#000")), color(toSlice("#fff"))), 0x00_00_00);
         assertEquals(color(0.0f, color(toSlice("#000")), color(toSlice("#fff"))), 0x00_00_00);
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "color(null)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "color('black')", BOOLEAN, false);
     }
 
     private static Slice toSlice(String string)

@@ -14,8 +14,10 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -24,8 +26,10 @@ import java.util.List;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
@@ -35,6 +39,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJo
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 
 public class TestPredicatePushdown
         extends BasePlanTest
@@ -135,12 +140,12 @@ public class TestPredicatePushdown
                 anyTree(
                         semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
                                 anyTree(
-                                        filter("LINE_ORDER_KEY = BIGINT '2' AND BIGINT '2' = LINE_ORDER_KEY", // TODO this should be simplified
+                                        filter("LINE_ORDER_KEY = BIGINT '2'",
                                                 tableScan("lineitem", ImmutableMap.of(
                                                         "LINE_ORDER_KEY", "orderkey",
                                                         "LINE_QUANTITY", "quantity")))),
                                 anyTree(
-                                        filter("ORDERS_ORDER_KEY = BIGINT '2' AND BIGINT '2' = ORDERS_ORDER_KEY", // TODO this should be simplified
+                                        filter("ORDERS_ORDER_KEY = BIGINT '2'",
                                                 tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
     }
 
@@ -184,12 +189,12 @@ public class TestPredicatePushdown
                 anyTree(
                         semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
                                 anyTree(
-                                        filter("LINE_ORDER_KEY = BIGINT '2' AND BIGINT '2' = LINE_ORDER_KEY", // TODO this should be simplified
+                                        filter("LINE_ORDER_KEY = BIGINT '2'",
                                                 tableScan("lineitem", ImmutableMap.of(
                                                         "LINE_ORDER_KEY", "orderkey",
                                                         "LINE_QUANTITY", "quantity")))),
                                 anyTree(
-                                        filter("ORDERS_ORDER_KEY = BIGINT '2' AND BIGINT '2' = ORDERS_ORDER_KEY", // TODO this should be simplified
+                                        filter("ORDERS_ORDER_KEY = BIGINT '2'",
                                                 tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
     }
 
@@ -250,5 +255,161 @@ public class TestPredicatePushdown
                 output(
                         values("orderstatus")),
                 allOptimizers);
+    }
+
+    @Test
+    public void testPredicatePushDownThroughMarkDistinct()
+    {
+        assertPlan(
+                "SELECT (SELECT a FROM (VALUES 1, 2, 3) t(a) WHERE a = b) FROM (VALUES 0, 1) p(b) WHERE b = 1",
+                // TODO this could be optimized to VALUES with values from partitions
+                anyTree(
+                        join(
+                                LEFT,
+                                ImmutableList.of(equiJoinClause("A", "B")),
+                                project(assignUniqueId("unique", filter("A = 1", values("A")))),
+                                project(filter("1 = B", values("B"))))));
+    }
+
+    @Test
+    public void testPredicatePushDownOverProjection()
+    {
+        // Non-singletons should not be pushed down
+        assertPlan(
+                "WITH t AS (SELECT orderkey * 2 x FROM orders) " +
+                        "SELECT * FROM t WHERE x + x > 1",
+                anyTree(
+                        filter("((expr + expr) > BIGINT '1')",
+                                project(ImmutableMap.of("expr", expression("orderkey * BIGINT '2'")),
+                                        tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))))));
+
+        // constant non-singleton should be pushed down
+        assertPlan(
+                "with t AS (SELECT orderkey * 2 x, 1 y FROM orders) " +
+                        "SELECT * FROM t WHERE x + y + y >1",
+                anyTree(
+                        project(
+                                filter("(((orderkey * BIGINT '2') + BIGINT '1') + BIGINT '1') > BIGINT '1'",
+                                        tableScan("orders", ImmutableMap.of(
+                                                "orderkey", "orderkey"))))));
+
+        // singletons should be pushed down
+        assertPlan(
+                "WITH t AS (SELECT orderkey * 2 x FROM orders) " +
+                        "SELECT * FROM t WHERE x > 1",
+                anyTree(
+                        project(
+                                filter("(orderkey * BIGINT '2') > BIGINT '1'",
+                                        tableScan("orders", ImmutableMap.of(
+                                                "orderkey", "orderkey"))))));
+
+        // composite singletons should be pushed down
+        assertPlan(
+                "with t AS (SELECT orderkey * 2 x, orderkey y FROM orders) " +
+                        "SELECT * FROM t WHERE x + y > 1",
+                anyTree(
+                        project(
+                                filter("((orderkey * BIGINT '2') + orderkey) > BIGINT '1'",
+                                        tableScan("orders", ImmutableMap.of(
+                                                "orderkey", "orderkey"))))));
+
+        // Identities should be pushed down
+        assertPlan(
+                "WITH t AS (SELECT orderkey x FROM orders) " +
+                        "SELECT * FROM t WHERE x >1",
+                anyTree(
+                        filter("orderkey > BIGINT '1'",
+                                tableScan("orders", ImmutableMap.of(
+                                        "orderkey", "orderkey")))));
+
+        // Non-deterministic predicate should not be pushed down
+        assertPlan(
+                "WITH t AS (SELECT rand() * orderkey x FROM orders) " +
+                        "SELECT * FROM t WHERE x > 5000",
+                anyTree(
+                        filter("expr > 5E3",
+                                project(ImmutableMap.of("expr", expression("rand() * CAST(orderkey AS double)")),
+                                        tableScan("orders", ImmutableMap.of(
+                                                "ORDERKEY", "orderkey"))))));
+    }
+
+    @Test
+    public void testConjunctsOrder()
+    {
+        assertPlan(
+                "select partkey " +
+                        "from (" +
+                        "  select" +
+                        "    partkey," +
+                        "    100/(size-1) x" +
+                        "  from part" +
+                        "  where size <> 1" +
+                        ") " +
+                        "where x = 2",
+                anyTree(
+                        // Order matters: size<>1 should be before 100/(size-1)=2.
+                        // In this particular example, reversing the order leads to div-by-zero error.
+                        filter("size <> 1 AND 100/(size - 1) = 2",
+                                tableScan("part", ImmutableMap.of(
+                                        "partkey", "partkey",
+                                        "size", "size")))));
+    }
+
+    @Test
+    public void testPredicateOnPartitionSymbolsPushedThroughWindow()
+    {
+        PlanMatchPattern tableScan = tableScan(
+                "orders",
+                ImmutableMap.of(
+                        "CUST_KEY", "custkey",
+                        "ORDER_KEY", "orderkey"));
+        assertPlan(
+                "SELECT * FROM (" +
+                        "SELECT custkey, orderkey, rank() OVER (PARTITION BY custkey  ORDER BY orderdate ASC)" +
+                        "FROM orders" +
+                        ") WHERE custkey = 0 AND orderkey > 0",
+                anyTree(
+                        filter("ORDER_KEY > BIGINT '0'",
+                                anyTree(
+                                        node(WindowNode.class,
+                                                anyTree(
+                                                        filter("CUST_KEY = BIGINT '0'",
+                                                                tableScan)))))));
+    }
+
+    @Test
+    public void testPredicateOnNonDeterministicSymbolsPushedDown()
+    {
+        assertPlan(
+                "SELECT * FROM (" +
+                        "SELECT random_column, orderkey, rank() OVER (PARTITION BY random_column  ORDER BY orderdate ASC)" +
+                        "FROM (select round(custkey*rand()) random_column, * from orders) " +
+                        ") WHERE random_column > 100",
+                anyTree(
+                        node(WindowNode.class,
+                                anyTree(
+                                        filter("\"ROUND\" > 1E2",
+                                                project(ImmutableMap.of("ROUND", expression("round(CAST(CUST_KEY AS double) * rand())")),
+                                                        tableScan(
+                                                                "orders",
+                                                                ImmutableMap.of("CUST_KEY", "custkey"))))))));
+    }
+
+    @Test
+    public void testNonDeterministicPredicateNotPushedDown()
+    {
+        assertPlan(
+                "SELECT * FROM (" +
+                        "SELECT custkey, orderkey, rank() OVER (PARTITION BY custkey  ORDER BY orderdate ASC)" +
+                        "FROM orders" +
+                        ") WHERE custkey > 100*rand()",
+                anyTree(
+                        filter("CAST(\"CUST_KEY\" AS double) > (1E2 * \"rand\"())",
+                                anyTree(
+                                        node(WindowNode.class,
+                                                anyTree(
+                                                        tableScan(
+                                                                "orders",
+                                                                ImmutableMap.of("CUST_KEY", "custkey"))))))));
     }
 }

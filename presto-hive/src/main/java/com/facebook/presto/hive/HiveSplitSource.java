@@ -27,6 +27,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
@@ -45,20 +46,22 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxSplitSize;
+import static com.facebook.presto.hive.HiveSessionProperties.isPreloadSplitsForGroupedExecution;
 import static com.facebook.presto.hive.HiveSplitSource.StateKind.CLOSED;
 import static com.facebook.presto.hive.HiveSplitSource.StateKind.FAILED;
 import static com.facebook.presto.hive.HiveSplitSource.StateKind.INITIAL;
 import static com.facebook.presto.hive.HiveSplitSource.StateKind.NO_MORE_SPLITS;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.failedFuture;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -197,6 +200,9 @@ class HiveSplitSource
                 new PerBucket()
                 {
                     private final Map<Integer, AsyncQueue<InternalHiveSplit>> queues = new ConcurrentHashMap<>();
+                    private final AtomicBoolean finished = new AtomicBoolean();
+                    private final boolean preloadSplitsForGroupedExecution = isPreloadSplitsForGroupedExecution(session);
+                    private final SettableFuture<?> allSplitsLoaded = SettableFuture.create();
 
                     @Override
                     public ListenableFuture<?> offer(OptionalInt bucketNumber, InternalHiveSplit connectorSplit)
@@ -211,13 +217,20 @@ class HiveSplitSource
                     @Override
                     public <O> ListenableFuture<O> borrowBatchAsync(OptionalInt bucketNumber, int maxSize, Function<List<InternalHiveSplit>, BorrowResult<InternalHiveSplit, O>> function)
                     {
+                        // The call to borrowBatchAsync() is blocked until allSplitsLoaded is complete, which is set in finish(), then it would call borrowBatchAsync() again.
+                        if (preloadSplitsForGroupedExecution && !finished.get()) {
+                            return allSplitsLoaded.transformAsync(ignored -> borrowBatchAsync(bucketNumber, maxSize, function), executor);
+                        }
                         return queueFor(bucketNumber).borrowBatchAsync(maxSize, function);
                     }
 
                     @Override
                     public void finish()
                     {
-                        queues.values().forEach(AsyncQueue::finish);
+                        if (finished.compareAndSet(false, true)) {
+                            queues.values().forEach(AsyncQueue::finish);
+                            allSplitsLoaded.set(null);
+                        }
                     }
 
                     @Override
@@ -226,15 +239,20 @@ class HiveSplitSource
                         return queueFor(bucketNumber).isFinished();
                     }
 
-                    public AsyncQueue<InternalHiveSplit> queueFor(OptionalInt bucketNumber)
+                    private AsyncQueue<InternalHiveSplit> queueFor(OptionalInt bucketNumber)
                     {
                         checkArgument(bucketNumber.isPresent());
-                        return queues.computeIfAbsent(bucketNumber.getAsInt(), ignored -> {
-                            if (stateReference.get().getKind() != INITIAL) {
-                                throw new IllegalStateException();
-                            }
+                        AtomicBoolean isNew = new AtomicBoolean();
+                        AsyncQueue<InternalHiveSplit> queue = queues.computeIfAbsent(bucketNumber.getAsInt(), ignored -> {
+                            isNew.set(true);
                             return new AsyncQueue<>(estimatedOutstandingSplitsPerBucket, executor);
                         });
+                        if (isNew.get() && finished.get()) {
+                            // Check `finished` and invoke `queue.finish` after the `queue` is added to the map.
+                            // Otherwise, `queue.finish` may not be invoked if `finished` is set while the lambda above is being evaluated.
+                            queue.finish();
+                        }
+                        return queue;
                     }
                 },
                 maxInitialSplits,
@@ -277,12 +295,12 @@ class HiveSplitSource
                 log.warn("Split buffering for %s.%s in query %s exceeded memory limit (%s). %s splits are buffered.",
                         databaseName, tableName, queryId, succinctBytes(maxOutstandingSplitsBytes), getBufferedInternalSplitCount());
             }
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, format(
+            throw new PrestoException(HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT, format(
                     "Split buffering for %s.%s exceeded memory limit (%s). %s splits are buffered.",
                     databaseName, tableName, succinctBytes(maxOutstandingSplitsBytes), getBufferedInternalSplitCount()));
         }
         bufferedInternalSplitCount.incrementAndGet();
-        OptionalInt bucketNumber = split.getBucketNumber();
+        OptionalInt bucketNumber = split.getReadBucketNumber();
         return queues.offer(bucketNumber, split);
     }
 
@@ -363,10 +381,14 @@ class HiveSplitSource
                         internalSplit.getSchema(),
                         internalSplit.getPartitionKeys(),
                         block.getAddresses(),
-                        internalSplit.getBucketNumber(),
+                        internalSplit.getReadBucketNumber(),
+                        internalSplit.getTableBucketNumber(),
                         internalSplit.isForceLocalScheduling(),
                         (TupleDomain<HiveColumnHandle>) compactEffectivePredicate,
-                        transformValues(internalSplit.getColumnCoercions(), HiveTypeName::toHiveType)));
+                        transformValues(internalSplit.getColumnCoercions(), HiveTypeName::toHiveType),
+                        internalSplit.getBucketConversion(),
+                        internalSplit.isS3SelectPushdownEnabled()));
+
                 internalSplit.increaseStart(splitBytes);
 
                 if (internalSplit.isDone()) {
@@ -403,7 +425,7 @@ class HiveSplitSource
             else {
                 return new ConnectorSplitBatch(splits, false);
             }
-        });
+        }, directExecutor());
 
         return toCompletableFuture(transform);
     }

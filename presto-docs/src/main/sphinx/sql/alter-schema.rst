@@ -19,7 +19,7 @@ Examples
 
 Rename schema ``web`` to ``traffic``::
 
-    ALTER TABLE web RENAME TO traffic
+    ALTER SCHEMA web RENAME TO traffic
 
 See Also
 --------

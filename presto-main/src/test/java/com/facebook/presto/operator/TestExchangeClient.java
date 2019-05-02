@@ -38,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -100,7 +101,7 @@ public class TestExchangeClient
                 true,
                 new TestingHttpClient(processor, scheduler),
                 scheduler,
-                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
 
         exchangeClient.addLocation(location);
@@ -139,7 +140,7 @@ public class TestExchangeClient
                 true,
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
                 scheduler,
-                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
 
         URI location1 = URI.create("http://localhost:8081/foo");
@@ -211,7 +212,7 @@ public class TestExchangeClient
                 true,
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
                 scheduler,
-                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
 
         exchangeClient.addLocation(location);
@@ -293,7 +294,7 @@ public class TestExchangeClient
                 true,
                 new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
                 scheduler,
-                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
         exchangeClient.addLocation(location);
         exchangeClient.noMoreLocations();
@@ -326,7 +327,7 @@ public class TestExchangeClient
 
     private static SerializedPage getNextPage(ExchangeClient exchangeClient)
     {
-        ListenableFuture<SerializedPage> futurePage = Futures.transform(exchangeClient.isBlocked(), ignored -> exchangeClient.pollPage());
+        ListenableFuture<SerializedPage> futurePage = Futures.transform(exchangeClient.isBlocked(), ignored -> exchangeClient.pollPage(), directExecutor());
         return tryGetFutureValue(futurePage, 100, TimeUnit.SECONDS).orElse(null);
     }
 

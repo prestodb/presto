@@ -1,4 +1,4 @@
--- delimiter: |; types: LONGNVARCHAR|LONGNVARCHAR|INTEGER|INTEGER|CHAR|BIGINT|DECIMAL
+-- delimiter: |; types: VARCHAR|VARCHAR|INTEGER|INTEGER|CHAR|BIGINT|DECIMAL
 catalog|cs_ship_addr_sk|1998|1|Books                                             |14|24660.12|
 catalog|cs_ship_addr_sk|1998|1|Children                                          |5|5064.75|
 catalog|cs_ship_addr_sk|1998|1|Electronics                                       |13|31709.80|

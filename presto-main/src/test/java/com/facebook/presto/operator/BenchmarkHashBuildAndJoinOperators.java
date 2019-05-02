@@ -185,7 +185,7 @@ public class BenchmarkHashBuildAndJoinOperators
         protected List<Page> probePages;
         protected List<Integer> outputChannels;
 
-        protected LookupSourceFactoryManager lookupSourceFactory;
+        protected JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory;
 
         @Override
         @Setup
@@ -211,7 +211,7 @@ public class BenchmarkHashBuildAndJoinOperators
             initializeProbePages();
         }
 
-        public LookupSourceFactoryManager getLookupSourceFactory()
+        public JoinBridgeManager<PartitionedLookupSourceFactory> getLookupSourceFactory()
         {
             return lookupSourceFactory;
         }
@@ -275,16 +275,16 @@ public class BenchmarkHashBuildAndJoinOperators
     }
 
     @Benchmark
-    public LookupSourceFactoryManager benchmarkBuildHash(BuildContext buildContext)
+    public JoinBridgeManager<PartitionedLookupSourceFactory> benchmarkBuildHash(BuildContext buildContext)
     {
         return benchmarkBuildHash(buildContext, ImmutableList.of(0, 1, 2));
     }
 
-    private LookupSourceFactoryManager benchmarkBuildHash(BuildContext buildContext, List<Integer> outputChannels)
+    private JoinBridgeManager<PartitionedLookupSourceFactory> benchmarkBuildHash(BuildContext buildContext, List<Integer> outputChannels)
     {
-        DriverContext driverContext = buildContext.createTaskContext().addPipelineContext(0, true, true).addDriverContext();
+        DriverContext driverContext = buildContext.createTaskContext().addPipelineContext(0, true, true, false).addDriverContext();
 
-        LookupSourceFactoryManager lookupSourceFactoryManager = LookupSourceFactoryManager.allAtOnce(new PartitionedLookupSourceFactory(
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = JoinBridgeManager.lookupAllAtOnce(new PartitionedLookupSourceFactory(
                 buildContext.getTypes(),
                 outputChannels.stream()
                         .map(buildContext.getTypes()::get)
@@ -298,7 +298,6 @@ public class BenchmarkHashBuildAndJoinOperators
         HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                 HASH_BUILD_OPERATOR_ID,
                 TEST_PLAN_NODE_ID,
-                buildContext.getTypes(),
                 lookupSourceFactoryManager,
                 outputChannels,
                 buildContext.getHashChannels(),
@@ -317,7 +316,7 @@ public class BenchmarkHashBuildAndJoinOperators
         }
         operator.finish();
 
-        LookupSourceFactory lookupSourceFactory = lookupSourceFactoryManager.forLifespan(Lifespan.taskWide());
+        LookupSourceFactory lookupSourceFactory = lookupSourceFactoryManager.getJoinBridge(Lifespan.taskWide());
         ListenableFuture<LookupSourceProvider> lookupSourceProvider = lookupSourceFactory.createLookupSourceProvider();
         if (!lookupSourceProvider.isDone()) {
             throw new AssertionError("Expected lookup source provider to be ready");
@@ -341,7 +340,7 @@ public class BenchmarkHashBuildAndJoinOperators
                 OptionalInt.empty(),
                 unsupportedPartitioningSpillerFactory());
 
-        DriverContext driverContext = joinContext.createTaskContext().addPipelineContext(0, true, true).addDriverContext();
+        DriverContext driverContext = joinContext.createTaskContext().addPipelineContext(0, true, true, false).addDriverContext();
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
 
         Iterator<Page> input = joinContext.getProbePages().iterator();

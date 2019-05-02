@@ -20,11 +20,9 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.PageAssertions;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -66,10 +64,10 @@ public class TestFileSingleStreamSpiller
     public void testSpill()
             throws Exception
     {
-        PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(new TypeRegistry(ImmutableSet.copyOf(TYPES))), false);
+        PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(new TypeRegistry()), false);
         PagesSerde serde = serdeFactory.createPagesSerde();
         SpillerStats spillerStats = new SpillerStats();
-        LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext();
+        LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext("test");
         FileSingleStreamSpiller spiller = new FileSingleStreamSpiller(serde, executor, spillPath.toPath(), spillerStats, bytes -> {}, memoryContext);
 
         Page page = buildPage();
@@ -103,9 +101,9 @@ public class TestFileSingleStreamSpiller
 
     private Page buildPage()
     {
-        BlockBuilder col1 = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1);
-        BlockBuilder col2 = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), 1);
-        BlockBuilder col3 = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder col1 = BIGINT.createBlockBuilder(null, 1);
+        BlockBuilder col2 = DOUBLE.createBlockBuilder(null, 1);
+        BlockBuilder col3 = VARBINARY.createBlockBuilder(null, 1);
 
         col1.writeLong(42).closeEntry();
         col2.writeLong(doubleToLongBits(43.0)).closeEntry();

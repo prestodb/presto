@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static java.util.stream.Collectors.toList;
@@ -234,6 +233,6 @@ public class TestUnion
 
     private static boolean isRemoteExchange(PlanNode planNode)
     {
-        return (planNode instanceof ExchangeNode) && ((ExchangeNode) planNode).getScope().equals(REMOTE);
+        return (planNode instanceof ExchangeNode) && ((ExchangeNode) planNode).getScope().isRemote();
     }
 }

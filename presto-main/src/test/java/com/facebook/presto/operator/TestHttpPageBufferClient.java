@@ -18,7 +18,6 @@ import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Page;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableListMultimap;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
@@ -518,10 +517,10 @@ public class TestHttpPageBufferClient
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
+                throw new RuntimeException(e);
             }
             catch (BrokenBarrierException | TimeoutException e) {
-                throw Throwables.propagate(e);
+                throw new RuntimeException(e);
             }
         }
     }

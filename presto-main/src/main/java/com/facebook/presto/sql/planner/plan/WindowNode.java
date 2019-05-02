@@ -13,12 +13,10 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.WindowFrame;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -218,35 +216,51 @@ public class WindowNode
     @Immutable
     public static class Frame
     {
-        private final WindowFrame.Type type;
-        private final FrameBound.Type startType;
+        private final WindowType type;
+        private final BoundType startType;
         private final Optional<Symbol> startValue;
-        private final FrameBound.Type endType;
+        private final BoundType endType;
         private final Optional<Symbol> endValue;
+
+        // This information is only used for printing the plan.
+        private final Optional<String> originalStartValue;
+        private final Optional<String> originalEndValue;
 
         @JsonCreator
         public Frame(
-                @JsonProperty("type") WindowFrame.Type type,
-                @JsonProperty("startType") FrameBound.Type startType,
+                @JsonProperty("type") WindowType type,
+                @JsonProperty("startType") BoundType startType,
                 @JsonProperty("startValue") Optional<Symbol> startValue,
-                @JsonProperty("endType") FrameBound.Type endType,
-                @JsonProperty("endValue") Optional<Symbol> endValue)
+                @JsonProperty("endType") BoundType endType,
+                @JsonProperty("endValue") Optional<Symbol> endValue,
+                @JsonProperty("originalStartValue") Optional<String> originalStartValue,
+                @JsonProperty("originalEndValue") Optional<String> originalEndValue)
         {
             this.startType = requireNonNull(startType, "startType is null");
             this.startValue = requireNonNull(startValue, "startValue is null");
             this.endType = requireNonNull(endType, "endType is null");
             this.endValue = requireNonNull(endValue, "endValue is null");
             this.type = requireNonNull(type, "type is null");
+            this.originalStartValue = requireNonNull(originalStartValue, "originalStartValue is null");
+            this.originalEndValue = requireNonNull(originalEndValue, "originalEndValue is null");
+
+            if (startValue.isPresent()) {
+                checkArgument(originalStartValue.isPresent(), "originalStartValue must be present if startValue is present");
+            }
+
+            if (endValue.isPresent()) {
+                checkArgument(originalEndValue.isPresent(), "originalEndValue must be present if endValue is present");
+            }
         }
 
         @JsonProperty
-        public WindowFrame.Type getType()
+        public WindowType getType()
         {
             return type;
         }
 
         @JsonProperty
-        public FrameBound.Type getStartType()
+        public BoundType getStartType()
         {
             return startType;
         }
@@ -258,7 +272,7 @@ public class WindowNode
         }
 
         @JsonProperty
-        public FrameBound.Type getEndType()
+        public BoundType getEndType()
         {
             return endType;
         }
@@ -269,27 +283,53 @@ public class WindowNode
             return endValue;
         }
 
-        @Override
-        public int hashCode()
+        @JsonProperty
+        public Optional<String> getOriginalStartValue()
         {
-            return Objects.hash(type, startType, startValue, endType, endValue);
+            return originalStartValue;
+        }
+
+        @JsonProperty
+        public Optional<String> getOriginalEndValue()
+        {
+            return originalEndValue;
         }
 
         @Override
-        public boolean equals(Object obj)
+        public boolean equals(Object o)
         {
-            if (this == obj) {
+            if (this == o) {
                 return true;
             }
-            if (obj == null || getClass() != obj.getClass()) {
+            if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            Frame other = (Frame) obj;
-            return Objects.equals(this.type, other.type) &&
-                    Objects.equals(this.startType, other.startType) &&
-                    Objects.equals(this.startValue, other.startValue) &&
-                    Objects.equals(this.endType, other.endType) &&
-                    Objects.equals(this.endValue, other.endValue);
+            Frame frame = (Frame) o;
+            return type == frame.type &&
+                    startType == frame.startType &&
+                    Objects.equals(startValue, frame.startValue) &&
+                    endType == frame.endType &&
+                    Objects.equals(endValue, frame.endValue);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(type, startType, startValue, endType, endValue, originalStartValue, originalEndValue);
+        }
+
+        public enum WindowType
+        {
+            RANGE, ROWS
+        }
+
+        public enum BoundType
+        {
+            UNBOUNDED_PRECEDING,
+            PRECEDING,
+            CURRENT_ROW,
+            FOLLOWING,
+            UNBOUNDED_FOLLOWING
         }
     }
 
@@ -297,17 +337,17 @@ public class WindowNode
     public static final class Function
     {
         private final FunctionCall functionCall;
-        private final Signature signature;
+        private final FunctionHandle functionHandle;
         private final Frame frame;
 
         @JsonCreator
         public Function(
                 @JsonProperty("functionCall") FunctionCall functionCall,
-                @JsonProperty("signature") Signature signature,
+                @JsonProperty("functionHandle") FunctionHandle functionHandle,
                 @JsonProperty("frame") Frame frame)
         {
             this.functionCall = requireNonNull(functionCall, "functionCall is null");
-            this.signature = requireNonNull(signature, "Signature is null");
+            this.functionHandle = requireNonNull(functionHandle, "Signature is null");
             this.frame = requireNonNull(frame, "Frame is null");
         }
 
@@ -318,9 +358,9 @@ public class WindowNode
         }
 
         @JsonProperty
-        public Signature getSignature()
+        public FunctionHandle getFunctionHandle()
         {
-            return signature;
+            return functionHandle;
         }
 
         @JsonProperty
@@ -332,7 +372,7 @@ public class WindowNode
         @Override
         public int hashCode()
         {
-            return Objects.hash(functionCall, signature, frame);
+            return Objects.hash(functionCall, functionHandle, frame);
         }
 
         @Override
@@ -346,7 +386,7 @@ public class WindowNode
             }
             Function other = (Function) obj;
             return Objects.equals(this.functionCall, other.functionCall) &&
-                    Objects.equals(this.signature, other.signature) &&
+                    Objects.equals(this.functionHandle, other.functionHandle) &&
                     Objects.equals(this.frame, other.frame);
         }
     }

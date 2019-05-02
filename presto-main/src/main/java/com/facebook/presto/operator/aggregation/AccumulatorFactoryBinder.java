@@ -24,5 +24,15 @@ import java.util.Optional;
 
 public interface AccumulatorFactoryBinder
 {
-    AccumulatorFactory bind(List<Integer> argumentChannels, Optional<Integer> maskChannel, List<Type> sourceTypes, List<Integer> orderByChannels, List<SortOrder> orderings, PagesIndex.Factory pagesIndexFactory, boolean distinct, JoinCompiler joinCompiler, Session session);
+    AccumulatorFactory bind(
+            List<Integer> argumentChannels,
+            Optional<Integer> maskChannel,
+            List<Type> sourceTypes,
+            List<Integer> orderByChannels,
+            List<SortOrder> orderings,
+            PagesIndex.Factory pagesIndexFactory,
+            boolean distinct,
+            JoinCompiler joinCompiler,
+            List<LambdaProvider> lambdaProviders,
+            Session session);
 }

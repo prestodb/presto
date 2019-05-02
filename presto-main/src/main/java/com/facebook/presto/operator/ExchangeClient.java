@@ -16,7 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
-import com.google.common.base.Throwables;
+import com.facebook.presto.operator.WorkProcessor.ProcessState;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -46,6 +46,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.buffer.PageCompression.UNCOMPRESSED;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static java.util.Objects.requireNonNull;
@@ -79,9 +80,9 @@ public class ExchangeClient
     private final List<SettableFuture<?>> blockedCallers = new ArrayList<>();
 
     @GuardedBy("this")
-    private long bufferBytes;
+    private long bufferRetainedSizeInBytes;
     @GuardedBy("this")
-    private long maxBufferBytes;
+    private long maxBufferRetainedSizeInBytes;
     @GuardedBy("this")
     private long successfulRequests;
     @GuardedBy("this")
@@ -114,7 +115,7 @@ public class ExchangeClient
         this.httpClient = httpClient;
         this.scheduler = scheduler;
         this.systemMemoryContext = systemMemoryContext;
-        this.maxBufferBytes = Long.MIN_VALUE;
+        this.maxBufferRetainedSizeInBytes = Long.MIN_VALUE;
         this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
     }
 
@@ -133,7 +134,7 @@ public class ExchangeClient
             if (bufferedPages > 0 && pageBuffer.peekLast() == NO_MORE_PAGES) {
                 bufferedPages--;
             }
-            return new ExchangeClientStatus(bufferBytes, maxBufferBytes, averageBytesPerRequest, successfulRequests, bufferedPages, noMoreLocations, pageBufferClientStatus);
+            return new ExchangeClientStatus(bufferRetainedSizeInBytes, maxBufferRetainedSizeInBytes, averageBytesPerRequest, successfulRequests, bufferedPages, noMoreLocations, pageBufferClientStatus);
         }
     }
 
@@ -175,6 +176,27 @@ public class ExchangeClient
         scheduleRequestIfNecessary();
     }
 
+    public WorkProcessor<SerializedPage> pages()
+    {
+        return WorkProcessor.create(() -> {
+            SerializedPage page = pollPage();
+            if (page == null) {
+                if (isFinished()) {
+                    return ProcessState.finished();
+                }
+
+                ListenableFuture<?> blocked = isBlocked();
+                if (!blocked.isDone()) {
+                    return ProcessState.blocked(blocked);
+                }
+
+                return ProcessState.yield();
+            }
+
+            return ProcessState.ofResult(page);
+        });
+    }
+
     @Nullable
     public SerializedPage pollPage()
     {
@@ -210,8 +232,8 @@ public class ExchangeClient
 
         synchronized (this) {
             if (!closed.get()) {
-                bufferBytes -= page.getRetainedSizeInBytes();
-                systemMemoryContext.setBytes(bufferBytes);
+                bufferRetainedSizeInBytes -= page.getRetainedSizeInBytes();
+                systemMemoryContext.setBytes(bufferRetainedSizeInBytes);
                 if (pageBuffer.peek() == NO_MORE_PAGES) {
                     close();
                 }
@@ -245,7 +267,7 @@ public class ExchangeClient
         }
         pageBuffer.clear();
         systemMemoryContext.setBytes(0);
-        bufferBytes = 0;
+        bufferRetainedSizeInBytes = 0;
         if (pageBuffer.peekLast() != NO_MORE_PAGES) {
             checkState(pageBuffer.add(NO_MORE_PAGES), "Could not add no more pages marker");
         }
@@ -270,7 +292,7 @@ public class ExchangeClient
             return;
         }
 
-        long neededBytes = bufferCapacity - bufferBytes;
+        long neededBytes = bufferCapacity - bufferRetainedSizeInBytes;
         if (neededBytes <= 0) {
             return;
         }
@@ -314,13 +336,13 @@ public class ExchangeClient
             notifyBlockedCallers();
         }
 
-        long memorySize = pages.stream()
+        long pagesRetainedSizeInBytes = pages.stream()
                 .mapToLong(SerializedPage::getRetainedSizeInBytes)
                 .sum();
 
-        bufferBytes += memorySize;
-        maxBufferBytes = Math.max(maxBufferBytes, bufferBytes);
-        systemMemoryContext.setBytes(bufferBytes);
+        bufferRetainedSizeInBytes += pagesRetainedSizeInBytes;
+        maxBufferRetainedSizeInBytes = Math.max(maxBufferRetainedSizeInBytes, bufferRetainedSizeInBytes);
+        systemMemoryContext.setBytes(bufferRetainedSizeInBytes);
         successfulRequests++;
 
         long responseSize = pages.stream()
@@ -376,7 +398,8 @@ public class ExchangeClient
     {
         Throwable t = failure.get();
         if (t != null) {
-            throw Throwables.propagate(t);
+            throwIfUnchecked(t);
+            throw new RuntimeException(t);
         }
     }
 

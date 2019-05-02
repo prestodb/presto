@@ -26,7 +26,10 @@ public class HivePartitionMetadata
     private final HivePartition hivePartition;
     private final Map<Integer, HiveTypeName> columnCoercions;
 
-    HivePartitionMetadata(HivePartition hivePartition, Optional<Partition> partition, Map<Integer, HiveTypeName> columnCoercions)
+    HivePartitionMetadata(
+            HivePartition hivePartition,
+            Optional<Partition> partition,
+            Map<Integer, HiveTypeName> columnCoercions)
     {
         this.partition = requireNonNull(partition, "partition is null");
         this.hivePartition = requireNonNull(hivePartition, "hivePartition is null");

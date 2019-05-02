@@ -14,13 +14,11 @@
 package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.metadata.MetadataWriter;
-import com.facebook.presto.orc.metadata.Stream;
+import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
-import com.facebook.presto.orc.stream.OutputDataStream;
+import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.SliceOutput;
 
 import java.io.IOException;
 import java.util.List;
@@ -50,14 +48,18 @@ public interface ColumnWriter
      * order in which they were written.  The ordering is critical because
      * the stream only contain a length with no offset.
      */
-    List<Stream> writeIndexStreams(SliceOutput outputStream, MetadataWriter metadataWriter)
+    List<StreamDataOutput> getIndexStreams(CompressedMetadataWriter metadataWriter)
             throws IOException;
 
     /**
      * Get the data streams to be written.
      */
-    List<OutputDataStream> getOutputDataStreams();
+    List<StreamDataOutput> getDataStreams();
 
+    /**
+     * This method returns the size of the flushed data plus any unflushed data.
+     * If the output is compressed, flush data size is the size after compression.
+     */
     long getBufferedBytes();
 
     long getRetainedBytes();

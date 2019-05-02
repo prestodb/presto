@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 
@@ -786,6 +787,14 @@ public class TestDecimalOperators
         assertFunction("DECIMAL '-2' IS DISTINCT FROM NULL", BOOLEAN, true);
         assertFunction("NULL IS DISTINCT FROM DECIMAL '12345678901234567.89012345678901234567'", BOOLEAN, true);
         assertFunction("DECIMAL '12345678901234567.89012345678901234567' IS DISTINCT FROM NULL", BOOLEAN, true);
+
+        // delegation from other operator (exercises block-position convention implementation)
+        assertFunction("ARRAY [1.23, 4.56] IS DISTINCT FROM ARRAY [1.23, 4.56]", BOOLEAN, false);
+        assertFunction("ARRAY [1.23, NULL] IS DISTINCT FROM ARRAY [1.23, 4.56]", BOOLEAN, true);
+        assertFunction("ARRAY [1.23, NULL] IS DISTINCT FROM ARRAY [NULL, 4.56]", BOOLEAN, true);
+        assertFunction("ARRAY [1234567890.123456789, 9876543210.987654321] IS DISTINCT FROM ARRAY [1234567890.123456789, 9876543210.987654321]", BOOLEAN, false);
+        assertFunction("ARRAY [1234567890.123456789, NULL] IS DISTINCT FROM ARRAY [1234567890.123456789, 9876543210.987654321]", BOOLEAN, true);
+        assertFunction("ARRAY [1234567890.123456789, NULL] IS DISTINCT FROM ARRAY [NULL, 9876543210.987654321]", BOOLEAN, true);
     }
 
     @Test
@@ -826,5 +835,16 @@ public class TestDecimalOperators
         assertFunction("coalesce(cast(null as decimal(17,3)), null, cast(null as decimal(12,3)))", createDecimalType(17, 3), null);
         assertDecimalFunction("coalesce(3, 2.1, null, cast(null as decimal(6,3)))", decimal("0000000003.000"));
         assertFunction("coalesce(cast(null as decimal(17,3)), null, cast(null as decimal(12,3)))", createDecimalType(17, 3), null);
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as DECIMAL)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "cast(null as DECIMAL(37,3))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "DECIMAL '.999'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "DECIMAL '18'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "DECIMAL '9.0'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "DECIMAL '12345678901234567.89012345678901234567'", BOOLEAN, false);
     }
 }

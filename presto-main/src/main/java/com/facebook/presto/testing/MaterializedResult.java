@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.ArrayType;
@@ -40,10 +41,12 @@ import io.airlift.slice.Slices;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -93,10 +96,11 @@ public class MaterializedResult
     private final Set<String> resetSessionProperties;
     private final Optional<String> updateType;
     private final OptionalLong updateCount;
+    private final List<PrestoWarning> warnings;
 
     public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types)
     {
-        this(rows, types, ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty());
+        this(rows, types, ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), ImmutableList.of());
     }
 
     public MaterializedResult(
@@ -105,7 +109,8 @@ public class MaterializedResult
             Map<String, String> setSessionProperties,
             Set<String> resetSessionProperties,
             Optional<String> updateType,
-            OptionalLong updateCount)
+            OptionalLong updateCount,
+            List<PrestoWarning> warnings)
     {
         this.rows = ImmutableList.copyOf(requireNonNull(rows, "rows is null"));
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
@@ -113,6 +118,7 @@ public class MaterializedResult
         this.resetSessionProperties = ImmutableSet.copyOf(requireNonNull(resetSessionProperties, "resetSessionProperties is null"));
         this.updateType = requireNonNull(updateType, "updateType is null");
         this.updateCount = requireNonNull(updateCount, "updateCount is null");
+        this.warnings = requireNonNull(warnings, "warnings is null");
     }
 
     public int getRowCount()
@@ -154,6 +160,11 @@ public class MaterializedResult
     public OptionalLong getUpdateCount()
     {
         return updateCount;
+    }
+
+    public List<PrestoWarning> getWarnings()
+    {
+        return warnings;
     }
 
     @Override
@@ -273,8 +284,13 @@ public class MaterializedResult
             type.writeLong(blockBuilder, days);
         }
         else if (TIME.equals(type)) {
-            long millisUtc = ((SqlTime) value).getMillisUtc();
-            type.writeLong(blockBuilder, millisUtc);
+            SqlTime time = (SqlTime) value;
+            if (time.isLegacyTimestamp()) {
+                type.writeLong(blockBuilder, time.getMillisUtc());
+            }
+            else {
+                type.writeLong(blockBuilder, time.getMillis());
+            }
         }
         else if (TIME_WITH_TIME_ZONE.equals(type)) {
             long millisUtc = ((SqlTimeWithTimeZone) value).getMillisUtc();
@@ -337,7 +353,8 @@ public class MaterializedResult
                 setSessionProperties,
                 resetSessionProperties,
                 updateType,
-                updateCount);
+                updateCount,
+                warnings);
     }
 
     private static MaterializedRow convertToTestTypes(MaterializedRow prestoRow)
@@ -350,7 +367,7 @@ public class MaterializedResult
                 convertedValue = LocalDate.ofEpochDay(((SqlDate) prestoValue).getDays());
             }
             else if (prestoValue instanceof SqlTime) {
-                convertedValue = LocalTime.ofNanoOfDay(MILLISECONDS.toNanos(((SqlTime) prestoValue).getMillisUtc()));
+                convertedValue = DateTimeFormatter.ISO_LOCAL_TIME.parse(prestoValue.toString(), LocalTime::from);
             }
             else if (prestoValue instanceof SqlTimeWithTimeZone) {
                 // Political timezone cannot be represented in OffsetTime and there isn't any better representation.
@@ -361,9 +378,7 @@ public class MaterializedResult
                         zone);
             }
             else if (prestoValue instanceof SqlTimestamp) {
-                convertedValue = Instant.ofEpochMilli(((SqlTimestamp) prestoValue).getMillisUtc())
-                        .atZone(ZoneOffset.UTC)
-                        .toLocalDateTime();
+                convertedValue = SqlTimestamp.JSON_FORMATTER.parse(prestoValue.toString(), LocalDateTime::from);
             }
             else if (prestoValue instanceof SqlTimestampWithTimeZone) {
                 convertedValue = Instant.ofEpochMilli(((SqlTimestampWithTimeZone) prestoValue).getMillisUtc())

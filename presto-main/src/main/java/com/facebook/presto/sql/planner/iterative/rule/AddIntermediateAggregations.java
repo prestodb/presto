@@ -14,22 +14,19 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Partitioning;
-import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -37,9 +34,15 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
+import static com.facebook.presto.SystemSessionProperties.isEnableIntermediateAggregations;
 import static com.facebook.presto.matching.Pattern.empty;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.groupingKeys;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.roundRobinExchange;
+import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.groupingColumns;
 import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.step;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.google.common.base.Preconditions.checkState;
@@ -74,8 +77,8 @@ public class AddIntermediateAggregations
 {
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             // Only consider FINAL un-grouped aggregations
-            .with(step().equalTo(AggregationNode.Step.FINAL))
-            .with(empty(groupingKeys()))
+            .with(step().equalTo(FINAL))
+            .with(empty(groupingColumns()))
             // Only consider aggregations without ORDER BY clause
             .matching(node -> !node.hasOrderings());
 
@@ -88,7 +91,7 @@ public class AddIntermediateAggregations
     @Override
     public boolean isEnabled(Session session)
     {
-        return SystemSessionProperties.isEnableIntermediateAggregations(session);
+        return isEnableIntermediateAggregations(session);
     }
 
     @Override
@@ -107,20 +110,17 @@ public class AddIntermediateAggregations
         PlanNode source = rewrittenSource.get();
 
         if (getTaskConcurrency(session) > 1) {
-            source = ExchangeNode.partitionedExchange(
-                    idAllocator.getNextId(),
-                    ExchangeNode.Scope.LOCAL,
-                    source,
-                    new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), source.getOutputSymbols()));
+            source = roundRobinExchange(idAllocator.getNextId(), LOCAL, source);
             source = new AggregationNode(
                     idAllocator.getNextId(),
                     source,
                     inputsAsOutputs(aggregation.getAggregations()),
                     aggregation.getGroupingSets(),
-                    AggregationNode.Step.INTERMEDIATE,
+                    aggregation.getPreGroupedSymbols(),
+                    INTERMEDIATE,
                     aggregation.getHashSymbol(),
                     aggregation.getGroupIdSymbol());
-            source = ExchangeNode.gatheringExchange(idAllocator.getNextId(), ExchangeNode.Scope.LOCAL, source);
+            source = gatheringExchange(idAllocator.getNextId(), LOCAL, source);
         }
 
         return Result.ofPlanNode(aggregation.replaceChildren(ImmutableList.of(source)));
@@ -131,7 +131,7 @@ public class AddIntermediateAggregations
      */
     private Optional<PlanNode> recurseToPartial(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator)
     {
-        if (node instanceof AggregationNode && ((AggregationNode) node).getStep() == AggregationNode.Step.PARTIAL) {
+        if (node instanceof AggregationNode && ((AggregationNode) node).getStep() == PARTIAL) {
             return Optional.of(addGatheringIntermediate((AggregationNode) node, idAllocator));
         }
 
@@ -153,13 +153,14 @@ public class AddIntermediateAggregations
     private PlanNode addGatheringIntermediate(AggregationNode aggregation, PlanNodeIdAllocator idAllocator)
     {
         verify(aggregation.getGroupingKeys().isEmpty(), "Should be an un-grouped aggregation");
-        ExchangeNode gatheringExchange = ExchangeNode.gatheringExchange(idAllocator.getNextId(), ExchangeNode.Scope.LOCAL, aggregation);
+        ExchangeNode gatheringExchange = gatheringExchange(idAllocator.getNextId(), LOCAL, aggregation);
         return new AggregationNode(
                 idAllocator.getNextId(),
                 gatheringExchange,
                 outputsAsInputs(aggregation.getAggregations()),
                 aggregation.getGroupingSets(),
-                AggregationNode.Step.INTERMEDIATE,
+                aggregation.getPreGroupedSymbols(),
+                INTERMEDIATE,
                 aggregation.getHashSymbol(),
                 aggregation.getGroupIdSymbol());
     }
@@ -171,18 +172,18 @@ public class AddIntermediateAggregations
      * 'a' := sum('b') => 'a' := sum('a')
      * 'a' := count(*) => 'a' := count('a')
      */
-    private static Map<Symbol, AggregationNode.Aggregation> outputsAsInputs(Map<Symbol, AggregationNode.Aggregation> assignments)
+    private static Map<Symbol, Aggregation> outputsAsInputs(Map<Symbol, Aggregation> assignments)
     {
-        ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> builder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
+        ImmutableMap.Builder<Symbol, Aggregation> builder = ImmutableMap.builder();
+        for (Map.Entry<Symbol, Aggregation> entry : assignments.entrySet()) {
             Symbol output = entry.getKey();
-            AggregationNode.Aggregation aggregation = entry.getValue();
+            Aggregation aggregation = entry.getValue();
             checkState(!aggregation.getCall().getOrderBy().isPresent(), "Intermediate aggregation does not support ORDER BY");
             builder.put(
                     output,
-                    new AggregationNode.Aggregation(
-                            new FunctionCall(QualifiedName.of(aggregation.getSignature().getName()), ImmutableList.of(output.toSymbolReference())),
-                            aggregation.getSignature(),
+                    new Aggregation(
+                            new FunctionCall(aggregation.getCall().getName(), ImmutableList.of(output.toSymbolReference())),
+                            aggregation.getFunctionHandle(),
                             Optional.empty()));  // No mask for INTERMEDIATE
         }
         return builder.build();
@@ -196,10 +197,10 @@ public class AddIntermediateAggregations
      * Example:
      * 'a' := sum('b') => 'b' := sum('b')
      */
-    private static Map<Symbol, AggregationNode.Aggregation> inputsAsOutputs(Map<Symbol, AggregationNode.Aggregation> assignments)
+    private static Map<Symbol, Aggregation> inputsAsOutputs(Map<Symbol, Aggregation> assignments)
     {
-        ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> builder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
+        ImmutableMap.Builder<Symbol, Aggregation> builder = ImmutableMap.builder();
+        for (Map.Entry<Symbol, Aggregation> entry : assignments.entrySet()) {
             // Should only have one input symbol
             Symbol input = getOnlyElement(SymbolsExtractor.extractAll(entry.getValue().getCall()));
             builder.put(input, entry.getValue());

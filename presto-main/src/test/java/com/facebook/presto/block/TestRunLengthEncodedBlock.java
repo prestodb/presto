@@ -15,11 +15,17 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.ByteArrayBlockBuilder;
+import com.facebook.presto.spi.block.IntArrayBlockBuilder;
+import com.facebook.presto.spi.block.LongArrayBlockBuilder;
+import com.facebook.presto.spi.block.RunLengthBlockEncoding;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.block.ShortArrayBlockBuilder;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
+
+import static org.testng.Assert.assertEquals;
 
 public class TestRunLengthEncodedBlock
         extends AbstractTestBlock
@@ -40,13 +46,68 @@ public class TestRunLengthEncodedBlock
         for (int position = 0; position < positionCount; position++) {
             expectedValues[position] = expectedValue;
         }
-        assertBlock(block, expectedValues);
+        assertBlock(block, TestRunLengthEncodedBlock::createBlockBuilder, expectedValues);
     }
 
     private static Block createSingleValueBlock(Slice expectedValue)
     {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1, expectedValue.length());
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, expectedValue.length());
         blockBuilder.writeBytes(expectedValue, 0, expectedValue.length()).closeEntry();
         return blockBuilder.build();
+    }
+
+    private static BlockBuilder createBlockBuilder()
+    {
+        return new VariableWidthBlockBuilder(null, 1, 1);
+    }
+
+    @Test
+    public void testBuildingFromLongArrayBlockBuilder()
+    {
+        LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(null, 100);
+        populateNullValues(blockBuilder, 100);
+        assertEquals(blockBuilder.build().getEncodingName(), RunLengthBlockEncoding.NAME);
+    }
+
+    @Test
+    public void testBuildingFromIntArrayBlockBuilder()
+    {
+        IntArrayBlockBuilder blockBuilder = new IntArrayBlockBuilder(null, 100);
+        populateNullValues(blockBuilder, 100);
+        assertEquals(blockBuilder.build().getEncodingName(), RunLengthBlockEncoding.NAME);
+    }
+
+    @Test
+    public void testBuildingFromShortArrayBlockBuilder()
+    {
+        ShortArrayBlockBuilder blockBuilder = new ShortArrayBlockBuilder(null, 100);
+        populateNullValues(blockBuilder, 100);
+        assertEquals(blockBuilder.build().getEncodingName(), RunLengthBlockEncoding.NAME);
+    }
+
+    @Test
+    public void testBuildingFromByteArrayBlockBuilder()
+    {
+        ByteArrayBlockBuilder blockBuilder = new ByteArrayBlockBuilder(null, 100);
+        populateNullValues(blockBuilder, 100);
+        assertEquals(blockBuilder.build().getEncodingName(), RunLengthBlockEncoding.NAME);
+    }
+
+    @Test
+    public void testEstimatedDataSizeForStats()
+    {
+        int positionCount = 10;
+        Slice expectedValue = createExpectedValue(5);
+        Block block = new RunLengthEncodedBlock(createSingleValueBlock(expectedValue), positionCount);
+        for (int postition = 0; postition < positionCount; postition++) {
+            assertEquals(block.getEstimatedDataSizeForStats(postition), expectedValue.length());
+        }
+    }
+
+    private void populateNullValues(BlockBuilder blockBuilder, int positionCount)
+    {
+        for (int i = 0; i < positionCount; i++) {
+            blockBuilder.appendNull();
+        }
     }
 }

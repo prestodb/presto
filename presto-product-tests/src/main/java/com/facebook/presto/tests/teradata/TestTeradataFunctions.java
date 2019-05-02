@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.LocalDateTime;
 
 import static com.facebook.presto.tests.TestGroups.FUNCTIONS;
 import static com.facebook.presto.tests.utils.QueryExecutors.onPresto;
@@ -52,7 +53,7 @@ public class TestTeradataFunctions
     public void testToTimestamp()
     {
         assertThat(onPresto().executeQuery("SELECT to_timestamp('1988/04/08;02:03:04','yyyy/mm/dd;hh24:mi:ss')"))
-                .contains(row(Timestamp.valueOf("1988-04-08 02:03:04.0")));
+                .contains(row(Timestamp.valueOf(LocalDateTime.of(1988, 4, 8, 2, 3, 4))));
     }
 
     @Test(groups = FUNCTIONS)

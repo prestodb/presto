@@ -16,9 +16,9 @@ package com.facebook.presto.raptor;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 
-import java.util.Map;
+import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
@@ -27,15 +27,15 @@ public class RaptorPartitioningHandle
         implements ConnectorPartitioningHandle
 {
     private final long distributionId;
-    private final Map<Integer, String> bucketToNode;
+    private final List<String> bucketToNode;
 
     @JsonCreator
     public RaptorPartitioningHandle(
             @JsonProperty("distributionId") long distributionId,
-            @JsonProperty("bucketToNode") Map<Integer, String> bucketToNode)
+            @JsonProperty("bucketToNode") List<String> bucketToNode)
     {
         this.distributionId = distributionId;
-        this.bucketToNode = ImmutableMap.copyOf(requireNonNull(bucketToNode, "bucketToNode is null"));
+        this.bucketToNode = ImmutableList.copyOf(requireNonNull(bucketToNode, "bucketToNode is null"));
     }
 
     @JsonProperty
@@ -45,7 +45,7 @@ public class RaptorPartitioningHandle
     }
 
     @JsonProperty
-    public Map<Integer, String> getBucketToNode()
+    public List<String> getBucketToNode()
     {
         return bucketToNode;
     }

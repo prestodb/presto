@@ -27,7 +27,7 @@ public interface ArrayAggregationState
 
     default void merge(ArrayAggregationState otherState)
     {
-        otherState.forEach((block, position) -> add(block, position));
+        otherState.forEach(this::add);
     }
 
     default void reset()

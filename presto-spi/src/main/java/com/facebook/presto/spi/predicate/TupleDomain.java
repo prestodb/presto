@@ -25,13 +25,14 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
+import java.util.stream.Collector;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -97,7 +98,7 @@ public final class TupleDomain<T>
         return Optional.of(tupleDomain.getDomains().get()
                 .entrySet().stream()
                 .filter(entry -> entry.getValue().isNullableSingleValue())
-                .collect(toMap(Map.Entry::getKey, entry -> new NullableValue(entry.getValue().getType(), entry.getValue().getNullableSingleValue()))));
+                .collect(toLinkedMap(Map.Entry::getKey, entry -> new NullableValue(entry.getValue().getType(), entry.getValue().getNullableSingleValue()))));
     }
 
     /**
@@ -107,7 +108,7 @@ public final class TupleDomain<T>
     public static <T> TupleDomain<T> fromFixedValues(Map<T, NullableValue> fixedValues)
     {
         return TupleDomain.withColumnDomains(fixedValues.entrySet().stream()
-                .collect(toMap(
+                .collect(toLinkedMap(
                         Map.Entry::getKey,
                         entry -> {
                             Type type = entry.getValue().getType();
@@ -124,7 +125,7 @@ public final class TupleDomain<T>
             return none();
         }
         return withColumnDomains(columnDomains.get().stream()
-                .collect(toMap(ColumnDomain::getColumn, ColumnDomain::getDomain)));
+                .collect(toLinkedMap(ColumnDomain::getColumn, ColumnDomain::getDomain)));
     }
 
     @JsonProperty
@@ -145,7 +146,7 @@ public final class TupleDomain<T>
     {
         return domains.entrySet().stream()
                 .filter(entry -> !entry.getValue().isAll())
-                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toLinkedMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     /**
@@ -187,7 +188,7 @@ public final class TupleDomain<T>
             return none();
         }
 
-        Map<T, Domain> intersected = new HashMap<>(this.getDomains().get());
+        Map<T, Domain> intersected = new LinkedHashMap<>(this.getDomains().get());
         for (Map.Entry<T, Domain> entry : other.getDomains().get().entrySet()) {
             Domain intersectionDomain = intersected.get(entry.getKey());
             if (intersectionDomain == null) {
@@ -266,7 +267,7 @@ public final class TupleDomain<T>
         }
 
         // group domains by column (only for common columns)
-        Map<T, List<Domain>> domainsByColumn = new HashMap<>(tupleDomains.size());
+        Map<T, List<Domain>> domainsByColumn = new LinkedHashMap<>(tupleDomains.size());
 
         for (TupleDomain<T> domain : tupleDomains) {
             if (!domain.isNone()) {
@@ -284,7 +285,7 @@ public final class TupleDomain<T>
         }
 
         // finally, do the column-wise union
-        Map<T, Domain> result = new HashMap<>(domainsByColumn.size());
+        Map<T, Domain> result = new LinkedHashMap<>(domainsByColumn.size());
         for (Map.Entry<T, List<Domain>> entry : domainsByColumn.entrySet()) {
             result.put(entry.getKey(), Domain.union(entry.getValue()));
         }
@@ -328,10 +329,21 @@ public final class TupleDomain<T>
         return Objects.hash(domains);
     }
 
+    @Override
+    public String toString()
+    {
+        if (isAll()) {
+            return "TupleDomain{ALL}";
+        }
+        if (isNone()) {
+            return "TupleDomain{NONE}";
+        }
+        return "TupleDomain{...}";
+    }
+
     public String toString(ConnectorSession session)
     {
-        StringBuilder buffer = new StringBuilder()
-                .append("TupleDomain:");
+        StringBuilder buffer = new StringBuilder();
         if (isAll()) {
             buffer.append("ALL");
         }
@@ -340,7 +352,7 @@ public final class TupleDomain<T>
         }
         else {
             buffer.append(domains.get().entrySet().stream()
-                    .collect(toMap(Map.Entry::getKey, entry -> entry.getValue().toString(session))));
+                    .collect(toLinkedMap(Map.Entry::getKey, entry -> entry.getValue().toString(session))));
         }
         return buffer.toString();
     }
@@ -351,7 +363,7 @@ public final class TupleDomain<T>
             return TupleDomain.none();
         }
 
-        HashMap<U, Domain> result = new HashMap<>(domains.get().size());
+        HashMap<U, Domain> result = new LinkedHashMap<>(domains.get().size());
         for (Map.Entry<T, Domain> entry : domains.get().entrySet()) {
             U key = function.apply(entry.getKey());
 
@@ -376,9 +388,18 @@ public final class TupleDomain<T>
         }
 
         Map<T, Domain> simplified = domains.get().entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().simplify()));
+                .collect(toLinkedMap(Map.Entry::getKey, e -> e.getValue().simplify()));
 
         return TupleDomain.withColumnDomains(simplified);
+    }
+
+    private static <T, K, U> Collector<T, ?, Map<K, U>> toLinkedMap(Function<? super T, ? extends K> keyMapper, Function<? super T, ? extends U> valueMapper)
+    {
+        return toMap(
+                keyMapper,
+                valueMapper,
+                (u, v) -> { throw new IllegalStateException(String.format("Duplicate key %s", u)); },
+                LinkedHashMap::new);
     }
 
     // Available for Jackson serialization only!

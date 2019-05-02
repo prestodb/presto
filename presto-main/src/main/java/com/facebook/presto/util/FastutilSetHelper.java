@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.booleans.BooleanOpenHashSet;
 import it.unimi.dsi.fastutil.doubles.DoubleHash;
@@ -33,31 +32,34 @@ import java.util.Set;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Verify.verify;
+import static java.lang.Boolean.TRUE;
 import static java.lang.Math.toIntExact;
 
 public final class FastutilSetHelper
 {
     private FastutilSetHelper() {}
 
-    @SuppressWarnings({"unchecked"})
-    public static Set<?> toFastutilHashSet(Set<?> set, Type type, FunctionRegistry registry)
+    @SuppressWarnings("unchecked")
+    public static Set<?> toFastutilHashSet(Set<?> set, Type type, FunctionManager functionManager)
     {
         // 0.25 as the load factor is chosen because the argument set is assumed to be small (<10000),
         // and the return set is assumed to be read-heavy.
         // The performance of InCodeGenerator heavily depends on the load factor being small.
         Class<?> javaElementType = type.getJavaType();
         if (javaElementType == long.class) {
-            return new LongOpenCustomHashSet((Collection<Long>) set, 0.25f, new LongStrategy(registry, type));
+            return new LongOpenCustomHashSet((Collection<Long>) set, 0.25f, new LongStrategy(functionManager, type));
         }
         if (javaElementType == double.class) {
-            return new DoubleOpenCustomHashSet((Collection<Double>) set, 0.25f, new DoubleStrategy(registry, type));
+            return new DoubleOpenCustomHashSet((Collection<Double>) set, 0.25f, new DoubleStrategy(functionManager, type));
         }
         if (javaElementType == boolean.class) {
             return new BooleanOpenHashSet((Collection<Boolean>) set, 0.25f);
         }
         else if (!type.getJavaType().isPrimitive()) {
-            return new ObjectOpenCustomHashSet(set, 0.25f, new ObjectStrategy(registry, type));
+            return new ObjectOpenCustomHashSet(set, 0.25f, new ObjectStrategy(functionManager, type));
         }
         else {
             throw new UnsupportedOperationException("Unsupported native type in set: " + type.getJavaType() + " with type " + type.getTypeSignature());
@@ -90,10 +92,10 @@ public final class FastutilSetHelper
         private final MethodHandle hashCodeHandle;
         private final MethodHandle equalsHandle;
 
-        private LongStrategy(FunctionRegistry registry, Type type)
+        private LongStrategy(FunctionManager functionManager, Type type)
         {
-            hashCodeHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(HASH_CODE, ImmutableList.of(type))).getMethodHandle();
-            equalsHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(EQUAL, ImmutableList.of(type, type))).getMethodHandle();
+            hashCodeHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, fromTypes(type))).getMethodHandle();
+            equalsHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, fromTypes(type, type))).getMethodHandle();
         }
 
         @Override
@@ -113,7 +115,10 @@ public final class FastutilSetHelper
         public boolean equals(long a, long b)
         {
             try {
-                return (boolean) equalsHandle.invokeExact(a, b);
+                Boolean result = (Boolean) equalsHandle.invokeExact(a, b);
+                // FastutilHashSet is not intended be used for indeterminate values lookup
+                verify(result != null, "result is null");
+                return TRUE.equals(result);
             }
             catch (Throwable t) {
                 throwIfInstanceOf(t, Error.class);
@@ -129,10 +134,10 @@ public final class FastutilSetHelper
         private final MethodHandle hashCodeHandle;
         private final MethodHandle equalsHandle;
 
-        private DoubleStrategy(FunctionRegistry registry, Type type)
+        private DoubleStrategy(FunctionManager functionManager, Type type)
         {
-            hashCodeHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(HASH_CODE, ImmutableList.of(type))).getMethodHandle();
-            equalsHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(EQUAL, ImmutableList.of(type, type))).getMethodHandle();
+            hashCodeHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, fromTypes(type))).getMethodHandle();
+            equalsHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, fromTypes(type, type))).getMethodHandle();
         }
 
         @Override
@@ -152,7 +157,10 @@ public final class FastutilSetHelper
         public boolean equals(double a, double b)
         {
             try {
-                return (boolean) equalsHandle.invokeExact(a, b);
+                Boolean result = (Boolean) equalsHandle.invokeExact(a, b);
+                // FastutilHashSet is not intended be used for indeterminate values lookup
+                verify(result != null, "result is null");
+                return TRUE.equals(result);
             }
             catch (Throwable t) {
                 throwIfInstanceOf(t, Error.class);
@@ -168,14 +176,14 @@ public final class FastutilSetHelper
         private final MethodHandle hashCodeHandle;
         private final MethodHandle equalsHandle;
 
-        private ObjectStrategy(FunctionRegistry registry, Type type)
+        private ObjectStrategy(FunctionManager functionManager, Type type)
         {
-            hashCodeHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(HASH_CODE, ImmutableList.of(type)))
+            hashCodeHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, fromTypes(type)))
                     .getMethodHandle()
                     .asType(MethodType.methodType(long.class, Object.class));
-            equalsHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(EQUAL, ImmutableList.of(type, type)))
+            equalsHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, fromTypes(type, type)))
                     .getMethodHandle()
-                    .asType(MethodType.methodType(boolean.class, Object.class, Object.class));
+                    .asType(MethodType.methodType(Boolean.class, Object.class, Object.class));
         }
 
         @Override
@@ -195,7 +203,10 @@ public final class FastutilSetHelper
         public boolean equals(Object a, Object b)
         {
             try {
-                return (boolean) equalsHandle.invokeExact(a, b);
+                Boolean result = (Boolean) equalsHandle.invokeExact(a, b);
+                // FastutilHashSet is not intended be used for indeterminate values lookup
+                verify(result != null, "result is null");
+                return TRUE.equals(result);
             }
             catch (Throwable t) {
                 throwIfInstanceOf(t, Error.class);

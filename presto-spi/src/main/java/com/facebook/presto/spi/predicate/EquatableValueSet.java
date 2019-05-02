@@ -22,17 +22,20 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.Collections.unmodifiableCollection;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
 
 /**
  * A set containing values that are uniquely identifiable.
@@ -63,7 +66,7 @@ public class EquatableValueSet
         }
         this.type = type;
         this.whiteList = whiteList;
-        this.entries = Collections.unmodifiableSet(new HashSet<>(entries));
+        this.entries = unmodifiableSet(new LinkedHashSet<>(entries));
     }
 
     static EquatableValueSet none(Type type)
@@ -78,7 +81,7 @@ public class EquatableValueSet
 
     static EquatableValueSet of(Type type, Object first, Object... rest)
     {
-        HashSet<ValueEntry> set = new HashSet<>(rest.length + 1);
+        HashSet<ValueEntry> set = new LinkedHashSet<>(rest.length + 1);
         set.add(ValueEntry.create(type, first));
         for (Object value : rest) {
             set.add(ValueEntry.create(type, value));
@@ -90,7 +93,7 @@ public class EquatableValueSet
     {
         return new EquatableValueSet(type, true, values.stream()
                 .map(value -> ValueEntry.create(type, value))
-                .collect(toSet()));
+                .collect(toLinkedSet()));
     }
 
     @JsonProperty
@@ -246,20 +249,20 @@ public class EquatableValueSet
     {
         return set1.stream()
                 .filter(set2::contains)
-                .collect(toSet());
+                .collect(toLinkedSet());
     }
 
     private static <T> Set<T> union(Set<T> set1, Set<T> set2)
     {
         return Stream.concat(set1.stream(), set2.stream())
-                .collect(toSet());
+                .collect(toLinkedSet());
     }
 
     private static <T> Set<T> subtract(Set<T> set1, Set<T> set2)
     {
         return set1.stream()
                 .filter(value -> !set2.contains(value))
-                .collect(toSet());
+                .collect(toLinkedSet());
     }
 
     private EquatableValueSet checkCompatibility(ValueSet other)
@@ -292,6 +295,11 @@ public class EquatableValueSet
         return Objects.equals(this.type, other.type)
                 && this.whiteList == other.whiteList
                 && Objects.equals(this.entries, other.entries);
+    }
+
+    private static <T> Collector<T, ?, Set<T>> toLinkedSet()
+    {
+        return toCollection(LinkedHashSet::new);
     }
 
     public static class ValueEntry

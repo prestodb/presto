@@ -15,14 +15,15 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static java.util.Objects.requireNonNull;
 
@@ -66,9 +67,14 @@ public class SubPlan
         return fragments.build();
     }
 
+    public SubPlan withBucketToPartition(Optional<int[]> bucketToPartition)
+    {
+        return new SubPlan(fragment.withBucketToPartition(bucketToPartition), children);
+    }
+
     public void sanityCheck()
     {
-        Multiset<PlanFragmentId> exchangeIds = fragment.getRemoteSourceNodes().stream()
+        Multiset<PlanFragmentId> remoteSourceIds = fragment.getRemoteSourceNodes().stream()
                 .map(RemoteSourceNode::getSourceFragmentIds)
                 .flatMap(List::stream)
                 .collect(toImmutableMultiset());
@@ -78,7 +84,7 @@ public class SubPlan
                 .map(PlanFragment::getId)
                 .collect(toImmutableMultiset());
 
-        Preconditions.checkState(exchangeIds.equals(childrenIds), "Subplan exchange ids don't match child fragment ids (%s vs %s)", exchangeIds, childrenIds);
+        checkState(childrenIds.containsAll(remoteSourceIds), "child fragments must include all remote source fragments (%s vs %s)", remoteSourceIds, childrenIds);
 
         for (SubPlan child : children) {
             child.sanityCheck();

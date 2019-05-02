@@ -25,6 +25,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.CharStreams;
 import io.airlift.log.Logger;
 import kafka.api.PartitionOffsetRequestInfo;
 import kafka.cluster.Broker;
@@ -39,12 +40,23 @@ import kafka.javaapi.consumer.SimpleConsumer;
 
 import javax.inject.Inject;
 
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URL;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
 import static com.facebook.presto.kafka.KafkaHandleResolver.convertLayout;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -76,47 +88,103 @@ public class KafkaSplitManager
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
     {
         KafkaTableHandle kafkaTableHandle = convertLayout(layout).getTable();
+        try {
+            SimpleConsumer simpleConsumer = consumerManager.getConsumer(selectRandom(nodes));
 
-        SimpleConsumer simpleConsumer = consumerManager.getConsumer(selectRandom(nodes));
+            TopicMetadataRequest topicMetadataRequest = new TopicMetadataRequest(ImmutableList.of(kafkaTableHandle.getTopicName()));
+            TopicMetadataResponse topicMetadataResponse = simpleConsumer.send(topicMetadataRequest);
 
-        TopicMetadataRequest topicMetadataRequest = new TopicMetadataRequest(ImmutableList.of(kafkaTableHandle.getTopicName()));
-        TopicMetadataResponse topicMetadataResponse = simpleConsumer.send(topicMetadataRequest);
+            ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
 
-        ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
+            for (TopicMetadata metadata : topicMetadataResponse.topicsMetadata()) {
+                for (PartitionMetadata part : metadata.partitionsMetadata()) {
+                    log.debug("Adding Partition %s/%s", metadata.topic(), part.partitionId());
 
-        for (TopicMetadata metadata : topicMetadataResponse.topicsMetadata()) {
-            for (PartitionMetadata part : metadata.partitionsMetadata()) {
-                log.debug("Adding Partition %s/%s", metadata.topic(), part.partitionId());
+                    Broker leader = part.leader();
+                    if (leader == null) {
+                        throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Leader election in progress for Kafka topic '%s' partition %s", metadata.topic(), part.partitionId()));
+                    }
 
-                Broker leader = part.leader();
-                if (leader == null) { // Leader election going on...
-                    log.warn("No leader for partition %s/%s found!", metadata.topic(), part.partitionId());
-                    continue;
-                }
+                    HostAddress partitionLeader = HostAddress.fromParts(leader.host(), leader.port());
 
-                HostAddress partitionLeader = HostAddress.fromParts(leader.host(), leader.port());
+                    SimpleConsumer leaderConsumer = consumerManager.getConsumer(partitionLeader);
+                    // Kafka contains a reverse list of "end - start" pairs for the splits
 
-                SimpleConsumer leaderConsumer = consumerManager.getConsumer(partitionLeader);
-                // Kafka contains a reverse list of "end - start" pairs for the splits
+                    long[] offsets = findAllOffsets(leaderConsumer, metadata.topic(), part.partitionId());
 
-                long[] offsets = findAllOffsets(leaderConsumer, metadata.topic(), part.partitionId());
-
-                for (int i = offsets.length - 1; i > 0; i--) {
-                    KafkaSplit split = new KafkaSplit(
-                            connectorId,
-                            metadata.topic(),
-                            kafkaTableHandle.getKeyDataFormat(),
-                            kafkaTableHandle.getMessageDataFormat(),
-                            part.partitionId(),
-                            offsets[i],
-                            offsets[i - 1],
-                            partitionLeader);
-                    splits.add(split);
+                    for (int i = offsets.length - 1; i > 0; i--) {
+                        KafkaSplit split = new KafkaSplit(
+                                connectorId,
+                                metadata.topic(),
+                                kafkaTableHandle.getKeyDataFormat(),
+                                kafkaTableHandle.getMessageDataFormat(),
+                                kafkaTableHandle.getKeyDataSchemaLocation().map(KafkaSplitManager::readSchema),
+                                kafkaTableHandle.getMessageDataSchemaLocation().map(KafkaSplitManager::readSchema),
+                                part.partitionId(),
+                                offsets[i],
+                                offsets[i - 1],
+                                partitionLeader);
+                        splits.add(split);
+                    }
                 }
             }
-        }
 
-        return new FixedSplitSource(splits.build());
+            return new FixedSplitSource(splits.build());
+        }
+        catch (Exception e) { // Catch all exceptions because Kafka library is written in scala and checked exceptions are not declared in method signature.
+            if (e instanceof PrestoException) {
+                throw e;
+            }
+            throw new PrestoException(KAFKA_SPLIT_ERROR, format("Cannot list splits for table '%s' reading topic '%s'", kafkaTableHandle.getTableName(), kafkaTableHandle.getTopicName()), e);
+        }
+    }
+
+    private static String readSchema(String dataSchemaLocation)
+    {
+        InputStream inputStream = null;
+        try {
+            if (isURI(dataSchemaLocation.trim().toLowerCase(ENGLISH))) {
+                try {
+                    inputStream = new URL(dataSchemaLocation).openStream();
+                }
+                catch (MalformedURLException e) {
+                    // try again before failing
+                    inputStream = new FileInputStream(dataSchemaLocation);
+                }
+            }
+            else {
+                inputStream = new FileInputStream(dataSchemaLocation);
+            }
+            return CharStreams.toString(new InputStreamReader(inputStream, UTF_8));
+        }
+        catch (IOException e) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Could not parse the Avro schema at: " + dataSchemaLocation, e);
+        }
+        finally {
+            closeQuietly(inputStream);
+        }
+    }
+
+    private static void closeQuietly(InputStream stream)
+    {
+        try {
+            if (stream != null) {
+                stream.close();
+            }
+        }
+        catch (IOException ignored) {
+        }
+    }
+
+    private static boolean isURI(String location)
+    {
+        try {
+            URI.create(location);
+        }
+        catch (Exception e) {
+            return false;
+        }
+        return true;
     }
 
     private static long[] findAllOffsets(SimpleConsumer consumer, String topicName, int partitionId)
@@ -134,8 +202,7 @@ public class KafkaSplitManager
 
         if (offsetResponse.hasError()) {
             short errorCode = offsetResponse.errorCode(topicName, partitionId);
-            log.warn("Offset response has error: %d", errorCode);
-            throw new PrestoException(KAFKA_SPLIT_ERROR, "could not fetch data from Kafka, error code is '" + errorCode + "'");
+            throw new RuntimeException("could not fetch data from Kafka, error code is '" + errorCode + "'");
         }
 
         return offsetResponse.offsets(topicName, partitionId);

@@ -16,9 +16,11 @@ package com.facebook.presto.hive;
 import com.facebook.presto.Session;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Database;
-import com.facebook.presto.hive.metastore.PrincipalType;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.PrincipalType;
+import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -31,11 +33,15 @@ import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTimeZone;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 
+import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.airlift.log.Level.WARN;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -54,7 +60,7 @@ public final class HiveQueryRunner
     public static final String HIVE_BUCKETED_CATALOG = "hive_bucketed";
     public static final String TPCH_SCHEMA = "tpch";
     private static final String TPCH_BUCKETED_SCHEMA = "tpch_bucketed";
-    private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("Asia/Kathmandu");
+    private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
     public static DistributedQueryRunner createQueryRunner(TpchTable<?>... tables)
             throws Exception
@@ -65,22 +71,27 @@ public final class HiveQueryRunner
     public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        return createQueryRunner(tables, ImmutableMap.of());
+        return createQueryRunner(tables, ImmutableMap.of(), Optional.empty());
     }
 
-    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> extraProperties)
+    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> extraProperties, Optional<Path> baseDataDir)
             throws Exception
     {
-        return createQueryRunner(tables, extraProperties, "sql-standard", ImmutableMap.of());
+        return createQueryRunner(tables, extraProperties, "sql-standard", ImmutableMap.of(), baseDataDir);
     }
 
-    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> extraProperties, String security, Map<String, String> extraHiveProperties)
+    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> extraProperties, String security, Map<String, String> extraHiveProperties, Optional<Path> baseDataDir)
             throws Exception
     {
-        assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=Asia/Katmandu to your JVM arguments");
+        assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
+        setupLogging();
 
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession(), 4, extraProperties);
-
+        DistributedQueryRunner queryRunner =
+                DistributedQueryRunner.builder(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))))
+                        .setNodeCount(4)
+                        .setExtraProperties(extraProperties)
+                        .setBaseDataDir(baseDataDir)
+                        .build();
         try {
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
@@ -92,9 +103,7 @@ public final class HiveQueryRunner
             HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig, new NoHdfsAuthentication());
 
             FileHiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
-            metastore.createDatabase(createDatabaseMetastoreObject(TPCH_SCHEMA));
-            metastore.createDatabase(createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA));
-            queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, metastore));
+            queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, Optional.of(metastore)));
 
             Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
                     .putAll(extraHiveProperties)
@@ -102,6 +111,7 @@ public final class HiveQueryRunner
                     .put("hive.security", security)
                     .put("hive.max-partitions-per-scan", "1000")
                     .put("hive.assume-canonical-partition-keys", "true")
+                    .put("hive.collect-column-statistics-on-write", "true")
                     .build();
             Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
                     .putAll(hiveProperties)
@@ -113,8 +123,15 @@ public final class HiveQueryRunner
             queryRunner.createCatalog(HIVE_CATALOG, HIVE_CATALOG, hiveProperties);
             queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, HIVE_CATALOG, hiveBucketedProperties);
 
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
-            copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, createBucketedSession(), tables);
+            if (!metastore.getDatabase(TPCH_SCHEMA).isPresent()) {
+                metastore.createDatabase(createDatabaseMetastoreObject(TPCH_SCHEMA));
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(Optional.empty()), tables);
+            }
+
+            if (!metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isPresent()) {
+                metastore.createDatabase(createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA));
+                copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, createBucketedSession(Optional.empty()), tables);
+            }
 
             return queryRunner;
         }
@@ -122,6 +139,13 @@ public final class HiveQueryRunner
             queryRunner.close();
             throw e;
         }
+    }
+
+    private static void setupLogging()
+    {
+        Logging logging = Logging.initialize();
+        logging.setLevel("org.apache.parquet.hadoop", WARN);
+        logging.setLevel("parquet.hadoop", WARN);
     }
 
     private static Database createDatabaseMetastoreObject(String name)
@@ -133,17 +157,28 @@ public final class HiveQueryRunner
                 .build();
     }
 
-    public static Session createSession()
+    public static Session createSession(Optional<SelectedRole> role)
     {
         return testSessionBuilder()
+                .setIdentity(new Identity(
+                        "hive",
+                        Optional.empty(),
+                        role.map(selectedRole -> ImmutableMap.of("hive", selectedRole))
+                                .orElse(ImmutableMap.of())))
                 .setCatalog(HIVE_CATALOG)
                 .setSchema(TPCH_SCHEMA)
                 .build();
     }
 
-    public static Session createBucketedSession()
+    public static Session createBucketedSession(Optional<SelectedRole> role)
     {
         return testSessionBuilder()
+                .setIdentity(new Identity(
+                        "hive",
+                        Optional.empty(),
+                        role.map(selectedRole -> ImmutableMap.of("hive", selectedRole))
+                                .orElse(ImmutableMap.of())))
+                .setCatalog(HIVE_CATALOG)
                 .setCatalog(HIVE_BUCKETED_CATALOG)
                 .setSchema(TPCH_BUCKETED_SCHEMA)
                 .build();
@@ -198,7 +233,42 @@ public final class HiveQueryRunner
     {
         // You need to add "--user user" to your CLI for your queries to work
         Logging.initialize();
-        DistributedQueryRunner queryRunner = createQueryRunner(TpchTable.getTables(), ImmutableMap.of("http-server.http.port", "8080"));
+
+        Optional<Path> baseDataDir = Optional.empty();
+        if (args.length > 0) {
+            if (args.length != 1) {
+                log.error("usage: HiveQueryRunner [baseDataDir]\n");
+                log.error("       [baseDataDir] is a local directory under which you want the hive_data directory to be created.]\n");
+                System.exit(1);
+            }
+
+            File baseDataDirFile = new File(args[0]);
+            if (baseDataDirFile.exists()) {
+                if (!baseDataDirFile.isDirectory()) {
+                    log.error("Error: " + baseDataDirFile.getAbsolutePath() + " is not a directory.");
+                    System.exit(1);
+                }
+                else if (!baseDataDirFile.canRead() || !baseDataDirFile.canWrite()) {
+                    log.error("Error: " + baseDataDirFile.getAbsolutePath() + " is not readable/writable.");
+                    System.exit(1);
+                }
+            }
+            else {
+                // For user supplied path like [path_exists_but_is_not_readable_or_writable]/[paths_do_not_exist], the hadoop file system won't
+                // be able to create directory for it. e.g. "/aaa/bbb" is not creatable because path "/" is not writable.
+                while (!baseDataDirFile.exists()) {
+                    baseDataDirFile = baseDataDirFile.getParentFile();
+                }
+                if (!baseDataDirFile.canRead() || !baseDataDirFile.canWrite()) {
+                    log.error("Error: The ancestor directory " + baseDataDirFile.getAbsolutePath() + " is not readable/writable.");
+                    System.exit(1);
+                }
+            }
+
+            baseDataDir = Optional.of(baseDataDirFile.toPath());
+        }
+
+        DistributedQueryRunner queryRunner = createQueryRunner(TpchTable.getTables(), ImmutableMap.of("http-server.http.port", "8080"), baseDataDir);
         Thread.sleep(10);
         Logger log = Logger.get(DistributedQueryRunner.class);
         log.info("======== SERVER STARTED ========");

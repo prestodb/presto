@@ -17,10 +17,12 @@ import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.transaction.TransactionId;
 
 import java.security.Principal;
+import java.util.Optional;
 import java.util.Set;
 
 public interface AccessControl
@@ -30,7 +32,7 @@ public interface AccessControl
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanSetUser(Principal principal, String userName);
+    void checkCanSetUser(Optional<Principal> principal, String userName);
 
     /**
      * Filter the list of catalogs to those visible to the identity.
@@ -138,13 +140,6 @@ public interface AccessControl
     void checkCanRenameColumn(TransactionId transactionId, Identity identity, QualifiedObjectName tableName);
 
     /**
-     * Check if identity is allowed to select from the specified table.
-     *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
-     */
-    void checkCanSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName);
-
-    /**
      * Check if identity is allowed to insert into the specified table.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
@@ -173,39 +168,25 @@ public interface AccessControl
     void checkCanDropView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName);
 
     /**
-     * Check if identity is allowed to select from the specified view.
+     * Check if identity is allowed to create a view that selects from the specified columns.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanSelectFromView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName);
-
-    /**
-     * Check if identity is allowed to create a view that selects from the specified table.
-     *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
-     */
-    void checkCanCreateViewWithSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName);
-
-    /**
-     * Check if identity is allowed to create a view that selects from the specified view.
-     *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
-     */
-    void checkCanCreateViewWithSelectFromView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName);
+    void checkCanCreateViewWithSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames);
 
     /**
      * Check if identity is allowed to grant a privilege to the grantee on the specified table.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanGrantTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName, String grantee, boolean withGrantOption);
+    void checkCanGrantTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal grantee, boolean withGrantOption);
 
     /**
      * Check if identity is allowed to revoke a privilege from the revokee on the specified table.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanRevokeTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName, String revokee, boolean grantOptionFor);
+    void checkCanRevokeTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal revokee, boolean grantOptionFor);
 
     /**
      * Check if identity is allowed to set the specified system property.
@@ -220,4 +201,64 @@ public interface AccessControl
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, String catalogName, String propertyName);
+
+    /**
+     * Check if identity is allowed to select from the specified columns.  The column set can be empty.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames);
+
+    /**
+     * Check if identity is allowed to create the specified role.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanCreateRole(TransactionId transactionId, Identity identity, String role, Optional<PrestoPrincipal> grantor, String catalogName);
+
+    /**
+     * Check if identity is allowed to drop the specified role.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanDropRole(TransactionId transactionId, Identity identity, String role, String catalogName);
+
+    /**
+     * Check if identity is allowed to grant the specified roles to the specified principals.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanGrantRoles(TransactionId transactionId, Identity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName);
+
+    /**
+     * Check if identity is allowed to revoke the specified roles from the specified principals.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanRevokeRoles(TransactionId transactionId, Identity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName);
+
+    /**
+     * Check if identity is allowed to set role for specified catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanSetRole(TransactionId requiredTransactionId, Identity identity, String role, String catalog);
+
+    /**
+     * Check if identity is allowed to show roles on the specified catalog.
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanShowRoles(TransactionId transactionId, Identity identity, String catalogName);
+
+    /**
+     * Check if identity is allowed to show current roles on the specified catalog.
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanShowCurrentRoles(TransactionId transactionId, Identity identity, String catalogName);
+
+    /**
+     * Check if identity is allowed to show its own role grants on the specified catalog.
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanShowRoleGrants(TransactionId transactionId, Identity identity, String catalogName);
 }

@@ -23,13 +23,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.HIDDEN;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -52,7 +51,7 @@ public class HiveColumnHandle
     {
         PARTITION_KEY,
         REGULAR,
-        HIDDEN
+        SYNTHESIZED,
     }
 
     private final String name;
@@ -72,7 +71,7 @@ public class HiveColumnHandle
             @JsonProperty("comment") Optional<String> comment)
     {
         this.name = requireNonNull(name, "name is null");
-        checkArgument(hiveColumnIndex >= 0 || columnType == PARTITION_KEY || columnType == HIDDEN, "hiveColumnIndex is negative");
+        checkArgument(hiveColumnIndex >= 0 || columnType == PARTITION_KEY || columnType == SYNTHESIZED, "hiveColumnIndex is negative");
         this.hiveColumnIndex = hiveColumnIndex;
         this.hiveType = requireNonNull(hiveType, "hiveType is null");
         this.typeName = requireNonNull(typeSignature, "type is null");
@@ -105,7 +104,7 @@ public class HiveColumnHandle
 
     public boolean isHidden()
     {
-        return columnType == HIDDEN;
+        return columnType == SYNTHESIZED;
     }
 
     public ColumnMetadata getColumnMetadata(TypeManager typeManager)
@@ -157,14 +156,7 @@ public class HiveColumnHandle
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("name", name)
-                .add("hiveType", hiveType)
-                .add("hiveColumnIndex", hiveColumnIndex)
-                .add("columnType", columnType)
-                .add("comment", comment.orElse(null))
-                .omitNullValues()
-                .toString();
+        return name + ":" + hiveType + ":" + hiveColumnIndex + ":" + columnType;
     }
 
     public static HiveColumnHandle updateRowIdHandle()
@@ -175,17 +167,22 @@ public class HiveColumnHandle
         // plan-time support for row-by-row delete so that planning doesn't fail. This is why we need
         // rowid handle. Note that in Hive connector, rowid handle is not implemented beyond plan-time.
 
-        return new HiveColumnHandle(UPDATE_ROW_ID_COLUMN_NAME, HIVE_LONG, BIGINT.getTypeSignature(), -1, HIDDEN, Optional.empty());
+        return new HiveColumnHandle(UPDATE_ROW_ID_COLUMN_NAME, HIVE_LONG, BIGINT.getTypeSignature(), -1, SYNTHESIZED, Optional.empty());
     }
 
     public static HiveColumnHandle pathColumnHandle()
     {
-        return new HiveColumnHandle(PATH_COLUMN_NAME, PATH_HIVE_TYPE, PATH_TYPE_SIGNATURE, PATH_COLUMN_INDEX, HIDDEN, Optional.empty());
+        return new HiveColumnHandle(PATH_COLUMN_NAME, PATH_HIVE_TYPE, PATH_TYPE_SIGNATURE, PATH_COLUMN_INDEX, SYNTHESIZED, Optional.empty());
     }
 
+    /**
+     * The column indicating the bucket id.
+     * When table bucketing differs from partition bucketing, this column indicates
+     * what bucket the row will fall in under the table bucketing scheme.
+     */
     public static HiveColumnHandle bucketColumnHandle()
     {
-        return new HiveColumnHandle(BUCKET_COLUMN_NAME, BUCKET_HIVE_TYPE, BUCKET_TYPE_SIGNATURE, BUCKET_COLUMN_INDEX, HIDDEN, Optional.empty());
+        return new HiveColumnHandle(BUCKET_COLUMN_NAME, BUCKET_HIVE_TYPE, BUCKET_TYPE_SIGNATURE, BUCKET_COLUMN_INDEX, SYNTHESIZED, Optional.empty());
     }
 
     public static boolean isPathColumnHandle(HiveColumnHandle column)

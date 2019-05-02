@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.security.AccessControl;
@@ -58,9 +59,10 @@ final class DescribeOutputRewrite
             Optional<QueryExplainer> queryExplainer,
             Statement node,
             List<Expression> parameters,
-            AccessControl accessControl)
+            AccessControl accessControl,
+            WarningCollector warningCollector)
     {
-        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, accessControl).process(node, null);
+        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, accessControl, warningCollector).process(node, null);
     }
 
     private static final class Visitor
@@ -72,6 +74,7 @@ final class DescribeOutputRewrite
         private final Optional<QueryExplainer> queryExplainer;
         private final List<Expression> parameters;
         private final AccessControl accessControl;
+        private final WarningCollector warningCollector;
 
         public Visitor(
                 Session session,
@@ -79,7 +82,8 @@ final class DescribeOutputRewrite
                 Metadata metadata,
                 Optional<QueryExplainer> queryExplainer,
                 List<Expression> parameters,
-                AccessControl accessControl)
+                AccessControl accessControl,
+                WarningCollector warningCollector)
         {
             this.session = requireNonNull(session, "session is null");
             this.parser = parser;
@@ -87,15 +91,16 @@ final class DescribeOutputRewrite
             this.queryExplainer = queryExplainer;
             this.parameters = parameters;
             this.accessControl = accessControl;
+            this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         }
 
         @Override
         protected Node visitDescribeOutput(DescribeOutput node, Void context)
         {
             String sqlString = session.getPreparedStatement(node.getName().getValue());
-            Statement statement = parser.createStatement(sqlString, createParsingOptions(session));
+            Statement statement = parser.createStatement(sqlString, createParsingOptions(session, warningCollector));
 
-            Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters);
+            Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters, warningCollector);
             Analysis analysis = analyzer.analyze(statement, true);
 
             Optional<String> limit = Optional.empty();

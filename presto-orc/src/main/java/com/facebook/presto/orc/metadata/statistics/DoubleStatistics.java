@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.facebook.presto.orc.metadata.statistics.StatisticsHasher.Hashable;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
@@ -21,7 +22,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class DoubleStatistics
-        implements RangeStatistics<Double>
+        implements RangeStatistics<Double>, Hashable
 {
     // 1 byte to denote if null + 8 bytes for the value
     public static final long DOUBLE_VALUE_BYTES = Byte.BYTES + Double.BYTES;
@@ -92,5 +93,12 @@ public class DoubleStatistics
                 .add("min", getMin())
                 .add("max", getMax())
                 .toString();
+    }
+
+    @Override
+    public void addHash(StatisticsHasher hasher)
+    {
+        hasher.putOptionalDouble(hasMinimum, minimum)
+                .putOptionalDouble(hasMaximum, maximum);
     }
 }

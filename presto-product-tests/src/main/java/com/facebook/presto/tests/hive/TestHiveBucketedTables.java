@@ -23,8 +23,11 @@ import io.prestodb.tempto.fulfillment.table.TableDefinitionsRepository;
 import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
 import org.testng.annotations.Test;
 
+import java.sql.Connection;
+import java.sql.SQLException;
+
 import static com.facebook.presto.tests.TestGroups.BIG_QUERY;
-import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
+import static com.facebook.presto.tests.utils.JdbcDriverUtils.setSessionProperty;
 import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
@@ -32,6 +35,7 @@ import static io.prestodb.tempto.fulfillment.table.MutableTableRequirement.State
 import static io.prestodb.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
 import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.prestodb.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
+import static io.prestodb.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.prestodb.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 
@@ -53,6 +57,18 @@ public class TestHiveBucketedTables
             .setNoData()
             .build();
 
+    @TableDefinitionsRepository.RepositoryTableDefinition
+    public static final HiveTableDefinition PARTITIONED_NATION = HiveTableDefinition.builder("partitioned_nation")
+            .setCreateTableDDLTemplate("CREATE TABLE %NAME%(" +
+                    "n_nationkey     BIGINT," +
+                    "n_name          STRING," +
+                    "n_regionkey     BIGINT," +
+                    "n_comment       STRING) " +
+                    "PARTITIONED BY (part_key STRING) " +
+                    "ROW FORMAT DELIMITED FIELDS TERMINATED BY '|'")
+            .setNoData()
+            .build();
+
     @Override
     public Requirement getRequirements(Configuration configuration)
     {
@@ -61,7 +77,7 @@ public class TestHiveBucketedTables
                 immutableTable(NATION));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, BIG_QUERY})
+    @Test(groups = {BIG_QUERY})
     public void testIgnorePartitionBucketingIfNotBucketed()
     {
         String tableName = mutableTablesState().get(BUCKETED_PARTITIONED_NATION).getNameInDatabase();
@@ -74,6 +90,35 @@ public class TestHiveBucketedTables
                 .containsExactly(row(2));
     }
 
+    @Test(groups = {BIG_QUERY})
+    public void testIgnorePartitionBucketingIfBucketedExecutionDisabled()
+    {
+        String tableName = mutableTablesState().get(PARTITIONED_NATION).getNameInDatabase();
+        populateHivePartitionedTable(tableName, NATION.getName(), "part_key = 'insert_1'");
+        onHive().executeQuery(format("ALTER TABLE %s CLUSTERED BY regionkey INTO 2 BUCKETS", tableName));
+        populateHivePartitionedTable(tableName, NATION.getName(), "part_key = 'insert_2'");
+        onHive().executeQuery(format("ALTER TABLE %s CLUSTERED BY regionkey INTO 5 BUCKETS", tableName));
+        populateHivePartitionedTable(tableName, NATION.getName(), "part_key = 'insert_3'");
+
+        disableBucketedExecution();
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_nationkey = 1", tableName)))
+                .containsExactly(row(3));
+    }
+
+    @Test(groups = {BIG_QUERY})
+    public void testIgnoreTableBucketingIfBucketedExecutionDisabled()
+    {
+        String tableName = mutableTablesState().get(NATION).getNameInDatabase();
+
+        onHive().executeQuery(format("ALTER TABLE %s CLUSTERED BY regionkey INTO 2 BUCKETS", tableName));
+        populateHiveUnpartitionedTable(tableName, NATION.getName());
+
+        onHive().executeQuery(format("ALTER TABLE %s CLUSTERED BY regionkey INTO 5 BUCKETS", tableName));
+        disableBucketedExecution();
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_nationkey = 1", tableName)))
+                .containsExactly(row(3));
+    }
+
     private static void populateHivePartitionedTable(String destination, String source, String partition)
     {
         String queryStatement = format("INSERT INTO TABLE %s PARTITION (%s) SELECT * FROM %s", destination, partition, source);
@@ -81,5 +126,25 @@ public class TestHiveBucketedTables
         onHive().executeQuery("set hive.enforce.bucketing = true");
         onHive().executeQuery("set hive.enforce.sorting = true");
         onHive().executeQuery(queryStatement);
+    }
+
+    private static void populateHiveUnpartitionedTable(String destination, String source)
+    {
+        String queryStatement = format("INSERT INTO TABLE %s SELECT * FROM %s", destination, source);
+
+        onHive().executeQuery("set hive.enforce.bucketing = true");
+        onHive().executeQuery("set hive.enforce.sorting = true");
+        onHive().executeQuery(queryStatement);
+    }
+
+    private static void disableBucketedExecution()
+    {
+        Connection connection = defaultQueryExecutor().getConnection();
+        try {
+            setSessionProperty(connection, "bucketed_execution_enabled", "false");
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

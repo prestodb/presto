@@ -40,9 +40,9 @@ public final class BlackHoleSplit
             @JsonProperty("fieldsLength") int fieldsLength,
             @JsonProperty("pageProcessingDelay") Duration pageProcessingDelay)
     {
-        this.rowsPerPage = requireNonNull(rowsPerPage, "rowsPerPage is null");
-        this.pagesCount = requireNonNull(pagesCount, "pagesCount is null");
-        this.fieldsLength = requireNonNull(fieldsLength, "fieldsLength is null");
+        this.rowsPerPage = rowsPerPage;
+        this.pagesCount = pagesCount;
+        this.fieldsLength = fieldsLength;
         this.pageProcessingDelay = requireNonNull(pageProcessingDelay, "pageProcessingDelay is null");
     }
 

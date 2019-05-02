@@ -14,34 +14,40 @@
 package com.facebook.presto.operator.annotations;
 
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.InvocationConvention;
 import com.facebook.presto.spi.type.TypeManager;
 
 import java.lang.invoke.MethodHandle;
-
-import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
-import static java.util.Objects.requireNonNull;
+import java.util.Optional;
 
 public abstract class ScalarImplementationDependency
         implements ImplementationDependency
 {
-    private final Signature signature;
+    private final Optional<InvocationConvention> invocationConvention;
 
-    protected ScalarImplementationDependency(Signature signature)
+    protected ScalarImplementationDependency(Optional<InvocationConvention> invocationConvention)
     {
-        this.signature = requireNonNull(signature, "signature is null");
+        this.invocationConvention = invocationConvention;
     }
 
-    public Signature getSignature()
+    protected abstract FunctionHandle getFunctionHandle(BoundVariables boundVariables, FunctionManager functionManager);
+    @Override
+    public MethodHandle resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionManager functionManager)
     {
-        return signature;
+        FunctionHandle functionHandle = getFunctionHandle(boundVariables, functionManager);
+        if (invocationConvention.isPresent()) {
+            return functionManager.getFunctionInvokerProvider().createFunctionInvoker(functionHandle, invocationConvention).methodHandle();
+        }
+        else {
+            return functionManager.getScalarFunctionImplementation(functionHandle).getMethodHandle();
+        }
     }
 
     @Override
-    public MethodHandle resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry)
-    {
-        Signature signature = applyBoundVariables(this.signature, boundVariables, this.signature.getArgumentTypes().size());
-        return functionRegistry.getScalarFunctionImplementation(signature).getMethodHandle();
-    }
+    public abstract boolean equals(Object o);
+
+    @Override
+    public abstract int hashCode();
 }

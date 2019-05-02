@@ -88,7 +88,7 @@ public final class Transport
 
     private static TTransportException rewriteException(TTransportException e, HostAndPort address)
     {
-        return new TTransportException(e.getType(), String.format("%s: %s", address, e.getMessage()), e.getCause());
+        return new TTransportException(e.getType(), String.format("%s: %s", address, e.getMessage()), e);
     }
 
     private static class TTransportWrapper

@@ -14,22 +14,22 @@
 
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionKind;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.sql.relational.VariableReferenceExpression;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -54,11 +54,14 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.spi.function.OperatorType.ADD;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
@@ -82,7 +85,12 @@ public class BenchmarkTransformKey
     @OperationsPerInvocation(POSITIONS * NUM_TYPES)
     public List<Optional<Page>> benchmark(BenchmarkData data)
     {
-        return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, new DriverYieldSignal(), data.getPage()));
+        return ImmutableList.copyOf(
+                data.getPageProcessor().process(
+                        SESSION,
+                        new DriverYieldSignal(),
+                        newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
+                        data.getPage()));
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -100,6 +108,7 @@ public class BenchmarkTransformKey
         public void setup()
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
+            FunctionManager functionManager = metadata.getFunctionManager();
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Type elementType;
@@ -117,14 +126,13 @@ public class BenchmarkTransformKey
                     throw new UnsupportedOperationException();
             }
             MapType mapType = mapType(elementType, elementType);
-            Signature signature = new Signature(
-                    name,
-                    FunctionKind.SCALAR,
-                    mapType.getTypeSignature(),
-                    mapType.getTypeSignature(),
-                    parseTypeSignature(format("function(%s, %s, %s)", type, type, type)));
-            Signature add = new Signature("$operator$" + ADD.name(), FunctionKind.SCALAR, elementType.getTypeSignature(), elementType.getTypeSignature(), elementType.getTypeSignature());
-            projectionsBuilder.add(call(signature, mapType, ImmutableList.of(
+            FunctionHandle functionHandle = functionManager.lookupFunction(
+                    QualifiedName.of(name),
+                    fromTypeSignatures(
+                            mapType.getTypeSignature(),
+                            parseTypeSignature(format("function(%s, %s, %s)", type, type, type))));
+            FunctionHandle add = functionManager.resolveOperator(ADD, fromTypes(elementType, elementType));
+            projectionsBuilder.add(call(functionHandle, mapType, ImmutableList.of(
                     field(0, mapType),
                     new LambdaDefinitionExpression(
                             ImmutableList.of(elementType, elementType),
@@ -141,7 +149,7 @@ public class BenchmarkTransformKey
 
         private static Block createChannel(int positionCount, MapType mapType, Type elementType)
         {
-            BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), 1);
+            BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
             BlockBuilder singleMapBlockWriter = mapBlockBuilder.beginBlockEntry();
             Object value;
             for (int position = 0; position < positionCount; position++) {

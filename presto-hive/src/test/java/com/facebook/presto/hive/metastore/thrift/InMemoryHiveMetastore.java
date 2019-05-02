@@ -13,65 +13,63 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
+import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.RoleGrant;
+import com.facebook.presto.spi.statistics.ColumnStatisticType;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.TableType;
-import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
-import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
-import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.metastore.api.Table;
 
 import javax.annotation.concurrent.GuardedBy;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
-import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
-import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
-import static com.facebook.presto.hive.metastore.thrift.TestingHiveMetastore.deleteDirectory;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPartition;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
-import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
-import static org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
 
 public class InMemoryHiveMetastore
         implements HiveMetastore
 {
-    private static final String PUBLIC_ROLE_NAME = "public";
-
     @GuardedBy("this")
     private final Map<String, Database> databases = new HashMap<>();
     @GuardedBy("this")
@@ -81,11 +79,9 @@ public class InMemoryHiveMetastore
     @GuardedBy("this")
     private final Map<PartitionName, Partition> partitions = new HashMap<>();
     @GuardedBy("this")
-    private final Map<SchemaTableName, Map<String, ColumnStatisticsObj>> columnStatistics = new HashMap<>();
+    private final Map<SchemaTableName, PartitionStatistics> columnStatistics = new HashMap<>();
     @GuardedBy("this")
-    private final Map<PartitionName, Map<String, ColumnStatisticsObj>> partitionColumnStatistics = new HashMap<>();
-    @GuardedBy("this")
-    private final Map<String, Set<String>> roleGrants = new HashMap<>();
+    private final Map<PartitionName, PartitionStatistics> partitionColumnStatistics = new HashMap<>();
     @GuardedBy("this")
     private final Map<PrincipalTableKey, Set<HivePrivilegeInfo>> tablePrivileges = new HashMap<>();
 
@@ -198,22 +194,7 @@ public class InMemoryHiveMetastore
 
         PrincipalPrivilegeSet privileges = table.getPrivileges();
         if (privileges != null) {
-            for (Entry<String, List<PrivilegeGrantInfo>> entry : privileges.getUserPrivileges().entrySet()) {
-                String user = entry.getKey();
-                Set<HivePrivilegeInfo> userPrivileges = entry.getValue().stream()
-                        .map(HivePrivilegeInfo::parsePrivilege)
-                        .flatMap(Collection::stream)
-                        .collect(toImmutableSet());
-                setTablePrivileges(user, USER, table.getDbName(), table.getTableName(), userPrivileges);
-            }
-            for (Entry<String, List<PrivilegeGrantInfo>> entry : privileges.getRolePrivileges().entrySet()) {
-                String role = entry.getKey();
-                Set<HivePrivilegeInfo> rolePrivileges = entry.getValue().stream()
-                        .map(HivePrivilegeInfo::parsePrivilege)
-                        .flatMap(Collection::stream)
-                        .collect(toImmutableSet());
-                setTablePrivileges(role, ROLE, table.getDbName(), table.getTableName(), rolePrivileges);
-            }
+            throw new UnsupportedOperationException();
         }
     }
 
@@ -321,32 +302,17 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized void addPartitions(String databaseName, String tableName, List<Partition> partitions)
+    public synchronized void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitionsWithStatistics)
     {
-        Optional<Table> table = getTable(databaseName, tableName);
-        if (!table.isPresent()) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-        }
-        for (Partition partition : partitions) {
-            String partitionName = createPartitionName(partition, table.get());
-            partition = partition.deepCopy();
+        for (PartitionWithStatistics partitionWithStatistics : partitionsWithStatistics) {
+            Partition partition = toMetastoreApiPartition(partitionWithStatistics.getPartition());
             if (partition.getParameters() == null) {
                 partition.setParameters(ImmutableMap.of());
             }
-            this.partitions.put(PartitionName.partition(databaseName, tableName, partitionName), partition);
+            PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionWithStatistics.getPartitionName());
+            partitions.put(partitionKey, partition);
+            partitionColumnStatistics.put(partitionKey, partitionWithStatistics.getStatistics());
         }
-    }
-
-    private static String createPartitionName(Partition partition, Table table)
-    {
-        return makePartName(table.getPartitionKeys(), partition.getValues());
-    }
-
-    private static String makePartName(List<FieldSchema> partitionColumns, List<String> values)
-    {
-        checkArgument(partitionColumns.size() == values.size());
-        List<String> partitionColumnNames = partitionColumns.stream().map(FieldSchema::getName).collect(toList());
-        return FileUtils.makePartName(partitionColumnNames, values);
     }
 
     @Override
@@ -357,14 +323,15 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized void alterPartition(String databaseName, String tableName, Partition partition)
+    public synchronized void alterPartition(String databaseName, String tableName, PartitionWithStatistics partitionWithStatistics)
     {
-        Optional<Table> table = getTable(databaseName, tableName);
-        if (!table.isPresent()) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        Partition partition = toMetastoreApiPartition(partitionWithStatistics.getPartition());
+        if (partition.getParameters() == null) {
+            partition.setParameters(ImmutableMap.of());
         }
-        String partitionName = createPartitionName(partition, table.get());
-        this.partitions.put(PartitionName.partition(databaseName, tableName, partitionName), partition);
+        PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionWithStatistics.getPartitionName());
+        partitions.put(partitionKey, partition);
+        partitionColumnStatistics.put(partitionKey, partitionWithStatistics.getStatistics());
     }
 
     @Override
@@ -438,128 +405,102 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized Optional<Set<ColumnStatisticsObj>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    public Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
     {
-        SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
-        if (!columnStatistics.containsKey(schemaTableName)) {
-            return Optional.empty();
-        }
-
-        Map<String, ColumnStatisticsObj> columnStatisticsMap = columnStatistics.get(schemaTableName);
-        return Optional.of(columnNames.stream()
-                .filter(columnStatisticsMap::containsKey)
-                .map(columnStatisticsMap::get)
-                .collect(toImmutableSet()));
-    }
-
-    public synchronized void setColumnStatistics(String databaseName, String tableName, String columnName, ColumnStatisticsObj columnStatisticsObj)
-    {
-        checkArgument(columnStatisticsObj.getColName().equals(columnName), "columnName argument and columnStatisticsObj.getColName() must be the same");
-        SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
-        columnStatistics.computeIfAbsent(schemaTableName, key -> new HashMap<>()).put(columnName, columnStatisticsObj);
+        return ThriftMetastoreUtil.getSupportedColumnStatistics(type);
     }
 
     @Override
-    public synchronized Optional<Map<String, Set<ColumnStatisticsObj>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
+    public synchronized PartitionStatistics getTableStatistics(String databaseName, String tableName)
     {
-        ImmutableMap.Builder<String, Set<ColumnStatisticsObj>> result = ImmutableMap.builder();
+        SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
+        PartitionStatistics statistics = columnStatistics.get(schemaTableName);
+        if (statistics == null) {
+            statistics = new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of());
+        }
+        return statistics;
+    }
+
+    @Override
+    public synchronized Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
+    {
+        ImmutableMap.Builder<String, PartitionStatistics> result = ImmutableMap.builder();
         for (String partitionName : partitionNames) {
             PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionName);
-            if (!partitionColumnStatistics.containsKey(partitionKey)) {
-                continue;
+            PartitionStatistics statistics = partitionColumnStatistics.get(partitionKey);
+            if (statistics == null) {
+                statistics = new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of());
             }
-
-            Map<String, ColumnStatisticsObj> columnStatistics = partitionColumnStatistics.get(partitionKey);
-            result.put(
-                    partitionName,
-                    columnNames.stream()
-                            .filter(columnStatistics::containsKey)
-                            .map(columnStatistics::get)
-                            .collect(toImmutableSet()));
+            result.put(partitionName, statistics);
         }
-        return Optional.of(result.build());
+        return result.build();
     }
 
-    public synchronized void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, String columnName, ColumnStatisticsObj columnStatisticsObj)
+    @Override
+    public synchronized void updateTableStatistics(String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
     {
-        checkArgument(columnStatisticsObj.getColName().equals(columnName), "columnName argument and columnStatisticsObj.getColName() must be the same");
+        columnStatistics.put(new SchemaTableName(databaseName, tableName), update.apply(getTableStatistics(databaseName, tableName)));
+    }
+
+    @Override
+    public synchronized void updatePartitionStatistics(String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    {
         PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionName);
-        partitionColumnStatistics
-                .computeIfAbsent(partitionKey, key -> new HashMap<>())
-                .put(columnName, columnStatisticsObj);
+        partitionColumnStatistics.put(partitionKey, update.apply(getPartitionStatistics(databaseName, tableName, ImmutableSet.of(partitionName)).get(partitionName)));
     }
 
     @Override
-    public synchronized Set<String> getRoles(String user)
+    public void createRole(String role, String grantor)
     {
-        return roleGrants.getOrDefault(user, ImmutableSet.of(PUBLIC_ROLE_NAME));
-    }
-
-    public synchronized void setUserRoles(String user, Set<String> roles)
-    {
-        if (!roles.contains(PUBLIC_ROLE_NAME)) {
-            roles = ImmutableSet.<String>builder()
-                    .addAll(roles)
-                    .add(PUBLIC_ROLE_NAME)
-                    .build();
-        }
-        roleGrants.put(user, ImmutableSet.copyOf(roles));
+        throw new UnsupportedOperationException();
     }
 
     @Override
-    public synchronized Set<HivePrivilegeInfo> getDatabasePrivileges(String user, String databaseName)
+    public void dropRole(String role)
     {
-        Set<HivePrivilegeInfo> privileges = new HashSet<>();
-        if (isDatabaseOwner(user, databaseName)) {
-            privileges.add(new HivePrivilegeInfo(OWNERSHIP, true));
-        }
-        return privileges;
+        throw new UnsupportedOperationException();
     }
 
     @Override
-    public synchronized Set<HivePrivilegeInfo> getTablePrivileges(String user, String databaseName, String tableName)
+    public Set<String> listRoles()
     {
-        Set<HivePrivilegeInfo> privileges = new HashSet<>();
-        if (isTableOwner(user, databaseName, tableName)) {
-            privileges.add(new HivePrivilegeInfo(OWNERSHIP, true));
-        }
-        privileges.addAll(tablePrivileges.getOrDefault(new PrincipalTableKey(user, USER, tableName, databaseName), ImmutableSet.of()));
-        for (String role : getRoles(user)) {
-            privileges.addAll(tablePrivileges.getOrDefault(new PrincipalTableKey(role, ROLE, tableName, databaseName), ImmutableSet.of()));
-        }
-        return privileges;
-    }
-
-    public synchronized void setTablePrivileges(String principalName,
-            PrincipalType principalType,
-            String databaseName,
-            String tableName,
-            Set<HivePrivilegeInfo> privileges)
-    {
-        tablePrivileges.put(new PrincipalTableKey(principalName, principalType, tableName, databaseName), ImmutableSet.copyOf(privileges));
+        throw new UnsupportedOperationException();
     }
 
     @Override
-    public synchronized void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet)
+    public void grantRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor)
     {
-        Set<HivePrivilegeInfo> hivePrivileges = privilegeGrantInfoSet.stream()
-                .map(HivePrivilegeInfo::parsePrivilege)
-                .flatMap(Collection::stream)
-                .collect(toImmutableSet());
-
-        setTablePrivileges(grantee, USER, databaseName, tableName, hivePrivileges);
+        throw new UnsupportedOperationException();
     }
 
     @Override
-    public synchronized void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet)
+    public void revokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor)
     {
-        Set<HivePrivilegeInfo> currentPrivileges = getTablePrivileges(grantee, databaseName, tableName);
-        currentPrivileges.removeAll(privilegeGrantInfoSet.stream()
-                .map(HivePrivilegeInfo::parsePrivilege)
-                .flatMap(Collection::stream)
-                .collect(toImmutableSet()));
+        throw new UnsupportedOperationException();
+    }
 
-        setTablePrivileges(grantee, USER, databaseName, tableName, currentPrivileges);
+    @Override
+    public Set<RoleGrant> listRoleGrants(PrestoPrincipal principal)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, PrestoPrincipal principal)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void grantTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void revokeTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    {
+        throw new UnsupportedOperationException();
     }
 
     private static boolean isParentDir(File directory, File baseDirectory)
@@ -570,6 +511,16 @@ public class InMemoryHiveMetastore
             }
         }
         return false;
+    }
+
+    private static void deleteDirectory(File dir)
+    {
+        try {
+            deleteRecursively(dir.toPath(), ALLOW_INSECURE);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private static class PartitionName

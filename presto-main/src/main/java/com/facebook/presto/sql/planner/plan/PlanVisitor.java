@@ -94,6 +94,11 @@ public abstract class PlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
+    public R visitSpatialJoin(SpatialJoinNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitIndexJoin(IndexJoinNode node, C context)
     {
         return visitPlan(node, context);
@@ -125,6 +130,11 @@ public abstract class PlanVisitor<R, C>
     }
 
     public R visitTableFinish(TableFinishNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitStatisticsWriterNode(StatisticsWriterNode node, C context)
     {
         return visitPlan(node, context);
     }

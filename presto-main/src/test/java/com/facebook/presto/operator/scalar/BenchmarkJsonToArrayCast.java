@@ -13,21 +13,20 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionKind;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
@@ -53,6 +52,9 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.metadata.CastType.CAST;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -74,7 +76,12 @@ public class BenchmarkJsonToArrayCast
     @OperationsPerInvocation(POSITION_COUNT)
     public List<Optional<Page>> benchmark(BenchmarkData data)
     {
-        return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, new DriverYieldSignal(), data.getPage()));
+        return ImmutableList.copyOf(
+                data.getPageProcessor().process(
+                        SESSION,
+                        new DriverYieldSignal(),
+                        newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
+                        data.getPage()));
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -105,12 +112,13 @@ public class BenchmarkJsonToArrayCast
                     throw new UnsupportedOperationException();
             }
 
-            Signature signature = new Signature("$operator$CAST", FunctionKind.SCALAR, new ArrayType(elementType).getTypeSignature(), JSON.getTypeSignature());
+            MetadataManager metadata = createTestMetadataManager();
+            FunctionManager functionManager = metadata.getFunctionManager();
+            FunctionHandle functionHandle = functionManager.lookupCast(CAST, JSON.getTypeSignature(), (new ArrayType(elementType)).getTypeSignature());
 
             List<RowExpression> projections = ImmutableList.of(
-                    new CallExpression(signature, new ArrayType(elementType), ImmutableList.of(field(0, JSON))));
+                    new CallExpression(functionHandle, new ArrayType(elementType), ImmutableList.of(field(0, JSON))));
 
-            MetadataManager metadata = MetadataManager.createTestMetadataManager();
             pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
                     .compilePageProcessor(Optional.empty(), projections)
                     .get();
@@ -120,7 +128,7 @@ public class BenchmarkJsonToArrayCast
 
         private static Block createChannel(int positionCount, int mapSize, Type elementType)
         {
-            BlockBuilder blockBuilder = JSON.createBlockBuilder(new BlockBuilderStatus(), positionCount);
+            BlockBuilder blockBuilder = JSON.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
                 SliceOutput jsonSlice = new DynamicSliceOutput(20 * mapSize);
                 jsonSlice.appendByte('[');

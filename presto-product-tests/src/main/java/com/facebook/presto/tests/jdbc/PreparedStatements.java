@@ -156,13 +156,13 @@ public class PreparedStatements
                     param(VARCHAR, null),
                     param(CHAR, null),
                     param(BOOLEAN, null),
-                    param(VARBINARY, "a290IGJpbmFybnk=".getBytes()));
+                    param(VARBINARY, new byte[] {0, 1, 2, 3, 0, 42, -7 }));
 
             QueryResult result = defaultQueryExecutor().executeQuery(selectSqlWithTable);
             assertColumnTypes(result);
             assertThat(result).containsOnly(
                     row(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-                            "a290IGJpbmFybnk=".getBytes()));
+                            new byte[] {0, 1, 2, 3, 0, 42, -7 }));
         }
         else {
             LOGGER.warn("preparedInsertVarbinaryApi() only applies to TeradataJdbcDriver");
@@ -194,7 +194,7 @@ public class PreparedStatements
                     param(VARCHAR, "ala ma kot"),
                     param(CHAR, "    ala ma"),
                     param(BOOLEAN, Boolean.TRUE),
-                    param(VARBINARY, null));
+                    param(VARBINARY, new byte[] {0, 1, 2, 3, 0, 42, -7 }));
 
             query(
                     insertSqlWithTable,
@@ -212,7 +212,7 @@ public class PreparedStatements
                     param(VARCHAR, "def"),
                     param(CHAR, "       ghi"),
                     param(BOOLEAN, Boolean.FALSE),
-                    param(VARBINARY, null));
+                    param(VARBINARY, new byte[] {0, 1, 2, 3, 0, 42, -7 }));
 
             query(
                     insertSqlWithTable,
@@ -250,7 +250,7 @@ public class PreparedStatements
                             "ala ma kot",
                             "    ala ma",
                             Boolean.TRUE,
-                            null),
+                            new byte[] {0, 1, 2, 3, 0, 42, -7 }),
                     row(
                             1,
                             2,
@@ -266,7 +266,7 @@ public class PreparedStatements
                             "def",
                             "       ghi",
                             Boolean.FALSE,
-                            null),
+                            new byte[] {0, 1, 2, 3, 0, 42, -7 }),
                     row(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
         }
         else {
@@ -302,7 +302,7 @@ public class PreparedStatements
                     "'ala ma kot', " +
                     "cast('ala ma' as char(10)), " +
                     "true, " +
-                    "varbinary 'a290IGJpbmFybnk='");
+                    "X'00010203002AF9'");
 
             statement.execute(executeSql +
                     "cast(1 as tinyint), " +
@@ -356,7 +356,7 @@ public class PreparedStatements
                             "ala ma kot",
                             "ala ma    ",
                             Boolean.TRUE,
-                            "a290IGJpbmFybnk=".getBytes()),
+                            new byte[] {0, 1, 2, 3, 0, 42, -7 }),
                     row(
                             1,
                             2,
@@ -408,13 +408,13 @@ public class PreparedStatements
                     "null, " +
                     "null, " +
                     "null, " +
-                    "varbinary 'a290IGJpbmFybnk='");
+                    "X'00010203002AF9'");
 
             QueryResult result = query(selectSqlWithTable);
             assertColumnTypes(result);
             assertThat(result).containsOnly(
                     row(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-                            "a290IGJpbmFybnk=".getBytes()));
+                            new byte[] {0, 1, 2, 3, 0, 42, -7 }));
         }
         else {
             LOGGER.warn("preparedInsertVarbinarySql() only applies to TeradataJdbcDriver");

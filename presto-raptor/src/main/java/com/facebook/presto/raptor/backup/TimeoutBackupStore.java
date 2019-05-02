@@ -102,7 +102,7 @@ public class TimeoutBackupStore
     private static <T> T timeLimited(T target, Class<T> clazz, Duration timeout, ExecutorService executor, int maxThreads)
     {
         executor = new ExecutorServiceAdapter(new BoundedExecutor(executor, maxThreads));
-        TimeLimiter limiter = new SimpleTimeLimiter(executor);
+        TimeLimiter limiter = SimpleTimeLimiter.create(executor);
         return limiter.newProxy(target, clazz, timeout.toMillis(), MILLISECONDS);
     }
 

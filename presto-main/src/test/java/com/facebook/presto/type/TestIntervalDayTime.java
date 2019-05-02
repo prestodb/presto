@@ -17,6 +17,7 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.type.Type;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
@@ -271,5 +272,12 @@ public class TestIntervalDayTime
         assertFunction("cast(INTERVAL '32.123' SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(0, 0, 0, 32, 123).toString());
         assertFunction("cast(INTERVAL '32.12' SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(0, 0, 0, 32, 120).toString());
         assertFunction("cast(INTERVAL '32' SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(0, 0, 0, 32, 0).toString());
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as INTERVAL DAY TO SECOND)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "INTERVAL '45' MINUTE TO SECOND", BOOLEAN, false);
     }
 }

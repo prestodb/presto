@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.OperatorFactory;
@@ -29,6 +29,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.util.DateTimeUtils;
 import com.google.common.collect.ImmutableList;
@@ -39,10 +40,10 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static io.airlift.units.DataSize.Unit.BYTE;
 
@@ -54,9 +55,9 @@ public class HandTpchQuery6
     public HandTpchQuery6(LocalQueryRunner localQueryRunner)
     {
         super(localQueryRunner, "hand_tpch_query_6", 10, 100);
-
-        doubleSum = localQueryRunner.getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
-                new Signature("sum", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
+        FunctionManager functionManager = localQueryRunner.getMetadata().getFunctionManager();
+        doubleSum = functionManager.getAggregateFunctionImplementation(
+                functionManager.lookupFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)));
     }
 
     @Override
@@ -86,7 +87,8 @@ public class HandTpchQuery6
                 new PlanNodeId("test"),
                 Step.SINGLE,
                 ImmutableList.of(
-                        doubleSum.bind(ImmutableList.of(0), Optional.empty())));
+                        doubleSum.bind(ImmutableList.of(0), Optional.empty())),
+                false);
 
         return ImmutableList.of(tableScanOperator, tpchQuery6Operator, aggregationOperator);
     }

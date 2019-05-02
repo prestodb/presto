@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.facebook.presto.orc.metadata.statistics.StatisticsHasher.Hashable;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
@@ -28,6 +29,7 @@ import static com.facebook.presto.orc.metadata.statistics.StringStatisticsBuilde
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class ColumnStatistics
+        implements Hashable
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ColumnStatistics.class).instanceSize();
 
@@ -197,13 +199,24 @@ public class ColumnStatistics
                 Objects.equals(stringStatistics, that.stringStatistics) &&
                 Objects.equals(dateStatistics, that.dateStatistics) &&
                 Objects.equals(decimalStatistics, that.decimalStatistics) &&
+                Objects.equals(binaryStatistics, that.binaryStatistics) &&
                 Objects.equals(bloomFilter, that.bloomFilter);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(hasNumberOfValues, getNumberOfValues(), booleanStatistics, integerStatistics, doubleStatistics, stringStatistics, dateStatistics, decimalStatistics, bloomFilter);
+        return Objects.hash(
+                hasNumberOfValues,
+                getNumberOfValues(),
+                booleanStatistics,
+                integerStatistics,
+                doubleStatistics,
+                stringStatistics,
+                dateStatistics,
+                decimalStatistics,
+                binaryStatistics,
+                bloomFilter);
     }
 
     @Override
@@ -218,8 +231,23 @@ public class ColumnStatistics
                 .add("stringStatistics", stringStatistics)
                 .add("dateStatistics", dateStatistics)
                 .add("decimalStatistics", decimalStatistics)
+                .add("binaryStatistics", binaryStatistics)
                 .add("bloomFilter", bloomFilter)
                 .toString();
+    }
+
+    @Override
+    public void addHash(StatisticsHasher hasher)
+    {
+        hasher.putOptionalLong(hasNumberOfValues, numberOfValues)
+                .putOptionalHashable(booleanStatistics)
+                .putOptionalHashable(integerStatistics)
+                .putOptionalHashable(doubleStatistics)
+                .putOptionalHashable(stringStatistics)
+                .putOptionalHashable(dateStatistics)
+                .putOptionalHashable(decimalStatistics)
+                .putOptionalHashable(binaryStatistics)
+                .putOptionalHashable(bloomFilter);
     }
 
     public static ColumnStatistics mergeColumnStatistics(List<ColumnStatistics> stats)

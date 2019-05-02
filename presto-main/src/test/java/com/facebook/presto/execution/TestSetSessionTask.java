@@ -14,18 +14,24 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.metadata.AnalyzePropertyManager;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AllowAllAccessControl;
-import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SetSession;
@@ -41,21 +47,27 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
-import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
+import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 public class TestSetSessionTask
 {
     private static final String CATALOG_NAME = "foo";
+    private static final String MUST_BE_POSITIVE = "property must be positive";
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final MetadataManager metadata;
@@ -73,21 +85,46 @@ public class TestSetSessionTask
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
+                new ColumnPropertyManager(),
+                new AnalyzePropertyManager(),
                 transactionManager);
 
-        metadata.getSessionPropertyManager().addSystemSessionProperty(stringSessionProperty(
+        metadata.getSessionPropertyManager().addSystemSessionProperty(stringProperty(
                 CATALOG_NAME,
                 "test property",
                 null,
                 false));
 
         Catalog bogusTestingCatalog = createBogusTestingCatalog(CATALOG_NAME);
-        metadata.getSessionPropertyManager().addConnectorSessionProperties(bogusTestingCatalog.getConnectorId(), ImmutableList.of(stringSessionProperty(
-                "bar",
-                "test property",
-                null,
-                false)));
+
+        List<PropertyMetadata<?>> sessionProperties = ImmutableList.of(
+                stringProperty(
+                        "bar",
+                        "test property",
+                        null,
+                        false),
+                new PropertyMetadata<>(
+                        "positive_property",
+                        "property that should be positive",
+                        INTEGER,
+                        Integer.class,
+                        null,
+                        false,
+                        value -> validatePositive(value),
+                        value -> value));
+
+        metadata.getSessionPropertyManager().addConnectorSessionProperties(bogusTestingCatalog.getConnectorId(), sessionProperties);
+
         catalogManager.registerCatalog(bogusTestingCatalog);
+    }
+
+    private static int validatePositive(Object value)
+    {
+        int intValue = ((Number) value).intValue();
+        if (intValue < 0) {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, MUST_BE_POSITIVE);
+        }
+        return intValue;
     }
 
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stage-executor-%s"));
@@ -108,25 +145,57 @@ public class TestSetSessionTask
     }
 
     @Test
+    public void testSetSessionWithValidation()
+    {
+        testSetSessionWithValidation(new LongLiteral("0"), "0");
+        testSetSessionWithValidation(new LongLiteral("2"), "2");
+
+        try {
+            testSetSessionWithValidation(new LongLiteral("-1"), "-1");
+            fail();
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getMessage(), MUST_BE_POSITIVE);
+        }
+    }
+
+    @Test
     public void testSetSessionWithParameters()
     {
         List<Expression> expressionList = new ArrayList<>();
         expressionList.add(new StringLiteral("ban"));
         expressionList.add(new Parameter(0));
-        testSetSessionWithParameters(new FunctionCall(QualifiedName.of("concat"), expressionList), "banana", ImmutableList.of(new StringLiteral("ana")));
+        testSetSessionWithParameters("bar", new FunctionCall(QualifiedName.of("concat"), expressionList), "banana", ImmutableList.of(new StringLiteral("ana")));
     }
 
     private void testSetSession(Expression expression, String expectedValue)
     {
-        testSetSessionWithParameters(expression, expectedValue, emptyList());
+        testSetSessionWithParameters("bar", expression, expectedValue, emptyList());
     }
 
-    private void testSetSessionWithParameters(Expression expression, String expectedValue, List<Expression> parameters)
+    private void testSetSessionWithValidation(Expression expression, String expectedValue)
     {
-        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "set foo.bar = 'baz'", TEST_SESSION, URI.create("fake://uri"), false, transactionManager, accessControl, executor, metadata);
-        getFutureValue(new SetSessionTask().execute(new SetSession(QualifiedName.of(CATALOG_NAME, "bar"), expression), transactionManager, metadata, accessControl, stateMachine, parameters));
+        testSetSessionWithParameters("positive_property", expression, expectedValue, emptyList());
+    }
+
+    private void testSetSessionWithParameters(String property, Expression expression, String expectedValue, List<Expression> parameters)
+    {
+        QualifiedName qualifiedPropName = QualifiedName.of(CATALOG_NAME, property);
+        QueryStateMachine stateMachine = QueryStateMachine.begin(
+                format("set %s = 'old_value'", qualifiedPropName),
+                TEST_SESSION,
+                URI.create("fake://uri"),
+                new ResourceGroupId("test"),
+                Optional.empty(),
+                false,
+                transactionManager,
+                accessControl,
+                executor,
+                metadata,
+                WarningCollector.NOOP);
+        getFutureValue(new SetSessionTask().execute(new SetSession(qualifiedPropName, expression), transactionManager, metadata, accessControl, stateMachine, parameters));
 
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();
-        assertEquals(sessionProperties, ImmutableMap.of("foo.bar", expectedValue));
+        assertEquals(sessionProperties, ImmutableMap.of(qualifiedPropName.toString(), expectedValue));
     }
 }

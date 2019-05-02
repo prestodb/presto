@@ -15,6 +15,9 @@ package com.facebook.presto.spi.block;
 
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
+import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -39,9 +42,9 @@ public class ArrayBlock
      * Create an array block directly from columnar nulls, values, and offsets into the values.
      * A null array must have no entries.
      */
-    public static Block fromElementBlock(int positionCount, boolean[] valueIsNull, int[] arrayOffset, Block values)
+    public static Block fromElementBlock(int positionCount, Optional<boolean[]> valueIsNull, int[] arrayOffset, Block values)
     {
-        validateConstructorArguments(0, positionCount, valueIsNull, arrayOffset, values);
+        validateConstructorArguments(0, positionCount, valueIsNull.orElse(null), arrayOffset, values);
         // for performance reasons per element checks are only performed on the public construction
         for (int i = 0; i < positionCount; i++) {
             int offset = arrayOffset[i];
@@ -49,23 +52,23 @@ public class ArrayBlock
             if (length < 0) {
                 throw new IllegalArgumentException(format("Offset is not monotonically ascending. offsets[%s]=%s, offsets[%s]=%s", i, arrayOffset[i], i + 1, arrayOffset[i + 1]));
             }
-            if (valueIsNull[i] && length != 0) {
+            if (valueIsNull.isPresent() && valueIsNull.get()[i] && length != 0) {
                 throw new IllegalArgumentException("A null array must have zero entries");
             }
         }
-        return new ArrayBlock(0, positionCount, valueIsNull, arrayOffset, values);
+        return new ArrayBlock(0, positionCount, valueIsNull.orElse(null), arrayOffset, values);
     }
 
     /**
      * Create an array block directly without per element validations.
      */
-    static ArrayBlock createArrayBlockInternal(int arrayOffset, int positionCount, boolean[] valueIsNull, int[] offsets, Block values)
+    static ArrayBlock createArrayBlockInternal(int arrayOffset, int positionCount, @Nullable boolean[] valueIsNull, int[] offsets, Block values)
     {
         validateConstructorArguments(arrayOffset, positionCount, valueIsNull, offsets, values);
         return new ArrayBlock(arrayOffset, positionCount, valueIsNull, offsets, values);
     }
 
-    private static void validateConstructorArguments(int arrayOffset, int positionCount, boolean[] valueIsNull, int[] offsets, Block values)
+    private static void validateConstructorArguments(int arrayOffset, int positionCount, @Nullable boolean[] valueIsNull, int[] offsets, Block values)
     {
         if (arrayOffset < 0) {
             throw new IllegalArgumentException("arrayOffset is negative");
@@ -75,8 +78,7 @@ public class ArrayBlock
             throw new IllegalArgumentException("positionCount is negative");
         }
 
-        requireNonNull(valueIsNull, "valueIsNull is null");
-        if (valueIsNull.length - arrayOffset < positionCount) {
+        if (valueIsNull != null && valueIsNull.length - arrayOffset < positionCount) {
             throw new IllegalArgumentException("isNull length is less than positionCount");
         }
 
@@ -92,7 +94,7 @@ public class ArrayBlock
      * Use createArrayBlockInternal or fromElementBlock instead of this method.  The caller of this method is assumed to have
      * validated the arguments with validateConstructorArguments.
      */
-    private ArrayBlock(int arrayOffset, int positionCount, boolean[] valueIsNull, int[] offsets, Block values)
+    private ArrayBlock(int arrayOffset, int positionCount, @Nullable boolean[] valueIsNull, int[] offsets, Block values)
     {
         // caller must check arguments with validateConstructorArguments
         this.arrayOffset = arrayOffset;
@@ -143,7 +145,7 @@ public class ArrayBlock
     }
 
     @Override
-    protected Block getValues()
+    protected Block getRawElementBlock()
     {
         return values;
     }
@@ -161,6 +163,7 @@ public class ArrayBlock
     }
 
     @Override
+    @Nullable
     protected boolean[] getValueIsNull()
     {
         return valueIsNull;
@@ -173,5 +176,21 @@ public class ArrayBlock
         sb.append("positionCount=").append(getPositionCount());
         sb.append('}');
         return sb.toString();
+    }
+
+    @Override
+    public Block getLoadedBlock()
+    {
+        Block loadedValuesBlock = values.getLoadedBlock();
+
+        if (loadedValuesBlock == values) {
+            return this;
+        }
+        return createArrayBlockInternal(
+                arrayOffset,
+                positionCount,
+                valueIsNull,
+                offsets,
+                loadedValuesBlock);
     }
 }

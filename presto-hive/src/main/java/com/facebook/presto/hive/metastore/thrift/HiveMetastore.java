@@ -13,21 +13,28 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
-import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
+import com.facebook.presto.hive.metastore.PartitionWithStatistics;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.RoleGrant;
+import com.facebook.presto.spi.statistics.ColumnStatisticType;
+import com.facebook.presto.spi.type.Type;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Partition;
-import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.metastore.api.Table;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
-import static com.facebook.presto.hive.metastore.Database.DEFAULT_DATABASE_NAME;
-import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
-import static org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 
 public interface HiveMetastore
 {
@@ -51,16 +58,11 @@ public interface HiveMetastore
 
     Optional<Database> getDatabase(String databaseName);
 
-    /**
-     * Adds partitions to the table in a single atomic task.  The implementation
-     * must either add all partitions and return normally, or add no partitions and
-     * throw an exception.
-     */
-    void addPartitions(String databaseName, String tableName, List<Partition> partitions);
+    void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions);
 
     void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData);
 
-    void alterPartition(String databaseName, String tableName, Partition partition);
+    void alterPartition(String databaseName, String tableName, PartitionWithStatistics partition);
 
     Optional<List<String>> getPartitionNames(String databaseName, String tableName);
 
@@ -72,48 +74,52 @@ public interface HiveMetastore
 
     Optional<Table> getTable(String databaseName, String tableName);
 
-    Optional<Set<ColumnStatisticsObj>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames);
+    Set<ColumnStatisticType> getSupportedColumnStatistics(Type type);
 
-    Optional<Map<String, Set<ColumnStatisticsObj>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames);
+    PartitionStatistics getTableStatistics(String databaseName, String tableName);
 
-    Set<String> getRoles(String user);
+    Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames);
 
-    Set<HivePrivilegeInfo> getDatabasePrivileges(String user, String databaseName);
+    void updateTableStatistics(String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update);
 
-    Set<HivePrivilegeInfo> getTablePrivileges(String user, String databaseName, String tableName);
+    void updatePartitionStatistics(String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update);
 
-    void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet);
+    void createRole(String role, String grantor);
 
-    void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet);
+    void dropRole(String role);
 
-    default boolean isDatabaseOwner(String user, String databaseName)
-    {
-        // all users are "owners" of the default database
-        if (DEFAULT_DATABASE_NAME.equalsIgnoreCase(databaseName)) {
-            return true;
-        }
+    Set<String> listRoles();
 
-        Optional<Database> databaseMetadata = getDatabase(databaseName);
-        if (!databaseMetadata.isPresent()) {
-            return false;
-        }
+    void grantRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor);
 
-        Database database = databaseMetadata.get();
+    void revokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor);
 
-        // a database can be owned by a user or role
-        if (database.getOwnerType() == USER && user.equals(database.getOwnerName())) {
-            return true;
-        }
-        if (database.getOwnerType() == ROLE && getRoles(user).contains(database.getOwnerName())) {
-            return true;
-        }
-        return false;
-    }
+    Set<RoleGrant> listRoleGrants(PrestoPrincipal principal);
+
+    void grantTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges);
+
+    void revokeTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges);
+
+    Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, PrestoPrincipal principal);
 
     default boolean isTableOwner(String user, String databaseName, String tableName)
     {
         // a table can only be owned by a user
         Optional<Table> table = getTable(databaseName, tableName);
         return table.isPresent() && user.equals(table.get().getOwner());
+    }
+
+    default Optional<List<FieldSchema>> getFields(String databaseName, String tableName)
+    {
+        Optional<Table> table = getTable(databaseName, tableName);
+        if (!table.isPresent()) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+
+        if (table.get().getSd() == null) {
+            throw new PrestoException(HIVE_INVALID_METADATA, "Table is missing storage descriptor");
+        }
+
+        return Optional.of(table.get().getSd().getCols());
     }
 }

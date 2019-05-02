@@ -61,7 +61,7 @@ public class TpcdsConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         int splitsPerNode = getSplitsPerNode(config);
         NodeManager nodeManager = context.getNodeManager();

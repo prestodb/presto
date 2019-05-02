@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -30,6 +30,7 @@ import java.util.Optional;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
@@ -37,16 +38,16 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 public class TestPruneOrderByInAggregation
         extends BaseRuleTest
 {
-    private static final FunctionRegistry functionRegistry = MetadataManager.createTestMetadataManager().getFunctionRegistry();
+    private static final FunctionManager FUNCTION_MANAGER = MetadataManager.createTestMetadataManager().getFunctionManager();
 
     @Test
     public void testBasics()
     {
-        tester().assertThat(new PruneOrderByInAggregation(functionRegistry))
+        tester().assertThat(new PruneOrderByInAggregation(FUNCTION_MANAGER))
                 .on(this::buildAggregation)
                 .matches(
                         aggregation(
-                                ImmutableList.of(ImmutableList.of("key")),
+                                singleGroupingSet("key"),
                                 ImmutableMap.of(
                                         Optional.of("avg"), functionCall("avg", ImmutableList.of("input")),
                                         Optional.of("array_agg"), functionCall(
@@ -69,7 +70,7 @@ public class TestPruneOrderByInAggregation
         Symbol mask = planBuilder.symbol("mask");
         List<Symbol> sourceSymbols = ImmutableList.of(input, key, keyHash, mask);
         return planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
-                .addGroupingSet(key)
+                .singleGroupingSet(key)
                 .addAggregation(avg, planBuilder.expression("avg(input order by input)"), ImmutableList.of(BIGINT), mask)
                 .addAggregation(arrayAgg, planBuilder.expression("array_agg(input order by input)"), ImmutableList.of(BIGINT), mask)
                 .hashSymbol(keyHash)

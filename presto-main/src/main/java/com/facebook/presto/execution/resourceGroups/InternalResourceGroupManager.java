@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryExecution;
+import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
 import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.PrestoException;
@@ -44,7 +43,6 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -55,7 +53,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -69,7 +66,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
 public final class InternalResourceGroupManager<C>
-        implements ResourceGroupManager
+        implements ResourceGroupManager<C>
 {
     private static final Logger log = Logger.get(InternalResourceGroupManager.class);
     private static final File RESOURCE_GROUPS_CONFIGURATION = new File("etc/resource-groups.properties");
@@ -110,19 +107,18 @@ public final class InternalResourceGroupManager<C>
     }
 
     @Override
-    public void submit(Statement statement, QueryExecution queryExecution, Executor executor)
+    public void submit(Statement statement, ManagedQueryExecution queryExecution, SelectionContext<C> selectionContext, Executor executor)
     {
         checkState(configurationManager.get() != null, "configurationManager not set");
-        SelectionContext<C> group;
-        try {
-            group = selectGroup(queryExecution);
-        }
-        catch (PrestoException e) {
-            queryExecution.fail(e);
-            return;
-        }
-        createGroupIfNecessary(group, executor);
-        groups.get(group.getResourceGroupId()).run(queryExecution);
+        createGroupIfNecessary(selectionContext, executor);
+        groups.get(selectionContext.getResourceGroupId()).run(queryExecution);
+    }
+
+    @Override
+    public SelectionContext<C> selectGroup(SelectionCriteria criteria)
+    {
+        return configurationManager.get().match(criteria)
+                .orElseThrow(() -> new PrestoException(QUERY_REJECTED, "Query did not match any selection rule"));
     }
 
     @Override
@@ -253,26 +249,6 @@ public final class InternalResourceGroupManager<C>
         catch (JmxException e) {
             log.error(e, "Error %s resource group %s", export ? "exporting" : "unexporting", group.getId());
         }
-    }
-
-    private SelectionContext<C> selectGroup(QueryExecution queryExecution)
-    {
-        Session session = queryExecution.getSession();
-        SelectionCriteria context = new SelectionCriteria(
-                session.getIdentity().getPrincipal().isPresent(),
-                session.getUser(),
-                session.getSource(),
-                session.getClientTags(),
-                getQueryPriority(session),
-                determineQueryType(queryExecution));
-
-        return configurationManager.get().match(context)
-                .orElseThrow(() -> new PrestoException(QUERY_REJECTED, "Query did not match any selection rule"));
-    }
-
-    private Optional<String> determineQueryType(QueryExecution queryExecution)
-    {
-        return queryExecution.getQueryType().map(Enum::toString);
     }
 
     @Managed

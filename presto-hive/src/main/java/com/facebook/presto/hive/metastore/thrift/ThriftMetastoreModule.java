@@ -14,11 +14,14 @@
 package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.hive.ForCachingHiveMetastore;
+import com.facebook.presto.hive.ForRecordingHiveMetastore;
+import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.RecordingHiveMetastore;
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
@@ -26,7 +29,7 @@ import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class ThriftMetastoreModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     private final String connectorId;
 
@@ -36,14 +39,34 @@ public class ThriftMetastoreModule
     }
 
     @Override
-    public void configure(Binder binder)
+    protected void setup(Binder binder)
     {
         binder.bind(HiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
         binder.bind(HiveCluster.class).to(StaticHiveCluster.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(StaticMetastoreConfig.class);
 
         binder.bind(HiveMetastore.class).to(ThriftHiveMetastore.class).in(Scopes.SINGLETON);
-        binder.bind(ExtendedHiveMetastore.class).annotatedWith(ForCachingHiveMetastore.class).to(BridgingHiveMetastore.class).in(Scopes.SINGLETON);
+
+        if (buildConfigObject(HiveClientConfig.class).getRecordingPath() != null) {
+            binder.bind(ExtendedHiveMetastore.class)
+                    .annotatedWith(ForRecordingHiveMetastore.class)
+                    .to(BridgingHiveMetastore.class)
+                    .in(Scopes.SINGLETON);
+            binder.bind(ExtendedHiveMetastore.class)
+                    .annotatedWith(ForCachingHiveMetastore.class)
+                    .to(RecordingHiveMetastore.class)
+                    .in(Scopes.SINGLETON);
+            binder.bind(RecordingHiveMetastore.class).in(Scopes.SINGLETON);
+            newExporter(binder).export(RecordingHiveMetastore.class)
+                    .as(generatedNameOf(RecordingHiveMetastore.class, connectorId));
+        }
+        else {
+            binder.bind(ExtendedHiveMetastore.class)
+                    .annotatedWith(ForCachingHiveMetastore.class)
+                    .to(BridgingHiveMetastore.class)
+                    .in(Scopes.SINGLETON);
+        }
+
         binder.bind(ExtendedHiveMetastore.class).to(CachingHiveMetastore.class).in(Scopes.SINGLETON);
         newExporter(binder).export(HiveMetastore.class)
                 .as(generatedNameOf(ThriftHiveMetastore.class, connectorId));

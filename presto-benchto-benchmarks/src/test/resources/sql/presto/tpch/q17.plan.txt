@@ -1,0 +1,22 @@
+final aggregation over ()
+    local exchange (GATHER, SINGLE, [])
+        remote exchange (GATHER, SINGLE, [])
+            partial aggregation over ()
+                cross join:
+                    join (RIGHT, PARTITIONED):
+                        final aggregation over (partkey_4)
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["partkey_4"])
+                                    partial aggregation over (partkey_4)
+                                        scan lineitem
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["partkey"])
+                                join (INNER, REPLICATED):
+                                    scan lineitem
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            scan part
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPLICATE, BROADCAST, [])
+                            single aggregation over ()
+                                values (1 rows)

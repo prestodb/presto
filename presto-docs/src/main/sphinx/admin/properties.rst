@@ -13,19 +13,27 @@ may be used to tune Presto or alter its behavior when required.
 General Properties
 ------------------
 
-``distributed-joins-enabled``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``join-distribution-type``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    * **Type:** ``boolean``
-    * **Default value:** ``true``
+    * **Type:** ``string``
+    * **Allowed values:** ``AUTOMATIC``, ``PARTITIONED``, ``BROADCAST``
+    * **Default value:** ``PARTITIONED``
 
-    Use hash distributed joins instead of broadcast joins. Distributed joins
-    require redistributing both tables using a hash of the join key. This can
-    be slower (sometimes substantially) than broadcast joins, but allows much
-    larger joins. Broadcast joins require that the tables on the right side of
-    the join after filtering fit in memory on each node, whereas distributed joins
-    only need to fit in distributed memory across all nodes. This can also be
-    specified on a per-query basis using the ``distributed_join`` session property.
+    The type of distributed join to use.  When set to ``PARTITIONED``, presto will
+    use hash distributed joins.  When set to ``BROADCAST``, it will broadcast the
+    right table to all nodes in the cluster that have data from the left table.
+    Partitioned joins require redistributing both tables using a hash of the join key.
+    This can be slower (sometimes substantially) than broadcast joins, but allows much
+    larger joins. In particular broadcast joins will be faster if the right table is
+    much smaller than the left.  However, broadcast joins require that the tables on the right
+    side of the join after filtering fit in memory on each node, whereas distributed joins
+    only need to fit in distributed memory across all nodes. When set to ``AUTOMATIC``,
+    Presto will make a cost based decision as to which distribution type is optimal.
+    It will also consider switching the left and right inputs to the join.  In ``AUTOMATIC``
+    mode, Presto will default to hash distributed joins if no cost could be computed, such as if
+    the tables do not have statistics. This can also be specified on a per-query basis using
+    the ``join_distribution_type`` session property.
 
 ``redistribute-writes``
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -40,23 +48,73 @@ General Properties
     redistributing all the data across the network. This can also be specified
     on a per-query basis using the ``redistribute_writes`` session property.
 
-``resources.reserved-system-memory``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. _tuning-memory:
+
+Memory Management Properties
+----------------------------
+
+``query.max-memory-per-node``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``data size``
-    * **Default value:** ``JVM max memory * 0.4``
+    * **Default value:** ``JVM max memory * 0.1``
 
-    The amount of JVM memory reserved, for accounting purposes, for things
-    that are not directly attributable to or controllable by a user query.
-    For example, output buffers, code caches, etc. This also accounts for
-    memory that is not tracked by the memory tracking system.
+    This is the max amount of user memory a query can use on a worker.
+    User memory is allocated during execution for things that are directly
+    attributable to or controllable by a user query. For example, memory used
+    by the hash tables built during execution, memory used during sorting, etc.
+    When the user memory allocation of a query on any worker hits this limit
+    it will be killed.
 
-    The purpose of this property is to prevent the JVM from running out of
-    memory (OOM). The default value is suitable for smaller JVM heap sizes or
-    clusters with many concurrent queries. If running fewer queries with a
-    large heap, a smaller value may work. Basically, set this value large
-    enough that the JVM does not fail with ``OutOfMemoryError``.
+``query.max-total-memory-per-node``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+    * **Type:** ``data size``
+    * **Default value:** ``JVM max memory * 0.3``
+
+    This is the max amount of user and system memory a query can use on a worker.
+    System memory is allocated during execution for things that are not directly
+    attributable to or controllable by a user query. For example, memory allocated
+    by the readers, writers, network buffers, etc. When the sum of the user and
+    system memory allocated by a query on any worker hits this limit it will be killed.
+    The value of ``query.max-total-memory-per-node`` must be greater than
+    ``query.max-memory-per-node``.
+
+``query.max-memory``
+^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``20GB``
+
+    This is the max amount of user memory a query can use across the entire cluster.
+    User memory is allocated during execution for things that are directly
+    attributable to or controllable by a user query. For example, memory used
+    by the hash tables built during execution, memory used during sorting, etc.
+    When the user memory allocation of a query across all workers hits this limit
+    it will be killed.
+
+``query.max-total-memory``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``query.max-total-memory * 2``
+
+    This is the max amount of user and system memory a query can use across the entire cluster.
+    System memory is allocated during execution for things that are not directly
+    attributable to or controllable by a user query. For example, memory allocated
+    by the readers, writers, network buffers, etc. When the sum of the user and
+    system memory allocated by a query across all workers hits this limit it will be
+    killed. The value of ``query.max-total-memory`` must be greater than
+    ``query.max-memory``.
+
+``memory.heap-headroom-per-node``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``JVM max memory * 0.3``
+
+    This is the amount of memory set aside as headroom/buffer in the JVM heap
+    for allocations that are not tracked by Presto.
 
 .. _tuning-spilling:
 
@@ -379,6 +437,12 @@ Node Scheduler Properties
     * **Allowed values:** ``legacy``, ``flat``
     * **Default value:** ``legacy``
 
+    Sets the network topology to use when scheduling splits. ``legacy`` will ignore
+    the topology when scheduling splits. ``flat`` will try to schedule splits on the host
+    where the data is located by reserving 50% of the work queue for local splits.
+    It is recommended to use ``flat`` for clusters where distributed storage runs on
+    the same nodes as Presto workers.
+
 
 Optimizer Properties
 --------------------
@@ -468,6 +532,33 @@ Optimizer Properties
     in an already heavily loaded system. This can also be specified on a per-query basis
     using the ``push_table_write_through_union`` session property.
 
+
+``optimizer.join-reordering-strategy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Allowed values:** ``AUTOMATIC``, ``ELIMINATE_CROSS_JOINS``, ``NONE``
+    * **Default value:** ``ELIMINATE_CROSS_JOINS``
+
+    The join reordering strategy to use.  ``NONE`` maintains the order the tables are listed in the
+    query.  ``ELIMINATE_CROSS_JOINS`` reorders joins to eliminate cross joins where possible and
+    otherwise maintains the original query order. When reordering joins it also strives to maintain the
+    original table order as much as possible. ``AUTOMATIC`` enumerates possible orders and uses
+    statistics-based cost estimation to determine the least cost order. If stats are not available or if
+    for any reason a cost could not be computed, the ``ELIMINATE_CROSS_JOINS`` strategy is used. This can
+    also be specified on a per-query basis using the ``join_reordering_strategy`` session property.
+
+``optimizer.max-reordered-joins``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``9``
+
+    When optimizer.join-reordering-strategy is set to cost-based, this property determines the maximum
+    number of joins that can be reordered at once.
+
+    .. warning:: The number of possible join orders scales factorially with the number of relations,
+                 so increasing this value can cause serious performance issues.
 
 Regular Expression Function Properties
 --------------------------------------

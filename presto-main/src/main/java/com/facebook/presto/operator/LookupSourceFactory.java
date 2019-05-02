@@ -26,6 +26,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Collections.emptyList;
 
 public interface LookupSourceFactory
+        extends JoinBridge
 {
     List<Type> getTypes();
 
@@ -49,6 +50,7 @@ public interface LookupSourceFactory
     /**
      * Can be called only after {@link #createLookupSourceProvider()} is done and all users of {@link LookupSource}-s finished.
      */
+    @Override
     OuterPositionIterator getOuterPositionIterator();
 
     Map<Symbol, Integer> getLayout();
@@ -56,16 +58,7 @@ public interface LookupSourceFactory
     // this is only here for the index lookup source
     default void setTaskContext(TaskContext taskContext) {}
 
-    default ListenableFuture<?> lendPartitionLookupSource(int partitionIndex, Supplier<LookupSource> partitionLookupSource)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    default void setPartitionSpilledLookupSourceHandle(int partitionIndex, SpilledLookupSourceHandle spilledLookupSourceHandle)
-    {
-        throw new UnsupportedOperationException();
-    }
-
+    @Override
     void destroy();
 
     default ListenableFuture<?> isDestroyed()

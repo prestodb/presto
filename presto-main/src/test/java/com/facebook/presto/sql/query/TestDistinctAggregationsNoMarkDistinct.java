@@ -22,6 +22,7 @@ public class TestDistinctAggregationsNoMarkDistinct
         extends TestDistinctAggregations
 {
     @BeforeClass
+    @Override
     public void init()
     {
         assertions = new QueryAssertions(testSessionBuilder()

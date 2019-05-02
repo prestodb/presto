@@ -1,0 +1,41 @@
+final aggregation over ()
+    local exchange (GATHER, SINGLE, [])
+        remote exchange (GATHER, SINGLE, [])
+            partial aggregation over ()
+                local exchange (GATHER, SINGLE, [])
+                    semijoin (PARTITIONED):
+                        semijoin (PARTITIONED):
+                            remote exchange (REPARTITION, HASH, ["ws_order_number"])
+                                join (INNER, REPLICATED):
+                                    join (INNER, REPLICATED):
+                                        join (INNER, REPLICATED):
+                                            scan web_sales
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    scan customer_address
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                scan date_dim
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            scan web_site
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["ws_order_number_17"])
+                                    join (INNER, PARTITIONED):
+                                        remote exchange (REPARTITION, HASH, ["ws_order_number_17"])
+                                            scan web_sales
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPARTITION, HASH, ["ws_order_number_51"])
+                                                scan web_sales
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["wr_order_number"])
+                                join (INNER, PARTITIONED):
+                                    remote exchange (REPARTITION, HASH, ["wr_order_number"])
+                                        join (INNER, REPLICATED):
+                                            scan web_sales
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    scan web_returns
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPARTITION, HASH, ["ws_order_number_141"])
+                                            scan web_sales

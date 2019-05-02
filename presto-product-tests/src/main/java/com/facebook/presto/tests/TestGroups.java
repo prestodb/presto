@@ -22,7 +22,6 @@ public final class TestGroups
     public static final String QUARANTINE = "quarantine";
     public static final String FUNCTIONS = "functions";
     public static final String CLI = "cli";
-    public static final String HIVE_CONNECTOR = "hive_connector";
     public static final String SYSTEM_CONNECTOR = "system";
     public static final String JMX_CONNECTOR = "jmx";
     public static final String BLACKHOLE_CONNECTOR = "blackhole";
@@ -49,7 +48,7 @@ public final class TestGroups
     public static final String PROFILE_SPECIFIC_TESTS = "profile_specific_tests";
     public static final String HDFS_IMPERSONATION = "hdfs_impersonation";
     public static final String HDFS_NO_IMPERSONATION = "hdfs_no_impersonation";
-    public static final String BASIC_SQL = "basic_sql";
+    public static final String HIVE_PARTITIONING = "hive_partitioning";
     public static final String AUTHORIZATION = "authorization";
     public static final String POST_HIVE_1_0_1 = "post_hive_1_0_1";
     public static final String HIVE_COERCION = "hive_coercion";
@@ -59,8 +58,12 @@ public final class TestGroups
     public static final String LDAP_CLI = "ldap_cli";
     public static final String SKIP_ON_CDH = "skip_on_cdh";
     public static final String TLS = "tls";
+    public static final String ROLES = "roles";
     public static final String CANCEL_QUERY = "cancel_query";
     public static final String BIG_QUERY = "big_query";
+    public static final String HIVE_TABLE_STATISTICS = "hive_table_statistics";
+    public static final String KAFKA = "kafka";
+    public static final String AVRO = "avro";
 
     private TestGroups() {}
 }

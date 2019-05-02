@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.function.LongVariableConstraint;
+import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.TypeVariableConstraint;
+import com.facebook.presto.spi.type.FunctionType;
 import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.ParameterKind;
 import com.facebook.presto.spi.type.Type;
@@ -20,7 +24,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
-import com.facebook.presto.type.FunctionType;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -172,6 +175,30 @@ public class SignatureBinder
                 .collect(toList());
 
         return new TypeSignature(baseType, parameters);
+    }
+
+    public static List<Type> applyBoundVariables(TypeManager typeManager, List<TypeSignature> typeSignatures, BoundVariables boundVariables)
+    {
+        ImmutableList.Builder<Type> builder = ImmutableList.builder();
+        for (TypeSignature typeSignature : typeSignatures) {
+            builder.add(applyBoundVariables(typeManager, typeSignature, boundVariables));
+        }
+        return builder.build();
+    }
+
+    public static Type applyBoundVariables(TypeManager typeManager, TypeSignature typeSignature, BoundVariables boundVariables)
+    {
+        String baseType = typeSignature.getBase();
+        if (boundVariables.containsTypeVariable(baseType)) {
+            checkState(typeSignature.getParameters().isEmpty(), "Type parameters cannot have parameters");
+            return boundVariables.getTypeVariable(baseType);
+        }
+
+        List<TypeSignatureParameter> parameters = typeSignature.getParameters().stream()
+                .map(typeSignatureParameter -> applyBoundVariables(typeSignatureParameter, boundVariables))
+                .collect(toList());
+
+        return typeManager.getParameterizedType(baseType, parameters);
     }
 
     /**
@@ -457,7 +484,7 @@ public class SignatureBinder
                 NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
                 TypeSignature typeSignature = namedTypeSignature.getTypeSignature();
                 return TypeSignatureParameter.of(new NamedTypeSignature(
-                        namedTypeSignature.getName(),
+                        namedTypeSignature.getFieldName(),
                         applyBoundVariables(typeSignature, boundVariables)));
             }
             case VARIABLE: {

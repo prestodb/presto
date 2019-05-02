@@ -15,24 +15,26 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.FilterNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 
-import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.isDefaultFilterFactorEnabled;
+import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
+import static com.facebook.presto.sql.planner.plan.Patterns.filter;
+
 public class FilterStatsRule
-        implements ComposableStatsCalculator.Rule
+        extends SimpleStatsRule<FilterNode>
 {
-    private static final Pattern<FilterNode> PATTERN = Pattern.typeOf(FilterNode.class);
+    private static final Pattern<FilterNode> PATTERN = filter();
 
     private final FilterStatsCalculator filterStatsCalculator;
 
-    public FilterStatsRule(FilterStatsCalculator filterStatsCalculator)
+    public FilterStatsRule(StatsNormalizer normalizer, FilterStatsCalculator filterStatsCalculator)
     {
+        super(normalizer);
         this.filterStatsCalculator = filterStatsCalculator;
     }
 
@@ -43,10 +45,13 @@ public class FilterStatsRule
     }
 
     @Override
-    public Optional<PlanNodeStatsEstimate> calculate(PlanNode node, StatsProvider statsProvider, Lookup lookup, Session session, Map<Symbol, Type> types)
+    public Optional<PlanNodeStatsEstimate> doCalculate(FilterNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types)
     {
-        FilterNode filterNode = (FilterNode) node;
-        PlanNodeStatsEstimate sourceStats = statsProvider.getStats(filterNode.getSource());
-        return Optional.of(filterStatsCalculator.filterStats(sourceStats, filterNode.getPredicate(), session, types));
+        PlanNodeStatsEstimate sourceStats = statsProvider.getStats(node.getSource());
+        PlanNodeStatsEstimate estimate = filterStatsCalculator.filterStats(sourceStats, node.getPredicate(), session, types);
+        if (isDefaultFilterFactorEnabled(session) && estimate.isOutputRowCountUnknown()) {
+            estimate = sourceStats.mapOutputRowCount(sourceRowCount -> sourceStats.getOutputRowCount() * UNKNOWN_FILTER_COEFFICIENT);
+        }
+        return Optional.of(estimate);
     }
 }

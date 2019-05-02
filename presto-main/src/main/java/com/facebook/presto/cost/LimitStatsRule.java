@@ -15,19 +15,23 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.LimitNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 
-import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.Patterns.limit;
+
 public class LimitStatsRule
-        implements ComposableStatsCalculator.Rule
+        extends SimpleStatsRule<LimitNode>
 {
-    private static final Pattern<LimitNode> PATTERN = Pattern.typeOf(LimitNode.class);
+    private static final Pattern<LimitNode> PATTERN = limit();
+
+    public LimitStatsRule(StatsNormalizer normalizer)
+    {
+        super(normalizer);
+    }
 
     @Override
     public Pattern<LimitNode> getPattern()
@@ -36,18 +40,16 @@ public class LimitStatsRule
     }
 
     @Override
-    public Optional<PlanNodeStatsEstimate> calculate(PlanNode node, StatsProvider statsProvider, Lookup lookup, Session session, Map<Symbol, Type> types)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(LimitNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types)
     {
-        LimitNode limitNode = (LimitNode) node;
-
-        PlanNodeStatsEstimate sourceStats = statsProvider.getStats(limitNode.getSource());
-        if (sourceStats.getOutputRowCount() <= limitNode.getCount()) {
+        PlanNodeStatsEstimate sourceStats = statsProvider.getStats(node.getSource());
+        if (sourceStats.getOutputRowCount() <= node.getCount()) {
             return Optional.of(sourceStats);
         }
 
         // LIMIT actually limits (or when there was no row count estimated for source)
         return Optional.of(PlanNodeStatsEstimate.buildFrom(sourceStats)
-                .setOutputRowCount(limitNode.getCount())
+                .setOutputRowCount(node.getCount())
                 .build());
     }
 }

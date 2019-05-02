@@ -14,7 +14,8 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -43,13 +44,15 @@ public class Analyzer
     private final Session session;
     private final Optional<QueryExplainer> queryExplainer;
     private final List<Expression> parameters;
+    private final WarningCollector warningCollector;
 
     public Analyzer(Session session,
             Metadata metadata,
             SqlParser sqlParser,
             AccessControl accessControl,
             Optional<QueryExplainer> queryExplainer,
-            List<Expression> parameters)
+            List<Expression> parameters,
+            WarningCollector warningCollector)
     {
         this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -57,6 +60,7 @@ public class Analyzer
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.queryExplainer = requireNonNull(queryExplainer, "query explainer is null");
         this.parameters = parameters;
+        this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
     }
 
     public Analysis analyze(Statement statement)
@@ -66,16 +70,25 @@ public class Analyzer
 
     public Analysis analyze(Statement statement, boolean isDescribe)
     {
-        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, accessControl);
+        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, accessControl, warningCollector);
         Analysis analysis = new Analysis(rewrittenStatement, parameters, isDescribe);
-        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session);
+        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
         analyzer.analyze(rewrittenStatement, Optional.empty());
+
+        // check column access permissions for each table
+        analysis.getTableColumnReferences().forEach((accessControlInfo, tableColumnReferences) ->
+                tableColumnReferences.forEach((tableName, columns) ->
+                        accessControlInfo.getAccessControl().checkCanSelectFromColumns(
+                                session.getRequiredTransactionId(),
+                                accessControlInfo.getIdentity(),
+                                tableName,
+                                columns)));
         return analysis;
     }
 
-    static void verifyNoAggregateWindowOrGroupingFunctions(FunctionRegistry functionRegistry, Expression predicate, String clause)
+    static void verifyNoAggregateWindowOrGroupingFunctions(FunctionManager functionManager, Expression predicate, String clause)
     {
-        List<FunctionCall> aggregates = extractAggregateFunctions(ImmutableList.of(predicate), functionRegistry);
+        List<FunctionCall> aggregates = extractAggregateFunctions(ImmutableList.of(predicate), functionManager);
 
         List<FunctionCall> windowExpressions = extractWindowFunctions(ImmutableList.of(predicate));
 

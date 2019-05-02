@@ -159,6 +159,6 @@ public class StageInfo
 
     public boolean isCompleteInfo()
     {
-        return state.isDone() && tasks.stream().allMatch(TaskInfo::isComplete);
+        return state.isDone() && tasks.stream().allMatch(taskInfo -> taskInfo.getTaskStatus().getState().isDone());
     }
 }

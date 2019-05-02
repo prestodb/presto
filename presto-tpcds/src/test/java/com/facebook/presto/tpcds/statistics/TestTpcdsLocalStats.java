@@ -21,7 +21,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SystemSessionProperties.ENABLE_NEW_STATS_CALCULATOR;
+import static com.facebook.presto.SystemSessionProperties.PRINT_STATS_FOR_NON_JOIN_QUERY;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.absoluteError;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.defaultTolerance;
@@ -33,7 +33,6 @@ import static java.util.Collections.emptyMap;
 
 public class TestTpcdsLocalStats
 {
-    private LocalQueryRunner queryRunner;
     private StatisticsAssertion statisticsAssertion;
 
     @BeforeClass
@@ -42,10 +41,10 @@ public class TestTpcdsLocalStats
         Session defaultSession = testSessionBuilder()
                 .setCatalog("tpcds")
                 .setSchema("sf1")
-                .setSystemProperty(ENABLE_NEW_STATS_CALCULATOR, "true")
+                .setSystemProperty(PRINT_STATS_FOR_NON_JOIN_QUERY, "true")
                 .build();
 
-        queryRunner = new LocalQueryRunner(defaultSession);
+        LocalQueryRunner queryRunner = new LocalQueryRunner(defaultSession);
         queryRunner.createCatalog("tpcds", new TpcdsConnectorFactory(), emptyMap());
         statisticsAssertion = new StatisticsAssertion(queryRunner);
     }
@@ -53,11 +52,8 @@ public class TestTpcdsLocalStats
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
+        statisticsAssertion.close();
         statisticsAssertion = null;
-        if (queryRunner != null) {
-            queryRunner.close();
-            queryRunner = null;
-        }
     }
 
     @Test
@@ -121,5 +117,14 @@ public class TestTpcdsLocalStats
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, noError()));
         statisticsAssertion.check("SELECT * FROM promotion WHERE p_cost < 2000.0", // p_cost is always 1000.00, so all rows should be left
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, noError()));
+    }
+
+    @Test
+    public void testIn()
+    {
+        statisticsAssertion.check("SELECT * FROM item WHERE i_category IN ('Women                                             ')",
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
+        statisticsAssertion.check("SELECT * FROM ship_mode WHERE sm_carrier IN ('DHL                 ', 'BARIAN              ')",
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
     }
 }

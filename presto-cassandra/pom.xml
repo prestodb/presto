@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.198</version>
+        <version>0.219</version>
     </parent>
 
     <artifactId>presto-cassandra</artifactId>
@@ -75,6 +75,12 @@
         <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>joda-to-java-time-bridge</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -187,6 +193,20 @@
                             <artifactId>cassandra-unit</artifactId>
                         </dependency>
                     </ignoredDependencies>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <configuration>
+                    <rules>
+                        <requireUpperBoundDeps>
+                            <excludes combine.children="append">
+                                <exclude>org.yaml:snakeyaml</exclude>
+                            </excludes>
+                        </requireUpperBoundDeps>
+                    </rules>
                 </configuration>
             </plugin>
         </plugins>

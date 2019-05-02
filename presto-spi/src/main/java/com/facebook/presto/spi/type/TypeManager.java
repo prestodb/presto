@@ -44,11 +44,7 @@ public interface TypeManager
 
     Optional<Type> getCommonSuperType(Type firstType, Type secondType);
 
-    default boolean canCoerce(Type actualType, Type expectedType)
-    {
-        Optional<Type> commonSuperType = getCommonSuperType(actualType, expectedType);
-        return commonSuperType.isPresent() && commonSuperType.get().equals(expectedType);
-    }
+    boolean canCoerce(Type actualType, Type expectedType);
 
     boolean isTypeOnlyCoercion(Type actualType, Type expectedType);
 

@@ -20,17 +20,18 @@ import com.amazonaws.services.glue.model.SerDeInfo;
 import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.amazonaws.services.glue.model.Table;
 import com.facebook.presto.hive.HiveType;
-import com.facebook.presto.hive.metastore.PrincipalType;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
+import com.facebook.presto.spi.security.PrincipalType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.hadoop.hive.metastore.TableType;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
+
+import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 
 public final class TestingMetastoreObjects
 {
@@ -56,7 +57,7 @@ public final class TestingMetastoreObjects
                 .withParameters(ImmutableMap.of())
                 .withPartitionKeys(ImmutableList.of(getGlueTestColumn()))
                 .withStorageDescriptor(getGlueTestStorageDescriptor())
-                .withTableType(TableType.EXTERNAL_TABLE.name())
+                .withTableType(EXTERNAL_TABLE.name())
                 .withViewOriginalText("originalText")
                 .withViewExpandedText("expandedText");
     }
@@ -114,7 +115,7 @@ public final class TestingMetastoreObjects
                 .setTableName("test-tbl" + generateRandom())
                 .setOwner("owner")
                 .setParameters(ImmutableMap.of())
-                .setTableType(TableType.EXTERNAL_TABLE.name())
+                .setTableType(EXTERNAL_TABLE)
                 .setDataColumns(ImmutableList.of(getPrestoTestColumn()))
                 .setPartitionColumns(ImmutableList.of(getPrestoTestColumn()))
                 .setViewOriginalText(Optional.of("originalText"))
@@ -141,9 +142,9 @@ public final class TestingMetastoreObjects
     private static final Consumer<Storage.Builder> STORAGE_CONSUMER = storage ->
     {
         storage.setStorageFormat(StorageFormat.create("SerdeLib", "InputFormat", "OutputFormat"))
-            .setLocation("/test-tbl")
-            .setBucketProperty(Optional.empty())
-            .setSerdeParameters(ImmutableMap.of());
+                .setLocation("/test-tbl")
+                .setBucketProperty(Optional.empty())
+                .setSerdeParameters(ImmutableMap.of());
     };
 
     private static String generateRandom()

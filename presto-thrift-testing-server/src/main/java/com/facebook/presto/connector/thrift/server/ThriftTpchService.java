@@ -45,6 +45,7 @@ import io.airlift.tpch.TpchTable;
 import javax.annotation.Nullable;
 import javax.annotation.PreDestroy;
 
+import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -64,7 +65,7 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.stream.Collectors.toList;
 
 public class ThriftTpchService
-        implements PrestoThriftService
+        implements PrestoThriftService, Closeable
 {
     private static final int DEFAULT_NUMBER_OF_SPLITS = 3;
     private static final List<String> SCHEMAS = ImmutableList.of("tiny", "sf1");
@@ -120,7 +121,6 @@ public class ThriftTpchService
             PrestoThriftTupleDomain outputConstraint,
             int maxSplitCount,
             PrestoThriftNullableToken nextToken)
-            throws PrestoThriftServiceException
     {
         return executor.submit(() -> getSplitsSync(schemaTableName, maxSplitCount, nextToken));
     }
@@ -129,7 +129,6 @@ public class ThriftTpchService
             PrestoThriftSchemaTableName schemaTableName,
             int maxSplitCount,
             PrestoThriftNullableToken nextToken)
-            throws PrestoThriftServiceException
     {
         int totalParts = DEFAULT_NUMBER_OF_SPLITS;
         // last sent part
@@ -159,7 +158,6 @@ public class ThriftTpchService
             PrestoThriftTupleDomain outputConstraint,
             int maxSplitCount,
             PrestoThriftNullableToken nextToken)
-            throws PrestoThriftServiceException
     {
         return executor.submit(() -> getIndexSplitsSync(schemaTableName, indexColumnNames, keys, maxSplitCount, nextToken));
     }

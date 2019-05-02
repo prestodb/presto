@@ -11,8 +11,8 @@ Synopsis
 
     where option can be one of:
 
-        FORMAT { TEXT | GRAPHVIZ }
-        TYPE { LOGICAL | DISTRIBUTED | VALIDATE }
+        FORMAT { TEXT | GRAPHVIZ | JSON }
+        TYPE { LOGICAL | DISTRIBUTED | VALIDATE | IO }
 
 Description
 -----------
@@ -105,6 +105,51 @@ Validate:
      Valid
     -------
      true
+
+IO:
+
+.. code-block:: none
+
+
+    presto:hive> EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_nation SELECT * FROM nation WHERE regionkey = 2;
+                Query Plan
+    -----------------------------------
+     {
+       "inputTableColumnInfos" : [ {
+         "table" : {
+           "catalog" : "hive",
+           "schemaTable" : {
+             "schema" : "tpch",
+             "table" : "nation"
+           }
+         },
+         "columns" : [ {
+           "columnName" : "regionkey",
+           "type" : "bigint",
+           "domain" : {
+             "nullsAllowed" : false,
+             "ranges" : [ {
+               "low" : {
+                 "value" : "2",
+                 "bound" : "EXACTLY"
+               },
+               "high" : {
+                 "value" : "2",
+                 "bound" : "EXACTLY"
+               }
+             } ]
+           }
+         } ]
+       } ],
+       "outputTable" : {
+         "catalog" : "hive",
+         "schemaTable" : {
+           "schema" : "tpch",
+           "table" : "test_nation"
+         }
+       }
+     }
+
 
 See Also
 --------

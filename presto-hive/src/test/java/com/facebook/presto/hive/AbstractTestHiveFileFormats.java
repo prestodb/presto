@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.BlockSerdeUtil;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -22,7 +23,7 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DateType;
@@ -38,6 +39,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.StructuralTestUtil;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -106,6 +108,7 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.facebook.presto.tests.StructuralTestUtil.arrayBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.decimalArrayBlockOf;
@@ -415,8 +418,8 @@ public abstract class AbstractTestHiveFileFormats
                                             ImmutableList.of("s_int"),
                                             ImmutableList.of(javaIntObjectInspector)))),
                     ImmutableMap.of("test", ImmutableList.<Object>of(new Integer[] {1})),
-                    mapBlockOf(createUnboundedVarcharType(), new ArrayType(new RowType(ImmutableList.of(INTEGER), Optional.empty())),
-                            "test", arrayBlockOf(new RowType(ImmutableList.of(INTEGER), Optional.empty()), rowBlockOf(ImmutableList.of(INTEGER), 1L)))))
+                    mapBlockOf(createUnboundedVarcharType(), new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER))),
+                            "test", arrayBlockOf(RowType.anonymous(ImmutableList.of(INTEGER)), rowBlockOf(ImmutableList.of(INTEGER), 1L)))))
             .add(new TestColumn("t_map_null_key_complex_value",
                     getStandardMapObjectInspector(
                             javaStringObjectInspector,
@@ -449,7 +452,7 @@ public abstract class AbstractTestHiveFileFormats
                             ImmutableList.of(
                                     INTEGER,
                                     createUnboundedVarcharType(),
-                                    new RowType(ImmutableList.of(INTEGER, createUnboundedVarcharType()), Optional.empty())),
+                                    RowType.anonymous(ImmutableList.of(INTEGER, createUnboundedVarcharType()))),
                             null, "some string", rowBlockOf(ImmutableList.of(INTEGER, createUnboundedVarcharType()), null, "nested_string2"))))
             .add(new TestColumn("t_map_null_value",
                     getStandardMapObjectInspector(javaStringObjectInspector, javaStringObjectInspector),
@@ -460,6 +463,8 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_array_string_ending_with_nulls", getStandardListObjectInspector(javaStringObjectInspector), Arrays.asList("test", null), arrayBlockOf(createUnboundedVarcharType(), "test", null)))
             .add(new TestColumn("t_array_string_all_nulls", getStandardListObjectInspector(javaStringObjectInspector), Arrays.asList(null, null, null), arrayBlockOf(createUnboundedVarcharType(), null, null, null)))
             .build();
+
+    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
 
     private static <K, V> Map<K, V> asMap(K[] keys, V[] values)
     {
@@ -611,7 +616,57 @@ public abstract class AbstractTestHiveFileFormats
     private static <T> T newInstance(String className, Class<T> superType)
             throws ReflectiveOperationException
     {
-        return HiveStorageFormat.class.getClassLoader().loadClass(className).asSubclass(superType).newInstance();
+        return HiveStorageFormat.class.getClassLoader().loadClass(className).asSubclass(superType).getConstructor().newInstance();
+    }
+
+    public static Object getFieldFromCursor(RecordCursor cursor, Type type, int field)
+    {
+        if (cursor.isNull(field)) {
+            return null;
+        }
+        else if (BOOLEAN.equals(type)) {
+            return cursor.getBoolean(field);
+        }
+        else if (TINYINT.equals(type)) {
+            return cursor.getLong(field);
+        }
+        else if (SMALLINT.equals(type)) {
+            return cursor.getLong(field);
+        }
+        else if (INTEGER.equals(type)) {
+            return (int) cursor.getLong(field);
+        }
+        else if (BIGINT.equals(type)) {
+            return cursor.getLong(field);
+        }
+        else if (REAL.equals(type)) {
+            return intBitsToFloat((int) cursor.getLong(field));
+        }
+        else if (DOUBLE.equals(type)) {
+            return cursor.getDouble(field);
+        }
+        else if (isVarcharType(type) || isCharType(type) || VARBINARY.equals(type)) {
+            return cursor.getSlice(field);
+        }
+        else if (DateType.DATE.equals(type)) {
+            return cursor.getLong(field);
+        }
+        else if (TimestampType.TIMESTAMP.equals(type)) {
+            return cursor.getLong(field);
+        }
+        else if (isStructuralType(type)) {
+            return cursor.getObject(field);
+        }
+        else if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            if (decimalType.isShort()) {
+                return BigInteger.valueOf(cursor.getLong(field));
+            }
+            else {
+                return Decimals.decodeUnscaledValue(cursor.getSlice(field));
+            }
+        }
+        throw new RuntimeException("unknown type");
     }
 
     protected void checkCursor(RecordCursor cursor, List<TestColumn> testColumns, int rowCount)
@@ -621,69 +676,18 @@ public abstract class AbstractTestHiveFileFormats
             for (int i = 0, testColumnsSize = testColumns.size(); i < testColumnsSize; i++) {
                 TestColumn testColumn = testColumns.get(i);
 
-                Object fieldFromCursor;
                 Type type = HiveType.valueOf(testColumn.getObjectInspector().getTypeName()).getType(TYPE_MANAGER);
-                if (cursor.isNull(i)) {
-                    fieldFromCursor = null;
-                }
-                else if (BOOLEAN.equals(type)) {
-                    fieldFromCursor = cursor.getBoolean(i);
-                }
-                else if (TINYINT.equals(type)) {
-                    fieldFromCursor = cursor.getLong(i);
-                }
-                else if (SMALLINT.equals(type)) {
-                    fieldFromCursor = cursor.getLong(i);
-                }
-                else if (INTEGER.equals(type)) {
-                    fieldFromCursor = cursor.getLong(i);
-                }
-                else if (BIGINT.equals(type)) {
-                    fieldFromCursor = cursor.getLong(i);
-                }
-                else if (REAL.equals(type)) {
-                    fieldFromCursor = cursor.getLong(i);
-                }
-                else if (DOUBLE.equals(type)) {
-                    fieldFromCursor = cursor.getDouble(i);
-                }
-                else if (isVarcharType(type)) {
-                    fieldFromCursor = cursor.getSlice(i);
-                }
-                else if (isCharType(type)) {
-                    fieldFromCursor = cursor.getSlice(i);
-                }
-                else if (VARBINARY.equals(type)) {
-                    fieldFromCursor = cursor.getSlice(i);
-                }
-                else if (DateType.DATE.equals(type)) {
-                    fieldFromCursor = cursor.getLong(i);
-                }
-                else if (TimestampType.TIMESTAMP.equals(type)) {
-                    fieldFromCursor = cursor.getLong(i);
-                }
-                else if (isStructuralType(type)) {
-                    fieldFromCursor = cursor.getObject(i);
-                }
-                else if (type instanceof DecimalType) {
-                    DecimalType decimalType = (DecimalType) type;
-                    if (decimalType.isShort()) {
-                        fieldFromCursor = new BigDecimal(BigInteger.valueOf(cursor.getLong(i)), decimalType.getScale());
-                    }
-                    else {
-                        fieldFromCursor = new BigDecimal(Decimals.decodeUnscaledValue(cursor.getSlice(i)), decimalType.getScale());
-                    }
-                }
-                else {
-                    throw new RuntimeException("unknown type");
-                }
-
+                Object fieldFromCursor = getFieldFromCursor(cursor, type, i);
                 if (fieldFromCursor == null) {
                     assertEquals(null, testColumn.getExpectedValue(), String.format("Expected null for column %s", testColumn.getName()));
                 }
+                else if (type instanceof DecimalType) {
+                    DecimalType decimalType = (DecimalType) type;
+                    fieldFromCursor = new BigDecimal((BigInteger) fieldFromCursor, decimalType.getScale());
+                    assertEquals(fieldFromCursor, testColumn.getExpectedValue(), String.format("Wrong value for column %s", testColumn.getName()));
+                }
                 else if (testColumn.getObjectInspector().getTypeName().equals("float")) {
-                    int intBits = (int) ((long) fieldFromCursor);
-                    assertEquals(intBitsToFloat(intBits), (float) testColumn.getExpectedValue(), (float) EPSILON);
+                    assertEquals((float) fieldFromCursor, (float) testColumn.getExpectedValue(), (float) EPSILON);
                 }
                 else if (testColumn.getObjectInspector().getTypeName().equals("double")) {
                     assertEquals((double) fieldFromCursor, (double) testColumn.getExpectedValue(), EPSILON);
@@ -747,7 +751,7 @@ public abstract class AbstractTestHiveFileFormats
                         assertEquals(actualValue, expectedValue);
                     }
                     else if (testColumn.getObjectInspector().getTypeName().equals("timestamp")) {
-                        SqlTimestamp expectedTimestamp = new SqlTimestamp((Long) expectedValue, SESSION.getTimeZoneKey());
+                        SqlTimestamp expectedTimestamp = sqlTimestampOf((Long) expectedValue, SESSION);
                         assertEquals(actualValue, expectedTimestamp, "Wrong value for column " + testColumn.getName());
                     }
                     else if (testColumn.getObjectInspector().getTypeName().startsWith("char")) {
@@ -771,7 +775,7 @@ public abstract class AbstractTestHiveFileFormats
                         assertEquals(actualValue, expectedValue, "Wrong value for column " + testColumn.getName());
                     }
                     else {
-                        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
+                        BlockBuilder builder = type.createBlockBuilder(null, 1);
                         type.writeObject(builder, expectedValue);
                         expectedValue = type.getObjectValue(SESSION, builder.build(), 0);
                         assertEquals(actualValue, expectedValue, "Wrong value for column " + testColumn.getName());
@@ -784,16 +788,16 @@ public abstract class AbstractTestHiveFileFormats
         }
     }
 
-    private static void assertBlockEquals(Block actual, Block expected, String message)
+    private void assertBlockEquals(Block actual, Block expected, String message)
     {
         assertEquals(blockToSlice(actual), blockToSlice(expected), message);
     }
 
-    private static Slice blockToSlice(Block block)
+    private Slice blockToSlice(Block block)
     {
         // This function is strictly for testing use only
         SliceOutput sliceOutput = new DynamicSliceOutput(1000);
-        BlockSerdeUtil.writeBlock(sliceOutput, block);
+        BlockSerdeUtil.writeBlock(blockEncodingSerde, sliceOutput, block);
         return sliceOutput.slice();
     }
 

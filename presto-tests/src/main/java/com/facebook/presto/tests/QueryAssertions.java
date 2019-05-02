@@ -14,10 +14,13 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.testing.QueryRunner.MaterializedResultWithPlan;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Iterables;
@@ -29,7 +32,9 @@ import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Strings.nullToEmpty;
@@ -51,11 +56,28 @@ public final class QueryAssertions
     {
     }
 
-    public static void assertUpdate(QueryRunner queryRunner, Session session, @Language("SQL") String sql, OptionalLong count)
+    public static void assertUpdate(QueryRunner queryRunner, Session session, @Language("SQL") String sql, OptionalLong count, Optional<Consumer<Plan>> planAssertion)
     {
         long start = System.nanoTime();
-        MaterializedResult results = queryRunner.execute(session, sql);
-        log.info("FINISHED in presto: %s", nanosSince(start));
+        MaterializedResult results;
+        Plan queryPlan;
+        if (planAssertion.isPresent()) {
+            MaterializedResultWithPlan resultWithPlan = queryRunner.executeWithPlan(session, sql, WarningCollector.NOOP);
+            queryPlan = resultWithPlan.getQueryPlan();
+            results = resultWithPlan.getMaterializedResult().toTestTypes();
+        }
+        else {
+            queryPlan = null;
+            results = queryRunner.execute(session, sql);
+        }
+        Duration queryTime = nanosSince(start);
+        if (queryTime.compareTo(Duration.succinctDuration(1, SECONDS)) > 0) {
+            log.info("FINISHED in presto: %s", queryTime);
+        }
+
+        if (planAssertion.isPresent()) {
+            planAssertion.get().accept(queryPlan);
+        }
 
         if (!results.getUpdateType().isPresent()) {
             fail("update type is not set");
@@ -72,7 +94,8 @@ public final class QueryAssertions
         }
     }
 
-    public static void assertQuery(QueryRunner actualQueryRunner,
+    public static void assertQuery(
+            QueryRunner actualQueryRunner,
             Session session,
             @Language("SQL") String actual,
             H2QueryRunner h2QueryRunner,
@@ -80,13 +103,55 @@ public final class QueryAssertions
             boolean ensureOrdering,
             boolean compareUpdate)
     {
+        assertQuery(actualQueryRunner, session, actual, h2QueryRunner, expected, ensureOrdering, compareUpdate, Optional.empty());
+    }
+
+    public static void assertQuery(
+            QueryRunner actualQueryRunner,
+            Session session,
+            @Language("SQL") String actual,
+            H2QueryRunner h2QueryRunner,
+            @Language("SQL") String expected,
+            boolean ensureOrdering,
+            boolean compareUpdate,
+            Consumer<Plan> planAssertion)
+    {
+        assertQuery(actualQueryRunner, session, actual, h2QueryRunner, expected, ensureOrdering, compareUpdate, Optional.of(planAssertion));
+    }
+
+    private static void assertQuery(
+            QueryRunner actualQueryRunner,
+            Session session,
+            @Language("SQL") String actual,
+            H2QueryRunner h2QueryRunner,
+            @Language("SQL") String expected,
+            boolean ensureOrdering,
+            boolean compareUpdate,
+            Optional<Consumer<Plan>> planAssertion)
+    {
         long start = System.nanoTime();
         MaterializedResult actualResults = null;
-        try {
-            actualResults = actualQueryRunner.execute(session, actual).toTestTypes();
+        Plan queryPlan = null;
+        if (planAssertion.isPresent()) {
+            try {
+                MaterializedResultWithPlan resultWithPlan = actualQueryRunner.executeWithPlan(session, actual, WarningCollector.NOOP);
+                queryPlan = resultWithPlan.getQueryPlan();
+                actualResults = resultWithPlan.getMaterializedResult().toTestTypes();
+            }
+            catch (RuntimeException ex) {
+                fail("Execution of 'actual' query failed: " + actual, ex);
+            }
         }
-        catch (RuntimeException ex) {
-            fail("Execution of 'actual' query failed: " + actual, ex);
+        else {
+            try {
+                actualResults = actualQueryRunner.execute(session, actual).toTestTypes();
+            }
+            catch (RuntimeException ex) {
+                fail("Execution of 'actual' query failed: " + actual, ex);
+            }
+        }
+        if (planAssertion.isPresent()) {
+            planAssertion.get().accept(queryPlan);
         }
         Duration actualTime = nanosSince(start);
 
@@ -98,7 +163,10 @@ public final class QueryAssertions
         catch (RuntimeException ex) {
             fail("Execution of 'expected' query failed: " + expected, ex);
         }
-        log.info("FINISHED in presto: %s, h2: %s, total: %s", actualTime, nanosSince(expectedStart), nanosSince(start));
+        Duration totalTime = nanosSince(start);
+        if (totalTime.compareTo(Duration.succinctDuration(1, SECONDS)) > 0) {
+            log.info("FINISHED in presto: %s, h2: %s, total: %s", actualTime, nanosSince(expectedStart), totalTime);
+        }
 
         if (actualResults.getUpdateType().isPresent() || actualResults.getUpdateCount().isPresent()) {
             if (!actualResults.getUpdateType().isPresent()) {
@@ -154,8 +222,8 @@ public final class QueryAssertions
             int limit = 100;
             fail(format(
                     "%snot equal\n" +
-                            "Actual rows (up to %s of %s extra rows shown, %s matching and extra rows in total):\n    %s\n" +
-                            "Expected rows (up to %s of %s missing rows shown, %s matching and missing rows in total):\n    %s\n",
+                            "Actual rows (up to %s of %s extra rows shown, %s rows in total):\n    %s\n" +
+                            "Expected rows (up to %s of %s missing rows shown, %s rows in total):\n    %s\n",
                     message == null ? "" : (message + "\n"),
                     limit,
                     unexpectedRows.size(),
@@ -196,6 +264,16 @@ public final class QueryAssertions
                         expectedSubset.getMaterializedRows().size(),
                         Joiner.on("\n    ").join(Iterables.limit(expectedSubset, 100))));
             }
+        }
+    }
+
+    protected static void assertQuerySucceeds(QueryRunner queryRunner, Session session, @Language("SQL") String sql)
+    {
+        try {
+            queryRunner.execute(session, sql);
+        }
+        catch (RuntimeException e) {
+            fail(format("Expected query to succeed: %s", sql), e);
         }
     }
 

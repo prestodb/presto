@@ -68,6 +68,18 @@ databases:
     https_keystore_path: ${databases.presto.https_keystore_path}
     https_keystore_password: ${databases.presto.https_keystore_password}
 
+  charlie@presto:
+    host: ${databases.presto.host}
+    port: ${databases.presto.port}
+    server_address: ${databases.presto.server_address}
+    jdbc_driver_class: ${databases.presto.jdbc_driver_class}
+    jdbc_url: ${databases.presto.jdbc_url}
+    jdbc_user: charlie
+    jdbc_password: "***empty***"
+    jdbc_pooling: false
+    https_keystore_path: ${databases.presto.https_keystore_path}
+    https_keystore_password: ${databases.presto.https_keystore_password}
+
   mysql:
     jdbc_driver_class: com.mysql.jdbc.Driver
     jdbc_url: jdbc:mysql://mysql:13306/test
@@ -98,6 +110,17 @@ databases:
     jdbc_password: SQLServerPass1
     jdbc_pooling: true
     table_manager_type: jdbc
+
+  kafka:
+    broker:
+      host: kafka
+      port: 9092
+    zookeeper:
+      host: kafka
+      port: 2181
+    presto_database_name: presto
+    presto_kafka_catalog: kafka
+    table_manager_type: kafka
 
 tests:
   hdfs:

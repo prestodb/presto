@@ -14,10 +14,10 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
@@ -28,10 +28,11 @@ import com.facebook.presto.spi.type.RealType;
 import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.FunctionInvoker;
+import com.facebook.presto.sql.InterpretedFunctionInvoker;
 
 import java.util.OptionalDouble;
 
+import static com.facebook.presto.metadata.CastType.CAST;
 import static java.util.Collections.singletonList;
 
 final class StatsUtil
@@ -40,15 +41,16 @@ final class StatsUtil
 
     static OptionalDouble toStatsRepresentation(Metadata metadata, Session session, Type type, Object value)
     {
-        return toStatsRepresentation(metadata.getFunctionRegistry(), session.toConnectorSession(), type, value);
+        return toStatsRepresentation(metadata.getFunctionManager(), session.toConnectorSession(), type, value);
     }
 
-    static OptionalDouble toStatsRepresentation(FunctionRegistry functionRegistry, ConnectorSession session, Type type, Object value)
+    static OptionalDouble toStatsRepresentation(FunctionManager functionManager, ConnectorSession session, Type type, Object value)
     {
         if (convertibleToDoubleWithCast(type)) {
-            FunctionInvoker functionInvoker = new FunctionInvoker(functionRegistry);
-            Signature castSignature = functionRegistry.getCoercion(type, DoubleType.DOUBLE);
-            return OptionalDouble.of((double) functionInvoker.invoke(castSignature, session, singletonList(value)));
+            InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(functionManager);
+            FunctionHandle cast = functionManager.lookupCast(CAST, type.getTypeSignature(), DoubleType.DOUBLE.getTypeSignature());
+
+            return OptionalDouble.of((double) functionInvoker.invoke(cast, session, singletonList(value)));
         }
 
         if (DateType.DATE.equals(type)) {

@@ -22,6 +22,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
@@ -65,7 +66,7 @@ public class MergingPageOutput
     private final int minRowCount;
 
     @Nullable
-    private PageProcessorOutput currentInput;
+    private Iterator<Optional<Page>> currentInput;
     private boolean finishing;
 
     public MergingPageOutput(Iterable<? extends Type> types, long minPageSizeInBytes, int minRowCount)
@@ -91,7 +92,7 @@ public class MergingPageOutput
         return currentInput == null && !finishing && outputQueue.isEmpty();
     }
 
-    public void addInput(PageProcessorOutput input)
+    public void addInput(Iterator<Optional<Page>> input)
     {
         requireNonNull(input, "input is null");
         checkState(!finishing, "output is in finishing state");
@@ -183,9 +184,6 @@ public class MergingPageOutput
     {
         long retainedSizeInBytes = INSTANCE_SIZE;
         retainedSizeInBytes += pageBuilder.getRetainedSizeInBytes();
-        if (currentInput != null) {
-            retainedSizeInBytes += currentInput.getRetainedSizeInBytes();
-        }
         for (Page page : outputQueue) {
             retainedSizeInBytes += page.getRetainedSizeInBytes();
         }

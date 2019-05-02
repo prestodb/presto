@@ -55,7 +55,7 @@ public class GroupIdMatcher
 
         GroupIdNode groudIdNode = (GroupIdNode) node;
         List<List<Symbol>> actualGroups = groudIdNode.getGroupingSets();
-        Map<Symbol, Symbol> actualArgumentMappings = groudIdNode.getArgumentMappings();
+        List<Symbol> actualAggregationArguments = groudIdNode.getAggregationArguments();
 
         if (actualGroups.size() != groups.size()) {
             return NO_MATCH;
@@ -67,7 +67,7 @@ public class GroupIdMatcher
             }
         }
 
-        if (!AggregationMatcher.matches(identityMappings.keySet(), actualArgumentMappings.keySet(), symbolAliases)) {
+        if (!AggregationMatcher.matches(identityMappings.keySet(), actualAggregationArguments, symbolAliases)) {
             return NO_MATCH;
         }
 

@@ -13,19 +13,22 @@
  */
 package com.facebook.presto.server.remotetask;
 
+import com.facebook.presto.server.smile.BaseResponse;
+import com.facebook.presto.server.smile.JsonResponseWrapper;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.util.concurrent.FutureCallback;
-import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.HttpStatus;
 
 import java.net.URI;
 
+import static com.facebook.presto.server.smile.JsonResponseWrapper.unwrapJsonResponse;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
+import static io.airlift.http.client.HttpStatus.OK;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SimpleHttpResponseHandler<T>
-        implements FutureCallback<FullJsonResponseHandler.JsonResponse<T>>
+        implements FutureCallback<BaseResponse<T>>
 {
     private final SimpleHttpResponseCallback<T> callback;
 
@@ -40,12 +43,12 @@ public class SimpleHttpResponseHandler<T>
     }
 
     @Override
-    public void onSuccess(FullJsonResponseHandler.JsonResponse<T> response)
+    public void onSuccess(BaseResponse<T> response)
     {
         stats.updateSuccess();
         stats.responseSize(response.getResponseSize());
         try {
-            if (response.getStatusCode() == HttpStatus.OK.code() && response.hasValue()) {
+            if (response.getStatusCode() == OK.code() && response.hasValue()) {
                 callback.success(response.getValue());
             }
             else if (response.getStatusCode() == HttpStatus.SERVICE_UNAVAILABLE.code()) {
@@ -55,16 +58,11 @@ public class SimpleHttpResponseHandler<T>
                 // Something is broken in the server or the client, so fail the task immediately (includes 500 errors)
                 Exception cause = response.getException();
                 if (cause == null) {
-                    if (response.getStatusCode() == HttpStatus.OK.code()) {
+                    if (response.getStatusCode() == OK.code()) {
                         cause = new PrestoException(REMOTE_TASK_ERROR, format("Expected response from %s is empty", uri));
                     }
                     else {
-                        cause = new PrestoException(REMOTE_TASK_ERROR, format("Expected response code from %s to be %s, but was %s: %s%n%s",
-                                uri,
-                                HttpStatus.OK.code(),
-                                response.getStatusCode(),
-                                response.getStatusMessage(),
-                                response.getResponseBody()));
+                        cause = new PrestoException(REMOTE_TASK_ERROR, createErrorMessage(response));
                     }
                 }
                 else {
@@ -77,6 +75,23 @@ public class SimpleHttpResponseHandler<T>
             // this should never happen
             callback.fatal(t);
         }
+    }
+
+    private String createErrorMessage(BaseResponse<T> response)
+    {
+        if (response instanceof JsonResponseWrapper) {
+            return format("Expected response code from %s to be %s, but was %s: %s%n%s",
+                    uri,
+                    OK.code(),
+                    response.getStatusCode(),
+                    response.getStatusMessage(),
+                    unwrapJsonResponse(response).getResponseBody());
+        }
+        return format("Expected response code from %s to be %s, but was %s: %s",
+                uri,
+                OK.code(),
+                response.getStatusCode(),
+                response.getStatusMessage());
     }
 
     @Override

@@ -14,68 +14,63 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.TaskSource;
-import com.facebook.presto.event.query.QueryMonitor;
+import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.memory.QueryContext;
-import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.TypeProvider;
 import io.airlift.concurrent.SetThreadName;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.Executor;
 
 import static com.facebook.presto.execution.SqlTaskExecution.createSqlTaskExecution;
-import static com.facebook.presto.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
-import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 public class SqlTaskExecutionFactory
 {
-    private static final String VERBOSE_STATS_PROPERTY = "verbose_stats";
     private final Executor taskNotificationExecutor;
 
     private final TaskExecutor taskExecutor;
 
     private final LocalExecutionPlanner planner;
-    private final QueryMonitor queryMonitor;
-    private final boolean verboseStats;
+    private final SplitMonitor splitMonitor;
+    private final boolean perOperatorCpuTimerEnabled;
     private final boolean cpuTimerEnabled;
+    private final boolean legacyLifespanCompletionCondition;
 
     public SqlTaskExecutionFactory(
             Executor taskNotificationExecutor,
             TaskExecutor taskExecutor,
             LocalExecutionPlanner planner,
-            QueryMonitor queryMonitor,
+            SplitMonitor splitMonitor,
             TaskManagerConfig config)
     {
         this.taskNotificationExecutor = requireNonNull(taskNotificationExecutor, "taskNotificationExecutor is null");
         this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
         this.planner = requireNonNull(planner, "planner is null");
-        this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
+        this.splitMonitor = requireNonNull(splitMonitor, "splitMonitor is null");
         requireNonNull(config, "config is null");
-        this.verboseStats = config.isVerboseStats();
+        this.perOperatorCpuTimerEnabled = config.isPerOperatorCpuTimerEnabled();
         this.cpuTimerEnabled = config.isTaskCpuTimerEnabled();
+        this.legacyLifespanCompletionCondition = config.isLegacyLifespanCompletionCondition();
     }
 
-    public SqlTaskExecution create(Session session, QueryContext queryContext, TaskStateMachine taskStateMachine, OutputBuffer outputBuffer, PlanFragment fragment, List<TaskSource> sources)
+    public SqlTaskExecution create(Session session, QueryContext queryContext, TaskStateMachine taskStateMachine, OutputBuffer outputBuffer, PlanFragment fragment, List<TaskSource> sources, OptionalInt totalPartitions)
     {
-        boolean verboseStats = getVerboseStats(session);
         TaskContext taskContext = queryContext.addTaskContext(
                 taskStateMachine,
                 session,
-                verboseStats,
-                cpuTimerEnabled);
+                perOperatorCpuTimerEnabled,
+                cpuTimerEnabled,
+                totalPartitions,
+                legacyLifespanCompletionCondition);
 
         LocalExecutionPlan localExecutionPlan;
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskStateMachine.getTaskId())) {
@@ -83,23 +78,11 @@ public class SqlTaskExecutionFactory
                 localExecutionPlan = planner.plan(
                         taskContext,
                         fragment.getRoot(),
-                        fragment.getSymbols(),
+                        TypeProvider.copyOf(fragment.getSymbols()),
                         fragment.getPartitioningScheme(),
-                        fragment.getPipelineExecutionStrategy() == GROUPED_EXECUTION,
+                        fragment.getStageExecutionDescriptor(),
                         fragment.getPartitionedSources(),
                         outputBuffer);
-
-                for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
-                    Optional<PlanNodeId> sourceId = driverFactory.getSourceId();
-                    if (sourceId.isPresent() && fragment.isPartitionedSources(sourceId.get())) {
-                        checkArgument(fragment.getPipelineExecutionStrategy() == driverFactory.getPipelineExecutionStrategy(),
-                                "Partitioned pipelines are expected to have the same execution strategy as the fragment");
-                    }
-                    else {
-                        checkArgument(fragment.getPipelineExecutionStrategy() != UNGROUPED_EXECUTION || driverFactory.getPipelineExecutionStrategy() == UNGROUPED_EXECUTION,
-                                "When fragment execution strategy is ungrouped, all pipelines should have ungrouped execution strategy");
-                    }
-                }
             }
             catch (Throwable e) {
                 // planning failed
@@ -116,21 +99,6 @@ public class SqlTaskExecutionFactory
                 localExecutionPlan,
                 taskExecutor,
                 taskNotificationExecutor,
-                queryMonitor);
-    }
-
-    private boolean getVerboseStats(Session session)
-    {
-        String verboseStats = session.getSystemProperties().get(VERBOSE_STATS_PROPERTY);
-        if (verboseStats == null) {
-            return this.verboseStats;
-        }
-
-        try {
-            return Boolean.valueOf(verboseStats.toUpperCase());
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(NOT_SUPPORTED, "Invalid property '" + VERBOSE_STATS_PROPERTY + "=" + verboseStats + "'");
-        }
+                splitMonitor);
     }
 }

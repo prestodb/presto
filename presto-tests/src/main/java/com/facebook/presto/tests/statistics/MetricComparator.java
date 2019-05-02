@@ -15,22 +15,18 @@ package com.facebook.presto.tests.statistics;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
-import com.facebook.presto.cost.StatsCalculator;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.OutputNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
-import java.util.Map;
 import java.util.OptionalDouble;
 
-import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -65,24 +61,13 @@ final class MetricComparator
     }
 
     private static List<OptionalDouble> getEstimatedValuesInternal(List<Metric> metrics, String query, QueryRunner runner, Session session)
-            // TODO inline back this method
+    // TODO inline back this method
     {
-        Plan queryPlan = runner.createPlan(session, query);
+        Plan queryPlan = runner.createPlan(session, query, WarningCollector.NOOP);
         OutputNode outputNode = (OutputNode) queryPlan.getRoot();
-        PlanNodeStatsEstimate outputNodeStats = calculateStats(outputNode, runner.getStatsCalculator(), session, queryPlan.getTypes());
+        PlanNodeStatsEstimate outputNodeStats = queryPlan.getStatsAndCosts().getStats().getOrDefault(queryPlan.getRoot().getId(), PlanNodeStatsEstimate.unknown());
         StatsContext statsContext = buildStatsContext(queryPlan, outputNode);
         return getEstimatedValues(metrics, outputNodeStats, statsContext);
-    }
-
-    private static PlanNodeStatsEstimate calculateStats(PlanNode node, StatsCalculator statsCalculator, Session session, Map<Symbol, Type> types)
-    {
-        // We calculate stats one-off, so caching is not necessary
-        return statsCalculator.calculateStats(
-                node,
-                source -> calculateStats(source, statsCalculator, session, types),
-                noLookup(),
-                session,
-                types);
     }
 
     private static StatsContext buildStatsContext(Plan queryPlan, OutputNode outputNode)

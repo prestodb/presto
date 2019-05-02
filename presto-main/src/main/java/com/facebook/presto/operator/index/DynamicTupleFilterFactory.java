@@ -29,6 +29,7 @@ import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
@@ -85,19 +86,19 @@ public class DynamicTupleFilterFactory
     public OperatorFactory filterWithTuple(Page tuplePage)
     {
         Page filterTuple = getFilterTuple(tuplePage);
-        Supplier<PageProcessor> processor = createPageProcessor(filterTuple);
+        Supplier<PageProcessor> processor = createPageProcessor(filterTuple, OptionalInt.empty());
         return new FilterAndProjectOperatorFactory(filterOperatorId, planNodeId, processor, outputTypes, new DataSize(0, BYTE), 0);
     }
 
     @VisibleForTesting
-    public Supplier<PageProcessor> createPageProcessor(Page filterTuple)
+    public Supplier<PageProcessor> createPageProcessor(Page filterTuple, OptionalInt initialBatchSize)
     {
         TuplePageFilter filter = new TuplePageFilter(filterTuple, filterTypes, outputFilterChannels);
         return () -> new PageProcessor(
                 Optional.of(filter),
                 outputProjections.stream()
                         .map(Supplier::get)
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList()), initialBatchSize);
     }
 
     private Page getFilterTuple(Page tuplePage)

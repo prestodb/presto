@@ -16,8 +16,6 @@ package com.facebook.presto.teradata.functions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.OperatorDependency;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -28,18 +26,20 @@ import org.joda.time.DateTimeZone;
 import org.joda.time.chrono.ISOChronology;
 import org.joda.time.format.DateTimeFormatter;
 
-import java.lang.invoke.MethodHandle;
+import java.util.Locale;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
 import static com.facebook.presto.spi.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeys;
 import static com.facebook.presto.teradata.functions.dateformat.DateFormatParser.createDateTimeFormatter;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class TeradataDateFunctions
 {
@@ -77,19 +77,11 @@ public final class TeradataDateFunctions
     @Description("Converts a string to a DATE data type")
     @ScalarFunction("to_date")
     @SqlType(StandardTypes.DATE)
-    public static long toDate(
-            @OperatorDependency(
-                    operator = OperatorType.CAST,
-                    returnType = StandardTypes.DATE,
-                    argumentTypes = StandardTypes.TIMESTAMP)
-                    MethodHandle castToDate,
-            ConnectorSession session,
-            @SqlType(StandardTypes.VARCHAR) Slice dateTime,
-            @SqlType(StandardTypes.VARCHAR) Slice formatString)
+    public static long toDate(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice dateTime, @SqlType(StandardTypes.VARCHAR) Slice formatString)
     {
         try {
-            long millis = parseMillis(session, dateTime, formatString);
-            return (long) castToDate.invokeExact(session, millis);
+            long millis = parseMillis(UTC_KEY, session.getLocale(), dateTime, formatString);
+            return MILLISECONDS.toDays(millis);
         }
         catch (Throwable t) {
             throwIfInstanceOf(t, Error.class);
@@ -111,9 +103,18 @@ public final class TeradataDateFunctions
 
     private static long parseMillis(ConnectorSession session, Slice dateTime, Slice formatString)
     {
+        TimeZoneKey timeZoneKey = UTC_KEY;
+        if (session.isLegacyTimestamp()) {
+            timeZoneKey = session.getTimeZoneKey();
+        }
+        return parseMillis(timeZoneKey, session.getLocale(), dateTime, formatString);
+    }
+
+    private static long parseMillis(TimeZoneKey timeZoneKey, Locale locale, Slice dateTime, Slice formatString)
+    {
         DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
-                .withChronology(CHRONOLOGIES[session.getTimeZoneKey().getKey()])
-                .withLocale(session.getLocale());
+                .withChronology(CHRONOLOGIES[timeZoneKey.getKey()])
+                .withLocale(locale);
 
         try {
             return formatter.parseMillis(dateTime.toString(UTF_8));

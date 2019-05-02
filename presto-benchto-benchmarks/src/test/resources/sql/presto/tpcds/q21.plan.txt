@@ -1,0 +1,19 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        final aggregation over (i_item_id, w_warehouse_name)
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["i_item_id", "w_warehouse_name"])
+                    partial aggregation over (i_item_id, w_warehouse_name)
+                        join (INNER, REPLICATED):
+                            join (INNER, REPLICATED):
+                                join (INNER, REPLICATED):
+                                    scan inventory
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            scan item
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        scan date_dim
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    scan warehouse

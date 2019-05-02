@@ -42,7 +42,7 @@ public final class ColumnarRow
         int totalRowCount = rowBlock.getFieldBlockOffset(block.getPositionCount()) - firstRowPosition;
         Block[] fieldBlocks = new Block[rowBlock.numFields];
         for (int i = 0; i < fieldBlocks.length; i++) {
-            fieldBlocks[i] = rowBlock.getFieldBlocks()[i].getRegion(firstRowPosition, totalRowCount);
+            fieldBlocks[i] = rowBlock.getRawFieldBlocks()[i].getRegion(firstRowPosition, totalRowCount);
         }
 
         return new ColumnarRow(block, fieldBlocks);
@@ -125,7 +125,7 @@ public final class ColumnarRow
 
     /**
      * Gets the specified field for all rows as a column.
-     *
+     * <p>
      * Note: A null row will not have an entry in the block, so the block
      * will be the size of the non-null rows.  This block may still contain
      * null values when the row is non-null but the field value is null.

@@ -22,6 +22,7 @@ import com.facebook.presto.operator.PipelineStats;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.util.Failures;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
@@ -35,9 +36,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -53,8 +56,13 @@ import static com.facebook.presto.execution.StageState.SCHEDULING;
 import static com.facebook.presto.execution.StageState.SCHEDULING_SPLITS;
 import static com.facebook.presto.execution.StageState.TERMINAL_STAGE_STATES;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
+import static io.airlift.units.Duration.succinctNanos;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -72,15 +80,16 @@ public class StageStateMachine
     private final SplitSchedulerStats scheduledStats;
 
     private final StateMachine<StageState> stageState;
+    private final StateMachine<Optional<StageInfo>> finalStageInfo;
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
+    private final AtomicReference<Optional<String>> renderedPlan = new AtomicReference<>(Optional.empty());
 
     private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
     private final Distribution getSplitDistribution = new Distribution();
-    private final Distribution scheduleTaskDistribution = new Distribution();
-    private final Distribution addSplitDistribution = new Distribution();
 
     private final AtomicLong peakUserMemory = new AtomicLong();
     private final AtomicLong currentUserMemory = new AtomicLong();
+    private final AtomicLong currentTotalMemory = new AtomicLong();
 
     public StageStateMachine(
             StageId stageId,
@@ -98,6 +107,8 @@ public class StageStateMachine
 
         stageState = new StateMachine<>("stage " + stageId, executor, PLANNED, TERMINAL_STAGE_STATES);
         stageState.addStateChangeListener(state -> log.debug("Stage %s is %s", stageId, state));
+
+        finalStageInfo = new StateMachine<>("final stage " + stageId, executor, Optional.empty());
     }
 
     public StageId getStageId()
@@ -125,6 +136,11 @@ public class StageStateMachine
         return fragment;
     }
 
+    /**
+     * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
+     * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
+     * possible notifications are observed out of order due to the asynchronous execution.
+     */
     public void addStateChangeListener(StateChangeListener<StageState> stateChangeListener)
     {
         stageState.addStateChangeListener(stateChangeListener);
@@ -181,21 +197,150 @@ public class StageStateMachine
         return failed;
     }
 
+    /**
+     * Add a listener for the final stage info.  This notification is guaranteed to be fired only once.
+     * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
+     * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
+     * possible notifications are observed out of order due to the asynchronous execution.
+     */
+    public void addFinalStageInfoListener(StateChangeListener<StageInfo> finalStatusListener)
+    {
+        AtomicBoolean done = new AtomicBoolean();
+        StateChangeListener<Optional<StageInfo>> fireOnceStateChangeListener = finalStageInfo -> {
+            if (finalStageInfo.isPresent() && done.compareAndSet(false, true)) {
+                finalStatusListener.stateChanged(finalStageInfo.get());
+            }
+        };
+        finalStageInfo.addStateChangeListener(fireOnceStateChangeListener);
+    }
+
+    public void setAllTasksFinal(Iterable<TaskInfo> finalTaskInfos)
+    {
+        requireNonNull(finalTaskInfos, "finalTaskInfos is null");
+        checkState(stageState.get().isDone());
+        StageInfo stageInfo = getStageInfo(() -> finalTaskInfos);
+        checkArgument(stageInfo.isCompleteInfo(), "finalTaskInfos are not all done");
+        finalStageInfo.compareAndSet(Optional.empty(), Optional.of(stageInfo));
+    }
+
     public long getUserMemoryReservation()
     {
         return currentUserMemory.get();
     }
 
-    public void updateMemoryUsage(long deltaUserMemoryInBytes)
+    public long getTotalMemoryReservation()
     {
-        long currentMemoryValue = currentUserMemory.addAndGet(deltaUserMemoryInBytes);
-        if (currentMemoryValue > peakUserMemory.get()) {
-            peakUserMemory.updateAndGet(x -> currentMemoryValue > x ? currentMemoryValue : x);
-        }
+        return currentTotalMemory.get();
     }
 
-    public StageInfo getStageInfo(Supplier<Iterable<TaskInfo>> taskInfosSupplier, Supplier<Iterable<StageInfo>> subStageInfosSupplier)
+    public void updateMemoryUsage(long deltaUserMemoryInBytes, long deltaTotalMemoryInBytes)
     {
+        currentTotalMemory.addAndGet(deltaTotalMemoryInBytes);
+        currentUserMemory.addAndGet(deltaUserMemoryInBytes);
+        peakUserMemory.updateAndGet(currentPeakValue -> max(currentUserMemory.get(), currentPeakValue));
+    }
+
+    public BasicStageStats getBasicStageStats(Supplier<Iterable<TaskInfo>> taskInfosSupplier)
+    {
+        Optional<StageInfo> finalStageInfo = this.finalStageInfo.get();
+        if (finalStageInfo.isPresent()) {
+            return finalStageInfo.get()
+                    .getStageStats()
+                    .toBasicStageStats(finalStageInfo.get().getState());
+        }
+
+        // stage state must be captured first in order to provide a
+        // consistent view of the stage. For example, building this
+        // information, the stage could finish, and the task states would
+        // never be visible.
+        StageState state = stageState.get();
+        boolean isScheduled = (state == RUNNING) || state.isDone();
+
+        List<TaskInfo> taskInfos = ImmutableList.copyOf(taskInfosSupplier.get());
+
+        int totalDrivers = 0;
+        int queuedDrivers = 0;
+        int runningDrivers = 0;
+        int completedDrivers = 0;
+
+        long cumulativeUserMemory = 0;
+        long userMemoryReservation = 0;
+        long totalMemoryReservation = 0;
+
+        long totalScheduledTime = 0;
+        long totalCpuTime = 0;
+
+        long rawInputDataSize = 0;
+        long rawInputPositions = 0;
+
+        boolean fullyBlocked = true;
+        Set<BlockedReason> blockedReasons = new HashSet<>();
+
+        for (TaskInfo taskInfo : taskInfos) {
+            TaskState taskState = taskInfo.getTaskStatus().getState();
+            TaskStats taskStats = taskInfo.getStats();
+
+            totalDrivers += taskStats.getTotalDrivers();
+            queuedDrivers += taskStats.getQueuedDrivers();
+            runningDrivers += taskStats.getRunningDrivers();
+            completedDrivers += taskStats.getCompletedDrivers();
+
+            cumulativeUserMemory += taskStats.getCumulativeUserMemory();
+
+            long taskUserMemory = taskStats.getUserMemoryReservation().toBytes();
+            long taskSystemMemory = taskStats.getSystemMemoryReservation().toBytes();
+            userMemoryReservation += taskUserMemory;
+            totalMemoryReservation += taskUserMemory + taskSystemMemory;
+
+            totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
+            totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
+            if (!taskState.isDone()) {
+                fullyBlocked &= taskStats.isFullyBlocked();
+                blockedReasons.addAll(taskStats.getBlockedReasons());
+            }
+
+            if (fragment.getPartitionedSourceNodes().stream().anyMatch(TableScanNode.class::isInstance)) {
+                rawInputDataSize += taskStats.getRawInputDataSize().toBytes();
+                rawInputPositions += taskStats.getRawInputPositions();
+            }
+        }
+
+        OptionalDouble progressPercentage = OptionalDouble.empty();
+        if (isScheduled && totalDrivers != 0) {
+            progressPercentage = OptionalDouble.of(min(100, (completedDrivers * 100.0) / totalDrivers));
+        }
+
+        return new BasicStageStats(
+                isScheduled,
+
+                totalDrivers,
+                queuedDrivers,
+                runningDrivers,
+                completedDrivers,
+
+                succinctBytes(rawInputDataSize),
+                rawInputPositions,
+
+                cumulativeUserMemory,
+                succinctBytes(userMemoryReservation),
+                succinctBytes(totalMemoryReservation),
+
+                succinctNanos(totalCpuTime),
+                succinctNanos(totalScheduledTime),
+
+                fullyBlocked,
+                blockedReasons,
+
+                progressPercentage);
+    }
+
+    public StageInfo getStageInfo(Supplier<Iterable<TaskInfo>> taskInfosSupplier)
+    {
+        Optional<StageInfo> finalStageInfo = this.finalStageInfo.get();
+        if (finalStageInfo.isPresent()) {
+            return finalStageInfo.get();
+        }
+
         // stage state must be captured first in order to provide a
         // consistent view of the stage. For example, building this
         // information, the stage could finish, and the task states would
@@ -203,7 +348,6 @@ public class StageStateMachine
         StageState state = stageState.get();
 
         List<TaskInfo> taskInfos = ImmutableList.copyOf(taskInfosSupplier.get());
-        List<StageInfo> subStageInfos = ImmutableList.copyOf(subStageInfosSupplier.get());
 
         int totalTasks = taskInfos.size();
         int runningTasks = 0;
@@ -217,11 +361,11 @@ public class StageStateMachine
 
         long cumulativeUserMemory = 0;
         long userMemoryReservation = 0;
+        long totalMemoryReservation = 0;
         long peakUserMemoryReservation = peakUserMemory.get();
 
         long totalScheduledTime = 0;
         long totalCpuTime = 0;
-        long totalUserTime = 0;
         long totalBlockedTime = 0;
 
         long rawInputDataSize = 0;
@@ -264,11 +408,14 @@ public class StageStateMachine
             completedDrivers += taskStats.getCompletedDrivers();
 
             cumulativeUserMemory += taskStats.getCumulativeUserMemory();
-            userMemoryReservation += taskStats.getUserMemoryReservation().toBytes();
+
+            long taskUserMemory = taskStats.getUserMemoryReservation().toBytes();
+            long taskSystemMemory = taskStats.getSystemMemoryReservation().toBytes();
+            userMemoryReservation += taskUserMemory;
+            totalMemoryReservation += taskUserMemory + taskSystemMemory;
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
-            totalUserTime += taskStats.getTotalUserTime().roundTo(NANOSECONDS);
             totalBlockedTime += taskStats.getTotalBlockedTime().roundTo(NANOSECONDS);
             if (!taskState.isDone()) {
                 fullyBlocked &= taskStats.isFullyBlocked();
@@ -292,8 +439,8 @@ public class StageStateMachine
 
             int gcSec = toIntExact(taskStats.getFullGcTime().roundTo(SECONDS));
             totalFullGcSec += gcSec;
-            minFullGcSec = Math.min(minFullGcSec, gcSec);
-            maxFullGcSec = Math.max(maxFullGcSec, gcSec);
+            minFullGcSec = min(minFullGcSec, gcSec);
+            maxFullGcSec = max(maxFullGcSec, gcSec);
 
             for (PipelineStats pipeline : taskStats.getPipelines()) {
                 for (OperatorStats operatorStats : pipeline.getOperatorSummaries()) {
@@ -306,8 +453,6 @@ public class StageStateMachine
         StageStats stageStats = new StageStats(
                 schedulingComplete.get(),
                 getSplitDistribution.snapshot(),
-                scheduleTaskDistribution.snapshot(),
-                addSplitDistribution.snapshot(),
 
                 totalTasks,
                 runningTasks,
@@ -321,10 +466,10 @@ public class StageStateMachine
 
                 cumulativeUserMemory,
                 succinctBytes(userMemoryReservation),
+                succinctBytes(totalMemoryReservation),
                 succinctBytes(peakUserMemoryReservation),
                 succinctDuration(totalScheduledTime, NANOSECONDS),
                 succinctDuration(totalCpuTime, NANOSECONDS),
-                succinctDuration(totalUserTime, NANOSECONDS),
                 succinctDuration(totalBlockedTime, NANOSECONDS),
                 fullyBlocked && runningTasks > 0,
                 blockedReasons,
@@ -360,7 +505,7 @@ public class StageStateMachine
                 fragment.getTypes(),
                 stageStats,
                 taskInfos,
-                subStageInfos,
+                ImmutableList.of(),
                 failureInfo);
     }
 
@@ -368,17 +513,7 @@ public class StageStateMachine
     {
         long elapsedNanos = System.nanoTime() - startNanos;
         getSplitDistribution.add(elapsedNanos);
-        scheduledStats.getGetSplitTime().add(elapsedNanos, TimeUnit.NANOSECONDS);
-    }
-
-    public void recordScheduleTaskTime(long startNanos)
-    {
-        scheduleTaskDistribution.add(System.nanoTime() - startNanos);
-    }
-
-    public void recordAddSplit(long startNanos)
-    {
-        addSplitDistribution.add(System.nanoTime() - startNanos);
+        scheduledStats.getGetSplitTime().add(elapsedNanos, NANOSECONDS);
     }
 
     @Override

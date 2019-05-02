@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.facebook.presto.orc.metadata.statistics.StatisticsHasher.Hashable;
 import com.google.common.primitives.Longs;
 import org.apache.hive.common.util.BloomFilter;
 import org.openjdk.jol.info.ClassLayout;
@@ -25,6 +26,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 
 public class HiveBloomFilter
         extends BloomFilter
+        implements Hashable
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(HiveBloomFilter.class).instanceSize() + ClassLayout.parseClass(BitSet.class).instanceSize();
 
@@ -67,5 +69,13 @@ public class HiveBloomFilter
     public int hashCode()
     {
         return Objects.hash(numBits, numHashFunctions, bitSet.getData());
+    }
+
+    @Override
+    public void addHash(StatisticsHasher hasher)
+    {
+        hasher.putInt(numBits)
+                .putInt(numHashFunctions)
+                .putLongs(bitSet.getData());
     }
 }

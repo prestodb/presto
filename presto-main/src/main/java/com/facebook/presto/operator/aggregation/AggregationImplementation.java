@@ -14,11 +14,6 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionKind;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.LongVariableConstraint;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.metadata.TypeVariableConstraint;
 import com.facebook.presto.operator.ParametricImplementation;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType;
 import com.facebook.presto.operator.annotations.FunctionsParserHelper;
@@ -26,9 +21,15 @@ import com.facebook.presto.operator.annotations.ImplementationDependency;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.AggregationState;
+import com.facebook.presto.spi.function.BlockIndex;
+import com.facebook.presto.spi.function.BlockPosition;
+import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.LongVariableConstraint;
 import com.facebook.presto.spi.function.OutputFunction;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
+import com.facebook.presto.spi.function.TypeVariableConstraint;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
@@ -198,7 +199,7 @@ public class AggregationImplementation
         return inputParameterMetadataTypes;
     }
 
-    public boolean areTypesAssignable(Signature boundSignature, BoundVariables variables, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public boolean areTypesAssignable(Signature boundSignature, BoundVariables variables, TypeManager typeManager)
     {
         checkState(argumentNativeContainerTypes.size() == boundSignature.getArgumentTypes().size(), "Number of argument assigned to AggregationImplementation is different than number parsed from annotations.");
 
@@ -267,7 +268,7 @@ public class AggregationImplementation
             inputDependencies = parseImplementationDependencies(inputFunction);
             outputDependencies = parseImplementationDependencies(outputFunction);
             combineDependencies = parseImplementationDependencies(combineFunction);
-            stateSerializerFactoryDependencies = stateSerializerFactoryFunction.map(function -> parseImplementationDependencies(function)).orElse(ImmutableList.of());
+            stateSerializerFactoryDependencies = stateSerializerFactoryFunction.map(this::parseImplementationDependencies).orElse(ImmutableList.of());
 
             // parse metadata types
             parameterMetadataTypes = parseParameterMetadataTypes(inputFunction);
@@ -440,8 +441,8 @@ public class AggregationImplementation
                             inputFunction,
                             annotation,
                             typeParameters.stream()
-                                .map(TypeParameter::value)
-                                .collect(toImmutableSet()),
+                                    .map(TypeParameter::value)
+                                    .collect(toImmutableSet()),
                             literalParameters);
                     builder.add(createDependency(annotation, literalParameters));
                 });

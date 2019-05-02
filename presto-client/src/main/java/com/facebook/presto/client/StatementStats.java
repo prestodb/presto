@@ -16,7 +16,6 @@ package com.facebook.presto.client;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -37,7 +36,6 @@ public class StatementStats
     private final int queuedSplits;
     private final int runningSplits;
     private final int completedSplits;
-    private final long userTimeMillis;
     private final long cpuTimeMillis;
     private final long wallTimeMillis;
     private final long queuedTimeMillis;
@@ -45,6 +43,7 @@ public class StatementStats
     private final long processedRows;
     private final long processedBytes;
     private final long peakMemoryBytes;
+    private final long spilledBytes;
     private final StageStats rootStage;
 
     @JsonCreator
@@ -57,7 +56,6 @@ public class StatementStats
             @JsonProperty("queuedSplits") int queuedSplits,
             @JsonProperty("runningSplits") int runningSplits,
             @JsonProperty("completedSplits") int completedSplits,
-            @JsonProperty("userTimeMillis") long userTimeMillis,
             @JsonProperty("cpuTimeMillis") long cpuTimeMillis,
             @JsonProperty("wallTimeMillis") long wallTimeMillis,
             @JsonProperty("queuedTimeMillis") long queuedTimeMillis,
@@ -65,6 +63,7 @@ public class StatementStats
             @JsonProperty("processedRows") long processedRows,
             @JsonProperty("processedBytes") long processedBytes,
             @JsonProperty("peakMemoryBytes") long peakMemoryBytes,
+            @JsonProperty("spilledBytes") long spilledBytes,
             @JsonProperty("rootStage") StageStats rootStage)
     {
         this.state = requireNonNull(state, "state is null");
@@ -75,7 +74,6 @@ public class StatementStats
         this.queuedSplits = queuedSplits;
         this.runningSplits = runningSplits;
         this.completedSplits = completedSplits;
-        this.userTimeMillis = userTimeMillis;
         this.cpuTimeMillis = cpuTimeMillis;
         this.wallTimeMillis = wallTimeMillis;
         this.queuedTimeMillis = queuedTimeMillis;
@@ -83,10 +81,10 @@ public class StatementStats
         this.processedRows = processedRows;
         this.processedBytes = processedBytes;
         this.peakMemoryBytes = peakMemoryBytes;
+        this.spilledBytes = spilledBytes;
         this.rootStage = rootStage;
     }
 
-    @Nonnull
     @JsonProperty
     public String getState()
     {
@@ -133,12 +131,6 @@ public class StatementStats
     public int getCompletedSplits()
     {
         return completedSplits;
-    }
-
-    @JsonProperty
-    public long getUserTimeMillis()
-    {
-        return userTimeMillis;
     }
 
     @JsonProperty
@@ -199,6 +191,12 @@ public class StatementStats
         return OptionalDouble.of(min(100, (completedSplits * 100.0) / totalSplits));
     }
 
+    @JsonProperty
+    public long getSpilledBytes()
+    {
+        return spilledBytes;
+    }
+
     @Override
     public String toString()
     {
@@ -211,7 +209,6 @@ public class StatementStats
                 .add("queuedSplits", queuedSplits)
                 .add("runningSplits", runningSplits)
                 .add("completedSplits", completedSplits)
-                .add("userTimeMillis", userTimeMillis)
                 .add("cpuTimeMillis", cpuTimeMillis)
                 .add("wallTimeMillis", wallTimeMillis)
                 .add("queuedTimeMillis", queuedTimeMillis)
@@ -219,6 +216,7 @@ public class StatementStats
                 .add("processedRows", processedRows)
                 .add("processedBytes", processedBytes)
                 .add("peakMemoryBytes", peakMemoryBytes)
+                .add("spilledBytes", spilledBytes)
                 .add("rootStage", rootStage)
                 .toString();
     }
@@ -238,7 +236,6 @@ public class StatementStats
         private int queuedSplits;
         private int runningSplits;
         private int completedSplits;
-        private long userTimeMillis;
         private long cpuTimeMillis;
         private long wallTimeMillis;
         private long queuedTimeMillis;
@@ -246,6 +243,7 @@ public class StatementStats
         private long processedRows;
         private long processedBytes;
         private long peakMemoryBytes;
+        private long spilledBytes;
         private StageStats rootStage;
 
         private Builder() {}
@@ -298,12 +296,6 @@ public class StatementStats
             return this;
         }
 
-        public Builder setUserTimeMillis(long userTimeMillis)
-        {
-            this.userTimeMillis = userTimeMillis;
-            return this;
-        }
-
         public Builder setCpuTimeMillis(long cpuTimeMillis)
         {
             this.cpuTimeMillis = cpuTimeMillis;
@@ -346,6 +338,12 @@ public class StatementStats
             return this;
         }
 
+        public Builder setSpilledBytes(long spilledBytes)
+        {
+            this.spilledBytes = spilledBytes;
+            return this;
+        }
+
         public Builder setRootStage(StageStats rootStage)
         {
             this.rootStage = rootStage;
@@ -363,7 +361,6 @@ public class StatementStats
                     queuedSplits,
                     runningSplits,
                     completedSplits,
-                    userTimeMillis,
                     cpuTimeMillis,
                     wallTimeMillis,
                     queuedTimeMillis,
@@ -371,6 +368,7 @@ public class StatementStats
                     processedRows,
                     processedBytes,
                     peakMemoryBytes,
+                    spilledBytes,
                     rootStage);
         }
     }

@@ -13,24 +13,27 @@
  */
 package com.facebook.presto.server.remotetask;
 
-import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
-import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.FutureStateChange;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.RemoteTask;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.BufferInfo;
+import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.PageBufferInfo;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.server.TaskUpdateRequest;
+import com.facebook.presto.server.smile.BaseResponse;
+import com.facebook.presto.server.smile.Codec;
+import com.facebook.presto.server.smile.SmileCodec;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -39,17 +42,14 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
-import com.google.common.net.HttpHeaders;
-import com.google.common.net.MediaType;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
-import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
-import io.airlift.json.JsonCodec;
+import io.airlift.http.client.ResponseHandler;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -58,8 +58,9 @@ import javax.annotation.concurrent.GuardedBy;
 
 import java.net.URI;
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
@@ -79,18 +80,21 @@ import static com.facebook.presto.execution.TaskInfo.createInitialTask;
 import static com.facebook.presto.execution.TaskState.ABORTED;
 import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.execution.TaskStatus.failWith;
+import static com.facebook.presto.server.RequestHelpers.setContentTypeHeaders;
 import static com.facebook.presto.server.remotetask.RequestErrorTracker.logError;
+import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
+import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFullSmileResponseHandler;
+import static com.facebook.presto.server.smile.JsonCodecWrapper.unwrapJsonCodec;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.preparePost;
+import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -106,6 +110,7 @@ public final class HttpRemoteTask
     private final Session session;
     private final String nodeId;
     private final PlanFragment planFragment;
+    private final OptionalInt totalPartitions;
 
     private final AtomicLong nextSplitId = new AtomicLong();
 
@@ -125,7 +130,9 @@ public final class HttpRemoteTask
     @GuardedBy("this")
     private final SetMultimap<PlanNodeId, Lifespan> pendingNoMoreSplitsForLifespan = HashMultimap.create();
     @GuardedBy("this")
-    private final Set<PlanNodeId> noMoreSplits = new HashSet<>();
+    // The keys of this map represent all plan nodes that have "no more splits".
+    // The boolean value of each entry represents whether the "no more splits" notification is pending delivery to workers.
+    private final Map<PlanNodeId, Boolean> noMoreSplits = new HashMap<>();
     @GuardedBy("this")
     private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>();
     private final FutureStateChange<?> whenSplitQueueHasSpace = new FutureStateChange<>();
@@ -140,8 +147,8 @@ public final class HttpRemoteTask
     private final Executor executor;
     private final ScheduledExecutorService errorScheduledExecutor;
 
-    private final JsonCodec<TaskInfo> taskInfoCodec;
-    private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
+    private final Codec<TaskInfo> taskInfoCodec;
+    private final Codec<TaskUpdateRequest> taskUpdateRequestCodec;
 
     private final RequestErrorTracker updateErrorTracker;
 
@@ -152,12 +159,15 @@ public final class HttpRemoteTask
 
     private final AtomicBoolean aborting = new AtomicBoolean(false);
 
+    private final boolean isBinaryTransportEnabled;
+
     public HttpRemoteTask(Session session,
             TaskId taskId,
             String nodeId,
             URI location,
             PlanFragment planFragment,
             Multimap<PlanNodeId, Split> initialSplits,
+            OptionalInt totalPartitions,
             OutputBuffers outputBuffers,
             HttpClient httpClient,
             Executor executor,
@@ -167,17 +177,19 @@ public final class HttpRemoteTask
             Duration taskStatusRefreshMaxWait,
             Duration taskInfoUpdateInterval,
             boolean summarizeTaskInfo,
-            JsonCodec<TaskStatus> taskStatusCodec,
-            JsonCodec<TaskInfo> taskInfoCodec,
-            JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
+            Codec<TaskStatus> taskStatusCodec,
+            Codec<TaskInfo> taskInfoCodec,
+            Codec<TaskUpdateRequest> taskUpdateRequestCodec,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
-            RemoteTaskStats stats)
+            RemoteTaskStats stats,
+            boolean isBinaryTransportEnabled)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
         requireNonNull(nodeId, "nodeId is null");
         requireNonNull(location, "location is null");
         requireNonNull(planFragment, "planFragment is null");
+        requireNonNull(totalPartitions, "totalPartitions is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
         requireNonNull(httpClient, "httpClient is null");
         requireNonNull(executor, "executor is null");
@@ -192,6 +204,7 @@ public final class HttpRemoteTask
             this.session = session;
             this.nodeId = nodeId;
             this.planFragment = planFragment;
+            this.totalPartitions = totalPartitions;
             this.outputBuffers.set(outputBuffers);
             this.httpClient = httpClient;
             this.executor = executor;
@@ -202,6 +215,7 @@ public final class HttpRemoteTask
             this.updateErrorTracker = new RequestErrorTracker(taskId, location, maxErrorDuration, errorScheduledExecutor, "updating task");
             this.partitionedSplitCountTracker = requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
             this.stats = stats;
+            this.isBinaryTransportEnabled = isBinaryTransportEnabled;
 
             for (Entry<PlanNodeId, Split> entry : requireNonNull(initialSplits, "initialSplits is null").entries()) {
                 ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), entry.getKey(), entry.getValue());
@@ -228,7 +242,8 @@ public final class HttpRemoteTask
                     httpClient,
                     maxErrorDuration,
                     errorScheduledExecutor,
-                    stats);
+                    stats,
+                    isBinaryTransportEnabled);
 
             this.taskInfoFetcher = new TaskInfoFetcher(
                     this::failTask,
@@ -241,7 +256,8 @@ public final class HttpRemoteTask
                     executor,
                     updateScheduledExecutor,
                     errorScheduledExecutor,
-                    stats);
+                    stats,
+                    isBinaryTransportEnabled);
 
             taskStatusFetcher.addStateChangeListener(newStatus -> {
                 TaskState state = newStatus.getState();
@@ -310,7 +326,7 @@ public final class HttpRemoteTask
             PlanNodeId sourceId = entry.getKey();
             Collection<Split> splits = entry.getValue();
 
-            checkState(!noMoreSplits.contains(sourceId), "noMoreSplits has already been set for %s", sourceId);
+            checkState(!noMoreSplits.containsKey(sourceId), "noMoreSplits has already been set for %s", sourceId);
             int added = 0;
             for (Split split : splits) {
                 if (pendingSplits.put(sourceId, new ScheduledSplit(nextSplitId.getAndIncrement(), sourceId, split))) {
@@ -334,10 +350,13 @@ public final class HttpRemoteTask
     @Override
     public synchronized void noMoreSplits(PlanNodeId sourceId)
     {
-        if (noMoreSplits.add(sourceId)) {
-            needsUpdate.set(true);
-            scheduleUpdate();
+        if (noMoreSplits.containsKey(sourceId)) {
+            return;
         }
+
+        noMoreSplits.put(sourceId, true);
+        needsUpdate.set(true);
+        scheduleUpdate();
     }
 
     @Override
@@ -398,6 +417,12 @@ public final class HttpRemoteTask
     }
 
     @Override
+    public void addFinalTaskInfoListener(StateChangeListener<TaskInfo> stateChangeListener)
+    {
+        taskInfoFetcher.addFinalTaskInfoListener(stateChangeListener);
+    }
+
+    @Override
     public synchronized ListenableFuture<?> whenSplitQueueHasSpace(int threshold)
     {
         if (whenSplitQueueHasSpaceThreshold.isPresent()) {
@@ -436,6 +461,9 @@ public final class HttpRemoteTask
                 if (pendingSplits.remove(planNodeId, split)) {
                     removed++;
                 }
+            }
+            if (source.isNoMoreSplits()) {
+                noMoreSplits.put(planNodeId, false);
             }
             for (Lifespan lifespan : source.getNoMoreSplitsForLifespan()) {
                 pendingNoMoreSplitsForLifespan.remove(planNodeId, lifespan);
@@ -482,26 +510,35 @@ public final class HttpRemoteTask
 
         List<TaskSource> sources = getSources();
 
-        Optional<PlanFragment> fragment = Optional.empty();
-        if (sendPlan.get()) {
-            fragment = Optional.of(planFragment);
-        }
+        Optional<PlanFragment> fragment = sendPlan.get() ? Optional.of(planFragment) : Optional.empty();
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(
                 session.toSessionRepresentation(),
                 fragment,
                 sources,
-                outputBuffers.get());
+                outputBuffers.get(),
+                totalPartitions);
+        byte[] taskUpdateRequestJson = taskUpdateRequestCodec.toBytes(updateRequest);
+        if (fragment.isPresent()) {
+            stats.updateWithPlanBytes(taskUpdateRequestJson.length);
+        }
 
         HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus);
-        Request request = preparePost()
+        Request request = setContentTypeHeaders(isBinaryTransportEnabled, preparePost())
                 .setUri(uriBuilder.build())
-                .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
-                .setBodyGenerator(jsonBodyGenerator(taskUpdateRequestCodec, updateRequest))
+                .setBodyGenerator(createStaticBodyGenerator(taskUpdateRequestJson))
                 .build();
+
+        ResponseHandler responseHandler;
+        if (isBinaryTransportEnabled) {
+            responseHandler = createFullSmileResponseHandler((SmileCodec<TaskInfo>) taskInfoCodec);
+        }
+        else {
+            responseHandler = createAdaptingJsonResponseHandler(unwrapJsonCodec(taskInfoCodec));
+        }
 
         updateErrorTracker.startRequest();
 
-        ListenableFuture<JsonResponse<TaskInfo>> future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec));
+        ListenableFuture<BaseResponse<TaskInfo>> future = httpClient.executeAsync(request, responseHandler);
         currentRequest = future;
         currentRequestStartNanos = System.nanoTime();
 
@@ -525,10 +562,12 @@ public final class HttpRemoteTask
     private synchronized TaskSource getSource(PlanNodeId planNodeId)
     {
         Set<ScheduledSplit> splits = pendingSplits.get(planNodeId);
-        boolean noMoreSplits = this.noMoreSplits.contains(planNodeId);
+        boolean pendingNoMoreSplits = Boolean.TRUE.equals(this.noMoreSplits.get(planNodeId));
+        boolean noMoreSplits = this.noMoreSplits.containsKey(planNodeId);
         Set<Lifespan> noMoreSplitsForLifespan = pendingNoMoreSplitsForLifespan.get(planNodeId);
+
         TaskSource element = null;
-        if (!splits.isEmpty() || !noMoreSplitsForLifespan.isEmpty() || noMoreSplits) {
+        if (!splits.isEmpty() || !noMoreSplitsForLifespan.isEmpty() || pendingNoMoreSplits) {
             element = new TaskSource(planNodeId, splits, noMoreSplitsForLifespan, noMoreSplits);
         }
         return element;
@@ -545,7 +584,7 @@ public final class HttpRemoteTask
 
             // send cancel to task and ignore response
             HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus).addParameter("abort", "false");
-            Request request = prepareDelete()
+            Request request = setContentTypeHeaders(isBinaryTransportEnabled, prepareDelete())
                     .setUri(uriBuilder.build())
                     .build();
             scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "cancel");
@@ -575,7 +614,7 @@ public final class HttpRemoteTask
         // The remote task is likely to get a delete from the PageBufferClient first.
         // We send an additional delete anyway to get the final TaskInfo
         HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
-        Request request = prepareDelete()
+        Request request = setContentTypeHeaders(isBinaryTransportEnabled, prepareDelete())
                 .setUri(uriBuilder.build())
                 .build();
 
@@ -601,7 +640,7 @@ public final class HttpRemoteTask
 
             // send abort to task
             HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
-            Request request = prepareDelete()
+            Request request = setContentTypeHeaders(isBinaryTransportEnabled, prepareDelete())
                     .setUri(uriBuilder.build())
                     .build();
             scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "abort");
@@ -620,10 +659,18 @@ public final class HttpRemoteTask
 
     private void doScheduleAsyncCleanupRequest(Backoff cleanupBackoff, Request request, String action)
     {
-        Futures.addCallback(httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec)), new FutureCallback<JsonResponse<TaskInfo>>()
+        ResponseHandler responseHandler;
+        if (isBinaryTransportEnabled) {
+            responseHandler = createFullSmileResponseHandler((SmileCodec<TaskInfo>) taskInfoCodec);
+        }
+        else {
+            responseHandler = createAdaptingJsonResponseHandler(unwrapJsonCodec(taskInfoCodec));
+        }
+
+        Futures.addCallback(httpClient.executeAsync(request, responseHandler), new FutureCallback<BaseResponse<TaskInfo>>()
         {
             @Override
-            public void onSuccess(JsonResponse<TaskInfo> result)
+            public void onSuccess(BaseResponse<TaskInfo> result)
             {
                 try {
                     updateTaskInfo(result.getValue());
@@ -709,12 +756,12 @@ public final class HttpRemoteTask
     private static Backoff createCleanupBackoff()
     {
         return new Backoff(10, new Duration(10, TimeUnit.MINUTES), Ticker.systemTicker(), ImmutableList.<Duration>builder()
-                    .add(new Duration(0, MILLISECONDS))
-                    .add(new Duration(100, MILLISECONDS))
-                    .add(new Duration(500, MILLISECONDS))
-                    .add(new Duration(1, SECONDS))
-                    .add(new Duration(10, SECONDS))
-                    .build());
+                .add(new Duration(0, MILLISECONDS))
+                .add(new Duration(100, MILLISECONDS))
+                .add(new Duration(500, MILLISECONDS))
+                .add(new Duration(1, SECONDS))
+                .add(new Duration(10, SECONDS))
+                .build());
     }
 
     @Override

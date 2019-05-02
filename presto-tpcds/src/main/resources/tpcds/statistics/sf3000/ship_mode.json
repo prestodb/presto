@@ -1,0 +1,37 @@
+ {
+    "rowCount" : 20.0,
+     "columns" : {
+        "sm_code" : {
+             "dataSize" : 87.0,
+             "nullsCount" : 0.0,
+             "distinctValuesCount" : 5.0
+        },
+        "sm_ship_mode_sk" : {
+             "distinctValuesCount" : 18.0,
+             "nullsCount" : 0.0,
+             "min" : 1,
+             "max" : 20
+        },
+        "sm_type" : {
+             "dataSize" : 150.0,
+             "nullsCount" : 0.0,
+             "distinctValuesCount" : 6.0
+        },
+        "sm_contract" : {
+             "dataSize" : 252.0,
+             "nullsCount" : 0.0,
+             "distinctValuesCount" : 19.0
+        },
+        "sm_ship_mode_id" : {
+             "dataSize" : 320.0,
+             "nullsCount" : 0.0,
+             "distinctValuesCount" : 18.0
+        },
+        "sm_carrier" : {
+             "dataSize" : 133.0,
+             "nullsCount" : 0.0,
+             "distinctValuesCount" : 26.0
+        },
+        "dummyColumn" : {}
+    }
+}

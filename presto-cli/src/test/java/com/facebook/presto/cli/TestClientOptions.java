@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cli;
 
+import com.facebook.presto.cli.ClientOptions.ClientResourceEstimate;
 import com.facebook.presto.cli.ClientOptions.ClientSessionProperty;
 import com.facebook.presto.client.ClientSession;
 import com.google.common.collect.ImmutableList;
@@ -84,6 +85,17 @@ public class TestClientOptions
         ClientOptions options = new ClientOptions();
         options.server = "x:y";
         options.toClientSession();
+    }
+
+    @Test
+    public void testResourceEstimates()
+    {
+        Console console = singleCommand(Console.class).parse("--resource-estimate", "resource1=1B", "--resource-estimate", "resource2=2.2h");
+
+        ClientOptions options = console.clientOptions;
+        assertEquals(options.resourceEstimates, ImmutableList.of(
+                new ClientResourceEstimate("resource1", "1B"),
+                new ClientResourceEstimate("resource2", "2.2h")));
     }
 
     @Test

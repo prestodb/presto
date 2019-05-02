@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,19 +34,21 @@ import static java.util.Objects.requireNonNull;
 public class HivePartitionResult
 {
     private final List<HiveColumnHandle> partitionColumns;
-    private final List<HivePartition> partitions;
+    private final Iterable<HivePartition> partitions;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
     private final TupleDomain<ColumnHandle> unenforcedConstraint;
     private final TupleDomain<ColumnHandle> enforcedConstraint;
     private final Optional<HiveBucketHandle> bucketHandle;
+    private final Optional<HiveBucketFilter> bucketFilter;
 
     public HivePartitionResult(
             List<HiveColumnHandle> partitionColumns,
-            List<HivePartition> partitions,
+            Iterable<HivePartition> partitions,
             TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
             TupleDomain<ColumnHandle> unenforcedConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint,
-            Optional<HiveBucketHandle> bucketHandle)
+            Optional<HiveBucketHandle> bucketHandle,
+            Optional<HiveBucketFilter> bucketFilter)
     {
         this.partitionColumns = requireNonNull(partitionColumns, "partitionColumns is null");
         this.partitions = requireNonNull(partitions, "partitions is null");
@@ -52,6 +56,7 @@ public class HivePartitionResult
         this.unenforcedConstraint = requireNonNull(unenforcedConstraint, "unenforcedConstraint is null");
         this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
+        this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
     }
 
     public List<HiveColumnHandle> getPartitionColumns()
@@ -59,9 +64,9 @@ public class HivePartitionResult
         return partitionColumns;
     }
 
-    public List<HivePartition> getPartitions()
+    public Iterator<HivePartition> getPartitions()
     {
-        return partitions;
+        return partitions.iterator();
     }
 
     public TupleDomain<? extends ColumnHandle> getCompactEffectivePredicate()
@@ -82,5 +87,10 @@ public class HivePartitionResult
     public Optional<HiveBucketHandle> getBucketHandle()
     {
         return bucketHandle;
+    }
+
+    public Optional<HiveBucketFilter> getBucketFilter()
+    {
+        return bucketFilter;
     }
 }

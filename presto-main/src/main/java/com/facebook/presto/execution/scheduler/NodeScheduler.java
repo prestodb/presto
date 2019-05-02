@@ -20,7 +20,6 @@ import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
@@ -40,7 +39,6 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +53,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class NodeScheduler
@@ -90,7 +89,7 @@ public class NodeScheduler
         this.maxSplitsPerNode = config.getMaxSplitsPerNode();
         this.maxPendingSplitsPerTask = config.getMaxPendingSplitsPerTask();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
-        checkArgument(maxSplitsPerNode > maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
+        checkArgument(maxSplitsPerNode >= maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
         this.useNetworkTopology = !config.getNetworkTopology().equals(NetworkTopologyType.LEGACY);
 
         ImmutableList.Builder<CounterStat> builder = ImmutableList.builder();
@@ -181,11 +180,11 @@ public class NodeScheduler
         }
     }
 
-    public static List<Node> selectNodes(int limit, Iterator<Node> candidates)
+    public static List<Node> selectNodes(int limit, ResettableRandomizedIterator<Node> candidates)
     {
         checkArgument(limit > 0, "limit must be at least 1");
 
-        List<Node> selected = new ArrayList<>(limit);
+        List<Node> selected = new ArrayList<>(min(limit, candidates.size()));
         while (selected.size() < limit && candidates.hasNext()) {
             selected.add(candidates.next());
         }
@@ -266,15 +265,15 @@ public class NodeScheduler
             int maxPendingSplitsPerTask,
             Set<Split> splits,
             List<RemoteTask> existingTasks,
-            NodePartitionMap partitioning)
+            BucketNodeMap bucketNodeMap)
     {
         Multimap<Node, Split> assignments = HashMultimap.create();
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
 
         Set<Node> blockedNodes = new HashSet<>();
         for (Split split : splits) {
-            // node placement is forced by the partitioning
-            Node node = partitioning.getNode(split);
+            // node placement is forced by the bucket to node map
+            Node node = bucketNodeMap.getAssignedNode(split).get();
 
             // if node is full, don't schedule now, which will push back on the scheduling of splits
             if (assignmentStats.getTotalSplitCount(node) < maxSplitsPerNode ||

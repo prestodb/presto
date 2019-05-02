@@ -1,0 +1,21 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        local exchange (GATHER, SINGLE, [])
+            remote exchange (REPARTITION, HASH, ["i_brand", "i_category", "s_company_name", "s_store_name"])
+                final aggregation over (d_moy, i_brand, i_category, i_class, s_company_name, s_store_name)
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, ["d_moy", "i_brand", "i_category", "i_class", "s_company_name", "s_store_name"])
+                            partial aggregation over (d_moy, i_brand, i_category, i_class, s_company_name, s_store_name)
+                                join (INNER, REPLICATED):
+                                    join (INNER, REPLICATED):
+                                        join (INNER, REPLICATED):
+                                            scan store_sales
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    scan item
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                scan date_dim
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            scan store

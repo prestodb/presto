@@ -31,4 +31,10 @@ public class TestRaptorDistributedQueries
     {
         super(supplier);
     }
+
+    @Override
+    protected boolean supportsNotNullColumns()
+    {
+        return false;
+    }
 }

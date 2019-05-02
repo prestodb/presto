@@ -17,20 +17,25 @@ import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnIdentity;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.TableIdentity;
+import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
+import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.security.RoleGrant;
+import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.tree.QualifiedName;
 import io.airlift.slice.Slice;
 
@@ -98,6 +103,18 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<TableLayoutResult> getLayouts(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         throw new UnsupportedOperationException();
@@ -105,6 +122,24 @@ public abstract class AbstractMockMetadata
 
     @Override
     public TableLayout getLayout(Session session, TableLayoutHandle handle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public TableLayoutHandle getAlternativeLayoutHandle(Session session, TableLayoutHandle tableLayoutHandle, PartitioningHandle partitioningHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<PartitioningHandle> getCommonPartitioning(Session session, PartitioningHandle left, PartitioningHandle right)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public PartitioningHandle getPartitioningHandleForExchange(Session session, String catalogName, int partitionCount, List<Type> partitionTypes)
     {
         throw new UnsupportedOperationException();
     }
@@ -176,6 +211,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public TableHandle createTemporaryTable(Session session, String catalogName, List<ColumnMetadata> columns, Optional<PartitioningMetadata> partitioningMetadata)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void renameTable(Session session, TableHandle tableHandle, QualifiedObjectName newTableName)
     {
         throw new UnsupportedOperationException();
@@ -200,30 +241,6 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public TableIdentity getTableIdentity(Session session, TableHandle tableHandle)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public TableIdentity deserializeTableIdentity(Session session, String catalogName, byte[] bytes)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ColumnIdentity getColumnIdentity(Session session, TableHandle tableHandle, ColumnHandle columnHandle)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ColumnIdentity deserializeColumnIdentity(Session session, String catalogName, byte[] bytes)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();
@@ -236,13 +253,37 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public TableStatisticsMetadata getStatisticsCollectionMetadata(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public AnalyzeTableHandle beginStatisticsCollection(Session session, TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void finishStatisticsCollection(Session session, AnalyzeTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
     {
         throw new UnsupportedOperationException();
     }
@@ -266,7 +307,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         throw new UnsupportedOperationException();
     }
@@ -350,13 +391,61 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, String grantee, boolean grantOption)
+    public void createRole(Session session, String role, Optional<PrestoPrincipal> grantor, String catalog)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, String grantee, boolean grantOption)
+    public void dropRole(Session session, String role, String catalog)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Set<String> listRoles(Session session, String catalog)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void grantRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalog)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void revokeRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalog)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Set<RoleGrant> listApplicableRoles(Session session, PrestoPrincipal principal, String catalog)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Set<String> listEnabledRoles(Session session, String catalog)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Set<RoleGrant> listRoleGrants(Session session, String catalog, PrestoPrincipal principal)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
         throw new UnsupportedOperationException();
     }
@@ -368,7 +457,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public FunctionRegistry getFunctionRegistry()
+    public FunctionManager getFunctionManager()
     {
         throw new UnsupportedOperationException();
     }
@@ -410,6 +499,18 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public ColumnPropertyManager getColumnPropertyManager()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public AnalyzePropertyManager getAnalyzePropertyManager()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column)
     {
         throw new UnsupportedOperationException();
@@ -417,6 +518,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public boolean catalogExists(Session session, String catalogName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, ConnectorId catalogName)
     {
         throw new UnsupportedOperationException();
     }

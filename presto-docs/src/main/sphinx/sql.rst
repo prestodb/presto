@@ -9,8 +9,10 @@ This chapter describes the SQL syntax used in Presto.
 
     sql/alter-schema
     sql/alter-table
+    sql/analyze
     sql/call
     sql/commit
+    sql/create-role
     sql/create-schema
     sql/create-table
     sql/create-table-as
@@ -20,6 +22,7 @@ This chapter describes the SQL syntax used in Presto.
     sql/describe
     sql/describe-input
     sql/describe-output
+    sql/drop-role
     sql/drop-schema
     sql/drop-table
     sql/drop-view
@@ -27,12 +30,15 @@ This chapter describes the SQL syntax used in Presto.
     sql/explain
     sql/explain-analyze
     sql/grant
+    sql/grant-roles
     sql/insert
     sql/prepare
     sql/reset-session
     sql/revoke
+    sql/revoke-roles
     sql/rollback
     sql/select
+    sql/set-role
     sql/set-session
     sql/show-catalogs
     sql/show-columns
@@ -40,9 +46,11 @@ This chapter describes the SQL syntax used in Presto.
     sql/show-create-view
     sql/show-functions
     sql/show-grants
-    sql/show-partitions
+    sql/show-role-grants
+    sql/show-roles
     sql/show-schemas
     sql/show-session
+    sql/show-stats
     sql/show-tables
     sql/start-transaction
     sql/use

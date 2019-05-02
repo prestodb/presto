@@ -15,7 +15,6 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.ImmutableList;
 
@@ -29,7 +28,7 @@ public class TestUnknownMaxAggregation
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = UNKNOWN.createBlockBuilder(new BlockBuilderStatus(), length);
+        BlockBuilder blockBuilder = UNKNOWN.createBlockBuilder(null, length);
         for (int i = 0; i < length; i++) {
             blockBuilder.appendNull();
         }

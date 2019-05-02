@@ -67,7 +67,7 @@ public final class QueryCardinalityUtil
         return extractCardinality(node, noLookup());
     }
 
-    private static Range<Long> extractCardinality(PlanNode node, Lookup lookup)
+    public static Range<Long> extractCardinality(PlanNode node, Lookup lookup)
     {
         return node.accept(new CardinalityExtractorPlanVisitor(lookup), null);
     }
@@ -134,6 +134,7 @@ public final class QueryCardinalityUtil
             return Range.atLeast(0L);
         }
 
+        @Override
         public Range<Long> visitValues(ValuesNode node, Void context)
         {
             return Range.singleton((long) node.getRows().size());

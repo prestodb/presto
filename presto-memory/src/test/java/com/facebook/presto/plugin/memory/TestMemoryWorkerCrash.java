@@ -14,51 +14,46 @@
 package com.facebook.presto.plugin.memory;
 
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import io.airlift.units.Duration;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.plugin.memory.MemoryQueryRunner.createQueryRunner;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestMemoryWorkerCrash
+        extends AbstractTestQueryFramework
 {
-    private DistributedQueryRunner queryRunner;
-
-    @BeforeMethod
-    public void setUp()
-            throws Exception
+    protected TestMemoryWorkerCrash()
     {
-        queryRunner = createQueryRunner();
+        super(MemoryQueryRunner::createQueryRunner);
     }
 
     @Test
     public void tableAccessAfterWorkerCrash()
             throws Exception
     {
-        queryRunner.execute("CREATE TABLE test_nation as SELECT * FROM tpch.tiny.nation");
-        assertQuery("SELECT * FROM test_nation ORDER BY nationkey", "SELECT * FROM tpch.tiny.nation ORDER BY nationkey");
+        getQueryRunner().execute("CREATE TABLE test_nation as SELECT * FROM nation");
+        assertQuery("SELECT * FROM test_nation ORDER BY nationkey", "SELECT * FROM nation ORDER BY nationkey");
         closeWorker();
-        assertFails("SELECT * FROM test_nation ORDER BY nationkey", "No nodes available to run query");
-        queryRunner.execute("INSERT INTO test_nation SELECT * FROM tpch.tiny.nation");
-        assertFails("SELECT * FROM test_nation ORDER BY nationkey", "No nodes available to run query");
+        assertQueryFails("SELECT * FROM test_nation ORDER BY nationkey", "No nodes available to run query");
+        getQueryRunner().execute("INSERT INTO test_nation SELECT * FROM tpch.tiny.nation");
 
-        queryRunner.execute("CREATE TABLE test_region as SELECT * FROM tpch.tiny.region");
-        assertQuery("SELECT * FROM test_region ORDER BY regionkey", "SELECT * FROM tpch.tiny.region ORDER BY regionkey");
+        assertQueryFails("SELECT * FROM test_nation ORDER BY nationkey", "No nodes available to run query");
+
+        getQueryRunner().execute("CREATE TABLE test_region as SELECT * FROM tpch.tiny.region");
+        assertQuery("SELECT * FROM test_region ORDER BY regionkey", "SELECT * FROM region ORDER BY regionkey");
     }
 
     private void closeWorker()
             throws Exception
     {
-        int nodeCount = queryRunner.getNodeCount();
+        int nodeCount = getNodeCount();
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
         TestingPrestoServer worker = queryRunner.getServers().stream()
                 .filter(server -> !server.isCoordinator())
                 .findAny()
@@ -67,30 +62,10 @@ public class TestMemoryWorkerCrash
         waitForNodes(nodeCount - 1);
     }
 
-    private void assertQuery(String sql, String expected)
-    {
-        MaterializedResult rows = queryRunner.execute(sql);
-        MaterializedResult expectedRows = queryRunner.execute(expected);
-
-        assertEquals(rows, expectedRows);
-    }
-
-    private void assertFails(String sql, String expectedMessage)
-    {
-        try {
-            queryRunner.execute(sql);
-        }
-        catch (RuntimeException ex) {
-            // pass
-            assertEquals(ex.getMessage(), expectedMessage);
-            return;
-        }
-        fail("Query should fail");
-    }
-
     private void waitForNodes(int numberOfNodes)
             throws InterruptedException
     {
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
         long start = System.nanoTime();
         while (queryRunner.getCoordinator().refreshNodes().getActiveNodes().size() < numberOfNodes) {
             assertLessThan(nanosSince(start), new Duration(10, SECONDS));

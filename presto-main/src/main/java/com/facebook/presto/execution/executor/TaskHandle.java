@@ -24,6 +24,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -56,12 +57,20 @@ public class TaskHandle
 
     protected final AtomicReference<Priority> priority = new AtomicReference<>(new Priority(0, 0));
     private final MultilevelSplitQueue splitQueue;
+    private final OptionalInt maxDriversPerTask;
 
-    public TaskHandle(TaskId taskId, MultilevelSplitQueue splitQueue, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency)
+    public TaskHandle(
+            TaskId taskId,
+            MultilevelSplitQueue splitQueue,
+            DoubleSupplier utilizationSupplier,
+            int initialSplitConcurrency,
+            Duration splitConcurrencyAdjustFrequency,
+            OptionalInt maxDriversPerTask)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.splitQueue = requireNonNull(splitQueue, "splitQueue is null");
         this.utilizationSupplier = requireNonNull(utilizationSupplier, "utilizationSupplier is null");
+        this.maxDriversPerTask = requireNonNull(maxDriversPerTask, "maxDriversPerTask is null");
         this.concurrencyController = new SplitConcurrencyController(
                 initialSplitConcurrency,
                 requireNonNull(splitConcurrencyAdjustFrequency, "splitConcurrencyAdjustFrequency is null"));
@@ -103,6 +112,11 @@ public class TaskHandle
     public TaskId getTaskId()
     {
         return taskId;
+    }
+
+    public OptionalInt getMaxDriversPerTask()
+    {
+        return maxDriversPerTask;
     }
 
     // Returns any remaining splits. The caller must destroy these.

@@ -16,6 +16,8 @@ package com.facebook.presto.jdbc;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.client.StatementClient;
+import com.facebook.presto.spi.security.SelectedRole;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -44,15 +46,16 @@ import java.sql.Struct;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Maps.fromProperties;
@@ -72,19 +75,24 @@ public class PrestoConnection
     private final AtomicBoolean readOnly = new AtomicBoolean();
     private final AtomicReference<String> catalog = new AtomicReference<>();
     private final AtomicReference<String> schema = new AtomicReference<>();
+    private final AtomicReference<String> path = new AtomicReference<>();
     private final AtomicReference<String> timeZoneId = new AtomicReference<>();
     private final AtomicReference<Locale> locale = new AtomicReference<>();
     private final AtomicReference<Integer> networkTimeoutMillis = new AtomicReference<>(Ints.saturatedCast(MINUTES.toMillis(2)));
     private final AtomicReference<ServerInfo> serverInfo = new AtomicReference<>();
+    private final AtomicLong nextStatementId = new AtomicLong(1);
 
     private final URI jdbcUri;
     private final URI httpUri;
     private final String user;
+    private final Optional<String> applicationNamePrefix;
     private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
     private final Map<String, String> sessionProperties = new ConcurrentHashMap<>();
     private final Map<String, String> preparedStatements = new ConcurrentHashMap<>();
+    private final Map<String, SelectedRole> roles = new ConcurrentHashMap<>();
     private final AtomicReference<String> transactionId = new AtomicReference<>();
     private final QueryExecutor queryExecutor;
+    private final WarningsManager warningsManager = new WarningsManager();
 
     PrestoConnection(PrestoDriverUri uri, QueryExecutor queryExecutor)
             throws SQLException
@@ -95,6 +103,7 @@ public class PrestoConnection
         this.schema.set(uri.getSchema());
         this.catalog.set(uri.getCatalog());
         this.user = uri.getUser();
+        this.applicationNamePrefix = uri.getApplicationNamePrefix();
 
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
 
@@ -115,7 +124,8 @@ public class PrestoConnection
             throws SQLException
     {
         checkOpen();
-        throw new NotImplementedException("Connection", "prepareStatement");
+        String name = "statement" + nextStatementId.getAndIncrement();
+        return new PrestoPreparedStatement(this, name, sql);
     }
 
     @Override
@@ -548,6 +558,20 @@ public class PrestoConnection
         sessionProperties.put(name, value);
     }
 
+    void setRole(String catalog, SelectedRole role)
+    {
+        requireNonNull(catalog, "catalog is null");
+        requireNonNull(role, "role is null");
+
+        roles.put(catalog, role);
+    }
+
+    @VisibleForTesting
+    Map<String, SelectedRole> getRoles()
+    {
+        return ImmutableMap.copyOf(roles);
+    }
+
     @Override
     public void abort(Executor executor)
             throws SQLException
@@ -632,8 +656,19 @@ public class PrestoConnection
 
     StatementClient startQuery(String sql, Map<String, String> sessionPropertiesOverride)
     {
-        String source = firstNonNull(clientInfo.get("ApplicationName"), "presto-jdbc");
+        String source = "presto-jdbc";
+        String applicationName = clientInfo.get("ApplicationName");
+        if (applicationNamePrefix.isPresent()) {
+            source = applicationNamePrefix.get();
+            if (applicationName != null) {
+                source += applicationName;
+            }
+        }
+        else if (applicationName != null) {
+            source = applicationName;
+        }
 
+        Optional<String> traceToken = Optional.ofNullable(clientInfo.get("TraceToken"));
         Iterable<String> clientTags = Splitter.on(',').trimResults().omitEmptyStrings()
                 .split(nullToEmpty(clientInfo.get("ClientTags")));
 
@@ -648,14 +683,18 @@ public class PrestoConnection
                 httpUri,
                 user,
                 source,
+                traceToken,
                 ImmutableSet.copyOf(clientTags),
                 clientInfo.get("ClientInfo"),
                 catalog.get(),
                 schema.get(),
+                path.get(),
                 timeZoneId.get(),
                 locale.get(),
+                ImmutableMap.of(),
                 ImmutableMap.copyOf(allProperties),
                 ImmutableMap.copyOf(preparedStatements),
+                ImmutableMap.copyOf(roles),
                 transactionId.get(),
                 timeout);
 
@@ -672,6 +711,7 @@ public class PrestoConnection
 
         client.getSetCatalog().ifPresent(catalog::set);
         client.getSetSchema().ifPresent(schema::set);
+        client.getSetPath().ifPresent(path::set);
 
         if (client.getStartedTransactionId() != null) {
             transactionId.set(client.getStartedTransactionId());
@@ -679,6 +719,11 @@ public class PrestoConnection
         if (client.isClearTransactionId()) {
             transactionId.set(null);
         }
+    }
+
+    WarningsManager getWarningsManager()
+    {
+        return warningsManager;
     }
 
     private void checkOpen()

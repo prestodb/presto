@@ -17,7 +17,6 @@ import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlDecimal;
-import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.google.common.base.Strings;
 import com.google.common.collect.AbstractIterator;
@@ -46,11 +45,12 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
@@ -97,6 +97,16 @@ public abstract class AbstractTestOrcReader
             throws Exception
     {
         testRoundTripNumeric(intsBetween(0, 31_234));
+    }
+
+    @Test
+    public void testNegativeLongSequence()
+            throws Exception
+    {
+        // A flaw in ORC encoding makes it impossible to represent timestamp
+        // between 1969-12-31 23:59:59.000, exclusive, and 1970-01-01 00:00:00.000, exclusive.
+        // Therefore, such data won't round trip and are skipped from test.
+        testRoundTripNumeric(intsBetween(-31_234, -999));
     }
 
     @Test
@@ -182,7 +192,7 @@ public abstract class AbstractTestOrcReader
         tester.testRoundTrip(
                 TIMESTAMP,
                 writeValues.stream()
-                        .map(timestamp -> new SqlTimestamp(timestamp, UTC_KEY))
+                        .map(timestamp -> sqlTimestampOf(timestamp, SESSION))
                         .collect(toList()));
     }
 
@@ -471,6 +481,6 @@ public abstract class AbstractTestOrcReader
 
     private static ContiguousSet<Integer> intsBetween(int lowerInclusive, int upperExclusive)
     {
-        return ContiguousSet.create(Range.openClosed(lowerInclusive, upperExclusive), DiscreteDomain.integers());
+        return ContiguousSet.create(Range.closedOpen(lowerInclusive, upperExclusive), DiscreteDomain.integers());
     }
 }

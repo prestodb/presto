@@ -1,0 +1,35 @@
+cross join:
+    final aggregation over ()
+        local exchange (GATHER, SINGLE, [])
+            remote exchange (GATHER, SINGLE, [])
+                partial aggregation over ()
+                    join (INNER, REPLICATED):
+                        join (INNER, REPLICATED):
+                            join (INNER, REPLICATED):
+                                scan web_sales
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        scan web_page
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    scan time_dim
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPLICATE, BROADCAST, [])
+                                scan household_demographics
+    final aggregation over ()
+        local exchange (GATHER, SINGLE, [])
+            remote exchange (GATHER, SINGLE, [])
+                partial aggregation over ()
+                    join (INNER, REPLICATED):
+                        join (INNER, REPLICATED):
+                            join (INNER, REPLICATED):
+                                scan web_sales
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        scan web_page
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    scan time_dim
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPLICATE, BROADCAST, [])
+                                scan household_demographics

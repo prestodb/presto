@@ -24,6 +24,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -47,7 +48,9 @@ public class MarkDistinctNode
         this.source = source;
         this.markerSymbol = markerSymbol;
         this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
-        this.distinctSymbols = ImmutableList.copyOf(requireNonNull(distinctSymbols, "distinctSymbols is null"));
+        requireNonNull(distinctSymbols, "distinctSymbols is null");
+        checkArgument(!distinctSymbols.isEmpty(), "distinctSymbols cannot be empty");
+        this.distinctSymbols = ImmutableList.copyOf(distinctSymbols);
     }
 
     @Override

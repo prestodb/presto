@@ -26,7 +26,7 @@ public class MemoryInsertTableHandle
         implements ConnectorInsertTableHandle
 {
     private final MemoryTableHandle table;
-    private Set<Long> activeTableIds;
+    private final Set<Long> activeTableIds;
 
     @JsonCreator
     public MemoryInsertTableHandle(

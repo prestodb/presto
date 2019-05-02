@@ -87,6 +87,7 @@ Kerberos authentication is configured in the coordinator node's
     http-server.authentication.type=KERBEROS
 
     http.server.authentication.krb5.service-name=presto
+    http.server.authentication.krb5.service-hostname=presto.example.com
     http.server.authentication.krb5.keytab=/etc/presto/presto.keytab
     http.authentication.krb5.config=/etc/krb5.conf
 
@@ -101,11 +102,15 @@ Property                                                Description
 ======================================================= ======================================================
 ``http-server.authentication.type``                     Authentication type for the Presto
                                                         coordinator. Must be set to ``KERBEROS``.
-``http.server.authentication.krb5.service-name``        The Kerberos server name for the Presto coordinator.
+``http.server.authentication.krb5.service-name``        The Kerberos service name for the Presto coordinator.
                                                         Must match the Kerberos principal.
+``http.server.authentication.krb5.principal-hostname``  The Kerberos hostname for the Presto coordinator.
+                                                        Must match the Kerberos principal. This parameter is
+                                                        optional. If included, Presto will use this value
+                                                        in the host part of the Kerberos principal instead
+                                                        of the machine's hostname.
 ``http.server.authentication.krb5.keytab``              The location of the keytab that can be used to
-                                                        authenticate the Kerberos principal specified in
-                                                        ``http.server.authentication.krb5.service-name``.
+                                                        authenticate the Kerberos principal.
 ``http.authentication.krb5.config``                     The location of the Kerberos configuration file.
 ``http-server.https.enabled``                           Enables HTTPS access for the Presto coordinator.
                                                         Should be set to ``true``.
@@ -118,15 +123,20 @@ Property                                                Description
 
 .. note::
 
-    Monitor CPU usage on the Presto coordinator after enabling HTTPS. Java will
-    choose CPU-intensive cipher suites by default. If the CPU usage is
-    unacceptably high after enabling HTTPS, you can configure Java to use
-    specific cipher suites by setting the ``http-server.https.included-cipher``
-    property:
+    Monitor CPU usage on the Presto coordinator after enabling HTTPS. Java
+    prefers the more CPU-intensive cipher suites if you allow it to choose from
+    a big list. If the CPU usage is unacceptably high after enabling HTTPS,
+    you can configure Java to use specific cipher suites by setting
+    the ``http-server.https.included-cipher`` property to only allow
+    cheap ciphers. Non forward secrecy (FS) ciphers are disabled by default.
+    As a result, if you want to choose non FS ciphers, you need to set the
+    ``http-server.https.excluded-cipher`` property to an empty list in order to
+    override the default exclusions.
 
     .. code-block:: none
 
         http-server.https.included-cipher=TLS_RSA_WITH_AES_128_CBC_SHA,TLS_RSA_WITH_AES_128_CBC_SHA256
+        http-server.https.excluded-cipher=
 
     The Java documentation lists the `supported cipher suites
     <http://docs.oracle.com/javase/8/docs/technotes/guides/security/SunProviders.html#SupportedCipherSuites>`_.

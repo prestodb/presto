@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.198</version>
+        <version>0.219</version>
     </parent>
 
     <artifactId>presto-hive-hadoop2</artifactId>
@@ -20,6 +20,11 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hive</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
         </dependency>
 
         <dependency>
@@ -90,12 +95,6 @@
             <artifactId>presto-main</artifactId>
             <scope>test</scope>
         </dependency>
-
-        <dependency>
-            <groupId>dnsjava</groupId>
-            <artifactId>dnsjava</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <profiles>
@@ -110,7 +109,21 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <excludedGroups>hive,hive-s3</excludedGroups>
+                            <excludes>
+                                <exclude>**/TestHiveClient.java</exclude>
+                                <exclude>**/TestHiveFileSystemS3.java</exclude>
+                                <exclude>**/TestHiveFileSystemS3SelectPushdown.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.basepom.maven</groupId>
+                        <artifactId>duplicate-finder-maven-plugin</artifactId>
+                        <configuration>
+                            <ignoredResourcePatterns>
+                                <ignoredResourcePattern>parquet.thrift</ignoredResourcePattern>
+                                <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                            </ignoredResourcePatterns>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -124,12 +137,19 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <groups>hive</groups>
-                            <systemProperties>
-                                <hive.hadoop2.metastoreHost>localhost</hive.hadoop2.metastoreHost>
-                                <hive.hadoop2.metastorePort>9083</hive.hadoop2.metastorePort>
-                                <hive.hadoop2.databaseName>default</hive.hadoop2.databaseName>
-                            </systemProperties>
+                            <includes>
+                                <include>**/TestHiveClient.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.basepom.maven</groupId>
+                        <artifactId>duplicate-finder-maven-plugin</artifactId>
+                        <configuration>
+                            <ignoredResourcePatterns>
+                                <ignoredResourcePattern>parquet.thrift</ignoredResourcePattern>
+                                <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                            </ignoredResourcePatterns>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -143,12 +163,20 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <groups>hive-s3</groups>
-                            <systemProperties>
-                                <hive.hadoop2.metastoreHost>localhost</hive.hadoop2.metastoreHost>
-                                <hive.hadoop2.metastorePort>9083</hive.hadoop2.metastorePort>
-                                <hive.hadoop2.databaseName>default</hive.hadoop2.databaseName>
-                            </systemProperties>
+                            <includes>
+                                <include>**/TestHiveFileSystemS3.java</include>
+                                <include>**/TestHiveFileSystemS3SelectPushdown.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.basepom.maven</groupId>
+                        <artifactId>duplicate-finder-maven-plugin</artifactId>
+                        <configuration>
+                            <ignoredResourcePatterns>
+                                <ignoredResourcePattern>parquet.thrift</ignoredResourcePattern>
+                                <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                            </ignoredResourcePatterns>
                         </configuration>
                     </plugin>
                 </plugins>

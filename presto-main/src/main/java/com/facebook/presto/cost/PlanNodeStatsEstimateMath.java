@@ -13,74 +13,135 @@
  */
 package com.facebook.presto.cost;
 
-import java.util.stream.Stream;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Double.NaN;
+import static java.lang.Double.isNaN;
+import static java.lang.Double.max;
+import static java.lang.Double.min;
+import static java.util.stream.Stream.concat;
 
 public class PlanNodeStatsEstimateMath
 {
     private PlanNodeStatsEstimateMath()
     {}
 
-    @FunctionalInterface
-    private interface RangeSubtractionStrategy
+    /**
+     * Subtracts subset stats from supersets stats.
+     * It is assumed that each NDV from subset has a matching NDV in superset.
+     */
+    public static PlanNodeStatsEstimate subtractSubsetStats(PlanNodeStatsEstimate superset, PlanNodeStatsEstimate subset)
     {
-        StatisticRange range(StatisticRange leftRange, StatisticRange rightRange);
+        if (superset.isOutputRowCountUnknown() || subset.isOutputRowCountUnknown()) {
+            return PlanNodeStatsEstimate.unknown();
+        }
+
+        double supersetRowCount = superset.getOutputRowCount();
+        double subsetRowCount = subset.getOutputRowCount();
+        double outputRowCount = max(supersetRowCount - subsetRowCount, 0);
+
+        // everything will be filtered out after applying negation
+        if (outputRowCount == 0) {
+            return createZeroStats(superset);
+        }
+
+        PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
+        result.setOutputRowCount(outputRowCount);
+
+        superset.getSymbolsWithKnownStatistics().forEach(symbol -> {
+            SymbolStatsEstimate supersetSymbolStats = superset.getSymbolStatistics(symbol);
+            SymbolStatsEstimate subsetSymbolStats = subset.getSymbolStatistics(symbol);
+
+            SymbolStatsEstimate.Builder newSymbolStats = SymbolStatsEstimate.builder();
+
+            // for simplicity keep the average row size the same as in the input
+            // in most cases the average row size doesn't change after applying filters
+            newSymbolStats.setAverageRowSize(supersetSymbolStats.getAverageRowSize());
+
+            // nullsCount
+            double supersetNullsCount = supersetSymbolStats.getNullsFraction() * supersetRowCount;
+            double subsetNullsCount = subsetSymbolStats.getNullsFraction() * subsetRowCount;
+            double newNullsCount = max(supersetNullsCount - subsetNullsCount, 0);
+            newSymbolStats.setNullsFraction(min(newNullsCount, outputRowCount) / outputRowCount);
+
+            // distinctValuesCount
+            double supersetDistinctValues = supersetSymbolStats.getDistinctValuesCount();
+            double subsetDistinctValues = subsetSymbolStats.getDistinctValuesCount();
+            double newDistinctValuesCount;
+            if (isNaN(supersetDistinctValues) || isNaN(subsetDistinctValues)) {
+                newDistinctValuesCount = NaN;
+            }
+            else if (supersetDistinctValues == 0) {
+                newDistinctValuesCount = 0;
+            }
+            else if (subsetDistinctValues == 0) {
+                newDistinctValuesCount = supersetDistinctValues;
+            }
+            else {
+                double supersetNonNullsCount = supersetRowCount - supersetNullsCount;
+                double subsetNonNullsCount = subsetRowCount - subsetNullsCount;
+                double supersetValuesPerDistinctValue = supersetNonNullsCount / supersetDistinctValues;
+                double subsetValuesPerDistinctValue = subsetNonNullsCount / subsetDistinctValues;
+                if (supersetValuesPerDistinctValue <= subsetValuesPerDistinctValue) {
+                    newDistinctValuesCount = max(supersetDistinctValues - subsetDistinctValues, 0);
+                }
+                else {
+                    newDistinctValuesCount = supersetDistinctValues;
+                }
+            }
+            newSymbolStats.setDistinctValuesCount(newDistinctValuesCount);
+
+            // range
+            newSymbolStats.setLowValue(supersetSymbolStats.getLowValue());
+            newSymbolStats.setHighValue(supersetSymbolStats.getHighValue());
+
+            result.addSymbolStatistics(symbol, newSymbolStats.build());
+        });
+
+        return result.build();
     }
 
-    public static PlanNodeStatsEstimate differenceInStats(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
+    public static PlanNodeStatsEstimate capStats(PlanNodeStatsEstimate stats, PlanNodeStatsEstimate cap)
     {
-        return differenceInStatsWithRangeStrategy(left, right, StatisticRange::subtract);
+        if (stats.isOutputRowCountUnknown() || cap.isOutputRowCountUnknown()) {
+            return PlanNodeStatsEstimate.unknown();
+        }
+
+        PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
+        double cappedRowCount = min(stats.getOutputRowCount(), cap.getOutputRowCount());
+        result.setOutputRowCount(cappedRowCount);
+
+        stats.getSymbolsWithKnownStatistics().forEach(symbol -> {
+            SymbolStatsEstimate symbolStats = stats.getSymbolStatistics(symbol);
+            SymbolStatsEstimate capSymbolStats = cap.getSymbolStatistics(symbol);
+
+            SymbolStatsEstimate.Builder newSymbolStats = SymbolStatsEstimate.builder();
+
+            // for simplicity keep the average row size the same as in the input
+            // in most cases the average row size doesn't change after applying filters
+            newSymbolStats.setAverageRowSize(symbolStats.getAverageRowSize());
+
+            newSymbolStats.setDistinctValuesCount(min(symbolStats.getDistinctValuesCount(), capSymbolStats.getDistinctValuesCount()));
+            newSymbolStats.setLowValue(max(symbolStats.getLowValue(), capSymbolStats.getLowValue()));
+            newSymbolStats.setHighValue(min(symbolStats.getHighValue(), capSymbolStats.getHighValue()));
+
+            double numberOfNulls = stats.getOutputRowCount() * symbolStats.getNullsFraction();
+            double capNumberOfNulls = cap.getOutputRowCount() * capSymbolStats.getNullsFraction();
+            double cappedNumberOfNulls = min(numberOfNulls, capNumberOfNulls);
+            double cappedNullsFraction = cappedRowCount == 0 ? 1 : cappedNumberOfNulls / cappedRowCount;
+            newSymbolStats.setNullsFraction(cappedNullsFraction);
+
+            result.addSymbolStatistics(symbol, newSymbolStats.build());
+        });
+
+        return result.build();
     }
 
-    public static PlanNodeStatsEstimate differenceInNonRangeStats(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
+    private static PlanNodeStatsEstimate createZeroStats(PlanNodeStatsEstimate stats)
     {
-        return differenceInStatsWithRangeStrategy(left, right, ((leftRange, rightRange) -> leftRange));
-    }
-
-    private static PlanNodeStatsEstimate differenceInStatsWithRangeStrategy(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right, RangeSubtractionStrategy strategy)
-    {
-        PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
-        double newRowCount = left.getOutputRowCount() - right.getOutputRowCount();
-
-        Stream.concat(left.getSymbolsWithKnownStatistics().stream(), right.getSymbolsWithKnownStatistics().stream())
-                .forEach(symbol -> {
-                    statsBuilder.addSymbolStatistics(
-                            symbol,
-                            subtractColumnStats(
-                                    left.getSymbolStatistics(symbol),
-                                    left.getOutputRowCount(),
-                                    right.getSymbolStatistics(symbol),
-                                    right.getOutputRowCount(),
-                                    newRowCount,
-                                    strategy));
-                });
-
-        return statsBuilder.setOutputRowCount(newRowCount).build();
-    }
-
-    private static SymbolStatsEstimate subtractColumnStats(
-            SymbolStatsEstimate leftStats,
-            double leftRowCount,
-            SymbolStatsEstimate rightStats,
-            double rightRowCount,
-            double newRowCount,
-            RangeSubtractionStrategy strategy)
-    {
-        StatisticRange leftRange = StatisticRange.from(leftStats);
-        StatisticRange rightRange = StatisticRange.from(rightStats);
-
-        double nullsCountLeft = leftStats.getNullsFraction() * leftRowCount;
-        double nullsCountRight = rightStats.getNullsFraction() * rightRowCount;
-        double totalSizeLeft = leftRowCount * leftStats.getAverageRowSize();
-        double totalSizeRight = rightRowCount * rightStats.getAverageRowSize();
-        StatisticRange range = strategy.range(leftRange, rightRange);
-
-        return SymbolStatsEstimate.builder()
-                .setDistinctValuesCount(leftStats.getDistinctValuesCount() - rightStats.getDistinctValuesCount())
-                .setHighValue(range.getHigh())
-                .setLowValue(range.getLow())
-                .setAverageRowSize((totalSizeLeft - totalSizeRight) / newRowCount)
-                .setNullsFraction((nullsCountLeft - nullsCountRight) / newRowCount)
-                .build();
+        PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
+        result.setOutputRowCount(0);
+        stats.getSymbolsWithKnownStatistics().forEach(symbol -> result.addSymbolStatistics(symbol, SymbolStatsEstimate.zero()));
+        return result.build();
     }
 
     @FunctionalInterface
@@ -94,6 +155,11 @@ public class PlanNodeStatsEstimateMath
         return addStats(left, right, StatisticRange::addAndSumDistinctValues);
     }
 
+    public static PlanNodeStatsEstimate addStatsAndMaxDistinctValues(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
+    {
+        return addStats(left, right, StatisticRange::addAndMaxDistinctValues);
+    }
+
     public static PlanNodeStatsEstimate addStatsAndCollapseDistinctValues(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
     {
         return addStats(left, right, StatisticRange::addAndCollapseDistinctValues);
@@ -101,18 +167,27 @@ public class PlanNodeStatsEstimateMath
 
     private static PlanNodeStatsEstimate addStats(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right, RangeAdditionStrategy strategy)
     {
+        if (left.isOutputRowCountUnknown() || right.isOutputRowCountUnknown()) {
+            return PlanNodeStatsEstimate.unknown();
+        }
+
         PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
         double newRowCount = left.getOutputRowCount() + right.getOutputRowCount();
 
-        Stream.concat(left.getSymbolsWithKnownStatistics().stream(), right.getSymbolsWithKnownStatistics().stream())
+        concat(left.getSymbolsWithKnownStatistics().stream(), right.getSymbolsWithKnownStatistics().stream())
+                .distinct()
                 .forEach(symbol -> {
-                    statsBuilder.addSymbolStatistics(symbol,
-                            addColumnStats(left.getSymbolStatistics(symbol),
-                                    left.getOutputRowCount(),
-                                    right.getSymbolStatistics(symbol),
-                                    right.getOutputRowCount(),
-                                    newRowCount,
-                                    strategy));
+                    SymbolStatsEstimate symbolStats = SymbolStatsEstimate.zero();
+                    if (newRowCount > 0) {
+                        symbolStats = addColumnStats(
+                                left.getSymbolStatistics(symbol),
+                                left.getOutputRowCount(),
+                                right.getSymbolStatistics(symbol),
+                                right.getOutputRowCount(),
+                                newRowCount,
+                                strategy);
+                    }
+                    statsBuilder.addSymbolStatistics(symbol, symbolStats);
                 });
 
         return statsBuilder.setOutputRowCount(newRowCount).build();
@@ -120,19 +195,26 @@ public class PlanNodeStatsEstimateMath
 
     private static SymbolStatsEstimate addColumnStats(SymbolStatsEstimate leftStats, double leftRows, SymbolStatsEstimate rightStats, double rightRows, double newRowCount, RangeAdditionStrategy strategy)
     {
+        checkArgument(newRowCount > 0, "newRowCount must be greater than zero");
+
         StatisticRange leftRange = StatisticRange.from(leftStats);
         StatisticRange rightRange = StatisticRange.from(rightStats);
 
         StatisticRange sum = strategy.add(leftRange, rightRange);
         double nullsCountRight = rightStats.getNullsFraction() * rightRows;
         double nullsCountLeft = leftStats.getNullsFraction() * leftRows;
-        double totalSizeLeft = leftRows * leftStats.getAverageRowSize();
-        double totalSizeRight = rightRows * rightStats.getAverageRowSize();
+        double totalSizeLeft = (leftRows - nullsCountLeft) * leftStats.getAverageRowSize();
+        double totalSizeRight = (rightRows - nullsCountRight) * rightStats.getAverageRowSize();
+        double newNullsFraction = (nullsCountLeft + nullsCountRight) / newRowCount;
+        double newNonNullsRowCount = newRowCount * (1.0 - newNullsFraction);
+
+        // FIXME, weights to average. left and right should be equal in most cases anyway
+        double newAverageRowSize = newNonNullsRowCount == 0 ? 0 : ((totalSizeLeft + totalSizeRight) / newNonNullsRowCount);
 
         return SymbolStatsEstimate.builder()
                 .setStatisticsRange(sum)
-                .setAverageRowSize((totalSizeLeft + totalSizeRight) / newRowCount) // FIXME, weights to average. left and right should be equal in most cases anyway
-                .setNullsFraction((nullsCountLeft + nullsCountRight) / newRowCount)
+                .setAverageRowSize(newAverageRowSize)
+                .setNullsFraction(newNullsFraction)
                 .build();
     }
 }

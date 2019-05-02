@@ -10,26 +10,35 @@ env:
     - TEST_FLAGS=""
   matrix:
     - MAVEN_CHECKS=true
+    - WEBUI_CHECKS=true
     - TEST_SPECIFIC_MODULES=presto-tests
     - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only"
     - TEST_SPECIFIC_MODULES=presto-raptor
     - TEST_SPECIFIC_MODULES=presto-accumulo
     - TEST_SPECIFIC_MODULES=presto-cassandra
     - TEST_SPECIFIC_MODULES=presto-hive
-    - TEST_OTHER_MODULES=!presto-tests,!presto-raptor,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-docs,!presto-server,!presto-server-rpm
+    - TEST_SPECIFIC_MODULES=presto-main
+    - TEST_SPECIFIC_MODULES=presto-mongodb
+    - TEST_OTHER_MODULES=!presto-tests,!presto-raptor,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-kudu,!presto-docs,!presto-server,!presto-server-rpm,!presto-main,!presto-mongodb
     - PRODUCT_TESTS_BASIC_ENVIRONMENT=true
     - PRODUCT_TESTS_SPECIFIC_ENVIRONMENT=true
+    - PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2=true
     - HIVE_TESTS=true
+    - KUDU_TESTS=true
 
 sudo: required
 dist: trusty
 
 cache:
+  yarn: true
   directories:
     - $HOME/.m2/repository
 
 services:
   - docker
+
+git:
+  quiet: true
 
 install:
   - ./mvnw -v
@@ -42,12 +51,16 @@ install:
       ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server,!presto-server-rpm'
     fi
   - |
-    if [[ -v PRODUCT_TESTS_BASIC_ENVIRONMENT || -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
+    if [[ -v PRODUCT_TESTS_BASIC_ENVIRONMENT || -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT || -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2 ]]; then
       ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server-rpm'
     fi
   - |
     if [[ -v HIVE_TESTS ]]; then
       ./mvnw install $MAVEN_FAST_INSTALL -pl presto-hive-hadoop2 -am
+    fi
+  - |
+    if [[ -v KUDU_TESTS ]]; then
+      ./mvnw install $MAVEN_FAST_INSTALL -pl presto-kudu -am
     fi
 
 before_script:
@@ -57,10 +70,23 @@ before_script:
       export ARTIFACTS_UPLOAD_PATH=${ARTIFACTS_UPLOAD_PATH_PR}
     fi
 
+# *** WARNING ***
+#
+# A single script block must include exactly ONE command.
+# Travis runs a script block without the `-e` flag. Any failures in the middle are simply ignored.
+#
+# Specifying the `-e` flag manually is not recommended.
+# It will stop the execution after the very first failure.
+# Travis runs the remaining blocks even if one of the scripts returns a non zero status.
+# Non zero status is propagated at the end of the build.
 script:
   - |
     if [[ -v MAVEN_CHECKS ]]; then
       ./mvnw install -DskipTests -B -T C1 -P ci
+    fi
+  - |
+    if [[ -v WEBUI_CHECKS ]]; then
+      presto-main/bin/check_webui.sh
     fi
   - |
     if [[ -v TEST_SPECIFIC_MODULES ]]; then
@@ -73,15 +99,35 @@ script:
   - |
     if [[ -v PRODUCT_TESTS_BASIC_ENVIRONMENT ]]; then
       presto-product-tests/bin/run_on_docker.sh \
-        multinode -x quarantine,big_query,storage_formats,profile_specific_tests,tpcds
+        multinode -x quarantine,big_query,storage_formats,profile_specific_tests,tpcds,cassandra,mysql_connector,postgresql_connector,mysql,kafka,avro
     fi
   - |
     if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
       presto-product-tests/bin/run_on_docker.sh \
-        singlenode-kerberos-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation,authorization
+        singlenode -g hdfs_no_impersonation,avro
     fi
   - |
     if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
+      presto-product-tests/bin/run_on_docker.sh \
+        singlenode-kerberos-hdfs-no-impersonation -g hdfs_no_impersonation
+    fi
+  - |
+    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
+      presto-product-tests/bin/run_on_docker.sh \
+        singlenode-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation
+    fi
+  - |
+    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
+      presto-product-tests/bin/run_on_docker.sh \
+        singlenode-kerberos-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation,authorization,hive_file_header
+    fi
+  - |
+    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
+      presto-product-tests/bin/run_on_docker.sh \
+        singlenode-kerberos-hdfs-impersonation-cross-realm -g storage_formats,cli,hdfs_impersonation
+    fi
+  - |
+    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2 ]]; then
       presto-product-tests/bin/run_on_docker.sh \
         singlenode-ldap -g ldap -x simba_jdbc
     fi
@@ -94,20 +140,62 @@ script:
 #        singlenode-sqlserver -g sqlserver
 #    fi
   - |
-    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
+    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2 ]]; then
       presto-product-tests/bin/run_on_docker.sh \
         multinode-tls -g smoke,cli,group-by,join,tls
     fi
   - |
+    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2 ]]; then
+      presto-product-tests/bin/run_on_docker.sh \
+        singlenode-mysql -g mysql_connector,mysql
+    fi
+  - |
+    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2 ]]; then
+      presto-product-tests/bin/run_on_docker.sh \
+        singlenode-postgresql -g postgresql_connector
+    fi
+  - |
+    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2 ]]; then
+      presto-product-tests/bin/run_on_docker.sh \
+        singlenode-cassandra -g cassandra
+    fi
+    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
+      presto-product-tests/bin/run_on_docker.sh \
+        multinode-tls-kerberos -g cli,group-by,join,tls
+    fi
+  - |
+    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2 ]]; then
+      presto-product-tests/bin/run_on_docker.sh \
+        singlenode-kerberos-hdfs-impersonation-with-wire-encryption -g storage_formats,cli,hdfs_impersonation,authorization
+    fi
+  - |
+    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2 ]]; then
+      presto-product-tests/bin/run_on_docker.sh \
+        singlenode-kafka -g kafka
+    fi
+  - |
     if [[ -v HIVE_TESTS ]]; then
       presto-hive-hadoop2/bin/run_hive_tests.sh
-      if [[ -v S3_TESTS_AWS_ACCESS_KEY_ID ]]; then
-        env AWS_ACCESS_KEY_ID=$S3_TESTS_AWS_ACCESS_KEY_ID \
-        AWS_SECRET_ACCESS_KEY=$S3_TESTS_AWS_SECRET_ACCESS_KEY \
+    fi
+  - |
+    if [[ -v HIVE_TESTS && -v HIVE_TESTS_AWS_ACCESS_KEY_ID ]]; then
+      env AWS_ACCESS_KEY_ID=$HIVE_TESTS_AWS_ACCESS_KEY_ID \
+        AWS_SECRET_ACCESS_KEY=$HIVE_TESTS_AWS_SECRET_ACCESS_KEY \
         S3_BUCKET_ENDPOINT=$S3_TESTS_BUCKET_ENDPOINT \
         S3_BUCKET=$S3_TESTS_BUCKET \
         presto-hive-hadoop2/bin/run_hive_s3_tests.sh
-      fi
+    fi
+  - |
+    if [[ -v HIVE_TESTS && -v HIVE_TESTS_AWS_ACCESS_KEY_ID ]]; then
+      env AWS_ACCESS_KEY_ID=$HIVE_TESTS_AWS_ACCESS_KEY_ID \
+        AWS_SECRET_ACCESS_KEY=$HIVE_TESTS_AWS_SECRET_ACCESS_KEY \
+        ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl presto-hive -P test-hive-glue
+    fi
+  - |
+    if [[ -v KUDU_TESTS ]]; then
+      presto-kudu/bin/run_kudu_tests.sh 3 null
+      presto-kudu/bin/run_kudu_tests.sh 1 ""
+      presto-kudu/bin/run_kudu_tests.sh 1 presto::
     fi
 
 before_cache:

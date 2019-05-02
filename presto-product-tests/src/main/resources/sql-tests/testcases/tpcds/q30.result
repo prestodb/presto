@@ -1,4 +1,4 @@
--- delimiter: |; types: CHAR|CHAR|CHAR|CHAR|CHAR|INTEGER|INTEGER|INTEGER|LONGNVARCHAR|CHAR|CHAR|BIGINT|DECIMAL
+-- delimiter: |; types: CHAR|CHAR|CHAR|CHAR|CHAR|INTEGER|INTEGER|INTEGER|VARCHAR|CHAR|CHAR|BIGINT|DECIMAL
 AAAAAAAAAAAIBAAA|Mr.       |Eduardo             |Goodwin                       |Y|24|11|1950|GHANA|null|Eduardo.Goodwin@rolemn2xusv5Ot0.edu               |2452312|3838.00|
 AAAAAAAAABHAAAAA|Sir       |Robert              |Thornton                      |Y|24|5|1924|HONG KONG|null|Robert.Thornton@jas.edu                           |2452431|2434.58|
 AAAAAAAAABPNAAAA|Mr.       |Alonzo              |Huddleston                    |Y|19|4|1957|FAROE ISLANDS|null|Alonzo.Huddleston@g.edu                           |2452289|2813.00|

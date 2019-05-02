@@ -14,14 +14,13 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -45,16 +44,15 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.metadata.FunctionKind.SCALAR;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IN;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
-import static com.facebook.presto.sql.relational.Signatures.IN;
+import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 
@@ -126,10 +124,7 @@ public class InCodeGeneratorBenchmark
         }
         inputPage = pageBuilder.build();
 
-        RowExpression filter = call(
-                new Signature(IN, SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
-                BOOLEAN,
-                arguments);
+        RowExpression filter = specialForm(IN, BOOLEAN, arguments);
 
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
         processor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0)).compilePageProcessor(Optional.of(filter), ImmutableList.of(project)).get();
@@ -138,7 +133,12 @@ public class InCodeGeneratorBenchmark
     @Benchmark
     public List<Optional<Page>> benchmark()
     {
-        return ImmutableList.copyOf(processor.process(SESSION, new DriverYieldSignal(), inputPage));
+        return ImmutableList.copyOf(
+                processor.process(
+                        SESSION,
+                        new DriverYieldSignal(),
+                        newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
+                        inputPage));
     }
 
     public static void main(String[] args)

@@ -14,6 +14,9 @@ package com.facebook.presto.operator.scalar;
  */
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.BlockIndex;
+import com.facebook.presto.spi.function.BlockPosition;
+import com.facebook.presto.spi.function.Convention;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarOperator;
@@ -24,10 +27,10 @@ import com.facebook.presto.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 
+import static com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static com.facebook.presto.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
-import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.util.Failures.internalError;
-import static com.google.common.base.Defaults.defaultValue;
 
 @ScalarOperator(IS_DISTINCT_FROM)
 public final class ArrayDistinctFromOperator
@@ -37,8 +40,10 @@ public final class ArrayDistinctFromOperator
     @TypeParameter("E")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean isDistinctFrom(
-            @OperatorDependency(operator = IS_DISTINCT_FROM, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle function,
-            @TypeParameter("E") Type type,
+            @OperatorDependency(
+                    operator = IS_DISTINCT_FROM,
+                    argumentTypes = {"E", "E"},
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle function,
             @SqlType("array(E)") Block left,
             @IsNull boolean leftNull,
             @SqlType("array(E)") Block right,
@@ -54,22 +59,12 @@ public final class ArrayDistinctFromOperator
             return true;
         }
         for (int i = 0; i < left.getPositionCount(); i++) {
-            Object leftValue = readNativeValue(type, left, i);
-            boolean leftValueNull = leftValue == null;
-            if (leftValueNull) {
-                leftValue = defaultValue(type.getJavaType());
-            }
-            Object rightValue = readNativeValue(type, right, i);
-            boolean rightValueNull = rightValue == null;
-            if (rightValueNull) {
-                rightValue = defaultValue(type.getJavaType());
-            }
             try {
-                if ((boolean) function.invoke(
-                        leftValue,
-                        leftValueNull,
-                        rightValue,
-                        rightValueNull)) {
+                if ((boolean) function.invokeExact(
+                        left,
+                        i,
+                        right,
+                        i)) {
                     return true;
                 }
             }
@@ -78,5 +73,26 @@ public final class ArrayDistinctFromOperator
             }
         }
         return false;
+    }
+
+    @TypeParameter("E")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isDistinctFrom(
+            @OperatorDependency(
+                    operator = IS_DISTINCT_FROM,
+                    argumentTypes = {"E", "E"},
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle elementIsDistinctFrom,
+            @TypeParameter("array(E)") Type type,
+            @BlockPosition @SqlType(value = "array(E)", nativeContainerType = Block.class) Block left,
+            @BlockIndex int leftPosition,
+            @BlockPosition @SqlType(value = "array(E)", nativeContainerType = Block.class) Block right,
+            @BlockIndex int rightPosition)
+    {
+        return isDistinctFrom(
+                elementIsDistinctFrom,
+                (Block) type.getObject(left, leftPosition),
+                left.isNull(leftPosition),
+                (Block) type.getObject(right, rightPosition),
+                right.isNull(rightPosition));
     }
 }

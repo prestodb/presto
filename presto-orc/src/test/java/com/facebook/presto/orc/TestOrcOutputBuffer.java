@@ -72,6 +72,7 @@ public class TestOrcOutputBuffer
 
         // make sure we didn't miss anything
         DynamicSliceOutput output = new DynamicSliceOutput(6000);
+        sliceOutput.close();
         assertEquals(sliceOutput.writeDataTo(output), 200 + 200 + 1200 + 2000 + 2500);
     }
 }

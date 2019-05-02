@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.metadata.FunctionKind;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -25,7 +24,6 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.Window;
-import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -34,30 +32,33 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specification;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static com.facebook.presto.sql.tree.FrameBound.Type.CURRENT_ROW;
-import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.CURRENT_ROW;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
 
 public class TestMergeAdjacentWindows
         extends BaseRuleTest
 {
-    private static final WindowNode.Frame frame = new WindowNode.Frame(WindowFrame.Type.RANGE, UNBOUNDED_PRECEDING,
-            Optional.empty(), CURRENT_ROW, Optional.empty());
-    private static final Signature signature = new Signature(
-            "avg",
-            FunctionKind.WINDOW,
-            ImmutableList.of(),
-            ImmutableList.of(),
-            DOUBLE.getTypeSignature(),
-            ImmutableList.of(DOUBLE.getTypeSignature()),
-            false);
+    private static final WindowNode.Frame frame = new WindowNode.Frame(
+            RANGE,
+            UNBOUNDED_PRECEDING,
+            Optional.empty(),
+            CURRENT_ROW,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty());
+
+    private static final FunctionHandle FUNCTION_HANDLE = createTestMetadataManager().getFunctionManager().lookupFunction(QualifiedName.of("avg"), fromTypes(DOUBLE));
     private static final String columnAAlias = "ALIAS_A";
     private static final ExpectedValueProvider<WindowNode.Specification> specificationA =
             specification(ImmutableList.of(columnAAlias), ImmutableList.of(), ImmutableMap.of());
@@ -224,7 +225,7 @@ public class TestMergeAdjacentWindows
                 new FunctionCall(
                         QualifiedName.of(functionName),
                         Arrays.stream(symbols).map(SymbolReference::new).collect(Collectors.toList())),
-                signature,
+                FUNCTION_HANDLE,
                 frame);
     }
 
@@ -236,7 +237,7 @@ public class TestMergeAdjacentWindows
                         window,
                         false,
                         Arrays.stream(symbols).map(SymbolReference::new).collect(Collectors.toList())),
-                signature,
+                FUNCTION_HANDLE,
                 frame);
     }
 }

@@ -15,9 +15,11 @@ package com.facebook.presto.hive.metastore.file;
 
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
+import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static java.util.Objects.requireNonNull;
 
 public class PermissionMetadata
@@ -31,7 +33,7 @@ public class PermissionMetadata
             @JsonProperty("grantOption") boolean grantOption)
     {
         this.permission = requireNonNull(permission, "permission is null");
-        this.grantOption = requireNonNull(grantOption, "grantOption is null");
+        this.grantOption = grantOption;
     }
 
     public PermissionMetadata(HivePrivilegeInfo privilegeInfo)
@@ -54,6 +56,6 @@ public class PermissionMetadata
 
     public HivePrivilegeInfo toHivePrivilegeInfo()
     {
-        return new HivePrivilegeInfo(permission, grantOption);
+        return new HivePrivilegeInfo(permission, grantOption, new PrestoPrincipal(USER, "admin"), new PrestoPrincipal(USER, "admin"));
     }
 }

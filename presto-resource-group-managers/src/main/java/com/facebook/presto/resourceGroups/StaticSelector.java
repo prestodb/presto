@@ -43,16 +43,24 @@ public class StaticSelector
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> sourceRegex;
     private final Set<String> clientTags;
+    private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
     private final Optional<String> queryType;
     private final ResourceGroupIdTemplate group;
     private final Set<String> variableNames;
 
-    public StaticSelector(Optional<Pattern> userRegex, Optional<Pattern> sourceRegex, Optional<List<String>> clientTags, Optional<String> queryType, ResourceGroupIdTemplate group)
+    public StaticSelector(
+            Optional<Pattern> userRegex,
+            Optional<Pattern> sourceRegex,
+            Optional<List<String>> clientTags,
+            Optional<SelectorResourceEstimate> selectorResourceEstimate,
+            Optional<String> queryType,
+            ResourceGroupIdTemplate group)
     {
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
         requireNonNull(clientTags, "clientTags is null");
         this.clientTags = ImmutableSet.copyOf(clientTags.orElse(ImmutableList.of()));
+        this.selectorResourceEstimate = requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.group = requireNonNull(group, "group is null");
 
@@ -89,6 +97,10 @@ public class StaticSelector
         }
 
         if (!clientTags.isEmpty() && !criteria.getTags().containsAll(clientTags)) {
+            return Optional.empty();
+        }
+
+        if (selectorResourceEstimate.isPresent() && !selectorResourceEstimate.get().match(criteria.getResourceEstimates())) {
             return Optional.empty();
         }
 

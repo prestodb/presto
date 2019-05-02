@@ -16,6 +16,7 @@ package com.facebook.presto.resourceGroups;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
+import com.facebook.presto.spi.session.ResourceEstimates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
@@ -28,6 +29,8 @@ import static org.testng.Assert.assertFalse;
 
 public class TestResourceGroupIdTemplate
 {
+    private static final ResourceEstimates EMPTY_RESOURCE_ESTIMATES = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty());
+
     @Test
     public void testExpansion()
     {
@@ -45,8 +48,8 @@ public class TestResourceGroupIdTemplate
         ResourceGroupId expected = new ResourceGroupId(new ResourceGroupId(new ResourceGroupId(new ResourceGroupId("test"), "pipeline"), "job_testpipeline_user:user"), "user");
 
         Pattern sourcePattern = Pattern.compile("scheduler.important.(?<pipeline>[^\\[]*).*");
-        StaticSelector selector = new StaticSelector(Optional.empty(), Optional.of(sourcePattern), Optional.empty(), Optional.empty(), template);
-        SelectionCriteria context = new SelectionCriteria(true, "user", Optional.of("scheduler.important.testpipeline[5]"), ImmutableSet.of(), 1, Optional.empty());
+        StaticSelector selector = new StaticSelector(Optional.empty(), Optional.of(sourcePattern), Optional.empty(), Optional.empty(), Optional.empty(), template);
+        SelectionCriteria context = new SelectionCriteria(true, "user", Optional.of("scheduler.important.testpipeline[5]"), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
 
         assertEquals(selector.match(context).map(SelectionContext::getResourceGroupId), Optional.of(expected));
     }
@@ -58,8 +61,8 @@ public class TestResourceGroupIdTemplate
         ResourceGroupId expected = new ResourceGroupId(new ResourceGroupId(new ResourceGroupId(new ResourceGroupId("test"), "pipeline"), "testpipeline"), "_s");
 
         Pattern userPattern = Pattern.compile("scheduler.important.(?<pipeline>[^\\[]*).*");
-        StaticSelector selector = new StaticSelector(Optional.of(userPattern), Optional.empty(), Optional.empty(), Optional.empty(), template);
-        SelectionCriteria context = new SelectionCriteria(true, "scheduler.important.testpipeline[5]", Optional.empty(), ImmutableSet.of(), 1, Optional.empty());
+        StaticSelector selector = new StaticSelector(Optional.of(userPattern), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), template);
+        SelectionCriteria context = new SelectionCriteria(true, "scheduler.important.testpipeline[5]", Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
 
         assertEquals(selector.match(context).map(SelectionContext::getResourceGroupId), Optional.of(expected));
     }
@@ -69,8 +72,8 @@ public class TestResourceGroupIdTemplate
     {
         ResourceGroupIdTemplate template = new ResourceGroupIdTemplate("test.pipeline.${pipeline}.${USER}");
         Pattern sourcePattern = Pattern.compile("scheduler.important.(?<pipeline>[^\\[]*).*");
-        StaticSelector selector = new StaticSelector(Optional.empty(), Optional.of(sourcePattern), Optional.empty(), Optional.empty(), template);
-        SelectionCriteria context = new SelectionCriteria(true, "user", Optional.of("scheduler.testpipeline[5]"), ImmutableSet.of(), 1, Optional.empty());
+        StaticSelector selector = new StaticSelector(Optional.empty(), Optional.of(sourcePattern), Optional.empty(), Optional.empty(), Optional.empty(), template);
+        SelectionCriteria context = new SelectionCriteria(true, "user", Optional.of("scheduler.testpipeline[5]"), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
 
         assertFalse(selector.match(context).isPresent());
     }
@@ -80,8 +83,8 @@ public class TestResourceGroupIdTemplate
     {
         ResourceGroupIdTemplate template = new ResourceGroupIdTemplate("test.pipeline.${pipeline}.${user}");
         Pattern sourcePattern = Pattern.compile("scheduler.important.(?<pipeline>[^\\[]*).*");
-        StaticSelector selector = new StaticSelector(Optional.empty(), Optional.of(sourcePattern), Optional.empty(), Optional.empty(), template);
-        SelectionCriteria context = new SelectionCriteria(true, "user", Optional.of("scheduler.important.testpipeline[5]"), ImmutableSet.of(), 1, Optional.empty());
+        StaticSelector selector = new StaticSelector(Optional.empty(), Optional.of(sourcePattern), Optional.empty(), Optional.empty(), Optional.empty(), template);
+        SelectionCriteria context = new SelectionCriteria(true, "user", Optional.of("scheduler.important.testpipeline[5]"), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
         selector.match(context);
     }
 
@@ -90,8 +93,8 @@ public class TestResourceGroupIdTemplate
     {
         ResourceGroupIdTemplate template = new ResourceGroupIdTemplate("test.pipeline.${pipeline}.${USER}");
         Pattern sourcePattern = Pattern.compile("scheduler.important.(testpipeline\\[|(?<pipeline>[^\\[]*)).*");
-        StaticSelector selector = new StaticSelector(Optional.empty(), Optional.of(sourcePattern), Optional.empty(), Optional.empty(), template);
-        SelectionCriteria context = new SelectionCriteria(true, "user", Optional.of("scheduler.important.testpipeline[5]"), ImmutableSet.of(), 1, Optional.empty());
+        StaticSelector selector = new StaticSelector(Optional.empty(), Optional.of(sourcePattern), Optional.empty(), Optional.empty(), Optional.empty(), template);
+        SelectionCriteria context = new SelectionCriteria(true, "user", Optional.of("scheduler.important.testpipeline[5]"), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
         selector.match(context);
     }
 }

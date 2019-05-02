@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -38,6 +39,8 @@ public class KafkaSplit
     private final String topicName;
     private final String keyDataFormat;
     private final String messageDataFormat;
+    private final Optional<String> keyDataSchemaContents;
+    private final Optional<String> messageDataSchemaContents;
     private final int partitionId;
     private final long start;
     private final long end;
@@ -49,6 +52,8 @@ public class KafkaSplit
             @JsonProperty("topicName") String topicName,
             @JsonProperty("keyDataFormat") String keyDataFormat,
             @JsonProperty("messageDataFormat") String messageDataFormat,
+            @JsonProperty("keyDataSchemaContents") Optional<String> keyDataSchemaContents,
+            @JsonProperty("messageDataSchemaContents") Optional<String> messageDataSchemaContents,
             @JsonProperty("partitionId") int partitionId,
             @JsonProperty("start") long start,
             @JsonProperty("end") long end,
@@ -58,6 +63,8 @@ public class KafkaSplit
         this.topicName = requireNonNull(topicName, "topicName is null");
         this.keyDataFormat = requireNonNull(keyDataFormat, "dataFormat is null");
         this.messageDataFormat = requireNonNull(messageDataFormat, "messageDataFormat is null");
+        this.keyDataSchemaContents = keyDataSchemaContents;
+        this.messageDataSchemaContents = messageDataSchemaContents;
         this.partitionId = partitionId;
         this.start = start;
         this.end = end;
@@ -101,6 +108,18 @@ public class KafkaSplit
     }
 
     @JsonProperty
+    public Optional<String> getKeyDataSchemaContents()
+    {
+        return keyDataSchemaContents;
+    }
+
+    @JsonProperty
+    public Optional<String> getMessageDataSchemaContents()
+    {
+        return messageDataSchemaContents;
+    }
+
+    @JsonProperty
     public int getPartitionId()
     {
         return partitionId;
@@ -138,6 +157,8 @@ public class KafkaSplit
                 .add("topicName", topicName)
                 .add("keyDataFormat", keyDataFormat)
                 .add("messageDataFormat", messageDataFormat)
+                .add("keyDataSchemaContents", keyDataSchemaContents)
+                .add("messageDataSchemaContents", messageDataSchemaContents)
                 .add("partitionId", partitionId)
                 .add("start", start)
                 .add("end", end)

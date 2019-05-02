@@ -35,8 +35,8 @@ import java.util.function.Function;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
-import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.instruction.VariableInstruction.incrementVariable;
 
 public class ArrayMapBytecodeExpression
@@ -60,7 +60,7 @@ public class ArrayMapBytecodeExpression
         body = new BytecodeBlock();
 
         Variable blockBuilder = scope.declareVariable(BlockBuilder.class, "blockBuilder_" + NEXT_VARIABLE_ID.getAndIncrement());
-        body.append(blockBuilder.set(constantType(binder, toType).invoke("createBlockBuilder", BlockBuilder.class, newInstance(BlockBuilderStatus.class), array.invoke("getPositionCount", int.class))));
+        body.append(blockBuilder.set(constantType(binder, toType).invoke("createBlockBuilder", BlockBuilder.class, constantNull(BlockBuilderStatus.class), array.invoke("getPositionCount", int.class))));
 
         // get element, apply function, and write new element to block builder
         Variable position = scope.declareVariable(int.class, "position_" + NEXT_VARIABLE_ID.getAndIncrement());

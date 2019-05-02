@@ -16,9 +16,10 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
+import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.planner.Plan;
 import com.google.common.collect.ImmutableList;
@@ -43,7 +44,7 @@ import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.units.DataSize.Unit.BYTE;
-import static java.util.Objects.requireNonNull;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -51,7 +52,7 @@ public class MockQueryExecution
         implements QueryExecution
 {
     private final List<StateChangeListener<QueryState>> listeners = new ArrayList<>();
-    private final long memoryUsage;
+    private final DataSize memoryUsage;
     private final Duration cpuUsage;
     private final Session session;
     private final QueryId queryId;
@@ -71,7 +72,7 @@ public class MockQueryExecution
 
     public MockQueryExecution(long memoryUsage, String queryId, int priority, Duration cpuUsage)
     {
-        this.memoryUsage = memoryUsage;
+        this.memoryUsage = succinctBytes(memoryUsage);
         this.cpuUsage = cpuUsage;
         this.session = testSessionBuilder()
                 .setSystemProperty(QUERY_PRIORITY, String.valueOf(priority))
@@ -111,6 +112,8 @@ public class MockQueryExecution
                         new DateTime(4),
                         new Duration(6, NANOSECONDS),
                         new Duration(5, NANOSECONDS),
+                        new Duration(31, NANOSECONDS),
+                        new Duration(41, NANOSECONDS),
                         new Duration(7, NANOSECONDS),
                         new Duration(8, NANOSECONDS),
 
@@ -132,11 +135,12 @@ public class MockQueryExecution
                         new DataSize(19, BYTE),
                         new DataSize(20, BYTE),
                         new DataSize(21, BYTE),
+                        new DataSize(22, BYTE),
+                        new DataSize(23, BYTE),
 
                         true,
                         new Duration(20, NANOSECONDS),
                         new Duration(21, NANOSECONDS),
-                        new Duration(22, NANOSECONDS),
                         new Duration(23, NANOSECONDS),
                         false,
                         ImmutableSet.of(),
@@ -156,8 +160,10 @@ public class MockQueryExecution
                         ImmutableList.of()),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 ImmutableMap.of(),
                 ImmutableSet.of(),
+                ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableSet.of(),
                 Optional.empty(),
@@ -166,9 +172,11 @@ public class MockQueryExecution
                 Optional.empty(),
                 null,
                 null,
+                ImmutableList.of(),
                 ImmutableSet.of(),
                 Optional.empty(),
                 state.isDone(),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -184,7 +192,7 @@ public class MockQueryExecution
         throw new UnsupportedOperationException();
     }
 
-    public Throwable getFailureCause()
+    public Throwable getThrowable()
     {
         return failureCause;
     }
@@ -214,7 +222,55 @@ public class MockQueryExecution
     }
 
     @Override
-    public long getUserMemoryReservation()
+    public Session getSession()
+    {
+        return session;
+    }
+
+    @Override
+    public DateTime getCreateTime()
+    {
+        return getQueryInfo().getQueryStats().getCreateTime();
+    }
+
+    @Override
+    public Optional<DateTime> getExecutionStartTime()
+    {
+        return Optional.ofNullable(getQueryInfo().getQueryStats().getExecutionStartTime());
+    }
+
+    @Override
+    public DateTime getLastHeartbeat()
+    {
+        return getQueryInfo().getQueryStats().getLastHeartbeat();
+    }
+
+    @Override
+    public Optional<DateTime> getEndTime()
+    {
+        return Optional.ofNullable(getQueryInfo().getQueryStats().getEndTime());
+    }
+
+    @Override
+    public Optional<ErrorCode> getErrorCode()
+    {
+        return Optional.ofNullable(getQueryInfo().getFailureInfo()).map(ExecutionFailureInfo::getErrorCode);
+    }
+
+    @Override
+    public BasicQueryInfo getBasicQueryInfo()
+    {
+        return new BasicQueryInfo(getQueryInfo());
+    }
+
+    @Override
+    public DataSize getUserMemoryReservation()
+    {
+        return memoryUsage;
+    }
+
+    @Override
+    public DataSize getTotalMemoryReservation()
     {
         return memoryUsage;
     }
@@ -223,24 +279,6 @@ public class MockQueryExecution
     public Duration getTotalCpuTime()
     {
         return cpuUsage;
-    }
-
-    @Override
-    public Session getSession()
-    {
-        return session;
-    }
-
-    @Override
-    public Optional<ResourceGroupId> getResourceGroup()
-    {
-        return this.resourceGroupId;
-    }
-
-    @Override
-    public void setResourceGroup(ResourceGroupId resourceGroupId)
-    {
-        this.resourceGroupId = Optional.of(requireNonNull(resourceGroupId, "resourceGroupId is null"));
     }
 
     @Override
@@ -256,6 +294,12 @@ public class MockQueryExecution
         state = FAILED;
         failureCause = cause;
         fireStateChange();
+    }
+
+    @Override
+    public boolean isDone()
+    {
+        return getState().isDone();
     }
 
     @Override
@@ -291,12 +335,6 @@ public class MockQueryExecution
     public void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener)
     {
         throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Optional<QueryType> getQueryType()
-    {
-        return Optional.empty();
     }
 
     private void fireStateChange()

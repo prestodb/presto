@@ -17,11 +17,12 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
+import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 
 /**
@@ -38,6 +39,27 @@ public class PruneCrossJoinColumns
     @Override
     protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, JoinNode joinNode, Set<Symbol> referencedOutputs)
     {
-        return restrictChildOutputs(idAllocator, joinNode, referencedOutputs, referencedOutputs);
+        Optional<PlanNode> newLeft = restrictOutputs(idAllocator, joinNode.getLeft(), referencedOutputs);
+        Optional<PlanNode> newRight = restrictOutputs(idAllocator, joinNode.getRight(), referencedOutputs);
+
+        if (!newLeft.isPresent() && !newRight.isPresent()) {
+            return Optional.empty();
+        }
+
+        ImmutableList.Builder<Symbol> outputSymbolBuilder = ImmutableList.builder();
+        outputSymbolBuilder.addAll(newLeft.orElse(joinNode.getLeft()).getOutputSymbols());
+        outputSymbolBuilder.addAll(newRight.orElse(joinNode.getRight()).getOutputSymbols());
+
+        return Optional.of(new JoinNode(
+                idAllocator.getNextId(),
+                joinNode.getType(),
+                newLeft.orElse(joinNode.getLeft()),
+                newRight.orElse(joinNode.getRight()),
+                joinNode.getCriteria(),
+                outputSymbolBuilder.build(),
+                joinNode.getFilter(),
+                joinNode.getLeftHashSymbol(),
+                joinNode.getRightHashSymbol(),
+                joinNode.getDistributionType()));
     }
 }

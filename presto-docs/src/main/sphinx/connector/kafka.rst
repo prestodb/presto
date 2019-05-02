@@ -239,11 +239,12 @@ Field           Required  Type      Description
 =============== ========= ========= =============================
 ``name``        required  string    Name of the column in the Presto table.
 ``type``        required  string    Presto type of the column.
-``dataFormat``  optional  string    Selects the column decoder for this field. Default to the default decoder for this row data format and column type.
+``dataFormat``  optional  string    Selects the column decoder for this field. Defaults to the default decoder for this row data format and column type.
+``dataSchema``  optional  string    The path or URL where the Avro schema resides. Used only for Avro decoder.
 ``mapping``     optional  string    Mapping information for the column. This is decoder specific, see below.
-``formatHint``  optional  string    Sets a column specifc format hint to the column decoder.
+``formatHint``  optional  string    Sets a column specific format hint to the column decoder.
 ``hidden``      optional  boolean   Hides the column from ``DESCRIBE <table name>`` and ``SELECT *``. Defaults to ``false``.
-``comment``     optional  string    Add a column comment which is shown with ``DESCRIBE <table name>``.
+``comment``     optional  string    Adds a column comment which is shown with ``DESCRIBE <table name>``.
 =============== ========= ========= =============================
 
 There is no limit on field descriptions for either key or message.
@@ -251,86 +252,117 @@ There is no limit on field descriptions for either key or message.
 Row Decoding
 ------------
 
-For key and message, a decoder is used to map data onto columns. If no
-table definition file exists for a table, the ``dummy`` decoder is used.
+For key and message, a decoder is used to map message and key data onto table columns.
 
 The Kafka connector contains the following decoders:
 
-* ``raw`` - do not convert the row data, use as raw bytes
-* ``csv`` - interpret the value as CSV
-* ``json`` - convert the value to a JSON object
+* ``raw`` - Kafka message is not interpreted, ranges of raw message bytes are mapped to table columns
+* ``csv`` - Kafka message is interpreted as comma separated message, and fields are mapped to table columns
+* ``json`` - Kafka message is parsed as JSON and JSON fields are mapped to table columns
+* ``avro`` - Kafka message is parsed based on an Avro schema and Avro fields are mapped to table columns
 
-The main purpose of the decoders is to select the appropriate field
-decoders to interpret the message or key data.
+.. note::
 
-Presto supports only four physical data types onto which the Presto types
-are mapped: boolean, long, double and a sequence of bytes which is treated
-as a string.
+    If no table definition file exists for a table, the ``dummy`` decoder is used,
+    which does not expose any columns.
 
 ``raw`` Decoder
 ^^^^^^^^^^^^^^^
 
-The raw decoder supports reading of raw (byte based) values from a message
+The raw decoder supports reading of raw (byte based) values from Kafka message
 or key and converting it into Presto columns.
 
 For fields, the following attributes are supported:
 
 * ``dataFormat`` - selects the width of the data type converted
-* ``type`` - all Presto primitive data types are supported
+* ``type`` - Presto data type (see table below for list of supported data types)
 * ``mapping`` - ``<start>[:<end>]``; start and end position of bytes to convert (optional)
 
-The ``dataFormat`` column selects the number of bytes converted.
+The ``dataFormat`` attribute selects the number of bytes converted.
 If absent, ``BYTE`` is assumed. All values are signed.
 
 Supported values are:
 
 * ``BYTE`` - one byte
-* ``SHORT`` - two bytes
-* ``INT`` - four bytes
-* ``LONG`` - eight bytes
+* ``SHORT`` - two bytes (big-endian)
+* ``INT`` - four bytes (big-endian)
+* ``LONG`` - eight bytes (big-endian)
 * ``FLOAT`` - four bytes (IEEE 754 format)
 * ``DOUBLE`` - eight bytes (IEEE 754 format)
 
-The ``type`` column defines the Presto data type on which the value is mapped.
+The ``type`` attribute defines the Presto data type on which the value is mapped.
 
-* boolean based types require a ``dataFormat`` to be ``BYTE``, ``SHORT``, ``INT`` or ``LONG``.
-  Any other type will throw a conversion error.
-  A value of ``0`` returns false, everything else true.
-* long based types require a ``dataFormat`` to be ``BYTE``, ``SHORT``, ``INT`` or ``LONG``.
-  Any other type will throw a conversion error.
-* double based types require a ``dataFormat`` to be ``FLOAT`` or ``DOUBLE``.
-  Any other type will throw a conversion error.
-* string based types require a ``dataFormat`` to be ``BYTE``.
-  Any other type will throw a conversion error.
+Depending on Presto type assigned to column different values of dataFormat can be used:
 
-The ``mapping`` field specifies the position of the bytes in a key or
-message. It can be one or two numbers separated by a colon (``<start>[:<end>]``).
-If only a start position is given, the column will use the appropriate
-number of bytes for the type (see above). string based types (``VARCHAR``)
-will use all bytes to the end of the message. If start and end position is
-given, then for fixed with types the size must be at least the size of the
-type. For string based types, all bytes between start (inclusive) and end
-(exclusive) are used.
+===================================== =======================================
+Presto data type                      Allowed ``dataFormat`` values
+===================================== =======================================
+``BIGINT``                            ``BYTE``, ``SHORT``, ``INT``, ``LONG``
+``INTEGER``                           ``BYTE``, ``SHORT``, ``INT``
+``SMALLINT``                          ``BYTE``, ``SHORT``
+``TINYINT``                           ``BYTE``
+``DOUBLE``                            ``DOUBLE``, ``FLOAT``
+``BOOLEAN``                           ``BYTE``, ``SHORT``, ``INT``, ``LONG``
+``VARCHAR`` / ``VARCHAR(x)``          ``BYTE``
+===================================== =======================================
+
+The ``mapping`` attribute specifies the range of the bytes in a key or
+message used for decoding. It can be one or two numbers separated by a colon (``<start>[:<end>]``).
+
+If only a start position is given:
+
+ * For fixed width types the column will use the appropriate number of bytes for the specified ``dateFormat`` (see above).
+ * When ``VARCHAR`` value is decoded all bytes from start position till the end of the message will be used.
+
+If start and end position are given, then:
+
+ * For fixed width types the size must be equal to number of bytes used by specified ``dataFormat``.
+ * For ``VARCHAR`` all bytes between start (inclusive) and end (exclusive) are used.
+
+If no ``mapping`` attribute is specified it is equivalent to setting start position to 0 and leaving end position undefined.
+
+Decoding scheme of numeric data types (``BIGINT``, ``INTEGER``, ``SMALLINT``, ``TINYINT``, ``DOUBLE``) is straightforward.
+A sequence of bytes is read from input message and decoded according to either:
+
+ * big-endian encoding (for integer types)
+ * IEEE 754 format for (for ``DOUBLE``).
+
+Length of decoded byte sequence is implied by the ``dataFormat``.
+
+For ``VARCHAR`` data type a sequence of bytes is interpreted according to UTF-8 encoding.
 
 ``csv`` Decoder
 ^^^^^^^^^^^^^^^
-
-.. note:: The CSV decoder is of beta quality and should be used with caution.
 
 The CSV decoder converts the bytes representing a message or key into a
 string using UTF-8 encoding and then interprets the result as a CSV
 (comma-separated value) line.
 
-For fields, the following attributes are supported:
+For fields, the ``type`` and ``mapping`` attributes must be defined:
 
-* ``type`` - all Presto primitive data types are supported
-* ``dataFormat`` - only ``_default`` supported (optional)
-* ``mapping`` - field index used for the column (required)
-* ``formatHint`` - not supported, ignored
+* ``type`` - Presto data type (see table below for list of supported data types)
+* ``mapping`` - the index of the field in the CSV record
 
-* boolean based types return ``true`` if the field value is the string "true" (case insensitive), ``false`` otherwise.
-* long and double based types parse the field value according to Java long and double parse rules.
-* string types use the field as-is (text using UTF-8 encoding)
+``dataFormat`` and ``formatHint`` are not supported and must be omitted.
+
+Table below lists supported Presto types which can be used in ``type`` and decoding scheme:
+
++-------------------------------------+--------------------------------------------------------------------------------+
+| Presto data type                    | Decoding rules                                                                 |
++=====================================+================================================================================+
+| | ``BIGINT``                        | Decoded using Java ``Long.parseLong()``                                        |
+| | ``INTEGER``                       |                                                                                |
+| | ``SMALLINT``                      |                                                                                |
+| | ``TINYINT``                       |                                                                                |
++-------------------------------------+--------------------------------------------------------------------------------+
+| ``DOUBLE``                          | Decoded using Java ``Double.parseDouble()``                                    |
++-------------------------------------+--------------------------------------------------------------------------------+
+| ``BOOLEAN``                         | "true" character sequence maps to ``true``;                                    |
+|                                     | Other character sequences map to ``false``                                     |
++-------------------------------------+--------------------------------------------------------------------------------+
+| ``VARCHAR`` / ``VARCHAR(x)``        | Used as is                                                                     |
++-------------------------------------+--------------------------------------------------------------------------------+
+
 
 ``json`` Decoder
 ^^^^^^^^^^^^^^^^
@@ -341,9 +373,8 @@ into a JSON object, not an array or simple type.
 
 For fields, the following attributes are supported:
 
-* ``type`` - all Presto primitive data types are supported
-* ``dataFormat`` - ``_default``, ``custom-date-time``, ``iso8601``, ``rfc2822``,
-  ``milliseconds-since-epoch``, ``seconds-since-epoch``. If missing, ``_default`` is used.
+* ``type`` - Presto type of column.
+* ``dataFormat`` - Field decoder to be used for column.
 * ``mapping`` - slash-separated list of field names to select a field from the JSON object
 * ``formatHint`` - only for ``custom-date-time``, see below
 
@@ -351,7 +382,31 @@ The JSON decoder supports multiple field decoders, with ``_default`` being
 used for standard table columns and a number of decoders for date and time
 based types.
 
-``_default`` Field decoder
+Table below lists Presto data types which can be used as in ``type`` and matching field decoders
+which can be specified via ``dataFormat`` attribute
+
++-------------------------------------+--------------------------------------------------------------------------------+
+| Presto data type                    | Allowed ``dataFormat`` values                                                  |
++=====================================+================================================================================+
+| | ``BIGINT``                        | Default field decoder (omitted ``dataFormat`` attribute)                       |
+| | ``INTEGER``                       |                                                                                |
+| | ``SMALLINT``                      |                                                                                |
+| | ``TINYINT``                       |                                                                                |
+| | ``DOUBLE``                        |                                                                                |
+| | ``BOOLEAN``                       |                                                                                |
+| | ``VARCHAR``                       |                                                                                |
+| | ``VARCHAR(x)``                    |                                                                                |
++-------------------------------------+--------------------------------------------------------------------------------+
+| | ``TIMESTAMP``                     | ``custom-date-time``, ``iso8601``, ``rfc2822``,                                |
+| | ``TIMESTAMP WITH TIME ZONE``      | ``milliseconds-since-epoch``, ``seconds-since-epoch``                          |
+| | ``TIME``                          |                                                                                |
+| | ``TIME WITH TIME ZONE``           |                                                                                |
++-------------------------------------+--------------------------------------------------------------------------------+
+| ``DATE``                            | ``custom-date-time``, ``iso8601``, ``rfc2822``,                                |
++-------------------------------------+--------------------------------------------------------------------------------+
+
+
+Default Field decoder
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This is the standard field decoder supporting all the Presto physical data
@@ -362,33 +417,71 @@ this decoder should be used.
 Date and Time Decoders
 ^^^^^^^^^^^^^^^^^^^^^^
 
-To convert values from JSON objects into Presto ``DATE``, ``TIME`` or
-``TIMESTAMP`` columns, special decoders can be selected using the
+To convert values from JSON objects into Presto ``DATE``, ``TIME``, ``TIME WITH TIME ZONE`,
+``TIMESTAMP`` or ``TIMESTAMP WITH TIME ZONE`` columns, special decoders must be selected using the
 ``dataFormat`` attribute of a field definition.
-
-Text Decoders
-"""""""""""""
 
 * ``iso8601`` - text based, parses a text field as an ISO 8601 timestamp.
 * ``rfc2822`` - text based, parses a text field as an :rfc:`2822` timestamp.
-* ``custom-date-time`` - text based, a formatting hint is required which is parsed as a Joda-Time formatting string.
-
-===================== ========================================================= =========================================================
-Presto Type           JSON Text                                                 JSON Long
-===================== ========================================================= =========================================================
-string type           as-is                                                     parse according to format type, return millis since epoch
-long-based type       parse according to format type, return millis since epoch return as millis since epoch
-===================== ========================================================= =========================================================
-
-Number Decoders
-"""""""""""""""
-
+* ``custom-date-time`` - text based, parses a text field according to Joda format pattern
+                         specified via ``formatHint`` attribute. Format pattern should conform
+                         to https://www.joda.org/joda-time/apidocs/org/joda/time/format/DateTimeFormat.html.
 * ``milliseconds-since-epoch`` - number based, interprets a text or number as number of milliseconds since the epoch.
 * ``seconds-since-epoch`` - number based, interprets a text or number as number of milliseconds since the epoch.
 
-===================== ========================================================= =========================================================
-Presto Type           JSON Text                                                 JSON Long
-===================== ========================================================= =========================================================
-string type           parse as long, format as ISO8601                          format as ISO8601
-long-based type       parse as long, return millis since epoch                  return millis since epoch
-===================== ========================================================= =========================================================
+For ``TIMESTAMP WITH TIME ZONE`` and ``TIME WITH TIME ZONE`` data types, if timezone information is present in decoded value, it will
+be used in Presto value. Otherwise result time zone will be set to ``UTC``.
+
+``avro`` Decoder
+^^^^^^^^^^^^^^^^
+
+The Avro decoder converts the bytes representing a message or key in
+Avro format based on a schema. The message must have the Avro schema embedded.
+Presto does not support schema-less Avro decoding.
+
+For key/message, using ``avro`` decoder, the ``dataSchema`` must be defined.
+This should point to the location of a valid Avro schema file of the message which needs to be decoded. This location can be a remote web server
+(e.g.: ``dataSchema: 'http://example.org/schema/avro_data.avsc'``) or local file system(e.g.: ``dataSchema: '/usr/local/schema/avro_data.avsc'``).
+The decoder will fail if this location is not accessible from the Presto coordinator node.
+
+For fields, the following attributes are supported:
+
+* ``name`` - Name of the column in the Presto table.
+* ``type`` - Presto type of column.
+* ``mapping`` - slash-separated list of field names to select a field from the Avro schema. If field specified in ``mapping`` does not exist in the original Avro schema then a read operation will return NULL.
+
+Table below lists supported Presto types which can be used in ``type`` for the equivalent Avro field type/s.
+
+===================================== =======================================
+Presto data type                      Allowed Avro data type
+===================================== =======================================
+``BIGINT``                            ``INT``, ``LONG``
+``DOUBLE``                            ``DOUBLE``, ``FLOAT``
+``BOOLEAN``                           ``BOOLEAN``
+``VARCHAR`` / ``VARCHAR(x)``          ``STRING``
+``VARBINARY``                         ``FIXED``, ``BYTES``
+``ARRAY``                             ``ARRAY``
+``MAP``                               ``MAP``
+===================================== =======================================
+
+Avro schema evolution
+#####################
+
+The Avro decoder supports schema evolution feature with backward compatibility. With backward compatibility,
+a newer schema can be used to read Avro data created with an older schema. Any change in the Avro schema must also be
+reflected in Presto's topic definition file. Newly added/renamed fields *must* have a default value in the Avro schema file.
+
+The schema evolution behavior is as follows:
+
+* Column added in new schema:
+  Data created with an older schema will produce a *default* value when table is using the new schema.
+
+* Column removed in new schema:
+  Data created with an older schema will no longer output the data from the column that was removed.
+
+* Column is renamed in the new schema:
+  This is equivalent to removing the column and adding a new one, and data created with an older schema
+  will produce a *default* value when table is using the new schema.
+
+* Changing type of column in the new schema:
+  If the type coercion is supported by Avro, then the conversion happens. An error is thrown for incompatible types.

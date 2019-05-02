@@ -38,7 +38,7 @@ public class PlanNodeSearcher
 
     /**
      * Use it in optimizer {@link com.facebook.presto.sql.planner.iterative.Rule} only if you truly do not have a better option
-     *
+     * <p>
      * TODO: replace it with a support for plan (physical) properties in rules pattern matching
      */
     public static PlanNodeSearcher searchFrom(PlanNode node, Lookup lookup)
@@ -157,7 +157,7 @@ public class PlanNodeSearcher
         }
         if (recurseOnlyWhen.test(node)) {
             List<PlanNode> sources = node.getSources().stream()
-                    .map(source -> removeAllRecursive(source))
+                    .map(this::removeAllRecursive)
                     .collect(toImmutableList());
             return replaceChildren(node, sources);
         }

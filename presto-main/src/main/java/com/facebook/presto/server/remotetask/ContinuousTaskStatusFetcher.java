@@ -16,15 +16,17 @@ package com.facebook.presto.server.remotetask;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStatus;
+import com.facebook.presto.server.smile.BaseResponse;
+import com.facebook.presto.server.smile.Codec;
+import com.facebook.presto.server.smile.SmileCodec;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
-import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
-import io.airlift.json.JsonCodec;
+import io.airlift.http.client.ResponseHandler;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
@@ -38,12 +40,13 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
+import static com.facebook.presto.server.RequestHelpers.setContentTypeHeaders;
+import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
+import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFullSmileResponseHandler;
+import static com.facebook.presto.server.smile.JsonCodecWrapper.unwrapJsonCodec;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static com.facebook.presto.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
-import static com.google.common.net.MediaType.JSON_UTF_8;
-import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.units.Duration.nanosSince;
@@ -58,13 +61,14 @@ class ContinuousTaskStatusFetcher
     private final TaskId taskId;
     private final Consumer<Throwable> onFail;
     private final StateMachine<TaskStatus> taskStatus;
-    private final JsonCodec<TaskStatus> taskStatusCodec;
+    private final Codec<TaskStatus> taskStatusCodec;
 
     private final Duration refreshMaxWait;
     private final Executor executor;
     private final HttpClient httpClient;
     private final RequestErrorTracker errorTracker;
     private final RemoteTaskStats stats;
+    private final boolean isBinaryTransportEnabled;
 
     private final AtomicLong currentRequestStartNanos = new AtomicLong();
 
@@ -72,18 +76,19 @@ class ContinuousTaskStatusFetcher
     private boolean running;
 
     @GuardedBy("this")
-    private ListenableFuture<FullJsonResponseHandler.JsonResponse<TaskStatus>> future;
+    private ListenableFuture<BaseResponse<TaskStatus>> future;
 
     public ContinuousTaskStatusFetcher(
             Consumer<Throwable> onFail,
             TaskStatus initialTaskStatus,
             Duration refreshMaxWait,
-            JsonCodec<TaskStatus> taskStatusCodec,
+            Codec<TaskStatus> taskStatusCodec,
             Executor executor,
             HttpClient httpClient,
             Duration maxErrorDuration,
             ScheduledExecutorService errorScheduledExecutor,
-            RemoteTaskStats stats)
+            RemoteTaskStats stats,
+            boolean isBinaryTransportEnabled)
     {
         requireNonNull(initialTaskStatus, "initialTaskStatus is null");
 
@@ -99,6 +104,7 @@ class ContinuousTaskStatusFetcher
 
         this.errorTracker = new RequestErrorTracker(taskId, initialTaskStatus.getSelf(), maxErrorDuration, errorScheduledExecutor, "getting task status");
         this.stats = requireNonNull(stats, "stats is null");
+        this.isBinaryTransportEnabled = isBinaryTransportEnabled;
     }
 
     public synchronized void start()
@@ -142,15 +148,22 @@ class ContinuousTaskStatusFetcher
             return;
         }
 
-        Request request = prepareGet()
+        Request request = setContentTypeHeaders(isBinaryTransportEnabled, prepareGet())
                 .setUri(uriBuilderFrom(taskStatus.getSelf()).appendPath("status").build())
-                .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setHeader(PRESTO_CURRENT_STATE, taskStatus.getState().toString())
                 .setHeader(PRESTO_MAX_WAIT, refreshMaxWait.toString())
                 .build();
 
+        ResponseHandler responseHandler;
+        if (isBinaryTransportEnabled) {
+            responseHandler = createFullSmileResponseHandler((SmileCodec<TaskStatus>) taskStatusCodec);
+        }
+        else {
+            responseHandler = createAdaptingJsonResponseHandler(unwrapJsonCodec(taskStatusCodec));
+        }
+
         errorTracker.startRequest();
-        future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskStatusCodec));
+        future = httpClient.executeAsync(request, responseHandler);
         currentRequestStartNanos.set(System.nanoTime());
         Futures.addCallback(future, new SimpleHttpResponseHandler<>(this, request.getUri(), stats), executor);
     }
@@ -244,6 +257,11 @@ class ContinuousTaskStatusFetcher
         return running;
     }
 
+    /**
+     * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
+     * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
+     * possible notifications are observed out of order due to the asynchronous execution.
+     */
     public void addStateChangeListener(StateMachine.StateChangeListener<TaskStatus> stateChangeListener)
     {
         taskStatus.addStateChangeListener(stateChangeListener);

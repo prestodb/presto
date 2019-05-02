@@ -14,6 +14,7 @@
 
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -21,8 +22,10 @@ import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.function.BiConsumer;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.spi.block.MapBlock.createMapBlockInternal;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -35,6 +38,7 @@ public class MapBlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapBlockBuilder.class).instanceSize();
 
+    private final MethodHandle keyBlockEquals;
     private final MethodHandle keyBlockHashCode;
 
     @Nullable
@@ -53,6 +57,7 @@ public class MapBlockBuilder
             Type keyType,
             Type valueType,
             MethodHandle keyBlockNativeEquals,
+            MethodHandle keyBlockEquals,
             MethodHandle keyNativeHashCode,
             MethodHandle keyBlockHashCode,
             BlockBuilderStatus blockBuilderStatus,
@@ -61,6 +66,7 @@ public class MapBlockBuilder
         this(
                 keyType,
                 keyBlockNativeEquals,
+                keyBlockEquals,
                 keyNativeHashCode,
                 keyBlockHashCode,
                 blockBuilderStatus,
@@ -74,6 +80,7 @@ public class MapBlockBuilder
     private MapBlockBuilder(
             Type keyType,
             MethodHandle keyBlockNativeEquals,
+            MethodHandle keyBlockEquals,
             MethodHandle keyNativeHashCode,
             MethodHandle keyBlockHashCode,
             @Nullable BlockBuilderStatus blockBuilderStatus,
@@ -85,8 +92,8 @@ public class MapBlockBuilder
     {
         super(keyType, keyNativeHashCode, keyBlockNativeEquals);
 
-        requireNonNull(keyBlockHashCode, "keyBlockHashCode is null");
-        this.keyBlockHashCode = keyBlockHashCode;
+        this.keyBlockEquals = requireNonNull(keyBlockEquals, "keyBlockEquals is null");
+        this.keyBlockHashCode = requireNonNull(keyBlockHashCode, "keyBlockHashCode is null");
         this.blockBuilderStatus = blockBuilderStatus;
 
         this.positionCount = 0;
@@ -98,13 +105,13 @@ public class MapBlockBuilder
     }
 
     @Override
-    protected Block getKeys()
+    protected Block getRawKeyBlock()
     {
         return keyBlockBuilder;
     }
 
     @Override
-    protected Block getValues()
+    protected Block getRawValueBlock()
     {
         return valueBlockBuilder;
     }
@@ -188,18 +195,63 @@ public class MapBlockBuilder
         entryAdded(false);
         currentEntryOpened = false;
 
+        ensureHashTableSize();
         int previousAggregatedEntryCount = offsets[positionCount - 1];
         int aggregatedEntryCount = offsets[positionCount];
         int entryCount = aggregatedEntryCount - previousAggregatedEntryCount;
-        if (hashTables.length < aggregatedEntryCount * HASH_MULTIPLIER) {
-            int newSize = BlockUtil.calculateNewArraySize(aggregatedEntryCount * HASH_MULTIPLIER);
-            int oldSize = hashTables.length;
-            hashTables = Arrays.copyOf(hashTables, newSize);
-            Arrays.fill(hashTables, oldSize, hashTables.length, -1);
-        }
         buildHashTable(keyBlockBuilder, previousAggregatedEntryCount, entryCount, keyBlockHashCode, hashTables, previousAggregatedEntryCount * HASH_MULTIPLIER, entryCount * HASH_MULTIPLIER);
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(entryCount * HASH_MULTIPLIER * Integer.BYTES);
+        return this;
+    }
+
+    /**
+     * This method will check duplicate keys and close entry.
+     * <p>
+     * When duplicate keys are discovered, the block is guaranteed to be in
+     * a consistent state before {@link DuplicateMapKeyException} is thrown.
+     * In other words, one can continue to use this BlockBuilder.
+     */
+    public BlockBuilder closeEntryStrict()
+            throws DuplicateMapKeyException
+    {
+        if (!currentEntryOpened) {
+            throw new IllegalStateException("Expected entry to be opened but was closed");
+        }
+
+        entryAdded(false);
+        currentEntryOpened = false;
+
+        ensureHashTableSize();
+        int previousAggregatedEntryCount = offsets[positionCount - 1];
+        int aggregatedEntryCount = offsets[positionCount];
+        int entryCount = aggregatedEntryCount - previousAggregatedEntryCount;
+        buildHashTableStrict(
+                keyBlockBuilder,
+                previousAggregatedEntryCount,
+                entryCount,
+                keyBlockEquals,
+                keyBlockHashCode,
+                hashTables,
+                previousAggregatedEntryCount * HASH_MULTIPLIER,
+                entryCount * HASH_MULTIPLIER);
+        return this;
+    }
+
+    private BlockBuilder closeEntry(int[] providedHashTable, int providedHashTableOffset)
+    {
+        if (!currentEntryOpened) {
+            throw new IllegalStateException("Expected entry to be opened but was closed");
+        }
+
+        entryAdded(false);
+        currentEntryOpened = false;
+
+        ensureHashTableSize();
+
+        // Directly copy instead of building hashtable
+        int hashTableOffset = offsets[positionCount - 1] * HASH_MULTIPLIER;
+        int hashTableSize = (offsets[positionCount] - offsets[positionCount - 1]) * HASH_MULTIPLIER;
+        for (int i = 0; i < hashTableSize; i++) {
+            hashTables[hashTableOffset + i] = providedHashTable[providedHashTableOffset + i];
         }
 
         return this;
@@ -232,6 +284,17 @@ public class MapBlockBuilder
 
         if (blockBuilderStatus != null) {
             blockBuilderStatus.addBytes(Integer.BYTES + Byte.BYTES);
+            blockBuilderStatus.addBytes((offsets[positionCount] - offsets[positionCount - 1]) * HASH_MULTIPLIER * Integer.BYTES);
+        }
+    }
+
+    private void ensureHashTableSize()
+    {
+        if (hashTables.length < offsets[positionCount] * HASH_MULTIPLIER) {
+            int newSize = BlockUtil.calculateNewArraySize(offsets[positionCount] * HASH_MULTIPLIER);
+            int oldSize = hashTables.length;
+            hashTables = Arrays.copyOf(hashTables, newSize);
+            Arrays.fill(hashTables, oldSize, hashTables.length, -1);
         }
     }
 
@@ -244,7 +307,7 @@ public class MapBlockBuilder
         return createMapBlockInternal(
                 0,
                 positionCount,
-                mapIsNull,
+                Optional.of(mapIsNull),
                 offsets,
                 keyBlockBuilder.build(),
                 valueBlockBuilder.build(),
@@ -262,34 +325,70 @@ public class MapBlockBuilder
     }
 
     @Override
-    public BlockBuilder writeObject(Object value)
+    public BlockBuilder appendStructure(Block block)
     {
+        if (!(block instanceof SingleMapBlock)) {
+            throw new IllegalArgumentException("Expected SingleMapBlock");
+        }
         if (currentEntryOpened) {
             throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
         currentEntryOpened = true;
 
-        Block block = (Block) value;
-        int blockPositionCount = block.getPositionCount();
+        SingleMapBlock singleMapBlock = (SingleMapBlock) block;
+        int blockPositionCount = singleMapBlock.getPositionCount();
         if (blockPositionCount % 2 != 0) {
             throw new IllegalArgumentException(format("block position count is not even: %s", blockPositionCount));
         }
         for (int i = 0; i < blockPositionCount; i += 2) {
-            if (block.isNull(i)) {
+            if (singleMapBlock.isNull(i)) {
                 throw new IllegalArgumentException("Map keys must not be null");
             }
             else {
-                block.writePositionTo(i, keyBlockBuilder);
-                keyBlockBuilder.closeEntry();
+                singleMapBlock.writePositionTo(i, keyBlockBuilder);
             }
-            if (block.isNull(i + 1)) {
+            if (singleMapBlock.isNull(i + 1)) {
                 valueBlockBuilder.appendNull();
             }
             else {
-                block.writePositionTo(i + 1, valueBlockBuilder);
-                valueBlockBuilder.closeEntry();
+                singleMapBlock.writePositionTo(i + 1, valueBlockBuilder);
             }
         }
+
+        closeEntry(singleMapBlock.getHashTable(), singleMapBlock.getOffset() / 2 * HASH_MULTIPLIER);
+        return this;
+    }
+
+    @Override
+    public BlockBuilder appendStructureInternal(Block block, int position)
+    {
+        if (!(block instanceof AbstractMapBlock)) {
+            throw new IllegalArgumentException("Expected AbstractMapBlock");
+        }
+        if (currentEntryOpened) {
+            throw new IllegalStateException("Expected current entry to be closed but was opened");
+        }
+        currentEntryOpened = true;
+
+        AbstractMapBlock mapBlock = (AbstractMapBlock) block;
+        int startValueOffset = mapBlock.getOffset(position);
+        int endValueOffset = mapBlock.getOffset(position + 1);
+        for (int i = startValueOffset; i < endValueOffset; i++) {
+            if (mapBlock.getRawKeyBlock().isNull(i)) {
+                throw new IllegalArgumentException("Map keys must not be null");
+            }
+            else {
+                mapBlock.getRawKeyBlock().writePositionTo(i, keyBlockBuilder);
+            }
+            if (mapBlock.getRawValueBlock().isNull(i)) {
+                valueBlockBuilder.appendNull();
+            }
+            else {
+                mapBlock.getRawValueBlock().writePositionTo(i, valueBlockBuilder);
+            }
+        }
+
+        closeEntry(mapBlock.getHashTables(), startValueOffset * HASH_MULTIPLIER);
         return this;
     }
 
@@ -300,6 +399,7 @@ public class MapBlockBuilder
         return new MapBlockBuilder(
                 keyType,
                 keyBlockNativeEquals,
+                keyBlockEquals,
                 keyNativeHashCode,
                 keyBlockHashCode,
                 blockBuilderStatus,
@@ -317,26 +417,13 @@ public class MapBlockBuilder
         return hashTable;
     }
 
+    /**
+     * This method assumes that {@code keyBlock} has no duplicated entries (in the specified range)
+     */
     static void buildHashTable(Block keyBlock, int keyOffset, int keyCount, MethodHandle keyBlockHashCode, int[] outputHashTable, int hashTableOffset, int hashTableSize)
     {
-        // This method assumes that keyBlock has no duplicated entries (in the specified range)
         for (int i = 0; i < keyCount; i++) {
-            if (keyBlock.isNull(keyOffset + i)) {
-                throw new IllegalArgumentException("map keys cannot be null");
-            }
-
-            long hashCode;
-            try {
-                hashCode = (long) keyBlockHashCode.invokeExact(keyBlock, keyOffset + i);
-            }
-            catch (Throwable throwable) {
-                if (throwable instanceof RuntimeException) {
-                    throw (RuntimeException) throwable;
-                }
-                throw new RuntimeException(throwable);
-            }
-
-            int hash = (int) Math.floorMod(hashCode, hashTableSize);
+            int hash = getHashPosition(keyBlock, keyOffset + i, keyBlockHashCode, hashTableSize);
             while (true) {
                 if (outputHashTable[hashTableOffset + hash] == -1) {
                     outputHashTable[hashTableOffset + hash] = i;
@@ -348,5 +435,82 @@ public class MapBlockBuilder
                 }
             }
         }
+    }
+
+    /**
+     * This method checks whether {@code keyBlock} has duplicated entries (in the specified range)
+     */
+    private static void buildHashTableStrict(
+            Block keyBlock,
+            int keyOffset,
+            int keyCount,
+            MethodHandle keyBlockEquals,
+            MethodHandle keyBlockHashCode,
+            int[] outputHashTable,
+            int hashTableOffset,
+            int hashTableSize)
+            throws DuplicateMapKeyException
+    {
+        for (int i = 0; i < keyCount; i++) {
+            int hash = getHashPosition(keyBlock, keyOffset + i, keyBlockHashCode, hashTableSize);
+            while (true) {
+                if (outputHashTable[hashTableOffset + hash] == -1) {
+                    outputHashTable[hashTableOffset + hash] = i;
+                    break;
+                }
+
+                Boolean isDuplicateKey;
+                try {
+                    // assuming maps with indeterminate keys are not supported
+                    isDuplicateKey = (Boolean) keyBlockEquals.invokeExact(keyBlock, keyOffset + i, keyBlock, keyOffset + outputHashTable[hashTableOffset + hash]);
+                }
+                catch (RuntimeException e) {
+                    throw e;
+                }
+                catch (Throwable throwable) {
+                    throw new RuntimeException(throwable);
+                }
+
+                if (isDuplicateKey == null) {
+                    throw new PrestoException(NOT_SUPPORTED, "map key cannot be null or contain nulls");
+                }
+
+                if (isDuplicateKey) {
+                    throw new DuplicateMapKeyException(keyBlock, keyOffset + i);
+                }
+
+                hash++;
+                if (hash == hashTableSize) {
+                    hash = 0;
+                }
+            }
+        }
+    }
+
+    private static int getHashPosition(Block keyBlock, int position, MethodHandle keyBlockHashCode, int hashTableSize)
+    {
+        if (keyBlock.isNull(position)) {
+            throw new IllegalArgumentException("map keys cannot be null");
+        }
+
+        long hashCode;
+        try {
+            hashCode = (long) keyBlockHashCode.invokeExact(keyBlock, position);
+        }
+        catch (RuntimeException e) {
+            throw e;
+        }
+        catch (Throwable throwable) {
+            throw new RuntimeException(throwable);
+        }
+
+        return computePosition(hashCode, hashTableSize);
+    }
+
+    // This function reduces the 64 bit hashcode to [0, hashTableSize) uniformly. It first reduces the hashcode to 32 bit
+    // integer x then normalize it to x / 2^32 * hashSize to reduce the range of x from [0, 2^32) to [0, hashTableSize)
+    static int computePosition(long hashcode, int hashTableSize)
+    {
+        return (int) ((Integer.toUnsignedLong(Long.hashCode(hashcode)) * hashTableSize) >> 32);
     }
 }

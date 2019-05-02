@@ -13,43 +13,47 @@
  */
 package com.facebook.presto.spi.statistics;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
-import java.util.function.Consumer;
+import java.util.Optional;
 
-import static com.facebook.presto.spi.statistics.Estimate.unknownValue;
-import static java.util.Collections.singletonList;
-import static java.util.Collections.unmodifiableList;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class ColumnStatistics
 {
-    private static final List<RangeColumnStatistics> SINGLE_UNKNOWN_RANGE_STATISTICS = singletonList(RangeColumnStatistics.builder().build());
-    public static final ColumnStatistics UNKNOWN_COLUMN_STATISTICS = ColumnStatistics.builder().build();
+    private static final ColumnStatistics EMPTY = new ColumnStatistics(Estimate.unknown(), Estimate.unknown(), Estimate.unknown(), Optional.empty());
 
     private final Estimate nullsFraction;
-    private final List<RangeColumnStatistics> rangeColumnStatistics;
+    private final Estimate distinctValuesCount;
+    private final Estimate dataSize;
+    private final Optional<DoubleRange> range;
 
-    private ColumnStatistics(Estimate nullsFraction, List<RangeColumnStatistics> rangeColumnStatistics)
+    public static ColumnStatistics empty()
     {
-        this.nullsFraction = requireNonNull(nullsFraction, "nullsFraction can not be null");
-        requireNonNull(rangeColumnStatistics, "rangeColumnStatistics can not be null");
-        if (!rangeColumnStatistics.stream().allMatch(Objects::nonNull)) {
-            throw new NullPointerException("elements of rangeColumnStatistics can not be null");
-        }
-        if (rangeColumnStatistics.size() > 1) {
-            // todo add support for multiple ranges.
-            throw new IllegalArgumentException("Statistics for multiple ranges are not supported");
-        }
-        if (rangeColumnStatistics.isEmpty()) {
-            rangeColumnStatistics = SINGLE_UNKNOWN_RANGE_STATISTICS;
-        }
-        if (nullsFraction.isValueUnknown() != rangeColumnStatistics.get(0).getFraction().isValueUnknown()) {
-            throw new IllegalArgumentException("All or none fraction/nullsFraction must be set");
-        }
+        return EMPTY;
+    }
 
-        this.rangeColumnStatistics = unmodifiableList(new ArrayList<>(rangeColumnStatistics));
+    public ColumnStatistics(
+            Estimate nullsFraction,
+            Estimate distinctValuesCount,
+            Estimate dataSize,
+            Optional<DoubleRange> range)
+    {
+        this.nullsFraction = requireNonNull(nullsFraction, "nullsFraction is null");
+        if (!nullsFraction.isUnknown()) {
+            if (nullsFraction.getValue() < 0 || nullsFraction.getValue() > 1) {
+                throw new IllegalArgumentException(format("nullsFraction must be between 0 and 1: %s", nullsFraction.getValue()));
+            }
+        }
+        this.distinctValuesCount = requireNonNull(distinctValuesCount, "distinctValuesCount is null");
+        if (!distinctValuesCount.isUnknown() && distinctValuesCount.getValue() < 0) {
+            throw new IllegalArgumentException(format("distinctValuesCount must be greater than or equal to 0: %s", distinctValuesCount.getValue()));
+        }
+        this.dataSize = requireNonNull(dataSize, "dataSize is null");
+        if (!dataSize.isUnknown() && dataSize.getValue() < 0) {
+            throw new IllegalArgumentException(format("dataSize must be greater than or equal to 0: %s", dataSize.getValue()));
+        }
+        this.range = requireNonNull(range, "range is null");
     }
 
     public Estimate getNullsFraction()
@@ -57,9 +61,52 @@ public final class ColumnStatistics
         return nullsFraction;
     }
 
-    public RangeColumnStatistics getOnlyRangeColumnStatistics()
+    public Estimate getDistinctValuesCount()
     {
-        return rangeColumnStatistics.get(0);
+        return distinctValuesCount;
+    }
+
+    public Estimate getDataSize()
+    {
+        return dataSize;
+    }
+
+    public Optional<DoubleRange> getRange()
+    {
+        return range;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        ColumnStatistics that = (ColumnStatistics) o;
+        return Objects.equals(nullsFraction, that.nullsFraction) &&
+                Objects.equals(distinctValuesCount, that.distinctValuesCount) &&
+                Objects.equals(dataSize, that.dataSize) &&
+                Objects.equals(range, that.range);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(nullsFraction, distinctValuesCount, dataSize, range);
+    }
+
+    @Override
+    public String toString()
+    {
+        return "ColumnStatistics{" +
+                "nullsFraction=" + nullsFraction +
+                ", distinctValuesCount=" + distinctValuesCount +
+                ", dataSize=" + dataSize +
+                ", range=" + range +
+                '}';
     }
 
     public static Builder builder()
@@ -67,40 +114,52 @@ public final class ColumnStatistics
         return new Builder();
     }
 
+    /**
+     * If one of the estimates below is unspecified, the default "unknown" estimate value
+     * (represented by floating point NaN) may cause the resulting symbol statistics
+     * to be "unknown" as well.
+     * @see SymbolStatsEstimate
+     */
     public static final class Builder
     {
-        private Estimate nullsFraction = unknownValue();
-        private List<RangeColumnStatistics> rangeColumnStatistics = new ArrayList<>();
+        private Estimate nullsFraction = Estimate.unknown();
+        private Estimate distinctValuesCount = Estimate.unknown();
+        private Estimate dataSize = Estimate.unknown();
+        private Optional<DoubleRange> range = Optional.empty();
 
         public Builder setNullsFraction(Estimate nullsFraction)
         {
-            this.nullsFraction = nullsFraction;
+            this.nullsFraction = requireNonNull(nullsFraction, "nullsFraction is null");
             return this;
         }
 
-        public Builder addRange(Consumer<RangeColumnStatistics.Builder> rangeBuilderConsumer)
+        public Builder setDistinctValuesCount(Estimate distinctValuesCount)
         {
-            RangeColumnStatistics.Builder rangeBuilder = RangeColumnStatistics.builder();
-            rangeBuilderConsumer.accept(rangeBuilder);
-            addRange(rangeBuilder.build());
+            this.distinctValuesCount = requireNonNull(distinctValuesCount, "distinctValuesCount is null");
             return this;
         }
 
-        public Builder addRange(RangeColumnStatistics rangeColumnStatistics)
+        public Builder setDataSize(Estimate dataSize)
         {
-            this.rangeColumnStatistics.add(rangeColumnStatistics);
+            this.dataSize = requireNonNull(dataSize, "dataSize is null");
             return this;
         }
 
-        public Builder clearRanges()
+        public Builder setRange(DoubleRange range)
         {
-            rangeColumnStatistics.clear();
+            this.range = Optional.of(requireNonNull(range, "range is null"));
+            return this;
+        }
+
+        public Builder setRange(Optional<DoubleRange> range)
+        {
+            this.range = requireNonNull(range, "range is null");
             return this;
         }
 
         public ColumnStatistics build()
         {
-            return new ColumnStatistics(nullsFraction, rangeColumnStatistics);
+            return new ColumnStatistics(nullsFraction, distinctValuesCount, dataSize, range);
         }
     }
 }

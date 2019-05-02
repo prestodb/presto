@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.index;
 
-import com.facebook.presto.ScheduledSplit;
-import com.facebook.presto.TaskSource;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.execution.ScheduledSplit;
+import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverFactory;
@@ -29,7 +29,6 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -193,7 +192,7 @@ public class IndexLoader
                     for (UpdateRequest request : requests) {
                         request.failed(t);
                     }
-                    Throwables.propagate(t);
+                    throw t;
                 }
 
                 // Try loading just my request
@@ -250,7 +249,7 @@ public class IndexLoader
         if (pipelineContext == null) {
             TaskContext taskContext = taskContextReference.get();
             checkState(taskContext != null, "Task context must be set before index can be built");
-            pipelineContext = taskContext.addPipelineContext(indexBuildDriverFactoryProvider.getPipelineId(), false, false);
+            pipelineContext = taskContext.addPipelineContext(indexBuildDriverFactoryProvider.getPipelineId(), true, true, false);
         }
         if (indexSnapshotLoader == null) {
             indexSnapshotLoader = new IndexSnapshotLoader(
@@ -378,6 +377,12 @@ public class IndexLoader
         public EmptyLookupSource(int channelCount)
         {
             this.channelCount = channelCount;
+        }
+
+        @Override
+        public boolean isEmpty()
+        {
+            return true;
         }
 
         @Override

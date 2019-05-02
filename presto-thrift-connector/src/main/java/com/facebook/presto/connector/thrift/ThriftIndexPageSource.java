@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.connector.thrift;
 
-import com.facebook.presto.connector.thrift.api.PrestoThriftHostAddress;
 import com.facebook.presto.connector.thrift.api.PrestoThriftId;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableToken;
 import com.facebook.presto.connector.thrift.api.PrestoThriftPageResult;
@@ -22,32 +21,31 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftService;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSplit;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
 import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
-import com.facebook.presto.connector.thrift.clientproviders.PrestoThriftServiceProvider;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.log.Logger;
+import io.airlift.drift.client.DriftClient;
 
 import javax.annotation.Nullable;
 
-import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.connector.thrift.api.PrestoThriftPageResult.fromRecordSet;
+import static com.facebook.presto.connector.thrift.util.ThriftExceptions.catchingThriftException;
 import static com.facebook.presto.connector.thrift.util.TupleDomainConversion.tupleDomainToThriftTupleDomain;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -59,14 +57,15 @@ import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class ThriftIndexPageSource
         implements ConnectorPageSource
 {
-    private static final Logger log = Logger.get(ThriftIndexPageSource.class);
     private static final int MAX_SPLIT_COUNT = 10_000_000;
 
-    private final PrestoThriftServiceProvider clientProvider;
+    private final DriftClient<PrestoThriftService> client;
+    private final Map<String, String> thriftHeaders;
     private final PrestoThriftSchemaTableName schemaTableName;
     private final List<String> lookupColumnNames;
     private final List<String> outputColumnNames;
@@ -88,13 +87,13 @@ public class ThriftIndexPageSource
     private final Map<ListenableFuture<PrestoThriftPageResult>, RunningSplitContext> contexts;
     private final ThriftConnectorStats stats;
 
-    private PrestoThriftService splitsClient;
     private int splitIndex;
     private boolean haveSplits;
     private boolean finished;
 
     public ThriftIndexPageSource(
-            PrestoThriftServiceProvider clientProvider,
+            DriftClient<PrestoThriftService> client,
+            Map<String, String> thriftHeaders,
             ThriftConnectorStats stats,
             ThriftIndexHandle indexHandle,
             List<ColumnHandle> lookupColumns,
@@ -103,7 +102,8 @@ public class ThriftIndexPageSource
             long maxBytesPerResponse,
             int lookupRequestsConcurrency)
     {
-        this.clientProvider = requireNonNull(clientProvider, "clientProvider is null");
+        this.client = requireNonNull(client, "client is null");
+        this.thriftHeaders = requireNonNull(thriftHeaders, "thriftHeaders is null");
         this.stats = requireNonNull(stats, "stats is null");
 
         requireNonNull(indexHandle, "indexHandle is null");
@@ -218,9 +218,6 @@ public class ThriftIndexPageSource
             return page;
         }
 
-        // split finished, closing the client
-        resultContext.close();
-
         // are there more splits available
         if (splitIndex < splits.size()) {
             // can send data request for a new split
@@ -248,8 +245,7 @@ public class ThriftIndexPageSource
         // check if request for splits was sent
         if (splitFuture == null) {
             // didn't start fetching splits, send the first request now
-            splitsClient = clientProvider.anyHostClient();
-            splitFuture = sendSplitRequest(splitsClient, null);
+            splitFuture = sendSplitRequest(null);
             statusFuture = toCompletableFuture(nonCancellationPropagating(splitFuture));
         }
         if (!splitFuture.isDone()) {
@@ -262,7 +258,7 @@ public class ThriftIndexPageSource
         // check if it's possible to request more splits
         if (batch.getNextToken() != null) {
             // can get more splits, send request
-            splitFuture = sendSplitRequest(splitsClient, batch.getNextToken());
+            splitFuture = sendSplitRequest(batch.getNextToken());
             statusFuture = toCompletableFuture(nonCancellationPropagating(splitFuture));
             return false;
         }
@@ -271,8 +267,6 @@ public class ThriftIndexPageSource
             splitFuture = null;
             statusFuture = null;
             haveSplits = true;
-            splitsClient.close();
-            splitsClient = null;
             return true;
         }
     }
@@ -291,10 +285,10 @@ public class ThriftIndexPageSource
         sendDataRequest(context, null);
     }
 
-    private ListenableFuture<PrestoThriftSplitBatch> sendSplitRequest(PrestoThriftService client, @Nullable PrestoThriftId nextToken)
+    private ListenableFuture<PrestoThriftSplitBatch> sendSplitRequest(@Nullable PrestoThriftId nextToken)
     {
         long start = System.nanoTime();
-        ListenableFuture<PrestoThriftSplitBatch> future = client.getIndexSplits(
+        ListenableFuture<PrestoThriftSplitBatch> future = client.get(thriftHeaders).getIndexSplits(
                 schemaTableName,
                 lookupColumnNames,
                 outputColumnNames,
@@ -302,6 +296,7 @@ public class ThriftIndexPageSource
                 outputConstraint,
                 MAX_SPLIT_COUNT,
                 new PrestoThriftNullableToken(nextToken));
+        future = catchingThriftException(future);
         future.addListener(() -> readTimeNanos.addAndGet(System.nanoTime() - start), directExecutor());
         return future;
     }
@@ -314,6 +309,7 @@ public class ThriftIndexPageSource
                 outputColumnNames,
                 maxBytesPerResponse,
                 new PrestoThriftNullableToken(nextToken));
+        future = catchingThriftException(future);
         future.addListener(() -> readTimeNanos.addAndGet(System.nanoTime() - start), directExecutor());
         dataRequests.add(future);
         contexts.put(future, context);
@@ -322,11 +318,12 @@ public class ThriftIndexPageSource
     private PrestoThriftService openClient(PrestoThriftSplit split)
     {
         if (split.getHosts().isEmpty()) {
-            return clientProvider.anyHostClient();
+            return client.get(thriftHeaders);
         }
-        else {
-            return clientProvider.selectedHostClient(toHostAddressList(split.getHosts()));
-        }
+        String hosts = split.getHosts().stream()
+                .map(host -> host.toHostAddress().toString())
+                .collect(joining(","));
+        return client.get(Optional.of(hosts), thriftHeaders);
     }
 
     @Override
@@ -335,9 +332,6 @@ public class ThriftIndexPageSource
         // cancel futures if available
         cancelQuietly(splitFuture);
         dataRequests.forEach(ThriftIndexPageSource::cancelQuietly);
-        // close clients if available
-        closeQuietly(splitsClient);
-        contexts.values().forEach(ThriftIndexPageSource::closeQuietly);
     }
 
     private ListenableFuture<PrestoThriftPageResult> getAndRemoveNextCompletedRequest()
@@ -360,21 +354,7 @@ public class ThriftIndexPageSource
         }
     }
 
-    private static void closeQuietly(Closeable closeable)
-    {
-        if (closeable == null) {
-            return;
-        }
-        try {
-            closeable.close();
-        }
-        catch (Exception e) {
-            log.warn(e, "Error during close");
-        }
-    }
-
     private static final class RunningSplitContext
-            implements Closeable
     {
         private final PrestoThriftService client;
         private final PrestoThriftSplit split;
@@ -394,16 +374,5 @@ public class ThriftIndexPageSource
         {
             return split;
         }
-
-        @Override
-        public void close()
-        {
-            client.close();
-        }
-    }
-
-    private static List<HostAddress> toHostAddressList(List<PrestoThriftHostAddress> hosts)
-    {
-        return hosts.stream().map(PrestoThriftHostAddress::toHostAddress).collect(toImmutableList());
     }
 }

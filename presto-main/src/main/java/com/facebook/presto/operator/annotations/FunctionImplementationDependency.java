@@ -13,17 +13,58 @@
  */
 package com.facebook.presto.operator.annotations;
 
+import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.InvocationConvention;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
-import static com.facebook.presto.metadata.Signature.internalScalarFunction;
+import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static java.util.Objects.requireNonNull;
 
 public final class FunctionImplementationDependency
         extends ScalarImplementationDependency
 {
-    public FunctionImplementationDependency(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
+    private final String name;
+    private final List<TypeSignature> argumentTypes;
+
+    public FunctionImplementationDependency(String name, List<TypeSignature> argumentTypes, Optional<InvocationConvention> invocationConvention)
     {
-        super(internalScalarFunction(name, returnType, argumentTypes));
+        super(invocationConvention);
+        this.name = requireNonNull(name, "name is null");
+        this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
+    }
+
+    @Override
+    protected FunctionHandle getFunctionHandle(BoundVariables boundVariables, FunctionManager functionManager)
+    {
+        return functionManager.lookupFunction(QualifiedName.of(name), fromTypeSignatures(applyBoundVariables(argumentTypes, boundVariables)));
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        FunctionImplementationDependency that = (FunctionImplementationDependency) o;
+        return Objects.equals(name, that.name) &&
+                Objects.equals(argumentTypes, that.argumentTypes);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(name, argumentTypes);
     }
 }

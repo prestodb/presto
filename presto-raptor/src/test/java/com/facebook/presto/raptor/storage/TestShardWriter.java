@@ -15,7 +15,7 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.spi.block.Block;
@@ -85,8 +85,8 @@ public class TestShardWriter
             throws Exception
     {
         TypeManager typeManager = new TypeRegistry();
-        // associate typeManager with a function registry
-        new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        // associate typeManager with a function manager
+        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
 
         List<Long> columnIds = ImmutableList.of(1L, 2L, 4L, 6L, 7L, 8L, 9L, 10L);
         ArrayType arrayType = new ArrayType(BIGINT);

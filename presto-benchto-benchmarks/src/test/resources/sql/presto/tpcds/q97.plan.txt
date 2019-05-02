@@ -1,0 +1,23 @@
+final aggregation over ()
+    local exchange (GATHER, SINGLE, [])
+        remote exchange (GATHER, SINGLE, [])
+            partial aggregation over ()
+                join (FULL, PARTITIONED):
+                    final aggregation over (ss_customer_sk, ss_item_sk)
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["ss_customer_sk", "ss_item_sk"])
+                                partial aggregation over (ss_customer_sk, ss_item_sk)
+                                    join (INNER, REPLICATED):
+                                        scan store_sales
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                scan date_dim
+                    final aggregation over (cs_bill_customer_sk, cs_item_sk)
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["cs_bill_customer_sk", "cs_item_sk"])
+                                partial aggregation over (cs_bill_customer_sk, cs_item_sk)
+                                    join (INNER, REPLICATED):
+                                        scan catalog_sales
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                scan date_dim

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
-import com.facebook.presto.TaskSource;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.execution.ScheduledSplit;
+import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -83,7 +84,7 @@ public class TestDriver
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
 
         driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
-                .addPipelineContext(0, true, true)
+                .addPipelineContext(0, true, true, false)
                 .addDriverContext();
     }
 
@@ -98,11 +99,11 @@ public class TestDriver
     public void testNormalFinish()
     {
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
-        ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "values"), types, rowPagesBuilder(types)
+        ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "values"), rowPagesBuilder(types)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
 
-        Operator sink = createSinkOperator(source);
+        Operator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
 
         assertSame(driver.getDriverContext(), driverContext);
@@ -116,15 +117,35 @@ public class TestDriver
         assertTrue(source.isFinished());
     }
 
+    // The race can be reproduced somewhat reliably when the invocationCount is 10K, but we use 1K iterations to cap the test runtime.
+    @Test(invocationCount = 1_000, timeOut = 10_000)
+    public void testConcurrentClose()
+    {
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), "values");
+        ValuesOperator source = new ValuesOperator(operatorContext, rowPagesBuilder(types)
+                .addSequencePage(10, 20, 30, 40)
+                .build());
+
+        Operator sink = createSinkOperator(types);
+        Driver driver = Driver.createDriver(driverContext, source, sink);
+        // let these threads race
+        scheduledExecutor.submit(() -> driver.processFor(new Duration(1, TimeUnit.NANOSECONDS))); // don't want to call isFinishedInternal in processFor
+        scheduledExecutor.submit(() -> driver.close());
+        while (!driverContext.isDone()) {
+            Uninterruptibles.sleepUninterruptibly(1, TimeUnit.MILLISECONDS);
+        }
+    }
+
     @Test
     public void testAbruptFinish()
     {
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
-        ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "values"), types, rowPagesBuilder(types)
+        ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "values"), rowPagesBuilder(types)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
 
-        PageConsumerOperator sink = createSinkOperator(source);
+        PageConsumerOperator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
 
         assertSame(driver.getDriverContext(), driverContext);
@@ -158,10 +179,9 @@ public class TestDriver
                                 .build());
                     }
                 },
-                types,
                 ImmutableList.of());
 
-        PageConsumerOperator sink = createSinkOperator(source);
+        PageConsumerOperator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
 
         assertSame(driver.getDriverContext(), driverContext);
@@ -185,7 +205,7 @@ public class TestDriver
             throws Exception
     {
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"), false);
-        final Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(brokenOperator));
+        final Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(ImmutableList.of()));
 
         assertSame(driver.getDriverContext(), driverContext);
 
@@ -217,7 +237,7 @@ public class TestDriver
             throws Exception
     {
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"), true);
-        final Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(brokenOperator));
+        final Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(ImmutableList.of()));
 
         assertSame(driver.getDriverContext(), driverContext);
 
@@ -257,10 +277,9 @@ public class TestDriver
                                 .build());
                     }
                 },
-                types,
                 ImmutableList.of());
 
-        Driver driver = Driver.createDriver(driverContext, source, createSinkOperator(source));
+        Driver driver = Driver.createDriver(driverContext, source, createSinkOperator(types));
         // the table scan operator will request memory revocation with requestMemoryRevoking()
         // while the driver is still not done with the processFor() method and before it moves to
         // updateDriverBlockedFuture() method.
@@ -286,7 +305,6 @@ public class TestDriver
                                 .build());
                     }
                 },
-                types,
                 ImmutableList.of());
 
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"));
@@ -341,10 +359,10 @@ public class TestDriver
         return new Split(new ConnectorId("test"), TestingTransactionHandle.create(), new MockSplit());
     }
 
-    private PageConsumerOperator createSinkOperator(Operator source)
+    private PageConsumerOperator createSinkOperator(List<Type> types)
     {
         // materialize the output to catch some type errors
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(driverContext.getSession(), source.getTypes());
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(driverContext.getSession(), types);
         return new PageConsumerOperator(driverContext.addOperatorContext(1, new PlanNodeId("test"), "sink"), resultBuilder::page, Function.identity());
     }
 
@@ -409,12 +427,6 @@ public class TestDriver
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return ImmutableList.of();
-        }
-
-        @Override
         public void finish()
         {
             waitForUnlock();
@@ -470,10 +482,9 @@ public class TestDriver
                 OperatorContext operatorContext,
                 PlanNodeId planNodeId,
                 PageSourceProvider pageSourceProvider,
-                List<Type> types,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, types, columns);
+            super(operatorContext, planNodeId, pageSourceProvider, columns);
         }
 
         @Override
@@ -495,10 +506,9 @@ public class TestDriver
                 OperatorContext operatorContext,
                 PlanNodeId planNodeId,
                 PageSourceProvider pageSourceProvider,
-                List<Type> types,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, types, columns);
+            super(operatorContext, planNodeId, pageSourceProvider, columns);
         }
 
         @Override

@@ -13,26 +13,25 @@
  */
 package com.facebook.presto.cost;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Objects;
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
+import static java.lang.Double.POSITIVE_INFINITY;
+import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static java.lang.String.format;
 
 public class SymbolStatsEstimate
 {
-    public static final SymbolStatsEstimate UNKNOWN_STATS = SymbolStatsEstimate.builder().build();
-
-    public static final SymbolStatsEstimate ZERO_STATS = SymbolStatsEstimate.builder()
-            .setLowValue(NaN)
-            .setHighValue(NaN)
-            .setDistinctValuesCount(0)
-            .setNullsFraction(1)
-            .setAverageRowSize(0)
-            .build();
+    private static final SymbolStatsEstimate UNKNOWN = new SymbolStatsEstimate(NEGATIVE_INFINITY, POSITIVE_INFINITY, NaN, NaN, NaN);
+    private static final SymbolStatsEstimate ZERO = new SymbolStatsEstimate(NaN, NaN, 1.0, 0.0, 0.0);
 
     // for now we support only types which map to real domain naturally and keep low/high value as double in stats.
     private final double lowValue;
@@ -41,7 +40,23 @@ public class SymbolStatsEstimate
     private final double averageRowSize;
     private final double distinctValuesCount;
 
-    public SymbolStatsEstimate(double lowValue, double highValue, double nullsFraction, double averageRowSize, double distinctValuesCount)
+    public static SymbolStatsEstimate unknown()
+    {
+        return UNKNOWN;
+    }
+
+    public static SymbolStatsEstimate zero()
+    {
+        return ZERO;
+    }
+
+    @JsonCreator
+    public SymbolStatsEstimate(
+            @JsonProperty("lowValue") double lowValue,
+            @JsonProperty("highValue") double highValue,
+            @JsonProperty("nullsFraction") double nullsFraction,
+            @JsonProperty("averageRowSize") double averageRowSize,
+            @JsonProperty("distinctValuesCount") double distinctValuesCount)
     {
         checkArgument(
                 lowValue <= highValue || (isNaN(lowValue) && isNaN(highValue)),
@@ -66,21 +81,19 @@ public class SymbolStatsEstimate
         this.distinctValuesCount = distinctValuesCount;
     }
 
+    @JsonProperty
     public double getLowValue()
     {
         return lowValue;
     }
 
+    @JsonProperty
     public double getHighValue()
     {
         return highValue;
     }
 
-    public boolean isRangeEmpty()
-    {
-        return isNaN(lowValue) && isNaN(highValue);
-    }
-
+    @JsonProperty
     public double getNullsFraction()
     {
         return nullsFraction;
@@ -96,24 +109,16 @@ public class SymbolStatsEstimate
         return 1.0 - nullsFraction;
     }
 
+    @JsonProperty
     public double getAverageRowSize()
     {
         return averageRowSize;
     }
 
+    @JsonProperty
     public double getDistinctValuesCount()
     {
         return distinctValuesCount;
-    }
-
-    public SymbolStatsEstimate mapLowValue(Function<Double, Double> mappingFunction)
-    {
-        return buildFrom(this).setLowValue(mappingFunction.apply(lowValue)).build();
-    }
-
-    public SymbolStatsEstimate mapHighValue(Function<Double, Double> mappingFunction)
-    {
-        return buildFrom(this).setHighValue(mappingFunction.apply(highValue)).build();
     }
 
     public SymbolStatsEstimate mapNullsFraction(Function<Double, Double> mappingFunction)
@@ -124,6 +129,18 @@ public class SymbolStatsEstimate
     public SymbolStatsEstimate mapDistinctValuesCount(Function<Double, Double> mappingFunction)
     {
         return buildFrom(this).setDistinctValuesCount(mappingFunction.apply(distinctValuesCount)).build();
+    }
+
+    public boolean isUnknown()
+    {
+        return this.equals(UNKNOWN);
+    }
+
+    public boolean isSingleValue()
+    {
+        return distinctValuesCount == 1.0
+                && Double.compare(lowValue, highValue) == 0
+                && !isInfinite(lowValue);
     }
 
     @Override

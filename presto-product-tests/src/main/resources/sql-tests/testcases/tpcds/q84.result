@@ -1,4 +1,4 @@
--- delimiter: |; types: CHAR|LONGNVARCHAR
+-- delimiter: |; types: CHAR|CHAR
 AAAAAAAAAIPGAAAA|Carter                        , Rodney              |
 AAAAAAAAAKMBBAAA|Mcarthur                      , Emma                |
 AAAAAAAACBNHBAAA|Wells                         , Ron                 |

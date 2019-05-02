@@ -14,7 +14,11 @@
 package com.facebook.presto.connector;
 
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
+import com.facebook.presto.connector.system.DelegatingSystemTablesProvider;
+import com.facebook.presto.connector.system.MetadataBasedSystemTablesProvider;
+import com.facebook.presto.connector.system.StaticSystemTablesProvider;
 import com.facebook.presto.connector.system.SystemConnector;
+import com.facebook.presto.connector.system.SystemTablesProvider;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
@@ -192,14 +196,26 @@ public class ConnectorManager
 
         MaterializedConnector informationSchemaConnector = new MaterializedConnector(
                 createInformationSchemaConnectorId(connectorId),
-                new InformationSchemaConnector(catalogName, nodeManager, metadataManager, accessControlManager));
+                new InformationSchemaConnector(catalogName, nodeManager, metadataManager, accessControlManager, connector.getSessionProperties()));
 
         ConnectorId systemId = createSystemTablesConnectorId(connectorId);
+        SystemTablesProvider systemTablesProvider;
+
+        if (nodeManager.getCurrentNode().isCoordinator()) {
+            systemTablesProvider = new DelegatingSystemTablesProvider(
+                    new StaticSystemTablesProvider(connector.getSystemTables()),
+                    new MetadataBasedSystemTablesProvider(metadataManager, catalogName));
+        }
+        else {
+            systemTablesProvider = new StaticSystemTablesProvider(connector.getSystemTables());
+        }
+
         MaterializedConnector systemConnector = new MaterializedConnector(systemId, new SystemConnector(
                 systemId,
                 nodeManager,
-                connector.getSystemTables(),
-                transactionId -> transactionManager.getConnectorTransaction(transactionId, connectorId)));
+                systemTablesProvider,
+                transactionId -> transactionManager.getConnectorTransaction(transactionId, connectorId),
+                connector.getSessionProperties()));
 
         Catalog catalog = new Catalog(
                 catalogName,
@@ -250,7 +266,9 @@ public class ConnectorManager
                 .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(connectorId, accessControl));
 
         metadataManager.getTablePropertyManager().addProperties(connectorId, connector.getTableProperties());
+        metadataManager.getColumnPropertyManager().addProperties(connectorId, connector.getColumnProperties());
         metadataManager.getSchemaPropertyManager().addProperties(connectorId, connector.getSchemaProperties());
+        metadataManager.getAnalyzePropertyManager().addProperties(connectorId, connector.getAnalyzeProperties());
         metadataManager.getSessionPropertyManager().addConnectorSessionProperties(connectorId, connector.getSessionProperties());
     }
 
@@ -276,7 +294,9 @@ public class ConnectorManager
         metadataManager.getProcedureRegistry().removeProcedures(connectorId);
         accessControlManager.removeCatalogAccessControl(connectorId);
         metadataManager.getTablePropertyManager().removeProperties(connectorId);
+        metadataManager.getColumnPropertyManager().removeProperties(connectorId);
         metadataManager.getSchemaPropertyManager().removeProperties(connectorId);
+        metadataManager.getAnalyzePropertyManager().removeProperties(connectorId);
         metadataManager.getSessionPropertyManager().removeConnectorSessionProperties(connectorId);
 
         MaterializedConnector materializedConnector = connectors.remove(connectorId);
@@ -319,6 +339,8 @@ public class ConnectorManager
         private final List<PropertyMetadata<?>> sessionProperties;
         private final List<PropertyMetadata<?>> tableProperties;
         private final List<PropertyMetadata<?>> schemaProperties;
+        private final List<PropertyMetadata<?>> columnProperties;
+        private final List<PropertyMetadata<?>> analyzeProperties;
 
         public MaterializedConnector(ConnectorId connectorId, Connector connector)
         {
@@ -403,6 +425,14 @@ public class ConnectorManager
             List<PropertyMetadata<?>> schemaProperties = connector.getSchemaProperties();
             requireNonNull(schemaProperties, "Connector %s returned a null schema properties set");
             this.schemaProperties = ImmutableList.copyOf(schemaProperties);
+
+            List<PropertyMetadata<?>> columnProperties = connector.getColumnProperties();
+            requireNonNull(columnProperties, "Connector %s returned a null column properties set");
+            this.columnProperties = ImmutableList.copyOf(columnProperties);
+
+            List<PropertyMetadata<?>> analyzeProperties = connector.getAnalyzeProperties();
+            requireNonNull(analyzeProperties, "Connector %s returned a null analyze properties set");
+            this.analyzeProperties = ImmutableList.copyOf(analyzeProperties);
         }
 
         public ConnectorId getConnectorId()
@@ -465,9 +495,19 @@ public class ConnectorManager
             return tableProperties;
         }
 
+        public List<PropertyMetadata<?>> getColumnProperties()
+        {
+            return columnProperties;
+        }
+
         public List<PropertyMetadata<?>> getSchemaProperties()
         {
             return schemaProperties;
+        }
+
+        public List<PropertyMetadata<?>> getAnalyzeProperties()
+        {
+            return analyzeProperties;
         }
     }
 }

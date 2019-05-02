@@ -30,9 +30,9 @@ public abstract class AbstractVariableWidthBlock
     protected abstract boolean isEntryNull(int position);
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new VariableWidthBlockEncoding();
+        return VariableWidthBlockEncoding.NAME;
     }
 
     @Override
@@ -124,13 +124,14 @@ public abstract class AbstractVariableWidthBlock
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         writeBytesTo(position, 0, getSliceLength(position), blockBuilder);
+        blockBuilder.closeEntry();
     }
 
     @Override
     public Block getSingleValueBlock(int position)
     {
         if (isNull(position)) {
-            return new VariableWidthBlock(1, EMPTY_SLICE, new int[] {0, 0}, new boolean[] {true});
+            return new VariableWidthBlock(0, 1, EMPTY_SLICE, new int[] {0, 0}, new boolean[] {true});
         }
 
         int offset = getPositionOffset(position);
@@ -138,7 +139,13 @@ public abstract class AbstractVariableWidthBlock
 
         Slice copy = Slices.copyOf(getRawSlice(position), offset, entrySize);
 
-        return new VariableWidthBlock(1, copy, new int[] {0, copy.length()}, new boolean[] {false});
+        return new VariableWidthBlock(0, 1, copy, new int[] {0, copy.length()}, null);
+    }
+
+    @Override
+    public long getEstimatedDataSizeForStats(int position)
+    {
+        return isNull(position) ? 0 : getSliceLength(position);
     }
 
     @Override

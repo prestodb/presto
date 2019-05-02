@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.connector.system.GlobalSystemConnector;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
@@ -40,10 +41,15 @@ public class QueryManagerConfig
     private int maxConcurrentQueries = 1000;
     private int maxQueuedQueries = 5000;
 
-    private int initialHashPartitions = 100;
+    private int hashPartitionCount = 100;
+    private String partitioningProviderCatalog = GlobalSystemConnector.NAME;
+    private ExchangeMaterializationStrategy exchangeMaterializationStrategy = ExchangeMaterializationStrategy.NONE;
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
+    private int maxStageCount = 100;
+    private int stageCountWarningThreshold = 50;
+
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
 
     private int queryManagerExecutorPoolSize = 5;
@@ -58,6 +64,9 @@ public class QueryManagerConfig
 
     private int initializationRequiredWorkers = 1;
     private Duration initializationTimeout = new Duration(5, TimeUnit.MINUTES);
+
+    private int requiredWorkers = 1;
+    private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -116,15 +125,44 @@ public class QueryManagerConfig
     }
 
     @Min(1)
-    public int getInitialHashPartitions()
+    public int getHashPartitionCount()
     {
-        return initialHashPartitions;
+        return hashPartitionCount;
     }
 
-    @Config("query.initial-hash-partitions")
-    public QueryManagerConfig setInitialHashPartitions(int initialHashPartitions)
+    @LegacyConfig("query.initial-hash-partitions")
+    @Config("query.hash-partition-count")
+    public QueryManagerConfig setHashPartitionCount(int hashPartitionCount)
     {
-        this.initialHashPartitions = initialHashPartitions;
+        this.hashPartitionCount = hashPartitionCount;
+        return this;
+    }
+
+    @NotNull
+    public String getPartitioningProviderCatalog()
+    {
+        return partitioningProviderCatalog;
+    }
+
+    @Config("query.partitioning-provider-catalog")
+    @ConfigDescription("Name of the catalog providing custom partitioning")
+    public QueryManagerConfig setPartitioningProviderCatalog(String partitioningProviderCatalog)
+    {
+        this.partitioningProviderCatalog = partitioningProviderCatalog;
+        return this;
+    }
+
+    @NotNull
+    public ExchangeMaterializationStrategy getExchangeMaterializationStrategy()
+    {
+        return exchangeMaterializationStrategy;
+    }
+
+    @Config("query.exchange-materialization-strategy")
+    @ConfigDescription("The exchange materialization strategy to use")
+    public QueryManagerConfig setExchangeMaterializationStrategy(ExchangeMaterializationStrategy exchangeMaterializationStrategy)
+    {
+        this.exchangeMaterializationStrategy = exchangeMaterializationStrategy;
         return this;
     }
 
@@ -166,6 +204,33 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxQueryLength(int maxQueryLength)
     {
         this.maxQueryLength = maxQueryLength;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxStageCount()
+    {
+        return maxStageCount;
+    }
+
+    @Config("query.max-stage-count")
+    public QueryManagerConfig setMaxStageCount(int maxStageCount)
+    {
+        this.maxStageCount = maxStageCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getStageCountWarningThreshold()
+    {
+        return stageCountWarningThreshold;
+    }
+
+    @Config("query.stage-count-warning-threshold")
+    @ConfigDescription("Emit a warning when stage count exceeds this threshold")
+    public QueryManagerConfig setStageCountWarningThreshold(int stageCountWarningThreshold)
+    {
+        this.stageCountWarningThreshold = stageCountWarningThreshold;
         return this;
     }
 
@@ -315,5 +380,39 @@ public class QueryManagerConfig
     {
         this.initializationTimeout = initializationTimeout;
         return this;
+    }
+
+    @Min(1)
+    public int getRequiredWorkers()
+    {
+        return requiredWorkers;
+    }
+
+    @Config("query-manager.required-workers")
+    @ConfigDescription("Minimum number of active workers that must be available before a query will start")
+    public QueryManagerConfig setRequiredWorkers(int requiredWorkers)
+    {
+        this.requiredWorkers = requiredWorkers;
+        return this;
+    }
+
+    @NotNull
+    public Duration getRequiredWorkersMaxWait()
+    {
+        return requiredWorkersMaxWait;
+    }
+
+    @Config("query-manager.required-workers-max-wait")
+    @ConfigDescription("Maximum time to wait for minimum number of workers before the query is failed")
+    public QueryManagerConfig setRequiredWorkersMaxWait(Duration requiredWorkersMaxWait)
+    {
+        this.requiredWorkersMaxWait = requiredWorkersMaxWait;
+        return this;
+    }
+
+    public enum ExchangeMaterializationStrategy
+    {
+        NONE,
+        ALL,
     }
 }

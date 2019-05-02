@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 
-import javax.annotation.Nonnull;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -87,7 +86,8 @@ public class StateMachine<T>
         this.terminalStates = ImmutableSet.copyOf(requireNonNull(terminalStates, "terminalStates is null"));
     }
 
-    @Nonnull
+    // state changes are atomic and state is volatile, so a direct read is safe here
+    @SuppressWarnings("FieldAccessNotGuarded")
     public T get()
     {
         return state;
@@ -99,7 +99,6 @@ public class StateMachine<T>
      *
      * @return the old state
      */
-    @Nonnull
     public T set(T newState)
     {
         checkState(!Thread.holdsLock(lock), "Can not set state while holding the lock");
@@ -209,6 +208,7 @@ public class StateMachine<T>
         checkState(!Thread.holdsLock(lock), "Can not fire state change event while holding the lock");
         requireNonNull(newState, "newState is null");
 
+        // always fire listener callbacks from a different thread
         safeExecute(() -> {
             checkState(!Thread.holdsLock(lock), "Can not notify while holding the lock");
             try {
@@ -218,14 +218,19 @@ public class StateMachine<T>
                 log.error(e, "Error setting future state for %s", name);
             }
             for (StateChangeListener<T> stateChangeListener : stateChangeListeners) {
-                try {
-                    stateChangeListener.stateChanged(newState);
-                }
-                catch (Throwable e) {
-                    log.error(e, "Error notifying state change listener for %s", name);
-                }
+                fireStateChangedListener(newState, stateChangeListener);
             }
         });
+    }
+
+    private void fireStateChangedListener(T newState, StateChangeListener<T> stateChangeListener)
+    {
+        try {
+            stateChangeListener.stateChanged(newState);
+        }
+        catch (Throwable e) {
+            log.error(e, "Error notifying state change listener for %s", name);
+        }
     }
 
     /**
@@ -238,7 +243,7 @@ public class StateMachine<T>
 
         synchronized (lock) {
             // return a completed future if the state has already changed, or we are in a terminal state
-            if (isPossibleStateChange(currentState)) {
+            if (!state.equals(currentState) || isTerminalState(state)) {
                 return immediateFuture(state);
             }
 
@@ -248,28 +253,28 @@ public class StateMachine<T>
 
     /**
      * Adds a listener to be notified when the state instance changes according to {@code .equals()}.
+     * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
+     * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
+     * possible notifications are observed out of order due to the asynchronous execution. The listener is
+     * immediately notified immediately of the current state.
      */
     public void addStateChangeListener(StateChangeListener<T> stateChangeListener)
     {
         requireNonNull(stateChangeListener, "stateChangeListener is null");
 
         boolean inTerminalState;
+        T currentState;
         synchronized (lock) {
-            inTerminalState = isTerminalState(state);
+            currentState = state;
+            inTerminalState = isTerminalState(currentState);
             if (!inTerminalState) {
                 stateChangeListeners.add(stateChangeListener);
             }
         }
 
-        // state machine will never transition from a terminal state, so fire state change immediately
-        if (inTerminalState) {
-            stateChangeListener.stateChanged(state);
-        }
-    }
-
-    private boolean isPossibleStateChange(T currentState)
-    {
-        return !state.equals(currentState) || isTerminalState(state);
+        // fire state change listener with the current state
+        // always fire listener callbacks from a different thread
+        safeExecute(() -> stateChangeListener.stateChanged(currentState));
     }
 
     @VisibleForTesting
@@ -279,9 +284,11 @@ public class StateMachine<T>
     }
 
     @VisibleForTesting
-    synchronized List<StateChangeListener<T>> getStateChangeListeners()
+    List<StateChangeListener<T>> getStateChangeListeners()
     {
-        return ImmutableList.copyOf(stateChangeListeners);
+        synchronized (lock) {
+            return ImmutableList.copyOf(stateChangeListeners);
+        }
     }
 
     public interface StateChangeListener<T>

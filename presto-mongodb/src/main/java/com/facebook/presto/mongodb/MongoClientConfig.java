@@ -116,16 +116,11 @@ public class MongoClientConfig
         for (String hostPort : hostPorts) {
             List<String> values = PORT_SPLITTER.splitToList(hostPort);
             checkArgument(values.size() == 1 || values.size() == 2, "Invalid ServerAddress format. Requires host[:port]");
-            try {
-                if (values.size() == 1) {
-                    builder.add(new ServerAddress(values.get(0)));
-                }
-                else {
-                    builder.add(new ServerAddress(values.get(0), Integer.parseInt(values.get(1))));
-                }
+            if (values.size() == 1) {
+                builder.add(new ServerAddress(values.get(0)));
             }
-            catch (NumberFormatException e) {
-                throw e;
+            else {
+                builder.add(new ServerAddress(values.get(0), Integer.parseInt(values.get(1))));
             }
         }
         return builder.build();

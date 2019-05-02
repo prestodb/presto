@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.server.remotetask;
 
-import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.Lifespan;
@@ -24,16 +22,21 @@ import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.TaskTestUtils;
 import com.facebook.presto.execution.TestSqlTaskManager;
+import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.server.HttpRemoteTaskFactory;
+import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.TaskUpdateRequest;
+import com.facebook.presto.server.smile.SmileCodec;
+import com.facebook.presto.server.smile.SmileModule;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -77,16 +80,18 @@ import javax.ws.rs.core.UriInfo;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 
-import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
+import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static com.facebook.presto.server.smile.SmileCodecBinder.smileCodecBinder;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
@@ -210,6 +215,7 @@ public class TestHttpRemoteTask
                 new PrestoNode("node-id", URI.create("http://fake.invalid/"), new NodeVersion("version"), false),
                 TaskTestUtils.PLAN_FRAGMENT,
                 ImmutableMultimap.of(),
+                OptionalInt.empty(),
                 createInitialEmptyOutputBuffers(OutputBuffers.BufferType.BROADCAST),
                 new NodeTaskMap.PartitionedSplitCountTracker(i -> {}),
                 true);
@@ -220,6 +226,7 @@ public class TestHttpRemoteTask
     {
         Bootstrap app = new Bootstrap(
                 new JsonModule(),
+                new SmileModule(),
                 new HandleJsonModule(),
                 new Module()
                 {
@@ -232,6 +239,9 @@ public class TestHttpRemoteTask
                         binder.bind(TypeManager.class).to(TypeRegistry.class).in(Scopes.SINGLETON);
                         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
                         newSetBinder(binder, Type.class);
+                        smileCodecBinder(binder).bindSmileCodec(TaskStatus.class);
+                        smileCodecBinder(binder).bindSmileCodec(TaskInfo.class);
+                        smileCodecBinder(binder).bindSmileCodec(TaskUpdateRequest.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
@@ -240,9 +250,12 @@ public class TestHttpRemoteTask
                     @Provides
                     private HttpRemoteTaskFactory createHttpRemoteTaskFactory(
                             JsonMapper jsonMapper,
-                            JsonCodec<TaskStatus> taskStatusCodec,
-                            JsonCodec<TaskInfo> taskInfoCodec,
-                            JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec)
+                            JsonCodec<TaskStatus> taskStatusJsonCodec,
+                            SmileCodec<TaskStatus> taskStatusSmileCodec,
+                            JsonCodec<TaskInfo> taskInfoJsonCodec,
+                            SmileCodec<TaskInfo> taskInfoSmileCodec,
+                            JsonCodec<TaskUpdateRequest> taskUpdateRequestJsonCodec,
+                            SmileCodec<TaskUpdateRequest> taskUpdateRequestSmileCodec)
                     {
                         JaxrsTestingHttpProcessor jaxrsTestingHttpProcessor = new JaxrsTestingHttpProcessor(URI.create("http://fake.invalid/"), testingTaskResource, jsonMapper);
                         TestingHttpClient testingHttpClient = new TestingHttpClient(jaxrsTestingHttpProcessor.setTrace(TRACE_HTTP));
@@ -252,10 +265,14 @@ public class TestHttpRemoteTask
                                 TASK_MANAGER_CONFIG,
                                 testingHttpClient,
                                 new TestSqlTaskManager.MockLocationFactory(),
-                                taskStatusCodec,
-                                taskInfoCodec,
-                                taskUpdateRequestCodec,
-                                new RemoteTaskStats());
+                                taskStatusJsonCodec,
+                                taskStatusSmileCodec,
+                                taskInfoJsonCodec,
+                                taskInfoSmileCodec,
+                                taskUpdateRequestJsonCodec,
+                                taskUpdateRequestSmileCodec,
+                                new RemoteTaskStats(),
+                                new InternalCommunicationConfig());
                     }
                 });
         Injector injector = app
@@ -439,8 +456,7 @@ public class TestHttpRemoteTask
                     initialTaskInfo.getOutputBuffers(),
                     initialTaskInfo.getNoMoreSplits(),
                     initialTaskInfo.getStats(),
-                    initialTaskInfo.isNeedsPlan(),
-                    initialTaskInfo.isComplete());
+                    initialTaskInfo.isNeedsPlan());
         }
 
         private TaskStatus buildTaskStatus()

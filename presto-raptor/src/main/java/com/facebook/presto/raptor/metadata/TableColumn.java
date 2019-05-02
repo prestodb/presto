@@ -29,7 +29,6 @@ import java.util.OptionalInt;
 import static com.facebook.presto.raptor.util.DatabaseUtil.getOptionalInt;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class TableColumn
@@ -137,7 +136,6 @@ public class TableColumn
 
             String typeName = r.getString("data_type");
             Type type = typeManager.getType(parseTypeSignature(typeName));
-            checkArgument(type != null, "Unknown type %s", typeName);
 
             return new TableColumn(
                     table,

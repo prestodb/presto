@@ -36,6 +36,7 @@ public class TestRaptorReadOnlySecurity
     public void tearDown()
     {
         queryRunner.close();
+        queryRunner = null;
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Access Denied: Cannot create .*")

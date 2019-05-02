@@ -21,8 +21,6 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.Optional;
-
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -58,7 +56,7 @@ public class TypedKeyValueHeap
 
     public static Type getSerializedType(Type keyType, Type valueType)
     {
-        return new RowType(ImmutableList.of(BIGINT, new ArrayType(keyType), new ArrayType(valueType)), Optional.empty());
+        return RowType.anonymous(ImmutableList.of(BIGINT, new ArrayType(keyType), new ArrayType(valueType)));
     }
 
     public int getCapacity()

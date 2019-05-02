@@ -35,78 +35,17 @@ broken.
     pip install docker-compose
     ```
 
-### OS X using Docker for Mac (macOS 10.10.3 Yosemite or newer) [PREFERRED WAY]
+### OS X using Docker for Mac
 
-* Install Docker for Mac: https://docs.docker.com/docker-for-mac/
+* Install [Docker for Mac](https://docs.docker.com/docker-for-mac/)
 
 * Add entries in `/etc/hosts` for all services running in docker containers:
 `hadoop-master`, `mysql`, `postgres`, `cassandra`, `presto-master`.
-They should point to your external IP address (shown by `ifconfig` on your Mac (not inside docker)).
+They should point to your external IP address (shown by `ifconfig` on your Mac, not inside Docker).
 
 * The default memory setting of 2GB might not be sufficient for some profiles like `singlenode-ldap`.
 You may need 4-8 GB or even more to run certain tests. You can increase Docker memory by going to
-Docker Preferences -> Advanced -> Memory.
-
-### OS X using Docker Toolbox (macOS 10.8 "Mountain Lion" or newer) [NOT RECOMMENDED]
-
-* [`VirtualBox >= 5.0`](https://www.virtualbox.org/wiki/Downloads)
-
-The Docker daemon cannot run natively on OS X because it uses Linux-specific
-kernel features. Instead, the Docker daemon runs in a Linux VM created by
-the `docker-machine` binary. Docker containers run in the Linux VM and are
-controlled by the `docker` client binary that runs natively on OS X.
-Both `docker-machine` and `docker` are included in the `docker-toolbox`
-package, which must be installed.
-
-* [`docker-toolbox >= 1.10`](https://www.docker.com/products/docker-toolbox)
-
-In addition to `docker-machine` and `docker`, the `docker-toolbox`
-package also install `docker-compose`, which is a multi-container
-orchestration Python utility. To gain access to these utilities, start the
-pre-configured shell environment by double-clicking on the "Docker Quickstart
-Terminal" icon located in ~/Applications/Docker. Note that all commands listed
-in subsequent parts of this tutorial must be run within such a pre-configured
-shell.
-
-#### Setting up a Linux VM for Docker Toolbox
-
-The `docker-toolbox` installation creates a VirtualBox VM called `default`.
-To run product-tests on the `default` VM, it must be re-configured to use
-4GB of memory with the following commands:
-
-```
-docker-machine stop
-vboxmanage modifyvm default --memory 4096
-docker-machine start
-```
-
-Alternatively, if you do not want to use the `default` VM to run the
-product tests, you can create a new VM with the commands below. Note that
-the `default` VM will always be running when you start a new pre-configured
-shell environment. Permanently removing or replacing the `default` VM
-is beyond the scope of this tutorial.
-
-* Create a VM called <machine>. This should be done only once and not
-every time a pre-configured shell is started:
-
-    ```
-    docker-machine create -d virtualbox --virtualbox-memory 4096 <machine>
-    ```
-
-* After the new VM is created, the pre-configured shell environment must be
-told to use the `<machine>` VM instead of the `default` VM to run Docker
-containers. These commands must be run every time a new pre-configured
-shell is started:
-
-    ```
-    docker-machine start <machine>
-    eval $(docker-machine env <machine>)
-    ```
-    
-Note that for every new VM, the docker images on the previous
-VM will have to be re-downloaded when the product tests are kicked
-off. To avoid this unnecessary re-download, do not create new
-VMs often.
+*Docker Preferences -> Advanced -> Memory*.
 
 ## Use the `docker-compose` wrappers
 
@@ -119,7 +58,7 @@ and deficiencies of `extends:` syntax (see the note
 To ease the pain of passing multiple `-f` arguments to `docker-compose`,
 each environment has a `compose.sh` wrapper script. Thanks to it, instead of e.g.
 
-`docker-compose -f ./docker-compose.yml -f ../common/standard.yml -f ../common/jdbc_db.yml [compose commands]`
+`docker-compose -f ./docker-compose.yml -f ../common/standard.yml [compose commands]`
 
 one can simply write
 
@@ -145,11 +84,17 @@ where profile is one of either:
  single Docker container and a distributed Presto installation running on
  multiple Docker containers. For multinode the default configuration is
  1 coordinator and 1 worker.
-- **multinode-tls** - psuedo-distributed Hadoop installation running on a
+- **multinode-tls** - pseudo-distributed Hadoop installation running on a
  single Docker container and a distributed Presto installation running on
  multiple Docker containers. Presto is configured to only accept connections
  on the HTTPS port (7878), and both coordinator and worker traffic is encrypted.
  For multinode-tls, the default configuration is 1 coordinator and 2 workers.
+- **multinode-tls-kerberos** - pseudo-distributed Hadoop installation running on a
+  single Docker container and a distributed installation of kerberized Presto
+  running on multiple Docker containers. Presto is configured to only accept
+  connections on the HTTPS port (7778), and both coordinator and worker traffic
+  is encrypted and kerberized. For multinode-tls-kerberos, the default configuration
+  is 1 coordinator and 2 workers.
 - **singlenode** - pseudo-distributed Hadoop installation running on a
  single Docker container and a single node installation of Presto also running
  on a single Docker container.
@@ -194,7 +139,7 @@ Please keep in mind that if you run tests on Hive of version not greater than 1.
 First version of Hive capable of running tests from `post_hive_1_0_1` group is Hive 1.1.0.
 
 For more information on the various ways in which Presto can be configured to
-interact with Kerberized Hive and Hadoop, please refer to the [Hive connector documentation](https://prestodb.io/docs/current/connector/hive.html).
+interact with Kerberized Hive and Hadoop, please refer to the [Hive connector documentation](https://prestodb.github.io/docs/current/connector/hive.html).
 
 ### Running a single test
 

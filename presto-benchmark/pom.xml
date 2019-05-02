@@ -5,7 +5,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.198</version>
+        <version>0.219</version>
     </parent>
 
     <artifactId>presto-benchmark</artifactId>
@@ -23,6 +23,11 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-parser</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
         </dependency>
 
@@ -34,11 +39,6 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-memory</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-geospatial</artifactId>
         </dependency>
 
         <dependency>

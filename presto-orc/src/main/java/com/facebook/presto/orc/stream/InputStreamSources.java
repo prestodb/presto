@@ -18,8 +18,6 @@ import com.facebook.presto.orc.StreamId;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.Nonnull;
-
 import java.util.Map;
 
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
@@ -35,13 +33,12 @@ public class InputStreamSources
         this.streamSources = ImmutableMap.copyOf(requireNonNull(streamSources, "streamSources is null"));
     }
 
-    @Nonnull
     public <S extends ValueInputStream<?>> InputStreamSource<S> getInputStreamSource(StreamDescriptor streamDescriptor, StreamKind streamKind, Class<S> streamType)
     {
         requireNonNull(streamDescriptor, "streamDescriptor is null");
         requireNonNull(streamType, "streamType is null");
 
-        InputStreamSource<?> streamSource = streamSources.get(new StreamId(streamDescriptor.getStreamId(), streamKind));
+        InputStreamSource<?> streamSource = streamSources.get(new StreamId(streamDescriptor.getStreamId(), streamDescriptor.getSequence(), streamKind));
         if (streamSource == null) {
             streamSource = missingStreamSource(streamType);
         }

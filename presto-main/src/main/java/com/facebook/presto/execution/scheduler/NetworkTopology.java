@@ -16,7 +16,6 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.spi.HostAddress;
 
 import javax.annotation.concurrent.ThreadSafe;
-import javax.validation.constraints.NotNull;
 
 import java.util.List;
 
@@ -26,13 +25,11 @@ import java.util.List;
 @ThreadSafe
 public interface NetworkTopology
 {
-    @NotNull
     NetworkLocation locate(HostAddress address);
 
     /**
      * Strings describing the meaning of each segment of a NetworkLocation returned from locate().
      * This method must return a constant.
      */
-    @NotNull
     List<String> getLocationSegmentNames();
 }

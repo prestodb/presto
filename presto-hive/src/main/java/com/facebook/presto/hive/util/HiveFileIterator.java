@@ -30,7 +30,6 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.Iterator;
 
-import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static java.util.Objects.requireNonNull;
@@ -80,7 +79,7 @@ public class HiveFileIterator
                     continue;
                 }
 
-                if (isDirectory(status)) {
+                if (status.isDirectory()) {
                     switch (nestedDirectoryPolicy) {
                         case IGNORED:
                             continue;
@@ -161,7 +160,7 @@ public class HiveFileIterator
         {
             namenodeStats.getRemoteIteratorNext().recordException(exception);
             if (exception instanceof FileNotFoundException) {
-                throw new PrestoException(HIVE_FILE_NOT_FOUND, "Partition location does not exist: " + path);
+                return new PrestoException(HIVE_FILE_NOT_FOUND, "Partition location does not exist: " + path);
             }
             return new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed to list directory: " + path, exception);
         }

@@ -41,14 +41,14 @@ with a few notable exceptions:
 
     .. _Capturing groups: http://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html#cg
 
-.. function:: regexp_extract_all(string, pattern) -> array<varchar>
+.. function:: regexp_extract_all(string, pattern) -> array(varchar)
 
     Returns the substring(s) matched by the regular expression ``pattern``
     in ``string``::
 
         SELECT regexp_extract_all('1a 2b 14m', '\d+'); -- [1, 2, 14]
 
-.. function:: regexp_extract_all(string, pattern, group) -> array<varchar>
+.. function:: regexp_extract_all(string, pattern, group) -> array(varchar)
 
     Finds all occurrences of the regular expression ``pattern`` in ``string``
     and returns the `capturing group number`_ ``group``::
@@ -74,7 +74,7 @@ with a few notable exceptions:
     Evaluates the regular expression ``pattern`` and determines if it is
     contained within ``string``.
 
-    This function is similar to the ``LIKE`` operator, expect that the
+    This function is similar to the ``LIKE`` operator, except that the
     pattern only needs to be contained within ``string``, rather than
     needing to match all of ``string``. In other words, this performs a
     *contains* operation rather than a *match* operation. You can match
@@ -109,7 +109,7 @@ with a few notable exceptions:
 
         SELECT regexp_replace('new york', '(\w)(\w*)', x -> upper(x[1]) || lower(x[2])); --'New York'
 
-.. function:: regexp_split(string, pattern) -> array<varchar>
+.. function:: regexp_split(string, pattern) -> array(varchar)
 
     Splits ``string`` using the regular expression ``pattern`` and returns an
     array. Trailing empty strings are preserved::

@@ -18,6 +18,7 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.Locale;
 import java.util.Set;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
@@ -57,7 +58,7 @@ public class TestJmxQueries
     public void testShowTables()
     {
         Set<String> standardNamesLower = STANDARD_NAMES.stream()
-                .map(String::toLowerCase)
+                .map(name -> name.toLowerCase(Locale.ENGLISH))
                 .collect(toImmutableSet());
         MaterializedResult result = computeActual("SHOW TABLES");
         assertTrue(result.getOnlyColumnAsSet().containsAll(standardNamesLower));

@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.metadata;
 
+import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -22,6 +24,8 @@ import static org.testng.Assert.fail;
 
 public class TestQualifiedTablePrefix
 {
+    private static final JsonCodec<QualifiedTablePrefix> CODEC = jsonCodec(QualifiedTablePrefix.class);
+
     @Test
     public void testCatalog()
     {
@@ -67,5 +71,12 @@ public class TestQualifiedTablePrefix
         catch (RuntimeException e) {
             // ok
         }
+    }
+
+    @Test
+    public void testRoundTrip()
+    {
+        QualifiedTablePrefix table = new QualifiedTablePrefix("abc", "xyz", "fgh");
+        assertEquals(CODEC.fromJson(CODEC.toJson(table)), table);
     }
 }

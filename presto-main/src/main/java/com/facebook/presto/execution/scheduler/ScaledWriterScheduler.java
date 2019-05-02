@@ -24,10 +24,11 @@ import io.airlift.units.DataSize;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.WRITER_SCALING;
@@ -39,7 +40,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class ScaledWriterScheduler
         implements StageScheduler
 {
-    private final BiFunction<Node, Integer, RemoteTask> taskScheduler;
+    private final SqlStageExecution stage;
     private final Supplier<Collection<TaskStatus>> sourceTasksProvider;
     private final Supplier<Collection<TaskStatus>> writerTasksProvider;
     private final NodeSelector nodeSelector;
@@ -57,8 +58,7 @@ public class ScaledWriterScheduler
             ScheduledExecutorService executor,
             DataSize writerMinSize)
     {
-        requireNonNull(stage, "stage is null");
-        this.taskScheduler = stage::scheduleTask;
+        this.stage = requireNonNull(stage, "stage is null");
         this.sourceTasksProvider = requireNonNull(sourceTasksProvider, "sourceTasksProvider is null");
         this.writerTasksProvider = requireNonNull(writerTasksProvider, "writerTasksProvider is null");
         this.nodeSelector = requireNonNull(nodeSelector, "nodeSelector is null");
@@ -120,8 +120,11 @@ public class ScaledWriterScheduler
 
         ImmutableList.Builder<RemoteTask> tasks = ImmutableList.builder();
         for (Node node : nodes) {
-            tasks.add(taskScheduler.apply(node, scheduledNodes.size()));
-            scheduledNodes.add(node);
+            Optional<RemoteTask> remoteTask = stage.scheduleTask(node, scheduledNodes.size(), OptionalInt.empty());
+            remoteTask.ifPresent(task -> {
+                tasks.add(task);
+                scheduledNodes.add(node);
+            });
         }
 
         return tasks.build();

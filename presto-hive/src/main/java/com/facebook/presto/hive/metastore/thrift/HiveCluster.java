@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import org.apache.thrift.TException;
+
 /**
  * A Hive cluster is a single logical installation of Hive. It might
  * have multiple instances of the metastore service (for scalability
@@ -27,5 +29,6 @@ public interface HiveCluster
     /**
      * Create a connected {@link HiveMetastoreClient} to this HiveCluster
      */
-    HiveMetastoreClient createMetastoreClient();
+    HiveMetastoreClient createMetastoreClient()
+            throws TException;
 }

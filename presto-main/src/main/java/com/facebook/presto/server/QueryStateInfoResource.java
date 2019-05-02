@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.spi.QueryId;
@@ -45,12 +44,12 @@ import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 public class QueryStateInfoResource
 {
     private final QueryManager queryManager;
-    private final ResourceGroupManager resourceGroupManager;
+    private final ResourceGroupManager<?> resourceGroupManager;
 
     @Inject
     public QueryStateInfoResource(
             QueryManager queryManager,
-            ResourceGroupManager resourceGroupManager)
+            ResourceGroupManager<?> resourceGroupManager)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
@@ -60,7 +59,7 @@ public class QueryStateInfoResource
     @Produces(MediaType.APPLICATION_JSON)
     public List<QueryStateInfo> getQueryStateInfos(@QueryParam("user") String user)
     {
-        List<QueryInfo> queryInfos = queryManager.getAllQueryInfo();
+        List<BasicQueryInfo> queryInfos = queryManager.getQueries();
 
         if (!isNullOrEmpty(user)) {
             queryInfos = queryInfos.stream()
@@ -74,9 +73,9 @@ public class QueryStateInfoResource
                 .collect(toImmutableList());
     }
 
-    private QueryStateInfo getQueryStateInfo(QueryInfo queryInfo)
+    private QueryStateInfo getQueryStateInfo(BasicQueryInfo queryInfo)
     {
-        Optional<ResourceGroupId> groupId = queryManager.getQueryResourceGroup(queryInfo.getQueryId());
+        Optional<ResourceGroupId> groupId = queryInfo.getResourceGroupId();
         if (queryInfo.getState() == QUEUED) {
             return createQueuedQueryStateInfo(
                     queryInfo,

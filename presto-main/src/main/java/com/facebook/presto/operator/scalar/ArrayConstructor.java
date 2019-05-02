@@ -14,13 +14,13 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionKind;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.CallSiteBinder;
@@ -42,10 +42,10 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
@@ -63,7 +63,6 @@ import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.equal;
-import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Collections.nCopies;
 
@@ -103,7 +102,7 @@ public final class ArrayConstructor
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         Map<String, Type> types = boundVariables.getTypeVariables();
         checkArgument(types.size() == 1, "Can only construct arrays from exactly matching types");
@@ -164,21 +163,16 @@ public final class ArrayConstructor
         CallSiteBinder binder = new CallSiteBinder();
 
         BytecodeExpression createBlockBuilder = blockBuilderVariable.set(
-                constantType(binder, elementType).invoke("createBlockBuilder", BlockBuilder.class, newInstance(BlockBuilderStatus.class), constantInt(stackTypes.size())));
+                constantType(binder, elementType).invoke("createBlockBuilder", BlockBuilder.class, constantNull(BlockBuilderStatus.class), constantInt(stackTypes.size())));
         body.append(createBlockBuilder);
 
         for (int i = 0; i < stackTypes.size(); i++) {
-            if (elementType.getJavaType() == void.class) {
-                body.append(blockBuilderVariable.invoke("appendNull", BlockBuilder.class));
-            }
-            else {
-                Variable argument = scope.getVariable("arg" + i);
-                IfStatement ifStatement = new IfStatement()
-                        .condition(equal(argument, constantNull(stackTypes.get(i))))
-                        .ifTrue(blockBuilderVariable.invoke("appendNull", BlockBuilder.class).pop())
-                        .ifFalse(constantType(binder, elementType).writeValue(blockBuilderVariable, argument.cast(elementType.getJavaType())));
-                body.append(ifStatement);
-            }
+            Variable argument = scope.getVariable("arg" + i);
+            IfStatement ifStatement = new IfStatement()
+                    .condition(equal(argument, constantNull(stackTypes.get(i))))
+                    .ifTrue(blockBuilderVariable.invoke("appendNull", BlockBuilder.class).pop())
+                    .ifFalse(constantType(binder, elementType).writeValue(blockBuilderVariable, argument.cast(elementType.getJavaType())));
+            body.append(ifStatement);
         }
 
         body.append(blockBuilderVariable.invoke("build", Block.class).ret());

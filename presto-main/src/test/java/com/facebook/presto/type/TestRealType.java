@@ -15,11 +15,14 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.IntArrayBlockBuilder;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.RealType.REAL;
+import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static org.testng.Assert.assertEquals;
 
 public class TestRealType
         extends AbstractTestType
@@ -31,7 +34,7 @@ public class TestRealType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = REAL.createBlockBuilder(new BlockBuilderStatus(), 30);
+        BlockBuilder blockBuilder = REAL.createBlockBuilder(null, 30);
         REAL.writeLong(blockBuilder, floatToRawIntBits(11.11F));
         REAL.writeLong(blockBuilder, floatToRawIntBits(11.11F));
         REAL.writeLong(blockBuilder, floatToRawIntBits(11.11F));
@@ -52,5 +55,20 @@ public class TestRealType
         int bits = ((Long) value).intValue();
         float greaterValue = intBitsToFloat(bits) + 0.1f;
         return Long.valueOf(floatToRawIntBits(greaterValue));
+    }
+
+    @Test
+    public void testNaNHash()
+    {
+        BlockBuilder blockBuilder = new IntArrayBlockBuilder(null, 4);
+        blockBuilder.writeInt(floatToIntBits(Float.NaN));
+        blockBuilder.writeInt(floatToRawIntBits(Float.NaN));
+        // the following two are the integer values of a float NaN
+        blockBuilder.writeInt(-0x400000);
+        blockBuilder.writeInt(0x7fc00000);
+
+        assertEquals(REAL.hash(blockBuilder, 0), REAL.hash(blockBuilder, 1));
+        assertEquals(REAL.hash(blockBuilder, 0), REAL.hash(blockBuilder, 2));
+        assertEquals(REAL.hash(blockBuilder, 0), REAL.hash(blockBuilder, 3));
     }
 }

@@ -140,6 +140,13 @@ public abstract class AbstractSingleArrayBlock
     }
 
     @Override
+    public long getEstimatedDataSizeForStats(int position)
+    {
+        checkReadablePosition(position);
+        return getBlock().getEstimatedDataSizeForStats(position + start);
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
@@ -147,7 +154,7 @@ public abstract class AbstractSingleArrayBlock
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
         // SingleArrayBlockEncoding does not exist
         throw new UnsupportedOperationException();
@@ -167,6 +174,12 @@ public abstract class AbstractSingleArrayBlock
 
     @Override
     public long getRegionSizeInBytes(int position, int length)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public long getPositionsSizeInBytes(boolean[] positions)
     {
         throw new UnsupportedOperationException();
     }

@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -24,7 +25,6 @@ import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -42,8 +42,10 @@ import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
-import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
 import static com.facebook.presto.sql.planner.plan.Patterns.values;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionRewriteRuleSet
@@ -66,7 +68,6 @@ public class ExpressionRewriteRuleSet
                 projectExpressionRewrite(),
                 aggregationExpressionRewrite(),
                 filterExpressionRewrite(),
-                tableScanExpressionRewrite(),
                 joinExpressionRewrite(),
                 valuesExpressionRewrite(),
                 applyExpressionRewrite());
@@ -85,11 +86,6 @@ public class ExpressionRewriteRuleSet
     public Rule<?> filterExpressionRewrite()
     {
         return new FilterExpressionRewrite(rewriter);
-    }
-
-    public Rule<?> tableScanExpressionRewrite()
-    {
-        return new TableScanExpressionRewrite(rewriter);
     }
 
     public Rule<?> joinExpressionRewrite()
@@ -160,7 +156,7 @@ public class ExpressionRewriteRuleSet
                 FunctionCall call = (FunctionCall) rewriter.rewrite(aggregation.getCall(), context);
                 aggregations.put(
                         entry.getKey(),
-                        new Aggregation(call, aggregation.getSignature(), aggregation.getMask()));
+                        new Aggregation(call, aggregation.getFunctionHandle(), aggregation.getMask()));
                 if (!aggregation.getCall().equals(call)) {
                     anyRewritten = true;
                 }
@@ -171,6 +167,7 @@ public class ExpressionRewriteRuleSet
                         aggregationNode.getSource(),
                         aggregations.build(),
                         aggregationNode.getGroupingSets(),
+                        aggregationNode.getPreGroupedSymbols(),
                         aggregationNode.getStep(),
                         aggregationNode.getHashSymbol(),
                         aggregationNode.getGroupIdSymbol()));
@@ -203,43 +200,6 @@ public class ExpressionRewriteRuleSet
                 return Result.empty();
             }
             return Result.ofPlanNode(new FilterNode(filterNode.getId(), filterNode.getSource(), rewritten));
-        }
-    }
-
-    private static final class TableScanExpressionRewrite
-            implements Rule<TableScanNode>
-    {
-        private final ExpressionRewriter rewriter;
-
-        TableScanExpressionRewrite(ExpressionRewriter rewriter)
-        {
-            this.rewriter = rewriter;
-        }
-
-        @Override
-        public Pattern<TableScanNode> getPattern()
-        {
-            return tableScan();
-        }
-
-        @Override
-        public Result apply(TableScanNode tableScanNode, Captures captures, Context context)
-        {
-            if (tableScanNode.getOriginalConstraint() == null) {
-                return Result.empty();
-            }
-            Expression rewrittenOriginalContraint = rewriter.rewrite(tableScanNode.getOriginalConstraint(), context);
-            if (!tableScanNode.getOriginalConstraint().equals(rewrittenOriginalContraint)) {
-                return Result.ofPlanNode(new TableScanNode(
-                        tableScanNode.getId(),
-                        tableScanNode.getTable(),
-                        tableScanNode.getOutputSymbols(),
-                        tableScanNode.getAssignments(),
-                        tableScanNode.getLayout(),
-                        tableScanNode.getCurrentConstraint(),
-                        rewrittenOriginalContraint));
-            }
-            return Result.empty();
         }
     }
 
@@ -300,15 +260,22 @@ public class ExpressionRewriteRuleSet
         public Result apply(ValuesNode valuesNode, Captures captures, Context context)
         {
             boolean anyRewritten = false;
-            ImmutableList.Builder<List<Expression>> rows = ImmutableList.builder();
-            for (List<Expression> row : valuesNode.getRows()) {
-                ImmutableList.Builder<Expression> newRow = ImmutableList.builder();
-                for (Expression expression : row) {
-                    Expression rewritten = rewriter.rewrite(expression, context);
-                    if (!expression.equals(rewritten)) {
-                        anyRewritten = true;
+            ImmutableList.Builder<List<RowExpression>> rows = ImmutableList.builder();
+            for (List<RowExpression> row : valuesNode.getRows()) {
+                ImmutableList.Builder<RowExpression> newRow = ImmutableList.builder();
+                for (RowExpression rowExpression : row) {
+                    if (isExpression(rowExpression)) {
+                        Expression expression = castToExpression(rowExpression);
+                        Expression rewritten = rewriter.rewrite(expression, context);
+                        newRow.add(castToRowExpression(rewritten));
+                        if (!expression.equals(rewritten)) {
+                            anyRewritten = true;
+                        }
                     }
-                    newRow.add(rewritten);
+                    else {
+                        // expression rewrite is to desugar AST; row expression should not change
+                        newRow.add(rowExpression);
+                    }
                 }
                 rows.add(newRow.build());
             }

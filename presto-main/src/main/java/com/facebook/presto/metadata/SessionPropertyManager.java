@@ -18,7 +18,6 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.BigintType;
@@ -230,7 +229,7 @@ public final class SessionPropertyManager
         Object value = evaluateConstantExpression(rewritten, expectedType, metadata, session, parameters);
 
         // convert to object value type of SQL type
-        BlockBuilder blockBuilder = expectedType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder blockBuilder = expectedType.createBlockBuilder(null, 1);
         writeNativeValue(expectedType, blockBuilder, value);
         Object objectValue = expectedType.getObjectValue(session.toConnectorSession(), blockBuilder, 0);
 

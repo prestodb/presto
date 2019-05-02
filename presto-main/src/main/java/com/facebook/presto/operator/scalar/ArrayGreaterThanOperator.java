@@ -38,7 +38,7 @@ public final class ArrayGreaterThanOperator
     @TypeParameter("T")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean greaterThan(
-            @OperatorDependency(operator = GREATER_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle greaterThanFunction,
+            @OperatorDependency(operator = GREATER_THAN, argumentTypes = {"T", "T"}) MethodHandle greaterThanFunction,
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block leftArray,
             @SqlType("array(T)") Block rightArray)
@@ -71,7 +71,7 @@ public final class ArrayGreaterThanOperator
     @TypeParameterSpecialization(name = "T", nativeContainerType = long.class)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean greaterThanLong(
-            @OperatorDependency(operator = GREATER_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle greaterThanFunction,
+            @OperatorDependency(operator = GREATER_THAN, argumentTypes = {"T", "T"}) MethodHandle greaterThanFunction,
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block leftArray,
             @SqlType("array(T)") Block rightArray)

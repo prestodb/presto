@@ -79,6 +79,28 @@ public final class MoreMath
                 .getAsDouble();
     }
 
+    public static double rangeMin(double left, double right)
+    {
+        if (isNaN(left)) {
+            return right;
+        }
+        if (isNaN(right)) {
+            return left;
+        }
+        return min(left, right);
+    }
+
+    public static double rangeMax(double left, double right)
+    {
+        if (isNaN(left)) {
+            return right;
+        }
+        if (isNaN(right)) {
+            return left;
+        }
+        return max(left, right);
+    }
+
     public static double firstNonNaN(double... values)
     {
         for (double value : values) {

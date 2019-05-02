@@ -57,7 +57,9 @@ public class TestHiveS3Config
                 .setS3MaxConnections(500)
                 .setS3StagingDirectory(new File(StandardSystemProperty.JAVA_IO_TMPDIR.value()))
                 .setPinS3ClientToCurrentRegion(false)
-                .setS3UserAgentPrefix(""));
+                .setS3UserAgentPrefix("")
+                .setS3AclType(PrestoS3AclType.PRIVATE)
+                .setSkipGlacierObjects(false));
     }
 
     @Test
@@ -88,6 +90,8 @@ public class TestHiveS3Config
                 .put("hive.s3.staging-directory", "/s3-staging")
                 .put("hive.s3.pin-client-to-current-region", "true")
                 .put("hive.s3.user-agent-prefix", "user-agent-prefix")
+                .put("hive.s3.upload-acl-type", "PUBLIC_READ")
+                .put("hive.s3.skip-glacier-objects", "true")
                 .build();
 
         HiveS3Config expected = new HiveS3Config()
@@ -114,7 +118,9 @@ public class TestHiveS3Config
                 .setS3MaxConnections(77)
                 .setS3StagingDirectory(new File("/s3-staging"))
                 .setPinS3ClientToCurrentRegion(true)
-                .setS3UserAgentPrefix("user-agent-prefix");
+                .setS3UserAgentPrefix("user-agent-prefix")
+                .setS3AclType(PrestoS3AclType.PUBLIC_READ)
+                .setSkipGlacierObjects(true);
 
         assertFullMapping(properties, expected);
     }

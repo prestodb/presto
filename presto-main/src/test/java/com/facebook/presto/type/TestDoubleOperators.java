@@ -16,11 +16,19 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.lang.Double.doubleToLongBits;
+import static java.lang.Double.doubleToRawLongBits;
+import static java.lang.Double.isNaN;
+import static java.lang.Double.longBitsToDouble;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestDoubleOperators
         extends AbstractTestFunctions
@@ -176,7 +184,29 @@ public class TestDoubleOperators
     public void testCastToBigint()
     {
         assertFunction("cast(37.7E0 as bigint)", BIGINT, 38L);
+        assertFunction("cast(-37.7E0 as bigint)", BIGINT, -38L);
         assertFunction("cast(17.1E0 as bigint)", BIGINT, 17L);
+        assertFunction("cast(-17.1E0 as bigint)", BIGINT, -17L);
+        assertFunction("cast(9.2E18 as bigint)", BIGINT, 9200000000000000000L);
+        assertFunction("cast(-9.2E18 as bigint)", BIGINT, -9200000000000000000L);
+        assertFunction("cast(2.21E9 as bigint)", BIGINT, 2210000000L);
+        assertFunction("cast(-2.21E9 as bigint)", BIGINT, -2210000000L);
+        assertFunction("cast(17.5E0 as bigint)", BIGINT, 18L);
+        assertFunction("cast(-17.5E0 as bigint)", BIGINT, -18L);
+
+        assertFunction("cast(" + Math.nextDown(0x1.0p63) + " as bigint)", BIGINT, (long) Math.nextDown(0x1.0p63));
+        assertInvalidFunction("cast(" + 0x1.0p63 + " as bigint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(" + Math.nextUp(0x1.0p63) + " as bigint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(" + Math.nextDown(-0x1.0p63) + " as bigint)", INVALID_CAST_ARGUMENT);
+        assertFunction("cast(" + -0x1.0p63 + " as bigint)", BIGINT, (long) -0x1.0p63);
+        assertFunction("cast(" + Math.nextUp(-0x1.0p63) + " as bigint)", BIGINT, (long) Math.nextUp(-0x1.0p63));
+
+        assertInvalidFunction("cast(9.3E18 as bigint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(-9.3E18 as bigint)", INVALID_CAST_ARGUMENT);
+
+        assertInvalidFunction("cast(infinity() as bigint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(-infinity() as bigint)", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("cast(nan() as bigint)", INVALID_CAST_ARGUMENT);
     }
 
     @Test
@@ -213,5 +243,29 @@ public class TestDoubleOperators
         assertFunction("37 IS DISTINCT FROM 37.8", BOOLEAN, true);
         assertFunction("NULL IS DISTINCT FROM 37.7", BOOLEAN, true);
         assertFunction("37.7 IS DISTINCT FROM NULL", BOOLEAN, true);
+        assertFunction("nan() IS DISTINCT FROM nan()", BOOLEAN, false);
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as double)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "1.2", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "cast(1.2 as double)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "cast(1 as double)", BOOLEAN, false);
+    }
+
+    @Test
+    public void testNanHash()
+    {
+        long[] nanRepresentations = new long[] {doubleToLongBits(Double.NaN), 0xfff8000000000000L, 0x7ff8123412341234L, 0xfff8123412341234L};
+        for (long nanRepresentation : nanRepresentations) {
+            assertTrue(isNaN(longBitsToDouble(nanRepresentation)));
+            // longBitsToDouble() keeps the bitwise difference in NaN
+            assertTrue(nanRepresentation == nanRepresentations[0]
+                    || doubleToRawLongBits(longBitsToDouble(nanRepresentation)) != doubleToRawLongBits(longBitsToDouble(nanRepresentations[0])));
+
+            assertEquals(DoubleOperators.hashCode(longBitsToDouble(nanRepresentation)), DoubleOperators.hashCode(longBitsToDouble(nanRepresentations[0])));
+        }
     }
 }

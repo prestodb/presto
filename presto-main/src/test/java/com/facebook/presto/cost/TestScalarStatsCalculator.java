@@ -16,18 +16,28 @@ package com.facebook.presto.cost;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -49,6 +59,30 @@ public class TestScalarStatsCalculator
     @Test
     public void testLiteral()
     {
+        assertCalculate(new GenericLiteral("TINYINT", "7"))
+                .distinctValuesCount(1.0)
+                .lowValue(7)
+                .highValue(7)
+                .nullsFraction(0.0);
+
+        assertCalculate(new GenericLiteral("SMALLINT", "8"))
+                .distinctValuesCount(1.0)
+                .lowValue(8)
+                .highValue(8)
+                .nullsFraction(0.0);
+
+        assertCalculate(new GenericLiteral("INTEGER", "9"))
+                .distinctValuesCount(1.0)
+                .lowValue(9)
+                .highValue(9)
+                .nullsFraction(0.0);
+
+        assertCalculate(new GenericLiteral("BIGINT", Long.toString(Long.MAX_VALUE)))
+                .distinctValuesCount(1.0)
+                .lowValue(Long.MAX_VALUE)
+                .highValue(Long.MAX_VALUE)
+                .nullsFraction(0.0);
+
         assertCalculate(new DoubleLiteral("7.5"))
                 .distinctValuesCount(1.0)
                 .lowValue(7.5)
@@ -75,6 +109,44 @@ public class TestScalarStatsCalculator
     }
 
     @Test
+    public void testFunctionCall()
+    {
+        assertCalculate(
+                new FunctionCall(
+                        QualifiedName.of("length"),
+                        ImmutableList.of(new Cast(new NullLiteral(), "VARCHAR(10)"))))
+                .distinctValuesCount(0.0)
+                .lowValueUnknown()
+                .highValueUnknown()
+                .nullsFraction(1.0);
+
+        assertCalculate(
+                new FunctionCall(
+                        QualifiedName.of("length"),
+                        ImmutableList.of(new SymbolReference("x"))),
+                PlanNodeStatsEstimate.unknown(),
+                TypeProvider.viewOf(ImmutableMap.of(new Symbol("x"), createVarcharType(2))))
+                .distinctValuesCountUnknown()
+                .lowValueUnknown()
+                .highValueUnknown()
+                .nullsFractionUnknown();
+    }
+
+    @Test
+    public void testVarbinaryConstant()
+    {
+        MetadataManager metadata = createTestMetadataManager();
+        LiteralEncoder literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
+        Expression expression = literalEncoder.toExpression(Slices.utf8Slice("ala ma kota"), VARBINARY);
+
+        assertCalculate(expression)
+                .distinctValuesCount(1.0)
+                .lowValueUnknown()
+                .highValueUnknown()
+                .nullsFraction(0.0);
+    }
+
+    @Test
     public void testSymbolReference()
     {
         SymbolStatsEstimate xStats = SymbolStatsEstimate.builder()
@@ -89,7 +161,7 @@ public class TestScalarStatsCalculator
                 .build();
 
         assertCalculate(expression("x"), inputStatistics).isEqualTo(xStats);
-        assertCalculate(expression("y"), inputStatistics).isEqualTo(SymbolStatsEstimate.UNKNOWN_STATS);
+        assertCalculate(expression("y"), inputStatistics).isEqualTo(SymbolStatsEstimate.unknown());
     }
 
     @Test
@@ -178,7 +250,7 @@ public class TestScalarStatsCalculator
     @Test
     public void testCastUnknown()
     {
-        assertCalculate(new Cast(new SymbolReference("a"), "bigint"), UNKNOWN_STATS)
+        assertCalculate(new Cast(new SymbolReference("a"), "bigint"), PlanNodeStatsEstimate.unknown())
                 .lowValueUnknown()
                 .highValueUnknown()
                 .distinctValuesCountUnknown()
@@ -188,12 +260,17 @@ public class TestScalarStatsCalculator
 
     private SymbolStatsAssertion assertCalculate(Expression scalarExpression)
     {
-        return assertCalculate(scalarExpression, UNKNOWN_STATS);
+        return assertCalculate(scalarExpression, PlanNodeStatsEstimate.unknown());
     }
 
     private SymbolStatsAssertion assertCalculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics)
     {
-        return SymbolStatsAssertion.assertThat(calculator.calculate(scalarExpression, inputStatistics, session));
+        return assertCalculate(scalarExpression, inputStatistics, TypeProvider.empty());
+    }
+
+    private SymbolStatsAssertion assertCalculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics, TypeProvider types)
+    {
+        return SymbolStatsAssertion.assertThat(calculator.calculate(scalarExpression, inputStatistics, session, types));
     }
 
     @Test
@@ -237,6 +314,40 @@ public class TestScalarStatsCalculator
                 .highValue(50.0)
                 .nullsFraction(0.28)
                 .averageRowSize(2.0);
+    }
+
+    @Test
+    public void testArithmeticBinaryWithAllNullsSymbol()
+    {
+        SymbolStatsEstimate allNullStats = SymbolStatsEstimate.zero();
+        PlanNodeStatsEstimate relationStats = PlanNodeStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol("x"), SymbolStatsEstimate.builder()
+                        .setLowValue(-1)
+                        .setHighValue(10)
+                        .setDistinctValuesCount(4)
+                        .setNullsFraction(0.1)
+                        .setAverageRowSize(0)
+                        .build())
+                .addSymbolStatistics(new Symbol("all_null"), allNullStats)
+                .setOutputRowCount(10)
+                .build();
+
+        assertCalculate(expression("x + all_null"), relationStats)
+                .isEqualTo(allNullStats);
+        assertCalculate(expression("x - all_null"), relationStats)
+                .isEqualTo(allNullStats);
+        assertCalculate(expression("all_null - x"), relationStats)
+                .isEqualTo(allNullStats);
+        assertCalculate(expression("all_null * x"), relationStats)
+                .isEqualTo(allNullStats);
+        assertCalculate(expression("x % all_null"), relationStats)
+                .isEqualTo(allNullStats);
+        assertCalculate(expression("all_null % x"), relationStats)
+                .isEqualTo(allNullStats);
+        assertCalculate(expression("x / all_null"), relationStats)
+                .isEqualTo(allNullStats);
+        assertCalculate(expression("all_null / x"), relationStats)
+                .isEqualTo(allNullStats);
     }
 
     @Test

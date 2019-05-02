@@ -14,43 +14,43 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.block.IntArrayBlock;
-import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.toValues;
-import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.metadata.Signature.internalOperator;
-import static com.facebook.presto.metadata.Signature.internalScalarFunction;
-import static com.facebook.presto.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
-import static com.facebook.presto.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
-import static com.facebook.presto.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
+import static com.facebook.presto.metadata.CastType.CAST;
+import static com.facebook.presto.metadata.CastType.JSON_TO_ARRAY_CAST;
+import static com.facebook.presto.metadata.CastType.JSON_TO_MAP_CAST;
+import static com.facebook.presto.metadata.CastType.JSON_TO_ROW_CAST;
+import static com.facebook.presto.spi.function.OperatorType.ADD;
+import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IF;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
-import static com.facebook.presto.sql.relational.Signatures.CAST;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -59,20 +59,20 @@ import static org.testng.Assert.assertEquals;
 
 public class TestExpressionOptimizer
 {
-    private TypeRegistry typeManager;
+    private FunctionManager functionManager;
     private ExpressionOptimizer optimizer;
 
     @BeforeClass
     public void setUp()
     {
-        typeManager = new TypeRegistry();
-        optimizer = new ExpressionOptimizer(new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig()), typeManager, TEST_SESSION);
+        TypeManager typeManager = new TypeRegistry();
+        functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        optimizer = new ExpressionOptimizer(functionManager, TEST_SESSION);
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
-        typeManager = null;
         optimizer = null;
     }
 
@@ -81,8 +81,8 @@ public class TestExpressionOptimizer
     {
         RowExpression expression = constant(1L, BIGINT);
         for (int i = 0; i < 100; i++) {
-            Signature signature = internalOperator(OperatorType.ADD.name(), parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT));
-            expression = new CallExpression(signature, BIGINT, ImmutableList.of(expression, constant(1L, BIGINT)));
+            FunctionHandle functionHandle = functionManager.resolveOperator(ADD, fromTypes(BIGINT, BIGINT));
+            expression = new CallExpression(functionHandle, BIGINT, ImmutableList.of(expression, constant(1L, BIGINT)));
         }
         optimizer.optimize(expression);
     }
@@ -94,7 +94,7 @@ public class TestExpressionOptimizer
         assertEquals(optimizer.optimize(ifExpression(constant(false, BOOLEAN), 1L, 2L)), constant(2L, BIGINT));
         assertEquals(optimizer.optimize(ifExpression(constant(null, BOOLEAN), 1L, 2L)), constant(2L, BIGINT));
 
-        Signature bigintEquals = internalOperator(OperatorType.EQUAL.name(), BOOLEAN.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature());
+        FunctionHandle bigintEquals = functionManager.resolveOperator(EQUAL, fromTypes(BIGINT, BIGINT));
         RowExpression condition = new CallExpression(bigintEquals, BOOLEAN, ImmutableList.of(constant(3L, BIGINT), constant(3L, BIGINT)));
         assertEquals(optimizer.optimize(ifExpression(condition, 1L, 2L)), constant(1L, BIGINT));
     }
@@ -102,11 +102,11 @@ public class TestExpressionOptimizer
     @Test
     public void testCastWithJsonParseOptimization()
     {
-        Signature jsonParseSignature = new Signature("json_parse", SCALAR, JSON.getTypeSignature(), ImmutableList.of(VARCHAR.getTypeSignature()));
+        FunctionHandle jsonParseFunctionHandle = functionManager.lookupFunction(QualifiedName.of("json_parse"), fromTypes(VARCHAR));
 
         // constant
-        Signature jsonCastSignature = new Signature(CAST, SCALAR, parseTypeSignature("array(integer)"), ImmutableList.of(JSON.getTypeSignature()));
-        RowExpression jsonCastExpression = new CallExpression(jsonCastSignature, new ArrayType(INTEGER), ImmutableList.of(call(jsonParseSignature, JSON, constant(utf8Slice("[1, 2]"), VARCHAR))));
+        FunctionHandle jsonCastFunctionHandle = functionManager.lookupCast(CAST, JSON.getTypeSignature(), parseTypeSignature("array(integer)"));
+        RowExpression jsonCastExpression = new CallExpression(jsonCastFunctionHandle, new ArrayType(INTEGER), ImmutableList.of(call(jsonParseFunctionHandle, JSON, constant(utf8Slice("[1, 2]"), VARCHAR))));
         RowExpression resultExpression = optimizer.optimize(jsonCastExpression);
         assertInstanceOf(resultExpression, ConstantExpression.class);
         Object resultValue = ((ConstantExpression) resultExpression).getValue();
@@ -114,33 +114,32 @@ public class TestExpressionOptimizer
         assertEquals(toValues(INTEGER, (IntArrayBlock) resultValue), ImmutableList.of(1, 2));
 
         // varchar to array
-        jsonCastSignature = new Signature(CAST, SCALAR, parseTypeSignature("array(varchar)"), ImmutableList.of(JSON.getTypeSignature()));
-        jsonCastExpression = new CallExpression(jsonCastSignature, new ArrayType(VARCHAR), ImmutableList.of(call(jsonParseSignature, JSON, field(1, VARCHAR))));
+        jsonCastFunctionHandle = functionManager.lookupCast(CAST, JSON.getTypeSignature(), parseTypeSignature("array(varchar)"));
+        jsonCastExpression = call(jsonCastFunctionHandle, new ArrayType(VARCHAR), ImmutableList.of(call(jsonParseFunctionHandle, JSON, field(1, VARCHAR))));
         resultExpression = optimizer.optimize(jsonCastExpression);
         assertEquals(
                 resultExpression,
-                call(internalScalarFunction(JSON_STRING_TO_ARRAY_NAME, parseTypeSignature("array(varchar)"), parseTypeSignature(StandardTypes.VARCHAR)), new ArrayType(VARCHAR), field(1, VARCHAR)));
+                call(functionManager.lookupCast(JSON_TO_ARRAY_CAST, VARCHAR.getTypeSignature(), parseTypeSignature("array(varchar)")), new ArrayType(VARCHAR), field(1, VARCHAR)));
 
         // varchar to map
-        jsonCastSignature = new Signature(CAST, SCALAR, parseTypeSignature("map(integer,varchar)"), ImmutableList.of(JSON.getTypeSignature()));
-        jsonCastExpression = new CallExpression(jsonCastSignature, mapType(INTEGER, VARCHAR), ImmutableList.of(call(jsonParseSignature, JSON, field(1, VARCHAR))));
+        jsonCastFunctionHandle = functionManager.lookupCast(CAST, JSON.getTypeSignature(), parseTypeSignature("map(integer,varchar)"));
+        jsonCastExpression = call(jsonCastFunctionHandle, mapType(INTEGER, VARCHAR), ImmutableList.of(call(jsonParseFunctionHandle, JSON, field(1, VARCHAR))));
         resultExpression = optimizer.optimize(jsonCastExpression);
         assertEquals(
                 resultExpression,
-                call(internalScalarFunction(JSON_STRING_TO_MAP_NAME, parseTypeSignature("map(integer,varchar)"), parseTypeSignature(StandardTypes.VARCHAR)), mapType(INTEGER, VARCHAR), field(1, VARCHAR)));
+                call(functionManager.lookupCast(JSON_TO_MAP_CAST, VARCHAR.getTypeSignature(), parseTypeSignature("map(integer, varchar)")), mapType(INTEGER, VARCHAR), field(1, VARCHAR)));
 
         // varchar to row
-        jsonCastSignature = new Signature(CAST, SCALAR, parseTypeSignature("row(varchar,bigint)"), ImmutableList.of(JSON.getTypeSignature()));
-        jsonCastExpression = new CallExpression(jsonCastSignature, new RowType(ImmutableList.of(VARCHAR, BIGINT), Optional.empty()), ImmutableList.of(call(jsonParseSignature, JSON, field(1, VARCHAR))));
+        jsonCastFunctionHandle = functionManager.lookupCast(CAST, JSON.getTypeSignature(), parseTypeSignature("row(varchar,bigint)"));
+        jsonCastExpression = call(jsonCastFunctionHandle, RowType.anonymous(ImmutableList.of(VARCHAR, BIGINT)), ImmutableList.of(call(jsonParseFunctionHandle, JSON, field(1, VARCHAR))));
         resultExpression = optimizer.optimize(jsonCastExpression);
         assertEquals(
                 resultExpression,
-                call(internalScalarFunction(JSON_STRING_TO_ROW_NAME, parseTypeSignature("row(varchar,bigint)"), parseTypeSignature(StandardTypes.VARCHAR)), new RowType(ImmutableList.of(VARCHAR, BIGINT), Optional.empty()), field(1, VARCHAR)));
+                call(functionManager.lookupCast(JSON_TO_ROW_CAST, VARCHAR.getTypeSignature(), parseTypeSignature("row(varchar,bigint)")), RowType.anonymous(ImmutableList.of(VARCHAR, BIGINT)), field(1, VARCHAR)));
     }
 
     private static RowExpression ifExpression(RowExpression condition, long trueValue, long falseValue)
     {
-        Signature signature = new Signature("IF", SCALAR, BIGINT.getTypeSignature(), BOOLEAN.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature());
-        return new CallExpression(signature, BIGINT, ImmutableList.of(condition, constant(trueValue, BIGINT), constant(falseValue, BIGINT)));
+        return new SpecialFormExpression(IF, BIGINT, ImmutableList.of(condition, constant(trueValue, BIGINT), constant(falseValue, BIGINT)));
     }
 }

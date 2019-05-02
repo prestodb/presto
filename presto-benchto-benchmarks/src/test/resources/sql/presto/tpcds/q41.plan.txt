@@ -1,0 +1,20 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        final aggregation over (i_product_name)
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["i_product_name"])
+                    partial aggregation over (i_product_name)
+                        cross join:
+                            join (LEFT, REPLICATED):
+                                scan item
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        final aggregation over (i_manufact_14)
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPARTITION, HASH, ["i_manufact_14"])
+                                                    partial aggregation over (i_manufact_14)
+                                                        scan item
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    single aggregation over ()
+                                        values (1 rows)

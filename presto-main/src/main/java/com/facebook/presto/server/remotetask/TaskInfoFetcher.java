@@ -14,31 +14,37 @@
 package com.facebook.presto.server.remotetask;
 
 import com.facebook.presto.execution.StateMachine;
+import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskStatus;
+import com.facebook.presto.server.smile.BaseResponse;
+import com.facebook.presto.server.smile.Codec;
+import com.facebook.presto.server.smile.SmileCodec;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
-import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
-import io.airlift.json.JsonCodec;
+import io.airlift.http.client.ResponseHandler;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
 
 import java.net.URI;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
-import static com.google.common.net.MediaType.JSON_UTF_8;
-import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
+import static com.facebook.presto.server.RequestHelpers.setContentTypeHeaders;
+import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
+import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFullSmileResponseHandler;
+import static com.facebook.presto.server.smile.JsonCodecWrapper.unwrapJsonCodec;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.units.Duration.nanosSince;
@@ -51,7 +57,8 @@ public class TaskInfoFetcher
     private final TaskId taskId;
     private final Consumer<Throwable> onFail;
     private final StateMachine<TaskInfo> taskInfo;
-    private final JsonCodec<TaskInfo> taskInfoCodec;
+    private final StateMachine<Optional<TaskInfo>> finalTaskInfo;
+    private final Codec<TaskInfo> taskInfoCodec;
 
     private final long updateIntervalMillis;
     private final AtomicLong lastUpdateNanos = new AtomicLong();
@@ -75,20 +82,23 @@ public class TaskInfoFetcher
     private ScheduledFuture<?> scheduledFuture;
 
     @GuardedBy("this")
-    private ListenableFuture<FullJsonResponseHandler.JsonResponse<TaskInfo>> future;
+    private ListenableFuture<BaseResponse<TaskInfo>> future;
+
+    private final boolean isBinaryTransportEnabled;
 
     public TaskInfoFetcher(
             Consumer<Throwable> onFail,
             TaskInfo initialTask,
             HttpClient httpClient,
             Duration updateInterval,
-            JsonCodec<TaskInfo> taskInfoCodec,
+            Codec<TaskInfo> taskInfoCodec,
             Duration maxErrorDuration,
             boolean summarizeTaskInfo,
             Executor executor,
             ScheduledExecutorService updateScheduledExecutor,
             ScheduledExecutorService errorScheduledExecutor,
-            RemoteTaskStats stats)
+            RemoteTaskStats stats,
+            boolean isBinaryTransportEnabled)
     {
         requireNonNull(initialTask, "initialTask is null");
         requireNonNull(errorScheduledExecutor, "errorScheduledExecutor is null");
@@ -96,6 +106,7 @@ public class TaskInfoFetcher
         this.taskId = initialTask.getTaskStatus().getTaskId();
         this.onFail = requireNonNull(onFail, "onFail is null");
         this.taskInfo = new StateMachine<>("task " + taskId, executor, initialTask);
+        this.finalTaskInfo = new StateMachine<>("task-" + taskId, executor, Optional.empty());
         this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
 
         this.updateIntervalMillis = requireNonNull(updateInterval, "updateInterval is null").toMillis();
@@ -107,6 +118,7 @@ public class TaskInfoFetcher
         this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.stats = requireNonNull(stats, "stats is null");
+        this.isBinaryTransportEnabled = isBinaryTransportEnabled;
     }
 
     public TaskInfo getTaskInfo()
@@ -134,6 +146,24 @@ public class TaskInfoFetcher
         if (scheduledFuture != null) {
             scheduledFuture.cancel(true);
         }
+    }
+
+    /**
+     * Add a listener for the final task info.  This notification is guaranteed to be fired only once.
+     * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
+     * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
+     * possible notifications are observed out of order due to the asynchronous execution.
+     */
+    public void addFinalTaskInfoListener(StateChangeListener<TaskInfo> stateChangeListener)
+    {
+        AtomicBoolean done = new AtomicBoolean();
+        StateChangeListener<Optional<TaskInfo>> fireOnceStateChangeListener = finalTaskInfo -> {
+            if (finalTaskInfo.isPresent() && done.compareAndSet(false, true)) {
+                stateChangeListener.stateChanged(finalTaskInfo.get());
+            }
+        };
+        finalTaskInfo.addStateChangeListener(fireOnceStateChangeListener);
+        fireOnceStateChangeListener.stateChanged(finalTaskInfo.get());
     }
 
     private synchronized void scheduleUpdate()
@@ -179,13 +209,20 @@ public class TaskInfoFetcher
 
         HttpUriBuilder httpUriBuilder = uriBuilderFrom(taskStatus.getSelf());
         URI uri = summarizeTaskInfo ? httpUriBuilder.addParameter("summarize").build() : httpUriBuilder.build();
-        Request request = prepareGet()
+        Request request = setContentTypeHeaders(isBinaryTransportEnabled, prepareGet())
                 .setUri(uri)
-                .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .build();
 
+        ResponseHandler responseHandler;
+        if (isBinaryTransportEnabled) {
+            responseHandler = createFullSmileResponseHandler((SmileCodec<TaskInfo>) taskInfoCodec);
+        }
+        else {
+            responseHandler = createAdaptingJsonResponseHandler(unwrapJsonCodec(taskInfoCodec));
+        }
+
         errorTracker.startRequest();
-        future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec));
+        future = httpClient.executeAsync(request, responseHandler);
         currentRequestStartNanos.set(System.nanoTime());
         Futures.addCallback(future, new SimpleHttpResponseHandler<>(this, request.getUri(), stats), executor);
     }
@@ -204,6 +241,7 @@ public class TaskInfoFetcher
         });
 
         if (updated && newValue.getTaskStatus().getState().isDone()) {
+            finalTaskInfo.compareAndSet(Optional.empty(), Optional.of(newValue));
             stop();
         }
     }

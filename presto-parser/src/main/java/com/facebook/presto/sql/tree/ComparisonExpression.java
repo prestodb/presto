@@ -24,35 +24,35 @@ import static java.util.Objects.requireNonNull;
 public class ComparisonExpression
         extends Expression
 {
-    private final ComparisonExpressionType type;
+    private final Operator operator;
     private final Expression left;
     private final Expression right;
 
-    public ComparisonExpression(ComparisonExpressionType type, Expression left, Expression right)
+    public ComparisonExpression(Operator operator, Expression left, Expression right)
     {
-        this(Optional.empty(), type, left, right);
+        this(Optional.empty(), operator, left, right);
     }
 
-    public ComparisonExpression(NodeLocation location, ComparisonExpressionType type, Expression left, Expression right)
+    public ComparisonExpression(NodeLocation location, Operator operator, Expression left, Expression right)
     {
-        this(Optional.of(location), type, left, right);
+        this(Optional.of(location), operator, left, right);
     }
 
-    private ComparisonExpression(Optional<NodeLocation> location, ComparisonExpressionType type, Expression left, Expression right)
+    private ComparisonExpression(Optional<NodeLocation> location, Operator operator, Expression left, Expression right)
     {
         super(location);
-        requireNonNull(type, "type is null");
+        requireNonNull(operator, "type is null");
         requireNonNull(left, "left is null");
         requireNonNull(right, "right is null");
 
-        this.type = type;
+        this.operator = operator;
         this.left = left;
         this.right = right;
     }
 
-    public ComparisonExpressionType getType()
+    public Operator getOperator()
     {
-        return type;
+        return operator;
     }
 
     public Expression getLeft()
@@ -88,7 +88,7 @@ public class ComparisonExpression
         }
 
         ComparisonExpression that = (ComparisonExpression) o;
-        return (type == that.type) &&
+        return (operator == that.operator) &&
                 Objects.equals(left, that.left) &&
                 Objects.equals(right, that.right);
     }
@@ -96,6 +96,71 @@ public class ComparisonExpression
     @Override
     public int hashCode()
     {
-        return Objects.hash(type, left, right);
+        return Objects.hash(operator, left, right);
+    }
+
+    public enum Operator
+    {
+        EQUAL("="),
+        NOT_EQUAL("<>"),
+        LESS_THAN("<"),
+        LESS_THAN_OR_EQUAL("<="),
+        GREATER_THAN(">"),
+        GREATER_THAN_OR_EQUAL(">="),
+        IS_DISTINCT_FROM("IS DISTINCT FROM");
+
+        private final String value;
+
+        Operator(String value)
+        {
+            this.value = value;
+        }
+
+        public String getValue()
+        {
+            return value;
+        }
+
+        public Operator flip()
+        {
+            switch (this) {
+                case EQUAL:
+                    return EQUAL;
+                case NOT_EQUAL:
+                    return NOT_EQUAL;
+                case LESS_THAN:
+                    return GREATER_THAN;
+                case LESS_THAN_OR_EQUAL:
+                    return GREATER_THAN_OR_EQUAL;
+                case GREATER_THAN:
+                    return LESS_THAN;
+                case GREATER_THAN_OR_EQUAL:
+                    return LESS_THAN_OR_EQUAL;
+                case IS_DISTINCT_FROM:
+                    return IS_DISTINCT_FROM;
+                default:
+                    throw new IllegalArgumentException("Unsupported comparison: " + this);
+            }
+        }
+
+        public Operator negate()
+        {
+            switch (this) {
+                case EQUAL:
+                    return NOT_EQUAL;
+                case NOT_EQUAL:
+                    return EQUAL;
+                case LESS_THAN:
+                    return GREATER_THAN_OR_EQUAL;
+                case LESS_THAN_OR_EQUAL:
+                    return GREATER_THAN;
+                case GREATER_THAN:
+                    return LESS_THAN_OR_EQUAL;
+                case GREATER_THAN_OR_EQUAL:
+                    return LESS_THAN;
+                default:
+                    throw new IllegalArgumentException("Unsupported comparison: " + this);
+            }
+        }
     }
 }

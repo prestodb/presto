@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -29,6 +29,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * This class represents set of three collections representing implementations of operators
  * similar to partial template specialization from C++ allowing more optimized implementations to be provided for specific types.
+ *
  * @param <T> type of implementation details
  */
 public class ParametricImplementationsGroup<T extends ParametricImplementation>

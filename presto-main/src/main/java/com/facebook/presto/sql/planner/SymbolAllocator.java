@@ -20,6 +20,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.primitives.Ints;
 
@@ -49,6 +50,11 @@ public class SymbolAllocator
     {
         checkArgument(symbols.containsKey(symbolHint), "symbolHint not in symbols map");
         return newSymbol(symbolHint.getName(), symbols.get(symbolHint));
+    }
+
+    public Symbol newSymbol(QualifiedName nameHint, Type type)
+    {
+        return newSymbol(nameHint.getSuffix(), type, null);
     }
 
     public Symbol newSymbol(String nameHint, Type type)
@@ -126,9 +132,9 @@ public class SymbolAllocator
         return newSymbol(nameHint, field.getType());
     }
 
-    public Map<Symbol, Type> getTypes()
+    public TypeProvider getTypes()
     {
-        return symbols;
+        return TypeProvider.viewOf(symbols);
     }
 
     private int nextId()

@@ -13,28 +13,28 @@
  */
 package com.facebook.presto.connector.thrift.api;
 
-import com.facebook.swift.codec.ThriftField;
-import com.facebook.swift.service.ThriftMethod;
-import com.facebook.swift.service.ThriftService;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.drift.TException;
+import io.airlift.drift.annotations.ThriftException;
+import io.airlift.drift.annotations.ThriftField;
+import io.airlift.drift.annotations.ThriftMethod;
+import io.airlift.drift.annotations.ThriftService;
 
-import java.io.Closeable;
 import java.util.List;
 
 /**
  * Presto Thrift service definition.
  * This thrift service needs to be implemented in order to be used with Thrift Connector.
  */
-@ThriftService
+@ThriftService(value = "presto", idlName = "PrestoThriftService")
 public interface PrestoThriftService
-        extends Closeable
 {
     /**
      * Returns available schema names.
      */
     @ThriftMethod("prestoListSchemaNames")
     List<String> listSchemaNames()
-            throws PrestoThriftServiceException;
+            throws PrestoThriftServiceException, TException;
 
     /**
      * Returns tables for the given schema name.
@@ -46,7 +46,7 @@ public interface PrestoThriftService
     @ThriftMethod("prestoListTables")
     List<PrestoThriftSchemaTableName> listTables(
             @ThriftField(name = "schemaNameOrNull") PrestoThriftNullableSchemaName schemaNameOrNull)
-            throws PrestoThriftServiceException;
+            throws PrestoThriftServiceException, TException;
 
     /**
      * Returns metadata for a given table.
@@ -57,7 +57,7 @@ public interface PrestoThriftService
     @ThriftMethod("prestoGetTableMetadata")
     PrestoThriftNullableTableMetadata getTableMetadata(
             @ThriftField(name = "schemaTableName") PrestoThriftSchemaTableName schemaTableName)
-            throws PrestoThriftServiceException;
+            throws PrestoThriftServiceException, TException;
 
     /**
      * Returns a batch of splits.
@@ -69,14 +69,14 @@ public interface PrestoThriftService
      * @param nextToken token from a previous split batch or {@literal null} if it is the first call
      * @return a batch of splits
      */
-    @ThriftMethod("prestoGetSplits")
+    @ThriftMethod(value = "prestoGetSplits",
+            exception = @ThriftException(type = PrestoThriftServiceException.class, id = 1))
     ListenableFuture<PrestoThriftSplitBatch> getSplits(
             @ThriftField(name = "schemaTableName") PrestoThriftSchemaTableName schemaTableName,
             @ThriftField(name = "desiredColumns") PrestoThriftNullableColumnSet desiredColumns,
             @ThriftField(name = "outputConstraint") PrestoThriftTupleDomain outputConstraint,
             @ThriftField(name = "maxSplitCount") int maxSplitCount,
-            @ThriftField(name = "nextToken") PrestoThriftNullableToken nextToken)
-            throws PrestoThriftServiceException;
+            @ThriftField(name = "nextToken") PrestoThriftNullableToken nextToken);
 
     /**
      * Returns a batch of index splits for the given batch of keys.
@@ -85,13 +85,14 @@ public interface PrestoThriftService
      * @param schemaTableName schema and table name
      * @param indexColumnNames specifies columns and their order for keys
      * @param outputColumnNames a list of column names to return
-     * @param keys keys for which records need to be returned
+     * @param keys keys for which records need to be returned; includes only unique and non-null values
      * @param outputConstraint constraint on the returned data
      * @param maxSplitCount maximum number of splits to return
      * @param nextToken token from a previous split batch or {@literal null} if it is the first call
      * @return a batch of splits
      */
-    @ThriftMethod("prestoGetIndexSplits")
+    @ThriftMethod(value = "prestoGetIndexSplits",
+            exception = @ThriftException(type = PrestoThriftServiceException.class, id = 1))
     ListenableFuture<PrestoThriftSplitBatch> getIndexSplits(
             @ThriftField(name = "schemaTableName") PrestoThriftSchemaTableName schemaTableName,
             @ThriftField(name = "indexColumnNames") List<String> indexColumnNames,
@@ -99,8 +100,7 @@ public interface PrestoThriftService
             @ThriftField(name = "keys") PrestoThriftPageResult keys,
             @ThriftField(name = "outputConstraint") PrestoThriftTupleDomain outputConstraint,
             @ThriftField(name = "maxSplitCount") int maxSplitCount,
-            @ThriftField(name = "nextToken") PrestoThriftNullableToken nextToken)
-            throws PrestoThriftServiceException;
+            @ThriftField(name = "nextToken") PrestoThriftNullableToken nextToken);
 
     /**
      * Returns a batch of rows for the given split.
@@ -111,14 +111,11 @@ public interface PrestoThriftService
      * @param nextToken token from a previous batch or {@literal null} if it is the first call
      * @return a batch of table data
      */
-    @ThriftMethod("prestoGetRows")
+    @ThriftMethod(value = "prestoGetRows",
+            exception = @ThriftException(type = PrestoThriftServiceException.class, id = 1))
     ListenableFuture<PrestoThriftPageResult> getRows(
             @ThriftField(name = "splitId") PrestoThriftId splitId,
             @ThriftField(name = "columns") List<String> columns,
             @ThriftField(name = "maxBytes") long maxBytes,
-            @ThriftField(name = "nextToken") PrestoThriftNullableToken nextToken)
-            throws PrestoThriftServiceException;
-
-    @Override
-    void close();
+            @ThriftField(name = "nextToken") PrestoThriftNullableToken nextToken);
 }

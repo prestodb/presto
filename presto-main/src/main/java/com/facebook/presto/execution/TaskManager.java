@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.Session;
-import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
+import com.facebook.presto.execution.buffer.OutputBuffers;
+import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -26,6 +25,7 @@ import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 public interface TaskManager
 {
@@ -83,7 +83,7 @@ public interface TaskManager
      * Updates the task plan, sources and output buffers.  If the task does not
      * already exist, is is created and then updated.
      */
-    TaskInfo updateTask(Session session, TaskId taskId, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers);
+    TaskInfo updateTask(Session session, TaskId taskId, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers, OptionalInt totalPartitions);
 
     /**
      * Cancels a task.  If the task does not already exist, is is created and then
@@ -124,6 +124,9 @@ public interface TaskManager
 
     /**
      * Adds a state change listener to the specified task.
+     * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
+     * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
+     * possible notifications are observed out of order due to the asynchronous execution.
      */
     void addStateChangeListener(TaskId taskId, StateChangeListener<TaskState> stateChangeListener);
 }

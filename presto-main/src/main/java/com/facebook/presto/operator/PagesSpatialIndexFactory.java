@@ -138,7 +138,7 @@ public class PagesSpatialIndexFactory
     /**
      * Called by {@link SpatialIndexBuilderOperator} to provide a
      * {@link Supplier} of spatial indexes for {@link SpatialJoinOperator}s to use.
-     *
+     * <p>
      * Returns a Future that completes once all the {@link SpatialJoinOperator}s have completed.
      */
     public ListenableFuture<?> lendPagesSpatialIndex(Supplier<PagesSpatialIndex> pagesSpatialIndex)

@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
-import com.facebook.presto.hive.parquet.ParquetRecordCursorProvider;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -25,8 +24,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -36,7 +33,6 @@ import com.google.common.collect.Lists;
 import io.airlift.compress.lzo.LzoCodec;
 import io.airlift.compress.lzo.LzopCodec;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
@@ -74,10 +70,6 @@ import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.tests.StructuralTestUtil.arrayBlockOf;
-import static com.facebook.presto.tests.StructuralTestUtil.rowBlockOf;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.filter;
@@ -87,11 +79,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
-import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveJavaObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaIntObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -101,12 +89,10 @@ public class TestHiveFileFormats
         extends AbstractTestHiveFileFormats
 {
     private static final FileFormatDataSourceStats STATS = new FileFormatDataSourceStats();
-    private static TestingConnectorSession parquetCursorSession = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig().setParquetOptimizedReaderEnabled(false).setParquetPredicatePushdownEnabled(false), new OrcFileWriterConfig()).getSessionProperties());
-    private static TestingConnectorSession parquetCursorPushdownSession = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig().setParquetOptimizedReaderEnabled(false).setParquetPredicatePushdownEnabled(true), new OrcFileWriterConfig()).getSessionProperties());
-    private static TestingConnectorSession parquetPageSourceSession = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig().setParquetOptimizedReaderEnabled(true).setParquetPredicatePushdownEnabled(false), new OrcFileWriterConfig()).getSessionProperties());
-    private static TestingConnectorSession parquetPageSourcePushdown = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig().setParquetOptimizedReaderEnabled(true).setParquetPredicatePushdownEnabled(true), new OrcFileWriterConfig()).getSessionProperties());
+    private static TestingConnectorSession parquetPageSourceSession = new TestingConnectorSession(new HiveSessionProperties(createParquetHiveClientConfig(false), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+    private static TestingConnectorSession parquetPageSourceSessionUseName = new TestingConnectorSession(new HiveSessionProperties(createParquetHiveClientConfig(true), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
 
-    private static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("Asia/Katmandu");
+    private static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
     @DataProvider(name = "rowCount")
     public static Object[][] rowCountProvider()
@@ -119,8 +105,8 @@ public class TestHiveFileFormats
     {
         // ensure the expected timezone is configured for this VM
         assertEquals(TimeZone.getDefault().getID(),
-                "Asia/Katmandu",
-                "Timezone not configured correctly. Add -Duser.timezone=Asia/Katmandu to your JVM arguments");
+                "America/Bahia_Banderas",
+                "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
     }
 
     @Test(dataProvider = "rowCount")
@@ -203,7 +189,7 @@ public class TestHiveFileFormats
                 .collect(toImmutableList());
 
         TestingConnectorSession session = new TestingConnectorSession(
-                new HiveSessionProperties(new HiveClientConfig().setRcfileOptimizedWriterEnabled(true), new OrcFileWriterConfig()).getSessionProperties());
+                new HiveSessionProperties(new HiveClientConfig().setRcfileOptimizedWriterEnabled(true), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
 
         assertThatFileFormat(RCTEXT)
                 .withColumns(testColumns)
@@ -257,7 +243,7 @@ public class TestHiveFileFormats
                 .collect(toList());
 
         TestingConnectorSession session = new TestingConnectorSession(
-                new HiveSessionProperties(new HiveClientConfig().setRcfileOptimizedWriterEnabled(true), new OrcFileWriterConfig()).getSessionProperties());
+                new HiveSessionProperties(new HiveClientConfig().setRcfileOptimizedWriterEnabled(true), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
 
         assertThatFileFormat(RCBINARY)
                 .withColumns(testColumns)
@@ -283,7 +269,12 @@ public class TestHiveFileFormats
             throws Exception
     {
         TestingConnectorSession session = new TestingConnectorSession(
-                new HiveSessionProperties(new HiveClientConfig().setOrcOptimizedWriterEnabled(true), new OrcFileWriterConfig()).getSessionProperties());
+                new HiveSessionProperties(
+                        new HiveClientConfig()
+                                .setOrcOptimizedWriterEnabled(true)
+                                .setOrcWriterValidationPercentage(100.0),
+                        new OrcFileWriterConfig(),
+                        new ParquetFileWriterConfig()).getSessionProperties());
 
         // A Presto page can not contain a map with null keys, so a page based writer can not write null keys
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
@@ -303,7 +294,7 @@ public class TestHiveFileFormats
     public void testOrcUseColumnNames(int rowCount)
             throws Exception
     {
-        TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig()).getSessionProperties());
+        TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
 
         assertThatFileFormat(ORC)
                 .withWriteColumns(TEST_COLUMNS)
@@ -334,43 +325,6 @@ public class TestHiveFileFormats
     }
 
     @Test(dataProvider = "rowCount")
-    public void testParquet(int rowCount)
-            throws Exception
-    {
-        List<TestColumn> testColumns = getTestColumnsSupportedByParquet();
-        assertThatFileFormat(PARQUET)
-                .withColumns(testColumns)
-                .withRowsCount(rowCount)
-                .withSession(parquetCursorSession)
-                .isReadableByRecordCursor(new ParquetRecordCursorProvider(false, HDFS_ENVIRONMENT));
-        assertThatFileFormat(PARQUET)
-                .withColumns(testColumns)
-                .withRowsCount(rowCount)
-                .withSession(parquetCursorPushdownSession)
-                .isReadableByRecordCursor(new ParquetRecordCursorProvider(false, HDFS_ENVIRONMENT));
-    }
-
-    @Test(dataProvider = "rowCount")
-    public void testParquetCaseInsensitiveColumnLookup(int rowCount)
-            throws Exception
-    {
-        List<TestColumn> writeColumns = ImmutableList.of(new TestColumn("column_name", javaStringObjectInspector, "test", utf8Slice("test"), false));
-        List<TestColumn> readColumns = ImmutableList.of(new TestColumn("Column_Name", javaStringObjectInspector, "test", utf8Slice("test"), false));
-        assertThatFileFormat(PARQUET)
-                .withWriteColumns(writeColumns)
-                .withReadColumns(readColumns)
-                .withRowsCount(rowCount)
-                .withSession(parquetCursorSession)
-                .isReadableByRecordCursor(new ParquetRecordCursorProvider(true, HDFS_ENVIRONMENT));
-        assertThatFileFormat(PARQUET)
-                .withWriteColumns(writeColumns)
-                .withReadColumns(readColumns)
-                .withRowsCount(rowCount)
-                .withSession(parquetCursorPushdownSession)
-                .isReadableByRecordCursor(new ParquetRecordCursorProvider(true, HDFS_ENVIRONMENT));
-    }
-
-    @Test(dataProvider = "rowCount")
     public void testParquetPageSource(int rowCount)
             throws Exception
     {
@@ -379,12 +333,7 @@ public class TestHiveFileFormats
                 .withColumns(testColumns)
                 .withSession(parquetPageSourceSession)
                 .withRowsCount(rowCount)
-                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT));
-        assertThatFileFormat(PARQUET)
-                .withColumns(testColumns)
-                .withSession(parquetPageSourcePushdown)
-                .withRowsCount(rowCount)
-                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT));
+                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
     }
 
     @Test(dataProvider = "rowCount")
@@ -394,7 +343,6 @@ public class TestHiveFileFormats
         List<TestColumn> writeColumns = getTestColumnsSupportedByParquet();
 
         // test index-based access
-        boolean useParquetColumnNames = false;
         List<TestColumn> readColumns = writeColumns.stream()
                 .map(column -> new TestColumn(
                         column.getName() + "_new",
@@ -408,36 +356,15 @@ public class TestHiveFileFormats
                 .withReadColumns(readColumns)
                 .withSession(parquetPageSourceSession)
                 .withRowsCount(rowCount)
-                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, useParquetColumnNames, HDFS_ENVIRONMENT));
+                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
 
         // test name-based access
-        useParquetColumnNames = true;
         readColumns = Lists.reverse(writeColumns);
         assertThatFileFormat(PARQUET)
                 .withWriteColumns(writeColumns)
                 .withReadColumns(readColumns)
-                .withSession(parquetPageSourceSession)
-                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, useParquetColumnNames, HDFS_ENVIRONMENT));
-    }
-
-    @Test(dataProvider = "rowCount")
-    public void testParquetUseColumnNames(int rowCount)
-            throws Exception
-    {
-        List<TestColumn> writeColumns = getTestColumnsSupportedByParquet();
-        List<TestColumn> readColumns = Lists.reverse(writeColumns);
-        assertThatFileFormat(PARQUET)
-                .withWriteColumns(writeColumns)
-                .withReadColumns(readColumns)
-                .withRowsCount(rowCount)
-                .withSession(parquetCursorSession)
-                .isReadableByRecordCursor(new ParquetRecordCursorProvider(true, HDFS_ENVIRONMENT));
-        assertThatFileFormat(PARQUET)
-                .withWriteColumns(writeColumns)
-                .withReadColumns(readColumns)
-                .withRowsCount(rowCount)
-                .withSession(parquetCursorPushdownSession)
-                .isReadableByRecordCursor(new ParquetRecordCursorProvider(true, HDFS_ENVIRONMENT));
+                .withSession(parquetPageSourceSessionUseName)
+                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
     }
 
     private static List<TestColumn> getTestColumnsSupportedByParquet()
@@ -453,43 +380,6 @@ public class TestHiveFileFormats
                         !hasType(column.getObjectInspector(), PrimitiveCategory.SHORT) &&
                         !hasType(column.getObjectInspector(), PrimitiveCategory.BYTE))
                 .collect(toList());
-    }
-
-    @Test(dataProvider = "rowCount")
-    public void testParquetThrift(int rowCount)
-    {
-        RowType nameType = new RowType(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), Optional.empty());
-        RowType phoneType = new RowType(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), Optional.empty());
-        RowType personType = new RowType(ImmutableList.of(nameType, INTEGER, createUnboundedVarcharType(), new ArrayType(phoneType)), Optional.empty());
-
-        List<TestColumn> testColumns = ImmutableList.of(
-                new TestColumn(
-                        "persons",
-                        getStandardListObjectInspector(
-                                getStandardStructObjectInspector(
-                                        ImmutableList.of("name", "id", "email", "phones"),
-                                        ImmutableList.of(
-                                                getStandardStructObjectInspector(
-                                                        ImmutableList.of("first_name", "last_name"),
-                                                        ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)),
-                                                javaIntObjectInspector,
-                                                javaStringObjectInspector,
-                                                getStandardListObjectInspector(
-                                                        getStandardStructObjectInspector(
-                                                                ImmutableList.of("number", "type"),
-                                                                ImmutableList.of(javaStringObjectInspector, javaStringObjectInspector)))))),
-                        null,
-                        arrayBlockOf(personType,
-                                rowBlockOf(ImmutableList.of(nameType, INTEGER, createUnboundedVarcharType(), new ArrayType(phoneType)),
-                                        rowBlockOf(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), "Bob", "Roberts"),
-                                        0,
-                                        "bob.roberts@example.com",
-                                        arrayBlockOf(phoneType, rowBlockOf(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), "1234567890", null))))));
-
-        File file = new File(this.getClass().getClassLoader().getResource("addressbook.parquet").getPath());
-        FileSplit split = new FileSplit(new Path(file.getAbsolutePath()), 0, file.length(), new String[0]);
-        HiveRecordCursorProvider cursorProvider = new ParquetRecordCursorProvider(false, HDFS_ENVIRONMENT);
-        testCursorProvider(cursorProvider, split, PARQUET, testColumns, 1);
     }
 
     @Test(dataProvider = "rowCount")
@@ -510,7 +400,12 @@ public class TestHiveFileFormats
             throws Exception
     {
         TestingConnectorSession session = new TestingConnectorSession(
-                new HiveSessionProperties(new HiveClientConfig().setOrcOptimizedWriterEnabled(true), new OrcFileWriterConfig()).getSessionProperties());
+                new HiveSessionProperties(
+                        new HiveClientConfig()
+                                .setOrcOptimizedWriterEnabled(true)
+                                .setOrcWriterValidationPercentage(100.0),
+                        new OrcFileWriterConfig(),
+                        new ParquetFileWriterConfig()).getSessionProperties());
 
         // DWRF does not support modern Hive types
         // A Presto page can not contain a map with null keys, so a page based writer can not write null keys
@@ -555,24 +450,8 @@ public class TestHiveFileFormats
         assertThatFileFormat(PARQUET)
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
-                .withSession(parquetCursorSession)
-                .isReadableByRecordCursor(new ParquetRecordCursorProvider(false, HDFS_ENVIRONMENT));
-        assertThatFileFormat(PARQUET)
-                .withWriteColumns(ImmutableList.of(writeColumn))
-                .withReadColumns(ImmutableList.of(readColumn))
-                .withSession(parquetCursorPushdownSession)
-                .isReadableByRecordCursor(new ParquetRecordCursorProvider(false, HDFS_ENVIRONMENT));
-
-        assertThatFileFormat(PARQUET)
-                .withWriteColumns(ImmutableList.of(writeColumn))
-                .withReadColumns(ImmutableList.of(readColumn))
                 .withSession(parquetPageSourceSession)
-                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT));
-        assertThatFileFormat(PARQUET)
-                .withWriteColumns(ImmutableList.of(writeColumn))
-                .withReadColumns(ImmutableList.of(readColumn))
-                .withSession(parquetPageSourcePushdown)
-                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT));
+                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
 
         assertThatFileFormat(AVRO)
                 .withWriteColumns(ImmutableList.of(writeColumn))
@@ -618,21 +497,8 @@ public class TestHiveFileFormats
 
         assertThatFileFormat(PARQUET)
                 .withColumns(columns)
-                .withSession(parquetCursorSession)
-                .isFailingForRecordCursor(new ParquetRecordCursorProvider(false, HDFS_ENVIRONMENT), expectedErrorCode, expectedMessage);
-        assertThatFileFormat(PARQUET)
-                .withColumns(columns)
-                .withSession(parquetCursorPushdownSession)
-                .isFailingForRecordCursor(new ParquetRecordCursorProvider(false, HDFS_ENVIRONMENT), expectedErrorCode, expectedMessage);
-
-        assertThatFileFormat(PARQUET)
-                .withColumns(columns)
                 .withSession(parquetPageSourceSession)
-                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT), expectedErrorCode, expectedMessage);
-        assertThatFileFormat(PARQUET)
-                .withColumns(columns)
-                .withSession(parquetPageSourcePushdown)
-                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT), expectedErrorCode, expectedMessage);
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessage);
 
         assertThatFileFormat(SEQUENCEFILE)
                 .withColumns(columns)
@@ -647,6 +513,7 @@ public class TestHiveFileFormats
             FileSplit split,
             HiveStorageFormat storageFormat,
             List<TestColumn> testColumns,
+            ConnectorSession session,
             int rowCount)
     {
         Properties splitProperties = new Properties();
@@ -666,7 +533,7 @@ public class TestHiveFileFormats
                 ImmutableSet.of(cursorProvider),
                 ImmutableSet.of(),
                 configuration,
-                SESSION,
+                session,
                 split.getPath(),
                 OptionalInt.empty(),
                 split.getStart(),
@@ -678,7 +545,9 @@ public class TestHiveFileFormats
                 partitionKeys,
                 DateTimeZone.getDefault(),
                 TYPE_MANAGER,
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty(),
+                false);
 
         RecordCursor cursor = ((RecordPageSource) pageSource.get()).getCursor();
 
@@ -722,7 +591,9 @@ public class TestHiveFileFormats
                 partitionKeys,
                 DateTimeZone.getDefault(),
                 TYPE_MANAGER,
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty(),
+                false);
 
         assertTrue(pageSource.isPresent());
 
@@ -773,6 +644,13 @@ public class TestHiveFileFormats
     {
         return new FileFormatAssertion(hiveStorageFormat.name())
                 .withStorageFormat(hiveStorageFormat);
+    }
+
+    private static HiveClientConfig createParquetHiveClientConfig(boolean useParquetColumnNames)
+    {
+        HiveClientConfig config = new HiveClientConfig();
+        config.setUseParquetColumnNames(useParquetColumnNames);
+        return config;
     }
 
     private class FileFormatAssertion
@@ -902,7 +780,7 @@ public class TestHiveFileFormats
                     testPageSourceFactory(pageSourceFactory.get(), split, storageFormat, readColumns, session, rowsCount);
                 }
                 if (cursorProvider.isPresent()) {
-                    testCursorProvider(cursorProvider.get(), split, storageFormat, readColumns, rowsCount);
+                    testCursorProvider(cursorProvider.get(), split, storageFormat, readColumns, session, rowsCount);
                 }
             }
             finally {

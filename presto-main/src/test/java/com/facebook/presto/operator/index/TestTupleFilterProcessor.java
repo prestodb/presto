@@ -24,10 +24,13 @@ import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
+import static com.facebook.presto.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -60,8 +63,14 @@ public class TestTupleFilterProcessor
                 new int[] {1, 0, 3},
                 outputTypes,
                 new PageFunctionCompiler(createTestMetadataManager(), 0));
-        PageProcessor tupleFilterProcessor = filterFactory.createPageProcessor(tuplePage).get();
-        Page actualPage = getOnlyElement(tupleFilterProcessor.process(SESSION, new DriverYieldSignal(), inputPage)).orElseThrow(() -> new AssertionError("page is not present"));
+        PageProcessor tupleFilterProcessor = filterFactory.createPageProcessor(tuplePage, OptionalInt.of(MAX_BATCH_SIZE)).get();
+        Page actualPage = getOnlyElement(
+                tupleFilterProcessor.process(
+                        SESSION,
+                        new DriverYieldSignal(),
+                        newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
+                        inputPage))
+                .orElseThrow(() -> new AssertionError("page is not present"));
 
         Page expectedPage = Iterables.getOnlyElement(rowPagesBuilder(outputTypes)
                 .row("a", 1L, true, 0.1, 0.0)

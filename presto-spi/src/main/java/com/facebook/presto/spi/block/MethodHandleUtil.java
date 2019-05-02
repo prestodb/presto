@@ -33,7 +33,12 @@ public final class MethodHandleUtil
     private static final MethodHandle GET_BOOLEAN = methodHandle(Type.class, "getBoolean", Block.class, int.class);
     private static final MethodHandle GET_SLICE = methodHandle(Type.class, "getSlice", Block.class, int.class);
     private static final MethodHandle GET_BLOCK = methodHandle(Type.class, "getObject", Block.class, int.class).asType(methodType(Block.class, Type.class, Block.class, int.class));
-    private static final MethodHandle GET_UNKNOWN = methodHandle(MethodHandleUtil.class, "unknownGetter", Type.class, Block.class, int.class);
+
+    private static final MethodHandle WRITE_LONG = methodHandle(Type.class, "writeLong", BlockBuilder.class, long.class);
+    private static final MethodHandle WRITE_DOUBLE = methodHandle(Type.class, "writeDouble", BlockBuilder.class, double.class);
+    private static final MethodHandle WRITE_BOOLEAN = methodHandle(Type.class, "writeBoolean", BlockBuilder.class, boolean.class);
+    private static final MethodHandle WRITE_SLICE = methodHandle(Type.class, "writeSlice", BlockBuilder.class, Slice.class);
+    private static final MethodHandle WRITE_BLOCK = methodHandle(Type.class, "writeObject", BlockBuilder.class, Object.class).asType(methodType(void.class, Type.class, BlockBuilder.class, Block.class));
 
     private MethodHandleUtil()
     {
@@ -140,9 +145,6 @@ public final class MethodHandleUtil
         else if (javaType == Block.class) {
             methodHandle = GET_BLOCK;
         }
-        else if (javaType == void.class) {
-            methodHandle = GET_UNKNOWN;
-        }
         else {
             throw new IllegalArgumentException("Unknown java type " + javaType + " from type " + type);
         }
@@ -150,8 +152,30 @@ public final class MethodHandleUtil
         return methodHandle.bindTo(type);
     }
 
-    public static Void unknownGetter(Type type, Block block, int position)
+    public static MethodHandle nativeValueWriter(Type type)
     {
-        throw new IllegalArgumentException("For UNKNOWN type, getter should never be invoked on Block");
+        Class<?> javaType = type.getJavaType();
+
+        MethodHandle methodHandle;
+        if (javaType == long.class) {
+            methodHandle = WRITE_LONG;
+        }
+        else if (javaType == double.class) {
+            methodHandle = WRITE_DOUBLE;
+        }
+        else if (javaType == boolean.class) {
+            methodHandle = WRITE_BOOLEAN;
+        }
+        else if (javaType == Slice.class) {
+            methodHandle = WRITE_SLICE;
+        }
+        else if (javaType == Block.class) {
+            methodHandle = WRITE_BLOCK;
+        }
+        else {
+            throw new IllegalArgumentException("Unknown java type " + javaType + " from type " + type);
+        }
+
+        return methodHandle.bindTo(type);
     }
 }

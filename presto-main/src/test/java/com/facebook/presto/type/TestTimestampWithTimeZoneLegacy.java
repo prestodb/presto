@@ -13,11 +13,41 @@
  */
 package com.facebook.presto.type;
 
+import org.testng.annotations.Test;
+
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimeOf;
+import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
+
 public class TestTimestampWithTimeZoneLegacy
         extends TestTimestampWithTimeZoneBase
 {
     public TestTimestampWithTimeZoneLegacy()
     {
         super(true);
+    }
+
+    @Test
+    @Override
+    public void testCastToTime()
+    {
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as time)",
+                TIME,
+                sqlTimeOf(2 /* not 3 */, 4, 5, 321, session));
+    }
+
+    @Test
+    @Override
+    public void testCastToTimestamp()
+    {
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 22, 2 /* not 3 */, 4, 5, 321, session));
+
+        // This TZ had switch in 2014
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 Pacific/Bougainville' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 21 /* not 22 */, 23 /* not 3 */, 13, 5, 321, session));
     }
 }

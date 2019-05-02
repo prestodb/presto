@@ -5,9 +5,9 @@ Release 0.179
 General Changes
 ---------------
 
-* Fix issue which could cause incorrect results when processing dictionary encoded data. If the expression
-  can fail on bad input, the results from filtered-out rows containing bad input may be included in the query
-  output. See `#8262 <https://github.com/prestodb/presto/issues/8262>`_ for more details.
+* Fix issue which could cause incorrect results when processing dictionary encoded data.
+  If the expression can fail on bad input, the results from filtered-out rows containing
+  bad input may be included in the query output (:issue:`8262`).
 * Fix planning failure when similar expressions appear in the ``ORDER BY`` clause of a query that
   contains ``ORDER BY`` and ``LIMIT``.
 * Fix planning failure when ``GROUPING()`` is used with the ``legacy_order_by`` session property set to ``true``.

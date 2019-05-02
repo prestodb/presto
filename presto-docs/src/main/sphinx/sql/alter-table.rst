@@ -8,7 +8,7 @@ Synopsis
 .. code-block:: none
 
     ALTER TABLE name RENAME TO new_name
-    ALTER TABLE name ADD COLUMN column_name data_type
+    ALTER TABLE name ADD COLUMN column_name data_type [ COMMENT comment ] [ WITH ( property_name = expression [, ...] ) ]
     ALTER TABLE name DROP COLUMN column_name
     ALTER TABLE name RENAME COLUMN column_name TO new_column_name
 

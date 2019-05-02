@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
@@ -61,14 +62,15 @@ public class PlanDeterminismChecker
     private String getPlanText(Session session, String sql)
     {
         return localQueryRunner.inTransaction(session, transactionSession -> {
-            Plan plan = localQueryRunner.createPlan(transactionSession, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
+            Plan plan = localQueryRunner.createPlan(transactionSession, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, WarningCollector.NOOP);
             return PlanPrinter.textLogicalPlan(
                     plan.getRoot(),
                     plan.getTypes(),
-                    localQueryRunner.getMetadata().getFunctionRegistry(),
-                    localQueryRunner.getStatsCalculator(),
-                    localQueryRunner.getCostCalculator(),
-                    transactionSession);
+                    localQueryRunner.getMetadata().getFunctionManager(),
+                    plan.getStatsAndCosts(),
+                    transactionSession,
+                    0,
+                    false);
         });
     }
 }

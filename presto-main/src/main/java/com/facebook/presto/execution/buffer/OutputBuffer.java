@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.execution.buffer;
 
-import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.OutputBuffers.OutputBufferId;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 public interface OutputBuffer
 {
@@ -47,6 +48,9 @@ public interface OutputBuffer
 
     /**
      * Add a listener which fires anytime the buffer state changes.
+     * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
+     * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
+     * possible notifications are observed out of order due to the asynchronous execution.
      */
     void addStateChangeListener(StateChangeListener<BufferState> stateChangeListener);
 
@@ -75,16 +79,21 @@ public interface OutputBuffer
     void abort(OutputBufferId bufferId);
 
     /**
+     * Get a future that will be completed when the buffer is not full.
+     */
+    ListenableFuture<?> isFull();
+
+    /**
      * Adds a split-up page to an unpartitioned buffer. If no-more-pages has been set, the enqueue
      * page call is ignored.  This can happen with limit queries.
      */
-    ListenableFuture<?> enqueue(List<SerializedPage> pages);
+    void enqueue(Lifespan lifespan, List<SerializedPage> pages);
 
     /**
      * Adds a split-up page to a specific partition.  If no-more-pages has been set, the enqueue
      * page call is ignored.  This can happen with limit queries.
      */
-    ListenableFuture<?> enqueue(int partition, List<SerializedPage> pages);
+    void enqueue(Lifespan lifespan, int partition, List<SerializedPage> pages);
 
     /**
      * Notify buffer that no more pages will be added. Any future calls to enqueue a
@@ -102,4 +111,29 @@ public interface OutputBuffer
      * readers will be unblocked when the failed query is cleaned up.
      */
     void fail();
+
+    /**
+     * Notify buffer that no more pages will be added for the given lifespan.
+     * Any future calls to enqueue a page of that lifespan are ignored.
+     * @see OutputBuffer#setNoMorePages()
+     */
+    void setNoMorePagesForLifespan(Lifespan lifespan);
+
+    /**
+     * Register a callback which get called once a buffer is finished for a lifespan.
+     * This method should be called exactly once before any data is produced to the output buffer.
+     */
+    void registerLifespanCompletionCallback(Consumer<Lifespan> callback);
+
+    /**
+     * A buffer is finished for the given lifespan once no-more-pages has been set for that lifespan
+     * and all pages has been acknowledged.
+     * @see OutputBuffer#isFinished()
+     */
+    boolean isFinishedForLifespan(Lifespan lifespan);
+
+    /**
+     * @return the peak memory usage of this output buffer.
+     */
+    long getPeakMemoryUsage();
 }

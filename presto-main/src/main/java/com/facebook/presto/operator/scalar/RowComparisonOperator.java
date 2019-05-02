@@ -13,10 +13,10 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -26,9 +26,10 @@ import com.google.common.collect.ImmutableList;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
-import static com.facebook.presto.metadata.Signature.orderableWithVariadicBound;
+import static com.facebook.presto.spi.function.Signature.orderableWithVariadicBound;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
 import static com.facebook.presto.util.Failures.internalError;
 
@@ -44,12 +45,12 @@ public abstract class RowComparisonOperator
                 ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("T")));
     }
 
-    protected List<MethodHandle> getMethodHandles(RowType type, FunctionRegistry functionRegistry, OperatorType operatorType)
+    protected List<MethodHandle> getMethodHandles(RowType type, FunctionManager functionManager, OperatorType operatorType)
     {
         ImmutableList.Builder<MethodHandle> argumentMethods = ImmutableList.builder();
         for (Type parameterType : type.getTypeParameters()) {
-            Signature signature = functionRegistry.resolveOperator(operatorType, ImmutableList.of(parameterType, parameterType));
-            argumentMethods.add(functionRegistry.getScalarFunctionImplementation(signature).getMethodHandle());
+            FunctionHandle operatorHandle = functionManager.resolveOperator(operatorType, fromTypes(parameterType, parameterType));
+            argumentMethods.add(functionManager.getScalarFunctionImplementation(operatorHandle).getMethodHandle());
         }
         return argumentMethods.build();
     }

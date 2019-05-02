@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative;
 
-import com.facebook.presto.cost.PlanNodeCostEstimate;
+import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -138,7 +138,7 @@ public class Memo
     private void evictStatisticsAndCost(int group)
     {
         getGroup(group).stats = null;
-        getGroup(group).cumulativeCost = null;
+        getGroup(group).cost = null;
         for (int parentGroup : getGroup(group).incomingReferences.elementSet()) {
             if (parentGroup != ROOT_GROUP_REF) {
                 evictStatisticsAndCost(parentGroup);
@@ -160,14 +160,14 @@ public class Memo
         group.stats = requireNonNull(stats, "stats is null");
     }
 
-    public Optional<PlanNodeCostEstimate> getCumulativeCost(int group)
+    public Optional<PlanCostEstimate> getCost(int group)
     {
-        return Optional.ofNullable(getGroup(group).cumulativeCost);
+        return Optional.ofNullable(getGroup(group).cost);
     }
 
-    public void storeCumulativeCost(int group, PlanNodeCostEstimate cost)
+    public void storeCost(int group, PlanCostEstimate cost)
     {
-        getGroup(group).cumulativeCost = requireNonNull(cost, "cost is null");
+        getGroup(group).cost = requireNonNull(cost, "cost is null");
     }
 
     private void incrementReferenceCounts(PlanNode fromNode, int fromGroup)
@@ -252,11 +252,11 @@ public class Memo
         }
 
         private PlanNode membership;
-        private Multiset<Integer> incomingReferences = HashMultiset.create();
+        private final Multiset<Integer> incomingReferences = HashMultiset.create();
         @Nullable
         private PlanNodeStatsEstimate stats;
         @Nullable
-        private PlanNodeCostEstimate cumulativeCost;
+        private PlanCostEstimate cost;
 
         private Group(PlanNode member)
         {

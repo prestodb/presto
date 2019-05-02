@@ -102,7 +102,7 @@ public class RaptorSplitManager
         boolean bucketed = table.getBucketCount().isPresent();
         boolean merged = bucketed && !table.isDelete() && (table.getBucketCount().getAsInt() >= getOneSplitPerBucketThreshold(session));
         OptionalLong transactionId = table.getTransactionId();
-        Optional<Map<Integer, String>> bucketToNode = handle.getPartitioning().map(RaptorPartitioningHandle::getBucketToNode);
+        Optional<List<String>> bucketToNode = handle.getPartitioning().map(RaptorPartitioningHandle::getBucketToNode);
         verify(bucketed == bucketToNode.isPresent(), "mismatched bucketCount and bucketToNode presence");
         return new RaptorSplitSource(tableId, merged, effectivePredicate, transactionId, bucketToNode);
     }
@@ -138,7 +138,7 @@ public class RaptorSplitManager
         private final long tableId;
         private final TupleDomain<RaptorColumnHandle> effectivePredicate;
         private final OptionalLong transactionId;
-        private final Optional<Map<Integer, String>> bucketToNode;
+        private final Optional<List<String>> bucketToNode;
         private final ResultIterator<BucketShards> iterator;
 
         @GuardedBy("this")
@@ -149,7 +149,7 @@ public class RaptorSplitManager
                 boolean merged,
                 TupleDomain<RaptorColumnHandle> effectivePredicate,
                 OptionalLong transactionId,
-                Optional<Map<Integer, String>> bucketToNode)
+                Optional<List<String>> bucketToNode)
         {
             this.tableId = tableId;
             this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
@@ -231,7 +231,7 @@ public class RaptorSplitManager
                     throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
                 }
                 Node node = selectRandom(availableNodes);
-                shardManager.assignShard(tableId, shardId, node.getNodeIdentifier(), true);
+                shardManager.replaceShardAssignment(tableId, shardId, node.getNodeIdentifier(), true);
                 addresses = ImmutableList.of(node.getHostAndPort());
             }
 

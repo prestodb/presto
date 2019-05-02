@@ -85,7 +85,7 @@ public class TestPruneIndexSourceColumns
                 p.indexSource(
                         new TableHandle(
                                 new ConnectorId("local"),
-                                new TpchTableHandle("local", "orders", TINY_SCALE_FACTOR)),
+                                new TpchTableHandle("orders", TINY_SCALE_FACTOR)),
                         ImmutableSet.of(orderkey, custkey),
                         ImmutableList.of(orderkey, custkey, totalprice),
                         ImmutableMap.of(

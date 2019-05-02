@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.WindowFunction;
 import com.facebook.presto.spi.function.WindowIndex;
 import com.google.common.collect.ImmutableList;
@@ -30,7 +30,6 @@ import static java.util.Objects.requireNonNull;
 public class AggregateWindowFunction
         implements WindowFunction
 {
-    private final InternalAggregationFunction function;
     private final List<Integer> argumentChannels;
     private final AccumulatorFactory accumulatorFactory;
 
@@ -41,7 +40,6 @@ public class AggregateWindowFunction
 
     private AggregateWindowFunction(InternalAggregationFunction function, List<Integer> argumentChannels)
     {
-        this.function = requireNonNull(function, "function is null");
         this.argumentChannels = ImmutableList.copyOf(argumentChannels);
         this.accumulatorFactory = function.bind(createArgs(function), Optional.empty());
     }

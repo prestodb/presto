@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.project.ConstantPageProjection;
 import com.facebook.presto.operator.project.GeneratedPageProjection;
@@ -29,17 +28,15 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.InputReferenceExpression;
+import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.facebook.presto.sql.planner.CompilerConfig;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.DeterminismEvaluator;
 import com.facebook.presto.sql.relational.Expressions;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
-import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.google.common.base.VerifyException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -64,6 +61,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
@@ -72,9 +70,8 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
-import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
-import static com.facebook.presto.sql.gen.LambdaAndTryExpressionExtractor.extractLambdaAndTryExpressions;
+import static com.facebook.presto.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
 import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.facebook.presto.util.Reflection.constructorMethodHandle;
@@ -95,9 +92,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
 import static io.airlift.bytecode.expression.BytecodeExpressions.not;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.HOURS;
 
 public class PageFunctionCompiler
 {
@@ -119,17 +114,12 @@ public class PageFunctionCompiler
     public PageFunctionCompiler(Metadata metadata, int expressionCacheSize)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.determinismEvaluator = new DeterminismEvaluator(metadata.getFunctionRegistry());
-
-        // We have observed deoptimization storms that lead to slowness.
-        // We suspect that it is a JVM bug that is related to stale/corrupted profiling data associated
-        // with generated classes, thus the following cache entries are expired after one hour.
+        this.determinismEvaluator = new DeterminismEvaluator(metadata.getFunctionManager());
 
         if (expressionCacheSize > 0) {
             projectionCache = CacheBuilder.newBuilder()
                     .recordStats()
                     .maximumSize(expressionCacheSize)
-                    .expireAfterWrite(1, HOURS)
                     .build(CacheLoader.from(projection -> compileProjectionInternal(projection, Optional.empty())));
             projectionCacheStats = new CacheStatsMBean(projectionCache);
         }
@@ -142,7 +132,6 @@ public class PageFunctionCompiler
             filterCache = CacheBuilder.newBuilder()
                     .recordStats()
                     .maximumSize(expressionCacheSize)
-                    .expireAfterWrite(1, HOURS)
                     .build(CacheLoader.from(filter -> compileFilterInternal(filter, Optional.empty())));
             filterCacheStats = new CacheStatsMBean(filterCache);
         }
@@ -211,7 +200,7 @@ public class PageFunctionCompiler
                 result.getRewrittenExpression(),
                 determinismEvaluator.isDeterministic(result.getRewrittenExpression()),
                 result.getInputChannels(),
-                constructorMethodHandle(pageProjectionWorkClass, BlockBuilder.class, ConnectorSession.class, DriverYieldSignal.class, Page.class, SelectedPositions.class));
+                constructorMethodHandle(pageProjectionWorkClass, BlockBuilder.class, ConnectorSession.class, Page.class, SelectedPositions.class));
     }
 
     private static ParameterizedType generateProjectionWorkClassName(Optional<String> classNameSuffix)
@@ -229,7 +218,6 @@ public class PageFunctionCompiler
 
         FieldDefinition blockBuilderField = classDefinition.declareField(a(PRIVATE), "blockBuilder", BlockBuilder.class);
         FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE), "session", ConnectorSession.class);
-        FieldDefinition yieldSignalField = classDefinition.declareField(a(PRIVATE), "yieldSignal", DriverYieldSignal.class);
         FieldDefinition pageField = classDefinition.declareField(a(PRIVATE), "page", Page.class);
         FieldDefinition selectedPositionsField = classDefinition.declareField(a(PRIVATE), "selectedPositions", SelectedPositions.class);
         FieldDefinition nextIndexOrPositionField = classDefinition.declareField(a(PRIVATE), "nextIndexOrPosition", int.class);
@@ -238,24 +226,23 @@ public class PageFunctionCompiler
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
         // process
-        generateProcessMethod(classDefinition, blockBuilderField, sessionField, yieldSignalField, pageField, selectedPositionsField, nextIndexOrPositionField, resultField);
+        generateProcessMethod(classDefinition, blockBuilderField, sessionField, pageField, selectedPositionsField, nextIndexOrPositionField, resultField);
 
         // getResult
         MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "getResult", type(Object.class), ImmutableList.of());
         method.getBody().append(method.getThis().getField(resultField)).ret(Object.class);
 
         // evaluate
-        PreGeneratedExpressions preGeneratedExpressions = generateMethodsForLambdaAndTry(classDefinition, callSiteBinder, cachedInstanceBinder, projection);
-        generateEvaluateMethod(classDefinition, callSiteBinder, cachedInstanceBinder, preGeneratedExpressions, projection, blockBuilderField);
+        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, projection);
+        generateEvaluateMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, projection, blockBuilderField);
 
         // constructor
         Parameter blockBuilder = arg("blockBuilder", BlockBuilder.class);
         Parameter session = arg("session", ConnectorSession.class);
-        Parameter yieldSignal = arg("yieldSignal", DriverYieldSignal.class);
         Parameter page = arg("page", Page.class);
         Parameter selectedPositions = arg("selectedPositions", SelectedPositions.class);
 
-        MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), blockBuilder, session, yieldSignal, page, selectedPositions);
+        MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), blockBuilder, session, page, selectedPositions);
 
         BytecodeBlock body = constructorDefinition.getBody();
         Variable thisVariable = constructorDefinition.getThis();
@@ -265,7 +252,6 @@ public class PageFunctionCompiler
                 .invokeConstructor(Object.class)
                 .append(thisVariable.setField(blockBuilderField, blockBuilder))
                 .append(thisVariable.setField(sessionField, session))
-                .append(thisVariable.setField(yieldSignalField, yieldSignal))
                 .append(thisVariable.setField(pageField, page))
                 .append(thisVariable.setField(selectedPositionsField, selectedPositions))
                 .append(thisVariable.setField(nextIndexOrPositionField, selectedPositions.invoke("getOffset", int.class)))
@@ -281,7 +267,6 @@ public class PageFunctionCompiler
             ClassDefinition classDefinition,
             FieldDefinition blockBuilder,
             FieldDefinition session,
-            FieldDefinition yieldSignal,
             FieldDefinition page,
             FieldDefinition selectedPositions,
             FieldDefinition nextIndexOrPosition,
@@ -309,16 +294,14 @@ public class PageFunctionCompiler
                         .condition(lessThan(index, to))
                         .update(index.increment())
                         .body(new BytecodeBlock()
-                                .append(thisVariable.invoke("evaluate", void.class, thisVariable.getField(session), thisVariable.getField(page), positions.getElement(index)))
-                                .append(generateCheckYieldBlock(thisVariable, index, yieldSignal, nextIndexOrPosition)))));
+                                .append(thisVariable.invoke("evaluate", void.class, thisVariable.getField(session), thisVariable.getField(page), positions.getElement(index))))));
 
         ifStatement.ifFalse(new ForLoop("range based loop")
                 .initialize(index.set(from))
                 .condition(lessThan(index, to))
                 .update(index.increment())
                 .body(new BytecodeBlock()
-                        .append(thisVariable.invoke("evaluate", void.class, thisVariable.getField(session), thisVariable.getField(page), index))
-                        .append(generateCheckYieldBlock(thisVariable, index, yieldSignal, nextIndexOrPosition))));
+                        .append(thisVariable.invoke("evaluate", void.class, thisVariable.getField(session), thisVariable.getField(page), index))));
 
         body.comment("result = this.blockBuilder.build(); return true;")
                 .append(thisVariable.setField(result, thisVariable.getField(blockBuilder).invoke("build", Block.class)))
@@ -328,25 +311,11 @@ public class PageFunctionCompiler
         return method;
     }
 
-    private static BytecodeBlock generateCheckYieldBlock(Variable thisVariable, Variable index, FieldDefinition yieldSignal, FieldDefinition nextIndexOrPosition)
-    {
-        return new BytecodeBlock()
-                .comment("if (yieldSignal.isSet())")
-                .append(new IfStatement()
-                        .condition(thisVariable.getField(yieldSignal).invoke("isSet", boolean.class))
-                        .ifTrue(new BytecodeBlock()
-                                .comment("nextIndexOrPosition = index + 1;")
-                                .append(thisVariable.setField(nextIndexOrPosition, add(index, constantInt(1))))
-                                .comment("return false;")
-                                .push(false)
-                                .retBoolean()));
-    }
-
     private MethodDefinition generateEvaluateMethod(
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            PreGeneratedExpressions preGeneratedExpressions,
+            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
             RowExpression projection,
             FieldDefinition blockBuilder)
     {
@@ -372,17 +341,17 @@ public class PageFunctionCompiler
 
         declareBlockVariables(projection, page, scope, body);
 
-        Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
+        scope.declareVariable("wasNull", body, constantFalse());
         RowExpressionCompiler compiler = new RowExpressionCompiler(
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder),
-                metadata.getFunctionRegistry(),
-                preGeneratedExpressions);
+                metadata.getFunctionManager(),
+                compiledLambdaMap);
 
-        body.append(thisVariable.getField(blockBuilder))
-                .append(compiler.compile(projection, scope))
-                .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
+        Variable outputBlockVariable = scope.createTempVariable(BlockBuilder.class);
+        body.append(outputBlockVariable.set(thisVariable.getField(blockBuilder)))
+                .append(compiler.compile(projection, scope, Optional.of(outputBlockVariable)))
                 .ret();
         return method;
     }
@@ -414,7 +383,7 @@ public class PageFunctionCompiler
 
         return () -> {
             try {
-                return functionClass.newInstance();
+                return functionClass.getConstructor().newInstance();
             }
             catch (ReflectiveOperationException e) {
                 throw new PrestoException(COMPILER_ERROR, e);
@@ -437,8 +406,8 @@ public class PageFunctionCompiler
 
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
-        PreGeneratedExpressions preGeneratedExpressions = generateMethodsForLambdaAndTry(classDefinition, callSiteBinder, cachedInstanceBinder, filter);
-        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, preGeneratedExpressions, filter);
+        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter);
+        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter);
 
         FieldDefinition selectedPositions = classDefinition.declareField(a(PRIVATE), "selectedPositions", boolean[].class);
         generatePageFilterMethod(classDefinition, selectedPositions);
@@ -467,7 +436,7 @@ public class PageFunctionCompiler
                 .retObject();
 
         // constructor
-        generateConstructor(classDefinition, cachedInstanceBinder, preGeneratedExpressions, method -> {
+        generateConstructor(classDefinition, cachedInstanceBinder, compiledLambdaMap, method -> {
             Variable thisVariable = method.getScope().getThis();
             method.getBody().append(thisVariable.setField(selectedPositions, newArray(type(boolean[].class), 0)));
         });
@@ -522,7 +491,7 @@ public class PageFunctionCompiler
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            PreGeneratedExpressions preGeneratedExpressions,
+            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
             RowExpression filter)
     {
         Parameter session = arg("session", ConnectorSession.class);
@@ -551,55 +520,47 @@ public class PageFunctionCompiler
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder),
-                metadata.getFunctionRegistry(),
-                preGeneratedExpressions);
+                metadata.getFunctionManager(),
+                compiledLambdaMap);
 
         Variable result = scope.declareVariable(boolean.class, "result");
-        body.append(compiler.compile(filter, scope))
+        body.append(compiler.compile(filter, scope, Optional.empty()))
                 // store result so we can check for null
                 .putVariable(result)
                 .append(and(not(wasNullVariable), result).ret());
         return method;
     }
 
-    private PreGeneratedExpressions generateMethodsForLambdaAndTry(
+    private Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
             ClassDefinition containerClassDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             RowExpression expression)
     {
-        Set<RowExpression> lambdaAndTryExpressions = ImmutableSet.copyOf(extractLambdaAndTryExpressions(expression));
-        ImmutableMap.Builder<CallExpression, MethodDefinition> tryMethodMap = ImmutableMap.builder();
+        Set<LambdaDefinitionExpression> lambdaExpressions = ImmutableSet.copyOf(extractLambdaExpressions(expression));
         ImmutableMap.Builder<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
 
         int counter = 0;
-        for (RowExpression lambdaOrTryExpression : lambdaAndTryExpressions) {
-            if (lambdaOrTryExpression instanceof LambdaDefinitionExpression) {
-                LambdaDefinitionExpression lambdaExpression = (LambdaDefinitionExpression) lambdaOrTryExpression;
-                PreGeneratedExpressions preGeneratedExpressions = new PreGeneratedExpressions(tryMethodMap.build(), compiledLambdaMap.build());
-                CompiledLambda compiledLambda = LambdaBytecodeGenerator.preGenerateLambdaExpression(
-                        lambdaExpression,
-                        "lambda_" + counter,
-                        containerClassDefinition,
-                        preGeneratedExpressions,
-                        callSiteBinder,
-                        cachedInstanceBinder,
-                        metadata.getFunctionRegistry());
-                compiledLambdaMap.put(lambdaExpression, compiledLambda);
-            }
-            else {
-                throw new VerifyException(format("unexpected expression: %s", lambdaOrTryExpression.toString()));
-            }
+        for (LambdaDefinitionExpression lambdaExpression : lambdaExpressions) {
+            CompiledLambda compiledLambda = LambdaBytecodeGenerator.preGenerateLambdaExpression(
+                    lambdaExpression,
+                    "lambda_" + counter,
+                    containerClassDefinition,
+                    compiledLambdaMap.build(),
+                    callSiteBinder,
+                    cachedInstanceBinder,
+                    metadata.getFunctionManager());
+            compiledLambdaMap.put(lambdaExpression, compiledLambda);
             counter++;
         }
 
-        return new PreGeneratedExpressions(tryMethodMap.build(), compiledLambdaMap.build());
+        return compiledLambdaMap.build();
     }
 
     private static void generateConstructor(
             ClassDefinition classDefinition,
             CachedInstanceBinder cachedInstanceBinder,
-            PreGeneratedExpressions preGeneratedExpressions,
+            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
             Consumer<MethodDefinition> additionalStatements)
     {
         MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC));

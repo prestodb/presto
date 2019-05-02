@@ -149,7 +149,7 @@ documentation refers to a statement, it is referring to statements as
 defined in the ANSI SQL standard which consists of clauses,
 expressions, and predicates.
 
-Some readers might be curious why this section lists seperate concepts
+Some readers might be curious why this section lists separate concepts
 for statements and queries. This is necessary because, in Presto,
 statements simply refer to the textual representation of a SQL
 statement. When a statement is executed, Presto creates a query along
@@ -223,7 +223,7 @@ Driver
 
 Tasks contain one or more parallel drivers. Drivers act upon data and
 combine operators to produce output that is then aggregated by a task
-and then delivered to another task in a another stage. A driver is a
+and then delivered to another task in another stage. A driver is a
 sequence of operator instances, or you can think of a driver as a
 physical set of operators in memory. It is the lowest level of
 parallelism in the Presto architecture. A driver has one input and

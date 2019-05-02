@@ -18,6 +18,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.LongArrayBlockBuilder;
+import com.facebook.presto.spi.block.PageBuilderStatus;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Double.doubleToLongBits;
@@ -75,7 +76,8 @@ public final class DoubleType
     @Override
     public long hash(Block block, int position)
     {
-        return AbstractLongType.hash(block.getLong(position, 0));
+        // convert to canonical NaN if necessary
+        return AbstractLongType.hash(doubleToLongBits(longBitsToDouble(block.getLong(position, 0))));
     }
 
     @Override
@@ -114,10 +116,10 @@ public final class DoubleType
     {
         int maxBlockSizeInBytes;
         if (blockBuilderStatus == null) {
-            maxBlockSizeInBytes = BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES;
+            maxBlockSizeInBytes = PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
         }
         else {
-            maxBlockSizeInBytes = blockBuilderStatus.getMaxBlockSizeInBytes();
+            maxBlockSizeInBytes = blockBuilderStatus.getMaxPageSizeInBytes();
         }
         return new LongArrayBlockBuilder(
                 blockBuilderStatus,
@@ -133,7 +135,7 @@ public final class DoubleType
     @Override
     public final BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
-        return new LongArrayBlockBuilder(new BlockBuilderStatus(), positionCount);
+        return new LongArrayBlockBuilder(null, positionCount);
     }
 
     @Override

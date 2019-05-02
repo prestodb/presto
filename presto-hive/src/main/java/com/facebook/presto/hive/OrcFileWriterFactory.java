@@ -15,11 +15,13 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.orc.HdfsOrcDataSource;
+import com.facebook.presto.orc.OrcDataSink;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.OrcWriterStats;
+import com.facebook.presto.orc.OutputStreamOrcDataSink;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -39,7 +41,6 @@ import org.weakref.jmx.Managed;
 import javax.inject.Inject;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
@@ -51,7 +52,11 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterMaxDictionaryMemory;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterMaxStripeRows;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterMaxStripeSize;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterMinStripeSize;
+import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterValidateMode;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStringStatisticsLimit;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
@@ -154,7 +159,7 @@ public class OrcFileWriterFactory
 
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
-            OutputStream outputStream = fileSystem.create(path);
+            OrcDataSink orcDataSink = createOrcDataSink(session, fileSystem, path);
 
             Optional<Supplier<OrcDataSource>> validationInputFactory = Optional.empty();
             if (HiveSessionProperties.isOrcOptimizedWriterValidate(session)) {
@@ -182,14 +187,17 @@ public class OrcFileWriterFactory
             };
 
             return Optional.of(new OrcFileWriter(
-                    outputStream,
+                    orcDataSink,
                     rollbackAction,
                     orcEncoding,
                     fileColumnNames,
                     fileColumnTypes,
                     compression,
                     orcWriterOptions
+                            .withStripeMinSize(getOrcOptimizedWriterMinStripeSize(session))
                             .withStripeMaxSize(getOrcOptimizedWriterMaxStripeSize(session))
+                            .withStripeMaxRowCount(getOrcOptimizedWriterMaxStripeRows(session))
+                            .withDictionaryMaxMemory(getOrcOptimizedWriterMaxDictionaryMemory(session))
                             .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session)),
                     fileInputColumnIndexes,
                     ImmutableMap.<String, String>builder()
@@ -198,11 +206,21 @@ public class OrcFileWriterFactory
                             .build(),
                     hiveStorageTimeZone,
                     validationInputFactory,
+                    getOrcOptimizedWriterValidateMode(session),
                     stats));
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating " + orcEncoding + " file", e);
         }
+    }
+
+    /**
+     * Allow subclass to replace data sink implementation.
+     */
+    protected OrcDataSink createOrcDataSink(ConnectorSession session, FileSystem fileSystem, Path path)
+            throws IOException
+    {
+        return new OutputStreamOrcDataSink(fileSystem.create(path));
     }
 
     private static CompressionKind getCompression(Properties schema, JobConf configuration, OrcEncoding orcEncoding)

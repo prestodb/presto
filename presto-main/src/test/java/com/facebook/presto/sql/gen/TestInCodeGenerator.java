@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.RowExpression;
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
@@ -23,7 +23,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static com.facebook.presto.metadata.FunctionKind.SCALAR;
+import static com.facebook.presto.metadata.CastType.CAST;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -34,7 +35,6 @@ import static com.facebook.presto.sql.gen.InCodeGenerator.SwitchGenerationCase.H
 import static com.facebook.presto.sql.gen.InCodeGenerator.SwitchGenerationCase.SET_CONTAINS;
 import static com.facebook.presto.sql.gen.InCodeGenerator.checkSwitchGenerationCase;
 import static com.facebook.presto.sql.relational.Expressions.constant;
-import static com.facebook.presto.sql.relational.Signatures.CAST;
 import static org.testng.Assert.assertEquals;
 
 public class TestInCodeGenerator
@@ -42,6 +42,7 @@ public class TestInCodeGenerator
     @Test
     public void testInteger()
     {
+        FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
         List<RowExpression> values = new ArrayList<>();
         values.add(constant(Integer.MIN_VALUE, INTEGER));
         values.add(constant(Integer.MAX_VALUE, INTEGER));
@@ -51,11 +52,7 @@ public class TestInCodeGenerator
         values.add(constant(null, INTEGER));
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
         values.add(new CallExpression(
-                new Signature(
-                        CAST,
-                        SCALAR,
-                        INTEGER.getTypeSignature(),
-                        DOUBLE.getTypeSignature()),
+                functionManager.lookupCast(CAST, DOUBLE.getTypeSignature(), INTEGER.getTypeSignature()),
                 INTEGER,
                 Collections.singletonList(constant(12345678901234.0, DOUBLE))));
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
@@ -72,6 +69,7 @@ public class TestInCodeGenerator
     @Test
     public void testBigint()
     {
+        FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
         List<RowExpression> values = new ArrayList<>();
         values.add(constant(Integer.MAX_VALUE + 1L, BIGINT));
         values.add(constant(Integer.MIN_VALUE - 1L, BIGINT));
@@ -81,11 +79,7 @@ public class TestInCodeGenerator
         values.add(constant(null, BIGINT));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
         values.add(new CallExpression(
-                new Signature(
-                        CAST,
-                        SCALAR,
-                        BIGINT.getTypeSignature(),
-                        DOUBLE.getTypeSignature()),
+                functionManager.lookupCast(CAST, DOUBLE.getTypeSignature(), BIGINT.getTypeSignature()),
                 BIGINT,
                 Collections.singletonList(constant(12345678901234.0, DOUBLE))));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);

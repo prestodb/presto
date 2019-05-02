@@ -17,16 +17,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 public interface LocalMemoryContext
 {
-    /**
-     * This method transfers the allocations from this memory context to the "to" memory context,
-     * where parent of this is a descendant of to.parent (there can be multiple AggregatedMemoryContexts between them).
-     * <p>
-     * During the transfer the implementation of this method must not reflect any state changes outside of the contexts
-     * (e.g., by calling the reservation handlers).
-     */
-    @Deprecated
-    void transferMemory(LocalMemoryContext to);
-
     long getBytes();
 
     /**
@@ -44,6 +34,7 @@ public interface LocalMemoryContext
      * This method can return false when there is not enough memory available to satisfy a positive delta allocation
      * ({@code bytes} is greater than the bytes tracked by this LocalMemoryContext).
      * <p/>
+     *
      * @return true if the bytes tracked by this LocalMemoryContext can be set to {@code bytes}.
      */
     boolean trySetBytes(long bytes);

@@ -26,29 +26,29 @@ public class LikePredicate
 {
     private final Expression value;
     private final Expression pattern;
-    private final Expression escape;
+    private final Optional<Expression> escape;
 
     public LikePredicate(Expression value, Expression pattern, Expression escape)
     {
-        this(Optional.empty(), value, pattern, escape);
+        this(Optional.empty(), value, pattern, Optional.of(escape));
     }
 
-    public LikePredicate(NodeLocation location, Expression value, Expression pattern, Expression escape)
+    public LikePredicate(NodeLocation location, Expression value, Expression pattern, Optional<Expression> escape)
     {
         this(Optional.of(location), value, pattern, escape);
     }
 
-    // TODO cleanup LikePredicate so that escape is always passed using Optional
     public LikePredicate(Expression value, Expression pattern, Optional<Expression> escape)
     {
-        this(Optional.empty(), value, pattern, requireNonNull(escape, "escape is null").isPresent() ? escape.get() : null);
+        this(Optional.empty(), value, pattern, escape);
     }
 
-    private LikePredicate(Optional<NodeLocation> location, Expression value, Expression pattern, Expression escape)
+    private LikePredicate(Optional<NodeLocation> location, Expression value, Expression pattern, Optional<Expression> escape)
     {
         super(location);
         requireNonNull(value, "value is null");
         requireNonNull(pattern, "pattern is null");
+        requireNonNull(escape, "escape is null");
 
         this.value = value;
         this.pattern = pattern;
@@ -65,7 +65,7 @@ public class LikePredicate
         return pattern;
     }
 
-    public Expression getEscape()
+    public Optional<Expression> getEscape()
     {
         return escape;
     }
@@ -83,9 +83,7 @@ public class LikePredicate
                 .add(value)
                 .add(pattern);
 
-        if (escape != null) {
-            result.add(escape);
-        }
+        escape.ifPresent(result::add);
 
         return result.build();
     }

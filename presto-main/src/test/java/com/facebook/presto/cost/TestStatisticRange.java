@@ -17,6 +17,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.cost.EstimateAssertion.assertEstimateEquals;
 import static java.lang.Double.NEGATIVE_INFINITY;
+import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static org.testng.Assert.assertEquals;
 
@@ -52,6 +53,10 @@ public class TestStatisticRange
         // Unbounded (infinite), NDV-based
         assertOverlap(unboundedRange(10), unboundedRange(20), 1);
         assertOverlap(unboundedRange(20), unboundedRange(10), 0.5);
+
+        assertOverlap(unboundedRange(0.1), unboundedRange(1), 1);
+        assertOverlap(unboundedRange(0.0), unboundedRange(1), 0);
+        assertOverlap(unboundedRange(0.0), unboundedRange(0), 0);
     }
 
     @Test
@@ -60,6 +65,43 @@ public class TestStatisticRange
         StatisticRange zeroToTen = range(0, 10, 10);
         StatisticRange fiveToFifteen = range(5, 15, 60);
         assertEquals(zeroToTen.intersect(fiveToFifteen), range(5, 10, 10));
+    }
+
+    @Test
+    public void testAddAndSumDistinctValues()
+    {
+        assertEquals(unboundedRange(NaN).addAndSumDistinctValues(unboundedRange(NaN)), unboundedRange(NaN));
+        assertEquals(unboundedRange(NaN).addAndSumDistinctValues(unboundedRange(1)), unboundedRange(NaN));
+        assertEquals(unboundedRange(1).addAndSumDistinctValues(unboundedRange(NaN)), unboundedRange(NaN));
+        assertEquals(unboundedRange(1).addAndSumDistinctValues(unboundedRange(2)), unboundedRange(3));
+        assertEquals(StatisticRange.empty().addAndSumDistinctValues(StatisticRange.empty()), StatisticRange.empty());
+        assertEquals(range(0, 1, 1).addAndSumDistinctValues(StatisticRange.empty()), range(0, 1, 1));
+        assertEquals(range(0, 1, 1).addAndSumDistinctValues(range(1, 2, 1)), range(0, 2, 2));
+    }
+
+    @Test
+    public void testAddAndMaxDistinctValues()
+    {
+        assertEquals(unboundedRange(NaN).addAndMaxDistinctValues(unboundedRange(NaN)), unboundedRange(NaN));
+        assertEquals(unboundedRange(NaN).addAndMaxDistinctValues(unboundedRange(1)), unboundedRange(NaN));
+        assertEquals(unboundedRange(1).addAndMaxDistinctValues(unboundedRange(NaN)), unboundedRange(NaN));
+        assertEquals(unboundedRange(1).addAndMaxDistinctValues(unboundedRange(2)), unboundedRange(2));
+        assertEquals(StatisticRange.empty().addAndMaxDistinctValues(StatisticRange.empty()), StatisticRange.empty());
+        assertEquals(range(0, 1, 1).addAndMaxDistinctValues(StatisticRange.empty()), range(0, 1, 1));
+        assertEquals(range(0, 1, 1).addAndMaxDistinctValues(range(1, 2, 1)), range(0, 2, 1));
+    }
+
+    @Test
+    public void testAddAndCollapseDistinctValues()
+    {
+        assertEquals(unboundedRange(NaN).addAndCollapseDistinctValues(unboundedRange(NaN)), unboundedRange(NaN));
+        assertEquals(unboundedRange(NaN).addAndCollapseDistinctValues(unboundedRange(1)), unboundedRange(NaN));
+        assertEquals(unboundedRange(1).addAndCollapseDistinctValues(unboundedRange(NaN)), unboundedRange(NaN));
+        assertEquals(unboundedRange(1).addAndCollapseDistinctValues(unboundedRange(2)), unboundedRange(2));
+        assertEquals(StatisticRange.empty().addAndCollapseDistinctValues(StatisticRange.empty()), StatisticRange.empty());
+        assertEquals(range(0, 1, 1).addAndCollapseDistinctValues(StatisticRange.empty()), range(0, 1, 1));
+        assertEquals(range(0, 1, 1).addAndCollapseDistinctValues(range(1, 2, 1)), range(0, 2, 1));
+        assertEquals(range(0, 3, 3).addAndCollapseDistinctValues(range(2, 6, 4)), range(0, 6, 6));
     }
 
     private static StatisticRange range(double low, double high, double distinctValues)

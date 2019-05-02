@@ -14,22 +14,27 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.PolymorphicScalarFunctionBuilder;
+import com.facebook.presto.metadata.SignatureBuilder;
 import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.metadata.SqlScalarFunctionBuilder;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
-import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.metadata.SqlScalarFunctionBuilder.constant;
+import static com.facebook.presto.metadata.PolymorphicScalarFunctionBuilder.constant;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
@@ -43,6 +48,8 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.compare;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static java.util.Arrays.asList;
 
 public class DecimalInequalityOperators
 {
@@ -55,12 +62,12 @@ public class DecimalInequalityOperators
     private static final MethodHandle IS_RESULT_GREATER_THAN = methodHandle(DecimalInequalityOperators.class, "isResultGreaterThan", int.class);
     private static final MethodHandle IS_RESULT_GREATER_THAN_OR_EQUAL = methodHandle(DecimalInequalityOperators.class, "isResultGreaterThanOrEqual", int.class);
 
-    public static final SqlScalarFunction DECIMAL_EQUAL_OPERATOR = binaryOperator(EQUAL, IS_RESULT_EQUAL);
-    public static final SqlScalarFunction DECIMAL_NOT_EQUAL_OPERATOR = binaryOperator(NOT_EQUAL, IS_RESULT_NOT_EQUAL);
-    public static final SqlScalarFunction DECIMAL_LESS_THAN_OPERATOR = binaryOperator(LESS_THAN, IS_RESULT_LESS_THAN);
-    public static final SqlScalarFunction DECIMAL_LESS_THAN_OR_EQUAL_OPERATOR = binaryOperator(LESS_THAN_OR_EQUAL, IS_RESULT_LESS_THAN_OR_EQUAL);
-    public static final SqlScalarFunction DECIMAL_GREATER_THAN_OPERATOR = binaryOperator(GREATER_THAN, IS_RESULT_GREATER_THAN);
-    public static final SqlScalarFunction DECIMAL_GREATER_THAN_OR_EQUAL_OPERATOR = binaryOperator(GREATER_THAN_OR_EQUAL, IS_RESULT_GREATER_THAN_OR_EQUAL);
+    public static final SqlScalarFunction DECIMAL_EQUAL_OPERATOR = equalityOperator(EQUAL, IS_RESULT_EQUAL);
+    public static final SqlScalarFunction DECIMAL_NOT_EQUAL_OPERATOR = equalityOperator(NOT_EQUAL, IS_RESULT_NOT_EQUAL);
+    public static final SqlScalarFunction DECIMAL_LESS_THAN_OPERATOR = comparisonOperator(LESS_THAN, IS_RESULT_LESS_THAN);
+    public static final SqlScalarFunction DECIMAL_LESS_THAN_OR_EQUAL_OPERATOR = comparisonOperator(LESS_THAN_OR_EQUAL, IS_RESULT_LESS_THAN_OR_EQUAL);
+    public static final SqlScalarFunction DECIMAL_GREATER_THAN_OPERATOR = comparisonOperator(GREATER_THAN, IS_RESULT_GREATER_THAN);
+    public static final SqlScalarFunction DECIMAL_GREATER_THAN_OR_EQUAL_OPERATOR = comparisonOperator(GREATER_THAN_OR_EQUAL, IS_RESULT_GREATER_THAN_OR_EQUAL);
     public static final SqlScalarFunction DECIMAL_BETWEEN_OPERATOR = betweenOperator();
     public static final SqlScalarFunction DECIMAL_DISTINCT_FROM_OPERATOR = distinctOperator();
 
@@ -102,9 +109,9 @@ public class DecimalInequalityOperators
         return comparisonResult >= 0;
     }
 
-    private static SqlScalarFunctionBuilder makeBinaryOperatorFunctionBuilder(OperatorType operatorType)
+    private static PolymorphicScalarFunctionBuilder makeBinaryOperatorFunctionBuilder(OperatorType operatorType)
     {
-        Signature signature = Signature.builder()
+        Signature signature = SignatureBuilder.builder()
                 .kind(SCALAR)
                 .operatorType(operatorType)
                 .argumentTypes(DECIMAL_SIGNATURE, DECIMAL_SIGNATURE)
@@ -115,23 +122,49 @@ public class DecimalInequalityOperators
                 .deterministic(true);
     }
 
-    private static SqlScalarFunction binaryOperator(OperatorType operatorType, MethodHandle getResultMethodHandle)
+    private static SqlScalarFunction equalityOperator(OperatorType operatorType, MethodHandle getResultMethodHandle)
     {
         return makeBinaryOperatorFunctionBuilder(operatorType)
-                .implementation(b -> b
-                        .methods("opShortShort", "opLongLong")
-                        .withExtraParameters(constant(getResultMethodHandle)))
+                .choice(choice -> choice
+                        .nullableResult(true)
+                        .implementation(methodsGroup -> methodsGroup
+                                .methods("boxedShortShort", "boxedLongLong")
+                                .withExtraParameters(constant(getResultMethodHandle))))
+                .build();
+    }
+
+    private static SqlScalarFunction comparisonOperator(OperatorType operatorType, MethodHandle getResultMethodHandle)
+    {
+        return makeBinaryOperatorFunctionBuilder(operatorType)
+                .choice(choice -> choice
+                        .implementation(methodsGroup -> methodsGroup
+                                .methods("primitiveShortShort", "primitiveLongLong")
+                                .withExtraParameters(constant(getResultMethodHandle))))
                 .build();
     }
 
     @UsedByGeneratedCode
-    public static boolean opShortShort(long a, long b, MethodHandle getResultMethodHandle)
+    public static Boolean boxedShortShort(long a, long b, MethodHandle getResultMethodHandle)
     {
         return invokeGetResult(getResultMethodHandle, Long.compare(a, b));
     }
 
     @UsedByGeneratedCode
-    public static boolean opLongLong(Slice left, Slice right, MethodHandle getResultMethodHandle)
+    public static Boolean boxedLongLong(Slice left, Slice right, MethodHandle getResultMethodHandle)
+    {
+        return invokeGetResult(getResultMethodHandle, compare(left, right));
+    }
+
+    @UsedByGeneratedCode
+    //TODO: remove when introducing nullable comparisons (<=, <, >, >=)
+    public static boolean primitiveShortShort(long a, long b, MethodHandle getResultMethodHandle)
+    {
+        return invokeGetResult(getResultMethodHandle, Long.compare(a, b));
+    }
+
+    @UsedByGeneratedCode
+    //TODO: remove when introducing nullable comparisons (<=, <, >, >=)
+    public static boolean primitiveLongLong(Slice left, Slice right, MethodHandle getResultMethodHandle)
     {
         return invokeGetResult(getResultMethodHandle, compare(left, right));
     }
@@ -139,12 +172,54 @@ public class DecimalInequalityOperators
     private static SqlScalarFunction distinctOperator()
     {
         return makeBinaryOperatorFunctionBuilder(IS_DISTINCT_FROM)
-                .argumentProperties(
-                        valueTypeArgumentProperty(USE_NULL_FLAG),
-                        valueTypeArgumentProperty(USE_NULL_FLAG))
-                .implementation(b -> b
-                        .methods("distinctShortShort", "distinctLongLong"))
+                .choice(choice -> choice
+                        .argumentProperties(
+                                valueTypeArgumentProperty(USE_NULL_FLAG),
+                                valueTypeArgumentProperty(USE_NULL_FLAG))
+                        .implementation(methodsGroup -> methodsGroup
+                                .methods("distinctShortShort", "distinctLongLong")))
+                .choice(choice -> choice
+                        .argumentProperties(
+                                valueTypeArgumentProperty(BLOCK_AND_POSITION),
+                                valueTypeArgumentProperty(BLOCK_AND_POSITION))
+                        .implementation(methodsGroup -> methodsGroup
+                                .methodWithExplicitJavaTypes("distinctBlockPositionLongLong",
+                                        asList(Optional.of(Slice.class), Optional.of(Slice.class)))
+                                .methodWithExplicitJavaTypes("distinctBlockPositionShortShort",
+                                        asList(Optional.of(long.class), Optional.of(long.class)))))
                 .build();
+    }
+
+    @UsedByGeneratedCode
+    public static boolean distinctBlockPositionLongLong(Block left, int leftPosition, Block right, int rightPosition)
+    {
+        if (left.isNull(leftPosition) != right.isNull(rightPosition)) {
+            return true;
+        }
+        if (left.isNull(leftPosition)) {
+            return false;
+        }
+
+        long leftLow = left.getLong(leftPosition, 0);
+        long leftHigh = left.getLong(leftPosition, SIZE_OF_LONG);
+        long rightLow = left.getLong(rightPosition, 0);
+        long rightHigh = left.getLong(rightPosition, SIZE_OF_LONG);
+        return UnscaledDecimal128Arithmetic.compare(leftLow, leftHigh, rightLow, rightHigh) != 0;
+    }
+
+    @UsedByGeneratedCode
+    public static boolean distinctBlockPositionShortShort(Block left, int leftPosition, Block right, int rightPosition)
+    {
+        if (left.isNull(leftPosition) != right.isNull(rightPosition)) {
+            return true;
+        }
+        if (left.isNull(leftPosition)) {
+            return false;
+        }
+
+        long leftValue = left.getLong(leftPosition, 0);
+        long rightValue = right.getLong(rightPosition, 0);
+        return Long.compare(leftValue, rightValue) != 0;
     }
 
     @UsedByGeneratedCode
@@ -156,7 +231,7 @@ public class DecimalInequalityOperators
         if (leftNull) {
             return false;
         }
-        return opShortShort(left, right, IS_RESULT_NOT_EQUAL);
+        return primitiveShortShort(left, right, IS_RESULT_NOT_EQUAL);
     }
 
     @UsedByGeneratedCode
@@ -168,7 +243,7 @@ public class DecimalInequalityOperators
         if (leftNull) {
             return false;
         }
-        return opLongLong(left, right, IS_RESULT_NOT_EQUAL);
+        return primitiveLongLong(left, right, IS_RESULT_NOT_EQUAL);
     }
 
     private static boolean invokeGetResult(MethodHandle getResultMethodHandle, int comparisonResult)
@@ -185,7 +260,7 @@ public class DecimalInequalityOperators
 
     private static SqlScalarFunction betweenOperator()
     {
-        Signature signature = Signature.builder()
+        Signature signature = SignatureBuilder.builder()
                 .kind(SCALAR)
                 .operatorType(BETWEEN)
                 .argumentTypes(DECIMAL_SIGNATURE, DECIMAL_SIGNATURE, DECIMAL_SIGNATURE)
@@ -194,8 +269,9 @@ public class DecimalInequalityOperators
         return SqlScalarFunction.builder(DecimalInequalityOperators.class)
                 .signature(signature)
                 .deterministic(true)
-                .implementation(b -> b
-                        .methods("betweenShortShortShort", "betweenLongLongLong"))
+                .choice(choice -> choice
+                        .implementation(methodsGroup -> methodsGroup
+                                .methods("betweenShortShortShort", "betweenLongLongLong")))
                 .build();
     }
 

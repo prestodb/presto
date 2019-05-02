@@ -91,6 +91,7 @@ public class TestProgressMonitor
                 data,
                 new StatementStats(state, state.equals("QUEUED"), true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
                 null,
+                ImmutableList.of(),
                 null,
                 null);
 

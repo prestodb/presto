@@ -15,7 +15,6 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.SqlDate;
 
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -30,7 +29,7 @@ public class TestDateType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = DATE.createBlockBuilder(new BlockBuilderStatus(), 15);
+        BlockBuilder blockBuilder = DATE.createBlockBuilder(null, 15);
         DATE.writeLong(blockBuilder, 1111);
         DATE.writeLong(blockBuilder, 1111);
         DATE.writeLong(blockBuilder, 1111);

@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.198</version>
+        <version>0.219</version>
     </parent>
 
     <artifactId>presto-ml</artifactId>
@@ -22,13 +22,13 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.thirdparty</groupId>
-            <artifactId>libsvm</artifactId>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-parser</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
+            <groupId>com.facebook.thirdparty</groupId>
+            <artifactId>libsvm</artifactId>
         </dependency>
 
         <dependency>

@@ -15,73 +15,106 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 
-import java.util.Map;
-import java.util.OptionalLong;
+import javax.annotation.concurrent.Immutable;
 
+import java.util.Map;
+import java.util.Objects;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class PartitionStatistics
 {
-    public static final PartitionStatistics EMPTY_STATISTICS = new PartitionStatistics(
-            false,
-            OptionalLong.empty(),
-            OptionalLong.empty(),
-            OptionalLong.empty(),
-            OptionalLong.empty(),
-            ImmutableMap.of());
+    private static final PartitionStatistics EMPTY = new PartitionStatistics(HiveBasicStatistics.createEmptyStatistics(), ImmutableMap.of());
 
-    private final boolean columnStatsAcurate;
-    private final OptionalLong fileCount;
-    private final OptionalLong rowCount;
-    private final OptionalLong rawDataSize;
-    private final OptionalLong totalSize;
+    private final HiveBasicStatistics basicStatistics;
     private final Map<String, HiveColumnStatistics> columnStatistics;
 
-    public PartitionStatistics(
-            boolean columnStatsAcurate,
-            OptionalLong fileCount,
-            OptionalLong rowCount,
-            OptionalLong rawDataSize,
-            OptionalLong totalSize,
-            Map<String, HiveColumnStatistics> columnStatistics)
+    public static PartitionStatistics empty()
     {
-        this.columnStatsAcurate = columnStatsAcurate;
-        this.fileCount = fileCount;
-        this.rowCount = rowCount;
-        this.rawDataSize = rawDataSize;
-        this.totalSize = totalSize;
+        return EMPTY;
+    }
+
+    @JsonCreator
+    public PartitionStatistics(
+            @JsonProperty("basicStatistics") HiveBasicStatistics basicStatistics,
+            @JsonProperty("columnStatistics") Map<String, HiveColumnStatistics> columnStatistics)
+    {
+        this.basicStatistics = requireNonNull(basicStatistics, "basicStatistics is null");
         this.columnStatistics = ImmutableMap.copyOf(requireNonNull(columnStatistics, "columnStatistics can not be null"));
     }
 
-    public boolean isColumnStatsAcurate()
+    @JsonProperty
+    public HiveBasicStatistics getBasicStatistics()
     {
-        return columnStatsAcurate;
+        return basicStatistics;
     }
 
-    public OptionalLong getFileCount()
-    {
-        return fileCount;
-    }
-
-    public OptionalLong getRowCount()
-    {
-        return rowCount;
-    }
-
-    public OptionalLong getRawDataSize()
-    {
-        return rawDataSize;
-    }
-
-    public OptionalLong getTotalSize()
-    {
-        return totalSize;
-    }
-
+    @JsonProperty
     public Map<String, HiveColumnStatistics> getColumnStatistics()
     {
         return columnStatistics;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        PartitionStatistics that = (PartitionStatistics) o;
+        return Objects.equals(basicStatistics, that.basicStatistics) &&
+                Objects.equals(columnStatistics, that.columnStatistics);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(basicStatistics, columnStatistics);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("basicStatistics", basicStatistics)
+                .add("columnStatistics", columnStatistics)
+                .toString();
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static class Builder
+    {
+        private HiveBasicStatistics basicStatistics = HiveBasicStatistics.createEmptyStatistics();
+        private Map<String, HiveColumnStatistics> columnStatistics = ImmutableMap.of();
+
+        public Builder setBasicStatistics(HiveBasicStatistics basicStatistics)
+        {
+            this.basicStatistics = requireNonNull(basicStatistics, "basicStatistics is null");
+            return this;
+        }
+
+        public Builder setColumnStatistics(Map<String, HiveColumnStatistics> columnStatistics)
+        {
+            this.columnStatistics = ImmutableMap.copyOf(requireNonNull(columnStatistics, "columnStatistics is null"));
+            return this;
+        }
+
+        public PartitionStatistics build()
+        {
+            return new PartitionStatistics(basicStatistics, columnStatistics);
+        }
     }
 }

@@ -13,12 +13,16 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.LongVariableConstraint;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.TypeVariableConstraint;
 import com.facebook.presto.spi.type.TypeSignature;
 
 import java.util.List;
 
-import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
+import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
 
 public abstract class SqlOperator
         extends SqlScalarFunction

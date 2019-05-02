@@ -16,13 +16,11 @@ package com.facebook.presto.tests.hive;
 import io.prestodb.tempto.fulfillment.table.TableDefinitionsRepository;
 import io.prestodb.tempto.fulfillment.table.hive.HiveDataSource;
 import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
-import io.prestodb.tempto.query.QueryExecutor;
 
 import java.util.Locale;
 import java.util.Optional;
-import java.util.concurrent.ThreadLocalRandom;
 
-import static io.prestodb.tempto.context.ThreadLocalTestContextHolder.testContext;
+import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
 import static io.prestodb.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 import static java.lang.String.format;
 
@@ -132,7 +130,7 @@ public final class AllSimpleTypesTableDefinitions
 
     private static HiveDataSource getTextFileDataSource()
     {
-        return createResourceDataSource(format(tableNameFormat, "textfile"), String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/all_types/data.textfile");
+        return createResourceDataSource(format(tableNameFormat, "textfile"), "com/facebook/presto/tests/hive/data/all_types/data.textfile");
     }
 
     public static void populateDataToHiveTable(String tableName)
@@ -140,10 +138,5 @@ public final class AllSimpleTypesTableDefinitions
         onHive().executeQuery(format("INSERT INTO TABLE %s SELECT * FROM %s",
                 tableName,
                 format(tableNameFormat, "textfile")));
-    }
-
-    public static QueryExecutor onHive()
-    {
-        return testContext().getDependency(QueryExecutor.class, "hive");
     }
 }

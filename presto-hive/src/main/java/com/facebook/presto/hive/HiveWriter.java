@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
+import com.facebook.presto.hive.PartitionUpdate.UpdateMode;
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 
@@ -20,37 +22,40 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class HiveWriter
 {
     private final HiveFileWriter fileWriter;
     private final Optional<String> partitionName;
-    private final boolean isNew;
-    private final String fileName;
+    private final UpdateMode updateMode;
+    private final FileWriteInfo fileWriteInfo;
     private final String writePath;
     private final String targetPath;
     private final Consumer<HiveWriter> onCommit;
     private final HiveWriterStats hiveWriterStats;
 
     private long rowCount;
+    private long inputSizeInBytes;
 
-    public HiveWriter(HiveFileWriter fileWriter,
+    public HiveWriter(
+            HiveFileWriter fileWriter,
             Optional<String> partitionName,
-            boolean isNew,
-            String fileName,
+            UpdateMode updateMode,
+            FileWriteInfo fileWriteInfo,
             String writePath,
             String targetPath,
             Consumer<HiveWriter> onCommit,
             HiveWriterStats hiveWriterStats)
     {
-        this.fileWriter = fileWriter;
-        this.partitionName = partitionName;
-        this.isNew = isNew;
-        this.fileName = fileName;
-        this.writePath = writePath;
-        this.targetPath = targetPath;
-        this.onCommit = onCommit;
-        this.hiveWriterStats = hiveWriterStats;
+        this.fileWriter = requireNonNull(fileWriter, "fileWriter is null");
+        this.partitionName = requireNonNull(partitionName, "partitionName is null");
+        this.updateMode = requireNonNull(updateMode, "updateMode is null");
+        this.fileWriteInfo = requireNonNull(fileWriteInfo, "fileWriteInfo is null");
+        this.writePath = requireNonNull(writePath, "writePath is null");
+        this.targetPath = requireNonNull(targetPath, "targetPath is null");
+        this.onCommit = requireNonNull(onCommit, "onCommit is null");
+        this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
     }
 
     public long getWrittenBytes()
@@ -74,12 +79,18 @@ public class HiveWriter
         hiveWriterStats.addInputPageSizesInBytes(dataPage.getRetainedSizeInBytes());
         fileWriter.appendRows(dataPage);
         rowCount += dataPage.getPositionCount();
+        inputSizeInBytes += dataPage.getSizeInBytes();
     }
 
     public void commit()
     {
         fileWriter.commit();
         onCommit.accept(this);
+    }
+
+    long getValidationCpuNanos()
+    {
+        return fileWriter.getValidationCpuNanos();
     }
 
     public Optional<Runnable> getVerificationTask()
@@ -96,10 +107,13 @@ public class HiveWriter
     {
         return new PartitionUpdate(
                 partitionName.orElse(""),
-                isNew,
+                updateMode,
                 writePath,
                 targetPath,
-                ImmutableList.of(fileName));
+                ImmutableList.of(fileWriteInfo),
+                rowCount,
+                inputSizeInBytes,
+                fileWriter.getWrittenBytes());
     }
 
     @Override
@@ -107,7 +121,8 @@ public class HiveWriter
     {
         return toStringHelper(this)
                 .add("fileWriter", fileWriter)
-                .add("filePath", writePath + "/" + fileName)
+                .add("writeFilePath", writePath + "/" + fileWriteInfo.getWriteFileName())
+                .add("targetFilePath", writePath + "/" + fileWriteInfo.getTargetFileName())
                 .toString();
     }
 }

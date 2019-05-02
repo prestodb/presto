@@ -15,9 +15,12 @@ package com.facebook.presto.testing;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.split.PageSourceManager;
+import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.transaction.TransactionManager;
@@ -42,6 +45,10 @@ public interface QueryRunner
 
     Metadata getMetadata();
 
+    SplitManager getSplitManager();
+
+    PageSourceManager getPageSourceManager();
+
     NodePartitioningManager getNodePartitioningManager();
 
     StatsCalculator getStatsCalculator();
@@ -52,7 +59,12 @@ public interface QueryRunner
 
     MaterializedResult execute(Session session, @Language("SQL") String sql);
 
-    default Plan createPlan(Session session, @Language("SQL") String sql)
+    default MaterializedResultWithPlan executeWithPlan(Session session, @Language("SQL") String sql, WarningCollector warningCollector)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default Plan createPlan(Session session, @Language("SQL") String sql, WarningCollector warningCollector)
     {
         throw new UnsupportedOperationException();
     }
@@ -66,4 +78,26 @@ public interface QueryRunner
     void createCatalog(String catalogName, String connectorName, Map<String, String> properties);
 
     Lock getExclusiveLock();
+
+    class MaterializedResultWithPlan
+    {
+        private final MaterializedResult materializedResult;
+        private final Plan queryPlan;
+
+        public MaterializedResultWithPlan(MaterializedResult materializedResult, Plan queryPlan)
+        {
+            this.materializedResult = materializedResult;
+            this.queryPlan = queryPlan;
+        }
+
+        public MaterializedResult getMaterializedResult()
+        {
+            return materializedResult;
+        }
+
+        public Plan getQueryPlan()
+        {
+            return queryPlan;
+        }
+    }
 }

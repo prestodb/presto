@@ -1,0 +1,31 @@
+remote exchange (GATHER, SINGLE, [])
+    local exchange (GATHER, UNKNOWN, [])
+        remote exchange (REPARTITION, ROUND_ROBIN, [])
+            semijoin (PARTITIONED):
+                remote exchange (REPARTITION, HASH, ["suppkey"])
+                    join (INNER, REPLICATED):
+                        scan supplier
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPLICATE, BROADCAST, [])
+                                scan nation
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPARTITION, HASH, ["suppkey_4"])
+                        cross join:
+                            join (LEFT, PARTITIONED):
+                                semijoin (PARTITIONED):
+                                    remote exchange (REPARTITION, HASH, ["partkey"])
+                                        scan partsupp
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPARTITION, HASH, ["partkey_8"])
+                                            scan part
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["partkey_18"])
+                                        final aggregation over (partkey_18, suppkey_19)
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPARTITION, HASH, ["partkey_18", "suppkey_19"])
+                                                    partial aggregation over (partkey_18, suppkey_19)
+                                                        scan lineitem
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    single aggregation over ()
+                                        values (1 rows)

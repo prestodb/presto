@@ -1,0 +1,27 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        local exchange (GATHER, SINGLE, [])
+            remote exchange (REPARTITION, HASH, ["expr_77"])
+                join (FULL, PARTITIONED):
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, ["ws_item_sk"])
+                            final aggregation over (d_date, ws_item_sk)
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["d_date", "ws_item_sk"])
+                                        partial aggregation over (d_date, ws_item_sk)
+                                            join (INNER, REPLICATED):
+                                                scan web_sales
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        scan date_dim
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, ["ss_item_sk"])
+                            final aggregation over (d_date_23, ss_item_sk)
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["d_date_23", "ss_item_sk"])
+                                        partial aggregation over (d_date_23, ss_item_sk)
+                                            join (INNER, REPLICATED):
+                                                scan store_sales
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        scan date_dim

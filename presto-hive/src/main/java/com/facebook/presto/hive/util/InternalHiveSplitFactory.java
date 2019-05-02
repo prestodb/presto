@@ -15,9 +15,11 @@ package com.facebook.presto.hive.util;
 
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePartitionKey;
+import com.facebook.presto.hive.HiveSplit.BucketConversion;
 import com.facebook.presto.hive.HiveTypeName;
 import com.facebook.presto.hive.InternalHiveSplit;
 import com.facebook.presto.hive.InternalHiveSplit.InternalHiveBlock;
+import com.facebook.presto.hive.S3SelectPushdown;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -55,7 +57,9 @@ public class InternalHiveSplitFactory
     private final List<HivePartitionKey> partitionKeys;
     private final Optional<Domain> pathDomain;
     private final Map<Integer, HiveTypeName> columnCoercions;
+    private final Optional<BucketConversion> bucketConversion;
     private final boolean forceLocalScheduling;
+    private final boolean s3SelectPushdownEnabled;
 
     public InternalHiveSplitFactory(
             FileSystem fileSystem,
@@ -65,7 +69,9 @@ public class InternalHiveSplitFactory
             List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             Map<Integer, HiveTypeName> columnCoercions,
-            boolean forceLocalScheduling)
+            Optional<BucketConversion> bucketConversion,
+            boolean forceLocalScheduling,
+            boolean s3SelectPushdownEnabled)
     {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
@@ -74,7 +80,9 @@ public class InternalHiveSplitFactory
         this.partitionKeys = requireNonNull(partitionKeys, "partitionKeys is null");
         pathDomain = getPathDomain(requireNonNull(effectivePredicate, "effectivePredicate is null"));
         this.columnCoercions = requireNonNull(columnCoercions, "columnCoercions is null");
+        this.bucketConversion = requireNonNull(bucketConversion, "bucketConversion is null");
         this.forceLocalScheduling = forceLocalScheduling;
+        this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
     }
 
     public String getPartitionName()
@@ -82,26 +90,28 @@ public class InternalHiveSplitFactory
         return partitionName;
     }
 
-    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status)
+    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, boolean splittable)
     {
-        return createInternalHiveSplit(status, OptionalInt.empty());
+        return createInternalHiveSplit(status, OptionalInt.empty(), OptionalInt.empty(), splittable);
     }
 
-    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, int bucketNumber)
+    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, int readBucketNumber, int tableBucketNumber)
     {
-        return createInternalHiveSplit(status, OptionalInt.of(bucketNumber));
+        return createInternalHiveSplit(status, OptionalInt.of(readBucketNumber), OptionalInt.of(tableBucketNumber), false);
     }
 
-    private Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, OptionalInt bucketNumber)
+    private Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, OptionalInt readBucketNumber, OptionalInt tableBucketNumber, boolean splittable)
     {
+        splittable = splittable && isSplittable(inputFormat, fileSystem, status.getPath());
         return createInternalHiveSplit(
                 status.getPath(),
                 status.getBlockLocations(),
                 0,
                 status.getLen(),
                 status.getLen(),
-                bucketNumber,
-                isSplittable(inputFormat, fileSystem, status.getPath()));
+                readBucketNumber,
+                tableBucketNumber,
+                splittable);
     }
 
     public Optional<InternalHiveSplit> createInternalHiveSplit(FileSplit split)
@@ -115,6 +125,7 @@ public class InternalHiveSplitFactory
                 split.getLength(),
                 file.getLen(),
                 OptionalInt.empty(),
+                OptionalInt.empty(),
                 false);
     }
 
@@ -124,7 +135,8 @@ public class InternalHiveSplitFactory
             long start,
             long length,
             long fileSize,
-            OptionalInt bucketNumber,
+            OptionalInt readBucketNumber,
+            OptionalInt tableBucketNumber,
             boolean splittable)
     {
         String pathString = path.toString();
@@ -175,10 +187,13 @@ public class InternalHiveSplitFactory
                 schema,
                 partitionKeys,
                 blocks,
-                bucketNumber,
+                readBucketNumber,
+                tableBucketNumber,
                 splittable,
                 forceLocalScheduling && allBlocksHaveRealAddress(blocks),
-                columnCoercions));
+                columnCoercions,
+                bucketConversion,
+                s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(inputFormat, path)));
     }
 
     private static void checkBlocks(List<InternalHiveBlock> blocks, long start, long length)

@@ -19,8 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -74,7 +72,7 @@ public class TestMapZipWithFunction
                         "map(ARRAY ['a', 'b', 'c'], ARRAY [1, 2, 3]), " +
                         "map(ARRAY ['b', 'c', 'd', 'e'], ARRAY ['x', 'y', 'z', null]), " +
                         "(k, v1, v2) -> (v1, v2))",
-                mapType(createVarcharType(1), new RowType(ImmutableList.of(INTEGER, createVarcharType(1)), Optional.empty())),
+                mapType(createVarcharType(1), RowType.anonymous(ImmutableList.of(INTEGER, createVarcharType(1)))),
                 ImmutableMap.of(
                         "a", asList(1, null),
                         "b", ImmutableList.of(2, "x"),

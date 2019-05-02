@@ -1,0 +1,16 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        final aggregation over (ss_customer_sk)
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["ss_customer_sk"])
+                    partial aggregation over (ss_customer_sk)
+                        join (INNER, REPLICATED):
+                            join (LEFT, PARTITIONED):
+                                remote exchange (REPARTITION, HASH, ["ss_item_sk", "ss_ticket_number"])
+                                    scan store_sales
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["sr_item_sk", "sr_ticket_number"])
+                                        scan store_returns
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    scan reason

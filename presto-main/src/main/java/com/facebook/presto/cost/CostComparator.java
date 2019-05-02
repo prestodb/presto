@@ -46,25 +46,27 @@ public class CostComparator
         this.networkWeight = networkWeight;
     }
 
-    public Ordering<PlanNodeCostEstimate> forSession(Session session)
+    public Ordering<PlanCostEstimate> forSession(Session session)
     {
         requireNonNull(session, "session is null");
         return Ordering.from((left, right) -> this.compare(session, left, right));
     }
 
-    public int compare(Session session, PlanNodeCostEstimate left, PlanNodeCostEstimate right)
+    public int compare(Session session, PlanCostEstimate left, PlanCostEstimate right)
     {
         requireNonNull(session, "session is null");
         requireNonNull(left, "left is null");
         requireNonNull(right, "right is null");
         checkArgument(!left.hasUnknownComponents() && !right.hasUnknownComponents(), "cannot compare unknown costs");
 
+        // TODO when one left.getMaxMemory() and right.getMaxMemory() exceeds query memory limit * configurable safety margin, choose the plan with lower memory usage
+
         double leftCost = left.getCpuCost() * cpuWeight
-                + left.getMemoryCost() * memoryWeight
+                + left.getMaxMemory() * memoryWeight
                 + left.getNetworkCost() * networkWeight;
 
         double rightCost = right.getCpuCost() * cpuWeight
-                + right.getMemoryCost() * memoryWeight
+                + right.getMaxMemory() * memoryWeight
                 + right.getNetworkCost() * networkWeight;
 
         return Double.compare(leftCost, rightCost);

@@ -16,20 +16,61 @@ package com.facebook.presto.type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.AbstractFixedWidthType;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.ByteArrayBlockBuilder;
+import com.facebook.presto.spi.block.PageBuilderStatus;
+import com.facebook.presto.spi.type.AbstractType;
+import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.TypeSignature;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class UnknownType
-        extends AbstractFixedWidthType
+        extends AbstractType
+        implements FixedWidthType
 {
     public static final UnknownType UNKNOWN = new UnknownType();
     public static final String NAME = "unknown";
 
     private UnknownType()
     {
-        super(new TypeSignature(NAME), void.class, 0);
+        // We never access the native container for UNKNOWN because its null check is always true.
+        // The actual native container type does not matter here.
+        // We choose boolean to represent UNKNOWN because it's the smallest primitive type.
+        super(new TypeSignature(NAME), boolean.class);
+    }
+
+    @Override
+    public int getFixedSize()
+    {
+        return Byte.BYTES;
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    {
+        int maxBlockSizeInBytes;
+        if (blockBuilderStatus == null) {
+            maxBlockSizeInBytes = PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
+        }
+        else {
+            maxBlockSizeInBytes = blockBuilderStatus.getMaxPageSizeInBytes();
+        }
+        return new ByteArrayBlockBuilder(
+                blockBuilderStatus,
+                Math.min(expectedEntries, maxBlockSizeInBytes / getFixedSize()));
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        return createBlockBuilder(blockBuilderStatus, expectedEntries, getFixedSize());
+    }
+
+    @Override
+    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
+    {
+        return new ByteArrayBlockBuilder(null, positionCount);
     }
 
     @Override
@@ -81,6 +122,25 @@ public final class UnknownType
     @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
+        blockBuilder.appendNull();
+    }
+
+    @Override
+    public boolean getBoolean(Block block, int position)
+    {
+        // Ideally, this function should never be invoked for unknown type.
+        // However, some logic rely on having a default value before the null check.
+        checkArgument(block.isNull(position));
+        return false;
+    }
+
+    @Deprecated
+    @Override
+    public void writeBoolean(BlockBuilder blockBuilder, boolean value)
+    {
+        // Ideally, this function should never be invoked for unknown type.
+        // However, some logic (e.g. AbstractMinMaxBy) rely on writing a default value before the null check.
+        checkArgument(!value);
         blockBuilder.appendNull();
     }
 }

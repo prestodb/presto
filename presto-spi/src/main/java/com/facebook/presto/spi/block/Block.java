@@ -110,7 +110,7 @@ public interface Block
     }
 
     /**
-     * Appends the value at {@code position} to {@code blockBuilder}.
+     * Appends the value at {@code position} to {@code blockBuilder} and close the entry.
      */
     void writePositionTo(int position, BlockBuilder blockBuilder);
 
@@ -163,21 +163,50 @@ public interface Block
     int getPositionCount();
 
     /**
-     * Returns the logical size of this block in memory.
+     * Returns the size of this block as if it was compacted, ignoring any over-allocations.
+     * For example, in dictionary blocks, this only counts each dictionary entry once,
+     * rather than each time a value is referenced.
      */
     long getSizeInBytes();
 
     /**
-     * Returns the logical size of {@code block.getRegion(position, length)} in memory.
+     * Returns the size of the block contents, regardless of internal representation.
+     * The same logical data values should always have the same size, no matter
+     * what block type is used or how they are represented within a specific block.
+     *
+     * This can differ substantially from {@link #getSizeInBytes} for certain block
+     * types. For RLE, it will be {@code N} times larger. For dictionary, it will be
+     * larger based on how many times dictionary entries are reused.
+     */
+    default long getLogicalSizeInBytes()
+    {
+        return getSizeInBytes();
+    }
+
+    /**
+     * Returns the size of {@code block.getRegion(position, length)}.
      * The method can be expensive. Do not use it outside an implementation of Block.
      */
     long getRegionSizeInBytes(int position, int length);
 
     /**
-     * Returns the retained size of this block in memory.
+     * Returns the size of of all positions marked true in the positions array.
+     * This is equivalent to multiple calls of {@code block.getRegionSizeInBytes(position, length)}
+     * where you mark all positions for the regions first.
+     */
+    long getPositionsSizeInBytes(boolean[] positions);
+
+    /**
+     * Returns the retained size of this block in memory, including over-allocations.
      * This method is called from the inner most execution loop and must be fast.
      */
     long getRetainedSizeInBytes();
+
+    /**
+     * Returns the estimated in memory data size for stats of position.
+     * Do not use it for other purpose.
+     */
+    long getEstimatedDataSizeForStats(int position);
 
     /**
      * {@code consumer} visits each of the internal data container and accepts the size for it.
@@ -192,7 +221,7 @@ public interface Block
     /**
      * Get the encoding for this block.
      */
-    BlockEncoding getEncoding();
+    String getEncodingName();
 
     /**
      * Create a new block from the current block by keeping the same elements
@@ -240,6 +269,15 @@ public interface Block
     Block copyRegion(int position, int length);
 
     /**
+     * Is it possible the block may have a null value?  If false, the block can not contain
+     * a null, but if true, the block may or may not have a null.
+     */
+    default boolean mayHaveNull()
+    {
+        return true;
+    }
+
+    /**
      * Is the specified position null?
      *
      * @throws IllegalArgumentException if this position is not valid
@@ -247,10 +285,14 @@ public interface Block
     boolean isNull(int position);
 
     /**
-     * Assures that all data for the block is in memory.
+     * Returns a block that assures all data is in memory.
+     * May return the same block if all block data is already in memory.
      * <p>
      * This allows streaming data sources to skip sections that are not
      * accessed in a query.
      */
-    default void assureLoaded() {}
+    default Block getLoadedBlock()
+    {
+        return this;
+    }
 }

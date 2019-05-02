@@ -14,7 +14,7 @@
 package com.facebook.presto.plugin.mysql;
 
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.tests.AbstractTestQueries;
+import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import io.airlift.testing.mysql.TestingMySqlServer;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
@@ -27,7 +27,7 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 
 @Test
 public class TestMySqlDistributedQueries
-        extends AbstractTestQueries
+        extends AbstractTestDistributedQueries
 {
     private final TestingMySqlServer mysqlServer;
 
@@ -41,6 +41,12 @@ public class TestMySqlDistributedQueries
     {
         super(() -> createMySqlQueryRunner(mysqlServer, TpchTable.getTables()));
         this.mysqlServer = mysqlServer;
+    }
+
+    @Override
+    protected boolean supportsViews()
+    {
+        return false;
     }
 
     @AfterClass(alwaysRun = true)
@@ -79,6 +85,19 @@ public class TestMySqlDistributedQueries
     public void testDescribeOutputNamedAndUnnamed()
     {
         // this connector uses a non-canonical type for varchar columns in tpch
+    }
+
+    @Override
+    public void testInsert()
+    {
+        // no op -- test not supported due to lack of support for array types.  See
+        // TestMySqlIntegrationSmokeTest for insertion tests.
+    }
+
+    @Override
+    public void testDelete()
+    {
+        // Delete is currently unsupported
     }
 
     // MySQL specific tests should normally go in TestMySqlIntegrationSmokeTest

@@ -19,12 +19,11 @@ import com.facebook.presto.operator.MarkDistinctHash;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.operator.Work;
+import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.function.AccumulatorStateFactory;
-import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.function.WindowIndex;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
@@ -52,10 +51,10 @@ import static java.util.Objects.requireNonNull;
 public class GenericAccumulatorFactory
         implements AccumulatorFactory
 {
-    private final AccumulatorStateSerializer<?> stateSerializer;
-    private final AccumulatorStateFactory<?> stateFactory;
+    private final List<AccumulatorStateDescriptor> stateDescriptors;
     private final Constructor<? extends Accumulator> accumulatorConstructor;
     private final Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor;
+    private final List<LambdaProvider> lambdaProviders;
     private final Optional<Integer> maskChannel;
     private final List<Integer> inputChannels;
     private final List<Type> sourceTypes;
@@ -71,10 +70,10 @@ public class GenericAccumulatorFactory
     private final PagesIndex.Factory pagesIndexFactory;
 
     public GenericAccumulatorFactory(
-            AccumulatorStateSerializer<?> stateSerializer,
-            AccumulatorStateFactory<?> stateFactory,
+            List<AccumulatorStateDescriptor> stateDescriptors,
             Constructor<? extends Accumulator> accumulatorConstructor,
             Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor,
+            List<LambdaProvider> lambdaProviders,
             List<Integer> inputChannels,
             Optional<Integer> maskChannel,
             List<Type> sourceTypes,
@@ -85,10 +84,10 @@ public class GenericAccumulatorFactory
             Session session,
             boolean distinct)
     {
-        this.stateSerializer = requireNonNull(stateSerializer, "stateSerializer is null");
-        this.stateFactory = requireNonNull(stateFactory, "stateFactory is null");
+        this.stateDescriptors = requireNonNull(stateDescriptors, "stateDescriptors is null");
         this.accumulatorConstructor = requireNonNull(accumulatorConstructor, "accumulatorConstructor is null");
         this.groupedAccumulatorConstructor = requireNonNull(groupedAccumulatorConstructor, "groupedAccumulatorConstructor is null");
+        this.lambdaProviders = ImmutableList.copyOf(requireNonNull(lambdaProviders, "lambdaProviders is null"));
         this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
         this.inputChannels = ImmutableList.copyOf(requireNonNull(inputChannels, "inputChannels is null"));
         this.sourceTypes = ImmutableList.copyOf(requireNonNull(sourceTypes, "sourceTypes is null"));
@@ -143,7 +142,7 @@ public class GenericAccumulatorFactory
     public Accumulator createIntermediateAccumulator()
     {
         try {
-            return accumulatorConstructor.newInstance(stateSerializer, stateFactory, ImmutableList.of(), Optional.empty());
+            return accumulatorConstructor.newInstance(stateDescriptors, ImmutableList.of(), Optional.empty(), lambdaProviders);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
@@ -185,7 +184,7 @@ public class GenericAccumulatorFactory
     public GroupedAccumulator createGroupedIntermediateAccumulator()
     {
         try {
-            return groupedAccumulatorConstructor.newInstance(stateSerializer, stateFactory, ImmutableList.of(), maskChannel);
+            return groupedAccumulatorConstructor.newInstance(stateDescriptors, ImmutableList.of(), Optional.empty(), lambdaProviders);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
@@ -207,7 +206,7 @@ public class GenericAccumulatorFactory
     private Accumulator instantiateAccumulator(List<Integer> inputs, Optional<Integer> mask)
     {
         try {
-            return accumulatorConstructor.newInstance(stateSerializer, stateFactory, inputs, mask);
+            return accumulatorConstructor.newInstance(stateDescriptors, inputs, mask, lambdaProviders);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
@@ -217,7 +216,7 @@ public class GenericAccumulatorFactory
     private GroupedAccumulator instantiateGroupedAccumulator(List<Integer> inputs, Optional<Integer> mask)
     {
         try {
-            return groupedAccumulatorConstructor.newInstance(stateSerializer, stateFactory, inputs, mask);
+            return groupedAccumulatorConstructor.newInstance(stateDescriptors, inputs, mask, lambdaProviders);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
@@ -270,6 +269,10 @@ public class GenericAccumulatorFactory
             Page filtered = maskChannel
                     .map(channel -> filter(page, page.getBlock(channel)))
                     .orElse(page);
+
+            if (filtered.getPositionCount() == 0) {
+                return;
+            }
 
             // 2. compute a distinct mask
             Work<Block> work = hash.markDistinctRows(filtered);

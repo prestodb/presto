@@ -19,30 +19,63 @@ import com.facebook.presto.spi.type.Type;
 
 import java.io.IOException;
 
+import static com.google.common.base.Preconditions.checkPositionIndex;
+import static java.lang.Math.toIntExact;
+
 public interface LongInputStream
         extends ValueInputStream<LongStreamCheckpoint>
 {
     long next()
             throws IOException;
 
-    void nextIntVector(int items, int[] vector)
-            throws IOException;
+    default void nextIntVector(int items, int[] vector, int offset)
+            throws IOException
+    {
+        checkPositionIndex(items + offset, vector.length);
 
-    void nextIntVector(int items, int[] vector, boolean[] isNull)
-            throws IOException;
+        for (int i = offset; i < items + offset; i++) {
+            vector[i] = toIntExact(next());
+        }
+    }
 
-    void nextLongVector(int items, long[] vector)
-            throws IOException;
+    default void nextIntVector(int items, int[] vector, int vectorOffset, boolean[] isNull)
+            throws IOException
+    {
+        checkPositionIndex(items + vectorOffset, vector.length);
+        checkPositionIndex(items, isNull.length);
 
-    void nextLongVector(int items, long[] vector, boolean[] isNull)
-            throws IOException;
+        for (int i = 0; i < items; i++) {
+            if (!isNull[i]) {
+                vector[i + vectorOffset] = toIntExact(next());
+            }
+        }
+    }
 
-    void nextLongVector(Type type, int items, BlockBuilder builder)
-            throws IOException;
+    default void nextLongVector(int items, long[] vector)
+            throws IOException
+    {
+        checkPositionIndex(items, vector.length);
 
-    void nextLongVector(Type type, int items, BlockBuilder builder, boolean[] isNull)
-            throws IOException;
+        for (int i = 0; i < items; i++) {
+            vector[i] = next();
+        }
+    }
 
-    long sum(int items)
-            throws IOException;
+    default void nextLongVector(Type type, int items, BlockBuilder builder)
+            throws IOException
+    {
+        for (int i = 0; i < items; i++) {
+            type.writeLong(builder, next());
+        }
+    }
+
+    default long sum(int items)
+            throws IOException
+    {
+        long sum = 0;
+        for (int i = 0; i < items; i++) {
+            sum += next();
+        }
+        return sum;
+    }
 }

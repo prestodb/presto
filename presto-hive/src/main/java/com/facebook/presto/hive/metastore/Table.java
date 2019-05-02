@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -37,7 +38,7 @@ public class Table
     private final String databaseName;
     private final String tableName;
     private final String owner;
-    private final String tableType; // This is not an enum because some Hive implementations define additional table types.
+    private final PrestoTableType tableType;
     private final List<Column> dataColumns;
     private final List<Column> partitionColumns;
     private final Storage storage;
@@ -50,7 +51,7 @@ public class Table
             @JsonProperty("databaseName") String databaseName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("owner") String owner,
-            @JsonProperty("tableType") String tableType,
+            @JsonProperty("tableType") PrestoTableType tableType,
             @JsonProperty("storage") Storage storage,
             @JsonProperty("dataColumns") List<Column> dataColumns,
             @JsonProperty("partitionColumns") List<Column> partitionColumns,
@@ -89,7 +90,7 @@ public class Table
     }
 
     @JsonProperty
-    public String getTableType()
+    public PrestoTableType getTableType()
     {
         return tableType;
     }
@@ -137,15 +138,6 @@ public class Table
         return viewExpandedText;
     }
 
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("databaseName", databaseName)
-                .add("tableName", tableName)
-                .toString();
-    }
-
     public static Builder builder()
     {
         return new Builder();
@@ -156,13 +148,69 @@ public class Table
         return new Builder(table);
     }
 
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("databaseName", databaseName)
+                .add("tableName", tableName)
+                .add("owner", owner)
+                .add("tableType", tableType)
+                .add("dataColumns", dataColumns)
+                .add("partitionColumns", partitionColumns)
+                .add("storage", storage)
+                .add("parameters", parameters)
+                .add("viewOriginalText", viewOriginalText)
+                .add("viewExpandedText", viewExpandedText)
+                .toString();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Table table = (Table) o;
+        return Objects.equals(databaseName, table.databaseName) &&
+                Objects.equals(tableName, table.tableName) &&
+                Objects.equals(owner, table.owner) &&
+                Objects.equals(tableType, table.tableType) &&
+                Objects.equals(dataColumns, table.dataColumns) &&
+                Objects.equals(partitionColumns, table.partitionColumns) &&
+                Objects.equals(storage, table.storage) &&
+                Objects.equals(parameters, table.parameters) &&
+                Objects.equals(viewOriginalText, table.viewOriginalText) &&
+                Objects.equals(viewExpandedText, table.viewExpandedText);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(
+                databaseName,
+                tableName,
+                owner,
+                tableType,
+                dataColumns,
+                partitionColumns,
+                storage,
+                parameters,
+                viewOriginalText,
+                viewExpandedText);
+    }
+
     public static class Builder
     {
         private final Storage.Builder storageBuilder;
         private String databaseName;
         private String tableName;
         private String owner;
-        private String tableType;
+        private PrestoTableType tableType;
         private List<Column> dataColumns = new ArrayList<>();
         private List<Column> partitionColumns = new ArrayList<>();
         private Map<String, String> parameters = new LinkedHashMap<>();
@@ -206,7 +254,7 @@ public class Table
             return this;
         }
 
-        public Builder setTableType(String tableType)
+        public Builder setTableType(PrestoTableType tableType)
         {
             this.tableType = tableType;
             return this;

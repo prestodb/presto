@@ -16,6 +16,8 @@ package com.facebook.presto.hive.metastore.file;
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.HiveColumnStatistics;
+import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
@@ -23,13 +25,13 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.hadoop.hive.metastore.TableType;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -37,7 +39,7 @@ import static java.util.Objects.requireNonNull;
 public class TableMetadata
 {
     private final String owner;
-    private final String tableType;
+    private final PrestoTableType tableType;
     private final List<Column> dataColumns;
     private final List<Column> partitionColumns;
     private final Map<String, String> parameters;
@@ -51,10 +53,12 @@ public class TableMetadata
     private final Optional<String> viewOriginalText;
     private final Optional<String> viewExpandedText;
 
+    private final Map<String, HiveColumnStatistics> columnStatistics;
+
     @JsonCreator
     public TableMetadata(
             @JsonProperty("owner") String owner,
-            @JsonProperty("tableType") String tableType,
+            @JsonProperty("tableType") PrestoTableType tableType,
             @JsonProperty("dataColumns") List<Column> dataColumns,
             @JsonProperty("partitionColumns") List<Column> partitionColumns,
             @JsonProperty("parameters") Map<String, String> parameters,
@@ -63,7 +67,8 @@ public class TableMetadata
             @JsonProperty("serdeParameters") Map<String, String> serdeParameters,
             @JsonProperty("externalLocation") Optional<String> externalLocation,
             @JsonProperty("viewOriginalText") Optional<String> viewOriginalText,
-            @JsonProperty("viewExpandedText") Optional<String> viewExpandedText)
+            @JsonProperty("viewExpandedText") Optional<String> viewExpandedText,
+            @JsonProperty("columnStatistics") Map<String, HiveColumnStatistics> columnStatistics)
     {
         this.owner = requireNonNull(owner, "owner is null");
         this.tableType = requireNonNull(tableType, "tableType is null");
@@ -75,7 +80,7 @@ public class TableMetadata
         this.bucketProperty = requireNonNull(bucketProperty, "bucketProperty is null");
         this.serdeParameters = requireNonNull(serdeParameters, "serdeParameters is null");
         this.externalLocation = requireNonNull(externalLocation, "externalLocation is null");
-        if (tableType.equals(TableType.EXTERNAL_TABLE.name())) {
+        if (tableType.equals(EXTERNAL_TABLE)) {
             checkArgument(externalLocation.isPresent(), "External location is required for external tables");
         }
         else {
@@ -84,9 +89,16 @@ public class TableMetadata
 
         this.viewOriginalText = requireNonNull(viewOriginalText, "viewOriginalText is null");
         this.viewExpandedText = requireNonNull(viewExpandedText, "viewExpandedText is null");
+        this.columnStatistics = ImmutableMap.copyOf(requireNonNull(columnStatistics, "columnStatistics is null"));
+        checkArgument(partitionColumns.isEmpty() || columnStatistics.isEmpty(), "column statistics cannot be set for partitioned table");
     }
 
     public TableMetadata(Table table)
+    {
+        this(table, ImmutableMap.of());
+    }
+
+    public TableMetadata(Table table, Map<String, HiveColumnStatistics> columnStatistics)
     {
         owner = table.getOwner();
         tableType = table.getTableType();
@@ -101,7 +113,7 @@ public class TableMetadata
         bucketProperty = table.getStorage().getBucketProperty();
         serdeParameters = table.getStorage().getSerdeParameters();
 
-        if (tableType.equals(TableType.EXTERNAL_TABLE.name())) {
+        if (tableType.equals(EXTERNAL_TABLE)) {
             externalLocation = Optional.of(table.getStorage().getLocation());
         }
         else {
@@ -110,6 +122,7 @@ public class TableMetadata
 
         viewOriginalText = table.getViewOriginalText();
         viewExpandedText = table.getViewExpandedText();
+        this.columnStatistics = ImmutableMap.copyOf(requireNonNull(columnStatistics, "columnStatistics is null"));
     }
 
     @JsonProperty
@@ -119,7 +132,7 @@ public class TableMetadata
     }
 
     @JsonProperty
-    public String getTableType()
+    public PrestoTableType getTableType()
     {
         return tableType;
     }
@@ -193,6 +206,12 @@ public class TableMetadata
         return viewExpandedText;
     }
 
+    @JsonProperty
+    public Map<String, HiveColumnStatistics> getColumnStatistics()
+    {
+        return columnStatistics;
+    }
+
     public TableMetadata withDataColumns(List<Column> dataColumns)
     {
         return new TableMetadata(
@@ -206,7 +225,42 @@ public class TableMetadata
                 serdeParameters,
                 externalLocation,
                 viewOriginalText,
-                viewExpandedText);
+                viewExpandedText,
+                columnStatistics);
+    }
+
+    public TableMetadata withParameters(Map<String, String> parameters)
+    {
+        return new TableMetadata(
+                owner,
+                tableType,
+                dataColumns,
+                partitionColumns,
+                parameters,
+                storageFormat,
+                bucketProperty,
+                serdeParameters,
+                externalLocation,
+                viewOriginalText,
+                viewExpandedText,
+                columnStatistics);
+    }
+
+    public TableMetadata withColumnStatistics(Map<String, HiveColumnStatistics> columnStatistics)
+    {
+        return new TableMetadata(
+                owner,
+                tableType,
+                dataColumns,
+                partitionColumns,
+                parameters,
+                storageFormat,
+                bucketProperty,
+                serdeParameters,
+                externalLocation,
+                viewOriginalText,
+                viewExpandedText,
+                columnStatistics);
     }
 
     public Table toTable(String databaseName, String tableName, String location)

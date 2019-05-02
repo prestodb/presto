@@ -13,24 +13,24 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.metadata.FunctionKind;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.RowExpression;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
@@ -56,8 +56,10 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 
@@ -83,7 +85,12 @@ public class BenchmarkArrayDistinct
     @OperationsPerInvocation(POSITIONS * ARRAY_SIZE * NUM_TYPES)
     public List<Optional<Page>> arrayDistinct(BenchmarkData data)
     {
-        return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, new DriverYieldSignal(), data.getPage()));
+        return ImmutableList.copyOf(
+                data.getPageProcessor().process(
+                        SESSION,
+                        new DriverYieldSignal(),
+                        newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
+                        data.getPage()));
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -100,6 +107,7 @@ public class BenchmarkArrayDistinct
         public void setup()
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
+            FunctionManager functionManager = metadata.getFunctionManager();
             metadata.addFunctions(extractFunctions(BenchmarkArrayDistinct.class));
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
@@ -107,8 +115,8 @@ public class BenchmarkArrayDistinct
             for (int i = 0; i < TYPES.size(); i++) {
                 Type elementType = TYPES.get(i);
                 ArrayType arrayType = new ArrayType(elementType);
-                Signature signature = new Signature(name, FunctionKind.SCALAR, arrayType.getTypeSignature(), arrayType.getTypeSignature());
-                projectionsBuilder.add(new CallExpression(signature, arrayType, ImmutableList.of(field(i, arrayType))));
+                FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(name), fromTypes(arrayType));
+                projectionsBuilder.add(new CallExpression(functionHandle, arrayType, ImmutableList.of(field(i, arrayType))));
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 
@@ -119,7 +127,7 @@ public class BenchmarkArrayDistinct
 
         private static Block createChannel(int positionCount, int arraySize, ArrayType arrayType)
         {
-            BlockBuilder blockBuilder = arrayType.createBlockBuilder(new BlockBuilderStatus(), positionCount);
+            BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
                 BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
                 for (int i = 0; i < arraySize; i++) {
@@ -173,7 +181,7 @@ public class BenchmarkArrayDistinct
         }
 
         TypedSet typedSet = new TypedSet(VARCHAR, array.getPositionCount(), "old_array_distinct");
-        BlockBuilder distinctElementBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), array.getPositionCount());
+        BlockBuilder distinctElementBlockBuilder = VARCHAR.createBlockBuilder(null, array.getPositionCount());
         for (int i = 0; i < array.getPositionCount(); i++) {
             if (!typedSet.contains(array, i)) {
                 typedSet.add(array, i);

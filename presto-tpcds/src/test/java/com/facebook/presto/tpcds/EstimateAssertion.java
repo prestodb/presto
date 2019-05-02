@@ -20,7 +20,6 @@ import io.airlift.slice.Slice;
 import java.util.Optional;
 
 import static java.lang.String.format;
-import static java.util.Optional.empty;
 import static org.testng.Assert.assertEquals;
 
 class EstimateAssertion
@@ -32,36 +31,39 @@ class EstimateAssertion
         this.tolerance = tolerance;
     }
 
-    public void assertClose(Estimate actual, Estimate expected, String message)
+    public void assertClose(Estimate actual, Estimate expected, String comparedValue)
     {
-        assertClose(toOptional(actual), toOptional(expected), message);
+        assertClose(toOptional(actual), toOptional(expected), comparedValue);
     }
 
     private Optional<Double> toOptional(Estimate estimate)
     {
-        return estimate.isValueUnknown() ? empty() : Optional.of(estimate.getValue());
+        return estimate.isUnknown() ? Optional.empty() : Optional.of(estimate.getValue());
     }
 
-    public void assertClose(Optional<?> actual, Optional<?> expected, String message)
+    public void assertClose(Optional<?> actual, Optional<?> expected, String comparedValue)
     {
-        assertEquals(actual.isPresent(), expected.isPresent(), message);
+        if (actual.isPresent() != expected.isPresent()) {
+            // Trigger exception message that includes compared values
+            assertEquals(actual, expected, comparedValue);
+        }
         if (actual.isPresent()) {
             Object actualValue = actual.get();
             Object expectedValue = expected.get();
-            assertClose(actualValue, expectedValue, message);
+            assertClose(actualValue, expectedValue, comparedValue);
         }
     }
 
-    private void assertClose(Object actual, Object expected, String message)
+    private void assertClose(Object actual, Object expected, String comparedValue)
     {
         if (actual instanceof Slice) {
-            assertEquals(actual.getClass(), expected.getClass(), message);
+            assertEquals(actual.getClass(), expected.getClass(), comparedValue);
             assertEquals(((Slice) actual).toStringUtf8(), ((Slice) expected).toStringUtf8());
         }
         else {
             double actualDouble = toDouble(actual);
             double expectedDouble = toDouble(expected);
-            assertEquals(actualDouble, expectedDouble, expectedDouble * tolerance, message);
+            assertEquals(actualDouble, expectedDouble, expectedDouble * tolerance, comparedValue);
         }
     }
 
@@ -72,7 +74,7 @@ class EstimateAssertion
         }
         else {
             String message = "Can't compare with tolerance objects of class %s. Use assertEquals.";
-            throw new UnsupportedOperationException(format(message, object.getClass()));
+            throw new UnsupportedOperationException(format("Can't compare with tolerance objects of class %s. Use assertEquals.", object.getClass()));
         }
     }
 }

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.execution.buffer;
 
-import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.operator.PageAssertions;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
@@ -105,26 +105,30 @@ public final class BufferTestUtils
 
     static ListenableFuture<?> enqueuePage(OutputBuffer buffer, Page page)
     {
-        ListenableFuture<?> future = buffer.enqueue(ImmutableList.of(PAGES_SERDE.serialize(page)));
+        buffer.enqueue(Lifespan.taskWide(), ImmutableList.of(PAGES_SERDE.serialize(page)));
+        ListenableFuture<?> future = buffer.isFull();
         assertFalse(future.isDone());
         return future;
     }
 
     static ListenableFuture<?> enqueuePage(OutputBuffer buffer, Page page, int partition)
     {
-        ListenableFuture<?> future = buffer.enqueue(partition, ImmutableList.of(PAGES_SERDE.serialize(page)));
+        buffer.enqueue(Lifespan.taskWide(), partition, ImmutableList.of(PAGES_SERDE.serialize(page)));
+        ListenableFuture<?> future = buffer.isFull();
         assertFalse(future.isDone());
         return future;
     }
 
     public static void addPage(OutputBuffer buffer, Page page)
     {
-        assertTrue(buffer.enqueue(ImmutableList.of(PAGES_SERDE.serialize(page))).isDone(), "Expected add page to not block");
+        buffer.enqueue(Lifespan.taskWide(), ImmutableList.of(PAGES_SERDE.serialize(page)));
+        assertTrue(buffer.isFull().isDone(), "Expected add page to not block");
     }
 
     public static void addPage(OutputBuffer buffer, Page page, int partition)
     {
-        assertTrue(buffer.enqueue(partition, ImmutableList.of(PAGES_SERDE.serialize(page))).isDone(), "Expected add page to not block");
+        buffer.enqueue(Lifespan.taskWide(), partition, ImmutableList.of(PAGES_SERDE.serialize(page)));
+        assertTrue(buffer.isFull().isDone(), "Expected add page to not block");
     }
 
     static void assertQueueState(

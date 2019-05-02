@@ -104,6 +104,12 @@ public class PartitionedLookupSource
     }
 
     @Override
+    public boolean isEmpty()
+    {
+        return Arrays.stream(lookupSources).allMatch(LookupSource::isEmpty);
+    }
+
+    @Override
     public int getChannelCount()
     {
         return lookupSources[0].getChannelCount();

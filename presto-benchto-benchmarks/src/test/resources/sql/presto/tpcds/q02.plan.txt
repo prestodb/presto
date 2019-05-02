@@ -1,0 +1,36 @@
+remote exchange (GATHER, SINGLE, [])
+    local exchange (GATHER, UNKNOWN, [])
+        remote exchange (REPARTITION, ROUND_ROBIN, [])
+            join (INNER, PARTITIONED):
+                join (INNER, PARTITIONED):
+                    final aggregation over (d_week_seq)
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["d_week_seq"])
+                                partial aggregation over (d_week_seq)
+                                    join (INNER, REPLICATED):
+                                        remote exchange (REPARTITION, ROUND_ROBIN, [])
+                                            scan web_sales
+                                            scan catalog_sales
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                scan date_dim
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, ["d_week_seq_83"])
+                            scan date_dim
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPARTITION, HASH, ["expr_395"])
+                        join (INNER, PARTITIONED):
+                            final aggregation over (d_week_seq_232)
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["d_week_seq_232"])
+                                        partial aggregation over (d_week_seq_232)
+                                            join (INNER, REPLICATED):
+                                                remote exchange (REPARTITION, ROUND_ROBIN, [])
+                                                    scan web_sales
+                                                    scan catalog_sales
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        scan date_dim
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["d_week_seq_316"])
+                                    scan date_dim

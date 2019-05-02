@@ -38,8 +38,9 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -80,10 +81,17 @@ public class TestBeginQuery
         getQueryRunner().createCatalog("tpch", "tpch", ImmutableMap.of());
     }
 
-    @BeforeMethod
-    public void beforeMethod()
+    @AfterMethod(alwaysRun = true)
+    public void afterMethod()
     {
         metadata.clear();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        metadata.clear();
+        metadata = null;
     }
 
     @Test
@@ -167,7 +175,7 @@ public class TestBeginQuery
                 }
 
                 @Override
-                public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+                public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
                 {
                     return new TestConnector(metadata);
                 }

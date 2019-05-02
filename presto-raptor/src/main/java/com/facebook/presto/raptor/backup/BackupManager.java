@@ -16,7 +16,6 @@ package com.facebook.presto.raptor.backup;
 import com.facebook.presto.raptor.storage.BackupStats;
 import com.facebook.presto.raptor.storage.StorageService;
 import com.facebook.presto.spi.PrestoException;
-import com.google.common.base.Throwables;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
@@ -28,6 +27,8 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -117,7 +118,7 @@ public class BackupManager
                 File restored = new File(storageService.getStagingFile(uuid) + ".validate");
                 backupStore.get().restoreShard(uuid, restored);
 
-                if (!Files.equal(source, restored)) {
+                if (!filesEqual(source, restored)) {
                     stats.incrementBackupCorruption();
 
                     File quarantineBase = storageService.getQuarantineFile(uuid);
@@ -125,7 +126,7 @@ public class BackupManager
                     File quarantineRestored = new File(quarantineBase.getPath() + ".restored");
 
                     log.error("Backup is corrupt after write. Quarantining local file: %s", quarantineBase);
-                    if (!source.renameTo(quarantineOriginal) || !restored.renameTo(quarantineRestored)) {
+                    if (!this.source.renameTo(quarantineOriginal) || !restored.renameTo(quarantineRestored)) {
                         log.warn("Quarantine of corrupt backup shard failed: %s", uuid);
                     }
 
@@ -140,7 +141,7 @@ public class BackupManager
             }
             catch (Throwable t) {
                 stats.incrementBackupFailure();
-                throw Throwables.propagate(t);
+                throw t;
             }
         }
     }
@@ -156,5 +157,15 @@ public class BackupManager
     public BackupStats getStats()
     {
         return stats;
+    }
+
+    private static boolean filesEqual(File file1, File file2)
+    {
+        try {
+            return Files.equal(file1, file2);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }

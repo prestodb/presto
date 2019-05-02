@@ -96,7 +96,7 @@ public class TestLongDecode
         }
 
         // read using Presto's code
-        long readValueNew = readVInt(signed, new OrcInputStream(new OrcDataSourceId("test"), hiveBytes.getInput(), Optional.empty(), newSimpleAggregatedMemoryContext()));
+        long readValueNew = readVInt(signed, new OrcInputStream(new OrcDataSourceId("test"), hiveBytes.getInput(), Optional.empty(), newSimpleAggregatedMemoryContext(), hiveBytes.getRetainedSize()));
         assertEquals(readValueNew, value);
     }
 
@@ -137,7 +137,8 @@ public class TestLongDecode
             }
             result |= (0x7f & b) << offset;
             offset += 7;
-        } while (b >= 0x80);
+        }
+        while (b >= 0x80);
         return result;
     }
 

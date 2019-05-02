@@ -1,0 +1,32 @@
+remote exchange (GATHER, SINGLE, [])
+    local exchange (GATHER, UNKNOWN, [])
+        remote exchange (REPARTITION, ROUND_ROBIN, [])
+            final aggregation over (cc_call_center_id, cc_manager, cc_name, cd_education_status, cd_marital_status)
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPARTITION, HASH, ["cc_call_center_id", "cc_manager", "cc_name", "cd_education_status", "cd_marital_status"])
+                        partial aggregation over (cc_call_center_id, cc_manager, cc_name, cd_education_status, cd_marital_status)
+                            join (INNER, REPLICATED):
+                                scan call_center
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        join (INNER, REPLICATED):
+                                            scan household_demographics
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    join (INNER, REPLICATED):
+                                                        scan customer_demographics
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                join (INNER, REPLICATED):
+                                                                    scan date_dim
+                                                                    local exchange (GATHER, SINGLE, [])
+                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                            join (INNER, REPLICATED):
+                                                                                scan catalog_returns
+                                                                                local exchange (GATHER, SINGLE, [])
+                                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                                        join (INNER, REPLICATED):
+                                                                                            scan customer
+                                                                                            local exchange (GATHER, SINGLE, [])
+                                                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                                                    scan customer_address

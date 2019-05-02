@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.session;
 
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -25,12 +27,16 @@ public final class SessionConfigurationContext
     private final String user;
     private final Optional<String> source;
     private final Set<String> clientTags;
+    private final Optional<String> queryType;
+    private final ResourceGroupId resourceGroupId;
 
-    public SessionConfigurationContext(String user, Optional<String> source, Set<String> clientTags)
+    public SessionConfigurationContext(String user, Optional<String> source, Set<String> clientTags, Optional<String> queryType, ResourceGroupId resourceGroupId)
     {
         this.user = requireNonNull(user, "user is null");
         this.source = requireNonNull(source, "source is null");
         this.clientTags = unmodifiableSet(new HashSet<>(requireNonNull(clientTags, "clientTags is null")));
+        this.queryType = requireNonNull(queryType, "queryType is null");
+        this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId");
     }
 
     public String getUser()
@@ -46,5 +52,15 @@ public final class SessionConfigurationContext
     public Set<String> getClientTags()
     {
         return clientTags;
+    }
+
+    public Optional<String> getQueryType()
+    {
+        return queryType;
+    }
+
+    public ResourceGroupId getResourceGroupId()
+    {
+        return resourceGroupId;
     }
 }

@@ -57,7 +57,8 @@ public class GenericHiveRecordCursorProvider
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            boolean s3SelectPushdownEnabled)
     {
         // make sure the FileSystem is created with the proper Configuration object
         try {
@@ -71,6 +72,8 @@ public class GenericHiveRecordCursorProvider
                 () -> HiveUtil.createRecordReader(configuration, path, start, length, schema, columns));
 
         return Optional.of(new GenericHiveRecordCursor<>(
+                configuration,
+                path,
                 genericRecordReader(recordReader),
                 length,
                 schema,

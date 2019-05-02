@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.RowExpression;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Scope;
@@ -26,17 +25,19 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 
 import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.sql.gen.SpecialFormBytecodeGenerator.generateWrite;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
-import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 
 public class RowConstructorCodeGenerator
-        implements BytecodeGenerator
+        implements SpecialFormBytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type rowType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(BytecodeGeneratorContext context, Type rowType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         BytecodeBlock block = new BytecodeBlock().setDescription("Constructor for " + rowType.toString());
         CallSiteBinder binder = context.getCallSiteBinder();
@@ -50,34 +51,28 @@ public class RowConstructorCodeGenerator
                 constantType(binder, rowType).invoke(
                         "createBlockBuilder",
                         BlockBuilder.class,
-                        newInstance(BlockBuilderStatus.class),
+                        constantNull(BlockBuilderStatus.class),
                         constantInt(1))));
         block.append(singleRowBlockWriter.set(blockBuilder.invoke("beginBlockEntry", BlockBuilder.class)));
 
         for (int i = 0; i < arguments.size(); ++i) {
             Type fieldType = types.get(i);
-            Class<?> javaType = fieldType.getJavaType();
-            if (javaType == void.class) {
-                block.comment(i + "-th field type of row is undefined");
-                block.append(singleRowBlockWriter.invoke("appendNull", BlockBuilder.class).pop());
-            }
-            else {
-                Variable field = scope.createTempVariable(javaType);
-                block.comment("Clean wasNull and Generate + " + i + "-th field of row");
-                block.append(context.wasNull().set(constantFalse()));
-                block.append(context.generate(arguments.get(i)));
-                block.putVariable(field);
-                block.append(new IfStatement()
-                        .condition(context.wasNull())
-                        .ifTrue(singleRowBlockWriter.invoke("appendNull", BlockBuilder.class).pop())
-                        .ifFalse(constantType(binder, fieldType).writeValue(singleRowBlockWriter, field).pop()));
-            }
+            Variable field = scope.createTempVariable(fieldType.getJavaType());
+            block.comment("Clean wasNull and Generate + " + i + "-th field of row");
+            block.append(context.wasNull().set(constantFalse()));
+            block.append(context.generate(arguments.get(i), Optional.empty()));
+            block.putVariable(field);
+            block.append(new IfStatement()
+                    .condition(context.wasNull())
+                    .ifTrue(singleRowBlockWriter.invoke("appendNull", BlockBuilder.class).pop())
+                    .ifFalse(constantType(binder, fieldType).writeValue(singleRowBlockWriter, field).pop()));
         }
         block.comment("closeEntry; slice the SingleRowBlock; wasNull = false;");
         block.append(blockBuilder.invoke("closeEntry", BlockBuilder.class).pop());
         block.append(constantType(binder, rowType).invoke("getObject", Object.class, blockBuilder.cast(Block.class), constantInt(0))
                 .cast(Block.class));
         block.append(context.wasNull().set(constantFalse()));
+        outputBlockVariable.ifPresent(output -> block.append(generateWrite(context, rowType, output)));
         return block;
     }
 }

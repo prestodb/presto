@@ -15,7 +15,6 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
 
 /**
  * Used on workers.
@@ -27,17 +26,5 @@ public class NoOpSessionSupplier
     public Session createSession(QueryId queryId, SessionContext context)
     {
         throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void addConfigurationManager(SessionPropertyConfigurationManagerFactory sessionConfigFactory)
-    {
-        // no-op
-    }
-
-    @Override
-    public void loadConfigurationManager()
-    {
-        // no-op
     }
 }

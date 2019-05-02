@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.function.Signature;
+
 public interface SqlFunction
 {
     Signature getSignature();

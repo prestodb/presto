@@ -15,35 +15,32 @@ package com.facebook.presto.sql.tree;
 
 import com.google.common.collect.ImmutableList;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.collectingAndThen;
 
 public final class GroupingSets
         extends GroupingElement
 {
-    private final List<List<QualifiedName>> sets;
+    private final List<List<Expression>> sets;
 
-    public GroupingSets(List<List<QualifiedName>> groupingSetList)
+    public GroupingSets(List<List<Expression>> groupingSets)
     {
-        this(Optional.empty(), groupingSetList);
+        this(Optional.empty(), groupingSets);
     }
 
-    public GroupingSets(NodeLocation location, List<List<QualifiedName>> sets)
+    public GroupingSets(NodeLocation location, List<List<Expression>> sets)
     {
         this(Optional.of(location), sets);
     }
 
-    private GroupingSets(Optional<NodeLocation> location, List<List<QualifiedName>> sets)
+    private GroupingSets(Optional<NodeLocation> location, List<List<Expression>> sets)
     {
         super(location);
         requireNonNull(sets, "sets is null");
@@ -51,19 +48,17 @@ public final class GroupingSets
         this.sets = sets.stream().map(ImmutableList::copyOf).collect(toImmutableList());
     }
 
-    public List<List<QualifiedName>> getSets()
+    public List<List<Expression>> getSets()
     {
         return sets;
     }
 
     @Override
-    public List<Set<Expression>> enumerateGroupingSets()
+    public List<Expression> getExpressions()
     {
         return sets.stream()
-                .map(groupingSet -> groupingSet.stream()
-                        .map(DereferenceExpression::from)
-                        .collect(Collectors.<Expression>toSet()))
-                .collect(collectingAndThen(Collectors.toList(), Collections::unmodifiableList));
+                .flatMap(List::stream)
+                .collect(Collectors.toList());
     }
 
     @Override

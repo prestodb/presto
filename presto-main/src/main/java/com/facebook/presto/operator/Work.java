@@ -22,6 +22,7 @@ public interface Work<T>
     /**
      * Call the method to do the work.
      * The caller can keep calling this method until it returns true (i.e., the work is done).
+     *
      * @return boolean to indicate if the work has finished.
      */
     boolean process();

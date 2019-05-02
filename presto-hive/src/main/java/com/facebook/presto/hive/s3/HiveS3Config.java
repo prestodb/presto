@@ -56,6 +56,8 @@ public class HiveS3Config
     private DataSize s3MultipartMinPartSize = new DataSize(5, MEGABYTE);
     private boolean pinS3ClientToCurrentRegion;
     private String s3UserAgentPrefix = "";
+    private PrestoS3AclType s3AclType = PrestoS3AclType.PRIVATE;
+    private boolean skipGlacierObjects;
 
     public String getS3AwsAccessKey()
     {
@@ -372,6 +374,32 @@ public class HiveS3Config
     public HiveS3Config setS3UserAgentPrefix(String s3UserAgentPrefix)
     {
         this.s3UserAgentPrefix = s3UserAgentPrefix;
+        return this;
+    }
+
+    @NotNull
+    public PrestoS3AclType getS3AclType()
+    {
+        return s3AclType;
+    }
+
+    @Config("hive.s3.upload-acl-type")
+    @ConfigDescription("Canned ACL type for S3 uploads")
+    public HiveS3Config setS3AclType(PrestoS3AclType s3AclType)
+    {
+        this.s3AclType = s3AclType;
+        return this;
+    }
+
+    public boolean isSkipGlacierObjects()
+    {
+        return skipGlacierObjects;
+    }
+
+    @Config("hive.s3.skip-glacier-objects")
+    public HiveS3Config setSkipGlacierObjects(boolean skipGlacierObjects)
+    {
+        this.skipGlacierObjects = skipGlacierObjects;
         return this;
     }
 }

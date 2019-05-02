@@ -38,15 +38,14 @@ import static com.google.common.base.Strings.padEnd;
 import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
-import static java.util.Optional.empty;
 import static java.util.function.Function.identity;
 
 public class DataType<T>
 {
-    private String insertType;
-    private Type prestoResultType;
-    private Function<T, String> toLiteral;
-    private Function<T, ?> toPrestoQueryResult;
+    private final String insertType;
+    private final Type prestoResultType;
+    private final Function<T, String> toLiteral;
+    private final Function<T, ?> toPrestoQueryResult;
 
     public static DataType<Boolean> booleanDataType()
     {
@@ -95,7 +94,7 @@ public class DataType<T>
 
     public static DataType<String> varcharDataType()
     {
-        return varcharDataType(empty(), "");
+        return varcharDataType(Optional.empty(), "");
     }
 
     private static DataType<String> varcharDataType(Optional<Integer> length, String properties)

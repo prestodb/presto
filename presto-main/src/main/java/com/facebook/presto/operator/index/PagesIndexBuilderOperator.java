@@ -18,13 +18,9 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.ThreadSafe;
-
-import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -46,12 +42,6 @@ public class PagesIndexBuilderOperator
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.indexSnapshotBuilder = requireNonNull(indexSnapshotBuilder, "indexSnapshotBuilder is null");
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return ImmutableList.of();
         }
 
         @Override
@@ -94,12 +84,6 @@ public class PagesIndexBuilderOperator
     }
 
     @Override
-    public List<Type> getTypes()
-    {
-        return ImmutableList.of();
-    }
-
-    @Override
     public void finish()
     {
         finished = true;
@@ -127,7 +111,7 @@ public class PagesIndexBuilderOperator
             finish();
             return;
         }
-        operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
+        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
     }
 
     @Override

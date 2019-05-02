@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
+import static com.facebook.presto.ml.MLFeaturesFunctions.ML_FEATURE_FUNCTIONS;
 import static com.facebook.presto.ml.type.ModelType.MODEL;
 import static com.facebook.presto.ml.type.RegressorType.REGRESSOR;
 
@@ -52,7 +53,7 @@ public class MLPlugin
                 .add(LearnLibSvmRegressorAggregation.class)
                 .add(EvaluateClassifierPredictionsAggregation.class)
                 .add(MLFunctions.class)
-                .add(MLFeaturesFunctions.class)
+                .addAll(ML_FEATURE_FUNCTIONS)
                 .build();
     }
 }

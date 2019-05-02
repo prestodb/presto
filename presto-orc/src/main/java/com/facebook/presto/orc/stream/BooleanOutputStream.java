@@ -17,14 +17,11 @@ import com.facebook.presto.orc.OrcOutputBuffer;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.ByteStreamCheckpoint;
 import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.orc.metadata.Stream;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -80,7 +77,7 @@ public class BooleanOutputStream
         if (bitsInData != 0) {
             int bitsToWrite = Math.min(count, 8 - bitsInData);
             if (value) {
-                data |= getLowBitMask(bitsToWrite);
+                data |= getLowBitMask(bitsToWrite) << (8 - bitsInData - bitsToWrite);
             }
 
             bitsInData += bitsToWrite;
@@ -158,10 +155,10 @@ public class BooleanOutputStream
     }
 
     @Override
-    public Optional<Stream> writeDataStreams(int column, SliceOutput outputStream)
+    public StreamDataOutput getStreamDataOutput(int column)
     {
         checkState(closed);
-        return byteOutputStream.writeDataStreams(column, outputStream);
+        return byteOutputStream.getStreamDataOutput(column);
     }
 
     @Override

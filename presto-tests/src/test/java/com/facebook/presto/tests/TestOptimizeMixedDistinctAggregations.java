@@ -28,10 +28,8 @@ public class TestOptimizeMixedDistinctAggregations
     @Override
     public void testCountDistinct()
     {
-        // TODO https://github.com/prestodb/presto/issues/8894 . Once fixed, remove test override.
-
         assertQuery("SELECT COUNT(DISTINCT custkey + 1) FROM orders", "SELECT COUNT(*) FROM (SELECT DISTINCT custkey + 1 FROM orders) t");
-        // assertQuery("SELECT COUNT(DISTINCT linenumber), COUNT(*) from lineitem where linenumber < 0");
+        assertQuery("SELECT COUNT(DISTINCT linenumber), COUNT(*) from lineitem where linenumber < 0");
     }
 
     // TODO add dedicated test cases and remove `extends AbstractTestAggregation`

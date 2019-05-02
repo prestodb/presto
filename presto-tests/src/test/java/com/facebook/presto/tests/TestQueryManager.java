@@ -15,7 +15,9 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.TestingSessionContext;
+import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
@@ -51,6 +53,7 @@ public class TestQueryManager
     public void tearDown()
     {
         queryRunner.close();
+        queryRunner = null;
     }
 
     @Test(timeOut = 60_000L)
@@ -58,16 +61,20 @@ public class TestQueryManager
             throws Exception
     {
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-        QueryId queryId = queryManager.createQuery(new TestingSessionContext(TEST_SESSION),
-                "SELECT * FROM lineitem").getQueryId();
+        QueryId queryId = queryManager.createQueryId();
+        queryManager.createQuery(
+                queryId,
+                new TestingSessionContext(TEST_SESSION),
+                "SELECT * FROM lineitem")
+                .get();
 
         // wait until query starts running
         while (true) {
-            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
-            if (queryInfo.getState().isDone()) {
-                fail("unexpected query state: " + queryInfo.getState());
+            QueryState state = queryManager.getQueryState(queryId);
+            if (state.isDone()) {
+                fail("unexpected query state: " + state);
             }
-            if (queryInfo.getState() == RUNNING) {
+            if (state == RUNNING) {
                 break;
             }
             Thread.sleep(100);
@@ -75,7 +82,7 @@ public class TestQueryManager
 
         // cancel query
         queryManager.failQuery(queryId, new PrestoException(GENERIC_INTERNAL_ERROR, "mock exception"));
-        QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+        QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
         assertEquals(queryInfo.getState(), FAILED);
         assertEquals(queryInfo.getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());
         assertNotNull(queryInfo.getFailureInfo());
@@ -90,7 +97,7 @@ public class TestQueryManager
             QueryId queryId = createQuery(queryRunner, TEST_SESSION, "SELECT COUNT(*) FROM lineitem");
             waitForQueryState(queryRunner, queryId, FAILED);
             QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+            BasicQueryInfo queryInfo = queryManager.getQueryInfo(queryId);
             assertEquals(queryInfo.getState(), FAILED);
             assertEquals(queryInfo.getErrorCode(), EXCEEDED_CPU_LIMIT.toErrorCode());
         }

@@ -14,12 +14,10 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -45,15 +43,10 @@ public final class SimpleGroupBy
         this.columns = ImmutableList.copyOf(requireNonNull(simpleGroupByExpressions, "simpleGroupByExpressions is null"));
     }
 
-    public List<Expression> getColumnExpressions()
+    @Override
+    public List<Expression> getExpressions()
     {
         return columns;
-    }
-
-    @Override
-    public List<Set<Expression>> enumerateGroupingSets()
-    {
-        return ImmutableList.of(ImmutableSet.copyOf(columns));
     }
 
     @Override

@@ -737,7 +737,7 @@ public class TestMathFunctions
         assertFunction("round(SMALLINT '3', 0)", SMALLINT, (short) 3);
         assertFunction("round(3, 0)", INTEGER, 3);
         assertFunction("round(-3, 0)", INTEGER, -3);
-        assertFunction("round(-3, BIGINT '0')", INTEGER, -3);
+        assertFunction("round(-3, INTEGER '0')", INTEGER, -3);
         assertFunction("round(BIGINT '3', 0)", BIGINT, 3L);
         assertFunction("round( 3000000000, 0)", BIGINT, 3000000000L);
         assertFunction("round(-3000000000, 0)", BIGINT, -3000000000L);
@@ -769,12 +769,12 @@ public class TestMathFunctions
         assertFunction("round(REAL '-3.99', 0)", REAL, -4.0f);
         assertFunction("round(3, 1)", INTEGER, 3);
         assertFunction("round(-3, 1)", INTEGER, -3);
-        assertFunction("round(-3, BIGINT '1')", INTEGER, -3);
-        assertFunction("round(-3, CAST(NULL as BIGINT))", INTEGER, null);
+        assertFunction("round(-3, INTEGER '1')", INTEGER, -3);
+        assertFunction("round(-3, CAST(NULL as INTEGER))", INTEGER, null);
         assertFunction("round(BIGINT '3', 1)", BIGINT, 3L);
         assertFunction("round( 3000000000, 1)", BIGINT, 3000000000L);
         assertFunction("round(-3000000000, 1)", BIGINT, -3000000000L);
-        assertFunction("round(CAST(NULL as BIGINT), CAST(NULL as BIGINT))", BIGINT, null);
+        assertFunction("round(CAST(NULL as BIGINT), CAST(NULL as INTEGER))", BIGINT, null);
         assertFunction("round(CAST(NULL as BIGINT), 1)", BIGINT, null);
         assertFunction("round(3.0E0, 1)", DOUBLE, 3.0);
         assertFunction("round(-3.0E0, 1)", DOUBLE, -3.0);
@@ -931,11 +931,11 @@ public class TestMathFunctions
         assertFunction("round(DECIMAL '-999999999999999999', -3)", createDecimalType(19, 0), SqlDecimal.of("-1000000000000000000"));
 
         // NULL
-        assertFunction("round(CAST(NULL as DOUBLE), CAST(NULL as BIGINT))", DOUBLE, null);
-        assertFunction("round(-3.0E0, CAST(NULL as BIGINT))", DOUBLE, null);
+        assertFunction("round(CAST(NULL as DOUBLE), CAST(NULL as INTEGER))", DOUBLE, null);
+        assertFunction("round(-3.0E0, CAST(NULL as INTEGER))", DOUBLE, null);
         assertFunction("round(CAST(NULL as DOUBLE), 1)", DOUBLE, null);
-        assertFunction("round(CAST(NULL as DECIMAL(1,0)), CAST(NULL as BIGINT))", createDecimalType(2, 0), null);
-        assertFunction("round(DECIMAL '-3.0', CAST(NULL as BIGINT))", createDecimalType(3, 1), null);
+        assertFunction("round(CAST(NULL as DECIMAL(1,0)), CAST(NULL as INTEGER))", createDecimalType(2, 0), null);
+        assertFunction("round(DECIMAL '-3.0', CAST(NULL as INTEGER))", createDecimalType(3, 1), null);
         assertFunction("round(CAST(NULL as DECIMAL(1,0)), 1)", createDecimalType(2, 0), null);
         assertFunction("round(CAST(NULL as DECIMAL(17,2)), 1)", createDecimalType(18, 2), null);
         assertFunction("round(CAST(NULL as DECIMAL(20,2)), 1)", createDecimalType(21, 2), null);
@@ -1321,7 +1321,7 @@ public class TestMathFunctions
         assertFunction("inverse_normal_cdf(0.5, 0.25, 0.65)", DOUBLE, 0.59633011660189195);
         assertInvalidFunction("inverse_normal_cdf(4, 48, 0)", "p must be 0 > p > 1");
         assertInvalidFunction("inverse_normal_cdf(4, 48, 1)", "p must be 0 > p > 1");
-        assertInvalidFunction("inverse_normal_cdf(4, 0, 0.4)", "sd must > 0");
+        assertInvalidFunction("inverse_normal_cdf(4, 0, 0.4)", "sd must be > 0");
     }
 
     @Test
@@ -1339,7 +1339,54 @@ public class TestMathFunctions
         assertFunction("normal_cdf(nan(), 1, 0)", DOUBLE, Double.NaN);
         assertFunction("normal_cdf(0, 1, nan())", DOUBLE, Double.NaN);
 
-        assertInvalidFunction("normal_cdf(0, 0, 0.1985)", "standardDeviation must > 0");
-        assertInvalidFunction("normal_cdf(0, nan(), 0.1985)", "standardDeviation must > 0");
+        assertInvalidFunction("normal_cdf(0, 0, 0.1985)", "standardDeviation must be > 0");
+        assertInvalidFunction("normal_cdf(0, nan(), 0.1985)", "standardDeviation must be > 0");
+    }
+
+    @Test
+    public void testInverseBetaCdf()
+    {
+        assertFunction("inverse_beta_cdf(3, 3.6, 0.0)", DOUBLE, 0.0);
+        assertFunction("inverse_beta_cdf(3, 3.6, 1.0)", DOUBLE, 1.0);
+        assertFunction("inverse_beta_cdf(3, 3.6, 0.3)", DOUBLE, 0.3469675485440618);
+        assertFunction("inverse_beta_cdf(3, 3.6, 0.95)", DOUBLE, 0.7600272463100223);
+
+        assertInvalidFunction("inverse_beta_cdf(0, 3, 0.5)", "a must be > 0");
+        assertInvalidFunction("inverse_beta_cdf(3, 0, 0.5)", "b must be > 0");
+        assertInvalidFunction("inverse_beta_cdf(3, 5, -0.1)", "p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_beta_cdf(3, 5, 1.1)", "p must be in the interval [0, 1]");
+    }
+
+    @Test
+    public void testBetaCdf()
+            throws Exception
+    {
+        assertFunction("beta_cdf(3, 3.6, 0.0)", DOUBLE, 0.0);
+        assertFunction("beta_cdf(3, 3.6, 1.0)", DOUBLE, 1.0);
+        assertFunction("beta_cdf(3, 3.6, 0.3)", DOUBLE, 0.21764809997679938);
+        assertFunction("beta_cdf(3, 3.6, 0.9)", DOUBLE, 0.9972502881611551);
+
+        assertInvalidFunction("beta_cdf(0, 3, 0.5)", "a must be > 0");
+        assertInvalidFunction("beta_cdf(3, 0, 0.5)", "b must be > 0");
+        assertInvalidFunction("beta_cdf(3, 5, -0.1)", "value must be in the interval [0, 1]");
+        assertInvalidFunction("beta_cdf(3, 5, 1.1)", "value must be in the interval [0, 1]");
+    }
+
+    @Test
+    public void testWilsonInterval()
+    {
+        assertInvalidFunction("wilson_interval_lower(-1, 100, 2.575)", "number of successes must not be negative");
+        assertInvalidFunction("wilson_interval_lower(0, 0, 2.575)", "number of trials must be positive");
+        assertInvalidFunction("wilson_interval_lower(10, 5, 2.575)", "number of successes must not be larger than number of trials");
+        assertInvalidFunction("wilson_interval_lower(0, 100, -1)", "z-score must not be negative");
+
+        assertFunction("wilson_interval_lower(1250, 1310, 1.96e0)", DOUBLE, 0.9414883725395894);
+
+        assertInvalidFunction("wilson_interval_upper(-1, 100, 2.575)", "number of successes must not be negative");
+        assertInvalidFunction("wilson_interval_upper(0, 0, 2.575)", "number of trials must be positive");
+        assertInvalidFunction("wilson_interval_upper(10, 5, 2.575)", "number of successes must not be larger than number of trials");
+        assertInvalidFunction("wilson_interval_upper(0, 100, -1)", "z-score must not be negative");
+
+        assertFunction("wilson_interval_upper(1250, 1310, 1.96e0)", DOUBLE, 0.9642524717143908);
     }
 }

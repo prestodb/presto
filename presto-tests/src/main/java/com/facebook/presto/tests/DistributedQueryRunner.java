@@ -14,19 +14,24 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.split.PageSourceManager;
+import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Plan;
@@ -46,14 +51,17 @@ import org.intellij.lang.annotations.Language;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Function;
 
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
@@ -94,7 +102,7 @@ public class DistributedQueryRunner
     public DistributedQueryRunner(Session defaultSession, int nodeCount, Map<String, String> extraProperties)
             throws Exception
     {
-        this(defaultSession, nodeCount, extraProperties, ImmutableMap.of(), DEFAULT_SQL_PARSER_OPTIONS, ENVIRONMENT);
+        this(defaultSession, nodeCount, extraProperties, ImmutableMap.of(), DEFAULT_SQL_PARSER_OPTIONS, ENVIRONMENT, Optional.empty());
     }
 
     public static Builder builder(Session defaultSession)
@@ -108,7 +116,8 @@ public class DistributedQueryRunner
             Map<String, String> extraProperties,
             Map<String, String> coordinatorProperties,
             SqlParserOptions parserOptions,
-            String environment)
+            String environment,
+            Optional<Path> baseDataDir)
             throws Exception
     {
         requireNonNull(defaultSession, "defaultSession is null");
@@ -122,7 +131,7 @@ public class DistributedQueryRunner
             ImmutableList.Builder<TestingPrestoServer> servers = ImmutableList.builder();
 
             for (int i = 1; i < nodeCount; i++) {
-                TestingPrestoServer worker = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), false, extraProperties, parserOptions, environment));
+                TestingPrestoServer worker = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), false, extraProperties, parserOptions, environment, baseDataDir));
                 servers.add(worker);
             }
 
@@ -130,7 +139,7 @@ public class DistributedQueryRunner
             extraCoordinatorProperties.put("experimental.iterative-optimizer-enabled", "true");
             extraCoordinatorProperties.putAll(extraProperties);
             extraCoordinatorProperties.putAll(coordinatorProperties);
-            coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true, extraCoordinatorProperties, parserOptions, environment));
+            coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true, extraCoordinatorProperties, parserOptions, environment, baseDataDir));
             servers.add(coordinator);
 
             this.servers = servers.build();
@@ -172,7 +181,7 @@ public class DistributedQueryRunner
         }
     }
 
-    private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri, boolean coordinator, Map<String, String> extraProperties, SqlParserOptions parserOptions, String environment)
+    private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri, boolean coordinator, Map<String, String> extraProperties, SqlParserOptions parserOptions, String environment, Optional<Path> baseDataDir)
             throws Exception
     {
         long start = System.nanoTime();
@@ -184,14 +193,15 @@ public class DistributedQueryRunner
                 .put("distributed-index-joins-enabled", "true");
         if (coordinator) {
             propertiesBuilder.put("node-scheduler.include-coordinator", "true");
-            propertiesBuilder.put("distributed-joins-enabled", "true");
+            propertiesBuilder.put("join-distribution-type", "PARTITIONED");
         }
         HashMap<String, String> properties = new HashMap<>(propertiesBuilder.build());
         properties.putAll(extraProperties);
 
-        TestingPrestoServer server = new TestingPrestoServer(coordinator, properties, environment, discoveryUri, parserOptions, ImmutableList.of());
+        TestingPrestoServer server = new TestingPrestoServer(coordinator, properties, environment, discoveryUri, parserOptions, ImmutableList.of(), baseDataDir);
 
-        log.info("Created TestingPrestoServer in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
+        String nodeRole = coordinator ? "coordinator" : "worker";
+        log.info("Created %s TestingPrestoServer in %s: %s", nodeRole, nanosSince(start).convertToMostSuccinctTimeUnit(), server.getBaseUrl());
 
         return server;
     }
@@ -235,6 +245,18 @@ public class DistributedQueryRunner
     public Metadata getMetadata()
     {
         return coordinator.getMetadata();
+    }
+
+    @Override
+    public SplitManager getSplitManager()
+    {
+        return coordinator.getSplitManager();
+    }
+
+    @Override
+    public PageSourceManager getPageSourceManager()
+    {
+        return coordinator.getPageSourceManager();
     }
 
     @Override
@@ -378,7 +400,14 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public Plan createPlan(Session session, String sql)
+    public MaterializedResultWithPlan executeWithPlan(Session session, String sql, WarningCollector warningCollector)
+    {
+        ResultWithQueryId<MaterializedResult> resultWithQueryId = executeWithQueryId(session, sql);
+        return new MaterializedResultWithPlan(resultWithQueryId.getResult().toTestTypes(), getQueryPlan(resultWithQueryId.getQueryId()));
+    }
+
+    @Override
+    public Plan createPlan(Session session, String sql, WarningCollector warningCollector)
     {
         QueryId queryId = executeWithQueryId(session, sql).getQueryId();
         Plan queryPlan = getQueryPlan(queryId);
@@ -388,12 +417,12 @@ public class DistributedQueryRunner
 
     public QueryInfo getQueryInfo(QueryId queryId)
     {
-        return coordinator.getQueryManager().getQueryInfo(queryId);
+        return coordinator.getQueryManager().getFullQueryInfo(queryId);
     }
 
     public Plan getQueryPlan(QueryId queryId)
     {
-        return coordinator.getQueryManager().getQueryPlan(queryId);
+        return coordinator.getQueryPlan(queryId);
     }
 
     @Override
@@ -417,7 +446,7 @@ public class DistributedQueryRunner
     private void cancelAllQueries()
     {
         QueryManager queryManager = coordinator.getQueryManager();
-        for (QueryInfo queryInfo : queryManager.getAllQueryInfo()) {
+        for (BasicQueryInfo queryInfo : queryManager.getQueries()) {
             if (!queryInfo.getState().isDone()) {
                 queryManager.cancelQuery(queryInfo.getQueryId());
             }
@@ -437,16 +466,24 @@ public class DistributedQueryRunner
 
     public static class Builder
     {
-        private final Session defaultSession;
+        private Session defaultSession;
         private int nodeCount = 4;
         private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
         private SqlParserOptions parserOptions = DEFAULT_SQL_PARSER_OPTIONS;
         private String environment = ENVIRONMENT;
+        private Optional<Path> baseDataDir = Optional.empty();
 
         protected Builder(Session defaultSession)
         {
-            this.defaultSession = defaultSession;
+            this.defaultSession = requireNonNull(defaultSession, "defaultSession is null");
+        }
+
+        public Builder amendSession(Function<SessionBuilder, SessionBuilder> amendSession)
+        {
+            SessionBuilder builder = Session.builder(defaultSession);
+            this.defaultSession = amendSession.apply(builder).build();
+            return this;
         }
 
         public Builder setNodeCount(int nodeCount)
@@ -499,10 +536,16 @@ public class DistributedQueryRunner
             return this;
         }
 
+        public Builder setBaseDataDir(Optional<Path> baseDataDir)
+        {
+            this.baseDataDir = requireNonNull(baseDataDir, "baseDataDir is null");
+            return this;
+        }
+
         public DistributedQueryRunner build()
                 throws Exception
         {
-            return new DistributedQueryRunner(defaultSession, nodeCount, extraProperties, coordinatorProperties, parserOptions, environment);
+            return new DistributedQueryRunner(defaultSession, nodeCount, extraProperties, coordinatorProperties, parserOptions, environment, baseDataDir);
         }
     }
 }

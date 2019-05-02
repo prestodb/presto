@@ -24,7 +24,9 @@ import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPosition;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
+import static com.facebook.presto.spi.block.BlockUtil.countUsedPositions;
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.min;
@@ -41,6 +43,7 @@ public class DictionaryBlock
     private final int[] ids;
     private final long retainedSizeInBytes;
     private volatile long sizeInBytes = -1;
+    private volatile long logicalSizeInBytes = -1;
     private volatile int uniqueIds = -1;
     private final DictionaryId dictionarySourceId;
 
@@ -202,21 +205,41 @@ public class DictionaryBlock
 
     private void calculateCompactSize()
     {
-        long sizeInBytes = 0;
         int uniqueIds = 0;
-        boolean[] seen = new boolean[dictionary.getPositionCount()];
+        boolean[] used = new boolean[dictionary.getPositionCount()];
         for (int i = 0; i < positionCount; i++) {
             int position = getId(i);
-            if (!seen[position]) {
-                if (!dictionary.isNull(position)) {
-                    sizeInBytes += dictionary.getRegionSizeInBytes(position, 1);
-                }
+            if (!used[position]) {
                 uniqueIds++;
-                seen[position] = true;
+                used[position] = true;
             }
         }
-        this.sizeInBytes = sizeInBytes + (Integer.BYTES * (long) positionCount);
+        this.sizeInBytes = dictionary.getPositionsSizeInBytes(used) + (Integer.BYTES * (long) positionCount);
         this.uniqueIds = uniqueIds;
+    }
+
+    @Override
+    public long getLogicalSizeInBytes()
+    {
+        if (logicalSizeInBytes >= 0) {
+            return logicalSizeInBytes;
+        }
+
+        // Calculation of logical size can be performed as part of calculateCompactSize() with minor modifications.
+        // Keeping this calculation separate as this is a little more expensive and may not be called as often.
+        long sizeInBytes = 0;
+        long[] seenSizes = new long[dictionary.getPositionCount()];
+        Arrays.fill(seenSizes, -1L);
+        for (int i = 0; i < getPositionCount(); i++) {
+            int position = getId(i);
+            if (seenSizes[position] < 0) {
+                seenSizes[position] = dictionary.getRegionSizeInBytes(position, 1);
+            }
+            sizeInBytes += seenSizes[position];
+        }
+
+        logicalSizeInBytes = sizeInBytes;
+        return sizeInBytes;
     }
 
     @Override
@@ -228,25 +251,37 @@ public class DictionaryBlock
             return getSizeInBytes();
         }
 
-        long sizeInBytes = 0;
-        boolean[] seen = new boolean[dictionary.getPositionCount()];
+        boolean[] used = new boolean[dictionary.getPositionCount()];
         for (int i = positionOffset; i < positionOffset + length; i++) {
-            int position = getId(i);
-            if (!seen[position]) {
-                if (!dictionary.isNull(position)) {
-                    sizeInBytes += dictionary.getRegionSizeInBytes(position, 1);
-                }
-                seen[position] = true;
+            used[getId(i)] = true;
+        }
+        return dictionary.getPositionsSizeInBytes(used) + Integer.BYTES * (long) length;
+    }
+
+    @Override
+    public long getPositionsSizeInBytes(boolean[] positions)
+    {
+        checkValidPositions(positions, positionCount);
+
+        boolean[] used = new boolean[dictionary.getPositionCount()];
+        for (int i = 0; i < positions.length; i++) {
+            if (positions[i]) {
+                used[getId(i)] = true;
             }
         }
-        sizeInBytes += Integer.BYTES * (long) length;
-        return sizeInBytes;
+        return dictionary.getPositionsSizeInBytes(used) + (Integer.BYTES * (long) countUsedPositions(positions));
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
         return retainedSizeInBytes;
+    }
+
+    @Override
+    public long getEstimatedDataSizeForStats(int position)
+    {
+        return dictionary.getEstimatedDataSizeForStats(getId(position));
     }
 
     @Override
@@ -258,9 +293,9 @@ public class DictionaryBlock
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new DictionaryBlockEncoding(dictionary.getEncoding());
+        return DictionaryBlockEncoding.NAME;
     }
 
     @Override
@@ -288,7 +323,7 @@ public class DictionaryBlock
     public Block getRegion(int positionOffset, int length)
     {
         checkValidRegion(positionCount, positionOffset, length);
-        return new DictionaryBlock(idsOffset + positionOffset, length, dictionary, ids, false, randomDictionaryId());
+        return new DictionaryBlock(idsOffset + positionOffset, length, dictionary, ids, false, dictionarySourceId);
     }
 
     @Override
@@ -336,6 +371,17 @@ public class DictionaryBlock
         sb.append("positionCount=").append(getPositionCount());
         sb.append('}');
         return sb.toString();
+    }
+
+    @Override
+    public Block getLoadedBlock()
+    {
+        Block loadedDictionary = dictionary.getLoadedBlock();
+
+        if (loadedDictionary == dictionary) {
+            return this;
+        }
+        return new DictionaryBlock(idsOffset, getPositionCount(), loadedDictionary, ids, false, randomDictionaryId());
     }
 
     public Block getDictionary()

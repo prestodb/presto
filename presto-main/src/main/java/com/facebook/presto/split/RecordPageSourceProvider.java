@@ -29,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 public class RecordPageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private ConnectorRecordSetProvider recordSetProvider;
+    private final ConnectorRecordSetProvider recordSetProvider;
 
     public RecordPageSourceProvider(ConnectorRecordSetProvider recordSetProvider)
     {

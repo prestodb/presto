@@ -14,24 +14,19 @@
 
 package com.facebook.presto.server;
 
-import com.facebook.presto.execution.QueryStats;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.joda.time.DateTime;
 
-import java.util.Optional;
 import java.util.OptionalDouble;
 
 import static java.util.Objects.requireNonNull;
 
 public class QueryProgressStats
 {
-    private final Optional<DateTime> executionStartTime;
     private final long elapsedTimeMillis;
     private final long queuedTimeMillis;
     private final long cpuTimeMillis;
     private final long scheduledTimeMillis;
-    private final long blockedTimeMillis;
     private final long currentMemoryBytes;
     private final long peakMemoryBytes;
     private final long inputRows;
@@ -41,12 +36,10 @@ public class QueryProgressStats
 
     @JsonCreator
     public QueryProgressStats(
-            @JsonProperty("executionStartTime") Optional<DateTime> executionStartTime,
             @JsonProperty("elapsedTimeMillis") long elapsedTimeMillis,
             @JsonProperty("queuedTimeMillis") long queuedTimeMillis,
             @JsonProperty("cpuTimeMillis") long cpuTimeMillis,
             @JsonProperty("scheduledTimeMillis") long scheduledTimeMillis,
-            @JsonProperty("blockedTimeMillis") long blockedTimeMillis,
             @JsonProperty("currentMemoryBytes") long currentMemoryBytes,
             @JsonProperty("peakMemoryBytes") long peakMemoryBytes,
             @JsonProperty("inputRows") long inputRows,
@@ -54,12 +47,10 @@ public class QueryProgressStats
             @JsonProperty("blocked") boolean blocked,
             @JsonProperty("progressPercentage") OptionalDouble progressPercentage)
     {
-        this.executionStartTime = requireNonNull(executionStartTime, "executionStartTime is null");
         this.elapsedTimeMillis = elapsedTimeMillis;
         this.queuedTimeMillis = queuedTimeMillis;
         this.cpuTimeMillis = cpuTimeMillis;
         this.scheduledTimeMillis = scheduledTimeMillis;
-        this.blockedTimeMillis = blockedTimeMillis;
         this.currentMemoryBytes = currentMemoryBytes;
         this.peakMemoryBytes = peakMemoryBytes;
         this.inputRows = inputRows;
@@ -68,27 +59,19 @@ public class QueryProgressStats
         this.progressPercentage = requireNonNull(progressPercentage, "progressPercentage is null");
     }
 
-    public static QueryProgressStats createQueryProgressStats(QueryStats queryStats)
+    public static QueryProgressStats createQueryProgressStats(BasicQueryStats queryStats)
     {
         return new QueryProgressStats(
-                Optional.ofNullable(queryStats.getExecutionStartTime()),
                 queryStats.getElapsedTime().toMillis(),
                 queryStats.getQueuedTime().toMillis(),
                 queryStats.getTotalCpuTime().toMillis(),
                 queryStats.getTotalScheduledTime().toMillis(),
-                queryStats.getTotalBlockedTime().toMillis(),
                 queryStats.getUserMemoryReservation().toBytes(),
                 queryStats.getPeakUserMemoryReservation().toBytes(),
                 queryStats.getRawInputPositions(),
                 queryStats.getRawInputDataSize().toBytes(),
                 queryStats.isFullyBlocked(),
                 queryStats.getProgressPercentage());
-    }
-
-    @JsonProperty
-    public Optional<DateTime> getExecutionStartTime()
-    {
-        return executionStartTime;
     }
 
     @JsonProperty
@@ -113,12 +96,6 @@ public class QueryProgressStats
     public long getScheduledTimeMillis()
     {
         return scheduledTimeMillis;
-    }
-
-    @JsonProperty
-    public long getBlockedTimeMillis()
-    {
-        return blockedTimeMillis;
     }
 
     @JsonProperty

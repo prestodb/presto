@@ -15,6 +15,21 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType;
+import com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType;
+import com.facebook.presto.sql.tree.FrameBound;
+import com.facebook.presto.sql.tree.WindowFrame;
+
+import java.util.Collection;
+
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.CURRENT_ROW;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.FOLLOWING;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.PRECEDING;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_FOLLOWING;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.ROWS;
+import static java.lang.String.format;
 
 public final class WindowNodeUtil
 {
@@ -27,7 +42,37 @@ public final class WindowNodeUtil
                 || parent.getWindowFunctions().values().stream()
                 .map(WindowNode.Function::getFunctionCall)
                 .map(SymbolsExtractor::extractUnique)
-                .flatMap(symbols -> symbols.stream())
+                .flatMap(Collection::stream)
                 .anyMatch(child.getCreatedSymbols()::contains);
+    }
+
+    public static WindowType toWindowType(WindowFrame.Type type)
+    {
+        switch (type) {
+            case RANGE:
+                return RANGE;
+            case ROWS:
+                return ROWS;
+            default:
+                throw new UnsupportedOperationException(format("unrecognized window frame type %s", type));
+        }
+    }
+
+    public static BoundType toBoundType(FrameBound.Type type)
+    {
+        switch (type) {
+            case UNBOUNDED_PRECEDING:
+                return UNBOUNDED_PRECEDING;
+            case PRECEDING:
+                return PRECEDING;
+            case CURRENT_ROW:
+                return CURRENT_ROW;
+            case FOLLOWING:
+                return FOLLOWING;
+            case UNBOUNDED_FOLLOWING:
+                return UNBOUNDED_FOLLOWING;
+            default:
+                throw new UnsupportedOperationException(format("unrecognized frame bound type %s", type));
+        }
     }
 }

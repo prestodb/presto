@@ -20,8 +20,8 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.SpillContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.util.PrestoIterators;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
@@ -33,6 +33,7 @@ import io.airlift.slice.SliceOutput;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -156,7 +157,7 @@ public class FileSingleStreamSpiller
         try {
             InputStream input = closer.register(targetFile.newInputStream());
             Iterator<Page> pages = PagesSerdeUtil.readPages(serde, new InputStreamSliceInput(input, BUFFER_SIZE));
-            return PrestoIterators.closeWhenExhausted(pages, input);
+            return closeWhenExhausted(pages, input);
         }
         catch (IOException e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to read spilled pages", e);
@@ -171,16 +172,37 @@ public class FileSingleStreamSpiller
         try {
             closer.close();
         }
-        catch (Exception e) {
-            throw new PrestoException(
-                    GENERIC_INTERNAL_ERROR,
-                    "Failed to close spiller",
-                    e);
+        catch (IOException e) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to close spiller", e);
         }
     }
 
     private void checkNoSpillInProgress()
     {
         checkState(spillInProgress.isDone(), "spill in progress");
+    }
+
+    private static <T> Iterator<T> closeWhenExhausted(Iterator<T> iterator, Closeable resource)
+    {
+        requireNonNull(iterator, "iterator is null");
+        requireNonNull(resource, "resource is null");
+
+        return new AbstractIterator<T>()
+        {
+            @Override
+            protected T computeNext()
+            {
+                if (iterator.hasNext()) {
+                    return iterator.next();
+                }
+                try {
+                    resource.close();
+                }
+                catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+                return endOfData();
+            }
+        };
     }
 }

@@ -117,7 +117,7 @@ public class TestMySqlTypeMapping
                 .addRoundTrip(stringDataType("mediumtext", createVarcharType(16777215)), "c")
                 .addRoundTrip(stringDataType("longtext", createUnboundedVarcharType()), "d")
                 .addRoundTrip(varcharDataType(32), "e")
-                .addRoundTrip(varcharDataType(20000), "f")
+                .addRoundTrip(varcharDataType(15000), "f")
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar"));
     }
 

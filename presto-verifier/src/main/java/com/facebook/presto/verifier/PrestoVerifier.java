@@ -28,9 +28,8 @@ public class PrestoVerifier
                 .withDescription("Presto Verifier")
                 .withDefaultCommand(Help.class)
                 .withCommand(Help.class)
-                .withCommand(VerifyCommand.class)
+                .withCommand(PrestoVerifyCommand.class)
                 .build();
-
         verifierParser.parse(args).run();
     }
 }

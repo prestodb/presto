@@ -54,16 +54,15 @@ public class MultilevelSplitQueue
     private final ReentrantLock lock = new ReentrantLock();
     private final Condition notEmpty = lock.newCondition();
 
-    private final boolean levelAbsolutePriority;
     private final double levelTimeMultiplier;
 
     @Inject
     public MultilevelSplitQueue(TaskManagerConfig taskManagerConfig)
     {
-        this(taskManagerConfig.isLevelAbsolutePriority(), taskManagerConfig.getLevelTimeMultiplier().doubleValue());
+        this(taskManagerConfig.getLevelTimeMultiplier().doubleValue());
     }
 
-    public MultilevelSplitQueue(boolean levelAbsolutePriority, double levelTimeMultiplier)
+    public MultilevelSplitQueue(double levelTimeMultiplier)
     {
         this.levelMinPriority = new AtomicLong[LEVEL_THRESHOLD_SECONDS.length];
         this.levelWaitingSplits = new ArrayList<>(LEVEL_THRESHOLD_SECONDS.length);
@@ -78,7 +77,6 @@ public class MultilevelSplitQueue
 
         this.selectedLevelCounters = counters.build();
 
-        this.levelAbsolutePriority = levelAbsolutePriority;
         this.levelTimeMultiplier = levelTimeMultiplier;
     }
 
@@ -163,10 +161,6 @@ public class MultilevelSplitQueue
     @GuardedBy("lock")
     private PrioritizedSplitRunner pollSplit()
     {
-        if (levelAbsolutePriority) {
-            return pollFirstSplit();
-        }
-
         long targetScheduledTime = getLevel0TargetTime();
         double worstRatio = 1;
         int selectedLevel = -1;
@@ -206,19 +200,6 @@ public class MultilevelSplitQueue
         }
 
         return level0TargetTime;
-    }
-
-    @GuardedBy("lock")
-    private PrioritizedSplitRunner pollFirstSplit()
-    {
-        for (PriorityQueue<PrioritizedSplitRunner> level : levelWaitingSplits) {
-            PrioritizedSplitRunner split = level.poll();
-            if (split != null) {
-                return split;
-            }
-        }
-
-        return null;
     }
 
     /**

@@ -22,6 +22,7 @@ import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
@@ -56,7 +57,7 @@ public class BenchmarkDecimalAggregation
         @Param({"double", "decimal(14,2)", "decimal(30,10)"})
         private String type;
 
-        private final MemoryLocalQueryRunner queryRunner = new MemoryLocalQueryRunner();
+        private MemoryLocalQueryRunner queryRunner;
 
         public final MemoryLocalQueryRunner getQueryRunner()
         {
@@ -66,9 +67,17 @@ public class BenchmarkDecimalAggregation
         @Setup
         public void setUp()
         {
+            queryRunner = new MemoryLocalQueryRunner();
             queryRunner.execute(format(
                     "CREATE TABLE memory.default.orders AS SELECT orderstatus, cast(totalprice as %s) totalprice FROM tpch.sf1.orders",
                     type));
+        }
+
+        @TearDown
+        public void tearDown()
+        {
+            queryRunner.close();
+            queryRunner = null;
         }
     }
 

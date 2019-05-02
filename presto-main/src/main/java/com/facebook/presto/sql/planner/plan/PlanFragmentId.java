@@ -22,6 +22,7 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class PlanFragmentId
+        implements Comparable<PlanFragmentId>
 {
     private final String id;
 
@@ -62,5 +63,16 @@ public class PlanFragmentId
     public int hashCode()
     {
         return id.hashCode();
+    }
+
+    @Override
+    public int compareTo(PlanFragmentId o)
+    {
+        try {
+            return Integer.compare(Integer.parseInt(id), Integer.parseInt(o.id));
+        }
+        catch (NumberFormatException e) {
+            return id.compareTo(o.id);
+        }
     }
 }

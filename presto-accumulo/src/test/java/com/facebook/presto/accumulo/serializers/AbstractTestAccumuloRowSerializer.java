@@ -14,7 +14,7 @@
 package com.facebook.presto.accumulo.serializers;
 
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -189,8 +189,8 @@ public abstract class AbstractTestAccumuloRowSerializer
             throws Exception
     {
         TypeManager typeManager = new TypeRegistry();
-        // associate typeManager with a function registry
-        new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        // associate typeManager with a function manager
+        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
 
         AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
         Type type = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(

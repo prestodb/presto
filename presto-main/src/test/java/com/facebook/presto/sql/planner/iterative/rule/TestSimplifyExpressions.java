@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
@@ -42,6 +44,8 @@ import static org.testng.Assert.assertEquals;
 public class TestSimplifyExpressions
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
+    private static final MetadataManager METADATA = createTestMetadataManager();
+    private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(METADATA.getBlockEncodingSerde());
 
     @Test
     public void testPushesDownNegations()
@@ -114,7 +118,7 @@ public class TestSimplifyExpressions
     {
         Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression));
         Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected));
-        Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(booleanSymbolTypeMapFor(actualExpression)), createTestMetadataManager(), SQL_PARSER);
+        Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(booleanSymbolTypeMapFor(actualExpression)), METADATA, LITERAL_ENCODER, SQL_PARSER);
         assertEquals(
                 normalize(rewritten),
                 normalize(expectedExpression));
@@ -137,11 +141,11 @@ public class TestSimplifyExpressions
         @Override
         public Expression rewriteLogicalBinaryExpression(LogicalBinaryExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            List<Expression> predicates = extractPredicates(node.getType(), node).stream()
+            List<Expression> predicates = extractPredicates(node.getOperator(), node).stream()
                     .map(p -> treeRewriter.rewrite(p, context))
                     .sorted(Comparator.comparing(Expression::toString))
                     .collect(toList());
-            return binaryExpression(node.getType(), predicates);
+            return binaryExpression(node.getOperator(), predicates);
         }
     }
 }

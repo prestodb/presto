@@ -14,10 +14,11 @@
 package com.facebook.presto.operator.aggregation.histogram;
 
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.AccumulatorCompiler;
 import com.facebook.presto.operator.aggregation.AggregationMetadata;
+import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import com.facebook.presto.operator.aggregation.GenericAccumulatorFactoryBinder;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.block.Block;
@@ -32,12 +33,12 @@ import io.airlift.bytecode.DynamicClassLoader;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
-import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
+import static com.facebook.presto.spi.function.Signature.comparableTypeParameter;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -72,7 +73,7 @@ public class Histogram
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         Type keyType = boundVariables.getTypeVariable("K");
         Type outputType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
@@ -100,13 +101,14 @@ public class Histogram
                 inputFunction,
                 COMBINE_FUNCTION,
                 outputFunction,
-                HistogramState.class,
-                stateSerializer,
-                new HistogramStateFactory(keyType, EXPECTED_SIZE_FOR_HASHING, groupMode),
+                ImmutableList.of(new AccumulatorStateDescriptor(
+                        HistogramState.class,
+                        stateSerializer,
+                        new HistogramStateFactory(keyType, EXPECTED_SIZE_FOR_HASHING, groupMode))),
                 outputType);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(functionName, inputTypes, intermediateType, outputType, true, false, factory);
+        return new InternalAggregationFunction(functionName, inputTypes, ImmutableList.of(intermediateType), outputType, true, false, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type keyType)
@@ -131,7 +133,7 @@ public class Histogram
         // Semantically, a histogram object will be returned even if the group is empty.
         // In that case, the histogram object will represent an empty histogram until we call add() on
         // it.
-        requireNonNull(otherState.get() != null, "scratch state should always be non-null");
+        requireNonNull(otherState.get(), "scratch state should always be non-null");
         TypedHistogram typedHistogram = state.get();
         long startSize = typedHistogram.getEstimatedSize();
         typedHistogram.addAll(otherState.get());

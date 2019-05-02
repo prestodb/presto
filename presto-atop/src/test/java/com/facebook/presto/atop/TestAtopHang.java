@@ -50,6 +50,7 @@ public class TestAtopHang
     public void tearDown()
     {
         queryRunner.close();
+        queryRunner = null;
     }
 
     @Test(timeOut = 60_000)

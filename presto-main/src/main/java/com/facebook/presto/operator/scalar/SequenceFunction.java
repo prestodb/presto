@@ -16,7 +16,6 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
@@ -100,7 +99,7 @@ public final class SequenceFunction
         int length = toIntExact(diffDate(session, MONTH, start, stop) / step + 1);
         checkMaxEntry(length);
 
-        BlockBuilder blockBuilder = DATE.createBlockBuilder(new BlockBuilderStatus(), length);
+        BlockBuilder blockBuilder = DATE.createBlockBuilder(null, length);
 
         int value = 0;
         for (int i = 0; i < length; ++i) {
@@ -134,7 +133,7 @@ public final class SequenceFunction
         int length = toIntExact(diffTimestamp(session, MONTH, start, stop) / step + 1);
         checkMaxEntry(length);
 
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), length);
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, length);
 
         int value = 0;
         for (int i = 0; i < length; ++i) {
@@ -152,7 +151,7 @@ public final class SequenceFunction
         int length = toIntExact((stop - start) / step + 1L);
         checkMaxEntry(length);
 
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), length);
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, length);
         for (long i = 0, value = start; i < length; ++i, value += step) {
             type.writeLong(blockBuilder, value);
         }

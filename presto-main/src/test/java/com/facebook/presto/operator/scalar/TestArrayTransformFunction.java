@@ -19,8 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -104,7 +102,7 @@ public class TestArrayTransformFunction
         assertFunction("transform(ARRAY ['abc', 'def'], x -> x || x)", new ArrayType(createUnboundedVarcharType()), ImmutableList.of("abcabc", "defdef"));
         assertFunction(
                 "transform(ARRAY ['123', '456'], x -> ROW(x, CAST(x AS INTEGER), x > '3'))",
-                new ArrayType(new RowType(ImmutableList.of(createVarcharType(3), INTEGER, BOOLEAN), Optional.empty())),
+                new ArrayType(RowType.anonymous(ImmutableList.of(createVarcharType(3), INTEGER, BOOLEAN))),
                 ImmutableList.of(ImmutableList.of("123", 123, false), ImmutableList.of("456", 456, true)));
 
         assertFunction(

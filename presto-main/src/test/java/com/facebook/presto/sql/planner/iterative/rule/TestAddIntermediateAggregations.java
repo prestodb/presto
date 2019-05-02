@@ -32,6 +32,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anySymbol;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.globalAggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
@@ -39,7 +40,7 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 
@@ -60,7 +61,7 @@ public class TestAddIntermediateAggregations
                             .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
-                                            ExchangeNode.Scope.REMOTE,
+                                            ExchangeNode.Scope.REMOTE_STREAMING,
                                             p.aggregation(ap -> ap.globalGrouping()
                                                     .step(AggregationNode.Step.PARTIAL)
                                                     .addAggregation(p.symbol("b"), expression("count(a)"), ImmutableList.of(BIGINT))
@@ -69,29 +70,29 @@ public class TestAddIntermediateAggregations
                 }))
                 .matches(
                         aggregation(
-                                ImmutableList.of(ImmutableList.of()),
+                                globalAggregation(),
                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
                                 ImmutableMap.of(),
                                 Optional.empty(),
                                 FINAL,
                                 exchange(LOCAL, GATHER,
                                         aggregation(
-                                                ImmutableList.of(ImmutableList.of()),
+                                                globalAggregation(),
                                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
                                                 ImmutableMap.of(),
                                                 Optional.empty(),
                                                 INTERMEDIATE,
                                                 exchange(LOCAL, REPARTITION,
-                                                        exchange(REMOTE, GATHER,
+                                                        exchange(REMOTE_STREAMING, GATHER,
                                                                 aggregation(
-                                                                        ImmutableList.of(ImmutableList.of()),
+                                                                        globalAggregation(),
                                                                         ImmutableMap.of(Optional.empty(), aggregationPattern),
                                                                         ImmutableMap.of(),
                                                                         Optional.empty(),
                                                                         INTERMEDIATE,
                                                                         exchange(LOCAL, GATHER,
                                                                                 aggregation(
-                                                                                        ImmutableList.of(ImmutableList.of()),
+                                                                                        globalAggregation(),
                                                                                         ImmutableMap.of(Optional.empty(), aggregationPattern),
                                                                                         ImmutableMap.of(),
                                                                                         Optional.empty(),
@@ -115,7 +116,7 @@ public class TestAddIntermediateAggregations
                             .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
-                                            ExchangeNode.Scope.REMOTE,
+                                            ExchangeNode.Scope.REMOTE_STREAMING,
                                             p.aggregation(ap -> ap.globalGrouping()
                                                     .step(AggregationNode.Step.PARTIAL)
                                                     .addAggregation(p.symbol("b"), expression("count(*)"), ImmutableList.of(BIGINT))
@@ -124,29 +125,29 @@ public class TestAddIntermediateAggregations
                 }))
                 .matches(
                         aggregation(
-                                ImmutableList.of(ImmutableList.of()),
+                                globalAggregation(),
                                 ImmutableMap.of(Optional.empty(), partialInputCount),
                                 ImmutableMap.of(),
                                 Optional.empty(),
                                 FINAL,
                                 exchange(LOCAL, GATHER,
                                         aggregation(
-                                                ImmutableList.of(ImmutableList.of()),
+                                                globalAggregation(),
                                                 ImmutableMap.of(Optional.empty(), partialInputCount),
                                                 ImmutableMap.of(),
                                                 Optional.empty(),
                                                 INTERMEDIATE,
                                                 exchange(LOCAL, REPARTITION,
-                                                        exchange(REMOTE, GATHER,
+                                                        exchange(REMOTE_STREAMING, GATHER,
                                                                 aggregation(
-                                                                        ImmutableList.of(ImmutableList.of()),
+                                                                        globalAggregation(),
                                                                         ImmutableMap.of(Optional.empty(), partialInputCount),
                                                                         ImmutableMap.of(),
                                                                         Optional.empty(),
                                                                         INTERMEDIATE,
                                                                         exchange(LOCAL, GATHER,
                                                                                 aggregation(
-                                                                                        ImmutableList.of(ImmutableList.of()),
+                                                                                        globalAggregation(),
                                                                                         ImmutableMap.of(Optional.empty(), rawInputCount),
                                                                                         ImmutableMap.of(),
                                                                                         Optional.empty(),
@@ -168,9 +169,9 @@ public class TestAddIntermediateAggregations
                             .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
-                                            ExchangeNode.Scope.REMOTE,
+                                            ExchangeNode.Scope.REMOTE_STREAMING,
                                             p.gatheringExchange(
-                                                    ExchangeNode.Scope.REMOTE,
+                                                    ExchangeNode.Scope.REMOTE_STREAMING,
                                                     p.aggregation(ap -> ap.globalGrouping()
                                                             .step(AggregationNode.Step.PARTIAL)
                                                             .addAggregation(p.symbol("b"), expression("count(a)"), ImmutableList.of(BIGINT))
@@ -179,30 +180,30 @@ public class TestAddIntermediateAggregations
                 }))
                 .matches(
                         aggregation(
-                                ImmutableList.of(ImmutableList.of()),
+                                globalAggregation(),
                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
                                 ImmutableMap.of(),
                                 Optional.empty(),
                                 FINAL,
                                 exchange(LOCAL, GATHER,
                                         aggregation(
-                                                ImmutableList.of(ImmutableList.of()),
+                                                globalAggregation(),
                                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
                                                 ImmutableMap.of(),
                                                 Optional.empty(),
                                                 INTERMEDIATE,
                                                 exchange(LOCAL, REPARTITION,
-                                                        exchange(REMOTE, GATHER,
-                                                                exchange(REMOTE, GATHER,
+                                                        exchange(REMOTE_STREAMING, GATHER,
+                                                                exchange(REMOTE_STREAMING, GATHER,
                                                                         aggregation(
-                                                                                ImmutableList.of(ImmutableList.of()),
+                                                                                globalAggregation(),
                                                                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
                                                                                 ImmutableMap.of(),
                                                                                 Optional.empty(),
                                                                                 INTERMEDIATE,
                                                                                 exchange(LOCAL, GATHER,
                                                                                         aggregation(
-                                                                                                ImmutableList.of(ImmutableList.of()),
+                                                                                                globalAggregation(),
                                                                                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
                                                                                                 ImmutableMap.of(),
                                                                                                 Optional.empty(),
@@ -222,7 +223,7 @@ public class TestAddIntermediateAggregations
                             .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
-                                            ExchangeNode.Scope.REMOTE,
+                                            ExchangeNode.Scope.REMOTE_STREAMING,
                                             p.aggregation(ap -> ap.globalGrouping()
                                                     .step(AggregationNode.Step.PARTIAL)
                                                     .addAggregation(p.symbol("b"), expression("count(a)"), ImmutableList.of(BIGINT))
@@ -246,7 +247,7 @@ public class TestAddIntermediateAggregations
                             .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
-                                            ExchangeNode.Scope.REMOTE,
+                                            ExchangeNode.Scope.REMOTE_STREAMING,
                                             p.aggregation(ap -> ap.globalGrouping()
                                                     .step(AggregationNode.Step.PARTIAL)
                                                     .addAggregation(p.symbol("b"), expression("count(a)"), ImmutableList.of(BIGINT))
@@ -255,21 +256,21 @@ public class TestAddIntermediateAggregations
                 }))
                 .matches(
                         aggregation(
-                                ImmutableList.of(ImmutableList.of()),
+                                globalAggregation(),
                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
                                 ImmutableMap.of(),
                                 Optional.empty(),
                                 FINAL,
-                                exchange(REMOTE, GATHER,
+                                exchange(REMOTE_STREAMING, GATHER,
                                         aggregation(
-                                                ImmutableList.of(ImmutableList.of()),
+                                                globalAggregation(),
                                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
                                                 ImmutableMap.of(),
                                                 Optional.empty(),
                                                 INTERMEDIATE,
                                                 exchange(LOCAL, GATHER,
                                                         aggregation(
-                                                                ImmutableList.of(ImmutableList.of()),
+                                                                globalAggregation(),
                                                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
                                                                 ImmutableMap.of(),
                                                                 Optional.empty(),
@@ -284,13 +285,13 @@ public class TestAddIntermediateAggregations
                 .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")
                 .setSystemProperty(TASK_CONCURRENCY, "4")
                 .on(p -> p.aggregation(af -> {
-                    af.addGroupingSet(p.symbol("c"))
+                    af.singleGroupingSet(p.symbol("c"))
                             .step(AggregationNode.Step.FINAL)
                             .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
-                                            ExchangeNode.Scope.REMOTE,
-                                            p.aggregation(ap -> ap.addGroupingSet(p.symbol("b"))
+                                            ExchangeNode.Scope.REMOTE_STREAMING,
+                                            p.aggregation(ap -> ap.singleGroupingSet(p.symbol("b"))
                                                     .step(AggregationNode.Step.PARTIAL)
                                                     .addAggregation(p.symbol("b"), expression("count(a)"), ImmutableList.of(BIGINT))
                                                     .source(
@@ -313,7 +314,7 @@ public class TestAddIntermediateAggregations
                             .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
-                                            ExchangeNode.Scope.REMOTE,
+                                            ExchangeNode.Scope.REMOTE_STREAMING,
                                             p.project(
                                                     Assignments.identity(p.symbol("b")),
                                                     p.aggregation(ap -> ap.globalGrouping()
@@ -324,30 +325,30 @@ public class TestAddIntermediateAggregations
                 }))
                 .matches(
                         aggregation(
-                                ImmutableList.of(ImmutableList.of()),
+                                globalAggregation(),
                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
                                 ImmutableMap.of(),
                                 Optional.empty(),
                                 FINAL,
                                 exchange(LOCAL, GATHER,
                                         aggregation(
-                                                ImmutableList.of(ImmutableList.of()),
+                                                globalAggregation(),
                                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
                                                 ImmutableMap.of(),
                                                 Optional.empty(),
                                                 INTERMEDIATE,
                                                 exchange(LOCAL, REPARTITION,
-                                                        exchange(REMOTE, GATHER,
+                                                        exchange(REMOTE_STREAMING, GATHER,
                                                                 project(
                                                                         aggregation(
-                                                                                ImmutableList.of(ImmutableList.of()),
+                                                                                globalAggregation(),
                                                                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
                                                                                 ImmutableMap.of(),
                                                                                 Optional.empty(),
                                                                                 INTERMEDIATE,
                                                                                 exchange(LOCAL, GATHER,
                                                                                         aggregation(
-                                                                                                ImmutableList.of(ImmutableList.of()),
+                                                                                                globalAggregation(),
                                                                                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
                                                                                                 ImmutableMap.of(),
                                                                                                 Optional.empty(),

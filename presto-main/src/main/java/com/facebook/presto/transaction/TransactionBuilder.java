@@ -152,7 +152,7 @@ public class TransactionBuilder
             return result;
         }
         finally {
-            if (managedTransaction) {
+            if (managedTransaction && transactionManager.transactionExists(transactionSession.getTransactionId().get())) {
                 if (success) {
                     getFutureValue(transactionManager.asyncCommit(transactionSession.getTransactionId().get()));
                 }

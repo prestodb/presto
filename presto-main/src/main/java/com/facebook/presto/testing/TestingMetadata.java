@@ -32,7 +32,9 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -82,6 +84,12 @@ public class TestingMetadata
             return null;
         }
         return new TestingTableHandle(tableName);
+    }
+
+    @Override
+    public ConnectorTableHandle getTableHandleForStatisticsCollection(ConnectorSession session, SchemaTableName tableName, Map<String, Object> analyzeProperties)
+    {
+        return getTableHandle(session, tableName);
     }
 
     @Override
@@ -143,11 +151,11 @@ public class TestingMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
         for (SchemaTableName tableName : tables.keySet()) {
-            if (schemaNameOrNull == null || schemaNameOrNull.equals(tableName.getSchemaName())) {
+            if (schemaName.map(tableName.getSchemaName()::equals).orElse(true)) {
                 builder.add(tableName);
             }
         }
@@ -200,11 +208,11 @@ public class TestingMetadata
     }
 
     @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
         for (SchemaTableName viewName : views.keySet()) {
-            if ((schemaNameOrNull == null) || schemaNameOrNull.equals(viewName.getSchemaName())) {
+            if (schemaName.map(viewName.getSchemaName()::equals).orElse(true)) {
                 builder.add(viewName);
             }
         }
@@ -231,7 +239,7 @@ public class TestingMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         return Optional.empty();
     }
@@ -243,7 +251,7 @@ public class TestingMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         return Optional.empty();
     }
@@ -271,10 +279,10 @@ public class TestingMetadata
     }
 
     @Override
-    public void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, String grantee, boolean grantOption) {}
+    public void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption) {}
 
     @Override
-    public void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, String grantee, boolean grantOption) {}
+    public void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption) {}
 
     public void clear()
     {

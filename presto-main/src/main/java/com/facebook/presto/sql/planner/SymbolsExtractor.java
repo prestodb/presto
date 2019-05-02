@@ -31,6 +31,7 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpressions;
 import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpressionsNonRecursive;
+import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
@@ -94,7 +95,12 @@ public final class SymbolsExtractor
 
     public static Set<Symbol> extractOutputSymbols(PlanNode planNode)
     {
-        return searchFrom(planNode)
+        return extractOutputSymbols(planNode, noLookup());
+    }
+
+    public static Set<Symbol> extractOutputSymbols(PlanNode planNode, Lookup lookup)
+    {
+        return searchFrom(planNode, lookup)
                 .findAll()
                 .stream()
                 .flatMap(node -> node.getOutputSymbols().stream())

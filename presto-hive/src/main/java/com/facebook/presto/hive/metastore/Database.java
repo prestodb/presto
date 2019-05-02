@@ -13,14 +13,19 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.spi.security.PrincipalType;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -35,12 +40,14 @@ public class Database
     private final Optional<String> comment;
     private final Map<String, String> parameters;
 
-    public Database(String databaseName,
-            Optional<String> location,
-            String ownerName,
-            PrincipalType ownerType,
-            Optional<String> comment,
-            Map<String, String> parameters)
+    @JsonCreator
+    public Database(
+            @JsonProperty("databaseName") String databaseName,
+            @JsonProperty("location") Optional<String> location,
+            @JsonProperty("ownerName") String ownerName,
+            @JsonProperty("ownerType") PrincipalType ownerType,
+            @JsonProperty("comment") Optional<String> comment,
+            @JsonProperty("parameters") Map<String, String> parameters)
     {
         this.databaseName = requireNonNull(databaseName, "databaseName is null");
         this.location = requireNonNull(location, "location is null");
@@ -50,31 +57,37 @@ public class Database
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
     }
 
+    @JsonProperty
     public String getDatabaseName()
     {
         return databaseName;
     }
 
+    @JsonProperty
     public Optional<String> getLocation()
     {
         return location;
     }
 
+    @JsonProperty
     public String getOwnerName()
     {
         return ownerName;
     }
 
+    @JsonProperty
     public PrincipalType getOwnerType()
     {
         return ownerType;
     }
 
+    @JsonProperty
     public Optional<String> getComment()
     {
         return comment;
     }
 
+    @JsonProperty
     public Map<String, String> getParameters()
     {
         return parameters;
@@ -163,5 +176,43 @@ public class Database
                     comment,
                     parameters);
         }
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("databaseName", databaseName)
+                .add("location", location)
+                .add("ownerName", ownerName)
+                .add("ownerType", ownerType)
+                .add("comment", comment)
+                .add("parameters", parameters)
+                .toString();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Database database = (Database) o;
+        return Objects.equals(databaseName, database.databaseName) &&
+                Objects.equals(location, database.location) &&
+                Objects.equals(ownerName, database.ownerName) &&
+                ownerType == database.ownerType &&
+                Objects.equals(comment, database.comment) &&
+                Objects.equals(parameters, database.parameters);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(databaseName, location, ownerName, ownerType, comment, parameters);
     }
 }

@@ -49,13 +49,13 @@ public class SingleMapBlockWriter
     }
 
     @Override
-    Block getKeyBlock()
+    Block getRawKeyBlock()
     {
         return keyBlockBuilder;
     }
 
     @Override
-    Block getValueBlock()
+    Block getRawValueBlock()
     {
         return valueBlockBuilder;
     }
@@ -141,14 +141,28 @@ public class SingleMapBlockWriter
     }
 
     @Override
-    public BlockBuilder writeObject(Object value)
+    public BlockBuilder appendStructure(Block block)
     {
         if (writeToValueNext) {
-            valueBlockBuilder.writeObject(value);
+            valueBlockBuilder.appendStructure(block);
         }
         else {
-            keyBlockBuilder.writeObject(value);
+            keyBlockBuilder.appendStructure(block);
         }
+        entryAdded();
+        return this;
+    }
+
+    @Override
+    public BlockBuilder appendStructureInternal(Block block, int position)
+    {
+        if (writeToValueNext) {
+            valueBlockBuilder.appendStructureInternal(block, position);
+        }
+        else {
+            keyBlockBuilder.appendStructureInternal(block, position);
+        }
+        entryAdded();
         return this;
     }
 
@@ -204,7 +218,7 @@ public class SingleMapBlockWriter
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
         throw new UnsupportedOperationException();
     }

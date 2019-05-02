@@ -154,4 +154,18 @@ public class SemiJoinNode
                 filteringSourceHashSymbol,
                 distributionType);
     }
+
+    public SemiJoinNode withDistributionType(DistributionType distributionType)
+    {
+        return new SemiJoinNode(
+                getId(),
+                source,
+                filteringSource,
+                sourceJoinSymbol,
+                filteringSourceJoinSymbol,
+                semiJoinOutput,
+                sourceHashSymbol,
+                filteringSourceHashSymbol,
+                Optional.of(distributionType));
+    }
 }

@@ -65,20 +65,20 @@ public class TestJdbcRecordSet
     public void testGetColumnTypes()
     {
         RecordSet recordSet = new JdbcRecordSet(jdbcClient, session, split, ImmutableList.of(
-                new JdbcColumnHandle("test", "text", JDBC_VARCHAR, VARCHAR),
-                new JdbcColumnHandle("test", "text_short", JDBC_VARCHAR, createVarcharType(32)),
-                new JdbcColumnHandle("test", "value", JDBC_BIGINT, BIGINT)));
+                new JdbcColumnHandle("test", "text", JDBC_VARCHAR, VARCHAR, true),
+                new JdbcColumnHandle("test", "text_short", JDBC_VARCHAR, createVarcharType(32), true),
+                new JdbcColumnHandle("test", "value", JDBC_BIGINT, BIGINT, true)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(VARCHAR, createVarcharType(32), BIGINT));
 
         recordSet = new JdbcRecordSet(jdbcClient, session, split, ImmutableList.of(
-                new JdbcColumnHandle("test", "value", JDBC_BIGINT, BIGINT),
-                new JdbcColumnHandle("test", "text", JDBC_VARCHAR, VARCHAR)));
+                new JdbcColumnHandle("test", "value", JDBC_BIGINT, BIGINT, true),
+                new JdbcColumnHandle("test", "text", JDBC_VARCHAR, VARCHAR, true)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, VARCHAR));
 
         recordSet = new JdbcRecordSet(jdbcClient, session, split, ImmutableList.of(
-                new JdbcColumnHandle("test", "value", JDBC_BIGINT, BIGINT),
-                new JdbcColumnHandle("test", "value", JDBC_BIGINT, BIGINT),
-                new JdbcColumnHandle("test", "text", JDBC_VARCHAR, VARCHAR)));
+                new JdbcColumnHandle("test", "value", JDBC_BIGINT, BIGINT, true),
+                new JdbcColumnHandle("test", "value", JDBC_BIGINT, BIGINT, true),
+                new JdbcColumnHandle("test", "text", JDBC_VARCHAR, VARCHAR, true)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, BIGINT, VARCHAR));
 
         recordSet = new JdbcRecordSet(jdbcClient, session, split, ImmutableList.of());

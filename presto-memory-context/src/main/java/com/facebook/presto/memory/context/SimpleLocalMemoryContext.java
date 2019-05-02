@@ -19,10 +19,10 @@ import com.google.common.util.concurrent.ListenableFuture;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.addExact;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -31,15 +31,19 @@ public final class SimpleLocalMemoryContext
 {
     private static final ListenableFuture<?> NOT_BLOCKED = Futures.immediateFuture(null);
 
-    private final AggregatedMemoryContext parentMemoryContext;
+    private final AbstractAggregatedMemoryContext parentMemoryContext;
+    private final String allocationTag;
+
     @GuardedBy("this")
     private long usedBytes;
     @GuardedBy("this")
     private boolean closed;
 
-    public SimpleLocalMemoryContext(AggregatedMemoryContext parentMemoryContext)
+    public SimpleLocalMemoryContext(AggregatedMemoryContext parentMemoryContext, String allocationTag)
     {
-        this.parentMemoryContext = requireNonNull(parentMemoryContext, "parentMemoryContext is null");
+        verify(parentMemoryContext instanceof AbstractAggregatedMemoryContext);
+        this.parentMemoryContext = (AbstractAggregatedMemoryContext) requireNonNull(parentMemoryContext, "parentMemoryContext is null");
+        this.allocationTag = requireNonNull(allocationTag, "allocationTag is null");
     }
 
     @Override
@@ -59,7 +63,7 @@ public final class SimpleLocalMemoryContext
         }
 
         // update the parent first as it may throw a runtime exception (e.g., ExceededMemoryLimitException)
-        ListenableFuture<?> future = parentMemoryContext.updateBytes(bytes - usedBytes);
+        ListenableFuture<?> future = parentMemoryContext.updateBytes(allocationTag, bytes - usedBytes);
         usedBytes = bytes;
         return future;
     }
@@ -70,55 +74,11 @@ public final class SimpleLocalMemoryContext
         checkState(!closed, "SimpleLocalMemoryContext is already closed");
         checkArgument(bytes >= 0, "bytes cannot be negative");
         long delta = bytes - usedBytes;
-        if (parentMemoryContext.tryUpdateBytes(delta)) {
+        if (parentMemoryContext.tryUpdateBytes(allocationTag, delta)) {
             usedBytes = bytes;
             return true;
         }
         return false;
-    }
-
-    /**
-     * This method transfers the allocations from this memory context to the "to" memory context,
-     * where parent of this is a descendant of to.parent (there can be multiple AggregatedMemoryContexts between them).
-     * <p>
-     * During the transfer the implementation of this method must not reflect any state changes outside of the contexts
-     * (e.g., by calling the reservation handlers).
-     * <p>
-     * This method currently has a single use ({@code NestedLoopJoinPages}) and any change should be tested carefully due to
-     * its somewhat complex semantics.
-     */
-    @Deprecated
-    @Override
-    public synchronized void transferMemory(LocalMemoryContext to)
-    {
-        checkArgument(to instanceof SimpleLocalMemoryContext, "to must be an instance of SimpleLocalMemoryContext");
-        checkState(!closed, "already closed");
-
-        SimpleLocalMemoryContext target = (SimpleLocalMemoryContext) to;
-        checkMemoryContextState(target);
-
-        AggregatedMemoryContext parent = parentMemoryContext;
-        while (parent != null && parent != target.parentMemoryContext) {
-            parent.addBytes(-usedBytes);
-            parent = parent.getParent();
-        }
-        target.addBytes(usedBytes);
-        usedBytes = 0;
-    }
-
-    private void checkMemoryContextState(SimpleLocalMemoryContext target)
-    {
-        AggregatedMemoryContext parent = parentMemoryContext;
-        while (parent != null && parent != target.parentMemoryContext) {
-            parent = parent.getParent();
-        }
-        // if parent is null at this point, we fail as the memory context state is probably corrupt.
-        checkState(parent != null, "memory context state is corrupt");
-    }
-
-    private synchronized void addBytes(long bytes)
-    {
-        usedBytes = addExact(usedBytes, bytes);
     }
 
     @Override
@@ -128,7 +88,7 @@ public final class SimpleLocalMemoryContext
             return;
         }
         closed = true;
-        parentMemoryContext.updateBytes(-usedBytes);
+        parentMemoryContext.updateBytes(allocationTag, -usedBytes);
         usedBytes = 0;
     }
 
@@ -136,6 +96,7 @@ public final class SimpleLocalMemoryContext
     public synchronized String toString()
     {
         return toStringHelper(this)
+                .add("allocationTag", allocationTag)
                 .add("usedBytes", usedBytes)
                 .toString();
     }

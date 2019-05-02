@@ -15,6 +15,7 @@ services:
     image: 'prestodb/centos6-oj8-openldap:${DOCKER_IMAGES_VERSION}'
     environment:
       - TEMPTO_PROFILE_CONFIG_FILE=/docker/volumes/conf/tempto/tempto-configuration-for-docker-ldap.yaml
+      - CLI_ARGUMENTS=--server https://presto-master:8443 --keystore-path /etc/openldap/certs/coordinator.jks --keystore-password testldap
 
   ldapserver:
     image: 'prestodb/centos6-oj8-openldap:${DOCKER_IMAGES_VERSION}'

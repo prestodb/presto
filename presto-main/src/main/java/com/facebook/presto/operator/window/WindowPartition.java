@@ -17,17 +17,17 @@ import com.facebook.presto.operator.PagesHashStrategy;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.function.WindowIndex;
-import com.facebook.presto.sql.tree.FrameBound;
+import com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
-import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
-import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
-import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
-import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
-import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.FOLLOWING;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.PRECEDING;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_FOLLOWING;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.toIntExact;
@@ -201,8 +201,8 @@ public final class WindowPartition
 
     private boolean emptyFrame(FrameInfo frameInfo, int rowPosition, int endPosition)
     {
-        FrameBound.Type startType = frameInfo.getStartType();
-        FrameBound.Type endType = frameInfo.getEndType();
+        BoundType startType = frameInfo.getStartType();
+        BoundType endType = frameInfo.getEndType();
 
         int positions = endPosition - rowPosition;
 
@@ -218,7 +218,7 @@ public final class WindowPartition
             return false;
         }
 
-        FrameBound.Type type = frameInfo.getStartType();
+        BoundType type = frameInfo.getStartType();
         if ((type != PRECEDING) && (type != FOLLOWING)) {
             return false;
         }

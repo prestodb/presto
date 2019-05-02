@@ -58,7 +58,7 @@ public class GenericPartitioningSpiller
     private final Optional<SingleStreamSpiller>[] spillers;
 
     private boolean readingStarted;
-    private Set<Integer> spilledPartitions = new HashSet<>();
+    private final Set<Integer> spilledPartitions = new HashSet<>();
 
     public GenericPartitioningSpiller(
             List<Type> types,
@@ -182,7 +182,7 @@ public class GenericPartitioningSpiller
     {
         Optional<SingleStreamSpiller> spiller = spillers[partition];
         if (!spiller.isPresent()) {
-            spiller = Optional.of(closer.register(spillerFactory.create(types, spillContext, memoryContext.newLocalMemoryContext())));
+            spiller = Optional.of(closer.register(spillerFactory.create(types, spillContext, memoryContext.newLocalMemoryContext(GenericPartitioningSpiller.class.getSimpleName()))));
             spillers[partition] = spiller;
         }
         return spiller.get();

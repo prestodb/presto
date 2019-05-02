@@ -80,6 +80,7 @@ import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
@@ -118,7 +119,7 @@ public class TestOrcStorageManager
     private static final int MAX_SHARD_ROWS = 100;
     private static final DataSize MAX_FILE_SIZE = new DataSize(1, MEGABYTE);
     private static final Duration MISSING_SHARD_DISCOVERY = new Duration(5, TimeUnit.MINUTES);
-    private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
+    private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
 
     private final NodeManager nodeManager = new TestingNodeManager();
     private Handle dummyHandle;
@@ -682,7 +683,6 @@ public class TestOrcStorageManager
 
     private static SqlTimestamp sqlTimestamp(int year, int month, int day, int hour, int minute, int second)
     {
-        DateTime dateTime = new DateTime(year, month, day, hour, minute, second, 0, UTC);
-        return new SqlTimestamp(dateTime.getMillis(), UTC_KEY);
+        return sqlTimestampOf(year, month, day, hour, minute, second, 0, UTC, UTC_KEY, SESSION);
     }
 }

@@ -14,30 +14,21 @@
 package com.facebook.presto.resourceGroups.db;
 
 import com.facebook.presto.resourceGroups.VariableMap;
-import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerContext;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
-import com.google.common.base.Throwables;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 
 import java.util.Map;
 
-import static java.util.Objects.requireNonNull;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 
 public class DbResourceGroupConfigurationManagerFactory
         implements ResourceGroupConfigurationManagerFactory
 {
-    private final ClassLoader classLoader;
-
-    public DbResourceGroupConfigurationManagerFactory(ClassLoader classLoader)
-    {
-        this.classLoader = requireNonNull(classLoader, "classLoader is null");
-    }
-
     @Override
     public String getName()
     {
@@ -47,7 +38,7 @@ public class DbResourceGroupConfigurationManagerFactory
     @Override
     public ResourceGroupConfigurationManager<VariableMap> create(Map<String, String> config, ResourceGroupConfigurationManagerContext context)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try {
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
                     new DbResourceGroupsModule(),
@@ -62,7 +53,8 @@ public class DbResourceGroupConfigurationManagerFactory
             return injector.getInstance(DbResourceGroupConfigurationManager.class);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 }

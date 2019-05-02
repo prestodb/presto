@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.type.TimeZoneKey;
 
 import javax.annotation.Nullable;
@@ -49,9 +50,13 @@ public interface StatementClient
 
     Optional<String> getSetSchema();
 
+    Optional<String> getSetPath();
+
     Map<String, String> getSetSessionProperties();
 
     Set<String> getResetSessionProperties();
+
+    Map<String, SelectedRole> getSetRoles();
 
     Map<String, String> getAddedPreparedStatements();
 

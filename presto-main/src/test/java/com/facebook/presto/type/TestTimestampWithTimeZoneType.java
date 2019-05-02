@@ -15,7 +15,6 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -33,7 +32,7 @@ public class TestTimestampWithTimeZoneType
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = TIMESTAMP_WITH_TIME_ZONE.createBlockBuilder(new BlockBuilderStatus(), 15);
+        BlockBuilder blockBuilder = TIMESTAMP_WITH_TIME_ZONE.createBlockBuilder(null, 15);
         TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(1111, getTimeZoneKeyForOffset(0)));
         TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(1111, getTimeZoneKeyForOffset(1)));
         TIMESTAMP_WITH_TIME_ZONE.writeLong(blockBuilder, packDateTimeWithZone(1111, getTimeZoneKeyForOffset(2)));

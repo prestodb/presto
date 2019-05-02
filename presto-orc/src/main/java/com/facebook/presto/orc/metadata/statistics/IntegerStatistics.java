@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.facebook.presto.orc.metadata.statistics.StatisticsHasher.Hashable;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
@@ -21,7 +22,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class IntegerStatistics
-        implements RangeStatistics<Long>
+        implements RangeStatistics<Long>, Hashable
 {
     // 1 byte to denote if null + 8 bytes for the value (integer is of long type)
     public static final long INTEGER_VALUE_BYTES = Byte.BYTES + Long.BYTES;
@@ -102,5 +103,13 @@ public class IntegerStatistics
                 .add("max", getMax())
                 .add("sum", getSum())
                 .toString();
+    }
+
+    @Override
+    public void addHash(StatisticsHasher hasher)
+    {
+        hasher.putOptionalLong(hasMinimum, minimum)
+                .putOptionalLong(hasMaximum, maximum)
+                .putOptionalLong(hasSum, sum);
     }
 }

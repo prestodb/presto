@@ -13,7 +13,16 @@
  */
 package com.facebook.presto.sql.relational;
 
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.InputReferenceExpression;
+import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.RowExpressionVisitor;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
@@ -36,19 +45,29 @@ public final class Expressions
         return new ConstantExpression(null, type);
     }
 
-    public static CallExpression call(Signature signature, Type returnType, RowExpression... arguments)
+    public static CallExpression call(FunctionHandle functionHandle, Type returnType, RowExpression... arguments)
     {
-        return new CallExpression(signature, returnType, Arrays.asList(arguments));
+        return new CallExpression(functionHandle, returnType, Arrays.asList(arguments));
     }
 
-    public static CallExpression call(Signature signature, Type returnType, List<RowExpression> arguments)
+    public static CallExpression call(FunctionHandle functionHandle, Type returnType, List<RowExpression> arguments)
     {
-        return new CallExpression(signature, returnType, arguments);
+        return new CallExpression(functionHandle, returnType, arguments);
     }
 
     public static InputReferenceExpression field(int field, Type type)
     {
         return new InputReferenceExpression(field, type);
+    }
+
+    public static SpecialFormExpression specialForm(Form form, Type returnType, RowExpression... arguments)
+    {
+        return new SpecialFormExpression(form, returnType, arguments);
+    }
+
+    public static SpecialFormExpression specialForm(Form form, Type returnType, List<RowExpression> arguments)
+    {
+        return new SpecialFormExpression(form, returnType, arguments);
     }
 
     public static List<RowExpression> subExpressions(Iterable<RowExpression> expressions)
@@ -94,6 +113,16 @@ public final class Expressions
                 public Void visitVariableReference(VariableReferenceExpression reference, Void context)
                 {
                     builder.add(reference);
+                    return null;
+                }
+
+                @Override
+                public Void visitSpecialForm(SpecialFormExpression specialForm, Void context)
+                {
+                    builder.add(specialForm);
+                    for (RowExpression argument : specialForm.getArguments()) {
+                        argument.accept(this, context);
+                    }
                     return null;
                 }
             }, null);

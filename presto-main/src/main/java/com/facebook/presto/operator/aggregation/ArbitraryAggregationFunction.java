@@ -14,8 +14,9 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlAggregationFunction;
+import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import com.facebook.presto.operator.aggregation.state.BlockPositionState;
 import com.facebook.presto.operator.aggregation.state.BlockPositionStateSerializer;
 import com.facebook.presto.operator.aggregation.state.NullableBooleanState;
@@ -34,12 +35,12 @@ import io.airlift.bytecode.DynamicClassLoader;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
-import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
+import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -81,7 +82,7 @@ public class ArbitraryAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         Type valueType = boundVariables.getTypeVariable("T");
         return generateAggregation(valueType);
@@ -138,13 +139,14 @@ public class ArbitraryAggregationFunction
                 inputFunction,
                 combineFunction,
                 outputFunction.bindTo(type),
-                stateInterface,
-                stateSerializer,
-                StateCompiler.generateStateFactory(stateInterface, classLoader),
+                ImmutableList.of(new AccumulatorStateDescriptor(
+                        stateInterface,
+                        stateSerializer,
+                        StateCompiler.generateStateFactory(stateInterface, classLoader))),
                 type);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, type, true, false, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), type, true, false, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type value)

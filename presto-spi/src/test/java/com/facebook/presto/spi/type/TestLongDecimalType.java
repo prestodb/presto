@@ -15,7 +15,6 @@ package com.facebook.presto.spi.type;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
@@ -62,7 +61,7 @@ public class TestLongDecimalType
     private Block decimalAsBlock(String value)
     {
         Slice slice = encodeScaledValue(new BigDecimal(value));
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 1, slice.length());
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, slice.length());
         TYPE.writeSlice(blockBuilder, slice);
         return blockBuilder.build();
     }

@@ -15,7 +15,6 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -80,15 +79,15 @@ public class TestTypedKeyValueHeap
 
     private static void test(IntStream keyInputStream, Stream<String> valueInputStream, BlockComparator comparator, Iterator<String> outputIterator)
     {
-        BlockBuilder keysBlockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), INPUT_SIZE);
-        BlockBuilder valuesBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), INPUT_SIZE);
+        BlockBuilder keysBlockBuilder = BIGINT.createBlockBuilder(null, INPUT_SIZE);
+        BlockBuilder valuesBlockBuilder = VARCHAR.createBlockBuilder(null, INPUT_SIZE);
         keyInputStream.forEach(x -> BIGINT.writeLong(keysBlockBuilder, x));
         valueInputStream.forEach(x -> VARCHAR.writeString(valuesBlockBuilder, x));
 
         TypedKeyValueHeap heap = new TypedKeyValueHeap(comparator, BIGINT, VARCHAR, OUTPUT_SIZE);
         heap.addAll(keysBlockBuilder, valuesBlockBuilder);
 
-        BlockBuilder resultBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), OUTPUT_SIZE);
+        BlockBuilder resultBlockBuilder = VARCHAR.createBlockBuilder(null, OUTPUT_SIZE);
         heap.popAll(resultBlockBuilder);
 
         Block resultBlock = resultBlockBuilder.build();

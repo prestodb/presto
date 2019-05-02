@@ -1,0 +1,23 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        join (INNER, REPLICATED):
+            final aggregation over (s_city, ss_addr_sk, ss_customer_sk, ss_ticket_number)
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPARTITION, HASH, ["s_city", "ss_addr_sk", "ss_customer_sk", "ss_ticket_number"])
+                        partial aggregation over (s_city, ss_addr_sk, ss_customer_sk, ss_ticket_number)
+                            join (INNER, REPLICATED):
+                                join (INNER, REPLICATED):
+                                    join (INNER, REPLICATED):
+                                        scan store_sales
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                scan date_dim
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            scan household_demographics
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        scan store
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPLICATE, BROADCAST, [])
+                    scan customer

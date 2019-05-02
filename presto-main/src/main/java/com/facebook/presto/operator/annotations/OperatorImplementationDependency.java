@@ -13,27 +13,68 @@
  */
 package com.facebook.presto.operator.annotations;
 
+import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.InvocationConvention;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
-import static com.facebook.presto.metadata.Signature.internalOperator;
+import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static java.util.Objects.requireNonNull;
 
 public final class OperatorImplementationDependency
         extends ScalarImplementationDependency
 {
     private final OperatorType operator;
+    private final List<TypeSignature> argumentTypes;
 
-    public OperatorImplementationDependency(OperatorType operator, TypeSignature returnType, List<TypeSignature> argumentTypes)
+    public OperatorImplementationDependency(OperatorType operator, List<TypeSignature> argumentTypes, Optional<InvocationConvention> invocationConvention)
     {
-        super(internalOperator(operator, returnType, argumentTypes));
+        super(invocationConvention);
         this.operator = requireNonNull(operator, "operator is null");
+        this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
     }
 
     public OperatorType getOperator()
     {
         return operator;
+    }
+
+    public List<TypeSignature> getArgumentTypes()
+    {
+        return argumentTypes;
+    }
+
+    @Override
+    protected FunctionHandle getFunctionHandle(BoundVariables boundVariables, FunctionManager functionManager)
+    {
+        return functionManager.resolveOperator(operator, fromTypeSignatures(applyBoundVariables(argumentTypes, boundVariables)));
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        OperatorImplementationDependency that = (OperatorImplementationDependency) o;
+        return Objects.equals(operator, that.operator) &&
+                Objects.equals(argumentTypes, that.argumentTypes);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(operator, argumentTypes);
     }
 }

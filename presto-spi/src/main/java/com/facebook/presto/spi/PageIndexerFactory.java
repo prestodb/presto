@@ -17,10 +17,6 @@ import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 
-/**
- * This interface is not stable and will not be supported in future releases.
- */
-@Deprecated
 public interface PageIndexerFactory
 {
     PageIndexer createPageIndexer(List<? extends Type> types);

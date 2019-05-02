@@ -17,20 +17,21 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.ByteArrayBlock;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.swift.codec.ThriftConstructor;
-import com.facebook.swift.codec.ThriftField;
-import com.facebook.swift.codec.ThriftStruct;
+import io.airlift.drift.annotations.ThriftConstructor;
+import io.airlift.drift.annotations.ThriftField;
+import io.airlift.drift.annotations.ThriftStruct;
 
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.booleanData;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.swift.codec.ThriftField.Requiredness.OPTIONAL;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 
 /**
  * Elements of {@code nulls} array determine if a value for a corresponding row is null.
@@ -72,7 +73,7 @@ public final class PrestoThriftBoolean
         int numberOfRecords = numberOfRecords();
         return new ByteArrayBlock(
                 numberOfRecords,
-                nulls == null ? new boolean[numberOfRecords] : nulls,
+                Optional.ofNullable(nulls),
                 booleans == null ? new byte[numberOfRecords] : toByteArray(booleans));
     }
 

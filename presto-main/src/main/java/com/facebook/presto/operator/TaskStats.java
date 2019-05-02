@@ -58,7 +58,6 @@ public class TaskStats
 
     private final Duration totalScheduledTime;
     private final Duration totalCpuTime;
-    private final Duration totalUserTime;
     private final Duration totalBlockedTime;
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
@@ -102,7 +101,6 @@ public class TaskStats
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
                 false,
                 ImmutableSet.of(),
                 new DataSize(0, BYTE),
@@ -142,7 +140,6 @@ public class TaskStats
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
-            @JsonProperty("totalUserTime") Duration totalUserTime,
             @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
             @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
@@ -189,14 +186,13 @@ public class TaskStats
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
 
-        this.cumulativeUserMemory = requireNonNull(cumulativeUserMemory, "cumulativeUserMemory is null");
+        this.cumulativeUserMemory = cumulativeUserMemory;
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
 
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
-        this.totalUserTime = requireNonNull(totalUserTime, "totalUserTime is null");
         this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
@@ -335,12 +331,6 @@ public class TaskStats
     }
 
     @JsonProperty
-    public Duration getTotalUserTime()
-    {
-        return totalUserTime;
-    }
-
-    @JsonProperty
     public Duration getTotalBlockedTime()
     {
         return totalBlockedTime;
@@ -453,7 +443,6 @@ public class TaskStats
                 systemMemoryReservation,
                 totalScheduledTime,
                 totalCpuTime,
-                totalUserTime,
                 totalBlockedTime,
                 fullyBlocked,
                 blockedReasons,
@@ -492,7 +481,6 @@ public class TaskStats
                 systemMemoryReservation,
                 totalScheduledTime,
                 totalCpuTime,
-                totalUserTime,
                 totalBlockedTime,
                 fullyBlocked,
                 blockedReasons,

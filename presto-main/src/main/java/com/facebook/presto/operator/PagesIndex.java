@@ -14,6 +14,10 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.geospatial.Rectangle;
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -41,6 +45,7 @@ import javax.inject.Inject;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.IntUnaryOperator;
@@ -70,11 +75,12 @@ public class PagesIndex
         implements Swapper
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(PagesIndex.class).instanceSize();
-    private static final int IMMUTABLE_LIST_HEADER_SIZE = ClassLayout.parseClass(ImmutableList.class).headerSize();
     private static final Logger log = Logger.get(PagesIndex.class);
 
     private final OrderingCompiler orderingCompiler;
     private final JoinCompiler joinCompiler;
+    private final FunctionManager functionManager;
+    private final boolean groupByUsesEqualTo;
 
     private final List<Type> types;
     private final LongArrayList valueAddresses;
@@ -89,12 +95,16 @@ public class PagesIndex
     private PagesIndex(
             OrderingCompiler orderingCompiler,
             JoinCompiler joinCompiler,
+            FunctionManager functionManager,
+            boolean groupByUsesEqualTo,
             List<Type> types,
             int expectedPositions,
             boolean eagerCompact)
     {
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.groupByUsesEqualTo = groupByUsesEqualTo;
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.valueAddresses = new LongArrayList(expectedPositions);
         this.eagerCompact = eagerCompact;
@@ -117,7 +127,8 @@ public class PagesIndex
             implements Factory
     {
         private static final OrderingCompiler ORDERING_COMPILER = new OrderingCompiler();
-        private static final JoinCompiler JOIN_COMPILER = new JoinCompiler();
+        private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
+        private final boolean groupByUsesEqualTo = new FeaturesConfig().isGroupByUsesEqualTo();
         private final boolean eagerCompact;
 
         public TestingFactory(boolean eagerCompact)
@@ -128,7 +139,7 @@ public class PagesIndex
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, types, expectedPositions, eagerCompact);
+            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, MetadataManager.createTestMetadataManager().getFunctionManager(), groupByUsesEqualTo, types, expectedPositions, eagerCompact);
         }
     }
 
@@ -138,19 +149,23 @@ public class PagesIndex
         private final OrderingCompiler orderingCompiler;
         private final JoinCompiler joinCompiler;
         private final boolean eagerCompact;
+        private final FunctionManager functionManager;
+        private final boolean groupByUsesEqualTo;
 
         @Inject
-        public DefaultFactory(OrderingCompiler orderingCompiler, JoinCompiler joinCompiler, FeaturesConfig featuresConfig)
+        public DefaultFactory(OrderingCompiler orderingCompiler, JoinCompiler joinCompiler, FeaturesConfig featuresConfig, Metadata metadata)
         {
             this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
             this.eagerCompact = requireNonNull(featuresConfig, "featuresConfig is null").isPagesIndexEagerCompactionEnabled();
+            this.functionManager = requireNonNull(metadata, "metadata is null").getFunctionManager();
+            this.groupByUsesEqualTo = featuresConfig.isGroupByUsesEqualTo();
         }
 
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(orderingCompiler, joinCompiler, types, expectedPositions, eagerCompact);
+            return new PagesIndex(orderingCompiler, joinCompiler, functionManager, groupByUsesEqualTo, types, expectedPositions, eagerCompact);
         }
     }
 
@@ -425,7 +440,9 @@ public class PagesIndex
                 ImmutableList.copyOf(channels),
                 joinChannels,
                 hashChannel,
-                Optional.empty());
+                Optional.empty(),
+                functionManager,
+                groupByUsesEqualTo);
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(
@@ -443,13 +460,15 @@ public class PagesIndex
             Session session,
             int geometryChannel,
             Optional<Integer> radiusChannel,
+            Optional<Integer> partitionChannel,
             SpatialPredicate spatialRelationshipTest,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
-            List<Integer> outputChannels)
+            List<Integer> outputChannels,
+            Map<Integer, Rectangle> partitions)
     {
         // TODO probably shouldn't copy to reduce memory and for memory accounting's sake
         List<List<Block>> channels = ImmutableList.copyOf(this.channels);
-        return new PagesSpatialIndexSupplier(session, valueAddresses, types, outputChannels, channels, geometryChannel, radiusChannel, spatialRelationshipTest, filterFunctionFactory);
+        return new PagesSpatialIndexSupplier(session, valueAddresses, types, outputChannels, channels, geometryChannel, radiusChannel, partitionChannel, spatialRelationshipTest, filterFunctionFactory, partitions);
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(
@@ -490,7 +509,9 @@ public class PagesIndex
                 channels,
                 joinChannels,
                 hashChannel,
-                sortChannel);
+                sortChannel,
+                functionManager,
+                groupByUsesEqualTo);
 
         return new JoinHashSupplier(
                 session,
@@ -544,10 +565,12 @@ public class PagesIndex
     // TODO: This is similar to what OrderByOperator does, look into reusing this logic in OrderByOperator as well.
     public Iterator<Page> getSortedPages()
     {
-        return new AbstractIterator<Page>() {
+        return new AbstractIterator<Page>()
+        {
             private int currentPosition;
-            private PageBuilder pageBuilder = new PageBuilder(types);
-            private int[] outputChannels = new int[types.size()];
+            private final PageBuilder pageBuilder = new PageBuilder(types);
+            private final int[] outputChannels = new int[types.size()];
+
             {
                 Arrays.setAll(outputChannels, IntUnaryOperator.identity());
             }

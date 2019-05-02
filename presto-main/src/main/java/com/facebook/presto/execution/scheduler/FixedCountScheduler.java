@@ -19,8 +19,9 @@ import com.facebook.presto.spi.Node;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.util.List;
-import java.util.Map;
-import java.util.function.BiFunction;
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -28,10 +29,15 @@ import static java.util.Objects.requireNonNull;
 public class FixedCountScheduler
         implements StageScheduler
 {
-    private final BiFunction<Node, Integer, RemoteTask> taskScheduler;
-    private final Map<Integer, Node> partitionToNode;
+    public interface TaskScheduler
+    {
+        Optional<RemoteTask> scheduleTask(Node node, int partition, OptionalInt totalPartitions);
+    }
 
-    public FixedCountScheduler(SqlStageExecution stage, Map<Integer, Node> partitionToNode)
+    private final TaskScheduler taskScheduler;
+    private final List<Node> partitionToNode;
+
+    public FixedCountScheduler(SqlStageExecution stage, List<Node> partitionToNode)
     {
         requireNonNull(stage, "stage is null");
         this.taskScheduler = stage::scheduleTask;
@@ -39,7 +45,7 @@ public class FixedCountScheduler
     }
 
     @VisibleForTesting
-    public FixedCountScheduler(BiFunction<Node, Integer, RemoteTask> taskScheduler, Map<Integer, Node> partitionToNode)
+    public FixedCountScheduler(TaskScheduler taskScheduler, List<Node> partitionToNode)
     {
         this.taskScheduler = requireNonNull(taskScheduler, "taskScheduler is null");
         this.partitionToNode = requireNonNull(partitionToNode, "partitionToNode is null");
@@ -48,8 +54,11 @@ public class FixedCountScheduler
     @Override
     public ScheduleResult schedule()
     {
-        List<RemoteTask> newTasks = partitionToNode.entrySet().stream()
-                .map(entry -> taskScheduler.apply(entry.getValue(), entry.getKey()))
+        OptionalInt totalPartitions = OptionalInt.of(partitionToNode.size());
+        List<RemoteTask> newTasks = IntStream.range(0, partitionToNode.size())
+                .mapToObj(partition -> taskScheduler.scheduleTask(partitionToNode.get(partition), partition, totalPartitions))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
                 .collect(toImmutableList());
 
         return new ScheduleResult(true, newTasks, 0);

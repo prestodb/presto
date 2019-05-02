@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.198</version>
+        <version>0.219</version>
     </parent>
 
     <artifactId>presto-docs</artifactId>
@@ -45,22 +45,30 @@
 
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-antrun-plugin</artifactId>
+                <groupId>io.airlift.drift</groupId>
+                <artifactId>drift-maven-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>create-build-directory</id>
                         <phase>validate</phase>
                         <goals>
-                            <goal>run</goal>
+                            <goal>generate-thrift-idl</goal>
                         </goals>
                         <configuration>
-                            <target>
-                                <mkdir dir="${project.build.directory}" />
-                            </target>
+                            <outputFile>${project.build.directory}/PrestoThriftService.thrift</outputFile>
+                            <classes>
+                                <class>com.facebook.presto.connector.thrift.api.PrestoThriftService</class>
+                            </classes>
+                            <recursive>true</recursive>
                         </configuration>
                     </execution>
                 </executions>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.facebook.presto</groupId>
+                        <artifactId>presto-thrift-connector-api</artifactId>
+                        <version>${project.version}</version>
+                    </dependency>
+                </dependencies>
             </plugin>
 
             <plugin>
@@ -78,22 +86,6 @@
                             <arguments>
                                 <argument>validateDocs</argument>
                                 <argument>${project.basedir}/src/main/sphinx/language/reserved.rst</argument>
-                            </arguments>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>generate-thrift-idl</id>
-                        <phase>validate</phase>
-                        <goals>
-                            <goal>java</goal>
-                        </goals>
-                        <configuration>
-                            <mainClass>com.facebook.swift.generator.swift2thrift.Main</mainClass>
-                            <arguments>
-                                <argument>com.facebook.presto.connector.thrift.api.PrestoThriftService</argument>
-                                <argument>-recursive</argument>
-                                <argument>-out</argument>
-                                <argument>${project.build.directory}/PrestoThriftService.thrift</argument>
                             </arguments>
                         </configuration>
                     </execution>
@@ -123,16 +115,6 @@
                         <groupId>com.facebook.presto</groupId>
                         <artifactId>presto-parser</artifactId>
                         <version>${project.version}</version>
-                    </dependency>
-                    <dependency>
-                        <groupId>com.facebook.presto</groupId>
-                        <artifactId>presto-thrift-connector-api</artifactId>
-                        <version>${project.version}</version>
-                    </dependency>
-                    <dependency>
-                        <groupId>com.facebook.swift</groupId>
-                        <artifactId>swift2thrift-generator-cli</artifactId>
-                        <version>${dep.swift.version}</version>
                     </dependency>
                 </dependencies>
             </plugin>

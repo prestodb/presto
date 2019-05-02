@@ -17,9 +17,10 @@ import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.AggregationState;
+import com.facebook.presto.spi.function.BlockIndex;
+import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
@@ -38,13 +39,13 @@ public class TestCountNullAggregation
     @BeforeClass
     public void setup()
     {
-        functionRegistry.addFunctions(new FunctionListBuilder().aggregates(CountNull.class).getFunctions());
+        functionManager.addFunctions(new FunctionListBuilder().aggregates(CountNull.class).getFunctions());
     }
 
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), length);
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
             BIGINT.writeLong(blockBuilder, i);
         }

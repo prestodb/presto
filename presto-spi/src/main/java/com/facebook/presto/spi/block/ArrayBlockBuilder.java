@@ -42,6 +42,7 @@ public class ArrayBlockBuilder
 
     private int[] offsets = new int[1];
     private boolean[] valueIsNull = new boolean[0];
+    private boolean hasNullValue;
 
     private final BlockBuilder values;
     private boolean currentEntryOpened;
@@ -115,7 +116,7 @@ public class ArrayBlockBuilder
     }
 
     @Override
-    protected Block getValues()
+    protected Block getRawElementBlock()
     {
         return values;
     }
@@ -139,24 +140,48 @@ public class ArrayBlockBuilder
     }
 
     @Override
-    public BlockBuilder writeObject(Object value)
+    public BlockBuilder appendStructure(Block block)
     {
         if (currentEntryOpened) {
             throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
+        currentEntryOpened = true;
 
-        Block block = (Block) value;
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (block.isNull(i)) {
                 values.appendNull();
             }
             else {
                 block.writePositionTo(i, values);
-                values.closeEntry();
             }
         }
 
-        currentEntryOpened = true;
+        closeEntry();
+        return this;
+    }
+
+    @Override
+    public BlockBuilder appendStructureInternal(Block block, int position)
+    {
+        if (!(block instanceof AbstractArrayBlock)) {
+            throw new IllegalArgumentException();
+        }
+
+        AbstractArrayBlock arrayBlock = (AbstractArrayBlock) block;
+        BlockBuilder entryBuilder = beginBlockEntry();
+
+        int startValueOffset = arrayBlock.getOffset(position);
+        int endValueOffset = arrayBlock.getOffset(position + 1);
+        for (int i = startValueOffset; i < endValueOffset; i++) {
+            if (arrayBlock.getRawElementBlock().isNull(i)) {
+                entryBuilder.appendNull();
+            }
+            else {
+                arrayBlock.getRawElementBlock().writePositionTo(i, entryBuilder);
+            }
+        }
+
+        closeEntry();
         return this;
     }
 
@@ -200,6 +225,7 @@ public class ArrayBlockBuilder
         }
         offsets[positionCount + 1] = values.getPositionCount();
         valueIsNull[positionCount] = isNull;
+        hasNullValue |= isNull;
         positionCount++;
 
         if (blockBuilderStatus != null) {
@@ -237,7 +263,7 @@ public class ArrayBlockBuilder
         if (currentEntryOpened) {
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
-        return createArrayBlockInternal(0, positionCount, valueIsNull, offsets, values.build());
+        return createArrayBlockInternal(0, positionCount, hasNullValue ? valueIsNull : null, offsets, values.build());
     }
 
     @Override

@@ -16,8 +16,8 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -193,13 +193,13 @@ public final class WindowMatcher
         public Builder addFunction(
                 String outputAlias,
                 ExpectedValueProvider<FunctionCall> functionCall,
-                Signature signature,
+                FunctionHandle functionHandle,
                 ExpectedValueProvider<WindowNode.Frame> frame)
         {
             windowFunctionMatchers.add(
                     new AliasMatcher(
                             Optional.of(outputAlias),
-                            new WindowFunctionMatcher(functionCall, Optional.of(signature), Optional.of(frame))));
+                            new WindowFunctionMatcher(functionCall, Optional.of(functionHandle), Optional.of(frame))));
             return this;
         }
 

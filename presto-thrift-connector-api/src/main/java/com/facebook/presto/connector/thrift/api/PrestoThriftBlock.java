@@ -28,12 +28,11 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.swift.codec.ThriftConstructor;
-import com.facebook.swift.codec.ThriftField;
-import com.facebook.swift.codec.ThriftStruct;
+import io.airlift.drift.annotations.ThriftConstructor;
+import io.airlift.drift.annotations.ThriftField;
+import io.airlift.drift.annotations.ThriftStruct;
 import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
@@ -50,11 +49,11 @@ import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
 import static com.facebook.presto.spi.type.StandardTypes.JSON;
 import static com.facebook.presto.spi.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
-import static com.facebook.swift.codec.ThriftField.Requiredness.OPTIONAL;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 
 @ThriftStruct
 public final class PrestoThriftBlock
@@ -324,7 +323,7 @@ public final class PrestoThriftBlock
     private static Block convertColumnToBlock(RecordSet recordSet, int columnIndex, int positions)
     {
         Type type = recordSet.getColumnTypes().get(columnIndex);
-        BlockBuilder output = type.createBlockBuilder(new BlockBuilderStatus(), positions);
+        BlockBuilder output = type.createBlockBuilder(null, positions);
         Class<?> javaType = type.getJavaType();
         RecordCursor cursor = recordSet.cursor();
         for (int position = 0; position < positions; position++) {

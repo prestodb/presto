@@ -336,6 +336,10 @@ Convenience Extraction Functions
     Returns the hour of the day from ``x``.
     The value ranges from ``0`` to ``23``.
 
+.. function:: millisecond(x) -> bigint
+
+    Returns the millisecond of the second from ``x``.
+
 .. function:: minute(x) -> bigint
 
     Returns the minute of the hour from ``x``.

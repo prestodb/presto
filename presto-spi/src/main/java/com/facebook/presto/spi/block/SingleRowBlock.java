@@ -33,8 +33,13 @@ public class SingleRowBlock
         this.fieldBlocks = fieldBlocks;
     }
 
+    int getNumFields()
+    {
+        return fieldBlocks.length;
+    }
+
     @Override
-    protected Block getFieldBlock(int fieldIndex)
+    protected Block getRawFieldBlock(int fieldIndex)
     {
         return fieldBlocks[fieldIndex];
     }
@@ -50,7 +55,7 @@ public class SingleRowBlock
     {
         long sizeInBytes = 0;
         for (int i = 0; i < fieldBlocks.length; i++) {
-            sizeInBytes += getFieldBlock(i).getSizeInBytes();
+            sizeInBytes += getRawFieldBlock(i).getRegionSizeInBytes(rowIndex, 1);
         }
         return sizeInBytes;
     }
@@ -60,7 +65,7 @@ public class SingleRowBlock
     {
         long retainedSizeInBytes = INSTANCE_SIZE;
         for (int i = 0; i < fieldBlocks.length; i++) {
-            retainedSizeInBytes += getFieldBlock(i).getRetainedSizeInBytes();
+            retainedSizeInBytes += getRawFieldBlock(i).getRetainedSizeInBytes();
         }
         return retainedSizeInBytes;
     }
@@ -68,20 +73,16 @@ public class SingleRowBlock
     @Override
     public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
-        for (int i = 0; i < fieldBlocks.length; i++) {
-            consumer.accept(fieldBlocks[i], fieldBlocks[i].getRetainedSizeInBytes());
+        for (Block fieldBlock : fieldBlocks) {
+            consumer.accept(fieldBlock, fieldBlock.getRetainedSizeInBytes());
         }
         consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        BlockEncoding[] fieldBlockEncodings = new BlockEncoding[fieldBlocks.length];
-        for (int i = 0; i < fieldBlocks.length; i++) {
-            fieldBlockEncodings[i] = fieldBlocks[i].getEncoding();
-        }
-        return new SingleRowBlockEncoding(fieldBlockEncodings);
+        return SingleRowBlockEncoding.NAME;
     }
 
     public int getRowIndex()
@@ -93,5 +94,24 @@ public class SingleRowBlock
     public String toString()
     {
         return format("SingleRowBlock{numFields=%d}", fieldBlocks.length);
+    }
+
+    @Override
+    public Block getLoadedBlock()
+    {
+        boolean allLoaded = true;
+        Block[] loadedFieldBlocks = new Block[fieldBlocks.length];
+
+        for (int i = 0; i < fieldBlocks.length; i++) {
+            loadedFieldBlocks[i] = fieldBlocks[i].getLoadedBlock();
+            if (loadedFieldBlocks[i] != fieldBlocks[i]) {
+                allLoaded = false;
+            }
+        }
+
+        if (allLoaded) {
+            return this;
+        }
+        return new SingleRowBlock(rowIndex, loadedFieldBlocks);
     }
 }

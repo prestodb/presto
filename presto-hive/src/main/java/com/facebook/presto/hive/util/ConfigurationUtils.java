@@ -20,7 +20,32 @@ import java.util.Map;
 
 public final class ConfigurationUtils
 {
+    private static final Configuration INITIAL_CONFIGURATION;
+
+    static {
+        Configuration.addDefaultResource("hdfs-default.xml");
+        Configuration.addDefaultResource("hdfs-site.xml");
+
+        // must not be transitively reloaded during the future loading of various Hadoop modules
+        // all the required default resources must be declared above
+        INITIAL_CONFIGURATION = new Configuration(false);
+        Configuration defaultConfiguration = new Configuration();
+        copy(defaultConfiguration, INITIAL_CONFIGURATION);
+    }
+
     private ConfigurationUtils() {}
+
+    public static Configuration getInitialConfiguration()
+    {
+        return copy(INITIAL_CONFIGURATION);
+    }
+
+    public static Configuration copy(Configuration configuration)
+    {
+        Configuration copy = new Configuration(false);
+        copy(configuration, copy);
+        return copy;
+    }
 
     public static void copy(Configuration from, Configuration to)
     {

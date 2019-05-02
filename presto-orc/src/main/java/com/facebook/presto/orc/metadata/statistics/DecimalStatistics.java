@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.facebook.presto.orc.metadata.statistics.StatisticsHasher.Hashable;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.math.BigDecimal;
@@ -24,7 +25,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.sizeOf;
 
 public class DecimalStatistics
-        implements RangeStatistics<BigDecimal>
+        implements RangeStatistics<BigDecimal>, Hashable
 {
     // 1 byte to denote if null
     public static final long DECIMAL_VALUE_BYTES_OVERHEAD = Byte.BYTES;
@@ -46,7 +47,7 @@ public class DecimalStatistics
         this.minimum = minimum;
         this.maximum = maximum;
 
-        int retainedSizeInBytes = 0;
+        long retainedSizeInBytes = 0;
         if (minimum != null) {
             retainedSizeInBytes += BIG_DECIMAL_INSTANCE_SIZE + decimalSizeInBytes;
         }
@@ -101,5 +102,12 @@ public class DecimalStatistics
                 .add("minimum", minimum)
                 .add("maximum", maximum)
                 .toString();
+    }
+
+    @Override
+    public void addHash(StatisticsHasher hasher)
+    {
+        hasher.putOptionalBigDecimal(minimum)
+                .putOptionalBigDecimal(maximum);
     }
 }

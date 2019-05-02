@@ -21,12 +21,10 @@ import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import com.google.inject.multibindings.Multibinder;
 
 import javax.inject.Inject;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -55,16 +53,6 @@ public class KafkaConnectorModule
         jsonCodecBinder(binder).bindJsonCodec(KafkaTopicDescription.class);
 
         binder.install(new DecoderModule());
-
-        for (KafkaInternalFieldDescription internalFieldDescription : KafkaInternalFieldDescription.getInternalFields()) {
-            bindInternalColumn(binder, internalFieldDescription);
-        }
-    }
-
-    private static void bindInternalColumn(Binder binder, KafkaInternalFieldDescription fieldDescription)
-    {
-        Multibinder<KafkaInternalFieldDescription> fieldDescriptionBinder = Multibinder.newSetBinder(binder, KafkaInternalFieldDescription.class);
-        fieldDescriptionBinder.addBinding().toInstance(fieldDescription);
     }
 
     public static final class TypeDeserializer
@@ -84,9 +72,7 @@ public class KafkaConnectorModule
         @Override
         protected Type _deserialize(String value, DeserializationContext context)
         {
-            Type type = typeManager.getType(parseTypeSignature(value));
-            checkArgument(type != null, "Unknown type %s", value);
-            return type;
+            return typeManager.getType(parseTypeSignature(value));
         }
     }
 }

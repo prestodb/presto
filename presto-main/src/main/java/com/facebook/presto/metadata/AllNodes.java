@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.Node;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Objects;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -25,12 +26,14 @@ public class AllNodes
     private final Set<Node> activeNodes;
     private final Set<Node> inactiveNodes;
     private final Set<Node> shuttingDownNodes;
+    private final Set<Node> activeCoordinators;
 
-    public AllNodes(Set<Node> activeNodes, Set<Node> inactiveNodes, Set<Node> shuttingDownNodes)
+    public AllNodes(Set<Node> activeNodes, Set<Node> inactiveNodes, Set<Node> shuttingDownNodes, Set<Node> activeCoordinators)
     {
         this.activeNodes = ImmutableSet.copyOf(requireNonNull(activeNodes, "activeNodes is null"));
         this.inactiveNodes = ImmutableSet.copyOf(requireNonNull(inactiveNodes, "inactiveNodes is null"));
         this.shuttingDownNodes = ImmutableSet.copyOf(requireNonNull(shuttingDownNodes, "shuttingDownNodes is null"));
+        this.activeCoordinators = ImmutableSet.copyOf(requireNonNull(activeCoordinators, "activeCoordinators is null"));
     }
 
     public Set<Node> getActiveNodes()
@@ -46,5 +49,32 @@ public class AllNodes
     public Set<Node> getShuttingDownNodes()
     {
         return shuttingDownNodes;
+    }
+
+    public Set<Node> getActiveCoordinators()
+    {
+        return activeCoordinators;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        AllNodes allNodes = (AllNodes) o;
+        return Objects.equals(activeNodes, allNodes.activeNodes) &&
+                Objects.equals(inactiveNodes, allNodes.inactiveNodes) &&
+                Objects.equals(shuttingDownNodes, allNodes.shuttingDownNodes) &&
+                Objects.equals(activeCoordinators, allNodes.activeCoordinators);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(activeNodes, inactiveNodes, shuttingDownNodes, activeCoordinators);
     }
 }

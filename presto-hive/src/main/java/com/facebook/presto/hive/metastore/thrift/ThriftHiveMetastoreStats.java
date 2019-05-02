@@ -23,6 +23,7 @@ public class ThriftHiveMetastoreStats
     private final HiveMetastoreApiStats getAllTables = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getAllViews = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getTable = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats getFields = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getTableColumnStatistics = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getPartitionColumnStatistics = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getPartitionNames = new HiveMetastoreApiStats();
@@ -38,11 +39,15 @@ public class ThriftHiveMetastoreStats
     private final HiveMetastoreApiStats addPartitions = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats dropPartition = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats alterPartition = new HiveMetastoreApiStats();
-    private final HiveMetastoreApiStats loadRoles = new HiveMetastoreApiStats();
-    private final HiveMetastoreApiStats getPrivilegeSet = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats listPrivileges = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats grantTablePrivileges = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats revokeTablePrivileges = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats listRoles = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats grantRole = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats revokeRole = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats listRoleGrants = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats createRole = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats dropRole = new HiveMetastoreApiStats();
 
     @Managed
     @Nested
@@ -79,11 +84,22 @@ public class ThriftHiveMetastoreStats
         return getTable;
     }
 
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getGetFields()
+    {
+        return getFields;
+    }
+
+    @Managed
+    @Nested
     public HiveMetastoreApiStats getGetTableColumnStatistics()
     {
         return getTableColumnStatistics;
     }
 
+    @Managed
+    @Nested
     public HiveMetastoreApiStats getGetPartitionColumnStatistics()
     {
         return getPartitionColumnStatistics;
@@ -196,22 +212,50 @@ public class ThriftHiveMetastoreStats
 
     @Managed
     @Nested
-    public HiveMetastoreApiStats getLoadRoles()
-    {
-        return loadRoles;
-    }
-
-    @Managed
-    @Nested
-    public HiveMetastoreApiStats getGetPrivilegeSet()
-    {
-        return getPrivilegeSet;
-    }
-
-    @Managed
-    @Nested
     public HiveMetastoreApiStats getListPrivileges()
     {
         return listPrivileges;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getListRoles()
+    {
+        return listRoles;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getGrantRole()
+    {
+        return grantRole;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getRevokeRole()
+    {
+        return revokeRole;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getListRoleGrants()
+    {
+        return listRoleGrants;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getCreateRole()
+    {
+        return createRole;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getDropRole()
+    {
+        return dropRole;
     }
 }

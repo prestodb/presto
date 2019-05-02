@@ -14,9 +14,9 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionKind;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlAggregationFunction;
+import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import com.facebook.presto.operator.aggregation.state.LongDecimalWithOverflowState;
 import com.facebook.presto.operator.aggregation.state.LongDecimalWithOverflowStateFactory;
 import com.facebook.presto.operator.aggregation.state.LongDecimalWithOverflowStateSerializer;
@@ -24,6 +24,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
+import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -80,10 +81,10 @@ public class DecimalSumAggregation
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
-        Type inputType = typeManager.getType(getOnlyElement(applyBoundVariables(getSignature().getArgumentTypes(), boundVariables)));
-        Type outputType = typeManager.getType(applyBoundVariables(getSignature().getReturnType(), boundVariables));
+        Type inputType = getOnlyElement(applyBoundVariables(typeManager, getSignature().getArgumentTypes(), boundVariables));
+        Type outputType = applyBoundVariables(typeManager, getSignature().getReturnType(), boundVariables);
         return generateAggregation(inputType, outputType);
     }
 
@@ -109,14 +110,15 @@ public class DecimalSumAggregation
                 inputFunction.bindTo(inputType),
                 COMBINE_FUNCTION,
                 LONG_DECIMAL_OUTPUT_FUNCTION.bindTo(outputType),
-                stateInterface,
-                stateSerializer,
-                new LongDecimalWithOverflowStateFactory(),
+                ImmutableList.of(new AccumulatorStateDescriptor(
+                        stateInterface,
+                        stateSerializer,
+                        new LongDecimalWithOverflowStateFactory())),
                 outputType);
 
         Type intermediateType = stateSerializer.getSerializedType();
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, outputType, true, false, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), outputType, true, false, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)

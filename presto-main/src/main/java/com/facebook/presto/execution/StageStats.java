@@ -28,9 +28,12 @@ import org.joda.time.DateTime;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.OptionalDouble;
 import java.util.Set;
 
+import static com.facebook.presto.execution.StageState.RUNNING;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -39,8 +42,6 @@ public class StageStats
     private final DateTime schedulingComplete;
 
     private final DistributionSnapshot getSplitDistribution;
-    private final DistributionSnapshot scheduleTaskDistribution;
-    private final DistributionSnapshot addSplitDistribution;
 
     private final int totalTasks;
     private final int runningTasks;
@@ -54,11 +55,11 @@ public class StageStats
 
     private final double cumulativeUserMemory;
     private final DataSize userMemoryReservation;
+    private final DataSize totalMemoryReservation;
     private final DataSize peakUserMemoryReservation;
 
     private final Duration totalScheduledTime;
     private final Duration totalCpuTime;
-    private final Duration totalUserTime;
     private final Duration totalBlockedTime;
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
@@ -84,8 +85,6 @@ public class StageStats
             @JsonProperty("schedulingComplete") DateTime schedulingComplete,
 
             @JsonProperty("getSplitDistribution") DistributionSnapshot getSplitDistribution,
-            @JsonProperty("scheduleTaskDistribution") DistributionSnapshot scheduleTaskDistribution,
-            @JsonProperty("addSplitDistribution") DistributionSnapshot addSplitDistribution,
 
             @JsonProperty("totalTasks") int totalTasks,
             @JsonProperty("runningTasks") int runningTasks,
@@ -99,11 +98,11 @@ public class StageStats
 
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
+            @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
-            @JsonProperty("totalUserTime") Duration totalUserTime,
             @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
             @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
@@ -126,8 +125,6 @@ public class StageStats
     {
         this.schedulingComplete = schedulingComplete;
         this.getSplitDistribution = requireNonNull(getSplitDistribution, "getSplitDistribution is null");
-        this.scheduleTaskDistribution = requireNonNull(scheduleTaskDistribution, "scheduleTaskDistribution is null");
-        this.addSplitDistribution = requireNonNull(addSplitDistribution, "addSplitDistribution is null");
 
         checkArgument(totalTasks >= 0, "totalTasks is negative");
         this.totalTasks = totalTasks;
@@ -149,11 +146,11 @@ public class StageStats
         checkArgument(cumulativeUserMemory >= 0, "cumulativeUserMemory is negative");
         this.cumulativeUserMemory = cumulativeUserMemory;
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
+        this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
         this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
 
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
-        this.totalUserTime = requireNonNull(totalUserTime, "totalUserTime is null");
         this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
@@ -188,18 +185,6 @@ public class StageStats
     public DistributionSnapshot getGetSplitDistribution()
     {
         return getSplitDistribution;
-    }
-
-    @JsonProperty
-    public DistributionSnapshot getScheduleTaskDistribution()
-    {
-        return scheduleTaskDistribution;
-    }
-
-    @JsonProperty
-    public DistributionSnapshot getAddSplitDistribution()
-    {
-        return addSplitDistribution;
     }
 
     @JsonProperty
@@ -263,6 +248,12 @@ public class StageStats
     }
 
     @JsonProperty
+    public DataSize getTotalMemoryReservation()
+    {
+        return totalMemoryReservation;
+    }
+
+    @JsonProperty
     public DataSize getPeakUserMemoryReservation()
     {
         return peakUserMemoryReservation;
@@ -278,12 +269,6 @@ public class StageStats
     public Duration getTotalCpuTime()
     {
         return totalCpuTime;
-    }
-
-    @JsonProperty
-    public Duration getTotalUserTime()
-    {
-        return totalUserTime;
     }
 
     @JsonProperty
@@ -362,5 +347,32 @@ public class StageStats
     public List<OperatorStats> getOperatorSummaries()
     {
         return operatorSummaries;
+    }
+
+    public BasicStageStats toBasicStageStats(StageState stageState)
+    {
+        boolean isScheduled = (stageState == RUNNING) || stageState.isDone();
+
+        OptionalDouble progressPercentage = OptionalDouble.empty();
+        if (isScheduled && totalDrivers != 0) {
+            progressPercentage = OptionalDouble.of(min(100, (completedDrivers * 100.0) / totalDrivers));
+        }
+
+        return new BasicStageStats(
+                isScheduled,
+                totalDrivers,
+                queuedDrivers,
+                runningDrivers,
+                completedDrivers,
+                rawInputDataSize,
+                rawInputPositions,
+                (long) cumulativeUserMemory,
+                userMemoryReservation,
+                totalMemoryReservation,
+                totalCpuTime,
+                totalScheduledTime,
+                fullyBlocked,
+                blockedReasons,
+                progressPercentage);
     }
 }

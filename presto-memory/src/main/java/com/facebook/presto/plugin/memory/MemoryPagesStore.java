@@ -63,6 +63,8 @@ public class MemoryPagesStore
             throw new PrestoException(MISSING_DATA, "Failed to find table on a worker.");
         }
 
+        page.compact();
+
         long newSize = currentBytes + page.getRetainedSizeInBytes();
         if (maxBytes < newSize) {
             throw new PrestoException(MEMORY_LIMIT_EXCEEDED, format("Memory limit [%d] for memory connector exceeded", maxBytes));
@@ -144,7 +146,7 @@ public class MemoryPagesStore
 
     private static final class TableData
     {
-        private List<Page> pages = new ArrayList<>();
+        private final List<Page> pages = new ArrayList<>();
         private long rows;
 
         public void add(Page page)

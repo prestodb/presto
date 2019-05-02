@@ -24,7 +24,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
@@ -61,6 +60,7 @@ import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
 import static com.facebook.presto.raptor.storage.OrcStorageManager.xxhash64;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -167,9 +167,8 @@ public class ShardRecoveryManager
         try {
             for (ShardMetadata shard : getMissingShards()) {
                 stats.incrementBackgroundShardRecovery();
-                Futures.addCallback(
-                        shardQueue.submit(new MissingShard(shard.getShardUuid(), shard.getCompressedSize(), shard.getXxhash64(), false)),
-                        failureCallback(t -> log.warn(t, "Error recovering shard: %s", shard.getShardUuid())));
+                ListenableFuture<?> future = shardQueue.submit(new MissingShard(shard.getShardUuid(), shard.getCompressedSize(), shard.getXxhash64(), false));
+                addExceptionCallback(future, t -> log.warn(t, "Error recovering shard: %s", shard.getShardUuid()));
             }
         }
         catch (Throwable t) {
@@ -216,12 +215,7 @@ public class ShardRecoveryManager
                 return;
             }
             stats.incrementCorruptLocalFile();
-            File quarantine = getQuarantineFile(shardUuid);
-            log.error("Local file is corrupt. Quarantining local file: %s", quarantine);
-            if (!storageFile.renameTo(quarantine)) {
-                log.warn("Quarantine of corrupt local file failed: %s", shardUuid);
-                storageFile.delete();
-            }
+            quarantineFile(shardUuid, storageFile, "Local file is corrupt.");
         }
 
         // create a temporary file in the staging directory
@@ -272,22 +266,29 @@ public class ShardRecoveryManager
         if (isFileCorrupt(storageFile, shardSize, shardXxhash64)) {
             stats.incrementShardRecoveryFailure();
             stats.incrementCorruptRecoveredFile();
-            File quarantine = getQuarantineFile(shardUuid);
-            log.error("Local file is corrupt after recovery. Quarantining local file: %s", quarantine);
-            if (!storageFile.renameTo(quarantine)) {
-                log.warn("Quarantine of corrupt recovered file failed: %s", shardUuid);
-                storageFile.delete();
-            }
+            quarantineFile(shardUuid, storageFile, "Local file is corrupt after recovery.");
             throw new PrestoException(RAPTOR_BACKUP_CORRUPTION, "Backup is corrupt after read: " + shardUuid);
         }
 
         stats.incrementShardRecoverySuccess();
     }
 
-    private File getQuarantineFile(UUID shardUuid)
+    private void quarantineFile(UUID shardUuid, File file, String message)
     {
-        File file = storageService.getQuarantineFile(shardUuid);
-        return new File(file.getPath() + ".corrupt." + System.currentTimeMillis());
+        File quarantine = new File(storageService.getQuarantineFile(shardUuid).getPath() + ".corrupt");
+        if (quarantine.exists()) {
+            log.warn("%s Quarantine already exists: %s", message, quarantine);
+            return;
+        }
+
+        log.error("%s Quarantining corrupt file: %s", message, quarantine);
+        try {
+            Files.move(file.toPath(), quarantine.toPath(), ATOMIC_MOVE);
+        }
+        catch (IOException e) {
+            log.warn(e, "Quarantine of corrupt file failed: " + quarantine);
+            file.delete();
+        }
     }
 
     private static boolean isFileCorrupt(File file, long size, OptionalLong xxhash64)

@@ -13,13 +13,11 @@
  */
 package com.facebook.presto.type;
 
-// TODO unignore when new semantics is implemented
-// Note: ignore done using comments because @Test(enabled = false) misbehave on subclass
 public class TestDate
-        // extends TestDateBase
+        extends TestDateBase
 {
     public TestDate()
     {
-        // super(false);
+        super(false);
     }
 }

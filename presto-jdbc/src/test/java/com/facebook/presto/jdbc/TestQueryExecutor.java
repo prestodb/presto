@@ -57,7 +57,7 @@ public class TestQueryExecutor
     public void testGetServerInfo()
             throws Exception
     {
-        ServerInfo expected = new ServerInfo(UNKNOWN, "test", true, Optional.of(Duration.valueOf("2m")));
+        ServerInfo expected = new ServerInfo(UNKNOWN, "test", true, false, Optional.of(Duration.valueOf("2m")));
 
         server.enqueue(new MockResponse()
                 .addHeader(CONTENT_TYPE, "application/json")

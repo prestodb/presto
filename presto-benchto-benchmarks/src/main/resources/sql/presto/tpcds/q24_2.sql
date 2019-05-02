@@ -36,7 +36,7 @@ SELECT
 , "sum"("netpaid") "paid"
 FROM
   ssales
-WHERE ("i_color" = 'chiffon             ')
+WHERE ("i_color" = 'chiffon')
 GROUP BY "c_last_name", "c_first_name", "s_store_name"
 HAVING ("sum"("netpaid") > (
       SELECT (DECIMAL '0.05' * "avg"("netpaid"))

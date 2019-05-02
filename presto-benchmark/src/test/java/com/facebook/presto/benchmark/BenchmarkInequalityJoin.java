@@ -24,6 +24,7 @@ import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
@@ -67,7 +68,7 @@ public class BenchmarkInequalityJoin
 
         // How many positions out of 1000 will be actually joined
         // 10 means 1 - 10/1000 = 99/100 positions will be filtered out
-        @Param({"10"})
+        @Param("10")
         private int filterOutCoefficient;
 
         public MemoryLocalQueryRunner getQueryRunner()
@@ -97,6 +98,13 @@ public class BenchmarkInequalityJoin
                             "FROM tpch.tiny.lineitem",
                     buckets,
                     filterOutCoefficient));
+        }
+
+        @TearDown
+        public void tearDown()
+        {
+            queryRunner.close();
+            queryRunner = null;
         }
     }
 

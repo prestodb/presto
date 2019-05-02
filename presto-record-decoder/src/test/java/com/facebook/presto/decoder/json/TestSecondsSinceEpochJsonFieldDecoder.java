@@ -13,118 +13,65 @@
  */
 package com.facebook.presto.decoder.json;
 
-import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.DecoderTestColumnHandle;
-import com.facebook.presto.decoder.FieldDecoder;
-import com.facebook.presto.decoder.FieldValueProvider;
-import com.facebook.presto.spi.type.BigintType;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import io.airlift.json.ObjectMapperProvider;
+import com.facebook.presto.spi.type.Type;
 import org.testng.annotations.Test;
 
-import java.nio.charset.StandardCharsets;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.decoder.FieldDecoder.DEFAULT_FIELD_DECODER_NAME;
-import static com.facebook.presto.decoder.json.SecondsSinceEpochJsonFieldDecoder.FORMATTER;
-import static com.facebook.presto.decoder.util.DecoderTestUtil.checkIsNull;
-import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
-import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
+import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static java.util.Arrays.asList;
 
 public class TestSecondsSinceEpochJsonFieldDecoder
 {
-    private static final Map<String, JsonFieldDecoder> DECODERS = ImmutableMap.of(DEFAULT_FIELD_DECODER_NAME, new JsonFieldDecoder(),
-            SecondsSinceEpochJsonFieldDecoder.NAME, new SecondsSinceEpochJsonFieldDecoder());
+    private JsonFieldDecoderTester tester = new JsonFieldDecoderTester("seconds-since-epoch");
 
-    private static final ObjectMapperProvider PROVIDER = new ObjectMapperProvider();
-
-    private static Map<DecoderColumnHandle, FieldDecoder<?>> buildMap(List<DecoderColumnHandle> columns)
+    @Test
+    public void testDecode()
     {
-        ImmutableMap.Builder<DecoderColumnHandle, FieldDecoder<?>> map = ImmutableMap.builder();
-        for (DecoderColumnHandle column : columns) {
-            map.put(column, DECODERS.get(column.getDataFormat()));
+        tester.assertDecodedAs("33701", TIME, 33701000);
+        tester.assertDecodedAs("\"33701\"", TIME, 33701000);
+        tester.assertDecodedAs("33701", TIME_WITH_TIME_ZONE, packDateTimeWithZone(33701000, UTC_KEY));
+        tester.assertDecodedAs("\"33701\"", TIME_WITH_TIME_ZONE, packDateTimeWithZone(33701000, UTC_KEY));
+        tester.assertDecodedAs("1519032101", TIMESTAMP, 1519032101000L);
+        tester.assertDecodedAs("\"1519032101\"", TIMESTAMP, 1519032101000L);
+        tester.assertDecodedAs("" + (Long.MAX_VALUE / 1000), TIMESTAMP, Long.MAX_VALUE / 1000 * 1000);
+        tester.assertDecodedAs("" + (Long.MIN_VALUE / 1000), TIMESTAMP, Long.MIN_VALUE / 1000 * 1000);
+        tester.assertDecodedAs("1519032101", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1519032101000L, UTC_KEY));
+        tester.assertDecodedAs("\"1519032101\"", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1519032101000L, UTC_KEY));
+    }
+
+    @Test
+    public void testDecodeNulls()
+    {
+        for (Type type : asList(TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE)) {
+            tester.assertDecodedAsNull("null", type);
+            tester.assertMissingDecodedAsNull(type);
         }
-        return map.build();
     }
 
     @Test
-    public void testBasicFormatting()
+    public void testDecodeInvalid()
     {
-        long now = System.currentTimeMillis() / 1000; // SecondsSinceEpoch is second granularity
-        String nowString = FORMATTER.print(now * 1000);
+        for (Type type : asList(TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE)) {
+            tester.assertInvalidInput("{}", type, "could not parse non-value node as '.*' for column 'some_column'");
+            tester.assertInvalidInput("[]", type, "could not parse non-value node as '.*' for column 'some_column'");
+            tester.assertInvalidInput("[10]", type, "could not parse non-value node as '.*' for column 'some_column'");
+            tester.assertInvalidInput("\"a\"", type, "could not parse value 'a' as '.*' for column 'some_column'");
+            tester.assertInvalidInput("12345678901234567890", type, "could not parse value '12345678901234567890' as '.*' for column 'some_column'");
+            tester.assertInvalidInput("" + (Long.MAX_VALUE / 1000 + 1), type, "could not parse value '9223372036854776' as '.*' for column 'some_column'");
+            tester.assertInvalidInput("" + (Long.MIN_VALUE / 1000 - 1), type, "could not parse value '-9223372036854776' as '.*' for column 'some_column'");
+            tester.assertInvalidInput("362016000.5", type, "could not parse value '3.620160005E8' as '.*' for column 'some_column'");
+        }
 
-        byte[] json = format("{\"a_number\":%d,\"a_string\":\"%d\"}", now, now).getBytes(StandardCharsets.UTF_8);
-
-        JsonRowDecoder rowDecoder = new JsonRowDecoder(PROVIDER.get());
-        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", BigintType.BIGINT, "a_number", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
-        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", createVarcharType(100), "a_string", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
-
-        DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", BigintType.BIGINT, "a_number", SecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
-        DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BigintType.BIGINT, "a_string", SecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
-
-        DecoderTestColumnHandle row5 = new DecoderTestColumnHandle("", 4, "row5", createVarcharType(100), "a_number", SecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
-        DecoderTestColumnHandle row6 = new DecoderTestColumnHandle("", 5, "row6", createVarcharType(100), "a_string", SecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
-
-        List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2, row3, row4, row5, row6);
-        Set<FieldValueProvider> providers = new HashSet<>();
-
-        boolean corrupt = rowDecoder.decodeRow(json, null, providers, columns, buildMap(columns));
-        assertFalse(corrupt);
-
-        assertEquals(providers.size(), columns.size());
-
-        // sanity checks
-        checkValue(providers, row1, now);
-        checkValue(providers, row2, Long.toString(now));
-
-        // number parsed as number --> return as time stamp (millis)
-        checkValue(providers, row3, now * 1000);
-        // string parsed as number --> parse text, convert to timestamp
-        checkValue(providers, row4, now * 1000);
-
-        // number parsed as string --> parse text, convert to timestamp, turn into string
-        checkValue(providers, row5, nowString);
-
-        // string parsed as string --> parse text, convert to timestamp, turn into string
-        checkValue(providers, row6, nowString);
-    }
-
-    @Test
-    public void testNullValues()
-    {
-        byte[] json = "{}".getBytes(StandardCharsets.UTF_8);
-
-        JsonRowDecoder rowDecoder = new JsonRowDecoder(PROVIDER.get());
-        DecoderTestColumnHandle row1 = new DecoderTestColumnHandle("", 0, "row1", BigintType.BIGINT, "a_number", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
-        DecoderTestColumnHandle row2 = new DecoderTestColumnHandle("", 1, "row2", createVarcharType(100), "a_string", DEFAULT_FIELD_DECODER_NAME, null, false, false, false);
-
-        DecoderTestColumnHandle row3 = new DecoderTestColumnHandle("", 2, "row3", BigintType.BIGINT, "a_number", SecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
-        DecoderTestColumnHandle row4 = new DecoderTestColumnHandle("", 3, "row4", BigintType.BIGINT, "a_string", SecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
-
-        DecoderTestColumnHandle row5 = new DecoderTestColumnHandle("", 4, "row5", createVarcharType(100), "a_number", SecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
-        DecoderTestColumnHandle row6 = new DecoderTestColumnHandle("", 5, "row6", createVarcharType(100), "a_string", SecondsSinceEpochJsonFieldDecoder.NAME, null, false, false, false);
-
-        List<DecoderColumnHandle> columns = ImmutableList.of(row1, row2, row3, row4, row5, row6);
-        Set<FieldValueProvider> providers = new HashSet<>();
-
-        boolean corrupt = rowDecoder.decodeRow(json, null, providers, columns, buildMap(columns));
-        assertFalse(corrupt);
-
-        assertEquals(providers.size(), columns.size());
-
-        // sanity checks
-        checkIsNull(providers, row1);
-        checkIsNull(providers, row2);
-        checkIsNull(providers, row3);
-        checkIsNull(providers, row4);
-        checkIsNull(providers, row5);
-        checkIsNull(providers, row6);
+        // TIME specific range checks
+        tester.assertInvalidInput("-1", TIME, "could not parse value '-1' as 'time' for column 'some_column'");
+        tester.assertInvalidInput("" + TimeUnit.DAYS.toSeconds(1) + 1, TIME, "could not parse value '864001' as 'time' for column 'some_column'");
+        tester.assertInvalidInput("-1", TIME_WITH_TIME_ZONE, "could not parse value '-1' as 'time with time zone' for column 'some_column'");
+        tester.assertInvalidInput("" + TimeUnit.DAYS.toSeconds(1) + 1, TIME_WITH_TIME_ZONE, "could not parse value '864001' as 'time with time zone' for column 'some_column'");
     }
 }

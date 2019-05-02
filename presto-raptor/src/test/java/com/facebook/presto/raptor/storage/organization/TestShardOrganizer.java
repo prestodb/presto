@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.raptor.storage.organization;
 
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
@@ -22,6 +21,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -57,14 +57,7 @@ public class TestShardOrganizer
         @Override
         public Runnable create(OrganizationSet organizationSet)
         {
-            return () -> {
-                try {
-                    MILLISECONDS.sleep(10);
-                }
-                catch (InterruptedException e) {
-                    throw Throwables.propagate(e);
-                }
-            };
+            return () -> sleepUninterruptibly(10, MILLISECONDS);
         }
     }
 

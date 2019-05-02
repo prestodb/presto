@@ -43,6 +43,7 @@ import org.joda.time.DateTimeZone;
 import java.io.Closeable;
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.sql.Array;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -79,6 +80,7 @@ import static com.google.common.collect.Lists.newArrayList;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
 import static io.airlift.tpch.TpchTable.NATION;
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static io.airlift.tpch.TpchTable.PART;
 import static io.airlift.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
@@ -142,6 +144,19 @@ public class H2QueryRunner
                 "  comment VARCHAR(115) NOT NULL\n" +
                 ")");
         insertRows(tpchMetadata, REGION);
+
+        handle.execute("CREATE TABLE part(\n" +
+                "  partkey BIGINT PRIMARY KEY,\n" +
+                "  name VARCHAR(55) NOT NULL,\n" +
+                "  mfgr VARCHAR(25) NOT NULL,\n" +
+                "  brand VARCHAR(10) NOT NULL,\n" +
+                "  type VARCHAR(25) NOT NULL,\n" +
+                "  size INTEGER NOT NULL,\n" +
+                "  container VARCHAR(10) NOT NULL,\n" +
+                "  retailprice DOUBLE NOT NULL,\n" +
+                "  comment VARCHAR(23) NOT NULL\n" +
+                ")");
+        insertRows(tpchMetadata, PART);
     }
 
     private void insertRows(TpchMetadata tpchMetadata, TpchTable tpchTable)
@@ -178,7 +193,7 @@ public class H2QueryRunner
                     throws SQLException
             {
                 int count = resultSet.getMetaData().getColumnCount();
-                checkArgument(types.size() == count, "type does not match result");
+                checkArgument(types.size() == count, "expected types count (%s) does not match actual column count (%s)", types.size(), count);
                 List<Object> row = new ArrayList<>(count);
                 for (int i = 1; i <= count; i++) {
                     Type type = types.get(i - 1);
@@ -332,12 +347,12 @@ public class H2QueryRunner
                         }
                     }
                     else if (type instanceof ArrayType) {
-                        Object[] arrayValue = (Object[]) resultSet.getArray(i).getArray();
+                        Array array = resultSet.getArray(i);
                         if (resultSet.wasNull()) {
                             row.add(null);
                         }
                         else {
-                            row.add(newArrayList(arrayValue));
+                            row.add(newArrayList((Object[]) array.getArray()));
                         }
                     }
                     else {

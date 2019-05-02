@@ -28,8 +28,8 @@ public class LegacyArrayAggregationGroupState
         extends AbstractGroupedAccumulatorState
         implements ArrayAggregationState
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupArrayAggregationState.class).instanceSize();
-    private ObjectBigArray<BlockBuilder> blockBuilders;
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LegacyArrayAggregationGroupState.class).instanceSize();
+    private final ObjectBigArray<BlockBuilder> blockBuilders;
     private final Type type;
     private long size;
 

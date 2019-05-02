@@ -72,13 +72,8 @@ public final class SortingProperty<E>
     @Override
     public <T> Optional<LocalProperty<T>> translate(Function<E, Optional<T>> translator)
     {
-        Optional<T> translated = translator.apply(column);
-
-        if (translated.isPresent()) {
-            return Optional.of(new SortingProperty<>(translated.get(), order));
-        }
-
-        return Optional.empty();
+        return translator.apply(column)
+                .map(translated -> new SortingProperty<>(translated, order));
     }
 
     @Override

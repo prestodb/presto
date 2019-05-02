@@ -27,7 +27,7 @@ that confirms the information is correct:
     Enter keystore password:
     Re-enter new password:
     What is your first and last name?
-      [Unknown]:  presto-coordinator
+      [Unknown]:  presto-coordinator.example.com
     What is the name of your organizational unit?
       [Unknown]:
     What is the name of your organization?
@@ -38,7 +38,7 @@ that confirms the information is correct:
       [Unknown]:
     What is the two-letter country code for this unit?
       [Unknown]:
-    Is CN=eiger, OU=Unknown, O=Unknown, L=Unknown, ST=Unknown, C=Unknown correct?
+    Is CN=presto-coordinator.example.com, OU=Unknown, O=Unknown, L=Unknown, ST=Unknown, C=Unknown correct?
       [no]:  yes
 
     Enter key password for <presto>
@@ -81,4 +81,4 @@ Verify the password for a keystore file and view its contents using `keytool
 
 .. code-block:: none
 
-    $ keytool -list -v -k /etc/presto/presto.jks
+    $ keytool -list -v -keystore /etc/presto/presto.jks

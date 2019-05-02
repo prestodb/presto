@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.operator.PipelineExecutionStrategy;
+import com.facebook.presto.cost.StatsAndCosts;
+import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -50,7 +51,9 @@ public class PlanFragment
     private final Set<PlanNode> partitionedSourceNodes;
     private final List<RemoteSourceNode> remoteSourceNodes;
     private final PartitioningScheme partitioningScheme;
-    private final PipelineExecutionStrategy pipelineExecutionStrategy;
+    private final StageExecutionDescriptor stageExecutionDescriptor;
+    private final StatsAndCosts statsAndCosts;
+    private final Optional<String> jsonRepresentation;
 
     @JsonCreator
     public PlanFragment(
@@ -60,7 +63,9 @@ public class PlanFragment
             @JsonProperty("partitioning") PartitioningHandle partitioning,
             @JsonProperty("partitionedSources") List<PlanNodeId> partitionedSources,
             @JsonProperty("partitioningScheme") PartitioningScheme partitioningScheme,
-            @JsonProperty("pipelineExecutionStrategy") PipelineExecutionStrategy pipelineExecutionStrategy)
+            @JsonProperty("stageExecutionDescriptor") StageExecutionDescriptor stageExecutionDescriptor,
+            @JsonProperty("statsAndCosts") StatsAndCosts statsAndCosts,
+            @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation)
     {
         this.id = requireNonNull(id, "id is null");
         this.root = requireNonNull(root, "root is null");
@@ -68,7 +73,9 @@ public class PlanFragment
         this.partitioning = requireNonNull(partitioning, "partitioning is null");
         this.partitionedSources = ImmutableList.copyOf(requireNonNull(partitionedSources, "partitionedSources is null"));
         this.partitionedSourcesSet = ImmutableSet.copyOf(partitionedSources);
-        this.pipelineExecutionStrategy = pipelineExecutionStrategy;
+        this.stageExecutionDescriptor = requireNonNull(stageExecutionDescriptor, "stageExecutionDescriptor is null");
+        this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
+        this.jsonRepresentation = requireNonNull(jsonRepresentation, "jsonRepresentation is null");
 
         checkArgument(partitionedSourcesSet.size() == partitionedSources.size(), "partitionedSources contains duplicates");
         checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(partitioningScheme.getOutputLayout()),
@@ -129,9 +136,23 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public PipelineExecutionStrategy getPipelineExecutionStrategy()
+    public StageExecutionDescriptor getStageExecutionDescriptor()
     {
-        return pipelineExecutionStrategy;
+        return stageExecutionDescriptor;
+    }
+
+    @JsonProperty
+    public StatsAndCosts getStatsAndCosts()
+    {
+        return statsAndCosts;
+    }
+
+    @JsonProperty
+    public Optional<String> getJsonRepresentation()
+    {
+        // @reviewer: I believe this should be a json raw value, but that would make this class have a different deserialization constructor.
+        // workers don't need this, so that should be OK, but it's worth thinking about.
+        return jsonRepresentation;
     }
 
     public List<Type> getTypes()
@@ -185,12 +206,17 @@ public class PlanFragment
 
     public PlanFragment withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme.withBucketToPartition(bucketToPartition), pipelineExecutionStrategy);
+        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme.withBucketToPartition(bucketToPartition), stageExecutionDescriptor, statsAndCosts, jsonRepresentation);
     }
 
-    public PlanFragment withGroupedExecution(PipelineExecutionStrategy pipelineExecutionStrategy)
+    public PlanFragment withFixedLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes)
     {
-        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme, pipelineExecutionStrategy);
+        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme, StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(capableTableScanNodes), statsAndCosts, jsonRepresentation);
+    }
+
+    public PlanFragment withDynamicLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes)
+    {
+        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme, StageExecutionDescriptor.dynamicLifespanScheduleGroupedExecution(capableTableScanNodes), statsAndCosts, jsonRepresentation);
     }
 
     @Override

@@ -16,14 +16,10 @@ package com.facebook.presto.orc.stream;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamDwrfCheckpoint;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 
 import java.io.IOException;
 
 import static com.facebook.presto.orc.stream.LongDecode.readDwrfLong;
-import static com.google.common.base.Preconditions.checkPositionIndex;
-import static java.lang.Math.toIntExact;
 
 public class LongInputStreamDwrf
         implements LongInputStream
@@ -66,87 +62,9 @@ public class LongInputStreamDwrf
     }
 
     @Override
-    public long sum(int items)
-            throws IOException
-    {
-        long sum = 0;
-        for (int i = 0; i < items; i++) {
-            sum += next();
-        }
-        return sum;
-    }
-
-    @Override
     public long next()
             throws IOException
     {
         return readDwrfLong(input, orcTypeKind, signed, usesVInt);
-    }
-
-    @Override
-    public void nextIntVector(int items, int[] vector)
-            throws IOException
-    {
-        checkPositionIndex(items, vector.length);
-
-        for (int i = 0; i < items; i++) {
-            vector[i] = toIntExact(next());
-        }
-    }
-
-    @Override
-    public void nextIntVector(int items, int[] vector, boolean[] isNull)
-            throws IOException
-    {
-        for (int i = 0; i < items; i++) {
-            if (!isNull[i]) {
-                vector[i] = toIntExact(next());
-            }
-        }
-    }
-
-    @Override
-    public void nextLongVector(int items, long[] vector)
-            throws IOException
-    {
-        checkPositionIndex(items, vector.length);
-
-        for (int i = 0; i < items; i++) {
-            vector[i] = next();
-        }
-    }
-
-    @Override
-    public void nextLongVector(int items, long[] vector, boolean[] isNull)
-            throws IOException
-    {
-        for (int i = 0; i < items; i++) {
-            if (!isNull[i]) {
-                vector[i] = next();
-            }
-        }
-    }
-
-    @Override
-    public void nextLongVector(Type type, int items, BlockBuilder builder)
-            throws IOException
-    {
-        for (int i = 0; i < items; i++) {
-            type.writeLong(builder, next());
-        }
-    }
-
-    @Override
-    public void nextLongVector(Type type, int items, BlockBuilder builder, boolean[] isNull)
-            throws IOException
-    {
-        for (int i = 0; i < items; i++) {
-            if (isNull[i]) {
-                builder.appendNull();
-            }
-            else {
-                type.writeLong(builder, next());
-            }
-        }
     }
 }

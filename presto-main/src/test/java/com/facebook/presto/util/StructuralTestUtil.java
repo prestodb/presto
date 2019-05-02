@@ -14,10 +14,9 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.SqlDecimal;
@@ -41,15 +40,15 @@ public final class StructuralTestUtil
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
 
     static {
-        // associate TYPE_MANAGER with a function registry
-        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
+        // associate TYPE_MANAGER with a function manager
+        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
     }
 
     private StructuralTestUtil() {}
 
     public static Block arrayBlockOf(Type elementType, Object... values)
     {
-        BlockBuilder blockBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), values.length);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(null, values.length);
         for (Object value : values) {
             appendToBlockBuilder(elementType, value, blockBuilder);
         }
@@ -59,7 +58,7 @@ public final class StructuralTestUtil
     public static Block mapBlockOf(Type keyType, Type valueType, Map<?, ?> value)
     {
         MapType mapType = mapType(keyType, valueType);
-        BlockBuilder mapArrayBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder mapArrayBuilder = mapType.createBlockBuilder(null, 1);
         BlockBuilder singleMapWriter = mapArrayBuilder.beginBlockEntry();
         for (Map.Entry<?, ?> entry : value.entrySet()) {
             appendToBlockBuilder(keyType, entry.getKey(), singleMapWriter);

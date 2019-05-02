@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.Description;
@@ -21,7 +22,6 @@ import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
@@ -29,6 +29,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.util.Failures.internalError;
@@ -48,7 +49,7 @@ public final class ArrayRemoveFunction
     @TypeParameter("E")
     @SqlType("array(E)")
     public Block remove(
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle equalsFunction,
+            @OperatorDependency(operator = EQUAL, argumentTypes = {"E", "E"}) MethodHandle equalsFunction,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block array,
             @SqlType("E") long value)
@@ -59,7 +60,7 @@ public final class ArrayRemoveFunction
     @TypeParameter("E")
     @SqlType("array(E)")
     public Block remove(
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle equalsFunction,
+            @OperatorDependency(operator = EQUAL, argumentTypes = {"E", "E"}) MethodHandle equalsFunction,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block array,
             @SqlType("E") double value)
@@ -70,7 +71,7 @@ public final class ArrayRemoveFunction
     @TypeParameter("E")
     @SqlType("array(E)")
     public Block remove(
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle equalsFunction,
+            @OperatorDependency(operator = EQUAL, argumentTypes = {"E", "E"}) MethodHandle equalsFunction,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block array,
             @SqlType("E") boolean value)
@@ -81,7 +82,7 @@ public final class ArrayRemoveFunction
     @TypeParameter("E")
     @SqlType("array(E)")
     public Block remove(
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle equalsFunction,
+            @OperatorDependency(operator = EQUAL, argumentTypes = {"E", "E"}) MethodHandle equalsFunction,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block array,
             @SqlType("E") Object value)
@@ -92,7 +93,15 @@ public final class ArrayRemoveFunction
             Object element = readNativeValue(type, array, i);
 
             try {
-                if (element == null || !(boolean) equalsFunction.invoke(element, value)) {
+                if (element == null) {
+                    positions.add(i);
+                    continue;
+                }
+                Boolean result = (Boolean) equalsFunction.invoke(element, value);
+                if (result == null) {
+                    throw new PrestoException(NOT_SUPPORTED, "array_remove does not support arrays with elements that are null or contain null");
+                }
+                if (!result) {
                     positions.add(i);
                 }
             }

@@ -24,7 +24,7 @@ import java.util.List;
 
 import static com.facebook.presto.sql.ExpressionUtils.combinePredicates;
 import static com.facebook.presto.sql.ExpressionUtils.extractPredicates;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_DISTINCT_FROM;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class PushDownNegationsExpressionRewriter
@@ -46,11 +46,11 @@ public class PushDownNegationsExpressionRewriter
                 LogicalBinaryExpression child = (LogicalBinaryExpression) node.getValue();
                 List<Expression> predicates = extractPredicates(child);
                 List<Expression> negatedPredicates = predicates.stream().map(predicate -> treeRewriter.rewrite((Expression) new NotExpression(predicate), context)).collect(toImmutableList());
-                return combinePredicates(child.getType().flip(), negatedPredicates);
+                return combinePredicates(child.getOperator().flip(), negatedPredicates);
             }
-            else if (node.getValue() instanceof ComparisonExpression && ((ComparisonExpression) node.getValue()).getType() != IS_DISTINCT_FROM) {
+            else if (node.getValue() instanceof ComparisonExpression && ((ComparisonExpression) node.getValue()).getOperator() != IS_DISTINCT_FROM) {
                 ComparisonExpression child = (ComparisonExpression) node.getValue();
-                return new ComparisonExpression(child.getType().negate(), treeRewriter.rewrite(child.getLeft(), context), treeRewriter.rewrite(child.getRight(), context));
+                return new ComparisonExpression(child.getOperator().negate(), treeRewriter.rewrite(child.getLeft(), context), treeRewriter.rewrite(child.getRight(), context));
             }
             else if (node.getValue() instanceof NotExpression) {
                 NotExpression child = (NotExpression) node.getValue();

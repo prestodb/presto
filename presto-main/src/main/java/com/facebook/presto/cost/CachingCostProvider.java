@@ -14,95 +14,98 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
-import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.google.common.base.Suppliers;
+import io.airlift.log.Logger;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Supplier;
 
-import static com.facebook.presto.cost.PlanNodeCostEstimate.ZERO_COST;
-import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
+import static com.facebook.presto.SystemSessionProperties.isEnableStatsCalculator;
+import static com.facebook.presto.SystemSessionProperties.isIgnoreStatsCalculatorFailures;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class CachingCostProvider
         implements CostProvider
 {
+    private static final Logger log = Logger.get(CachingCostProvider.class);
+
     private final CostCalculator costCalculator;
     private final StatsProvider statsProvider;
     private final Optional<Memo> memo;
-    private final Lookup lookup;
     private final Session session;
-    private final Supplier<Map<Symbol, Type>> types;
+    private final TypeProvider types;
 
-    private final Map<PlanNode, PlanNodeCostEstimate> cache = new IdentityHashMap<>();
+    private final Map<PlanNode, PlanCostEstimate> cache = new IdentityHashMap<>();
 
-    public CachingCostProvider(CostCalculator costCalculator, StatsProvider statsProvider, Session session, Map<Symbol, Type> types)
+    public CachingCostProvider(CostCalculator costCalculator, StatsProvider statsProvider, Session session, TypeProvider types)
     {
-        this(costCalculator, statsProvider, Optional.empty(), noLookup(), session, Suppliers.ofInstance(requireNonNull(types, "types is null")));
+        this(costCalculator, statsProvider, Optional.empty(), session, types);
     }
 
-    public CachingCostProvider(CostCalculator costCalculator, StatsProvider statsProvider, Optional<Memo> memo, Lookup lookup, Session session, Supplier<Map<Symbol, Type>> types)
+    public CachingCostProvider(CostCalculator costCalculator, StatsProvider statsProvider, Optional<Memo> memo, Session session, TypeProvider types)
     {
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.statsProvider = requireNonNull(statsProvider, "statsProvider is null");
         this.memo = requireNonNull(memo, "memo is null");
-        this.lookup = requireNonNull(lookup, "lookup is null");
         this.session = requireNonNull(session, "session is null");
         this.types = requireNonNull(types, "types is null");
     }
 
     @Override
-    public PlanNodeCostEstimate getCumulativeCost(PlanNode node)
+    public PlanCostEstimate getCost(PlanNode node)
     {
+        if (!isEnableStatsCalculator(session)) {
+            return PlanCostEstimate.unknown();
+        }
+
         requireNonNull(node, "node is null");
 
-        if (node instanceof GroupReference) {
-            return getGroupCost((GroupReference) node);
-        }
+        try {
+            if (node instanceof GroupReference) {
+                return getGroupCost((GroupReference) node);
+            }
 
-        PlanNodeCostEstimate cumulativeCost = cache.get(node);
-        if (cumulativeCost != null) {
-            return cumulativeCost;
-        }
+            PlanCostEstimate cost = cache.get(node);
+            if (cost != null) {
+                return cost;
+            }
 
-        cumulativeCost = calculateCumulativeCost(node);
-        verify(cache.put(node, cumulativeCost) == null, "Cost already set");
-        return cumulativeCost;
+            cost = calculateCost(node);
+            verify(cache.put(node, cost) == null, "Cost already set");
+            return cost;
+        }
+        catch (RuntimeException e) {
+            if (isIgnoreStatsCalculatorFailures(session)) {
+                log.error(e, "Error occurred when computing cost for query %s", session.getQueryId());
+                return PlanCostEstimate.unknown();
+            }
+            throw e;
+        }
     }
 
-    private PlanNodeCostEstimate getGroupCost(GroupReference groupReference)
+    private PlanCostEstimate getGroupCost(GroupReference groupReference)
     {
         int group = groupReference.getGroupId();
         Memo memo = this.memo.orElseThrow(() -> new IllegalStateException("CachingCostProvider without memo cannot handle GroupReferences"));
 
-        Optional<PlanNodeCostEstimate> cost = memo.getCumulativeCost(group);
-        if (cost.isPresent()) {
-            return cost.get();
+        Optional<PlanCostEstimate> knownCost = memo.getCost(group);
+        if (knownCost.isPresent()) {
+            return knownCost.get();
         }
 
-        PlanNodeCostEstimate cumulativeCost = calculateCumulativeCost(memo.getNode(group));
-        verify(!memo.getCumulativeCost(group).isPresent(), "Group cost already set");
-        memo.storeCumulativeCost(group, cumulativeCost);
-        return cumulativeCost;
+        PlanCostEstimate cost = calculateCost(memo.getNode(group));
+        verify(!memo.getCost(group).isPresent(), "Group cost already set");
+        memo.storeCost(group, cost);
+        return cost;
     }
 
-    private PlanNodeCostEstimate calculateCumulativeCost(PlanNode node)
+    private PlanCostEstimate calculateCost(PlanNode node)
     {
-        PlanNodeCostEstimate localCosts = costCalculator.calculateCost(node, statsProvider, lookup, session, types.get());
-
-        PlanNodeCostEstimate sourcesCost = node.getSources().stream()
-                .map(this::getCumulativeCost)
-                .reduce(ZERO_COST, PlanNodeCostEstimate::add);
-
-        PlanNodeCostEstimate cumulativeCost = localCosts.add(sourcesCost);
-        return cumulativeCost;
+        return costCalculator.calculateCost(node, statsProvider, this, session, types);
     }
 }

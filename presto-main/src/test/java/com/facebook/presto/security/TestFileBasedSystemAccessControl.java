@@ -18,6 +18,8 @@ import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -25,12 +27,21 @@ import org.testng.annotations.Test;
 
 import javax.security.auth.kerberos.KerberosPrincipal;
 
+import java.io.File;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
+import static com.facebook.presto.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
+import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.security.Privilege.SELECT;
+import static com.facebook.presto.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
-import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
+import static com.google.common.io.Files.copy;
+import static java.lang.Thread.sleep;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.util.Files.newTemporaryFile;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
@@ -38,7 +49,13 @@ public class TestFileBasedSystemAccessControl
 {
     private static final Identity alice = new Identity("alice", Optional.empty());
     private static final Identity kerberosValidAlice = new Identity("alice", Optional.of(new KerberosPrincipal("alice/example.com@EXAMPLE.COM")));
+    private static final Identity kerberosValidNonAsciiUser = new Identity("\u0194\u0194\u0194", Optional.of(new KerberosPrincipal("\u0194\u0194\u0194/example.com@EXAMPLE.COM")));
     private static final Identity kerberosInvalidAlice = new Identity("alice", Optional.of(new KerberosPrincipal("mallory/example.com@EXAMPLE.COM")));
+    private static final Identity kerberosValidShare = new Identity("alice", Optional.of(new KerberosPrincipal("valid/example.com@EXAMPLE.COM")));
+    private static final Identity kerberosInValidShare = new Identity("alice", Optional.of(new KerberosPrincipal("invalid/example.com@EXAMPLE.COM")));
+    private static final Identity validSpecialRegexWildDot = new Identity(".*", Optional.of(new KerberosPrincipal("special/.*@EXAMPLE.COM")));
+    private static final Identity validSpecialRegexEndQuote = new Identity("\\E", Optional.of(new KerberosPrincipal("special/\\E@EXAMPLE.COM")));
+    private static final Identity invalidSpecialRegex = new Identity("alice", Optional.of(new KerberosPrincipal("special/.*@EXAMPLE.COM")));
     private static final Identity bob = new Identity("bob", Optional.empty());
     private static final Identity admin = new Identity("admin", Optional.empty());
     private static final Identity nonAsciiUser = new Identity("\u0194\u0194\u0194", Optional.empty());
@@ -51,18 +68,36 @@ public class TestFileBasedSystemAccessControl
     public void testCanSetUserOperations()
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_user_patterns.json");
+        AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_principal.json");
 
         try {
-            accessControlManager.checkCanSetUser(null, alice.getUser());
+            accessControlManager.checkCanSetUser(Optional.empty(), alice.getUser());
             throw new AssertionError("expected AccessDeniedExeption");
         }
         catch (AccessDeniedException expected) {
         }
 
-        accessControlManager.checkCanSetUser(kerberosValidAlice.getPrincipal().get(), kerberosValidAlice.getUser());
+        accessControlManager.checkCanSetUser(kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
+        accessControlManager.checkCanSetUser(kerberosValidNonAsciiUser.getPrincipal(), kerberosValidNonAsciiUser.getUser());
         try {
-            accessControlManager.checkCanSetUser(kerberosInvalidAlice.getPrincipal().get(), kerberosInvalidAlice.getUser());
+            accessControlManager.checkCanSetUser(kerberosInvalidAlice.getPrincipal(), kerberosInvalidAlice.getUser());
+            throw new AssertionError("expected AccessDeniedExeption");
+        }
+        catch (AccessDeniedException expected) {
+        }
+
+        accessControlManager.checkCanSetUser(kerberosValidShare.getPrincipal(), kerberosValidShare.getUser());
+        try {
+            accessControlManager.checkCanSetUser(kerberosInValidShare.getPrincipal(), kerberosInValidShare.getUser());
+            throw new AssertionError("expected AccessDeniedExeption");
+        }
+        catch (AccessDeniedException expected) {
+        }
+
+        accessControlManager.checkCanSetUser(validSpecialRegexWildDot.getPrincipal(), validSpecialRegexWildDot.getUser());
+        accessControlManager.checkCanSetUser(validSpecialRegexEndQuote.getPrincipal(), validSpecialRegexEndQuote.getUser());
+        try {
+            accessControlManager.checkCanSetUser(invalidSpecialRegex.getPrincipal(), invalidSpecialRegex.getUser());
             throw new AssertionError("expected AccessDeniedExeption");
         }
         catch (AccessDeniedException expected) {
@@ -70,7 +105,7 @@ public class TestFileBasedSystemAccessControl
 
         TransactionManager transactionManagerNoPatterns = createTestTransactionManager();
         AccessControlManager accessControlManagerNoPatterns = newAccessControlManager(transactionManager, "catalog.json");
-        accessControlManagerNoPatterns.checkCanSetUser(kerberosValidAlice.getPrincipal().get(), kerberosValidAlice.getUser());
+        accessControlManagerNoPatterns.checkCanSetUser(kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
     }
 
     @Test
@@ -127,7 +162,7 @@ public class TestFileBasedSystemAccessControl
 
                     accessControlManager.checkCanCreateTable(transactionId, alice, aliceTable);
                     accessControlManager.checkCanDropTable(transactionId, alice, aliceTable);
-                    accessControlManager.checkCanSelectFromTable(transactionId, alice, aliceTable);
+                    accessControlManager.checkCanSelectFromColumns(transactionId, alice, aliceTable, ImmutableSet.of());
                     accessControlManager.checkCanInsertIntoTable(transactionId, alice, aliceTable);
                     accessControlManager.checkCanDeleteFromTable(transactionId, alice, aliceTable);
                     accessControlManager.checkCanAddColumns(transactionId, alice, aliceTable);
@@ -148,25 +183,94 @@ public class TestFileBasedSystemAccessControl
                 .execute(transactionId -> {
                     accessControlManager.checkCanCreateView(transactionId, alice, aliceView);
                     accessControlManager.checkCanDropView(transactionId, alice, aliceView);
-                    accessControlManager.checkCanSelectFromView(transactionId, alice, aliceView);
-                    accessControlManager.checkCanCreateViewWithSelectFromTable(transactionId, alice, aliceTable);
-                    accessControlManager.checkCanCreateViewWithSelectFromView(transactionId, alice, aliceView);
+                    accessControlManager.checkCanSelectFromColumns(transactionId, alice, aliceView, ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(transactionId, alice, aliceTable, ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(transactionId, alice, aliceView, ImmutableSet.of());
                     accessControlManager.checkCanSetCatalogSessionProperty(transactionId, alice, "alice-catalog", "property");
-                    accessControlManager.checkCanGrantTablePrivilege(transactionId, alice, SELECT, aliceTable, "grantee", true);
-                    accessControlManager.checkCanRevokeTablePrivilege(transactionId, alice, SELECT, aliceTable, "revokee", true);
+                    accessControlManager.checkCanGrantTablePrivilege(transactionId, alice, SELECT, aliceTable, new PrestoPrincipal(USER, "grantee"), true);
+                    accessControlManager.checkCanRevokeTablePrivilege(transactionId, alice, SELECT, aliceTable, new PrestoPrincipal(USER, "revokee"), true);
                 });
         assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
             accessControlManager.checkCanCreateView(transactionId, bob, aliceView);
         }));
     }
 
+    @Test
+    public void testEverythingImplemented()
+    {
+        assertAllMethodsOverridden(SystemAccessControl.class, FileBasedSystemAccessControl.class);
+    }
+
+    @Test
+    public void testRefreshing()
+            throws Exception
+    {
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
+        File configFile = newTemporaryFile();
+        configFile.deleteOnExit();
+        copy(new File(getResourcePath("catalog.json")), configFile);
+
+        accessControlManager.setSystemAccessControl(FileBasedSystemAccessControl.NAME, ImmutableMap.of(
+                SECURITY_CONFIG_FILE, configFile.getAbsolutePath(),
+                SECURITY_REFRESH_PERIOD, "1ms"));
+
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanCreateView(transactionId, alice, aliceView);
+                    accessControlManager.checkCanCreateView(transactionId, alice, aliceView);
+                    accessControlManager.checkCanCreateView(transactionId, alice, aliceView);
+                });
+
+        copy(new File(getResourcePath("security-config-file-with-unknown-rules.json")), configFile);
+        sleep(2);
+
+        assertThatThrownBy(() -> transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanCreateView(transactionId, alice, aliceView);
+                }))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageStartingWith("Invalid JSON file");
+        // test if file based cached control was not cached somewhere
+        assertThatThrownBy(() -> transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanCreateView(transactionId, alice, aliceView);
+                }))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageStartingWith("Invalid JSON file");
+
+        copy(new File(getResourcePath("catalog.json")), configFile);
+        sleep(2);
+
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanCreateView(transactionId, alice, aliceView);
+                });
+    }
+
     private AccessControlManager newAccessControlManager(TransactionManager transactionManager, String resourceName)
     {
         AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
 
-        String path = this.getClass().getClassLoader().getResource(resourceName).getPath();
-        accessControlManager.setSystemAccessControl(FileBasedSystemAccessControl.NAME, ImmutableMap.of("security.config-file", path));
+        accessControlManager.setSystemAccessControl(FileBasedSystemAccessControl.NAME, ImmutableMap.of("security.config-file", getResourcePath(resourceName)));
 
         return accessControlManager;
+    }
+
+    private String getResourcePath(String resourceName)
+    {
+        return this.getClass().getClassLoader().getResource(resourceName).getPath();
+    }
+
+    @Test
+    public void parseUnknownRules()
+    {
+        assertThatThrownBy(() -> parse("src/test/resources/security-config-file-with-unknown-rules.json"))
+                .hasMessageContaining("Invalid JSON");
+    }
+
+    private SystemAccessControl parse(String path)
+    {
+        return new FileBasedSystemAccessControl.Factory().create(ImmutableMap.of(SECURITY_CONFIG_FILE, path));
     }
 }

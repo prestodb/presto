@@ -19,6 +19,7 @@ import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.IntegerType;
@@ -44,6 +45,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -92,7 +94,15 @@ public class QueryBuilder
         this.quote = requireNonNull(quote, "quote is null");
     }
 
-    public PreparedStatement buildSql(JdbcClient client, Connection connection, String catalog, String schema, String table, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain)
+    public PreparedStatement buildSql(
+            JdbcClient client,
+            Connection connection,
+            String catalog,
+            String schema,
+            String table,
+            List<JdbcColumnHandle> columns,
+            TupleDomain<ColumnHandle> tupleDomain,
+            Optional<String> additionalPredicate)
             throws SQLException
     {
         StringBuilder sql = new StringBuilder();
@@ -120,6 +130,12 @@ public class QueryBuilder
         List<TypeAndValue> accumulator = new ArrayList<>();
 
         List<String> clauses = toConjuncts(columns, tupleDomain, accumulator);
+        if (additionalPredicate.isPresent()) {
+            clauses = ImmutableList.<String>builder()
+                    .addAll(clauses)
+                    .add(additionalPredicate.get())
+                    .build();
+        }
         if (!clauses.isEmpty()) {
             sql.append(" WHERE ")
                     .append(Joiner.on(" AND ").join(clauses));
@@ -169,6 +185,9 @@ public class QueryBuilder
             else if (typeAndValue.getType() instanceof VarcharType) {
                 statement.setString(i + 1, ((Slice) typeAndValue.getValue()).toStringUtf8());
             }
+            else if (typeAndValue.getType() instanceof CharType) {
+                statement.setString(i + 1, ((Slice) typeAndValue.getValue()).toStringUtf8());
+            }
             else {
                 throw new UnsupportedOperationException("Can't handle type: " + typeAndValue.getType());
             }
@@ -192,7 +211,8 @@ public class QueryBuilder
                 validType.equals(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE) ||
                 validType.equals(TimestampType.TIMESTAMP) ||
                 validType.equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE) ||
-                validType instanceof VarcharType;
+                validType instanceof VarcharType ||
+                validType instanceof CharType;
     }
 
     private List<String> toConjuncts(List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, List<TypeAndValue> accumulator)

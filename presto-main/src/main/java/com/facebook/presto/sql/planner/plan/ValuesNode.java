@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.Expression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -31,18 +31,18 @@ public class ValuesNode
         extends PlanNode
 {
     private final List<Symbol> outputSymbols;
-    private final List<List<Expression>> rows;
+    private final List<List<RowExpression>> rows;
 
     @JsonCreator
     public ValuesNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
-            @JsonProperty("rows") List<List<Expression>> rows)
+            @JsonProperty("rows") List<List<RowExpression>> rows)
     {
         super(id);
         this.outputSymbols = ImmutableList.copyOf(outputSymbols);
         this.rows = listOfListsCopy(rows);
 
-        for (List<Expression> row : rows) {
+        for (List<RowExpression> row : rows) {
             checkArgument(row.size() == outputSymbols.size() || row.size() == 0,
                     "Expected row to have %s values, but row has %s values", outputSymbols.size(), row.size());
         }
@@ -56,7 +56,7 @@ public class ValuesNode
     }
 
     @JsonProperty
-    public List<List<Expression>> getRows()
+    public List<List<RowExpression>> getRows()
     {
         return rows;
     }

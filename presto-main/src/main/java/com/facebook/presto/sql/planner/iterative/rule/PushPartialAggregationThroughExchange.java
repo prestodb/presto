@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
@@ -28,7 +29,9 @@ import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 
@@ -40,27 +43,37 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.preferPartialAggregation;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class PushPartialAggregationThroughExchange
         implements Rule<AggregationNode>
 {
-    private final FunctionRegistry functionRegistry;
+    private final FunctionManager functionManager;
 
-    public PushPartialAggregationThroughExchange(FunctionRegistry functionRegistry)
+    public PushPartialAggregationThroughExchange(FunctionManager functionManager)
     {
-        this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
     }
 
-    private static final Pattern<AggregationNode> PATTERN = aggregation();
+    private static final Capture<ExchangeNode> EXCHANGE_NODE = Capture.newCapture();
+
+    private static final Pattern<AggregationNode> PATTERN = aggregation()
+            .with(source().matching(
+                    exchange()
+                            .matching(node -> !node.getOrderingScheme().isPresent())
+                            .capturedAs(EXCHANGE_NODE)));
 
     @Override
     public Pattern<AggregationNode> getPattern()
@@ -71,14 +84,9 @@ public class PushPartialAggregationThroughExchange
     @Override
     public Result apply(AggregationNode aggregationNode, Captures captures, Context context)
     {
-        PlanNode childNode = context.getLookup().resolve(aggregationNode.getSource());
-        if (!(childNode instanceof ExchangeNode)) {
-            return Result.empty();
-        }
+        ExchangeNode exchangeNode = captures.get(EXCHANGE_NODE);
 
-        ExchangeNode exchangeNode = (ExchangeNode) childNode;
-
-        boolean decomposable = aggregationNode.isDecomposable(functionRegistry);
+        boolean decomposable = aggregationNode.isDecomposable(functionManager);
 
         if (aggregationNode.getStep().equals(SINGLE) &&
                 aggregationNode.hasEmptyGroupingSet() &&
@@ -93,7 +101,7 @@ public class PushPartialAggregationThroughExchange
             return Result.ofPlanNode(split(aggregationNode, context));
         }
 
-        if (!decomposable) {
+        if (!decomposable || !preferPartialAggregation(context.getSession())) {
             return Result.empty();
         }
 
@@ -183,7 +191,8 @@ public class PushPartialAggregationThroughExchange
                 exchange.getScope(),
                 partitioning,
                 partials,
-                ImmutableList.copyOf(Collections.nCopies(partials.size(), aggregation.getOutputSymbols())));
+                ImmutableList.copyOf(Collections.nCopies(partials.size(), aggregation.getOutputSymbols())),
+                Optional.empty());
     }
 
     private PlanNode split(AggregationNode node, Context context)
@@ -193,18 +202,27 @@ public class PushPartialAggregationThroughExchange
         Map<Symbol, AggregationNode.Aggregation> finalAggregation = new HashMap<>();
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
             AggregationNode.Aggregation originalAggregation = entry.getValue();
-            Signature signature = originalAggregation.getSignature();
-            InternalAggregationFunction function = functionRegistry.getAggregateFunctionImplementation(signature);
-            Symbol intermediateSymbol = context.getSymbolAllocator().newSymbol(signature.getName(), function.getIntermediateType());
+            QualifiedName functionName = originalAggregation.getCall().getName();
+            FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
+            InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
+            Symbol intermediateSymbol = context.getSymbolAllocator().newSymbol(functionName, function.getIntermediateType());
 
             checkState(!originalAggregation.getCall().getOrderBy().isPresent(), "Aggregate with ORDER BY does not support partial aggregation");
-            intermediateAggregation.put(intermediateSymbol, new AggregationNode.Aggregation(originalAggregation.getCall(), signature, originalAggregation.getMask()));
+            intermediateAggregation.put(intermediateSymbol, new AggregationNode.Aggregation(originalAggregation.getCall(), functionHandle, originalAggregation.getMask()));
 
             // rewrite final aggregation in terms of intermediate function
             finalAggregation.put(entry.getKey(),
                     new AggregationNode.Aggregation(
-                            new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(intermediateSymbol.toSymbolReference())),
-                            signature,
+                            new FunctionCall(
+                                    functionName,
+                                    ImmutableList.<Expression>builder()
+                                            .add(intermediateSymbol.toSymbolReference())
+                                            .addAll(originalAggregation.getCall().getArguments().stream()
+                                                    .filter(LambdaExpression.class::isInstance)
+                                                    .collect(toImmutableList()))
+                                            .build()),
+
+                            functionHandle,
                             Optional.empty()));
         }
 
@@ -213,6 +231,9 @@ public class PushPartialAggregationThroughExchange
                 node.getSource(),
                 intermediateAggregation,
                 node.getGroupingSets(),
+                // preGroupedSymbols reflect properties of the input. Splitting the aggregation and pushing partial aggregation
+                // through the exchange may or may not preserve these properties. Hence, it is safest to drop preGroupedSymbols here.
+                ImmutableList.of(),
                 PARTIAL,
                 node.getHashSymbol(),
                 node.getGroupIdSymbol());
@@ -222,6 +243,9 @@ public class PushPartialAggregationThroughExchange
                 partial,
                 finalAggregation,
                 node.getGroupingSets(),
+                // preGroupedSymbols reflect properties of the input. Splitting the aggregation and pushing partial aggregation
+                // through the exchange may or may not preserve these properties. Hence, it is safest to drop preGroupedSymbols here.
+                ImmutableList.of(),
                 FINAL,
                 node.getHashSymbol(),
                 node.getGroupIdSymbol());

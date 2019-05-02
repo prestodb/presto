@@ -60,12 +60,22 @@ public class TypeSignatureProvider
         return typeSignatureResolver.apply(boundTypeParameters);
     }
 
+    public static List<TypeSignatureProvider> fromTypes(Type... types)
+    {
+        return fromTypes(ImmutableList.copyOf(types));
+    }
+
     public static List<TypeSignatureProvider> fromTypes(List<? extends Type> types)
     {
         return types.stream()
                 .map(Type::getTypeSignature)
                 .map(TypeSignatureProvider::new)
                 .collect(toImmutableList());
+    }
+
+    public static List<TypeSignatureProvider> fromTypeSignatures(TypeSignature... typeSignatures)
+    {
+        return fromTypeSignatures(ImmutableList.copyOf(typeSignatures));
     }
 
     public static List<TypeSignatureProvider> fromTypeSignatures(List<? extends TypeSignature> typeSignatures)

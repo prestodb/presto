@@ -14,21 +14,20 @@
 package com.facebook.presto.decoder.json;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.MissingNode;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableMap;
 
-import javax.inject.Inject;
-
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 /**
  * JSON specific row decoder.
@@ -39,48 +38,36 @@ public class JsonRowDecoder
     public static final String NAME = "json";
 
     private final ObjectMapper objectMapper;
+    private final Map<DecoderColumnHandle, JsonFieldDecoder> fieldDecoders;
 
-    @Inject
-    JsonRowDecoder(ObjectMapper objectMapper)
+    JsonRowDecoder(ObjectMapper objectMapper, Map<DecoderColumnHandle, JsonFieldDecoder> fieldDecoders)
     {
-        this.objectMapper = objectMapper;
+        this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
+        this.fieldDecoders = ImmutableMap.copyOf(fieldDecoders);
     }
 
     @Override
-    public String getName()
-    {
-        return NAME;
-    }
-
-    @Override
-    public boolean decodeRow(byte[] data,
-            Map<String, String> dataMap,
-            Set<FieldValueProvider> fieldValueProviders,
-            List<DecoderColumnHandle> columnHandles,
-            Map<DecoderColumnHandle, FieldDecoder<?>> fieldDecoders)
+    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data,
+            Map<String, String> dataMap)
     {
         JsonNode tree;
         try {
             tree = objectMapper.readTree(data);
         }
         catch (Exception e) {
-            return true;
+            return Optional.empty();
         }
 
-        for (DecoderColumnHandle columnHandle : columnHandles) {
-            if (columnHandle.isInternal()) {
-                continue;
-            }
-            @SuppressWarnings("unchecked")
-            FieldDecoder<JsonNode> decoder = (FieldDecoder<JsonNode>) fieldDecoders.get(columnHandle);
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = new HashMap<>();
 
-            if (decoder != null) {
-                JsonNode node = locateNode(tree, columnHandle);
-                fieldValueProviders.add(decoder.decode(node, columnHandle));
-            }
+        for (Map.Entry<DecoderColumnHandle, JsonFieldDecoder> entry : fieldDecoders.entrySet()) {
+            DecoderColumnHandle columnHandle = entry.getKey();
+            JsonFieldDecoder decoder = entry.getValue();
+            JsonNode node = locateNode(tree, columnHandle);
+            decodedRow.put(columnHandle, decoder.decode(node));
         }
 
-        return false;
+        return Optional.of(decodedRow);
     }
 
     private static JsonNode locateNode(JsonNode tree, DecoderColumnHandle columnHandle)

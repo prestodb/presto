@@ -21,7 +21,6 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
@@ -29,6 +28,8 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionExtractor
@@ -109,15 +110,6 @@ public class ExpressionExtractor
         }
 
         @Override
-        public Void visitTableScan(TableScanNode node, ImmutableList.Builder<Expression> context)
-        {
-            if (node.getOriginalConstraint() != null) {
-                context.add(node.getOriginalConstraint());
-            }
-            return super.visitTableScan(node, context);
-        }
-
-        @Override
         public Void visitJoin(JoinNode node, ImmutableList.Builder<Expression> context)
         {
             node.getFilter().ifPresent(context::add);
@@ -127,7 +119,11 @@ public class ExpressionExtractor
         @Override
         public Void visitValues(ValuesNode node, ImmutableList.Builder<Expression> context)
         {
-            node.getRows().forEach(context::addAll);
+            node.getRows().forEach(rowExpressions -> rowExpressions.forEach(rowExpression -> {
+                if (isExpression(rowExpression)) {
+                    context.add(castToExpression(rowExpression));
+                }
+            }));
             return super.visitValues(node, context);
         }
 

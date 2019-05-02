@@ -29,12 +29,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.execution.executor.SimulationController.TaskSpecification.Type.LEAF;
-import static com.facebook.presto.execution.executor.TaskExecutor.GUARANTEED_SPLITS_PER_TASK;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class SimulationController
 {
+    private static final int DEFAULT_MIN_SPLITS_PER_TASK = 3;
+
     private final TaskExecutor taskExecutor;
     private final BiConsumer<SimulationController, TaskExecutor> callback;
 
@@ -126,7 +127,7 @@ class SimulationController
             for (SimulationTask task : runningTasks.get(specification)) {
                 if (specification.getType() == LEAF) {
                     int remainingSplits = specification.getNumSplitsPerTask() - (task.getRunningSplits().size() + task.getCompletedSplits().size());
-                    int candidateSplits = GUARANTEED_SPLITS_PER_TASK - task.getRunningSplits().size();
+                    int candidateSplits = DEFAULT_MIN_SPLITS_PER_TASK - task.getRunningSplits().size();
                     for (int i = 0; i < Math.min(remainingSplits, candidateSplits); i++) {
                         task.schedule(taskExecutor, 1);
                     }

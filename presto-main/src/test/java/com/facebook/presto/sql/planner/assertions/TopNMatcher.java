@@ -16,8 +16,6 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern.Ordering;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
@@ -27,6 +25,7 @@ import java.util.List;
 
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
+import static com.facebook.presto.sql.planner.assertions.Util.orderingSchemeMatches;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -59,16 +58,8 @@ public class TopNMatcher
             return NO_MATCH;
         }
 
-        for (int i = 0; i < orderBy.size(); ++i) {
-            Ordering ordering = orderBy.get(i);
-            Symbol symbol = Symbol.from(symbolAliases.get(ordering.getField()));
-            OrderingScheme orderingScheme = topNNode.getOrderingScheme();
-            if (!symbol.equals(orderingScheme.getOrderBy().get(i))) {
-                return NO_MATCH;
-            }
-            if (!ordering.getSortOrder().equals(orderingScheme.getOrdering(symbol))) {
-                return NO_MATCH;
-            }
+        if (!orderingSchemeMatches(orderBy, topNNode.getOrderingScheme(), symbolAliases)) {
+            return NO_MATCH;
         }
 
         return match();

@@ -105,6 +105,44 @@ General Aggregate Functions
 
     Returns ``n`` smallest values of all input values of ``x``.
 
+.. function:: reduce_agg(inputValue T, initialState S, inputFunction(S, T, S), combineFunction(S, S, S)) -> S
+
+    Reduces all input values into a single value. ```inputFunction`` will be invoked
+    for each input value. In addition to taking the input value, ``inputFunction``
+    takes the current state, initially ``initialState``, and returns the new state.
+    ``combineFunction`` will be invoked to combine two states into a new state.
+    The final state is returned::
+
+        SELECT id, reduce_agg(value, 0, (a, b) -> a + b, (a, b) -> a + b)
+        FROM (
+            VALUES
+                (1, 2)
+                (1, 3),
+                (1, 4),
+                (2, 20),
+                (2, 30),
+                (2, 40)
+        ) AS t(id, value)
+        GROUP BY id;
+        -- (1, 9)
+        -- (2, 90)
+
+        SELECT id, reduce_agg(value, 1, (a, b) -> a * b, (a, b) -> a * b)
+        FROM (
+            VALUES
+                (1, 2),
+                (1, 3),
+                (1, 4),
+                (2, 20),
+                (2, 30),
+                (2, 40)
+        ) AS t(id, value)
+        GROUP BY id;
+        -- (1, 24)
+        -- (2, 24000)
+
+    The state type must be a boolean, integer, floating-point, or date/time/interval.
+
 .. function:: sum(x) -> [same as input]
 
     Returns the sum of all input values.
@@ -123,20 +161,20 @@ Bitwise Aggregate Functions
 Map Aggregate Functions
 -----------------------
 
-.. function:: histogram(x) -> map<K,bigint>
+.. function:: histogram(x) -> map(K,bigint)
 
     Returns a map containing the count of the number of times each input value occurs.
 
-.. function:: map_agg(key, value) -> map<K,V>
+.. function:: map_agg(key, value) -> map(K,V)
 
     Returns a map created from the input ``key`` / ``value`` pairs.
 
-.. function:: map_union(x<K,V>) -> map<K,V>
+.. function:: map_union(x(K,V)) -> map(K,V)
 
    Returns the union of all the input maps. If a key is found in multiple
    input maps, that key's value in the resulting map comes from an arbitrary input map.
 
-.. function:: multimap_agg(key, value) -> map<K,array<V>>
+.. function:: multimap_agg(key, value) -> map(K,array(V))
 
     Returns a multimap created from the input ``key`` / ``value`` pairs.
     Each key can be associated with multiple values.
@@ -205,6 +243,36 @@ Approximate Aggregate Functions
     effectively a replication count for the value ``x`` in the percentile set.
     Each element of the array must be between zero and one, and the array must
     be constant for all input rows.
+
+.. function:: approx_set(x) -> HyperLogLog
+    :noindex:
+
+    See :doc:`hyperloglog`.
+
+.. function:: merge(x) -> HyperLogLog
+    :noindex:
+
+    See :doc:`hyperloglog`.
+
+.. function:: merge(qdigest(T)) -> qdigest(T)
+    :noindex:
+
+    See :doc:`qdigest`.
+
+.. function:: qdigest_agg(x) -> qdigest<[same as x]>
+    :noindex:
+
+    See :doc:`qdigest`.
+
+.. function:: qdigest_agg(x, w) -> qdigest<[same as x]>
+    :noindex:
+
+    See :doc:`qdigest`.
+
+.. function:: qdigest_agg(x, w, accuracy) -> qdigest<[same as x]>
+    :noindex:
+
+    See :doc:`qdigest`.
 
 .. function:: numeric_histogram(buckets, value, weight) -> map<double, double>
 

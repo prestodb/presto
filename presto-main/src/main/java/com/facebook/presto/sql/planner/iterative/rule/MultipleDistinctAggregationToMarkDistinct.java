@@ -64,15 +64,25 @@ public class MultipleDistinctAggregationToMarkDistinct
         implements Rule<AggregationNode>
 {
     private static final Pattern<AggregationNode> PATTERN = aggregation()
-            .matching(Predicates.or(
-                    MultipleDistinctAggregationToMarkDistinct::hasMultipleDistinctInputsWithoutFilter,
-                    MultipleDistinctAggregationToMarkDistinct::hasMixedDistinctAndNonDistincts));
+            .matching(
+                    Predicates.and(
+                            MultipleDistinctAggregationToMarkDistinct::hasNoDistinctWithFilterOrMask,
+                            Predicates.or(
+                                    MultipleDistinctAggregationToMarkDistinct::hasMultipleDistincts,
+                                    MultipleDistinctAggregationToMarkDistinct::hasMixedDistinctAndNonDistincts)));
 
-    private static boolean hasMultipleDistinctInputsWithoutFilter(AggregationNode aggregation)
+    private static boolean hasNoDistinctWithFilterOrMask(AggregationNode aggregation)
     {
         return aggregation.getAggregations()
                 .values().stream()
-                .filter(e -> e.getCall().isDistinct() && !(e.getCall().getFilter().isPresent() || e.getMask().isPresent()))
+                .noneMatch(e -> e.getCall().isDistinct() && (e.getCall().getFilter().isPresent() || e.getMask().isPresent()));
+    }
+
+    private static boolean hasMultipleDistincts(AggregationNode aggregation)
+    {
+        return aggregation.getAggregations()
+                .values().stream()
+                .filter(e -> e.getCall().isDistinct())
                 .map(Aggregation::getCall)
                 .map(FunctionCall::getArguments)
                 .map(HashSet::new)
@@ -147,7 +157,7 @@ public class MultipleDistinctAggregationToMarkDistinct
                                         call.getOrderBy(),
                                         false,
                                         call.getArguments()),
-                                aggregation.getSignature(),
+                                aggregation.getFunctionHandle(),
                                 Optional.of(marker)));
             }
             else {
@@ -161,6 +171,7 @@ public class MultipleDistinctAggregationToMarkDistinct
                         subPlan,
                         newAggregations,
                         parent.getGroupingSets(),
+                        ImmutableList.of(),
                         parent.getStep(),
                         parent.getHashSymbol(),
                         parent.getGroupIdSymbol()));

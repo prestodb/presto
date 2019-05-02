@@ -23,7 +23,6 @@ import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -50,11 +49,12 @@ public abstract class AbstractTestValueStream<T, C extends StreamCheckpoint, W e
             outputStream.close();
 
             DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1000);
-            Optional<Stream> stream = outputStream.writeDataStreams(33, sliceOutput);
-            assertTrue(stream.isPresent());
-            assertEquals(stream.get().getStreamKind(), StreamKind.DATA);
-            assertEquals(stream.get().getColumn(), 33);
-            assertEquals(stream.get().getLength(), sliceOutput.size());
+            StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(33);
+            streamDataOutput.writeData(sliceOutput);
+            Stream stream = streamDataOutput.getStream();
+            assertEquals(stream.getStreamKind(), StreamKind.DATA);
+            assertEquals(stream.getColumn(), 33);
+            assertEquals(stream.getLength(), sliceOutput.size());
 
             List<C> checkpoints = outputStream.getCheckpoints();
             assertEquals(checkpoints.size(), groups.size());

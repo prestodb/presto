@@ -22,8 +22,6 @@ import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
-import java.util.Optional;
-
 import static com.facebook.presto.spi.block.ColumnarRow.toColumnarRow;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -49,7 +47,7 @@ public abstract class KeyAndBlockPositionValueStateSerializer<T extends KeyAndBl
     public Type getSerializedType()
     {
         // Types are: firstNull, secondNull, firstField, secondField
-        return new RowType(ImmutableList.of(BOOLEAN, BOOLEAN, firstType, secondType), Optional.empty());
+        return RowType.anonymous(ImmutableList.of(BOOLEAN, BOOLEAN, firstType, secondType));
     }
 
     @Override

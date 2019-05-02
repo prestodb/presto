@@ -187,7 +187,7 @@ A schema collection consists of a MongoDB document for a table.
         "table": ...,
         "fields": [
               { "name" : ...,
-                "type" : "varchar|bigint|boolean|double|date|array<bigint>|...",
+                "type" : "varchar|bigint|boolean|double|date|array(bigint)|...",
                 "hidden" : false },
                 ...
             ]

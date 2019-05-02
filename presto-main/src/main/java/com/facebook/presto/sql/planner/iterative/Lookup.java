@@ -43,7 +43,7 @@ public interface Lookup
     /**
      * Resolves nodes by materializing GroupReference nodes
      * representing symbolic references to other nodes.
-     * <p>
+     *
      * @throws IllegalArgumentException if the node is not a GroupReference
      */
     Stream<PlanNode> resolveGroup(PlanNode node);

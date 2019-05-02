@@ -17,6 +17,7 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.relational.ProjectNodeUtils;
 import com.google.common.collect.ImmutableSet;
 
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
@@ -28,10 +29,10 @@ public class RemoveRedundantIdentityProjections
         implements Rule<ProjectNode>
 {
     private static final Pattern<ProjectNode> PATTERN = project()
-            .matching(ProjectNode::isIdentity)
+            .matching(ProjectNodeUtils::isIdentity)
             // only drop this projection if it does not constrain the outputs
             // of its child
-            .matching(project -> outputsSameAsSource(project));
+            .matching(RemoveRedundantIdentityProjections::outputsSameAsSource);
 
     private static boolean outputsSameAsSource(ProjectNode node)
     {

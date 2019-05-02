@@ -27,6 +27,18 @@ public class OrcFileWriterConfig
         return options;
     }
 
+    public DataSize getStripeMinSize()
+    {
+        return options.getStripeMinSize();
+    }
+
+    @Config("hive.orc.writer.stripe-min-size")
+    public OrcFileWriterConfig setStripeMinSize(DataSize stripeMinSize)
+    {
+        options = options.withStripeMinSize(stripeMinSize);
+        return this;
+    }
+
     public DataSize getStripeMaxSize()
     {
         return options.getStripeMaxSize();
@@ -36,18 +48,6 @@ public class OrcFileWriterConfig
     public OrcFileWriterConfig setStripeMaxSize(DataSize stripeMaxSize)
     {
         options = options.withStripeMaxSize(stripeMaxSize);
-        return this;
-    }
-
-    public int getStripeMinRowCount()
-    {
-        return options.getStripeMinRowCount();
-    }
-
-    @Config("hive.orc.writer.stripe-min-rows")
-    public OrcFileWriterConfig setStripeMinRowCount(int stripeMinRowCount)
-    {
-        options = options.withStripeMinRowCount(stripeMinRowCount);
         return this;
     }
 

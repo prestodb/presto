@@ -51,9 +51,9 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
-import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
-import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_FOLLOWING;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -66,7 +66,7 @@ public class TestWindowOperator
 {
     private static final FrameInfo UNBOUNDED_FRAME = new FrameInfo(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty());
 
-    private static final List<WindowFunctionDefinition> ROW_NUMBER = ImmutableList.of(
+    public static final List<WindowFunctionDefinition> ROW_NUMBER = ImmutableList.of(
             window(new ReflectionWindowFunctionSupplier<>("row_number", BIGINT, ImmutableList.of(), RowNumberFunction.class), BIGINT, UNBOUNDED_FRAME));
 
     private static final List<WindowFunctionDefinition> FIRST_VALUE = ImmutableList.of(
@@ -94,7 +94,7 @@ public class TestWindowOperator
         executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
         driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
-                .addPipelineContext(0, true, true)
+                .addPipelineContext(0, true, true, false)
                 .addDriverContext();
     }
 
@@ -204,7 +204,7 @@ public class TestWindowOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
-    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of 10B")
+    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node user memory limit of 10B.*")
     public void testMemoryLimit()
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
@@ -216,7 +216,7 @@ public class TestWindowOperator
                 .build();
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(10, Unit.BYTE))
-                .addPipelineContext(0, true, true)
+                .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
         WindowOperatorFactory operatorFactory = createFactoryUnbounded(
@@ -601,7 +601,6 @@ public class TestWindowOperator
         assertFindEndPosition("0001", 3);
         assertFindEndPosition("0000000001", 9);
 
-        assertFindEndPosition("00100", 2);
         assertFindEndPosition("000111", 3);
         assertFindEndPosition("0001111", 3);
         assertFindEndPosition("0000111", 4);
@@ -633,7 +632,7 @@ public class TestWindowOperator
                 0);
     }
 
-    private static WindowOperatorFactory createFactoryUnbounded(
+    public static WindowOperatorFactory createFactoryUnbounded(
             List<? extends Type> sourceTypes,
             List<Integer> outputChannels,
             List<WindowFunctionDefinition> functions,

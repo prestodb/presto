@@ -21,6 +21,7 @@ import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeState;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
@@ -32,7 +33,6 @@ import io.airlift.discovery.client.ServiceType;
 import io.airlift.http.client.HttpClient;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
-import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.PostConstruct;
@@ -43,11 +43,15 @@ import javax.inject.Inject;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.NodeState.INACTIVE;
@@ -59,6 +63,7 @@ import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 @ThreadSafe
@@ -66,17 +71,17 @@ public final class DiscoveryNodeManager
         implements InternalNodeManager
 {
     private static final Logger log = Logger.get(DiscoveryNodeManager.class);
-    private static final Duration MAX_AGE = new Duration(5, TimeUnit.SECONDS);
 
     private static final Splitter CONNECTOR_ID_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
     private final ServiceSelector serviceSelector;
-    private final NodeInfo nodeInfo;
     private final FailureDetector failureDetector;
     private final NodeVersion expectedNodeVersion;
     private final ConcurrentHashMap<String, RemoteNodeState> nodeStates = new ConcurrentHashMap<>();
     private final HttpClient httpClient;
     private final ScheduledExecutorService nodeStateUpdateExecutor;
+    private final ExecutorService nodeStateEventExecutor;
     private final boolean httpsRequired;
+    private final PrestoNode currentNode;
 
     @GuardedBy("this")
     private SetMultimap<ConnectorId, Node> activeNodesByConnectorId;
@@ -85,12 +90,10 @@ public final class DiscoveryNodeManager
     private AllNodes allNodes;
 
     @GuardedBy("this")
-    private long lastUpdateTimestamp;
-
-    private final PrestoNode currentNode;
+    private Set<Node> coordinators;
 
     @GuardedBy("this")
-    private Set<Node> coordinators;
+    private final List<Consumer<AllNodes>> listeners = new ArrayList<>();
 
     @Inject
     public DiscoveryNodeManager(
@@ -102,47 +105,85 @@ public final class DiscoveryNodeManager
             InternalCommunicationConfig internalCommunicationConfig)
     {
         this.serviceSelector = requireNonNull(serviceSelector, "serviceSelector is null");
-        this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
         this.expectedNodeVersion = requireNonNull(expectedNodeVersion, "expectedNodeVersion is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.nodeStateUpdateExecutor = newSingleThreadScheduledExecutor(threadsNamed("node-state-poller-%s"));
+        this.nodeStateEventExecutor = newCachedThreadPool(threadsNamed("node-state-events-%s"));
         this.httpsRequired = internalCommunicationConfig.isHttpsRequired();
-        this.currentNode = refreshNodesInternal();
+
+        this.currentNode = findCurrentNode(
+                serviceSelector.selectAllServices(),
+                requireNonNull(nodeInfo, "nodeInfo is null").getNodeId(),
+                expectedNodeVersion,
+                httpsRequired);
+
+        refreshNodesInternal();
+    }
+
+    private static PrestoNode findCurrentNode(List<ServiceDescriptor> allServices, String currentNodeId, NodeVersion expectedNodeVersion, boolean httpsRequired)
+    {
+        for (ServiceDescriptor service : allServices) {
+            URI uri = getHttpUri(service, httpsRequired);
+            NodeVersion nodeVersion = getNodeVersion(service);
+            if (uri != null && nodeVersion != null) {
+                PrestoNode node = new PrestoNode(service.getNodeId(), uri, nodeVersion, isCoordinator(service));
+
+                if (node.getNodeIdentifier().equals(currentNodeId)) {
+                    checkState(
+                            node.getNodeVersion().equals(expectedNodeVersion),
+                            "INVARIANT: current node version (%s) should be equal to %s",
+                            node.getNodeVersion(),
+                            expectedNodeVersion);
+                    return node;
+                }
+            }
+        }
+        throw new IllegalStateException("INVARIANT: current node not returned from service selector");
     }
 
     @PostConstruct
     public void startPollingNodeStates()
     {
-        // poll worker states only on the coordinators
-        if (getCoordinators().contains(currentNode)) {
-            nodeStateUpdateExecutor.scheduleWithFixedDelay(() -> {
-                ImmutableSet.Builder nodeSetBuilder = ImmutableSet.builder();
-                AllNodes allNodes = getAllNodes();
-                Set<Node> aliveNodes = nodeSetBuilder
-                        .addAll(allNodes.getActiveNodes())
-                        .addAll(allNodes.getShuttingDownNodes())
-                        .build();
+        nodeStateUpdateExecutor.scheduleWithFixedDelay(() -> {
+            try {
+                pollWorkers();
+            }
+            catch (Exception e) {
+                log.error(e, "Error polling state of nodes");
+            }
+        }, 5, 5, TimeUnit.SECONDS);
+        pollWorkers();
+    }
 
-                ImmutableSet<String> aliveNodeIds = aliveNodes.stream()
-                        .map(Node::getNodeIdentifier)
-                        .collect(toImmutableSet());
+    private void pollWorkers()
+    {
+        AllNodes allNodes = getAllNodes();
+        Set<Node> aliveNodes = ImmutableSet.<Node>builder()
+                .addAll(allNodes.getActiveNodes())
+                .addAll(allNodes.getShuttingDownNodes())
+                .build();
 
-                // Remove nodes that don't exist anymore
-                // Make a copy to materialize the set difference
-                Set<String> deadNodes = difference(nodeStates.keySet(), aliveNodeIds).immutableCopy();
-                nodeStates.keySet().removeAll(deadNodes);
+        ImmutableSet<String> aliveNodeIds = aliveNodes.stream()
+                .map(Node::getNodeIdentifier)
+                .collect(toImmutableSet());
 
-                // Add new nodes
-                for (Node node : aliveNodes) {
-                    nodeStates.putIfAbsent(node.getNodeIdentifier(),
-                            new RemoteNodeState(httpClient, uriBuilderFrom(node.getHttpUri()).appendPath("/v1/info/state").build()));
-                }
+        // Remove nodes that don't exist anymore
+        // Make a copy to materialize the set difference
+        Set<String> deadNodes = difference(nodeStates.keySet(), aliveNodeIds).immutableCopy();
+        nodeStates.keySet().removeAll(deadNodes);
 
-                // Schedule refresh
-                nodeStates.values().forEach(RemoteNodeState::asyncRefresh);
-            }, 1, 5, TimeUnit.SECONDS);
+        // Add new nodes
+        for (Node node : aliveNodes) {
+            nodeStates.putIfAbsent(node.getNodeIdentifier(),
+                    new RemoteNodeState(httpClient, uriBuilderFrom(node.getHttpUri()).appendPath("/v1/info/state").build()));
         }
+
+        // Schedule refresh
+        nodeStates.values().forEach(RemoteNodeState::asyncRefresh);
+
+        // update indexes
+        refreshNodesInternal();
     }
 
     @PreDestroy
@@ -157,17 +198,13 @@ public final class DiscoveryNodeManager
         refreshNodesInternal();
     }
 
-    private synchronized PrestoNode refreshNodesInternal()
+    private synchronized void refreshNodesInternal()
     {
-        lastUpdateTimestamp = System.nanoTime();
-
         // This is currently a blacklist.
         // TODO: make it a whitelist (a failure-detecting service selector) and maybe build in support for injecting this in airlift
         Set<ServiceDescriptor> services = serviceSelector.selectAllServices().stream()
                 .filter(service -> !failureDetector.getFailed().contains(service))
                 .collect(toImmutableSet());
-
-        PrestoNode currentNode = null;
 
         ImmutableSet.Builder<Node> activeNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<Node> inactiveNodesBuilder = ImmutableSet.builder();
@@ -176,18 +213,12 @@ public final class DiscoveryNodeManager
         ImmutableSetMultimap.Builder<ConnectorId, Node> byConnectorIdBuilder = ImmutableSetMultimap.builder();
 
         for (ServiceDescriptor service : services) {
-            URI uri = getHttpUri(service);
+            URI uri = getHttpUri(service, httpsRequired);
             NodeVersion nodeVersion = getNodeVersion(service);
             boolean coordinator = isCoordinator(service);
             if (uri != null && nodeVersion != null) {
                 PrestoNode node = new PrestoNode(service.getNodeId(), uri, nodeVersion, coordinator);
                 NodeState nodeState = getNodeState(node);
-
-                // record current node
-                if (node.getNodeIdentifier().equals(nodeInfo.getNodeId())) {
-                    currentNode = node;
-                    checkState(currentNode.getNodeVersion().equals(expectedNodeVersion), "INVARIANT: current node version (%s) should be equal to %s", currentNode.getNodeVersion(), expectedNodeVersion);
-                }
 
                 switch (nodeState) {
                     case ACTIVE:
@@ -215,7 +246,7 @@ public final class DiscoveryNodeManager
                         shuttingDownNodesBuilder.add(node);
                         break;
                     default:
-                        throw new IllegalArgumentException("Unknown node state " + nodeState);
+                        log.error("Unknown state %s for node %s", nodeState, node);
                 }
             }
         }
@@ -228,18 +259,19 @@ public final class DiscoveryNodeManager
             }
         }
 
-        allNodes = new AllNodes(activeNodesBuilder.build(), inactiveNodesBuilder.build(), shuttingDownNodesBuilder.build());
+        // nodes by connector id changes anytime a node adds or removes a connector (note: this is not part of the listener system)
         activeNodesByConnectorId = byConnectorIdBuilder.build();
-        coordinators = coordinatorsBuilder.build();
 
-        checkState(currentNode != null, "INVARIANT: current node not returned from service selector");
-        return currentNode;
-    }
+        AllNodes allNodes = new AllNodes(activeNodesBuilder.build(), inactiveNodesBuilder.build(), shuttingDownNodesBuilder.build(), coordinatorsBuilder.build());
+        // only update if all nodes actually changed (note: this does not include the connectors registered with the nodes)
+        if (!allNodes.equals(this.allNodes)) {
+            // assign allNodes to a local variable for use in the callback below
+            this.allNodes = allNodes;
+            coordinators = coordinatorsBuilder.build();
 
-    private synchronized void refreshIfNecessary()
-    {
-        if (Duration.nanosSince(lastUpdateTimestamp).compareTo(MAX_AGE) > 0) {
-            refreshNodesInternal();
+            // notify listeners
+            List<Consumer<AllNodes>> listeners = ImmutableList.copyOf(this.listeners);
+            nodeStateEventExecutor.submit(() -> listeners.forEach(listener -> listener.accept(allNodes)));
         }
     }
 
@@ -263,13 +295,12 @@ public final class DiscoveryNodeManager
         Optional<NodeState> remoteNodeState = nodeStates.containsKey(nodeId)
                 ? nodeStates.get(nodeId).getNodeState()
                 : Optional.empty();
-        return remoteNodeState.isPresent() && remoteNodeState.get().equals(SHUTTING_DOWN);
+        return remoteNodeState.isPresent() && remoteNodeState.get() == SHUTTING_DOWN;
     }
 
     @Override
     public synchronized AllNodes getAllNodes()
     {
-        refreshIfNecessary();
         return allNodes;
     }
 
@@ -309,7 +340,6 @@ public final class DiscoveryNodeManager
     @Override
     public synchronized Set<Node> getActiveConnectorNodes(ConnectorId connectorId)
     {
-        refreshIfNecessary();
         return activeNodesByConnectorId.get(connectorId);
     }
 
@@ -322,11 +352,24 @@ public final class DiscoveryNodeManager
     @Override
     public synchronized Set<Node> getCoordinators()
     {
-        refreshIfNecessary();
         return coordinators;
     }
 
-    private URI getHttpUri(ServiceDescriptor descriptor)
+    @Override
+    public synchronized void addNodeChangeListener(Consumer<AllNodes> listener)
+    {
+        listeners.add(requireNonNull(listener, "listener is null"));
+        AllNodes allNodes = this.allNodes;
+        nodeStateEventExecutor.submit(() -> listener.accept(allNodes));
+    }
+
+    @Override
+    public synchronized void removeNodeChangeListener(Consumer<AllNodes> listener)
+    {
+        listeners.remove(requireNonNull(listener, "listener is null"));
+    }
+
+    private static URI getHttpUri(ServiceDescriptor descriptor, boolean httpsRequired)
     {
         String url = descriptor.getProperties().get(httpsRequired ? "https" : "http");
         if (url != null) {

@@ -25,7 +25,8 @@ import static org.testng.Assert.assertNotNull;
 public class TestConsoleHistory
 {
     @Test
-    public void testNonExistingHomeFolder() throws Exception
+    public void testNonExistingHomeFolder()
+            throws Exception
     {
         File historyFile = new File("/?", ".history");
         assertFalse(historyFile.canRead(), "historyFile is readable");

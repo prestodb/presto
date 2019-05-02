@@ -19,7 +19,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.util.MoreMaps.mergeMaps;
@@ -31,45 +30,40 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toMap;
 
-// TODO: break into operator-specific stats classes instead of having a big union-class aggregating all stats together
-@Deprecated
 public class PlanNodeStats
         implements Mergeable<PlanNodeStats>
 {
     private final PlanNodeId planNodeId;
 
-    private final Duration planNodeWallTime;
+    private final Duration planNodeScheduledTime;
+    private final Duration planNodeCpuTime;
     private final long planNodeInputPositions;
     private final DataSize planNodeInputDataSize;
     private final long planNodeOutputPositions;
     private final DataSize planNodeOutputDataSize;
 
-    private final Map<String, OperatorInputStats> operatorInputStats;
-    private final Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats;
-    private final Optional<WindowOperatorStats> windowOperatorStats;
+    protected final Map<String, OperatorInputStats> operatorInputStats;
 
     PlanNodeStats(
             PlanNodeId planNodeId,
-            Duration planNodeWallTime,
+            Duration planNodeScheduledTime,
+            Duration planNodeCpuTime,
             long planNodeInputPositions,
             DataSize planNodeInputDataSize,
             long planNodeOutputPositions,
             DataSize planNodeOutputDataSize,
-            Map<String, OperatorInputStats> operatorInputStats,
-            Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats,
-            Optional<WindowOperatorStats> windowOperatorStats)
+            Map<String, OperatorInputStats> operatorInputStats)
     {
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
 
-        this.planNodeWallTime = requireNonNull(planNodeWallTime, "planNodeWallTime is null");
+        this.planNodeScheduledTime = requireNonNull(planNodeScheduledTime, "planNodeScheduledTime is null");
+        this.planNodeCpuTime = requireNonNull(planNodeCpuTime, "planNodeCpuTime is null");
         this.planNodeInputPositions = planNodeInputPositions;
         this.planNodeInputDataSize = planNodeInputDataSize;
         this.planNodeOutputPositions = planNodeOutputPositions;
         this.planNodeOutputDataSize = planNodeOutputDataSize;
 
         this.operatorInputStats = requireNonNull(operatorInputStats, "operatorInputStats is null");
-        this.operatorHashCollisionsStats = requireNonNull(operatorHashCollisionsStats, "operatorHashCollisionsStats is null");
-        this.windowOperatorStats = requireNonNull(windowOperatorStats, "windowOperatorStats is null");
     }
 
     private static double computedStdDev(double sumSquared, double sum, long n)
@@ -85,9 +79,14 @@ public class PlanNodeStats
         return planNodeId;
     }
 
-    public Duration getPlanNodeWallTime()
+    public Duration getPlanNodeScheduledTime()
     {
-        return planNodeWallTime;
+        return planNodeScheduledTime;
+    }
+
+    public Duration getPlanNodeCpuTime()
+    {
+        return planNodeCpuTime;
     }
 
     public Set<String> getOperatorTypes()
@@ -134,46 +133,6 @@ public class PlanNodeStats
                                 entry.getValue().getTotalDrivers())));
     }
 
-    public Map<String, Double> getOperatorHashCollisionsAverages()
-    {
-        return operatorHashCollisionsStats.entrySet().stream()
-                .collect(toMap(
-                        Map.Entry::getKey,
-                        entry -> entry.getValue().getWeightedHashCollisions() / operatorInputStats.get(entry.getKey()).getInputPositions()));
-    }
-
-    public Map<String, Double> getOperatorHashCollisionsStdDevs()
-    {
-        return operatorHashCollisionsStats.entrySet().stream()
-                .collect(toMap(
-                        Map.Entry::getKey,
-                        entry -> computedWeightedStdDev(
-                                entry.getValue().getWeightedSumSquaredHashCollisions(),
-                                entry.getValue().getWeightedHashCollisions(),
-                                operatorInputStats.get(entry.getKey()).getInputPositions())));
-    }
-
-    private static double computedWeightedStdDev(double sumSquared, double sum, double totalWeight)
-    {
-        double average = sum / totalWeight;
-        double variance = (sumSquared - 2 * sum * average) / totalWeight + average * average;
-        // variance might be negative because of numeric inaccuracy, therefore we need to use max
-        return sqrt(max(variance, 0d));
-    }
-
-    public Map<String, Double> getOperatorExpectedCollisionsAverages()
-    {
-        return operatorHashCollisionsStats.entrySet().stream()
-                .collect(toMap(
-                        Map.Entry::getKey,
-                        entry -> entry.getValue().getWeightedExpectedHashCollisions() / operatorInputStats.get(entry.getKey()).getInputPositions()));
-    }
-
-    public Optional<WindowOperatorStats> getWindowOperatorStats()
-    {
-        return windowOperatorStats;
-    }
-
     @Override
     public PlanNodeStats mergeWith(PlanNodeStats other)
     {
@@ -185,16 +144,13 @@ public class PlanNodeStats
         DataSize planNodeOutputDataSize = succinctBytes(this.planNodeOutputDataSize.toBytes() + other.planNodeOutputDataSize.toBytes());
 
         Map<String, OperatorInputStats> operatorInputStats = mergeMaps(this.operatorInputStats, other.operatorInputStats, OperatorInputStats::merge);
-        Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats = mergeMaps(this.operatorHashCollisionsStats, other.operatorHashCollisionsStats, OperatorHashCollisionsStats::merge);
-        Optional<WindowOperatorStats> windowNodeStats = Mergeable.merge(this.windowOperatorStats, other.windowOperatorStats);
 
         return new PlanNodeStats(
                 planNodeId,
-                new Duration(planNodeWallTime.toMillis() + other.getPlanNodeWallTime().toMillis(), MILLISECONDS),
+                new Duration(planNodeScheduledTime.toMillis() + other.getPlanNodeScheduledTime().toMillis(), MILLISECONDS),
+                new Duration(planNodeCpuTime.toMillis() + other.getPlanNodeCpuTime().toMillis(), MILLISECONDS),
                 planNodeInputPositions, planNodeInputDataSize,
                 planNodeOutputPositions, planNodeOutputDataSize,
-                operatorInputStats,
-                operatorHashCollisionsStats,
-                windowNodeStats);
+                operatorInputStats);
     }
 }

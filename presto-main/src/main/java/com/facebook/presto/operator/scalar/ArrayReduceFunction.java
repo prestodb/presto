@@ -14,26 +14,25 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionKind;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
 import com.facebook.presto.sql.gen.lambda.UnaryFunctionInterface;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
+import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -76,7 +75,7 @@ public final class ArrayReduceFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         Type inputType = boundVariables.getTypeVariable("T");
         Type intermediateType = boundVariables.getTypeVariable("S");
@@ -107,18 +106,8 @@ public final class ArrayReduceFunction
         Object intermediateValue = initialIntermediateValue;
         for (int position = 0; position < positionCount; position++) {
             Object input = readNativeValue(inputType, block, position);
-            try {
-                intermediateValue = inputFunction.apply(intermediateValue, input);
-            }
-            catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
-            }
+            intermediateValue = inputFunction.apply(intermediateValue, input);
         }
-        try {
-            return outputFunction.apply(intermediateValue);
-        }
-        catch (Throwable throwable) {
-            throw Throwables.propagate(throwable);
-        }
+        return outputFunction.apply(intermediateValue);
     }
 }
