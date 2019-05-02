@@ -44,7 +44,7 @@ import static java.nio.file.Files.createFile;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@Test(singleThreaded = true, enabled = false)
 public class TestPrestoVerifierIntegrationSmokeTest
 {
     private static final String XDB = "presto";
@@ -122,7 +122,7 @@ public class TestPrestoVerifierIntegrationSmokeTest
         deleteRecursively(configDirectory.toPath(), ALLOW_INSECURE);
     }
 
-    @Test
+    //@Test
     public void testVerifier()
     {
         assertFalse(humanReadableLogFile.exists());
