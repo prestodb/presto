@@ -17,6 +17,9 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
@@ -26,10 +29,10 @@ import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.options.Options;
@@ -40,6 +43,9 @@ import java.io.File;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
@@ -60,8 +66,6 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.io.Files.createTempDir;
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -78,6 +82,7 @@ public class BenchmarkStreamReaders
 {
     public static final DecimalType DECIMAL_TYPE = createDecimalType(10, 5);
     public static final int ROWS = 10_000_000;
+    public static final Collection<?> NULL_VALUES = Collections.nCopies(ROWS, null);
 
     @Benchmark
     public Object readBooleanNoNull(BooleanNoNullBenchmarkData data)
@@ -94,6 +99,19 @@ public class BenchmarkStreamReaders
 
     @Benchmark
     public Object readBooleanWithNull(BooleanWithNullBenchmarkData data)
+            throws Throwable
+    {
+        OrcRecordReader recordReader = data.createRecordReader();
+        List<Block> blocks = new ArrayList<>();
+        while (recordReader.nextBatch() > 0) {
+            Block block = recordReader.readBlock(0);
+            blocks.add(block);
+        }
+        return blocks;
+    }
+
+    @Benchmark
+    public Object readAllNull(AllNullBenchmarkData data)
             throws Throwable
     {
         OrcRecordReader recordReader = data.createRecordReader();
@@ -287,309 +305,224 @@ public class BenchmarkStreamReaders
         return blocks;
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
-    @State(Scope.Thread)
-    public static class BooleanNoNullBenchmarkData
+    private abstract static class BenchmarkData
     {
-        protected File temporaryDirectory;
-        protected File booleanNoNullFile;
-        private Random random;
+        protected final Random random = new Random(0);
+        private Type type;
+        private File temporaryDirectory;
+        private File orcFile;
 
-        @Setup
-        public void setup()
+        public void setup(Type type)
                 throws Exception
         {
-            random = new Random(0);
+            this.type = type;
             temporaryDirectory = createTempDir();
-            booleanNoNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(booleanNoNullFile, ORC_12, NONE, BOOLEAN, createBooleanValuesNoNull().iterator());
+            orcFile = new File(temporaryDirectory, randomUUID().toString());
+            writeOrcColumnHive(orcFile, ORC_12, NONE, type, createValues());
         }
 
-        @TearDown
-        public void tearDown()
-                throws IOException
+        public Type getType()
         {
-            deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
+            return type;
         }
 
-        private OrcRecordReader createRecordReader()
+        protected abstract Iterator<?> createValues();
+
+        OrcRecordReader createRecordReader()
                 throws IOException
         {
-            OrcDataSource dataSource = new FileOrcDataSource(booleanNoNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
+            OrcDataSource dataSource = new FileOrcDataSource(orcFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
             OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
             return orcReader.createRecordReader(
-                    ImmutableMap.of(0, BOOLEAN),
+                    ImmutableMap.of(0, type),
                     OrcPredicate.TRUE,
                     UTC, // arbitrary
                     newSimpleAggregatedMemoryContext(),
                     INITIAL_BATCH_SIZE);
         }
+    }
 
-        private List<Boolean> createBooleanValuesNoNull()
+    @State(Scope.Thread)
+    public static class AllNullBenchmarkData
+            extends BenchmarkData
+    {
+        @SuppressWarnings("unused")
+        @Param({
+                "boolean",
+
+                "tinyint",
+                "integer",
+                "bigint",
+                "decimal(10,5)",
+
+                "timestamp",
+
+                "real",
+                "double",
+
+                "varchar",
+                "varbinary",
+        })
+        private String typeSignature;
+
+        @Setup
+        public void setup()
+                throws Exception
         {
-            List<Boolean> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                values.add(random.nextBoolean());
-            }
-            return values;
+            Type type = new TypeRegistry().getType(TypeSignature.parseTypeSignature(typeSignature));
+            setup(type);
+        }
+
+        @Override
+        protected final Iterator<?> createValues()
+        {
+            return NULL_VALUES.iterator();
         }
     }
 
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
-    public static class BooleanWithNullBenchmarkData
+    public static class BooleanNoNullBenchmarkData
+            extends BenchmarkData
     {
-        protected File temporaryDirectory;
-        protected File booleanWithNullFile;
-        private Random random;
-
         @Setup
         public void setup()
                 throws Exception
         {
-            random = new Random(0);
-            temporaryDirectory = createTempDir();
-            booleanWithNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(booleanWithNullFile, ORC_12, NONE, BOOLEAN, createBooleanValuesWithNull().iterator());
+            setup(BOOLEAN);
         }
 
-        @TearDown
-        public void tearDown()
-                throws IOException
+        @Override
+        protected Iterator<?> createValues()
         {
-            deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
+            List<Boolean> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                values.add(random.nextBoolean());
+            }
+            return values.iterator();
         }
-
-        private OrcRecordReader createRecordReader()
-                throws IOException
+    }
+    @SuppressWarnings("FieldMayBeFinal")
+    @State(Scope.Thread)
+    public static class BooleanWithNullBenchmarkData
+            extends BenchmarkData
+    {
+        @Setup
+        public void setup()
+                throws Exception
         {
-            OrcDataSource dataSource = new FileOrcDataSource(booleanWithNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
-            return orcReader.createRecordReader(
-                    ImmutableMap.of(0, BOOLEAN),
-                    OrcPredicate.TRUE,
-                    UTC, // arbitrary
-                    newSimpleAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE);
+            setup(BOOLEAN);
         }
 
-        private List<Boolean> createBooleanValuesWithNull()
+        @Override
+        public Iterator<?> createValues()
         {
             List<Boolean> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 values.add(random.nextBoolean() ? random.nextBoolean() : null);
             }
-            return values;
+            return values.iterator();
         }
     }
 
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class TinyIntNoNullBenchmarkData
+            extends BenchmarkData
     {
-        protected File temporaryDirectory;
-        protected File tinyIntNoNullFile;
-        private Random random;
-
         @Setup
         public void setup()
                 throws Exception
         {
-            random = new Random(0);
-            temporaryDirectory = createTempDir();
-            tinyIntNoNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(tinyIntNoNullFile, ORC_12, NONE, TINYINT, createTinyIntValuesNoNull().iterator());
+            setup(TINYINT);
         }
 
-        @TearDown
-        public void tearDown()
-                throws IOException
-        {
-            deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
-        }
-
-        private OrcRecordReader createRecordReader()
-                throws IOException
-        {
-            OrcDataSource dataSource = new FileOrcDataSource(tinyIntNoNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
-            return orcReader.createRecordReader(
-                    ImmutableMap.of(0, TINYINT),
-                    OrcPredicate.TRUE,
-                    UTC, // arbitrary
-                    newSimpleAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE);
-        }
-
-        private List<Byte> createTinyIntValuesNoNull()
+        @Override
+        protected Iterator<?> createValues()
         {
             List<Byte> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 values.add(Long.valueOf(random.nextLong()).byteValue());
             }
-            return values;
+            return values.iterator();
         }
     }
 
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class TinyIntWithNullBenchmarkData
+            extends BenchmarkData
     {
-        protected File temporaryDirectory;
-        protected File tinyIntWithNullFile;
-        private Random random;
-
         @Setup
         public void setup()
                 throws Exception
         {
-            random = new Random(0);
-            temporaryDirectory = createTempDir();
-            tinyIntWithNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(tinyIntWithNullFile, ORC_12, NONE, TINYINT, createTinyIntValuesWithNull().iterator());
+            setup(TINYINT);
         }
 
-        @TearDown
-        public void tearDown()
-                throws IOException
-        {
-            deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
-        }
-
-        private OrcRecordReader createRecordReader()
-                throws IOException
-        {
-            OrcDataSource dataSource = new FileOrcDataSource(tinyIntWithNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
-            return orcReader.createRecordReader(
-                    ImmutableMap.of(0, TINYINT),
-                    OrcPredicate.TRUE,
-                    UTC, // arbitrary
-                    newSimpleAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE);
-        }
-
-        private List<Byte> createTinyIntValuesWithNull()
+        @Override
+        protected Iterator<?> createValues()
         {
             List<Byte> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
-                if (random.nextBoolean()) {
-                    values.add(Long.valueOf(random.nextLong()).byteValue());
-                }
-                else {
-                    values.add(null);
-                }
+                values.add(null);
             }
-            return values;
+            return values.iterator();
         }
     }
 
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class DecimalNoNullBenchmarkData
+            extends BenchmarkData
     {
-        protected File temporaryDirectory;
-        protected File decimalNoNullFile;
-        private Random random;
-
         @Setup
         public void setup()
                 throws Exception
         {
-            random = new Random(0);
-            temporaryDirectory = createTempDir();
-            decimalNoNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(decimalNoNullFile, ORC_12, NONE, DECIMAL_TYPE, createDecimalValuesNoNull().iterator());
+            setup(DECIMAL_TYPE);
         }
 
-        @TearDown
-        public void tearDown()
-                throws IOException
+        @Override
+        protected Iterator<?> createValues()
         {
-            deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
-        }
-
-        private OrcRecordReader createRecordReader()
-                throws IOException
-        {
-            OrcDataSource dataSource = new FileOrcDataSource(decimalNoNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
-            return orcReader.createRecordReader(
-                    ImmutableMap.of(0, DECIMAL_TYPE),
-                    OrcPredicate.TRUE,
-                    UTC, // arbitrary
-                    newSimpleAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE);
-        }
-
-        private List<SqlDecimal> createDecimalValuesNoNull()
-        {
-            Random random = new Random();
             List<SqlDecimal> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 values.add(new SqlDecimal(BigInteger.valueOf(random.nextLong() % 10000000000L), 10, 5));
             }
-            return values;
+            return values.iterator();
         }
     }
 
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class DecimalWithNullBenchmarkData
+            extends BenchmarkData
     {
-        protected File temporaryDirectory;
-        protected File decimalWithNullFile;
-        private Random random;
-
         @Setup
         public void setup()
                 throws Exception
         {
-            random = new Random(0);
-            temporaryDirectory = createTempDir();
-            decimalWithNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(decimalWithNullFile, ORC_12, NONE, DECIMAL_TYPE, createDecimalValuesWithNull().iterator());
+            setup(DECIMAL_TYPE);
         }
 
-        @TearDown
-        public void tearDown()
-                throws IOException
+        @Override
+        protected Iterator<?> createValues()
         {
-            deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
-        }
-
-        private OrcRecordReader createRecordReader()
-                throws IOException
-        {
-            OrcDataSource dataSource = new FileOrcDataSource(decimalWithNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
-            return orcReader.createRecordReader(
-                    ImmutableMap.of(0, DECIMAL_TYPE),
-                    OrcPredicate.TRUE,
-                    UTC, // arbitrary
-                    newSimpleAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE);
-        }
-
-        private List<SqlDecimal> createDecimalValuesWithNull()
-        {
-            Random random = new Random();
             List<SqlDecimal> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 if (random.nextBoolean()) {
-                    values.add(new SqlDecimal(BigInteger.valueOf(random.nextLong() % 10000000000L), 10, 5));
-                }
-                else {
                     values.add(null);
                 }
             }
-            return values;
+            return values.iterator();
         }
     }
 
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class DoubleNoNullBenchmarkData
+            extends BenchmarkData
     {
         protected File temporaryDirectory;
         protected File doubleNoNullFile;
@@ -599,500 +532,236 @@ public class BenchmarkStreamReaders
         public void setup()
                 throws Exception
         {
-            random = new Random(0);
-            temporaryDirectory = createTempDir();
-            doubleNoNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(doubleNoNullFile, ORC_12, NONE, DOUBLE, createDoubleValuesNoNull().iterator());
+            setup(DOUBLE);
         }
 
-        @TearDown
-        public void tearDown()
-                throws IOException
-        {
-            deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
-        }
-
-        private OrcRecordReader createRecordReader()
-                throws IOException
-        {
-            OrcDataSource dataSource = new FileOrcDataSource(doubleNoNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
-            return orcReader.createRecordReader(
-                    ImmutableMap.of(0, DOUBLE),
-                    OrcPredicate.TRUE,
-                    UTC, // arbitrary
-                    newSimpleAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE);
-        }
-
-        private List<Double> createDoubleValuesNoNull()
+        @Override
+        protected Iterator<?> createValues()
         {
             List<Double> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
-                values.add(Double.valueOf(random.nextDouble()));
+                values.add(random.nextDouble());
             }
-            return values;
+            return values.iterator();
         }
     }
 
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class DoubleWithNullBenchmarkData
+            extends BenchmarkData
     {
-        protected File temporaryDirectory;
-        protected File doubleWithNullFile;
-        private Random random;
-
         @Setup
         public void setup()
                 throws Exception
         {
-            random = new Random(0);
-            temporaryDirectory = createTempDir();
-            doubleWithNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(doubleWithNullFile, ORC_12, NONE, DOUBLE, createDoubleValuesWithNull().iterator());
+            setup(DOUBLE);
         }
 
-        @TearDown
-        public void tearDown()
-                throws IOException
-        {
-            deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
-        }
-
-        private OrcRecordReader createRecordReader()
-                throws IOException
-        {
-            OrcDataSource dataSource = new FileOrcDataSource(doubleWithNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
-            return orcReader.createRecordReader(
-                    ImmutableMap.of(0, DOUBLE),
-                    OrcPredicate.TRUE,
-                    UTC, // arbitrary
-                    newSimpleAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE);
-        }
-
-        private List<Double> createDoubleValuesWithNull()
+        @Override
+        protected Iterator<?> createValues()
         {
             List<Double> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 if (random.nextBoolean()) {
-                    values.add(Double.valueOf(random.nextDouble()));
+                    values.add(random.nextDouble());
                 }
                 else {
                     values.add(null);
                 }
             }
-            return values;
+            return values.iterator();
         }
     }
 
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class FloatNoNullBenchmarkData
+            extends BenchmarkData
     {
-        protected File temporaryDirectory;
-        protected File floatNoNullFile;
-        private Random random;
-
         @Setup
         public void setup()
                 throws Exception
         {
-            random = new Random(0);
-            temporaryDirectory = createTempDir();
-            floatNoNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(floatNoNullFile, ORC_12, NONE, REAL, createFloatValuesNoNull().iterator());
+            setup(REAL);
         }
 
-        @TearDown
-        public void tearDown()
-                throws IOException
-        {
-            deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
-        }
-
-        private OrcRecordReader createRecordReader()
-                throws IOException
-        {
-            OrcDataSource dataSource = new FileOrcDataSource(floatNoNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
-            return orcReader.createRecordReader(
-                    ImmutableMap.of(0, REAL),
-                    OrcPredicate.TRUE,
-                    UTC, // arbitrary
-                    newSimpleAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE);
-        }
-
-        private List<Float> createFloatValuesNoNull()
+        @Override
+        protected Iterator<?> createValues()
         {
             List<Float> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
-                values.add(Float.valueOf(random.nextFloat()));
+                values.add(random.nextFloat());
             }
-            return values;
+            return values.iterator();
         }
     }
 
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class FloatWithNullBenchmarkData
+            extends BenchmarkData
     {
-        protected File temporaryDirectory;
-        protected File floatWithNullFile;
-        private Random random;
-
         @Setup
         public void setup()
                 throws Exception
         {
-            random = new Random(0);
-            temporaryDirectory = createTempDir();
-            floatWithNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(floatWithNullFile, ORC_12, NONE, REAL, createFloatValuesWithNull().iterator());
+            setup(REAL);
         }
 
-        @TearDown
-        public void tearDown()
-                throws IOException
-        {
-            deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
-        }
-
-        private OrcRecordReader createRecordReader()
-                throws IOException
-        {
-            OrcDataSource dataSource = new FileOrcDataSource(floatWithNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
-            return orcReader.createRecordReader(
-                    ImmutableMap.of(0, REAL),
-                    OrcPredicate.TRUE,
-                    UTC, // arbitrary
-                    newSimpleAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE);
-        }
-
-        private List<Float> createFloatValuesWithNull()
+        @Override
+        protected Iterator<?> createValues()
         {
             List<Float> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 if (random.nextBoolean()) {
-                    values.add(Float.valueOf(random.nextFloat()));
+                    values.add(random.nextFloat());
                 }
                 else {
                     values.add(null);
                 }
             }
-            return values;
+            return values.iterator();
         }
     }
 
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class BigintNoNullBenchmarkData
+            extends BenchmarkData
     {
-        protected File temporaryDirectory;
-        protected File bigintNoNullFile;
-        private Random random;
-
         @Setup
         public void setup()
                 throws Exception
         {
-            random = new Random(0);
-            temporaryDirectory = createTempDir();
-
-            bigintNoNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(bigintNoNullFile, ORC_12, NONE, BIGINT, createBigintValuesNoNull().iterator());
+            setup(BIGINT);
         }
 
-        @TearDown
-        public void tearDown()
-                throws IOException
-        {
-            deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
-        }
-
-        private OrcRecordReader createRecordReader()
-                throws IOException
-        {
-            OrcDataSource dataSource = new FileOrcDataSource(bigintNoNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
-            return orcReader.createRecordReader(
-                    ImmutableMap.of(0, BIGINT),
-                    OrcPredicate.TRUE,
-                    UTC, // arbitrary
-                    newSimpleAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE);
-        }
-
-        private List<Long> createBigintValuesNoNull()
+        @Override
+        protected Iterator<?> createValues()
         {
             List<Long> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
-                values.add(Long.valueOf(random.nextLong()));
+                values.add(random.nextLong());
             }
-            return values;
+            return values.iterator();
         }
     }
 
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class BigintWithNullBenchmarkData
+            extends BenchmarkData
     {
-        protected File temporaryDirectory;
-        protected File bigintWithNullFile;
-        private Random random;
-
         @Setup
         public void setup()
                 throws Exception
         {
-            random = new Random(0);
-            temporaryDirectory = createTempDir();
-            bigintWithNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(bigintWithNullFile, ORC_12, NONE, BIGINT, createBigintValuesWithNull().iterator());
+            setup(BIGINT);
         }
 
-        @TearDown
-        public void tearDown()
-                throws IOException
-        {
-            deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
-        }
-
-        private OrcRecordReader createRecordReader()
-                throws IOException
-        {
-            OrcDataSource dataSource = new FileOrcDataSource(bigintWithNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
-            return orcReader.createRecordReader(
-                    ImmutableMap.of(0, BIGINT),
-                    OrcPredicate.TRUE,
-                    UTC, // arbitrary
-                    newSimpleAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE);
-        }
-
-        private List<Long> createBigintValuesWithNull()
+        @Override
+        protected Iterator<?> createValues()
         {
             List<Long> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
-                if (random.nextBoolean()) {
-                    values.add(Long.valueOf(random.nextLong()));
-                }
-                else {
-                    values.add(null);
-                }
+                values.add(null);
             }
-            return values;
+            return values.iterator();
         }
     }
 
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class VarcharNoNullBenchmarkData
+            extends BenchmarkData
     {
-        protected File temporaryDirectory;
-        protected File varcharNoNullFile;
-        private Random random;
-
         @Setup
         public void setup()
                 throws Exception
         {
-            random = new Random(0);
-            temporaryDirectory = createTempDir();
-            varcharNoNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(varcharNoNullFile, ORC_12, NONE, VARCHAR, createVarcharValuesNoNull().iterator());
+            setup(VARCHAR);
         }
 
-        @TearDown
-        public void tearDown()
-                throws IOException
-        {
-            deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
-        }
-
-        private OrcRecordReader createRecordReader()
-                throws IOException
-        {
-            OrcDataSource dataSource = new FileOrcDataSource(varcharNoNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
-            return orcReader.createRecordReader(
-                    ImmutableMap.of(0, VARCHAR),
-                    OrcPredicate.TRUE,
-                    UTC, // arbitrary
-                    newSimpleAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE);
-        }
-
-        private List<String> createVarcharValuesNoNull()
+        @Override
+        protected Iterator<?> createValues()
         {
             List<String> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 values.add(Strings.repeat("0", 4));
             }
-            return values;
+            return values.iterator();
         }
     }
 
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class VarcharWithNullBenchmarkData
+            extends BenchmarkData
     {
-        protected File temporaryDirectory;
-        protected File varcharWithNullFile;
-        private Random random;
-
         @Setup
         public void setup()
                 throws Exception
         {
-            random = new Random(0);
-            temporaryDirectory = createTempDir();
-            varcharWithNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(varcharWithNullFile, ORC_12, NONE, VARCHAR, createVarcharValuesWithNulls().iterator());
+            setup(VARCHAR);
         }
 
-        @TearDown
-        public void tearDown()
-                throws IOException
+        @Override
+        protected Iterator<?> createValues()
         {
-            deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
-        }
-
-        private OrcRecordReader createRecordReader()
-                throws IOException
-        {
-            OrcDataSource dataSource = new FileOrcDataSource(varcharWithNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
-            return orcReader.createRecordReader(
-                    ImmutableMap.of(0, VARCHAR),
-                    OrcPredicate.TRUE,
-                    UTC, // arbitrary
-                    newSimpleAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE);
-        }
-
-        private List<String> createVarcharValuesWithNulls()
-        {
-            Random random = new Random();
             List<String> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 if (random.nextBoolean()) {
-                    values.add(Strings.repeat("0", 4));
-                }
-                else {
                     values.add(null);
                 }
             }
-            return values;
+            return values.iterator();
         }
     }
 
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class TimestampNoNullBenchmarkData
+            extends BenchmarkData
     {
-        protected File temporaryDirectory;
-        protected File timestampNoNullFile;
-        private Random random;
-
         @Setup
         public void setup()
                 throws Exception
         {
-            random = new Random(0);
-            temporaryDirectory = createTempDir();
-
-            timestampNoNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(timestampNoNullFile, ORC_12, NONE, TIMESTAMP, createSqlTimeStampValuesNoNull().iterator());
+            setup(TIMESTAMP);
         }
 
-        @TearDown
-        public void tearDown()
-                throws IOException
-        {
-            deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
-        }
-
-        private OrcRecordReader createRecordReader()
-                throws IOException
-        {
-            OrcDataSource dataSource = new FileOrcDataSource(timestampNoNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
-            return orcReader.createRecordReader(
-                    ImmutableMap.of(0, TIMESTAMP),
-                    OrcPredicate.TRUE,
-                    UTC, // arbitrary
-                    newSimpleAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE);
-        }
-
-        private List<SqlTimestamp> createSqlTimeStampValuesNoNull()
+        @Override
+        protected Iterator<?> createValues()
         {
             List<SqlTimestamp> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 values.add(new SqlTimestamp((random.nextLong()), UTC_KEY));
             }
-            return values;
+            return values.iterator();
         }
     }
 
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class TimestampWithNullBenchmarkData
+            extends BenchmarkData
     {
-        protected File temporaryDirectory;
-        protected File timestampWithNullFile;
-        private Random random;
-
         @Setup
         public void setup()
                 throws Exception
         {
-            random = new Random(0);
-            temporaryDirectory = createTempDir();
-
-            timestampWithNullFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(timestampWithNullFile, ORC_12, NONE, TIMESTAMP, createSqlTimestampValuesWithNull().iterator());
+            setup(TIMESTAMP);
         }
 
-        @TearDown
-        public void tearDown()
-                throws IOException
-        {
-            deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
-        }
-
-        private OrcRecordReader createRecordReader()
-                throws IOException
-        {
-            OrcDataSource dataSource = new FileOrcDataSource(timestampWithNullFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
-            return orcReader.createRecordReader(
-                    ImmutableMap.of(0, TIMESTAMP),
-                    OrcPredicate.TRUE,
-                    UTC,
-                    newSimpleAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE);
-        }
-
-        private List<SqlTimestamp> createSqlTimestampValuesWithNull()
+        @Override
+        protected Iterator<?> createValues()
         {
             List<SqlTimestamp> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
-                if (random.nextBoolean()) {
-                    values.add(new SqlTimestamp(random.nextLong(), UTC_KEY));
-                }
-                else {
-                    values.add(null);
-                }
+                values.add(null);
             }
-            return values;
+            return values.iterator();
         }
     }
 
