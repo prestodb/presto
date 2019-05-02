@@ -408,7 +408,11 @@ public class ReorderJoins
                     ImmutableList.Builder<JoinEnumerationResult> result = ImmutableList.builder();
                     result.addAll(getPossibleJoinNodes(joinNode, PARTITIONED));
                     if (isBelowMaxBroadcastSize(joinNode, context)) {
-                        result.addAll(getPossibleJoinNodes(joinNode, REPLICATED));
+                        result.add(createJoinEnumerationResult(joinNode.withDistributionType(REPLICATED)));
+                    }
+                    JoinNode flippedJoinNode = joinNode.flipChildren();
+                    if (isBelowMaxBroadcastSize(flippedJoinNode, context)) {
+                        result.add(createJoinEnumerationResult(flippedJoinNode.withDistributionType(REPLICATED)));
                     }
                     return result.build();
                 default:
