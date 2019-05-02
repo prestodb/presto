@@ -26,28 +26,28 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 public class TestFilterStatsRule
         extends BaseStatsCalculatorTest
 {
-    public StatsCalculatorTester defaultFilterTester;
+    public StatsCalculatorTester disabledDefaultFilterTester;
 
     @BeforeClass
     public void setupClass()
     {
-        defaultFilterTester = new StatsCalculatorTester(
+        disabledDefaultFilterTester = new StatsCalculatorTester(
                 testSessionBuilder()
-                        .setSystemProperty("default_filter_factor_enabled", "true")
+                        .setSystemProperty("default_filter_factor_enabled", "false")
                         .build());
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDownClass()
     {
-        defaultFilterTester.close();
-        defaultFilterTester = null;
+        disabledDefaultFilterTester.close();
+        disabledDefaultFilterTester = null;
     }
 
     @Test
     public void testEstimatableFilter()
     {
-        tester().assertStatsFor(pb -> pb
+        disabledDefaultFilterTester.assertStatsFor(pb -> pb
                 .filter(expression("i1 = 5"),
                         pb.values(pb.variable("i1", BIGINT), pb.variable("i2", BIGINT), pb.variable("i3", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
@@ -92,7 +92,7 @@ public class TestFilterStatsRule
                                 .distinctValuesCount(1.9)
                                 .nullsFraction(0.05)));
 
-        defaultFilterTester.assertStatsFor(pb -> pb
+        tester().assertStatsFor(pb -> pb
                 .filter(expression("i1 = 5"),
                         pb.values(pb.variable("i1", BIGINT), pb.variable("i2", BIGINT), pb.variable("i3", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
@@ -142,7 +142,7 @@ public class TestFilterStatsRule
     public void testUnestimatableFunction()
     {
         // can't estimate function and default filter factor is turned off
-        tester()
+        disabledDefaultFilterTester
                 .assertStatsFor(pb -> pb
                         .filter(expression("sin(i1) = 1"),
                                 pb.values(pb.variable("i1", BIGINT), pb.variable("i2", BIGINT), pb.variable("i3", BIGINT))))
@@ -170,7 +170,7 @@ public class TestFilterStatsRule
                 .check(check -> check.outputRowsCountUnknown());
 
         // can't estimate function, but default filter factor is turned on
-        defaultFilterTester.assertStatsFor(pb -> pb
+        tester().assertStatsFor(pb -> pb
                 .filter(expression("sin(i1) = 1"),
                         pb.values(pb.variable("i1", BIGINT), pb.variable("i2", BIGINT), pb.variable("i3", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()

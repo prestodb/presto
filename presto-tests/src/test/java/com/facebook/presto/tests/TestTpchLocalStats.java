@@ -448,20 +448,43 @@ public class TestTpchLocalStats
     public void testIntersect()
     {
         statisticsAssertion.check("SELECT * FROM nation INTERSECT SELECT * FROM nation",
-                checks -> checks.noEstimate(OUTPUT_ROW_COUNT));
+                // real count is 25, estimation cannot know all rows are duplicate.
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(.7, .9))
+                        .verifyExactColumnStatistics("n_nationkey")
+                        .verifyExactColumnStatistics("n_regionkey"));
 
         statisticsAssertion.check("SELECT * FROM orders WHERE o_custkey < 900 INTERSECT SELECT * FROM orders WHERE o_custkey > 600",
-                checks -> checks.noEstimate(OUTPUT_ROW_COUNT));
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(4, 5))
+                        .estimate(distinctValuesCount("o_orderkey"), relativeError(1.5, 2))
+                        .estimate(nullsFraction("o_orderkey"), relativeError(4, 5))
+                        .estimate(lowValue("o_orderkey"), absoluteError(-1, -1))
+                        .estimate(highValue("o_orderkey"), absoluteError(25, 25))
+                        .estimate(distinctValuesCount("o_custkey"), relativeError(1.5, 2.5))
+                        .estimate(nullsFraction("o_custkey"), relativeError(5, 6))
+                        .estimate(lowValue("o_custkey"), absoluteError(-600, -600))
+                        .estimate(highValue("o_custkey"), relativeError(.5, 1)));
     }
 
     @Test
     public void testExcept()
     {
         statisticsAssertion.check("SELECT * FROM nation EXCEPT SELECT * FROM nation",
-                checks -> checks.noEstimate(OUTPUT_ROW_COUNT));
+                // real count is 0, estimation cannot know all rows are eliminated
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, absoluteError(45, 45)));
 
         statisticsAssertion.check("SELECT * FROM orders WHERE o_custkey < 900 EXCEPT SELECT * FROM orders WHERE o_custkey > 600",
-                checks -> checks.noEstimate(OUTPUT_ROW_COUNT));
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(1.5, 2))
+                        .estimate(distinctValuesCount("o_orderkey"), relativeError(0.5, 1))
+                        .estimate(nullsFraction("o_orderkey"), relativeError(1.5, 2))
+                        .estimate(lowValue("o_orderkey"), noError())
+                        .estimate(highValue("o_orderkey"), absoluteError(27, 27))
+                        .estimate(distinctValuesCount("o_custkey"), relativeError(0.5, 0.8))
+                        .estimate(nullsFraction("o_custkey"), relativeError(2, 2.5))
+                        .estimate(lowValue("o_custkey"), noError())
+                        .estimate(highValue("o_custkey"), relativeError(1.5, 2)));
     }
 
     @Test

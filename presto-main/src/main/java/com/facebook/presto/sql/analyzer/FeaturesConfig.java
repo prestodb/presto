@@ -114,7 +114,7 @@ public class FeaturesConfig
     private boolean enableStatsCalculator = true;
     private boolean ignoreStatsCalculatorFailures = true;
     private boolean printStatsForNonJoinQuery;
-    private boolean defaultFilterFactorEnabled;
+    private boolean defaultFilterFactorEnabled = true;
     private boolean pushAggregationThroughJoin = true;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;

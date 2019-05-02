@@ -2,30 +2,31 @@ final aggregation over ()
     local exchange (GATHER, SINGLE, [])
         remote exchange (GATHER, SINGLE, [])
             partial aggregation over ()
-                join (LEFT, PARTITIONED):
-                    final aggregation over (ca_state, cc_county, cs_call_center_sk, cs_ext_ship_cost, cs_net_profit, cs_order_number, cs_ship_addr_sk, cs_ship_date_sk, cs_warehouse_sk, d_date, unique)
-                        local exchange (GATHER, SINGLE, [])
-                            partial aggregation over (ca_state, cc_county, cs_call_center_sk, cs_ext_ship_cost, cs_net_profit, cs_order_number, cs_ship_addr_sk, cs_ship_date_sk, cs_warehouse_sk, d_date, unique)
-                                join (RIGHT, PARTITIONED):
-                                    remote exchange (REPARTITION, HASH, ["cs_order_number_17"])
-                                        scan catalog_sales
-                                    local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["cs_order_number"])
-                                            join (INNER, REPLICATED):
+                local exchange (GATHER, SINGLE, [])
+                    join (RIGHT, PARTITIONED):
+                        final aggregation over (cr_order_number)
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["cr_order_number"])
+                                    partial aggregation over (cr_order_number)
+                                        scan catalog_returns
+                        final aggregation over (ca_state, cc_county, cs_call_center_sk, cs_ext_ship_cost, cs_net_profit, cs_order_number, cs_ship_addr_sk, cs_ship_date_sk, cs_warehouse_sk, d_date, unique)
+                            local exchange (GATHER, SINGLE, [])
+                                partial aggregation over (ca_state, cc_county, cs_call_center_sk, cs_ext_ship_cost, cs_net_profit, cs_order_number, cs_ship_addr_sk, cs_ship_date_sk, cs_warehouse_sk, d_date, unique)
+                                    join (RIGHT, PARTITIONED):
+                                        remote exchange (REPARTITION, HASH, ["cs_order_number_17"])
+                                            scan catalog_sales
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPARTITION, HASH, ["cs_order_number"])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        scan catalog_sales
+                                                        join (INNER, REPLICATED):
+                                                            scan catalog_sales
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                    scan customer_address
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan customer_address
+                                                                scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan date_dim
-                                                local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan call_center
-                    final aggregation over (cr_order_number)
-                        local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, ["cr_order_number"])
-                                partial aggregation over (cr_order_number)
-                                    scan catalog_returns
+                                                            scan call_center
