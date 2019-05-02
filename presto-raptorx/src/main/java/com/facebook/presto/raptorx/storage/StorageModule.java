@@ -37,6 +37,8 @@ import javax.inject.Singleton;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static org.weakref.jmx.ObjectNames.generatedNameOf;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class StorageModule
         implements Module
@@ -67,6 +69,14 @@ public class StorageModule
         // For cleaning worker's garbage in db and backup store.
         configBinder(binder).bindConfig(WorkerTransactionCleanerConfig.class);
         binder.bind(WorkerTransactionCleanerJob.class).in(SINGLETON);
+
+        newExporter(binder).export(ChunkRecoveryManager.class).as(generatedNameOf(ChunkRecoveryManager.class));
+        newExporter(binder).export(StorageManager.class).as(generatedNameOf(OrcStorageManager.class));
+        newExporter(binder).export(ChunkCompactionManager.class).as(generatedNameOf(ChunkCompactionManager.class));
+        newExporter(binder).export(ChunkOrganizer.class).as(generatedNameOf(ChunkOrganizer.class));
+        newExporter(binder).export(ChunkCompactor.class).as(generatedNameOf(ChunkCompactor.class));
+        newExporter(binder).export(LocalCleaner.class).as(generatedNameOf(LocalCleaner.class));
+        newExporter(binder).export(JobFactory.class).withGeneratedName();
     }
 
     @Provides

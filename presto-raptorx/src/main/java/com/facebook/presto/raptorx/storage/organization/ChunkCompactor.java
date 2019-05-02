@@ -52,10 +52,10 @@ public final class ChunkCompactor
 {
     private final StorageManager storageManager;
 
-    private final CounterStat inputShards = new CounterStat();
-    private final CounterStat outputShards = new CounterStat();
-    private final DistributionStat inputShardsPerCompaction = new DistributionStat();
-    private final DistributionStat outputShardsPerCompaction = new DistributionStat();
+    private final CounterStat inputChunks = new CounterStat();
+    private final CounterStat outputChunks = new CounterStat();
+    private final DistributionStat inputChunksPerCompaction = new DistributionStat();
+    private final DistributionStat outputChunksPerCompaction = new DistributionStat();
     private final DistributionStat compactionLatencyMillis = new DistributionStat();
     private final DistributionStat sortedCompactionLatencyMillis = new DistributionStat();
     private final ReaderAttributes readerAttributes;
@@ -178,43 +178,43 @@ public final class ChunkCompactor
         return nextPage == null || nextPage.getPositionCount() == 0;
     }
 
-    private void updateStats(int inputShardsCount, int outputShardsCount, long latency)
+    private void updateStats(int inputChunksCount, int outputChunksCount, long latency)
     {
-        inputShards.update(inputShardsCount);
-        outputShards.update(outputShardsCount);
+        inputChunks.update(inputChunksCount);
+        outputChunks.update(outputChunksCount);
 
-        inputShardsPerCompaction.add(inputShardsCount);
-        outputShardsPerCompaction.add(outputShardsCount);
+        inputChunksPerCompaction.add(inputChunksCount);
+        outputChunksPerCompaction.add(outputChunksCount);
 
         compactionLatencyMillis.add(latency);
     }
 
     @Managed
     @Nested
-    public CounterStat getInputShards()
+    public CounterStat getInputChunks()
     {
-        return inputShards;
+        return inputChunks;
     }
 
     @Managed
     @Nested
-    public CounterStat getOutputShards()
+    public CounterStat getOutputChunks()
     {
-        return outputShards;
+        return outputChunks;
     }
 
     @Managed
     @Nested
-    public DistributionStat getInputShardsPerCompaction()
+    public DistributionStat getInputChunksPerCompaction()
     {
-        return inputShardsPerCompaction;
+        return inputChunksPerCompaction;
     }
 
     @Managed
     @Nested
-    public DistributionStat getOutputShardsPerCompaction()
+    public DistributionStat getOutputChunksPerCompaction()
     {
-        return outputShardsPerCompaction;
+        return outputChunksPerCompaction;
     }
 
     @Managed

@@ -44,6 +44,8 @@ import com.google.inject.multibindings.Multibinder;
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static org.weakref.jmx.ObjectNames.generatedNameOf;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class RaptorModule
         implements Module
@@ -75,6 +77,7 @@ public class RaptorModule
 
         configBinder(binder).bindConfig(CommitCleanerConfig.class);
         binder.bind(CommitCleaner.class).in(SINGLETON);
+        newExporter(binder).export(CommitCleaner.class).as(generatedNameOf(CommitCleaner.class));
 
         Multibinder<Procedure> procedureBinder = newSetBinder(binder, Procedure.class);
         procedureBinder.addBinding().toProvider(CreateDistributionProcedure.class).in(SINGLETON);

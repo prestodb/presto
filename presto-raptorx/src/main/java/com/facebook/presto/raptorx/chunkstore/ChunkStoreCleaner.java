@@ -102,6 +102,12 @@ public class ChunkStoreCleaner
     }
 
     @Managed
+    public void startChunkStoreCleanup()
+    {
+        scheduler.submit(this::run);
+    }
+
+    @Managed
     @Nested
     public CounterStat getJobErrors()
     {

@@ -14,7 +14,10 @@
 package com.facebook.presto.raptorx.transaction;
 
 import com.facebook.presto.raptorx.metadata.MetadataWriter;
+import io.airlift.stats.DistributionStat;
 import org.jdbi.v3.core.JdbiException;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -25,6 +28,7 @@ import java.util.OptionalLong;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static com.facebook.presto.raptorx.util.DatabaseUtil.metadataError;
+import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -35,6 +39,9 @@ public class TransactionWriter
 
     @GuardedBy("lock")
     private boolean needRecovery = true;
+
+    private final DistributionStat waitCommitLockTimeMillis = new DistributionStat();
+    private final DistributionStat totalCommitTimeMillis = new DistributionStat();
 
     @Inject
     public TransactionWriter(MetadataWriter writer)
@@ -56,7 +63,9 @@ public class TransactionWriter
 
     private void write(Runnable runnable)
     {
+        long start = System.nanoTime();
         lock.lock();
+        waitCommitLockTimeMillis.add(nanosSince(start).toMillis());
         try {
             if (needRecovery) {
                 writer.recover();
@@ -73,7 +82,22 @@ public class TransactionWriter
         }
         finally {
             lock.unlock();
+            totalCommitTimeMillis.add(nanosSince(start).toMillis());
         }
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getWaitCommitLockTimeMillis()
+    {
+        return waitCommitLockTimeMillis;
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getTotalCommitTimeMillis()
+    {
+        return totalCommitTimeMillis;
     }
 
     @GuardedBy("lock")

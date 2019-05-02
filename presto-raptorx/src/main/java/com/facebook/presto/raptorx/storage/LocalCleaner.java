@@ -115,6 +115,20 @@ public class LocalCleaner
         scheduler.shutdownNow();
     }
 
+    @Managed
+    public void startLocalCleanup()
+    {
+        scheduler.submit(this::runLocalCleanup);
+    }
+
+    @Managed
+    public void startLocalCleanupImmediately()
+    {
+        scheduler.submit(() -> {
+            runLocalCleanupImmediately(getLocalChunks());
+        });
+    }
+
     private void scheduleLocalCleanup()
     {
         Set<Long> local = getLocalChunks();
@@ -241,5 +255,12 @@ public class LocalCleaner
     public CounterStat getLocalChunksCleaned()
     {
         return localChunksCleaned;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getLocalJobErrors()
+    {
+        return localJobErrors;
     }
 }

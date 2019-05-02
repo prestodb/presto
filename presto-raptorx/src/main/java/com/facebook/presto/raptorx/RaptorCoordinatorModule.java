@@ -19,10 +19,13 @@ import com.facebook.presto.raptorx.metadata.CommitCleanerConfig;
 import com.facebook.presto.raptorx.metadata.CommitCleanerJob;
 import com.facebook.presto.raptorx.storage.BucketBalancer;
 import com.facebook.presto.raptorx.storage.BucketBalancerConfig;
+import com.facebook.presto.raptorx.transaction.TransactionWriter;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static org.weakref.jmx.ObjectNames.generatedNameOf;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class RaptorCoordinatorModule
         implements Module
@@ -30,13 +33,17 @@ public class RaptorCoordinatorModule
     @Override
     public void configure(Binder binder)
     {
+        newExporter(binder).export(TransactionWriter.class).as(generatedNameOf(TransactionWriter.class));
+
         configBinder(binder).bindConfig(CommitCleanerConfig.class);
         binder.bind(CommitCleanerJob.class).asEagerSingleton();
 
         configBinder(binder).bindConfig(ChunkStoreCleanerConfig.class);
         binder.bind(ChunkStoreCleaner.class).asEagerSingleton();
+        newExporter(binder).export(ChunkStoreCleaner.class).as(generatedNameOf(ChunkStoreCleaner.class));
 
         configBinder(binder).bindConfig(BucketBalancerConfig.class);
         binder.bind(BucketBalancer.class).asEagerSingleton();
+        newExporter(binder).export(BucketBalancer.class).as(generatedNameOf(BucketBalancer.class));
     }
 }

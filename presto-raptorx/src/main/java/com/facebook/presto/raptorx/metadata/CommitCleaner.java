@@ -18,10 +18,13 @@ import com.facebook.presto.raptorx.util.Database;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
+import io.airlift.stats.CounterStat;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.customizer.BindBean;
 import org.jdbi.v3.sqlobject.statement.SqlBatch;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
@@ -62,6 +65,8 @@ public class CommitCleaner
     private final DeletedChunksDao deletedChunksDao;
     private final List<ShardCommitCleanerDao> shardDao;
     private final Clock clock;
+
+    private final CounterStat chunksQueuedForDelete = new CounterStat();
 
     @Inject
     public CommitCleaner(TransactionManager transactionManager, Database database, CommitCleanerConfig config)
@@ -280,6 +285,14 @@ public class CommitCleaner
         log.info("move chunkIDs:%s to deleted_chunks", toDeleteChunks.stream().map(TableChunk::getChunkId).collect(toList()));
         deletedChunksDao.insertDeletedChunks(deleteTime, purgeTime, toDeleteChunks);
         dao.deleteCreatedChunks(toChunkIds(chunks));
+        chunksQueuedForDelete.update(chunks.size());
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getChunksQueuedForDelete()
+    {
+        return chunksQueuedForDelete;
     }
 
     private void cleanupChunks(ShardCommitCleanerDao shard, long now, List<TableChunk> chunks, Set<Long> droppedTableIds)
