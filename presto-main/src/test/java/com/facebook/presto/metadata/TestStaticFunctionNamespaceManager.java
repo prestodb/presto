@@ -37,7 +37,7 @@ import org.testng.annotations.Test;
 import java.lang.invoke.MethodHandles;
 import java.util.List;
 
-import static com.facebook.presto.metadata.StaticFunctionNamespace.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.StaticFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
@@ -63,13 +63,13 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-public class TestStaticFunctionNamespace
+public class TestStaticFunctionNamespaceManager
 {
     @Test
     public void testIdentityCast()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        StaticFunctionNamespace staticFunctionNamespace = createStaticFunctionNamespace(typeManager);
+        StaticFunctionNamespaceManager staticFunctionNamespace = createStaticFunctionNamespace(typeManager);
         FunctionHandle exactOperator = staticFunctionNamespace.lookupCast(CastType.CAST, HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature());
         assertEquals(exactOperator, new StaticFunctionHandle(new Signature(CAST.getFunctionName(), SCALAR, HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature())));
     }
@@ -78,7 +78,7 @@ public class TestStaticFunctionNamespace
     public void testExactMatchBeforeCoercion()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        StaticFunctionNamespace staticFunctionNamespace = createStaticFunctionNamespace(typeManager);
+        StaticFunctionNamespaceManager staticFunctionNamespace = createStaticFunctionNamespace(typeManager);
         boolean foundOperator = false;
         for (SqlFunction function : staticFunctionNamespace.listOperators()) {
             OperatorType operatorType = tryGetOperatorType(function.getSignature().getName()).get();
@@ -107,7 +107,7 @@ public class TestStaticFunctionNamespace
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
 
         TypeRegistry typeManager = new TypeRegistry();
-        StaticFunctionNamespace staticFunctionNamespace = createStaticFunctionNamespace(typeManager);
+        StaticFunctionNamespaceManager staticFunctionNamespace = createStaticFunctionNamespace(typeManager);
         StaticFunctionHandle functionHandle = (StaticFunctionHandle) staticFunctionNamespace.resolveFunction(signature.getName(), fromTypeSignatures(signature.getArgumentTypes()));
         assertEquals(staticFunctionNamespace.getFunctionMetadata(functionHandle).getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
@@ -124,7 +124,7 @@ public class TestStaticFunctionNamespace
                 .collect(toImmutableList());
 
         TypeRegistry typeManager = new TypeRegistry();
-        StaticFunctionNamespace staticFunctionNamespace = createStaticFunctionNamespace(typeManager);
+        StaticFunctionNamespaceManager staticFunctionNamespace = createStaticFunctionNamespace(typeManager);
         staticFunctionNamespace.addFunctions(functions);
         staticFunctionNamespace.addFunctions(functions);
     }
@@ -137,7 +137,7 @@ public class TestStaticFunctionNamespace
                 .getFunctions();
 
         TypeRegistry typeManager = new TypeRegistry();
-        StaticFunctionNamespace staticFunctionNamespace = createStaticFunctionNamespace(typeManager);
+        StaticFunctionNamespaceManager staticFunctionNamespace = createStaticFunctionNamespace(typeManager);
         staticFunctionNamespace.addFunctions(functions);
     }
 
@@ -145,7 +145,7 @@ public class TestStaticFunctionNamespace
     public void testListingHiddenFunctions()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        StaticFunctionNamespace staticFunctionNamespace = createStaticFunctionNamespace(typeManager);
+        StaticFunctionNamespaceManager staticFunctionNamespace = createStaticFunctionNamespace(typeManager);
         List<SqlFunction> functions = staticFunctionNamespace.listFunctions();
         List<String> names = transform(functions, input -> input.getSignature().getNameSuffix());
 
@@ -312,12 +312,12 @@ public class TestStaticFunctionNamespace
                 .failsWithMessage("Could not choose a best candidate operator. Explicit type casts must be added.");
     }
 
-    private StaticFunctionNamespace createStaticFunctionNamespace(TypeRegistry typeManager)
+    private StaticFunctionNamespaceManager createStaticFunctionNamespace(TypeRegistry typeManager)
     {
         BlockEncodingManager blockEncodingManager = new BlockEncodingManager(typeManager);
         FeaturesConfig featuresConfig = new FeaturesConfig();
         FunctionManager functionManager = new FunctionManager(typeManager, blockEncodingManager, featuresConfig);
-        return new StaticFunctionNamespace(typeManager, blockEncodingManager, featuresConfig, functionManager);
+        return new StaticFunctionNamespaceManager(typeManager, blockEncodingManager, featuresConfig, functionManager);
     }
 
     private SignatureBuilder functionSignature(String... argumentTypes)
@@ -399,7 +399,7 @@ public class TestStaticFunctionNamespace
         {
             FeaturesConfig featuresConfig = new FeaturesConfig();
             FunctionManager functionManager = new FunctionManager(typeRegistry, blockEncoding, featuresConfig);
-            StaticFunctionNamespace staticFunctionNamespace = new StaticFunctionNamespace(typeRegistry, blockEncoding, featuresConfig, functionManager);
+            StaticFunctionNamespaceManager staticFunctionNamespace = new StaticFunctionNamespaceManager(typeRegistry, blockEncoding, featuresConfig, functionManager);
             staticFunctionNamespace.addFunctions(createFunctionsFromSignatures());
             return staticFunctionNamespace.resolveFunction(FullyQualifiedName.of(DEFAULT_NAMESPACE, TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes));
         }

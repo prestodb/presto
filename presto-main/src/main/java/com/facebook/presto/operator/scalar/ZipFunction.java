@@ -33,7 +33,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.metadata.StaticFunctionNamespace.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.StaticFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;

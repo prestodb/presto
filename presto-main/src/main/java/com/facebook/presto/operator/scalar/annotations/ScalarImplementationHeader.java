@@ -25,7 +25,7 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.StaticFunctionNamespace.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.StaticFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseDescription;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;

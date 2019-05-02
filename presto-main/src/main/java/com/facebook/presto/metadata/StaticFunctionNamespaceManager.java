@@ -361,8 +361,8 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
-public class StaticFunctionNamespace
-        implements FunctionNamespace
+public class StaticFunctionNamespaceManager
+        implements FunctionNamespaceManager
 {
     public static final FullyQualifiedName.Prefix DEFAULT_NAMESPACE = FullyQualifiedName.of("presto.default.foo").getPrefix();
 
@@ -374,7 +374,7 @@ public class StaticFunctionNamespace
     private final MagicLiteralFunction magicLiteralFunction;
     private volatile FunctionMap functions = new FunctionMap();
 
-    public StaticFunctionNamespace(
+    public StaticFunctionNamespaceManager(
             TypeManager typeManager,
             BlockEncodingSerde blockEncodingSerde,
             FeaturesConfig featuresConfig,

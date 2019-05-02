@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-public interface FunctionNamespaceFactory
+public interface FunctionNamespaceManagerFactory
 {
     String getName();
 

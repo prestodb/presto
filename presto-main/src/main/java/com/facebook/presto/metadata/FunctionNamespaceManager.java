@@ -20,7 +20,7 @@ import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 
 import java.util.List;
 
-public interface FunctionNamespace
+public interface FunctionNamespaceManager
 {
     void addFunctions(List<? extends SqlFunction> functions);
 

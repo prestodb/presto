@@ -34,18 +34,18 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 
-import static com.facebook.presto.metadata.StaticFunctionNamespace.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.StaticFunctionNamespaceManager.DEFAULT_NAMESPACE;
 
 @ThreadSafe
 public class FunctionManager
         implements FunctionMetadataManager
 {
-    private final StaticFunctionNamespace staticFunctionNamespace;
+    private final StaticFunctionNamespaceManager staticFunctionNamespace;
     private final FunctionInvokerProvider functionInvokerProvider;
 
     public FunctionManager(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FeaturesConfig featuresConfig)
     {
-        this.staticFunctionNamespace = new StaticFunctionNamespace(typeManager, blockEncodingSerde, featuresConfig, this);
+        this.staticFunctionNamespace = new StaticFunctionNamespaceManager(typeManager, blockEncodingSerde, featuresConfig, this);
         this.functionInvokerProvider = new FunctionInvokerProvider(this);
         if (typeManager instanceof TypeRegistry) {
             ((TypeRegistry) typeManager).setFunctionManager(this);
