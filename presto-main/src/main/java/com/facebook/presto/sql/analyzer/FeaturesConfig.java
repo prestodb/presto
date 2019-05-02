@@ -40,6 +40,7 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionTy
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -64,7 +65,7 @@ public class FeaturesConfig
     private double networkCostWeight = 15;
     private boolean distributedIndexJoinsEnabled;
     private JoinDistributionType joinDistributionType = PARTITIONED;
-    private DataSize joinMaxBroadcastTableSize;
+    private DataSize joinMaxBroadcastTableSize = new DataSize(1, GIGABYTE);
     private boolean colocatedJoinsEnabled;
     private boolean groupedExecutionForAggregationEnabled;
     private boolean groupedExecutionForEligibleTableScansEnabled;
