@@ -142,7 +142,7 @@ public class HiveClientConfig
 
     private boolean tableStatisticsEnabled = true;
     private int partitionStatisticsSampleSize = 100;
-    private boolean ignoreCorruptedStatistics;
+    private boolean ignoreCorruptedStatistics = true;
     private boolean collectColumnStatisticsOnWrite;
 
     private String recordingPath;
