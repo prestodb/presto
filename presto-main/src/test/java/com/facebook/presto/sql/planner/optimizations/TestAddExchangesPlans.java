@@ -14,11 +14,13 @@
 
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.ENABLE_STATS_CALCULATOR;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -71,7 +73,12 @@ public class TestAddExchangesPlans
     @Test
     public void testRepartitionForUnionAllBeforeHashJoin()
     {
-        assertDistributedPlan("SELECT * FROM (SELECT nationkey FROM nation UNION ALL select nationkey from nation) n join region r on n.nationkey = r.regionkey",
+        assertDistributedPlan(
+                "SELECT * FROM (SELECT nationkey FROM nation UNION ALL select nationkey from nation) n join region r on n.nationkey = r.regionkey",
+                Session.builder(getQueryRunner().getDefaultSession())
+                        // disable cost based optimization to get the explicitly specified join order
+                        .setSystemProperty(ENABLE_STATS_CALCULATOR, "false")
+                        .build(),
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")),
                                 anyTree(
@@ -86,7 +93,12 @@ public class TestAddExchangesPlans
                                                 anyTree(
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
 
-        assertDistributedPlan("SELECT * FROM (SELECT nationkey FROM nation UNION ALL select 1) n join region r on n.nationkey = r.regionkey",
+        assertDistributedPlan(
+                "SELECT * FROM (SELECT nationkey FROM nation UNION ALL select 1) n join region r on n.nationkey = r.regionkey",
+                Session.builder(getQueryRunner().getDefaultSession())
+                        // disable cost based optimization to get the explicitly specified join order
+                        .setSystemProperty(ENABLE_STATS_CALCULATOR, "false")
+                        .build(),
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")),
                                 anyTree(

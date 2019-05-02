@@ -141,13 +141,13 @@ public class TestPlanMatchingFramework
     @Test
     public void testJoinMatcher()
     {
-        assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
+        assertPlan("SELECT o.orderkey FROM lineitem l, orders o WHERE l.orderkey = o.orderkey",
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
+                        join(INNER, ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
                                 any(
-                                        tableScan("orders").withAlias("ORDERS_OK", columnReference("orders", "orderkey"))),
+                                        tableScan("lineitem").withAlias("LINEITEM_OK", columnReference("lineitem", "orderkey"))),
                                 anyTree(
-                                        tableScan("lineitem").withAlias("LINEITEM_OK", columnReference("lineitem", "orderkey"))))));
+                                        tableScan("orders").withAlias("ORDERS_OK", columnReference("orders", "orderkey"))))));
     }
 
     @Test
@@ -241,13 +241,13 @@ public class TestPlanMatchingFramework
     @Test(expectedExceptions = {IllegalStateException.class}, expectedExceptionsMessageRegExp = ".*already bound to expression.*")
     public void testDuplicateAliases()
     {
-        assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
+        assertPlan("SELECT o.orderkey FROM lineitem l, orders o WHERE l.orderkey = o.orderkey",
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
                                 any(
-                                        tableScan("orders").withAlias("ORDERS_OK", columnReference("orders", "orderkey"))),
+                                        tableScan("lineitem").withAlias("ORDERS_OK", columnReference("lineitem", "orderkey"))),
                                 anyTree(
-                                        tableScan("lineitem").withAlias("ORDERS_OK", columnReference("lineitem", "orderkey"))))));
+                                        tableScan("orders").withAlias("ORDERS_OK", columnReference("orders", "orderkey"))))));
     }
 
     @Test(expectedExceptions = {IllegalStateException.class}, expectedExceptionsMessageRegExp = "missing expression for alias .*")
