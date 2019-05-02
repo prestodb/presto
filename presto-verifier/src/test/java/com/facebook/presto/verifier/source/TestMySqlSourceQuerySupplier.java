@@ -30,7 +30,7 @@ import static io.airlift.testing.Closeables.closeQuietly;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@Test(singleThreaded = true, enabled = false)
 public class TestMySqlSourceQuerySupplier
 {
     private static final String SUITE = "test";
@@ -61,7 +61,7 @@ public class TestMySqlSourceQuerySupplier
         truncateVerifierQueries(handle);
     }
 
-    @Test
+    //@Test
     public void testSupplyQueries()
     {
         insertSourceQuery(handle, SUITE, "query_1", "SELECT 1");
