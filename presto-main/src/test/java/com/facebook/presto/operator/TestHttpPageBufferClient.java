@@ -246,7 +246,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getFinishedBuffers(), 0);
         assertEquals(callback.getFailedBuffers(), 1);
         assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
-        assertContains(callback.getFailure().getMessage(), "Expected response code to be 200, but was 404 Not Found");
+        assertContains(callback.getFailure().getCause().getMessage(), "Expected response code to be 200, but was 404 Not Found");
         assertStatus(client, location, "queued", 0, 1, 1, 1, "not scheduled");
 
         // send invalid content type response and verify response was ignored
@@ -259,7 +259,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getFinishedBuffers(), 0);
         assertEquals(callback.getFailedBuffers(), 1);
         assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
-        assertContains(callback.getFailure().getMessage(), "Expected application/x-presto-pages response from server but got INVALID_TYPE");
+        assertContains(callback.getFailure().getCause().getMessage(), "Expected application/x-presto-pages response from server but got INVALID_TYPE");
         assertStatus(client, location, "queued", 0, 2, 2, 2, "not scheduled");
 
         // send unexpected content type response and verify response was ignored
@@ -272,7 +272,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getFinishedBuffers(), 0);
         assertEquals(callback.getFailedBuffers(), 1);
         assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
-        assertContains(callback.getFailure().getMessage(), "Expected application/x-presto-pages response from server but got text/plain");
+        assertContains(callback.getFailure().getCause().getMessage(), "Expected application/x-presto-pages response from server but got text/plain");
         assertStatus(client, location, "queued", 0, 3, 3, 3, "not scheduled");
 
         // close client and verify
