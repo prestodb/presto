@@ -133,7 +133,7 @@ public class ChunkStoreCleaner
         }
     }
 
-    public synchronized void cleanChunkStore()
+    private synchronized void cleanChunkStore()
     {
         Set<Long> processing = newConcurrentHashSet();
         BlockingQueue<Long> completed = new LinkedBlockingQueue<>();

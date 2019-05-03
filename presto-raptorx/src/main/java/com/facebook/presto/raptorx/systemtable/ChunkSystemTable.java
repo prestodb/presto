@@ -119,14 +119,14 @@ public class ChunkSystemTable
 
         Collection<ChunkMetadata> chunks = transaction.getChunks(tableId.get());
         for (ChunkMetadata chunk : chunks) {
+            builder.beginRow();
             writeChunk(builder, tableName, chunk);
+            builder.endRow();
         }
     }
 
     private static void writeChunk(PageListBuilder builder, SchemaTableName tableName, ChunkMetadata chunk)
     {
-        builder.beginRow();
-
         builder.appendVarchar(tableName.getSchemaName());
         builder.appendVarchar(tableName.getTableName());
         builder.appendBigint(chunk.getChunkId());
@@ -135,7 +135,5 @@ public class ChunkSystemTable
         builder.appendBigint(chunk.getCompressedSize());
         builder.appendBigint(chunk.getRowCount());
         builder.appendVarchar(format("%016x", chunk.getXxhash64()));
-
-        builder.endRow();
     }
 }

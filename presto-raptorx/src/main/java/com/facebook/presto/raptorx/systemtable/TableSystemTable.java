@@ -126,10 +126,6 @@ public class TableSystemTable
                 .map(ColumnInfo::getColumnName)
                 .collect(toImmutableList());
 
-        List<String> bucketing = table.getBucketColumns().stream()
-                .map(ColumnInfo::getColumnName)
-                .collect(toImmutableList());
-
         // schema_name
         builder.appendVarchar(transaction.getSchemaInfo(table.getSchemaId()).getSchemaName());
 
@@ -167,6 +163,9 @@ public class TableSystemTable
             builder.appendNull();
         }
         else {
+            List<String> bucketing = table.getBucketColumns().stream()
+                    .map(ColumnInfo::getColumnName)
+                    .collect(toImmutableList());
             builder.appendBigint(distribution.getBucketCount());
             builder.appendVarcharArray(bucketing);
         }
