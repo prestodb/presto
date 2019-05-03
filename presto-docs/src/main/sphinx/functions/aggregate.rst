@@ -308,6 +308,10 @@ Statistical Aggregate Functions
 
     Returns the sample covariance of input values.
 
+.. function:: entropy(x) -> double
+
+    Returns the log-2 entropy of count input-values.
+
 .. function:: kurtosis(x) -> double
 
     Returns the excess kurtosis of all input values. Unbiased estimate using
