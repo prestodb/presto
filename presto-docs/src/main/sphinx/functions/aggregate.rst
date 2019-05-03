@@ -308,6 +308,19 @@ Statistical Aggregate Functions
 
     Returns the sample covariance of input values.
 
+.. function:: entropy(c) -> double
+
+    Returns the log-2 entropy of count input-values.
+
+    .. code-block:: none
+
+        entropy(c) = \sum_i [ c_i / \sum_j [c_j] \log_2(\sum_j [c_j] / c_i) ]
+
+    ``c`` must be a ``bigint`` column of non-negative values.
+
+    The function ignores any ``NULL`` count. If the sum of non-``NULL`` counts is 0,
+    it returns 0.
+
 .. function:: kurtosis(x) -> double
 
     Returns the excess kurtosis of all input values. Unbiased estimate using
