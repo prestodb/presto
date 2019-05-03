@@ -28,6 +28,7 @@ import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
+import org.openjdk.jmh.annotations.OperationsPerInvocation;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
@@ -54,255 +55,390 @@ import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimp
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
-import static com.facebook.presto.orc.OrcTester.writeOrcColumnHive;
+import static com.facebook.presto.orc.OrcTester.writeOrcColumnPresto;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.io.Files.createTempDir;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.lang.Math.toIntExact;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.joda.time.DateTimeZone.UTC;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
-@OutputTimeUnit(TimeUnit.SECONDS)
+@OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Fork(3)
-@Warmup(iterations = 20, time = 500, timeUnit = MILLISECONDS)
+@Warmup(iterations = 30, time = 500, timeUnit = MILLISECONDS)
 @Measurement(iterations = 20, time = 500, timeUnit = MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
+@OperationsPerInvocation(BenchmarkStreamReaders.ROWS)
 public class BenchmarkStreamReaders
 {
-    public static final DecimalType DECIMAL_TYPE = createDecimalType(10, 5);
+    private static final DecimalType SHORT_DECIMAL_TYPE = createDecimalType(10, 5);
+    private static final DecimalType LONG_DECIMAL_TYPE = createDecimalType(30, 5);
     public static final int ROWS = 10_000_000;
+    private static final int DICTIONARY = 22;
+    private static final int MAX_STRING = 19;
     public static final Collection<?> NULL_VALUES = Collections.nCopies(ROWS, null);
 
     @Benchmark
     public Object readBooleanNoNull(BooleanNoNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
-        List<Block> blocks = new ArrayList<>();
-        while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(0);
-            blocks.add(block);
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
         }
-        return blocks;
     }
 
     @Benchmark
     public Object readBooleanWithNull(BooleanWithNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
-        List<Block> blocks = new ArrayList<>();
-        while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(0);
-            blocks.add(block);
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
         }
-        return blocks;
     }
 
     @Benchmark
     public Object readAllNull(AllNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
-        List<Block> blocks = new ArrayList<>();
-        while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(0);
-            blocks.add(block);
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
         }
-        return blocks;
     }
 
     @Benchmark
     public Object readByteNoNull(TinyIntNoNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
-        List<Block> blocks = new ArrayList<>();
-        while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(0);
-            blocks.add(block);
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
         }
-        return blocks;
     }
 
     @Benchmark
     public Object readByteWithNull(TinyIntWithNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
-        List<Block> blocks = new ArrayList<>();
-        while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(0);
-            blocks.add(block);
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
         }
-        return blocks;
     }
 
     @Benchmark
-    public Object readDecimalNoNull(DecimalNoNullBenchmarkData data)
+    public Object readShortDecimalNoNull(ShortDecimalNoNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
-        List<Block> blocks = new ArrayList<>();
-        while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(0);
-            blocks.add(block);
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
         }
-        return blocks;
     }
 
     @Benchmark
-    public Object readDecimalWithNull(DecimalWithNullBenchmarkData data)
+    public Object readShortDecimalWithNull(ShortDecimalWithNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
-        List<Block> blocks = new ArrayList<>();
-        while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(0);
-            blocks.add(block);
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
         }
-        return blocks;
+    }
+    @Benchmark
+    public Object readLongDecimalNoNull(LongDecimalNoNullBenchmarkData data)
+            throws Throwable
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
+        }
+    }
+
+    @Benchmark
+    public Object readLongDecimalWithNull(LongDecimalWithNullBenchmarkData data)
+            throws Throwable
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
+        }
     }
 
     @Benchmark
     public Object readDoubleNoNull(DoubleNoNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
-        List<Block> blocks = new ArrayList<>();
-        while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(0);
-            blocks.add(block);
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
         }
-        return blocks;
     }
 
     @Benchmark
     public Object readDoubleWithNull(DoubleWithNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
-        List<Block> blocks = new ArrayList<>();
-        while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(0);
-            blocks.add(block);
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
         }
-        return blocks;
     }
 
     @Benchmark
     public Object readFloatNoNull(FloatNoNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
-        List<Block> blocks = new ArrayList<>();
-        while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(0);
-            blocks.add(block);
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
         }
-        return blocks;
     }
 
     @Benchmark
     public Object readFloatWithNull(FloatWithNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
-        List<Block> blocks = new ArrayList<>();
-        while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(0);
-            blocks.add(block);
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
         }
-        return blocks;
     }
 
     @Benchmark
-    public Object readLongDirectNoNull(BigintNoNullBenchmarkData data)
+    public Object readLongNoNull(BigintNoNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
-        List<Block> blocks = new ArrayList<>();
-        while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(0);
-            blocks.add(block);
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
         }
-        return blocks;
     }
 
     @Benchmark
-    public Object readLongDirectWithNull(BigintWithNullBenchmarkData data)
+    public Object readLongWithNull(BigintWithNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
-        List<Block> blocks = new ArrayList<>();
-        while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(0);
-            blocks.add(block);
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
         }
-        return blocks;
+    }
+
+    @Benchmark
+    public Object readIntNoNull(IntegerNoNullBenchmarkData data)
+            throws Throwable
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
+        }
+    }
+
+    @Benchmark
+    public Object readIntWithNull(IntegerWithNullBenchmarkData data)
+            throws Throwable
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
+        }
+    }
+
+    @Benchmark
+    public Object readShortNoNull(SmallintNoNullBenchmarkData data)
+            throws Throwable
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
+        }
+    }
+
+    @Benchmark
+    public Object readShortWithNull(SmallintWithNullBenchmarkData data)
+            throws Throwable
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
+        }
+    }
+
+    @Benchmark
+    public Object readSliceDirectNoNull(VarcharDirectNoNullBenchmarkData data)
+            throws Throwable
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
+        }
+    }
+
+    @Benchmark
+    public Object readSliceDirectWithNull(VarcharDirectWithNullBenchmarkData data)
+            throws Throwable
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
+        }
     }
 
     @Benchmark
     public Object readSliceDictionaryNoNull(VarcharNoNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
-        List<Block> blocks = new ArrayList<>();
-        while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(0);
-            blocks.add(block);
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
         }
-        return blocks;
     }
 
     @Benchmark
     public Object readSliceDictionaryWithNull(VarcharWithNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
-        List<Block> blocks = new ArrayList<>();
-        while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(0);
-            blocks.add(block);
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
         }
-        return blocks;
     }
 
     @Benchmark
     public Object readTimestampNoNull(TimestampNoNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
-        List<Block> blocks = new ArrayList<>();
-        while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(0);
-            blocks.add(block);
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
         }
-        return blocks;
     }
 
     @Benchmark
     public Object readTimestampWithNull(TimestampWithNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
-        List<Block> blocks = new ArrayList<>();
-        while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(0);
-            blocks.add(block);
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
         }
-        return blocks;
     }
 
     private abstract static class BenchmarkData
@@ -311,6 +447,7 @@ public class BenchmarkStreamReaders
         private Type type;
         private File temporaryDirectory;
         private File orcFile;
+        private OrcDataSource dataSource;
 
         public void setup(Type type)
                 throws Exception
@@ -318,7 +455,12 @@ public class BenchmarkStreamReaders
             this.type = type;
             temporaryDirectory = createTempDir();
             orcFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(orcFile, ORC_12, NONE, type, createValues());
+            writeOrcColumnPresto(orcFile, ORC_12, NONE, type, createValues(), new OrcWriterStats());
+
+            OrcDataSource dataSource = new FileOrcDataSource(orcFile, new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(8, MEGABYTE), true);
+            DiskRange diskRange = new DiskRange(0, toIntExact(dataSource.getSize()));
+            dataSource = new CachingOrcDataSource(dataSource, desiredOffset -> diskRange);
+            this.dataSource = dataSource;
         }
 
         public Type getType()
@@ -471,16 +613,15 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
-    public static class DecimalNoNullBenchmarkData
+    public static class ShortDecimalNoNullBenchmarkData
             extends BenchmarkData
     {
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(DECIMAL_TYPE);
+            setup(SHORT_DECIMAL_TYPE);
         }
 
         @Override
@@ -488,22 +629,21 @@ public class BenchmarkStreamReaders
         {
             List<SqlDecimal> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
-                values.add(new SqlDecimal(BigInteger.valueOf(random.nextLong() % 10000000000L), 10, 5));
+                values.add(new SqlDecimal(BigInteger.valueOf(random.nextLong() % 10_000_000_000L), 10, 5));
             }
             return values.iterator();
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
-    public static class DecimalWithNullBenchmarkData
+    public static class ShortDecimalWithNullBenchmarkData
             extends BenchmarkData
     {
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(DECIMAL_TYPE);
+            setup(SHORT_DECIMAL_TYPE);
         }
 
         @Override
@@ -512,6 +652,58 @@ public class BenchmarkStreamReaders
             List<SqlDecimal> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 if (random.nextBoolean()) {
+                    values.add(new SqlDecimal(BigInteger.valueOf(random.nextLong() % 10000000000L), 10, 5));
+                }
+                else {
+                    values.add(null);
+                }
+            }
+            return values.iterator();
+        }
+    }
+
+    @State(Scope.Thread)
+    public static class LongDecimalNoNullBenchmarkData
+            extends BenchmarkData
+    {
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(LONG_DECIMAL_TYPE);
+        }
+
+        @Override
+        protected Iterator<?> createValues()
+        {
+            List<SqlDecimal> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                values.add(new SqlDecimal(new BigInteger(96, random), 30, 5));
+            }
+            return values.iterator();
+        }
+    }
+
+    @State(Scope.Thread)
+    public static class LongDecimalWithNullBenchmarkData
+            extends BenchmarkData
+    {
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(LONG_DECIMAL_TYPE);
+        }
+
+        @Override
+        protected Iterator<?> createValues()
+        {
+            List<SqlDecimal> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                if (random.nextBoolean()) {
+                    values.add(new SqlDecimal(new BigInteger(96, random), 30, 5));
+                }
+                else {
                     values.add(null);
                 }
             }
@@ -630,6 +822,14 @@ public class BenchmarkStreamReaders
     public static class BigintNoNullBenchmarkData
             extends BenchmarkData
     {
+        public static BigintNoNullBenchmarkData create()
+                throws Exception
+        {
+            BigintNoNullBenchmarkData data = new BigintNoNullBenchmarkData();
+            data.setup();
+            return data;
+        }
+
         @Setup
         public void setup()
                 throws Exception
@@ -653,6 +853,14 @@ public class BenchmarkStreamReaders
     public static class BigintWithNullBenchmarkData
             extends BenchmarkData
     {
+        public static BigintWithNullBenchmarkData create()
+                throws Exception
+        {
+            BigintWithNullBenchmarkData data = new BigintWithNullBenchmarkData();
+            data.setup();
+            return data;
+        }
+
         @Setup
         public void setup()
                 throws Exception
@@ -666,6 +874,185 @@ public class BenchmarkStreamReaders
             List<Long> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 values.add(null);
+            }
+            return values.iterator();
+        }
+    }
+
+    @State(Scope.Thread)
+    public static class IntegerNoNullBenchmarkData
+            extends BenchmarkData
+    {
+        public static IntegerNoNullBenchmarkData create()
+                throws Exception
+        {
+            IntegerNoNullBenchmarkData data = new IntegerNoNullBenchmarkData();
+            data.setup();
+            return data;
+        }
+
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(INTEGER);
+        }
+
+        @Override
+        protected Iterator<?> createValues()
+        {
+            List<Integer> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                values.add(random.nextInt());
+            }
+            return values.iterator();
+        }
+    }
+
+    @State(Scope.Thread)
+    public static class IntegerWithNullBenchmarkData
+            extends BenchmarkData
+    {
+        public static IntegerWithNullBenchmarkData create()
+                throws Exception
+        {
+            IntegerWithNullBenchmarkData data = new IntegerWithNullBenchmarkData();
+            data.setup();
+            return data;
+        }
+
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(INTEGER);
+        }
+
+        @Override
+        protected Iterator<?> createValues()
+        {
+            List<Integer> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                if (random.nextBoolean()) {
+                    values.add(random.nextInt());
+                }
+                else {
+                    values.add(null);
+                }
+            }
+            return values.iterator();
+        }
+    }
+
+    @State(Scope.Thread)
+    public static class SmallintNoNullBenchmarkData
+            extends BenchmarkData
+    {
+        public static SmallintNoNullBenchmarkData create()
+                throws Exception
+        {
+            SmallintNoNullBenchmarkData data = new SmallintNoNullBenchmarkData();
+            data.setup();
+            return data;
+        }
+
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(SMALLINT);
+        }
+
+        @Override
+        protected Iterator<?> createValues()
+        {
+            List<Short> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                values.add((short) random.nextInt());
+            }
+            return values.iterator();
+        }
+    }
+
+    @State(Scope.Thread)
+    public static class SmallintWithNullBenchmarkData
+            extends BenchmarkData
+    {
+        public static SmallintWithNullBenchmarkData create()
+                throws Exception
+        {
+            SmallintWithNullBenchmarkData data = new SmallintWithNullBenchmarkData();
+            data.setup();
+            return data;
+        }
+
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(SMALLINT);
+        }
+
+        @Override
+        protected Iterator<?> createValues()
+        {
+            List<Short> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                if (random.nextBoolean()) {
+                    values.add((short) random.nextInt());
+                }
+                else {
+                    values.add(null);
+                }
+            }
+            return values.iterator();
+        }
+    }
+
+    @State(Scope.Thread)
+    public static class VarcharDirectNoNullBenchmarkData
+            extends BenchmarkData
+    {
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(VARCHAR);
+        }
+
+        @Override
+        protected Iterator<?> createValues()
+        {
+            List<String> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                values.add(randomAsciiString(random));
+            }
+            return values.iterator();
+        }
+    }
+
+    @State(Scope.Thread)
+    public static class VarcharDirectWithNullBenchmarkData
+            extends BenchmarkData
+    {
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(VARCHAR);
+        }
+
+        @Override
+        protected Iterator<?> createValues()
+        {
+            List<String> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                if (random.nextBoolean()) {
+                    values.add(randomAsciiString(random));
+                }
+                else {
+                    values.add(null);
+                }
             }
             return values.iterator();
         }
@@ -719,6 +1106,25 @@ public class BenchmarkStreamReaders
         }
     }
 
+    private static List<String> createDictionary(Random random)
+    {
+        List<String> dictionary = new ArrayList<>();
+        for (int dictionaryIndex = 0; dictionaryIndex < DICTIONARY; dictionaryIndex++) {
+            dictionary.add(randomAsciiString(random));
+        }
+        return dictionary;
+    }
+
+    // this is not appropriate for benchmarking with compression
+    private static String randomAsciiString(Random random)
+    {
+        char[] value = new char[random.nextInt(MAX_STRING)];
+        for (int i = 0; i < value.length; i++) {
+            value[i] = (char) random.nextInt(Byte.MAX_VALUE);
+        }
+        return new String(value);
+    }
+
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class TimestampNoNullBenchmarkData
@@ -762,6 +1168,22 @@ public class BenchmarkStreamReaders
                 values.add(null);
             }
             return values.iterator();
+        }
+    }
+
+    static {
+        try {
+            // call all versions of the long stream reader to pollute the profile
+            BenchmarkStreamReaders benchmark = new BenchmarkStreamReaders();
+            benchmark.readLongNoNull(BigintNoNullBenchmarkData.create());
+            benchmark.readLongWithNull(BigintWithNullBenchmarkData.create());
+            benchmark.readIntNoNull(IntegerNoNullBenchmarkData.create());
+            benchmark.readIntWithNull(IntegerWithNullBenchmarkData.create());
+            benchmark.readShortNoNull(SmallintNoNullBenchmarkData.create());
+            benchmark.readShortWithNull(SmallintWithNullBenchmarkData.create());
+        }
+        catch (Throwable throwable) {
+            throw new RuntimeException(throwable);
         }
     }
 
