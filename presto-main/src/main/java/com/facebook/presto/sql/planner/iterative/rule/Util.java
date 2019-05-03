@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -68,7 +69,7 @@ class Util
     /**
      * @return If the node has outputs not in permittedOutputs, returns an identity projection containing only those node outputs also in permittedOutputs.
      */
-    public static Optional<PlanNode> restrictOutputs(PlanNodeIdAllocator idAllocator, PlanNode node, Set<Symbol> permittedOutputs)
+    public static Optional<PlanNode> restrictOutputs(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, PlanNode node, Set<Symbol> permittedOutputs)
     {
         List<Symbol> restrictedOutputs = node.getOutputSymbols().stream()
                 .filter(permittedOutputs::contains)
@@ -82,7 +83,7 @@ class Util
                 new ProjectNode(
                         idAllocator.getNextId(),
                         node,
-                        Assignments.identity(restrictedOutputs)));
+                        Assignments.identity(symbolAllocator.toVariableReferences(restrictedOutputs))));
     }
 
     /**
@@ -90,7 +91,7 @@ class Util
      * Returns a present Optional iff at least one child was rewritten.
      */
     @SafeVarargs
-    public static Optional<PlanNode> restrictChildOutputs(PlanNodeIdAllocator idAllocator, PlanNode node, Set<Symbol>... permittedChildOutputsArgs)
+    public static Optional<PlanNode> restrictChildOutputs(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, PlanNode node, Set<Symbol>... permittedChildOutputsArgs)
     {
         List<Set<Symbol>> permittedChildOutputs = ImmutableList.copyOf(permittedChildOutputsArgs);
 
@@ -105,7 +106,7 @@ class Util
 
         for (int i = 0; i < node.getSources().size(); ++i) {
             PlanNode oldChild = node.getSources().get(i);
-            Optional<PlanNode> newChild = restrictOutputs(idAllocator, oldChild, permittedChildOutputs.get(i));
+            Optional<PlanNode> newChild = restrictOutputs(idAllocator, symbolAllocator, oldChild, permittedChildOutputs.get(i));
             rewroteChildren |= newChild.isPresent();
             newChildrenBuilder.add(newChild.orElse(oldChild));
         }

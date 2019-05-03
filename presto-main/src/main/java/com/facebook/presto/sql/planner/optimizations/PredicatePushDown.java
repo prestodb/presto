@@ -85,6 +85,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionT
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
 import static com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineSymbols;
+import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineVariables;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
@@ -244,13 +245,12 @@ public class PredicatePushDown
         @Override
         public PlanNode visitProject(ProjectNode node, RewriteContext<Expression> context)
         {
-            Set<Symbol> deterministicSymbols = node.getAssignments().entrySet().stream()
+            Set<VariableReferenceExpression> deterministicVariables = node.getAssignments().entrySet().stream()
                     .filter(entry -> ExpressionDeterminismEvaluator.isDeterministic(entry.getValue()))
                     .map(Map.Entry::getKey)
                     .collect(Collectors.toSet());
 
-            Predicate<Expression> deterministic = conjunct -> SymbolsExtractor.extractUnique(conjunct).stream()
-                    .allMatch(deterministicSymbols::contains);
+            Predicate<Expression> deterministic = conjunct -> deterministicVariables.containsAll(SymbolsExtractor.extractUniqueVariable(conjunct, symbolAllocator.getTypes()));
 
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(deterministic));
 
@@ -264,7 +264,7 @@ public class PredicatePushDown
                     .collect(Collectors.partitioningBy(expression -> isInliningCandidate(expression, node)));
 
             List<Expression> inlinedDeterministicConjuncts = inlineConjuncts.get(true).stream()
-                    .map(entry -> inlineSymbols(node.getAssignments().getMap(), entry))
+                    .map(entry -> inlineVariables(node.getAssignments().getMap(), entry))
                     .collect(Collectors.toList());
 
             PlanNode rewrittenNode = context.defaultRewrite(node, combineConjuncts(inlinedDeterministicConjuncts));
@@ -461,12 +461,12 @@ public class PredicatePushDown
             Assignments.Builder leftProjections = Assignments.builder();
             leftProjections.putAll(node.getLeft()
                     .getOutputSymbols().stream()
-                    .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
+                    .collect(Collectors.toMap(symbolAllocator::toVariableReference, Symbol::toSymbolReference)));
 
             Assignments.Builder rightProjections = Assignments.builder();
             rightProjections.putAll(node.getRight()
                     .getOutputSymbols().stream()
-                    .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
+                    .collect(Collectors.toMap(symbolAllocator::toVariableReference, Symbol::toSymbolReference)));
 
             // Create new projections for the new join clauses
             List<JoinNode.EquiJoinClause> equiJoinClauses = new ArrayList<>();
@@ -481,12 +481,12 @@ public class PredicatePushDown
 
                     VariableReferenceExpression leftVariable = variableForExpression(leftExpression);
                     if (!node.getLeft().getOutputSymbols().contains(new Symbol(leftVariable.getName()))) {
-                        leftProjections.put(new Symbol(leftVariable.getName()), leftExpression);
+                        leftProjections.put(leftVariable, leftExpression);
                     }
 
                     VariableReferenceExpression rightVariable = variableForExpression(rightExpression);
                     if (!node.getRight().getOutputSymbols().contains(new Symbol(rightVariable.getName()))) {
-                        rightProjections.put(new Symbol(rightVariable.getName()), rightExpression);
+                        rightProjections.put(rightVariable, rightExpression);
                     }
 
                     equiJoinClauses.add(new JoinNode.EquiJoinClause(leftVariable, rightVariable));
@@ -554,7 +554,7 @@ public class PredicatePushDown
             }
 
             if (!node.getOutputSymbols().equals(output.getOutputSymbols())) {
-                output = new ProjectNode(idAllocator.getNextId(), output, Assignments.identity(node.getOutputSymbols()));
+                output = new ProjectNode(idAllocator.getNextId(), output, Assignments.identity(symbolAllocator.toVariableReferences(node.getOutputSymbols())));
             }
 
             return output;
@@ -631,12 +631,12 @@ public class PredicatePushDown
                 Assignments.Builder leftProjections = Assignments.builder();
                 leftProjections.putAll(node.getLeft()
                         .getOutputSymbols().stream()
-                        .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
+                        .collect(Collectors.toMap(symbolAllocator::toVariableReference, Symbol::toSymbolReference)));
 
                 Assignments.Builder rightProjections = Assignments.builder();
                 rightProjections.putAll(node.getRight()
                         .getOutputSymbols().stream()
-                        .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
+                        .collect(Collectors.toMap(symbolAllocator::toVariableReference, Symbol::toSymbolReference)));
 
                 leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
                 rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());

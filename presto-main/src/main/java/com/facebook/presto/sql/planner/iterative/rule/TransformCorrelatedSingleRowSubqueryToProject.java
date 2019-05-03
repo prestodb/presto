@@ -82,7 +82,7 @@ public class TransformCorrelatedSingleRowSubqueryToProject
         }
         else if (subqueryProjections.size() == 1) {
             Assignments assignments = Assignments.builder()
-                    .putIdentities(parent.getInput().getOutputSymbols())
+                    .putIdentities(context.getSymbolAllocator().toVariableReferences(parent.getInput().getOutputSymbols()))
                     .putAll(subqueryProjections.get(0).getAssignments())
                     .build();
             return Result.ofPlanNode(projectNode(parent.getInput(), assignments, context));

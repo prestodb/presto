@@ -630,9 +630,9 @@ public class PropertyDerivations
 
             // Extract additional constants
             Map<VariableReferenceExpression, ConstantExpression> constants = new HashMap<>();
-            for (Map.Entry<Symbol, Expression> assignment : node.getAssignments().entrySet()) {
+            for (Map.Entry<VariableReferenceExpression, Expression> assignment : node.getAssignments().entrySet()) {
                 Expression expression = assignment.getValue();
-                VariableReferenceExpression output = toVariableReference(assignment.getKey(), types);
+                VariableReferenceExpression output = assignment.getKey();
 
                 Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, parser, types, expression, emptyList(), WarningCollector.NOOP);
                 Type type = requireNonNull(expressionTypes.get(NodeRef.of(expression)));

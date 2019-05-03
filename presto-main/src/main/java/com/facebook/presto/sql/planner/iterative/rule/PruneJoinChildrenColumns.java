@@ -78,7 +78,7 @@ public class PruneJoinChildrenColumns
                 .addAll(joinNode.getRightHashVariable().map(variable -> new Symbol(variable.getName())).map(ImmutableSet::of).orElse(ImmutableSet.of()))
                 .build();
 
-        return restrictChildOutputs(context.getIdAllocator(), joinNode, leftUsableInputs, rightUsableInputs)
+        return restrictChildOutputs(context.getIdAllocator(), context.getSymbolAllocator(), joinNode, leftUsableInputs, rightUsableInputs)
                 .map(Result::ofPlanNode)
                 .orElse(Result.empty());
     }

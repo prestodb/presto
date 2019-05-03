@@ -228,7 +228,7 @@ public class TestEffectivePredicateExtractor
                                 equals(AE, BE),
                                 equals(BE, CE),
                                 lessThan(CE, bigintLiteral(10)))),
-                Assignments.of(D, AE, E, CE));
+                Assignments.of(DV, AE, EV, CE));
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(node);
 

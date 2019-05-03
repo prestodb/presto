@@ -126,9 +126,9 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
             if (toRowExpression) {
                 return pb.filter(
                         TRANSLATOR.translateAndOptimize(expression("sjo"), pb.getTypes()),
-                        pb.project(Assignments.identity(semiJoinOutput, a), semiJoinNode));
+                        pb.project(Assignments.identity(pb.variable(semiJoinOutput), pb.variable(a)), semiJoinNode));
             }
-            return pb.filter(expression("sjo"), pb.project(Assignments.identity(semiJoinOutput, a), semiJoinNode));
+            return pb.filter(expression("sjo"), pb.project(Assignments.identity(pb.variable(semiJoinOutput), pb.variable(a)), semiJoinNode));
         })
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)

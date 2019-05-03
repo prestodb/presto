@@ -15,7 +15,7 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -53,7 +53,7 @@ public class ProjectStatsRule
         PlanNodeStatsEstimate.Builder calculatedStats = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(sourceStats.getOutputRowCount());
 
-        for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
+        for (Map.Entry<VariableReferenceExpression, Expression> entry : node.getAssignments().entrySet()) {
             calculatedStats.addSymbolStatistics(entry.getKey(), scalarStatsCalculator.calculate(entry.getValue(), sourceStats, session, types));
         }
         return Optional.of(calculatedStats.build());

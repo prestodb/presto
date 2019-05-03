@@ -51,7 +51,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class JoinGraph
 {
-    private final Optional<Map<Symbol, Expression>> assignments;
+    private final Optional<Map<VariableReferenceExpression, Expression>> assignments;
     private final List<Expression> filters;
     private final List<PlanNode> nodes; // nodes in order of their appearance in tree plan (left, right, parent)
     private final Multimap<PlanNodeId, Edge> edges;
@@ -94,7 +94,7 @@ public class JoinGraph
             Multimap<PlanNodeId, Edge> edges,
             PlanNodeId rootId,
             List<Expression> filters,
-            Optional<Map<Symbol, Expression>> assignments)
+            Optional<Map<VariableReferenceExpression, Expression>> assignments)
     {
         this.nodes = nodes;
         this.edges = edges;
@@ -103,12 +103,12 @@ public class JoinGraph
         this.assignments = assignments;
     }
 
-    public JoinGraph withAssignments(Map<Symbol, Expression> assignments)
+    public JoinGraph withAssignments(Map<VariableReferenceExpression, Expression> assignments)
     {
         return new JoinGraph(nodes, edges, rootId, filters, Optional.of(assignments));
     }
 
-    public Optional<Map<Symbol, Expression>> getAssignments()
+    public Optional<Map<VariableReferenceExpression, Expression>> getAssignments()
     {
         return assignments;
     }

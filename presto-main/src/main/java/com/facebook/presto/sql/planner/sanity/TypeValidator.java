@@ -113,16 +113,15 @@ public final class TypeValidator
         {
             visitPlan(node, context);
 
-            for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
-                Type expectedType = types.get(entry.getKey());
+            for (Map.Entry<VariableReferenceExpression, Expression> entry : node.getAssignments().entrySet()) {
                 if (entry.getValue() instanceof SymbolReference) {
                     SymbolReference symbolReference = (SymbolReference) entry.getValue();
-                    verifyTypeSignature(entry.getKey(), expectedType.getTypeSignature(), types.get(Symbol.from(symbolReference)).getTypeSignature());
+                    verifyTypeSignature(entry.getKey(), types.get(Symbol.from(symbolReference)).getTypeSignature());
                     continue;
                 }
                 Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, entry.getValue(), emptyList(), warningCollector);
                 Type actualType = expressionTypes.get(NodeRef.of(entry.getValue()));
-                verifyTypeSignature(entry.getKey(), expectedType.getTypeSignature(), actualType.getTypeSignature());
+                verifyTypeSignature(entry.getKey(), actualType.getTypeSignature());
             }
 
             return null;
@@ -175,15 +174,6 @@ public final class TypeValidator
                         entry.getKey(),
                         metadata.getFunctionManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getReturnType());
                 // TODO check if the argument type agrees with function handle (will be added once Aggregation is using CallExpression).
-            }
-        }
-
-        private void verifyTypeSignature(Symbol symbol, TypeSignature expected, TypeSignature actual)
-        {
-            // UNKNOWN should be considered as a wildcard type, which matches all the other types
-            TypeManager typeManager = metadata.getTypeManager();
-            if (!actual.equals(UNKNOWN.getTypeSignature()) && !typeManager.isTypeOnlyCoercion(typeManager.getType(actual), typeManager.getType(expected))) {
-                checkArgument(expected.equals(actual), "type of symbol '%s' is expected to be %s, but the actual type is %s", symbol, expected, actual);
             }
         }
 

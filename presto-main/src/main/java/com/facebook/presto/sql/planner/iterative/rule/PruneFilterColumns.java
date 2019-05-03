@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -37,13 +38,13 @@ public class PruneFilterColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, FilterNode filterNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, FilterNode filterNode, Set<Symbol> referencedOutputs)
     {
         Set<Symbol> prunedFilterInputs = Streams.concat(
                 referencedOutputs.stream(),
                 SymbolsExtractor.extractUnique(castToExpression(filterNode.getPredicate())).stream())
                 .collect(toImmutableSet());
 
-        return restrictChildOutputs(idAllocator, filterNode, prunedFilterInputs);
+        return restrictChildOutputs(idAllocator, symbolAllocator, filterNode, prunedFilterInputs);
     }
 }

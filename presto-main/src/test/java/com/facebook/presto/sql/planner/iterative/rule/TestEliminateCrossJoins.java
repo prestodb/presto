@@ -220,7 +220,7 @@ public class TestEliminateCrossJoins
                                 joinNode(
                                         values(variable("a1")),
                                         values(variable("b"))),
-                                symbol("a2"),
+                                variable("a2"),
                                 new ArithmeticUnaryExpression(MINUS, new SymbolReference("a1"))),
                         values(variable("c")),
                         variable("a2"), variable("c"),
@@ -248,12 +248,12 @@ public class TestEliminateCrossJoins
         };
     }
 
-    private PlanNode projectNode(PlanNode source, Symbol symbol, Expression expression)
+    private PlanNode projectNode(PlanNode source, VariableReferenceExpression variable, Expression expression)
     {
         return new ProjectNode(
                 idAllocator.getNextId(),
                 source,
-                Assignments.of(symbol, expression));
+                Assignments.of(variable, expression));
     }
 
     private Symbol symbol(String name)

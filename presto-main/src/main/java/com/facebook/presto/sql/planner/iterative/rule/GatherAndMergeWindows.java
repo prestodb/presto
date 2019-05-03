@@ -104,7 +104,7 @@ public class GatherAndMergeWindows
                     .map(captures::get)
                     .collect(toImmutableList());
 
-            return pullWindowNodeAboveProjects(captures.get(childCapture), projects)
+            return pullWindowNodeAboveProjects(captures.get(childCapture), projects, context)
                     .flatMap(newChild -> manipulateAdjacentWindowNodes(parent, newChild, context))
                     .map(Result::ofPlanNode)
                     .orElse(Result.empty());
@@ -121,7 +121,8 @@ public class GatherAndMergeWindows
          */
         protected static Optional<WindowNode> pullWindowNodeAboveProjects(
                 WindowNode target,
-                List<ProjectNode> projects)
+                List<ProjectNode> projects,
+                Context context)
         {
             if (projects.isEmpty()) {
                 return Optional.of(target);
@@ -129,8 +130,8 @@ public class GatherAndMergeWindows
 
             PlanNode targetChild = target.getSource();
 
-            Set<Symbol> targetInputs = ImmutableSet.copyOf(targetChild.getOutputSymbols());
-            Set<Symbol> targetOutputs = ImmutableSet.copyOf(target.getOutputSymbols());
+            Set<VariableReferenceExpression> targetInputs = ImmutableSet.copyOf(context.getSymbolAllocator().toVariableReferences(targetChild.getOutputSymbols()));
+            Set<VariableReferenceExpression> targetOutputs = ImmutableSet.copyOf(context.getSymbolAllocator().toVariableReferences(target.getOutputSymbols()));
 
             PlanNode newTargetChild = targetChild;
 
@@ -139,7 +140,7 @@ public class GatherAndMergeWindows
 
                 // The only kind of use of the output of the target that we can safely ignore is a simple identity propagation.
                 // The target node, when hoisted above the projections, will provide the symbols directly.
-                Map<Symbol, Expression> assignmentsWithoutTargetOutputIdentities = Maps.filterKeys(
+                Map<VariableReferenceExpression, Expression> assignmentsWithoutTargetOutputIdentities = Maps.filterKeys(
                         project.getAssignments().getMap(),
                         output -> !(project.getAssignments().isIdentity(output) && targetOutputs.contains(output)));
 
@@ -200,7 +201,7 @@ public class GatherAndMergeWindows
                     parent.getPreSortedOrderPrefix());
 
             return Optional.of(
-                    restrictOutputs(context.getIdAllocator(), mergedWindowNode, ImmutableSet.copyOf(parent.getOutputSymbols()))
+                    restrictOutputs(context.getIdAllocator(), context.getSymbolAllocator(), mergedWindowNode, ImmutableSet.copyOf(parent.getOutputSymbols()))
                             .orElse(mergedWindowNode));
         }
     }
@@ -219,7 +220,7 @@ public class GatherAndMergeWindows
             if ((compare(parent, child) < 0) && (!dependsOn(parent, child))) {
                 PlanNode transposedWindows = transpose(parent, child);
                 return Optional.of(
-                        restrictOutputs(context.getIdAllocator(), transposedWindows, ImmutableSet.copyOf(parent.getOutputSymbols()))
+                        restrictOutputs(context.getIdAllocator(), context.getSymbolAllocator(), transposedWindows, ImmutableSet.copyOf(parent.getOutputSymbols()))
                                 .orElse(transposedWindows));
             }
             else {

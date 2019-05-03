@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -38,7 +38,7 @@ public class TestPruneFilterColumns
     public void testNotAllInputsReferenced()
     {
         tester().assertThat(new PruneFilterColumns())
-                .on(p -> buildProjectedFilter(p, symbol -> symbol.getName().equals("b")))
+                .on(p -> buildProjectedFilter(p, variable -> variable.getName().equals("b")))
                 .matches(
                         strictProject(
                                 ImmutableMap.of("b", expression("b")),
@@ -65,10 +65,10 @@ public class TestPruneFilterColumns
                 .doesNotFire();
     }
 
-    private ProjectNode buildProjectedFilter(PlanBuilder planBuilder, Predicate<Symbol> projectionFilter)
+    private ProjectNode buildProjectedFilter(PlanBuilder planBuilder, Predicate<VariableReferenceExpression> projectionFilter)
     {
-        Symbol a = planBuilder.symbol("a");
-        Symbol b = planBuilder.symbol("b");
+        VariableReferenceExpression a = planBuilder.variable("a");
+        VariableReferenceExpression b = planBuilder.variable("b");
         return planBuilder.project(
                 Assignments.identity(Stream.of(a, b).filter(projectionFilter).collect(toImmutableSet())),
                 planBuilder.filter(

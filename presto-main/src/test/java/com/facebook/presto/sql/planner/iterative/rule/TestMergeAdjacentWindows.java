@@ -180,11 +180,11 @@ public class TestMergeAdjacentWindows
                                 ImmutableMap.of(p.variable(p.symbol("lagOutput")), newWindowNodeFunction("lag", LAG_FUNCTION_HANDLE, "a", "one")),
                                 p.project(
                                         Assignments.builder()
-                                                .put(p.symbol("one"), expression("CAST(1 AS bigint)"))
-                                                .putIdentities(ImmutableList.of(p.symbol("a"), p.symbol("avgOutput")))
+                                                .put(p.variable("one"), expression("CAST(1 AS bigint)"))
+                                                .putIdentities(ImmutableList.of(p.variable("a"), p.variable("avgOutput")))
                                                 .build(),
                                         p.project(
-                                                Assignments.identity(p.symbol("a"), p.symbol("avgOutput"), p.symbol("unused")),
+                                                Assignments.identity(p.variable("a"), p.variable("avgOutput"), p.variable("unused")),
                                                 p.window(
                                                         newWindowNodeSpecification(p, "a"),
                                                         ImmutableMap.of(p.variable(p.symbol("avgOutput")), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),

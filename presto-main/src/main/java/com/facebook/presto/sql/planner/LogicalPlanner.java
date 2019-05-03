@@ -355,7 +355,7 @@ public class LogicalPlanner
             if (column.isHidden()) {
                 continue;
             }
-            Symbol output = symbolAllocator.newSymbol(column.getName(), column.getType());
+            VariableReferenceExpression output = symbolAllocator.newVariable(column.getName(), column.getType());
             int index = insert.getColumns().indexOf(columns.get(column.getName()));
             if (index < 0) {
                 Expression cast = new Cast(new NullLiteral(), column.getType().getTypeSignature().toString());

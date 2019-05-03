@@ -184,26 +184,25 @@ public class TestPruneWindowColumns
 
     private static PlanNode buildProjectedWindow(
             PlanBuilder p,
-            Predicate<Symbol> projectionFilter,
-            Predicate<Symbol> sourceFilter)
+            Predicate<VariableReferenceExpression> projectionFilter,
+            Predicate<VariableReferenceExpression> sourceFilter)
     {
-        Symbol orderKey = p.symbol("orderKey");
-        Symbol partitionKey = p.symbol("partitionKey");
-        Symbol hash = p.symbol("hash");
+        VariableReferenceExpression orderKey = p.variable("orderKey");
+        VariableReferenceExpression partitionKey = p.variable("partitionKey");
+        VariableReferenceExpression hash = p.variable("hash");
         Symbol startValue1 = p.symbol("startValue1");
         Symbol startValue2 = p.symbol("startValue2");
         Symbol endValue1 = p.symbol("endValue1");
         Symbol endValue2 = p.symbol("endValue2");
-        Symbol input1 = p.symbol("input1");
-        Symbol input2 = p.symbol("input2");
-        Symbol unused = p.symbol("unused");
-        Symbol output1 = p.symbol("output1");
-        Symbol output2 = p.symbol("output2");
-        List<Symbol> inputs = ImmutableList.of(orderKey, partitionKey, hash, startValue1, startValue2, endValue1, endValue2, input1, input2, unused);
-        List<Symbol> outputs = ImmutableList.<Symbol>builder().addAll(inputs).add(output1, output2).build();
+        VariableReferenceExpression input1 = p.variable("input1");
+        VariableReferenceExpression input2 = p.variable("input2");
+        VariableReferenceExpression unused = p.variable("unused");
+        VariableReferenceExpression output1 = p.variable("output1");
+        VariableReferenceExpression output2 = p.variable("output2");
+        List<VariableReferenceExpression> inputs = ImmutableList.of(orderKey, partitionKey, hash, p.variable(startValue1), p.variable(startValue2), p.variable(endValue1), p.variable(endValue2), input1, input2, unused);
+        List<VariableReferenceExpression> outputs = ImmutableList.<VariableReferenceExpression>builder().addAll(inputs).add(output1, output2).build();
 
-        List<Symbol> filteredInputs = inputs.stream().filter(sourceFilter).collect(toImmutableList());
-        List<VariableReferenceExpression> filteredInputVariables = filteredInputs.stream().map(p::variable).collect(toImmutableList());
+        List<VariableReferenceExpression> filteredInputs = inputs.stream().filter(sourceFilter).collect(toImmutableList());
 
         return p.project(
                 Assignments.identity(
@@ -212,14 +211,14 @@ public class TestPruneWindowColumns
                                 .collect(toImmutableList())),
                 p.window(
                         new WindowNode.Specification(
-                                ImmutableList.of(p.variable(partitionKey)),
+                                ImmutableList.of(partitionKey),
                                 Optional.of(new OrderingScheme(
-                                        ImmutableList.of(p.variable(orderKey)),
-                                        ImmutableMap.of(p.variable(orderKey), SortOrder.ASC_NULLS_FIRST)))),
+                                        ImmutableList.of(orderKey),
+                                        ImmutableMap.of(orderKey, SortOrder.ASC_NULLS_FIRST)))),
                         ImmutableMap.of(
-                                p.variable(output1),
+                                output1,
                                 new WindowNode.Function(
-                                        call(FUNCTION_NAME, FUNCTION_HANDLE, BIGINT, new VariableReferenceExpression(input1.getName(), BIGINT)),
+                                        call(FUNCTION_NAME, FUNCTION_HANDLE, BIGINT, input1),
                                         new WindowNode.Frame(
                                                 RANGE,
                                                 UNBOUNDED_PRECEDING,
@@ -228,9 +227,9 @@ public class TestPruneWindowColumns
                                                 Optional.of(endValue1),
                                                 Optional.of(startValue1.toSymbolReference()).map(Expression::toString),
                                                 Optional.of(endValue2.toSymbolReference()).map(Expression::toString))),
-                                p.variable(output2),
+                                output2,
                                 new WindowNode.Function(
-                                        call(FUNCTION_NAME, FUNCTION_HANDLE, BIGINT, new VariableReferenceExpression(input2.getName(), BIGINT)),
+                                        call(FUNCTION_NAME, FUNCTION_HANDLE, BIGINT, input2),
                                         new WindowNode.Frame(
                                                 RANGE,
                                                 UNBOUNDED_PRECEDING,
@@ -239,10 +238,10 @@ public class TestPruneWindowColumns
                                                 Optional.of(endValue2),
                                                 Optional.of(startValue2.toSymbolReference()).map(Expression::toString),
                                                 Optional.of(endValue2.toSymbolReference()).map(Expression::toString)))),
-                        p.variable(hash),
+                        hash,
                         p.values(
+                                filteredInputs.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()),
                                 filteredInputs,
-                                filteredInputVariables,
                                 ImmutableList.of())));
     }
 }

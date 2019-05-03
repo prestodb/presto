@@ -51,7 +51,7 @@ public class TestPruneTableScanColumns
                     Symbol totalprice = p.symbol("totalprice", DOUBLE);
                     VariableReferenceExpression totalpriceVariable = new VariableReferenceExpression(totalprice.getName(), DOUBLE);
                     return p.project(
-                            Assignments.of(p.symbol("x"), totalprice.toSymbolReference()),
+                            Assignments.of(p.variable("x"), totalprice.toSymbolReference()),
                             p.tableScan(
                                     new TableHandle(
                                             new ConnectorId("local"),
@@ -78,7 +78,7 @@ public class TestPruneTableScanColumns
                     Symbol x = p.symbol("x");
                     VariableReferenceExpression xv = p.variable(x);
                     return p.project(
-                            Assignments.of(p.symbol("y"), expression("x")),
+                            Assignments.of(p.variable("y"), expression("x")),
                             p.tableScan(
                                     ImmutableList.of(x),
                                     ImmutableList.of(xv),

@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.optimizations.WindowNodeUtil;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -39,7 +40,7 @@ public class PruneWindowColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, WindowNode windowNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, WindowNode windowNode, Set<Symbol> referencedOutputs)
     {
         Set<String> referencedOutputNames = referencedOutputs.stream().map(Symbol::getName).collect(toImmutableSet());
         Map<VariableReferenceExpression, WindowNode.Function> referencedFunctions = Maps.filterKeys(
@@ -70,7 +71,7 @@ public class PruneWindowColumns
 
         PlanNode prunedWindowNode = new WindowNode(
                 windowNode.getId(),
-                restrictOutputs(idAllocator, windowNode.getSource(), referencedInputs.build())
+                restrictOutputs(idAllocator, symbolAllocator, windowNode.getSource(), referencedInputs.build())
                         .orElse(windowNode.getSource()),
                 windowNode.getSpecification(),
                 referencedFunctions,

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
@@ -42,7 +43,7 @@ public class TestPruneAggregationColumns
     public void testNotAllInputsReferenced()
     {
         tester().assertThat(new PruneAggregationColumns())
-                .on(p -> buildProjectedAggregation(p, symbol -> symbol.getName().equals("b")))
+                .on(p -> buildProjectedAggregation(p, variable -> variable.getName().equals("b")))
                 .matches(
                         strictProject(
                                 ImmutableMap.of("b", expression("b")),
@@ -65,17 +66,17 @@ public class TestPruneAggregationColumns
                 .doesNotFire();
     }
 
-    private ProjectNode buildProjectedAggregation(PlanBuilder planBuilder, Predicate<Symbol> projectionFilter)
+    private ProjectNode buildProjectedAggregation(PlanBuilder planBuilder, Predicate<VariableReferenceExpression> projectionFilter)
     {
-        Symbol a = planBuilder.symbol("a");
-        Symbol b = planBuilder.symbol("b");
+        VariableReferenceExpression a = planBuilder.variable("a");
+        VariableReferenceExpression b = planBuilder.variable("b");
         Symbol key = planBuilder.symbol("key");
         return planBuilder.project(
                 Assignments.identity(ImmutableList.of(a, b).stream().filter(projectionFilter).collect(toImmutableSet())),
                 planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
                         .source(planBuilder.values(key))
                         .singleGroupingSet(planBuilder.variable(key))
-                        .addAggregation(planBuilder.variable(a), planBuilder.expression("count()"), ImmutableList.of())
-                        .addAggregation(planBuilder.variable(b), planBuilder.expression("count()"), ImmutableList.of())));
+                        .addAggregation(a, planBuilder.expression("count()"), ImmutableList.of())
+                        .addAggregation(b, planBuilder.expression("count()"), ImmutableList.of())));
     }
 }

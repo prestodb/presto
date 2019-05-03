@@ -17,6 +17,7 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
@@ -287,16 +288,29 @@ public class SymbolMapper
 
     public static class Builder
     {
-        private final ImmutableMap.Builder<String, String> mappings = ImmutableMap.builder();
+        private final ImmutableMap.Builder<String, String> mappingsBuilder = ImmutableMap.builder();
+        private final ImmutableMap.Builder<Symbol, Type> typesBuilder = ImmutableMap.builder();
 
         public SymbolMapper build()
         {
-            return new SymbolMapper(mappings.build());
+            Map<String, String> mappings = mappingsBuilder.build();
+            Map<Symbol, Type> types = typesBuilder.build();
+            if (types.isEmpty()) {
+                return new SymbolMapper(mappings);
+            }
+            return new SymbolMapper(mappings, TypeProvider.viewOf(types));
         }
 
         public void put(String from, String to)
         {
-            mappings.put(from, to);
+            mappingsBuilder.put(from, to);
+        }
+
+        public void put(VariableReferenceExpression from, VariableReferenceExpression to)
+        {
+            mappingsBuilder.put(from.getName(), to.getName());
+            typesBuilder.put(new Symbol(from.getName()), from.getType());
+            typesBuilder.put(new Symbol(to.getName()), to.getType());
         }
     }
 }

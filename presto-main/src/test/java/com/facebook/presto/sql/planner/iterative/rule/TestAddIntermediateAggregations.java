@@ -316,7 +316,7 @@ public class TestAddIntermediateAggregations
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE_STREAMING,
                                             p.project(
-                                                    Assignments.identity(p.symbol("b")),
+                                                    Assignments.identity(p.variable("b")),
                                                     p.aggregation(ap -> ap.globalGrouping()
                                                             .step(AggregationNode.Step.PARTIAL)
                                                             .addAggregation(p.variable(p.symbol("b")), expression("count(a)"), ImmutableList.of(BIGINT))

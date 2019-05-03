@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.optimizations.JoinNodeUtils;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -393,7 +392,7 @@ public final class GraphvizPrinter
         public Void visitProject(ProjectNode node, Void context)
         {
             StringBuilder builder = new StringBuilder();
-            for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
+            for (Map.Entry<VariableReferenceExpression, Expression> entry : node.getAssignments().entrySet()) {
                 if ((entry.getValue() instanceof SymbolReference) &&
                         ((SymbolReference) entry.getValue()).getName().equals(entry.getKey().getName())) {
                     // skip identity assignments

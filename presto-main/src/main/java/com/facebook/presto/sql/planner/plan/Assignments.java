@@ -38,6 +38,7 @@ import java.util.stream.Collector;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
@@ -48,22 +49,17 @@ public class Assignments
         return new Builder();
     }
 
-    public static Assignments identity(Symbol... symbols)
+    public static Assignments identity(VariableReferenceExpression... variables)
     {
-        return identity(asList(symbols));
+        return identity(asList(variables));
     }
 
-    public static Assignments identity(List<VariableReferenceExpression> variables)
+    public static Assignments identity(Iterable<VariableReferenceExpression> variables)
     {
-        return identity(variables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()));
+        return builder().putIdentities(variables).build();
     }
 
-    public static Assignments identity(Iterable<Symbol> symbols)
-    {
-        return builder().putIdentities(symbols).build();
-    }
-
-    public static Assignments copyOf(Map<Symbol, Expression> assignments)
+    public static Assignments copyOf(Map<VariableReferenceExpression, Expression> assignments)
     {
         return builder()
                 .putAll(assignments)
@@ -75,31 +71,36 @@ public class Assignments
         return builder().build();
     }
 
-    public static Assignments of(Symbol symbol, Expression expression)
+    public static Assignments of(VariableReferenceExpression variable, Expression expression)
     {
-        return builder().put(symbol, expression).build();
+        return builder().put(variable, expression).build();
     }
 
-    public static Assignments of(Symbol symbol1, Expression expression1, Symbol symbol2, Expression expression2)
+    public static Assignments of(VariableReferenceExpression variable1, Expression expression1, VariableReferenceExpression variable2, Expression expression2)
     {
-        return builder().put(symbol1, expression1).put(symbol2, expression2).build();
+        return builder().put(variable1, expression1).put(variable2, expression2).build();
     }
 
-    private final Map<Symbol, Expression> assignments;
+    private final Map<VariableReferenceExpression, Expression> assignments;
 
     @JsonCreator
-    public Assignments(@JsonProperty("assignments") Map<Symbol, Expression> assignments)
+    public Assignments(@JsonProperty("assignments") Map<VariableReferenceExpression, Expression> assignments)
     {
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
     }
 
-    public List<Symbol> getOutputs()
+    public List<Symbol> getOutputSymbols()
+    {
+        return assignments.keySet().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
+    }
+
+    public List<VariableReferenceExpression> getOutputs()
     {
         return ImmutableList.copyOf(assignments.keySet());
     }
 
     @JsonProperty("assignments")
-    public Map<Symbol, Expression> getMap()
+    public Map<VariableReferenceExpression, Expression> getMap()
     {
         return assignments;
     }
@@ -116,26 +117,26 @@ public class Assignments
                 .collect(toAssignments());
     }
 
-    public Assignments filter(Collection<Symbol> symbols)
+    public Assignments filter(Collection<VariableReferenceExpression> variables)
     {
-        return filter(symbols::contains);
+        return filter(variables::contains);
     }
 
-    public Assignments filter(Predicate<Symbol> predicate)
+    public Assignments filter(Predicate<VariableReferenceExpression> predicate)
     {
         return assignments.entrySet().stream()
                 .filter(entry -> predicate.apply(entry.getKey()))
                 .collect(toAssignments());
     }
 
-    public boolean isIdentity(Symbol output)
+    public boolean isIdentity(VariableReferenceExpression output)
     {
         Expression expression = assignments.get(output);
 
         return expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(output.getName());
     }
 
-    private Collector<Entry<Symbol, Expression>, Builder, Assignments> toAssignments()
+    private Collector<Entry<VariableReferenceExpression, Expression>, Builder, Assignments> toAssignments()
     {
         return Collector.of(
                 Assignments::builder,
@@ -154,17 +155,34 @@ public class Assignments
 
     public Set<Symbol> getSymbols()
     {
+        return assignments.keySet().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet());
+    }
+
+    public Set<VariableReferenceExpression> getVariables()
+    {
         return assignments.keySet();
     }
 
-    public Set<Entry<Symbol, Expression>> entrySet()
+    public Set<Entry<VariableReferenceExpression, Expression>> entrySet()
     {
         return assignments.entrySet();
     }
 
+    public Expression get(VariableReferenceExpression variable)
+    {
+        return assignments.get(variable);
+    }
+
     public Expression get(Symbol symbol)
     {
-        return assignments.get(symbol);
+        List<Expression> candidate = assignments.entrySet().stream()
+                .filter(entry -> entry.getKey().getName().equals(symbol.getName()))
+                .map(Entry::getValue)
+                .collect(toImmutableList());
+        if (candidate.isEmpty()) {
+            return null;
+        }
+        return candidate.get(0);
     }
 
     public int size()
@@ -177,7 +195,7 @@ public class Assignments
         return size() == 0;
     }
 
-    public void forEach(BiConsumer<Symbol, Expression> consumer)
+    public void forEach(BiConsumer<VariableReferenceExpression, Expression> consumer)
     {
         assignments.forEach(consumer);
     }
@@ -205,53 +223,53 @@ public class Assignments
 
     public static class Builder
     {
-        private final Map<Symbol, Expression> assignments = new LinkedHashMap<>();
+        private final Map<VariableReferenceExpression, Expression> assignments = new LinkedHashMap<>();
 
         public Builder putAll(Assignments assignments)
         {
             return putAll(assignments.getMap());
         }
 
-        public Builder putAll(Map<Symbol, Expression> assignments)
+        public Builder putAll(Map<VariableReferenceExpression, Expression> assignments)
         {
-            for (Entry<Symbol, Expression> assignment : assignments.entrySet()) {
+            for (Entry<VariableReferenceExpression, Expression> assignment : assignments.entrySet()) {
                 put(assignment.getKey(), assignment.getValue());
             }
             return this;
         }
 
-        public Builder put(Symbol symbol, Expression expression)
+        public Builder put(VariableReferenceExpression variable, Expression expression)
         {
-            if (assignments.containsKey(symbol)) {
-                Expression assignment = assignments.get(symbol);
+            if (assignments.containsKey(variable)) {
+                Expression assignment = assignments.get(variable);
                 checkState(
                         assignment.equals(expression),
-                        "Symbol %s already has assignment %s, while adding %s",
-                        symbol,
+                        "Variable %s already has assignment %s, while adding %s",
+                        variable,
                         assignment,
                         expression);
             }
-            assignments.put(symbol, expression);
+            assignments.put(variable, expression);
             return this;
         }
 
-        public Builder put(Entry<Symbol, Expression> assignment)
+        public Builder put(Entry<VariableReferenceExpression, Expression> assignment)
         {
             put(assignment.getKey(), assignment.getValue());
             return this;
         }
 
-        public Builder putIdentities(Iterable<Symbol> symbols)
+        public Builder putIdentities(Iterable<VariableReferenceExpression> variables)
         {
-            for (Symbol symbol : symbols) {
-                putIdentity(symbol);
+            for (VariableReferenceExpression variable : variables) {
+                putIdentity(variable);
             }
             return this;
         }
 
-        public Builder putIdentity(Symbol symbol)
+        public Builder putIdentity(VariableReferenceExpression variable)
         {
-            put(symbol, symbol.toSymbolReference());
+            put(variable, new SymbolReference(variable.getName()));
             return this;
         }
 

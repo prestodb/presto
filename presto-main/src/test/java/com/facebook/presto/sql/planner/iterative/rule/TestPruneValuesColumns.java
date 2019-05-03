@@ -35,7 +35,7 @@ public class TestPruneValuesColumns
         tester().assertThat(new PruneValuesColumns())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("y"), expression("x")),
+                                Assignments.of(p.variable("y"), expression("x")),
                                 p.values(
                                         ImmutableList.of(p.symbol("unused"), p.symbol("x")),
                                         ImmutableList.of(p.variable(p.symbol("unused")), p.variable(p.symbol("x"))),
@@ -58,7 +58,7 @@ public class TestPruneValuesColumns
         tester().assertThat(new PruneValuesColumns())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("y"), expression("x")),
+                                Assignments.of(p.variable("y"), expression("x")),
                                 p.values(p.symbol("x"))))
                 .doesNotFire();
     }

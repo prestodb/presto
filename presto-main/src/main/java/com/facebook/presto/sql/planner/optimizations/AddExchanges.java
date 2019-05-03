@@ -1394,9 +1394,9 @@ public class AddExchanges
     public static Map<VariableReferenceExpression, VariableReferenceExpression> computeIdentityTranslations(Assignments assignments, TypeProvider types)
     {
         Map<VariableReferenceExpression, VariableReferenceExpression> outputToInput = new HashMap<>();
-        for (Map.Entry<Symbol, Expression> assignment : assignments.getMap().entrySet()) {
+        for (Map.Entry<VariableReferenceExpression, Expression> assignment : assignments.getMap().entrySet()) {
             if (assignment.getValue() instanceof SymbolReference) {
-                outputToInput.put(toVariableReference(assignment.getKey(), types), toVariableReference(Symbol.from(assignment.getValue()), types));
+                outputToInput.put(assignment.getKey(), toVariableReference(Symbol.from(assignment.getValue()), types));
             }
         }
         return outputToInput;

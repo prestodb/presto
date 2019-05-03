@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
@@ -37,10 +38,10 @@ public class PruneCrossJoinColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, JoinNode joinNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, JoinNode joinNode, Set<Symbol> referencedOutputs)
     {
-        Optional<PlanNode> newLeft = restrictOutputs(idAllocator, joinNode.getLeft(), referencedOutputs);
-        Optional<PlanNode> newRight = restrictOutputs(idAllocator, joinNode.getRight(), referencedOutputs);
+        Optional<PlanNode> newLeft = restrictOutputs(idAllocator, symbolAllocator, joinNode.getLeft(), referencedOutputs);
+        Optional<PlanNode> newRight = restrictOutputs(idAllocator, symbolAllocator, joinNode.getRight(), referencedOutputs);
 
         if (!newLeft.isPresent() && !newRight.isPresent()) {
             return Optional.empty();

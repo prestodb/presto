@@ -148,7 +148,7 @@ public class TestPruneCountAggregationOverScalar
                             .globalGrouping()
                             .source(
                                     p.project(
-                                            Assignments.of(totalPrice, totalPrice.toSymbolReference()),
+                                            Assignments.of(totalPriceVariable, totalPrice.toSymbolReference()),
                                             p.tableScan(
                                                     new TableHandle(
                                                             new ConnectorId("local"),

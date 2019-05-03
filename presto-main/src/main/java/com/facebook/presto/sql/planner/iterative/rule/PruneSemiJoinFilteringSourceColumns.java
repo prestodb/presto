@@ -47,7 +47,7 @@ public class PruneSemiJoinFilteringSourceColumns
                 semiJoinNode.getFilteringSourceHashVariable().map(variable -> new Symbol(variable.getName())).map(Stream::of).orElse(Stream.empty()))
                 .collect(toImmutableSet());
 
-        return restrictOutputs(context.getIdAllocator(), semiJoinNode.getFilteringSource(), requiredFilteringSourceInputs)
+        return restrictOutputs(context.getIdAllocator(), context.getSymbolAllocator(), semiJoinNode.getFilteringSource(), requiredFilteringSourceInputs)
                 .map(newFilteringSource ->
                         semiJoinNode.replaceChildren(ImmutableList.of(semiJoinNode.getSource(), newFilteringSource)))
                 .map(Result::ofPlanNode)

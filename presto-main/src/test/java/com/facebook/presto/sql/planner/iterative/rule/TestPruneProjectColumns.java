@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.google.common.collect.ImmutableMap;
@@ -31,8 +31,8 @@ public class TestPruneProjectColumns
     {
         tester().assertThat(new PruneProjectColumns())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression b = p.variable("b");
                     return p.project(
                             Assignments.identity(b),
                             p.project(
@@ -52,8 +52,8 @@ public class TestPruneProjectColumns
     {
         tester().assertThat(new PruneProjectColumns())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression b = p.variable("b");
                     return p.project(
                             Assignments.identity(b),
                             p.project(

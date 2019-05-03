@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -97,7 +96,7 @@ public class ImplementFilteredAggregations
                 Expression filter = entry.getValue().getFilter().get();
                 VariableReferenceExpression variable = context.getSymbolAllocator().newVariable(filter, BOOLEAN);
                 verify(!mask.isPresent(), "Expected aggregation without mask symbols, see Rule pattern");
-                newAssignments.put(new Symbol(variable.getName()), filter);
+                newAssignments.put(variable, filter);
                 mask = Optional.of(variable);
 
                 maskSymbols.add(new SymbolReference(variable.getName()));
@@ -121,7 +120,7 @@ public class ImplementFilteredAggregations
         }
 
         // identity projection for all existing inputs
-        newAssignments.putIdentities(aggregation.getSource().getOutputSymbols());
+        newAssignments.putIdentities(context.getSymbolAllocator().toVariableReferences(aggregation.getSource().getOutputSymbols()));
 
         return Result.ofPlanNode(
                 new AggregationNode(

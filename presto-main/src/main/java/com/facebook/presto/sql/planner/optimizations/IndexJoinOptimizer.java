@@ -162,7 +162,7 @@ public class IndexJoinOptimizer
                                 indexJoinNode = new ProjectNode(
                                         idAllocator.getNextId(),
                                         indexJoinNode,
-                                        Assignments.identity(node.getOutputSymbols()));
+                                        Assignments.identity(symbolAllocator.toVariableReferences(node.getOutputSymbols())));
                             }
 
                             return indexJoinNode;
@@ -172,14 +172,14 @@ public class IndexJoinOptimizer
                     case LEFT:
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (!node.getFilter().isPresent() && rightIndexCandidate.isPresent()) {
-                            return createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinVariables, rightJoinVariables), idAllocator);
+                            return createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinVariables, rightJoinVariables), idAllocator, symbolAllocator);
                         }
                         break;
 
                     case RIGHT:
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (!node.getFilter().isPresent() && leftIndexCandidate.isPresent()) {
-                            return createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinVariables, leftJoinVariables), idAllocator);
+                            return createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinVariables, leftJoinVariables), idAllocator, symbolAllocator);
                         }
                         break;
 
@@ -197,14 +197,21 @@ public class IndexJoinOptimizer
             return node;
         }
 
-        private static PlanNode createIndexJoinWithExpectedOutputs(List<Symbol> expectedOutputs, IndexJoinNode.Type type, PlanNode probe, PlanNode index, List<IndexJoinNode.EquiJoinClause> equiJoinClause, PlanNodeIdAllocator idAllocator)
+        private static PlanNode createIndexJoinWithExpectedOutputs(
+                List<Symbol> expectedOutputs,
+                IndexJoinNode.Type type,
+                PlanNode probe,
+                PlanNode index,
+                List<IndexJoinNode.EquiJoinClause> equiJoinClause,
+                PlanNodeIdAllocator idAllocator,
+                SymbolAllocator symbolAllocator)
         {
             PlanNode result = new IndexJoinNode(idAllocator.getNextId(), type, probe, index, equiJoinClause, Optional.empty(), Optional.empty());
             if (!result.getOutputSymbols().equals(expectedOutputs)) {
                 result = new ProjectNode(
                         idAllocator.getNextId(),
                         result,
-                        Assignments.identity(expectedOutputs));
+                        Assignments.identity(symbolAllocator.toVariableReferences(expectedOutputs)));
             }
             return result;
         }
@@ -328,7 +335,7 @@ public class IndexJoinOptimizer
             // Rewrite the lookup variables in terms of only the pre-projected variables that have direct translations
             ImmutableSet.Builder<VariableReferenceExpression> newLookupVariablesBuilder = ImmutableSet.builder();
             for (VariableReferenceExpression variable : context.get().getLookupVariables()) {
-                Expression expression = node.getAssignments().get(new Symbol(variable.getName()));
+                Expression expression = node.getAssignments().get(variable);
                 if (expression instanceof SymbolReference) {
                     newLookupVariablesBuilder.add(new VariableReferenceExpression(((SymbolReference) expression).getName(), variable.getType()));
                 }
@@ -490,10 +497,10 @@ public class IndexJoinOptimizer
             public Map<VariableReferenceExpression, VariableReferenceExpression> visitProject(ProjectNode node, Set<VariableReferenceExpression> lookupVariables)
             {
                 // Map from output variables to source variables
-                Map<Symbol, Symbol> directSymbolTranslationOutputMap = Maps.transformValues(Maps.filterValues(node.getAssignments().getMap(), SymbolReference.class::isInstance), Symbol::from);
+                Map<VariableReferenceExpression, Symbol> directSymbolTranslationOutputMap = Maps.transformValues(Maps.filterValues(node.getAssignments().getMap(), SymbolReference.class::isInstance), Symbol::from);
                 Map<VariableReferenceExpression, VariableReferenceExpression> outputToSourceMap = lookupVariables.stream()
-                        .filter(variable -> directSymbolTranslationOutputMap.keySet().contains(new Symbol(variable.getName())))
-                        .collect(toImmutableMap(identity(), variable -> new VariableReferenceExpression(directSymbolTranslationOutputMap.get(new Symbol(variable.getName())).getName(), variable.getType())));
+                        .filter(directSymbolTranslationOutputMap.keySet()::contains)
+                        .collect(toImmutableMap(identity(), variable -> new VariableReferenceExpression(directSymbolTranslationOutputMap.get(variable).getName(), variable.getType())));
 
                 checkState(!outputToSourceMap.isEmpty(), "No lookup variables were able to pass through the projection");
 

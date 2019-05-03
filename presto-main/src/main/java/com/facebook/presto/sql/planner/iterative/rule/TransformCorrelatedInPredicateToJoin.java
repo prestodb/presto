@@ -127,15 +127,15 @@ public class TransformCorrelatedInPredicateToJoin
         }
 
         InPredicate inPredicate = (InPredicate) assignmentExpression;
-        Symbol inPredicateOutputSymbol = getOnlyElement(subqueryAssignments.getSymbols());
+        VariableReferenceExpression inPredicateOutputVariable = getOnlyElement(subqueryAssignments.getVariables());
 
-        return apply(apply, inPredicate, inPredicateOutputSymbol, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator());
+        return apply(apply, inPredicate, inPredicateOutputVariable, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator());
     }
 
     private Result apply(
             ApplyNode apply,
             InPredicate inPredicate,
-            Symbol inPredicateOutputSymbol,
+            VariableReferenceExpression inPredicateOutputVariable,
             Lookup lookup,
             PlanNodeIdAllocator idAllocator,
             SymbolAllocator symbolAllocator)
@@ -150,7 +150,7 @@ public class TransformCorrelatedInPredicateToJoin
         PlanNode projection = buildInPredicateEquivalent(
                 apply,
                 inPredicate,
-                inPredicateOutputSymbol,
+                inPredicateOutputVariable,
                 decorrelated.get(),
                 idAllocator,
                 symbolAllocator);
@@ -161,7 +161,7 @@ public class TransformCorrelatedInPredicateToJoin
     private PlanNode buildInPredicateEquivalent(
             ApplyNode apply,
             InPredicate inPredicate,
-            Symbol inPredicateOutputSymbol,
+            VariableReferenceExpression inPredicateOutputVariable,
             Decorrelated decorrelated,
             PlanNodeIdAllocator idAllocator,
             SymbolAllocator symbolAllocator)
@@ -174,23 +174,23 @@ public class TransformCorrelatedInPredicateToJoin
                 apply.getInput(),
                 symbolAllocator.newVariable("unique", BIGINT));
 
-        Symbol buildSideKnownNonNull = symbolAllocator.newSymbol("buildSideKnownNonNull", BIGINT);
+        VariableReferenceExpression buildSideKnownNonNull = symbolAllocator.newVariable("buildSideKnownNonNull", BIGINT);
         ProjectNode buildSide = new ProjectNode(
                 idAllocator.getNextId(),
                 decorrelatedBuildSource,
                 Assignments.builder()
-                        .putIdentities(decorrelatedBuildSource.getOutputSymbols())
+                        .putIdentities(symbolAllocator.toVariableReferences(decorrelatedBuildSource.getOutputSymbols()))
                         .put(buildSideKnownNonNull, bigint(0))
                         .build());
 
-        Symbol probeSideSymbol = Symbol.from(inPredicate.getValue());
-        Symbol buildSideSymbol = Symbol.from(inPredicate.getValueList());
+        SymbolReference probeSideSymbolReference = Symbol.from(inPredicate.getValue()).toSymbolReference();
+        SymbolReference buildSideSymbolReference = Symbol.from(inPredicate.getValueList()).toSymbolReference();
 
         Expression joinExpression = and(
                 or(
-                        new IsNullPredicate(probeSideSymbol.toSymbolReference()),
-                        new ComparisonExpression(ComparisonExpression.Operator.EQUAL, probeSideSymbol.toSymbolReference(), buildSideSymbol.toSymbolReference()),
-                        new IsNullPredicate(buildSideSymbol.toSymbolReference())),
+                        new IsNullPredicate(probeSideSymbolReference),
+                        new ComparisonExpression(ComparisonExpression.Operator.EQUAL, probeSideSymbolReference, buildSideSymbolReference),
+                        new IsNullPredicate(buildSideSymbolReference)),
                 correlationCondition);
 
         JoinNode leftOuterJoin = leftOuterJoin(idAllocator, probeSide, buildSide, joinExpression);
@@ -199,12 +199,12 @@ public class TransformCorrelatedInPredicateToJoin
         VariableReferenceExpression countNullMatchesVariable = symbolAllocator.newVariable("countNullMatches", BIGINT);
 
         Expression matchCondition = and(
-                isNotNull(probeSideSymbol),
-                isNotNull(buildSideSymbol));
+                new IsNotNullPredicate(probeSideSymbolReference),
+                new IsNotNullPredicate(buildSideSymbolReference));
 
         Expression nullMatchCondition = and(
-                isNotNull(buildSideKnownNonNull),
-                not(matchCondition));
+                new IsNotNullPredicate(new SymbolReference(buildSideKnownNonNull.getName())),
+                new NotExpression(matchCondition));
 
         AggregationNode aggregation = new AggregationNode(
                 idAllocator.getNextId(),
@@ -229,8 +229,8 @@ public class TransformCorrelatedInPredicateToJoin
                 idAllocator.getNextId(),
                 aggregation,
                 Assignments.builder()
-                        .putIdentities(apply.getInput().getOutputSymbols())
-                        .put(inPredicateOutputSymbol, inPredicateEquivalent)
+                        .putIdentities(symbolAllocator.toVariableReferences(apply.getInput().getOutputSymbols()))
+                        .put(inPredicateOutputVariable, inPredicateEquivalent)
                         .build());
     }
 
@@ -269,16 +269,6 @@ public class TransformCorrelatedInPredicateToJoin
                 ComparisonExpression.Operator.GREATER_THAN,
                 new SymbolReference(variable.getName()),
                 bigint(value));
-    }
-
-    private static Expression not(Expression booleanExpression)
-    {
-        return new NotExpression(booleanExpression);
-    }
-
-    private static Expression isNotNull(Symbol symbol)
-    {
-        return new IsNotNullPredicate(symbol.toSymbolReference());
     }
 
     private static Expression bigint(long value)
@@ -331,8 +321,9 @@ public class TransformCorrelatedInPredicateToJoin
                         .flatMap(AstUtils::preOrder)
                         .filter(SymbolReference.class::isInstance)
                         .map(SymbolReference.class::cast)
-                        .filter(symbolReference -> !correlation.contains(new VariableReferenceExpression(symbolReference.getName(), types.get(Symbol.from(symbolReference)))))
-                        .forEach(symbolReference -> assignments.putIdentity(Symbol.from(symbolReference)));
+                        .map(symbolReference -> new VariableReferenceExpression(symbolReference.getName(), types.get(Symbol.from(symbolReference))))
+                        .filter(variable -> !correlation.contains(variable))
+                        .forEach(assignments::putIdentity);
 
                 return new Decorrelated(
                         decorrelated.getCorrelatedPredicates(),

@@ -104,14 +104,14 @@ class PlanBuilder
 
         // add an identity projection for underlying plan
         for (Symbol symbol : getRoot().getOutputSymbols()) {
-            projections.put(symbol, symbol.toSymbolReference());
+            projections.put(symbolAllocator.toVariableReference(symbol), symbol.toSymbolReference());
         }
 
         ImmutableMap.Builder<Symbol, Expression> newTranslations = ImmutableMap.builder();
         for (Expression expression : expressions) {
-            Symbol symbol = symbolAllocator.newSymbol(expression, getAnalysis().getTypeWithCoercions(expression));
-            projections.put(symbol, translations.rewrite(expression));
-            newTranslations.put(symbol, expression);
+            VariableReferenceExpression variable = symbolAllocator.newVariable(expression, getAnalysis().getTypeWithCoercions(expression));
+            projections.put(variable, translations.rewrite(expression));
+            newTranslations.put(new Symbol(variable.getName()), expression);
         }
         // Now append the new translations into the TranslationMap
         for (Map.Entry<Symbol, Expression> entry : newTranslations.build().entrySet()) {

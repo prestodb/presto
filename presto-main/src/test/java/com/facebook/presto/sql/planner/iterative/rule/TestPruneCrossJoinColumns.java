@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -41,7 +42,7 @@ public class TestPruneCrossJoinColumns
     public void testLeftInputNotReferenced()
     {
         tester().assertThat(new PruneCrossJoinColumns())
-                .on(p -> buildProjectedCrossJoin(p, symbol -> symbol.getName().equals("rightValue")))
+                .on(p -> buildProjectedCrossJoin(p, variable -> variable.getName().equals("rightValue")))
                 .matches(
                         strictProject(
                                 ImmutableMap.of("rightValue", PlanMatchPattern.expression("rightValue")),
@@ -60,7 +61,7 @@ public class TestPruneCrossJoinColumns
     public void testRightInputNotReferenced()
     {
         tester().assertThat(new PruneCrossJoinColumns())
-                .on(p -> buildProjectedCrossJoin(p, symbol -> symbol.getName().equals("leftValue")))
+                .on(p -> buildProjectedCrossJoin(p, variable -> variable.getName().equals("leftValue")))
                 .matches(
                         strictProject(
                                 ImmutableMap.of("leftValue", PlanMatchPattern.expression("leftValue")),
@@ -83,11 +84,11 @@ public class TestPruneCrossJoinColumns
                 .doesNotFire();
     }
 
-    private static PlanNode buildProjectedCrossJoin(PlanBuilder p, Predicate<Symbol> projectionFilter)
+    private static PlanNode buildProjectedCrossJoin(PlanBuilder p, Predicate<VariableReferenceExpression> projectionFilter)
     {
-        Symbol leftValue = p.symbol("leftValue");
-        Symbol rightValue = p.symbol("rightValue");
-        List<Symbol> outputs = ImmutableList.of(leftValue, rightValue);
+        VariableReferenceExpression leftValue = p.variable("leftValue");
+        VariableReferenceExpression rightValue = p.variable("rightValue");
+        List<VariableReferenceExpression> outputs = ImmutableList.of(leftValue, rightValue);
         return p.project(
                 Assignments.identity(
                         outputs.stream()
@@ -98,7 +99,7 @@ public class TestPruneCrossJoinColumns
                         p.values(leftValue),
                         p.values(rightValue),
                         ImmutableList.of(),
-                        outputs,
+                        outputs.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()));

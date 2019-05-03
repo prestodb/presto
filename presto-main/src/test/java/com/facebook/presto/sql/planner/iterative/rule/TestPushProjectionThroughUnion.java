@@ -38,7 +38,7 @@ public class TestPushProjectionThroughUnion
         tester().assertThat(new PushProjectionThroughUnion())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("x"), new LongLiteral("3")),
+                                Assignments.of(p.variable("x"), new LongLiteral("3")),
                                 p.values(p.symbol("a"))))
                 .doesNotFire();
     }
@@ -51,9 +51,8 @@ public class TestPushProjectionThroughUnion
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     Symbol c = p.symbol("c");
-                    Symbol cTimes3 = p.symbol("c_times_3");
                     return p.project(
-                            Assignments.of(cTimes3, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, c.toSymbolReference(), new LongLiteral("3"))),
+                            Assignments.of(p.variable("c_times_3"), new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, c.toSymbolReference(), new LongLiteral("3"))),
                             p.union(
                                     ImmutableListMultimap.<VariableReferenceExpression, VariableReferenceExpression>builder()
                                             .put(p.variable(c), p.variable(a))

@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.Streams;
@@ -37,7 +38,7 @@ public class PruneMarkDistinctColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, MarkDistinctNode markDistinctNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, MarkDistinctNode markDistinctNode, Set<Symbol> referencedOutputs)
     {
         if (!referencedOutputs.contains(markDistinctNode.getMarkerSymbol())) {
             return Optional.of(markDistinctNode.getSource());
@@ -50,6 +51,6 @@ public class PruneMarkDistinctColumns
                 markDistinctNode.getHashVariable().map(variable -> Stream.of(new Symbol(variable.getName()))).orElse(Stream.empty()))
                 .collect(toImmutableSet());
 
-        return restrictChildOutputs(idAllocator, markDistinctNode, requiredInputs);
+        return restrictChildOutputs(idAllocator, symbolAllocator, markDistinctNode, requiredInputs);
     }
 }

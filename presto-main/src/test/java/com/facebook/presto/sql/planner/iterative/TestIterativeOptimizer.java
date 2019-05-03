@@ -107,7 +107,7 @@ public class TestIterativeOptimizer
             if (isIdentityProjection(project)) {
                 return Result.ofPlanNode(project.getSource());
             }
-            PlanNode projectNode = new ProjectNode(context.getIdAllocator().getNextId(), project, Assignments.identity(project.getOutputSymbols()));
+            PlanNode projectNode = new ProjectNode(context.getIdAllocator().getNextId(), project, Assignments.identity(project.getOutputVariables()));
             return Result.ofPlanNode(projectNode);
         }
 

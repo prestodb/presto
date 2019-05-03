@@ -45,7 +45,7 @@ public class TestPushProjectionThroughExchange
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("x"), new LongLiteral("3")),
+                                Assignments.of(p.variable("x"), new LongLiteral("3")),
                                 p.values(p.symbol("a"))))
                 .doesNotFire();
     }
@@ -55,19 +55,19 @@ public class TestPushProjectionThroughExchange
     {
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    Symbol c = p.symbol("c");
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression b = p.variable("b");
+                    VariableReferenceExpression c = p.variable("c");
 
                     return p.project(
                             Assignments.builder()
-                                    .put(a, a.toSymbolReference())
-                                    .put(b, b.toSymbolReference())
+                                    .put(a, new SymbolReference(a.getName()))
+                                    .put(b, new SymbolReference(b.getName()))
                                     .build(),
                             p.exchange(e -> e
                                     .addSource(p.values(a, b, c))
-                                    .addInputsSet(p.variable(a), p.variable(b), p.variable(c))
-                                    .singleDistributionPartitioningScheme(p.variable(a), p.variable(b), p.variable(c))));
+                                    .addInputsSet(a, b, c)
+                                    .singleDistributionPartitioningScheme(a, b, c)));
                 })
                 .doesNotFire();
     }
@@ -80,8 +80,8 @@ public class TestPushProjectionThroughExchange
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     Symbol c = p.symbol("c");
-                    Symbol c2 = p.symbol("c2");
-                    Symbol x = p.symbol("x");
+                    VariableReferenceExpression c2 = p.variable("c2");
+                    VariableReferenceExpression x = p.variable("x");
                     return p.project(
                             Assignments.of(
                                     x, new LongLiteral("3"),
@@ -116,9 +116,9 @@ public class TestPushProjectionThroughExchange
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     Symbol h = p.symbol("h");
-                    Symbol aTimes5 = p.symbol("a_times_5");
-                    Symbol bTimes5 = p.symbol("b_times_5");
-                    Symbol hTimes5 = p.symbol("h_times_5");
+                    VariableReferenceExpression aTimes5 = p.variable("a_times_5");
+                    VariableReferenceExpression bTimes5 = p.variable("b_times_5");
+                    VariableReferenceExpression hTimes5 = p.variable("h_times_5");
                     return p.project(
                             Assignments.builder()
                                     .put(aTimes5, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, new SymbolReference("a"), new LongLiteral("5")))
@@ -158,9 +158,9 @@ public class TestPushProjectionThroughExchange
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     Symbol h = p.symbol("h");
-                    Symbol aTimes5 = p.symbol("a_times_5");
-                    Symbol bTimes5 = p.symbol("b_times_5");
-                    Symbol hTimes5 = p.symbol("h_times_5");
+                    VariableReferenceExpression aTimes5 = p.variable("a_times_5");
+                    VariableReferenceExpression bTimes5 = p.variable("b_times_5");
+                    VariableReferenceExpression hTimes5 = p.variable("h_times_5");
                     Symbol sortSymbol = p.symbol("sortSymbol");
                     VariableReferenceExpression sortVariable = p.variable(sortSymbol);
                     OrderingScheme orderingScheme = new OrderingScheme(ImmutableList.of(sortVariable), ImmutableMap.of(sortVariable, SortOrder.ASC_NULLS_FIRST));

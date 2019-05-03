@@ -190,9 +190,9 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     new Symbol(countAllValue.getName()),
                     new Symbol(countNonNullValue.getName()));
 
-            Symbol quantifiedComparisonSymbol = getOnlyElement(node.getSubqueryAssignments().getSymbols());
+            VariableReferenceExpression quantifiedComparisonVariable = getOnlyElement(node.getSubqueryAssignments().getVariables());
 
-            return projectExpressions(lateralJoinNode, Assignments.of(quantifiedComparisonSymbol, valueComparedToSubquery));
+            return projectExpressions(lateralJoinNode, Assignments.of(quantifiedComparisonVariable, valueComparedToSubquery));
         }
 
         public Expression rewriteUsingBounds(QuantifiedComparisonExpression quantifiedComparison, Symbol minValue, Symbol maxValue, Symbol countAllValue, Symbol countNonNullValue)
@@ -268,7 +268,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
         private ProjectNode projectExpressions(PlanNode input, Assignments subqueryAssignments)
         {
             Assignments assignments = Assignments.builder()
-                    .putIdentities(input.getOutputSymbols())
+                    .putIdentities(symbolAllocator.toVariableReferences(input.getOutputSymbols()))
                     .putAll(subqueryAssignments)
                     .build();
             return new ProjectNode(

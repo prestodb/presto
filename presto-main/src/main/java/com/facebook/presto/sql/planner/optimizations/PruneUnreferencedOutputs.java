@@ -541,10 +541,10 @@ public class PruneUnreferencedOutputs
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.builder();
 
             Assignments.Builder builder = Assignments.builder();
-            node.getAssignments().forEach((symbol, expression) -> {
-                if (context.get().contains(symbol)) {
+            node.getAssignments().forEach((variable, expression) -> {
+                if (context.get().contains(new Symbol(variable.getName()))) {
                     expectedInputs.addAll(SymbolsExtractor.extractUnique(expression));
-                    builder.put(symbol, expression);
+                    builder.put(variable, expression);
                 }
             });
 
@@ -808,10 +808,10 @@ public class PruneUnreferencedOutputs
             // extract symbols required subquery plan
             ImmutableSet.Builder<Symbol> subqueryAssignmentsSymbolsBuilder = ImmutableSet.builder();
             Assignments.Builder subqueryAssignments = Assignments.builder();
-            for (Map.Entry<Symbol, Expression> entry : node.getSubqueryAssignments().getMap().entrySet()) {
-                Symbol output = entry.getKey();
+            for (Map.Entry<VariableReferenceExpression, Expression> entry : node.getSubqueryAssignments().getMap().entrySet()) {
+                VariableReferenceExpression output = entry.getKey();
                 Expression expression = entry.getValue();
-                if (context.get().contains(output)) {
+                if (context.get().contains(new Symbol(output.getName()))) {
                     subqueryAssignmentsSymbolsBuilder.addAll(SymbolsExtractor.extractUnique(expression));
                     subqueryAssignments.put(output, expression);
                 }

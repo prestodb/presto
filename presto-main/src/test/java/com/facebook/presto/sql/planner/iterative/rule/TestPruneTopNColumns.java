@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -43,7 +43,7 @@ public class TestPruneTopNColumns
     public void testNotAllInputsReferenced()
     {
         tester().assertThat(new PruneTopNColumns())
-                .on(p -> buildProjectedTopN(p, symbol -> symbol.getName().equals("b")))
+                .on(p -> buildProjectedTopN(p, variable -> variable.getName().equals("b")))
                 .matches(
                         strictProject(
                                 ImmutableMap.of("b", expression("b")),
@@ -59,7 +59,7 @@ public class TestPruneTopNColumns
     public void testAllInputsRereferenced()
     {
         tester().assertThat(new PruneTopNColumns())
-                .on(p -> buildProjectedTopN(p, symbol -> symbol.getName().equals("a")))
+                .on(p -> buildProjectedTopN(p, variable -> variable.getName().equals("a")))
                 .doesNotFire();
     }
 
@@ -71,15 +71,15 @@ public class TestPruneTopNColumns
                 .doesNotFire();
     }
 
-    private ProjectNode buildProjectedTopN(PlanBuilder planBuilder, Predicate<Symbol> projectionTopN)
+    private ProjectNode buildProjectedTopN(PlanBuilder planBuilder, Predicate<VariableReferenceExpression> projectionTopN)
     {
-        Symbol a = planBuilder.symbol("a");
-        Symbol b = planBuilder.symbol("b");
+        VariableReferenceExpression a = planBuilder.variable("a");
+        VariableReferenceExpression b = planBuilder.variable("b");
         return planBuilder.project(
                 Assignments.identity(ImmutableList.of(a, b).stream().filter(projectionTopN).collect(toImmutableSet())),
                 planBuilder.topN(
                         COUNT,
-                        ImmutableList.of(planBuilder.variable(b)),
+                        ImmutableList.of(b),
                         planBuilder.values(a, b)));
     }
 }

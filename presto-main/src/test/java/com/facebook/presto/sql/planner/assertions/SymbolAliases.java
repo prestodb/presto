@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.assertions;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -97,13 +97,13 @@ public final class SymbolAliases
     private Map<String, SymbolReference> getUpdatedAssignments(Assignments assignments)
     {
         ImmutableMap.Builder<String, SymbolReference> mapUpdate = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Expression> assignment : assignments.getMap().entrySet()) {
+        for (Map.Entry<VariableReferenceExpression, Expression> assignment : assignments.getMap().entrySet()) {
             for (Map.Entry<String, SymbolReference> existingAlias : map.entrySet()) {
                 if (assignment.getValue().equals(existingAlias.getValue())) {
                     // Simple symbol rename
-                    mapUpdate.put(existingAlias.getKey(), assignment.getKey().toSymbolReference());
+                    mapUpdate.put(existingAlias.getKey(), new SymbolReference(assignment.getKey().getName()));
                 }
-                else if (assignment.getKey().toSymbolReference().equals(existingAlias.getValue())) {
+                else if (new SymbolReference(assignment.getKey().getName()).equals(existingAlias.getValue())) {
                     /*
                      * Special case for nodes that can alias symbols in the node's assignment map.
                      * In this case, we've already added the alias in the map, but we won't include it

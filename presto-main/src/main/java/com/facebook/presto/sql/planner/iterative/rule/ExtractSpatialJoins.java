@@ -312,15 +312,15 @@ public class ExtractSpatialJoins
         List<Symbol> rightSymbols = rightNode.getOutputSymbols();
 
         Expression radius;
-        Optional<Symbol> newRadiusSymbol;
+        Optional<VariableReferenceExpression> newRadiusVariable;
         ComparisonExpression newComparison;
         if (spatialComparison.getOperator() == LESS_THAN || spatialComparison.getOperator() == LESS_THAN_OR_EQUAL) {
             // ST_Distance(a, b) <= r
             radius = spatialComparison.getRight();
             Set<Symbol> radiusSymbols = extractUnique(radius);
             if (radiusSymbols.isEmpty() || (rightSymbols.containsAll(radiusSymbols) && containsNone(leftSymbols, radiusSymbols))) {
-                newRadiusSymbol = newRadiusSymbol(context, radius);
-                newComparison = new ComparisonExpression(spatialComparison.getOperator(), spatialComparison.getLeft(), toExpression(newRadiusSymbol, radius));
+                newRadiusVariable = newRadiusVariable(context, radius);
+                newComparison = new ComparisonExpression(spatialComparison.getOperator(), spatialComparison.getLeft(), toExpression(newRadiusVariable, radius));
             }
             else {
                 return Result.empty();
@@ -331,8 +331,8 @@ public class ExtractSpatialJoins
             radius = spatialComparison.getLeft();
             Set<Symbol> radiusSymbols = extractUnique(radius);
             if (radiusSymbols.isEmpty() || (rightSymbols.containsAll(radiusSymbols) && containsNone(leftSymbols, radiusSymbols))) {
-                newRadiusSymbol = newRadiusSymbol(context, radius);
-                newComparison = new ComparisonExpression(spatialComparison.getOperator().flip(), spatialComparison.getRight(), toExpression(newRadiusSymbol, radius));
+                newRadiusVariable = newRadiusVariable(context, radius);
+                newComparison = new ComparisonExpression(spatialComparison.getOperator().flip(), spatialComparison.getRight(), toExpression(newRadiusVariable, radius));
             }
             else {
                 return Result.empty();
@@ -340,7 +340,7 @@ public class ExtractSpatialJoins
         }
 
         Expression newFilter = replaceExpression(filter, ImmutableMap.of(spatialComparison, newComparison));
-        PlanNode newRightNode = newRadiusSymbol.map(symbol -> addProjection(context, rightNode, symbol, radius)).orElse(rightNode);
+        PlanNode newRightNode = newRadiusVariable.map(variable -> addProjection(context, rightNode, variable, radius)).orElse(rightNode);
 
         JoinNode newJoinNode = new JoinNode(
                 joinNode.getId(),
@@ -393,8 +393,8 @@ public class ExtractSpatialJoins
             return Result.empty();
         }
 
-        Optional<Symbol> newFirstSymbol = newGeometrySymbol(context, firstArgument, metadata);
-        Optional<Symbol> newSecondSymbol = newGeometrySymbol(context, secondArgument, metadata);
+        Optional<VariableReferenceExpression> newFirstVariable = newGeometryVariable(context, firstArgument, metadata);
+        Optional<VariableReferenceExpression> newSecondVariable = newGeometryVariable(context, secondArgument, metadata);
 
         PlanNode leftNode = joinNode.getLeft();
         PlanNode rightNode = joinNode.getRight();
@@ -405,19 +405,19 @@ public class ExtractSpatialJoins
         // Check if the order of arguments of the spatial function matches the order of join sides
         int alignment = checkAlignment(joinNode, firstSymbols, secondSymbols);
         if (alignment > 0) {
-            newLeftNode = newFirstSymbol.map(symbol -> addProjection(context, leftNode, symbol, firstArgument)).orElse(leftNode);
-            newRightNode = newSecondSymbol.map(symbol -> addProjection(context, rightNode, symbol, secondArgument)).orElse(rightNode);
+            newLeftNode = newFirstVariable.map(variable -> addProjection(context, leftNode, variable, firstArgument)).orElse(leftNode);
+            newRightNode = newSecondVariable.map(variable -> addProjection(context, rightNode, variable, secondArgument)).orElse(rightNode);
         }
         else if (alignment < 0) {
-            newLeftNode = newSecondSymbol.map(symbol -> addProjection(context, leftNode, symbol, secondArgument)).orElse(leftNode);
-            newRightNode = newFirstSymbol.map(symbol -> addProjection(context, rightNode, symbol, firstArgument)).orElse(rightNode);
+            newLeftNode = newSecondVariable.map(variable -> addProjection(context, leftNode, variable, secondArgument)).orElse(leftNode);
+            newRightNode = newFirstVariable.map(variable -> addProjection(context, rightNode, variable, firstArgument)).orElse(rightNode);
         }
         else {
             return Result.empty();
         }
 
-        Expression newFirstArgument = toExpression(newFirstSymbol, firstArgument);
-        Expression newSecondArgument = toExpression(newSecondSymbol, secondArgument);
+        Expression newFirstArgument = toExpression(newFirstVariable, firstArgument);
+        Expression newSecondArgument = toExpression(newSecondVariable, secondArgument);
 
         Optional<VariableReferenceExpression> leftPartitionVariable = Optional.empty();
         Optional<VariableReferenceExpression> rightPartitionVariable = Optional.empty();
@@ -561,37 +561,37 @@ public class ExtractSpatialJoins
         return 0;
     }
 
-    private static Expression toExpression(Optional<Symbol> optionalSymbol, Expression defaultExpression)
+    private static Expression toExpression(Optional<VariableReferenceExpression> optionalVariable, Expression defaultExpression)
     {
-        return optionalSymbol.map(symbol -> (Expression) symbol.toSymbolReference()).orElse(defaultExpression);
+        return optionalVariable.map(variable -> (Expression) new SymbolReference(variable.getName())).orElse(defaultExpression);
     }
 
-    private static Optional<Symbol> newGeometrySymbol(Context context, Expression expression, Metadata metadata)
-    {
-        if (expression instanceof SymbolReference) {
-            return Optional.empty();
-        }
-
-        return Optional.of(context.getSymbolAllocator().newSymbol(expression, metadata.getType(GEOMETRY_TYPE_SIGNATURE)));
-    }
-
-    private static Optional<Symbol> newRadiusSymbol(Context context, Expression expression)
+    private static Optional<VariableReferenceExpression> newGeometryVariable(Context context, Expression expression, Metadata metadata)
     {
         if (expression instanceof SymbolReference) {
             return Optional.empty();
         }
 
-        return Optional.of(context.getSymbolAllocator().newSymbol(expression, DOUBLE));
+        return Optional.of(context.getSymbolAllocator().newVariable(expression, metadata.getType(GEOMETRY_TYPE_SIGNATURE)));
     }
 
-    private static PlanNode addProjection(Context context, PlanNode node, Symbol symbol, Expression expression)
+    private static Optional<VariableReferenceExpression> newRadiusVariable(Context context, Expression expression)
+    {
+        if (expression instanceof SymbolReference) {
+            return Optional.empty();
+        }
+
+        return Optional.of(context.getSymbolAllocator().newVariable(expression, DOUBLE));
+    }
+
+    private static PlanNode addProjection(Context context, PlanNode node, VariableReferenceExpression variable, Expression expression)
     {
         Assignments.Builder projections = Assignments.builder();
         for (Symbol outputSymbol : node.getOutputSymbols()) {
-            projections.putIdentity(outputSymbol);
+            projections.putIdentity(context.getSymbolAllocator().toVariableReference(outputSymbol));
         }
 
-        projections.put(symbol, expression);
+        projections.put(variable, expression);
         return new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build());
     }
 
@@ -599,7 +599,7 @@ public class ExtractSpatialJoins
     {
         Assignments.Builder projections = Assignments.builder();
         for (Symbol outputSymbol : node.getOutputSymbols()) {
-            projections.putIdentity(outputSymbol);
+            projections.putIdentity(context.getSymbolAllocator().toVariableReference(outputSymbol));
         }
 
         ImmutableList.Builder<Expression> partitioningArguments = ImmutableList.<Expression>builder()
@@ -608,14 +608,14 @@ public class ExtractSpatialJoins
         radius.map(partitioningArguments::add);
 
         FunctionCall partitioningFunction = new FunctionCall(QualifiedName.of("spatial_partitions"), partitioningArguments.build());
-        Symbol partitionsSymbol = context.getSymbolAllocator().newSymbol(partitioningFunction, new ArrayType(INTEGER));
-        projections.put(partitionsSymbol, partitioningFunction);
+        VariableReferenceExpression partitionsVariable = context.getSymbolAllocator().newVariable(partitioningFunction, new ArrayType(INTEGER));
+        projections.put(partitionsVariable, partitioningFunction);
 
         return new UnnestNode(
                 context.getIdAllocator().getNextId(),
                 new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build()),
                 node.getOutputSymbols(),
-                ImmutableMap.of(partitionsSymbol, ImmutableList.of(new Symbol(partitionVariable.getName()))),
+                ImmutableMap.of(new Symbol(partitionsVariable.getName()), ImmutableList.of(new Symbol(partitionVariable.getName()))),
                 Optional.empty());
     }
 

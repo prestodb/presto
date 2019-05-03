@@ -102,7 +102,6 @@ import static com.facebook.presto.sql.planner.SymbolsExtractor.extractOutputSymb
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReference;
 import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReferences;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
@@ -518,25 +517,25 @@ public class PlanFragmenter
                     .orElseThrow(() -> new IllegalArgumentException("Unsupported partitioning handle: " + partitioningHandle));
 
             Partitioning partitioning = partitioningScheme.getPartitioning();
-            PartitioningSymbolAssignments partitioningSymbolAssignments = assignPartitioningSymbols(partitioning);
-            Map<Symbol, ColumnMetadata> symbolToColumnMap = assignTemporaryTableColumnNames(exchange.getOutputSymbols(), partitioningSymbolAssignments.getConstants().keySet());
-            List<Symbol> partitioningSymbols = partitioningSymbolAssignments.getSymbols();
-            List<String> partitionColumns = partitioningSymbols.stream()
-                    .map(symbol -> symbolToColumnMap.get(symbol).getName())
+            PartitioningVariableAssignments partitioningVariableAssignments = assignPartitioningVariables(partitioning);
+            Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap = assignTemporaryTableColumnNames(exchange.getOutputVariables(), partitioningVariableAssignments.getConstants().keySet());
+            List<VariableReferenceExpression> partitioningVariables = partitioningVariableAssignments.getVariables();
+            List<String> partitionColumns = partitioningVariables.stream()
+                    .map(variable -> variableToColumnMap.get(variable).getName())
                     .collect(toImmutableList());
             PartitioningMetadata partitioningMetadata = new PartitioningMetadata(partitioningHandle, partitionColumns);
 
             TableHandle temporaryTableHandle = metadata.createTemporaryTable(
                     session,
                     connectorId.getCatalogName(),
-                    ImmutableList.copyOf(symbolToColumnMap.values()),
+                    ImmutableList.copyOf(variableToColumnMap.values()),
                     Optional.of(partitioningMetadata));
 
             TableScanNode scan = createTemporaryTableScan(
                     temporaryTableHandle,
                     exchange.getOutputSymbols(),
                     exchange.getOutputVariables(),
-                    symbolToColumnMap,
+                    variableToColumnMap,
                     partitioningMetadata);
 
             checkArgument(
@@ -544,11 +543,11 @@ public class PlanFragmenter
                     "materialized remote exchange is not supported when replicateNullsAndAny is needed");
             TableFinishNode write = createTemporaryTableWrite(
                     temporaryTableHandle,
-                    symbolToColumnMap,
-                    exchange.getOutputSymbols(),
-                    exchange.getInputsAsSymbols(),
+                    variableToColumnMap,
+                    exchange.getOutputVariables(),
+                    exchange.getInputs(),
                     exchange.getSources(),
-                    partitioningSymbolAssignments.getConstants(),
+                    partitioningVariableAssignments.getConstants(),
                     partitioningMetadata);
 
             FragmentProperties writeProperties = new FragmentProperties(new PartitioningScheme(
@@ -562,33 +561,33 @@ public class PlanFragmenter
             return visitTableScan(scan, context);
         }
 
-        private PartitioningSymbolAssignments assignPartitioningSymbols(Partitioning partitioning)
+        private PartitioningVariableAssignments assignPartitioningVariables(Partitioning partitioning)
         {
-            ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
-            ImmutableMap.Builder<Symbol, Expression> constants = ImmutableMap.builder();
+            ImmutableList.Builder<VariableReferenceExpression> variables = ImmutableList.builder();
+            ImmutableMap.Builder<VariableReferenceExpression, Expression> constants = ImmutableMap.builder();
             for (ArgumentBinding argumentBinding : partitioning.getArguments()) {
-                Symbol symbol;
+                VariableReferenceExpression variable;
                 if (argumentBinding.isConstant()) {
                     ConstantExpression constant = argumentBinding.getConstant();
                     Expression expression = literalEncoder.toExpression(constant.getValue(), constant.getType());
-                    symbol = symbolAllocator.newSymbol(expression, constant.getType());
-                    constants.put(symbol, expression);
+                    variable = symbolAllocator.newVariable(expression, constant.getType());
+                    constants.put(variable, expression);
                 }
                 else {
-                    symbol = argumentBinding.getColumn();
+                    variable = argumentBinding.getVariableReference();
                 }
-                symbols.add(symbol);
+                variables.add(variable);
             }
-            return new PartitioningSymbolAssignments(symbols.build(), constants.build());
+            return new PartitioningVariableAssignments(variables.build(), constants.build());
         }
 
-        private Map<Symbol, ColumnMetadata> assignTemporaryTableColumnNames(Collection<Symbol> outputSymbols, Collection<Symbol> constantPartitioningSymbols)
+        private Map<VariableReferenceExpression, ColumnMetadata> assignTemporaryTableColumnNames(Collection<VariableReferenceExpression> outputVariables, Collection<VariableReferenceExpression> constantPartitioningVariables)
         {
-            ImmutableMap.Builder<Symbol, ColumnMetadata> result = ImmutableMap.builder();
+            ImmutableMap.Builder<VariableReferenceExpression, ColumnMetadata> result = ImmutableMap.builder();
             int column = 0;
-            for (Symbol outputSymbol : concat(outputSymbols, constantPartitioningSymbols)) {
-                String columnName = format("_c%d_%s", column, outputSymbol.getName());
-                result.put(outputSymbol, new ColumnMetadata(columnName, symbolAllocator.getTypes().get(outputSymbol)));
+            for (VariableReferenceExpression outputVariable : concat(outputVariables, constantPartitioningVariables)) {
+                String columnName = format("_c%d_%s", column, outputVariable.getName());
+                result.put(outputVariable, new ColumnMetadata(columnName, outputVariable.getType()));
                 column++;
             }
             return result.build();
@@ -598,12 +597,12 @@ public class PlanFragmenter
                 TableHandle tableHandle,
                 List<Symbol> outputSymbols,
                 List<VariableReferenceExpression> outputVariables,
-                Map<Symbol, ColumnMetadata> symbolToColumnMap,
+                Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap,
                 PartitioningMetadata expectedPartitioningMetadata)
         {
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
             Map<VariableReferenceExpression, ColumnMetadata> outputColumns = outputVariables.stream()
-                    .collect(toImmutableMap(identity(), variable -> symbolToColumnMap.get(new Symbol(variable.getName()))));
+                    .collect(toImmutableMap(identity(), variableToColumnMap::get));
             Set<ColumnHandle> outputColumnHandles = outputColumns.values().stream()
                     .map(ColumnMetadata::getName)
                     .map(columnHandles::get)
@@ -620,7 +619,7 @@ public class PlanFragmenter
             verify(selectedLayout.getLayout().getTablePartitioning().equals(Optional.of(expectedPartitioning)), "invalid temporary table partitioning");
 
             Map<VariableReferenceExpression, ColumnHandle> assignments = outputVariables.stream()
-                    .collect(toImmutableMap(identity(), symbol -> columnHandles.get(outputColumns.get(symbol).getName())));
+                    .collect(toImmutableMap(identity(), variable -> columnHandles.get(outputColumns.get(variable).getName())));
 
             return new TableScanNode(
                     idAllocator.getNextId(),
@@ -635,27 +634,27 @@ public class PlanFragmenter
 
         private TableFinishNode createTemporaryTableWrite(
                 TableHandle tableHandle,
-                Map<Symbol, ColumnMetadata> symbolToColumnMap,
-                List<Symbol> outputs,
-                List<List<Symbol>> inputs,
+                Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap,
+                List<VariableReferenceExpression> outputs,
+                List<List<VariableReferenceExpression>> inputs,
                 List<PlanNode> sources,
-                Map<Symbol, Expression> constantExpressions,
+                Map<VariableReferenceExpression, Expression> constantExpressions,
                 PartitioningMetadata partitioningMetadata)
         {
             if (!constantExpressions.isEmpty()) {
-                List<Symbol> constantSymbols = ImmutableList.copyOf(constantExpressions.keySet());
+                List<VariableReferenceExpression> constantVariables = ImmutableList.copyOf(constantExpressions.keySet());
 
                 // update outputs
-                outputs = ImmutableList.<Symbol>builder()
+                outputs = ImmutableList.<VariableReferenceExpression>builder()
                         .addAll(outputs)
-                        .addAll(constantSymbols)
+                        .addAll(constantVariables)
                         .build();
 
                 // update inputs
                 inputs = inputs.stream()
-                        .map(input -> ImmutableList.<Symbol>builder()
+                        .map(input -> ImmutableList.<VariableReferenceExpression>builder()
                                 .addAll(input)
-                                .addAll(constantSymbols)
+                                .addAll(constantVariables)
                                 .build())
                         .collect(toImmutableList());
 
@@ -663,8 +662,8 @@ public class PlanFragmenter
                 sources = sources.stream()
                         .map(source -> {
                             Assignments.Builder assignments = Assignments.builder();
-                            assignments.putIdentities(source.getOutputSymbols());
-                            constantSymbols.forEach(symbol -> assignments.put(symbol, constantExpressions.get(symbol)));
+                            assignments.putIdentities(source.getOutputVariables());
+                            constantVariables.forEach(variable -> assignments.put(variable, constantExpressions.get(variable)));
                             return new ProjectNode(idAllocator.getNextId(), source, assignments.build());
                         })
                         .collect(toImmutableList());
@@ -679,16 +678,15 @@ public class PlanFragmenter
             ConnectorNewTableLayout expectedNewTableLayout = new ConnectorNewTableLayout(partitioningHandle.getConnectorHandle(), partitionColumns);
             verify(insertLayout.getLayout().equals(expectedNewTableLayout), "unexpected new table layout");
 
-            Map<String, Symbol> columnNameToSymbol = symbolToColumnMap.entrySet().stream()
+            Map<String, VariableReferenceExpression> columnNameToVariable = variableToColumnMap.entrySet().stream()
                     .collect(toImmutableMap(entry -> entry.getValue().getName(), Map.Entry::getKey));
-            List<VariableReferenceExpression> partitioningSymbols = partitionColumns.stream()
-                    .map(columnNameToSymbol::get)
-                    .map(symbol -> toVariableReference(symbol, symbolAllocator.getTypes()))
+            List<VariableReferenceExpression> partitioningVariables = partitionColumns.stream()
+                    .map(columnNameToVariable::get)
                     .collect(toImmutableList());
 
             InsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle);
             List<String> outputColumnNames = outputs.stream()
-                    .map(symbolToColumnMap::get)
+                    .map(variableToColumnMap::get)
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableList());
 
@@ -713,24 +711,24 @@ public class PlanFragmenter
                                                             REPARTITION,
                                                             REMOTE_STREAMING,
                                                             new PartitioningScheme(
-                                                                    Partitioning.create(partitioningHandle, partitioningSymbols),
-                                                                    toVariableReferences(outputs, symbolAllocator.getTypes()),
+                                                                    Partitioning.create(partitioningHandle, partitioningVariables),
+                                                                    outputs,
                                                                     Optional.empty(),
                                                                     false,
                                                                     Optional.empty()),
                                                             sources,
-                                                            inputs.stream().map(input -> toVariableReferences(input, symbolAllocator.getTypes())).collect(toImmutableList()),
+                                                            inputs,
                                                             Optional.empty()),
                                                     symbolAllocator.getTypes()),
                                             insertHandle,
                                             symbolAllocator.newVariable("partialrows", BIGINT),
                                             symbolAllocator.newVariable("fragment", VARBINARY),
                                             symbolAllocator.newVariable("tablecommitcontext", VARBINARY),
-                                            outputs,
+                                            outputs.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()),
                                             outputColumnNames,
                                             Optional.of(new PartitioningScheme(
-                                                    Partitioning.create(partitioningHandle, partitioningSymbols),
-                                                    toVariableReferences(outputs, symbolAllocator.getTypes()),
+                                                    Partitioning.create(partitioningHandle, partitioningVariables),
+                                                    outputs,
                                                     Optional.empty(),
                                                     false,
                                                     Optional.empty())),
@@ -1224,26 +1222,26 @@ public class PlanFragmenter
         }
     }
 
-    private static class PartitioningSymbolAssignments
+    private static class PartitioningVariableAssignments
     {
-        private final List<Symbol> symbols;
-        private final Map<Symbol, Expression> constants;
+        private final List<VariableReferenceExpression> variables;
+        private final Map<VariableReferenceExpression, Expression> constants;
 
-        private PartitioningSymbolAssignments(List<Symbol> symbols, Map<Symbol, Expression> constants)
+        private PartitioningVariableAssignments(List<VariableReferenceExpression> variables, Map<VariableReferenceExpression, Expression> constants)
         {
-            this.symbols = ImmutableList.copyOf(requireNonNull(symbols, "symbols is null"));
+            this.variables = ImmutableList.copyOf(requireNonNull(variables, "variables is null"));
             this.constants = ImmutableMap.copyOf(requireNonNull(constants, "constants is null"));
             checkArgument(
-                    ImmutableSet.copyOf(symbols).containsAll(constants.keySet()),
-                    "partitioningSymbols list must contain all partitioning symbols including constants");
+                    ImmutableSet.copyOf(variables).containsAll(constants.keySet()),
+                    "partitioningVariables list must contain all partitioning variables including constants");
         }
 
-        public List<Symbol> getSymbols()
+        public List<VariableReferenceExpression> getVariables()
         {
-            return symbols;
+            return variables;
         }
 
-        public Map<Symbol, Expression> getConstants()
+        public Map<VariableReferenceExpression, Expression> getConstants()
         {
             return constants;
         }

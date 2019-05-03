@@ -342,15 +342,15 @@ class QueryPlanner
         Assignments.Builder projections = Assignments.builder();
         for (Expression expression : expressions) {
             if (expression instanceof SymbolReference) {
-                Symbol symbol = Symbol.from(expression);
-                projections.put(symbol, expression);
-                outputTranslations.put(expression, symbol);
+                VariableReferenceExpression variable = symbolAllocator.toVariableReference(Symbol.from(expression));
+                projections.put(variable, expression);
+                outputTranslations.put(expression, new Symbol(variable.getName()));
                 continue;
             }
 
-            Symbol symbol = symbolAllocator.newSymbol(expression, analysis.getTypeWithCoercions(expression));
-            projections.put(symbol, subPlan.rewrite(expression));
-            outputTranslations.put(expression, symbol);
+            VariableReferenceExpression variable = symbolAllocator.newVariable(expression, analysis.getTypeWithCoercions(expression));
+            projections.put(variable, subPlan.rewrite(expression));
+            outputTranslations.put(expression, new Symbol(variable.getName()));
         }
 
         return new PlanBuilder(outputTranslations, new ProjectNode(
@@ -360,14 +360,14 @@ class QueryPlanner
                 analysis.getParameters());
     }
 
-    private Map<Symbol, Expression> coerce(Iterable<? extends Expression> expressions, PlanBuilder subPlan, TranslationMap translations)
+    private Map<VariableReferenceExpression, Expression> coerce(Iterable<? extends Expression> expressions, PlanBuilder subPlan, TranslationMap translations)
     {
-        ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, Expression> projections = ImmutableMap.builder();
 
         for (Expression expression : expressions) {
             Type type = analysis.getType(expression);
             Type coercion = analysis.getCoercion(expression);
-            Symbol symbol = symbolAllocator.newSymbol(expression, firstNonNull(coercion, type));
+            VariableReferenceExpression variable = symbolAllocator.newVariable(expression, firstNonNull(coercion, type));
             Expression rewritten = subPlan.rewrite(expression);
             if (coercion != null) {
                 rewritten = new Cast(
@@ -376,8 +376,8 @@ class QueryPlanner
                         false,
                         metadata.getTypeManager().isTypeOnlyCoercion(type, coercion));
             }
-            projections.put(symbol, rewritten);
-            translations.put(expression, symbol);
+            projections.put(variable, rewritten);
+            translations.put(expression, new Symbol(variable.getName()));
         }
 
         return projections.build();
@@ -395,14 +395,14 @@ class QueryPlanner
                 // If this is an identity projection, no need to rewrite it
                 // This is needed because certain synthetic identity expressions such as "group id" introduced when planning GROUPING
                 // don't have a corresponding analysis, so the code below doesn't work for them
-                projections.put(Symbol.from(expression), expression);
+                projections.put(symbolAllocator.toVariableReference(Symbol.from(expression)), expression);
                 continue;
             }
 
-            Symbol symbol = symbolAllocator.newSymbol(expression, analysis.getType(expression));
+            VariableReferenceExpression variable = symbolAllocator.newVariable(expression, analysis.getType(expression));
             Expression rewritten = subPlan.rewrite(expression);
-            projections.put(symbol, rewritten);
-            translations.put(expression, symbol);
+            projections.put(variable, rewritten);
+            translations.put(expression, new Symbol(variable.getName()));
         }
 
         return new PlanBuilder(translations, new ProjectNode(
@@ -412,13 +412,13 @@ class QueryPlanner
                 analysis.getParameters());
     }
 
-    private PlanBuilder explicitCoercionSymbols(PlanBuilder subPlan, Iterable<Symbol> alreadyCoerced, Iterable<? extends Expression> uncoerced)
+    private PlanBuilder explicitCoercionSymbols(PlanBuilder subPlan, List<Symbol> alreadyCoerced, Iterable<? extends Expression> uncoerced)
     {
         TranslationMap translations = subPlan.copyTranslations();
 
         Assignments assignments = Assignments.builder()
                 .putAll(coerce(uncoerced, subPlan, translations))
-                .putIdentities(alreadyCoerced)
+                .putIdentities(symbolAllocator.toVariableReferences(alreadyCoerced))
                 .build();
 
         return new PlanBuilder(translations, new ProjectNode(
@@ -542,8 +542,8 @@ class QueryPlanner
         }
         else {
             Assignments.Builder assignments = Assignments.builder();
-            aggregationArguments.forEach(variable -> assignments.putIdentity(new Symbol(variable.getName())));
-            groupingSetMappings.forEach((key, value) -> assignments.put(new Symbol(key.getName()), new SymbolReference(value.getName())));
+            aggregationArguments.forEach(assignments::putIdentity);
+            groupingSetMappings.forEach((key, value) -> assignments.put(key, new SymbolReference(value.getName())));
 
             ProjectNode project = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build());
             subPlan = new PlanBuilder(groupingTranslations, project, analysis.getParameters());
@@ -679,7 +679,7 @@ class QueryPlanner
         TranslationMap newTranslations = subPlan.copyTranslations();
 
         Assignments.Builder projections = Assignments.builder();
-        projections.putIdentities(subPlan.getRoot().getOutputSymbols());
+        projections.putIdentities(symbolAllocator.toVariableReferences(subPlan.getRoot().getOutputSymbols()));
 
         List<Set<Integer>> descriptor = groupingSets.stream()
                 .map(set -> set.stream()
@@ -690,7 +690,7 @@ class QueryPlanner
         for (GroupingOperation groupingOperation : analysis.getGroupingOperations(node)) {
             Expression rewritten = GroupingOperationRewriter.rewriteGroupingOperation(groupingOperation, descriptor, analysis.getColumnReferenceFields(), groupIdVariable);
             Type coercion = analysis.getCoercion(groupingOperation);
-            Symbol symbol = symbolAllocator.newSymbol(rewritten, analysis.getTypeWithCoercions(groupingOperation));
+            VariableReferenceExpression variable = symbolAllocator.newVariable(rewritten, analysis.getTypeWithCoercions(groupingOperation));
             if (coercion != null) {
                 rewritten = new Cast(
                         rewritten,
@@ -698,8 +698,8 @@ class QueryPlanner
                         false,
                         metadata.getTypeManager().isTypeOnlyCoercion(analysis.getType(groupingOperation), coercion));
             }
-            projections.put(symbol, rewritten);
-            newTranslations.put(groupingOperation, symbol);
+            projections.put(variable, rewritten);
+            newTranslations.put(groupingOperation, new Symbol(variable.getName()));
         }
 
         return new PlanBuilder(newTranslations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build()), analysis.getParameters());

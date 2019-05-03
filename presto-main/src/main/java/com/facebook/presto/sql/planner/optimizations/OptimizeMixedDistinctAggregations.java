@@ -203,23 +203,18 @@ public class OptimizeMixedDistinctAggregations
                 return aggregationNode;
             }
 
-            Assignments.Builder outputSymbols = Assignments.builder();
-            for (Symbol symbol : aggregationNode.getOutputSymbols()) {
-                if (coalesceVariables.keySet().stream().anyMatch(variable -> variable.getName().equals(symbol.getName()))) {
-                    Expression expression = new CoalesceExpression(symbol.toSymbolReference(), new Cast(new LongLiteral("0"), "bigint"));
-                    outputSymbols.put(new Symbol(coalesceVariables.entrySet().stream()
-                            .filter(entry -> entry.getKey().getName().equals(symbol.getName()))
-                            .collect(toImmutableList())
-                            .get(0)
-                            .getValue()
-                            .getName()), expression);
+            Assignments.Builder outputVariables = Assignments.builder();
+            for (VariableReferenceExpression variable : aggregationNode.getOutputVariables()) {
+                if (coalesceVariables.containsKey(variable)) {
+                    Expression expression = new CoalesceExpression(new SymbolReference(variable.getName()), new Cast(new LongLiteral("0"), "bigint"));
+                    outputVariables.put(coalesceVariables.get(variable), expression);
                 }
                 else {
-                    outputSymbols.putIdentity(symbol);
+                    outputVariables.putIdentity(variable);
                 }
             }
 
-            return new ProjectNode(idAllocator.getNextId(), aggregationNode, outputSymbols.build());
+            return new ProjectNode(idAllocator.getNextId(), aggregationNode, outputVariables.build());
         }
 
         @Override
@@ -328,7 +323,7 @@ public class OptimizeMixedDistinctAggregations
                 List<VariableReferenceExpression> groupByVariables,
                 Map<VariableReferenceExpression, VariableReferenceExpression> aggregationOutputVariablesMap)
         {
-            Assignments.Builder outputSymbols = Assignments.builder();
+            Assignments.Builder outputVariables = Assignments.builder();
             ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> outputNonDistinctAggregateVariables = ImmutableMap.builder();
             for (VariableReferenceExpression variable : source.getOutputVariables()) {
                 if (distinctVariable.equals(variable)) {
@@ -341,7 +336,7 @@ public class OptimizeMixedDistinctAggregations
                             ComparisonExpression.Operator.EQUAL,
                             new SymbolReference(variable.getName()),
                             variable.getType());
-                    outputSymbols.put(new Symbol(newVariable.getName()), expression);
+                    outputVariables.put(newVariable, expression);
                 }
                 else if (aggregationOutputVariablesMap.containsKey(variable)) {
                     VariableReferenceExpression newVariable = symbolAllocator.newVariable("expr", variable.getType());
@@ -353,23 +348,23 @@ public class OptimizeMixedDistinctAggregations
                             ComparisonExpression.Operator.EQUAL,
                             new SymbolReference(variable.getName()),
                             variable.getType());
-                    outputSymbols.put(new Symbol(newVariable.getName()), expression);
+                    outputVariables.put(newVariable, expression);
                 }
 
                 // A symbol can appear both in groupBy and distinct/non-distinct aggregation
                 if (groupByVariables.contains(variable)) {
                     Expression expression = new SymbolReference(variable.getName());
-                    outputSymbols.put(new Symbol(variable.getName()), expression);
+                    outputVariables.put(variable, expression);
                 }
             }
 
             // add null assignment for mask
             // unused mask will be removed by PruneUnreferencedOutputs
-            outputSymbols.put(new Symbol(aggregateInfo.getMask().getName()), new NullLiteral());
+            outputVariables.put(aggregateInfo.getMask(), new NullLiteral());
 
             aggregateInfo.setNewNonDistinctAggregateSymbols(outputNonDistinctAggregateVariables.build());
 
-            return new ProjectNode(idAllocator.getNextId(), source, outputSymbols.build());
+            return new ProjectNode(idAllocator.getNextId(), source, outputVariables.build());
         }
 
         private GroupIdNode createGroupIdNode(

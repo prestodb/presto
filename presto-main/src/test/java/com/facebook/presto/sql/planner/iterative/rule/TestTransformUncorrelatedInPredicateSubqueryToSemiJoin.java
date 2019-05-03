@@ -46,7 +46,7 @@ public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
     {
         tester().assertThat(new TransformUncorrelatedInPredicateSubqueryToSemiJoin())
                 .on(p -> p.apply(
-                        Assignments.of(p.symbol("x"), new ExistsPredicate(new LongLiteral("1"))),
+                        Assignments.of(p.variable("x"), new ExistsPredicate(new LongLiteral("1"))),
                         emptyList(),
                         p.values(),
                         p.values()))
@@ -59,7 +59,7 @@ public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
         tester().assertThat(new TransformUncorrelatedInPredicateSubqueryToSemiJoin())
                 .on(p -> p.apply(
                         Assignments.of(
-                                p.symbol("x"),
+                                p.variable("x"),
                                 new InPredicate(
                                         new SymbolReference("y"),
                                         new SymbolReference("z"))),

@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.google.common.collect.Streams;
@@ -36,13 +37,13 @@ public class PruneTopNColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, TopNNode topNNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, TopNNode topNNode, Set<Symbol> referencedOutputs)
     {
         Set<Symbol> prunedTopNInputs = Streams.concat(
                 referencedOutputs.stream(),
                 topNNode.getOrderingScheme().getOrderBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new))
                 .collect(toImmutableSet());
 
-        return restrictChildOutputs(idAllocator, topNNode, prunedTopNInputs);
+        return restrictChildOutputs(idAllocator, symbolAllocator, topNNode, prunedTopNInputs);
     }
 }

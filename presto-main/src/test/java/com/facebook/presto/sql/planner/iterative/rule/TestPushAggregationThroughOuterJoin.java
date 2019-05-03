@@ -205,7 +205,7 @@ public class TestPushAggregationThroughOuterJoin
                                 p.join(
                                         JoinNode.Type.LEFT,
                                         p.project(Assignments.builder()
-                                                        .putIdentity(p.symbol("COL1", BIGINT))
+                                                        .putIdentity(p.variable("COL1", BIGINT))
                                                         .build(),
                                                 p.aggregation(builder ->
                                                         builder.singleGroupingSet(p.variable("COL1"), p.variable("unused"))

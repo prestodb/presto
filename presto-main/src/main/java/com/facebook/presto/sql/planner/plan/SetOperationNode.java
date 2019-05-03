@@ -138,6 +138,7 @@ public abstract class SetOperationNode
     /**
      * Returns the output to input symbol mapping for the given source channel
      */
+    @Deprecated
     public Map<Symbol, Symbol> sourceSymbolMap(int sourceIndex)
     {
         ImmutableMap.Builder<Symbol, Symbol> builder = ImmutableMap.builder();
@@ -148,6 +149,18 @@ public abstract class SetOperationNode
         return builder.build();
     }
 
+    /**
+     * Returns the output to input symbol mapping for the given source channel
+     */
+    public Map<VariableReferenceExpression, VariableReferenceExpression> sourceVariableMap(int sourceIndex)
+    {
+        ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> builder = ImmutableMap.builder();
+        for (Map.Entry<VariableReferenceExpression, Collection<VariableReferenceExpression>> entry : outputToInputs.asMap().entrySet()) {
+            builder.put(entry.getKey(), Iterables.get(entry.getValue(), sourceIndex));
+        }
+
+        return builder.build();
+    }
     /**
      * Returns the input to output symbol mapping for the given source channel.
      * A single input symbol can map to multiple output symbols, thus requiring a Multimap.

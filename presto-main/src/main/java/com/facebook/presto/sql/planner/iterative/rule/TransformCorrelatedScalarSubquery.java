@@ -155,6 +155,6 @@ public class TransformCorrelatedScalarSubquery
         return Result.ofPlanNode(new ProjectNode(
                 context.getIdAllocator().getNextId(),
                 filterNode,
-                Assignments.identity(lateralJoinNode.getOutputSymbols())));
+                Assignments.identity(context.getSymbolAllocator().toVariableReferences(lateralJoinNode.getOutputSymbols()))));
     }
 }

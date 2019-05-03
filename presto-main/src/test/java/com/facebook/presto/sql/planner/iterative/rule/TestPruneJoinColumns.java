@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -42,7 +43,7 @@ public class TestPruneJoinColumns
     public void testNotAllOutputsReferenced()
     {
         tester().assertThat(new PruneJoinColumns())
-                .on(p -> buildProjectedJoin(p, symbol -> symbol.getName().equals("rightValue")))
+                .on(p -> buildProjectedJoin(p, variable -> variable.getName().equals("rightValue")))
                 .matches(
                         strictProject(
                                 ImmutableMap.of("rightValue", PlanMatchPattern.expression("rightValue")),
@@ -85,13 +86,13 @@ public class TestPruneJoinColumns
                 .doesNotFire();
     }
 
-    private static PlanNode buildProjectedJoin(PlanBuilder p, Predicate<Symbol> projectionFilter)
+    private static PlanNode buildProjectedJoin(PlanBuilder p, Predicate<VariableReferenceExpression> projectionFilter)
     {
-        Symbol leftKey = p.symbol("leftKey");
-        Symbol leftValue = p.symbol("leftValue");
-        Symbol rightKey = p.symbol("rightKey");
-        Symbol rightValue = p.symbol("rightValue");
-        List<Symbol> outputs = ImmutableList.of(leftKey, leftValue, rightKey, rightValue);
+        VariableReferenceExpression leftKey = p.variable("leftKey");
+        VariableReferenceExpression leftValue = p.variable("leftValue");
+        VariableReferenceExpression rightKey = p.variable("rightKey");
+        VariableReferenceExpression rightValue = p.variable("rightValue");
+        List<VariableReferenceExpression> outputs = ImmutableList.of(leftKey, leftValue, rightKey, rightValue);
         return p.project(
                 Assignments.identity(
                         outputs.stream()
@@ -101,8 +102,8 @@ public class TestPruneJoinColumns
                         JoinNode.Type.INNER,
                         p.values(leftKey, leftValue),
                         p.values(rightKey, rightValue),
-                        ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(leftKey), p.variable(rightKey))),
-                        outputs,
+                        ImmutableList.of(new JoinNode.EquiJoinClause(leftKey, rightKey)),
+                        outputs.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()));

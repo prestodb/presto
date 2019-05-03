@@ -611,8 +611,9 @@ public class HashGenerationOptimizer
         @Override
         public PlanWithProperties visitProject(ProjectNode node, HashComputationSet parentPreference)
         {
-            Map<Symbol, Symbol> outputToInputMapping = computeIdentityTranslations(node.getAssignments().getMap());
-            HashComputationSet sourceContext = parentPreference.translate(symbol -> Optional.ofNullable(outputToInputMapping.get(symbol)));
+            Map<VariableReferenceExpression, VariableReferenceExpression> outputToInputMapping = computeIdentityTranslations(node.getAssignments().getMap());
+            Map<Symbol, Symbol> outputToInputSymbolMapping = outputToInputMapping.entrySet().stream().collect(toImmutableMap(entry -> new Symbol(entry.getKey().getName()), entry -> new Symbol(entry.getValue().getName())));
+            HashComputationSet sourceContext = parentPreference.translate(symbol -> Optional.ofNullable(outputToInputSymbolMapping.get(symbol)));
             PlanWithProperties child = plan(node.getSource(), sourceContext);
 
             // create a new project node with all assignments from the original node
@@ -631,7 +632,7 @@ public class HashGenerationOptimizer
                 else {
                     hashExpression = (new Symbol(hashVariable.getName())).toSymbolReference();
                 }
-                newAssignments.put(new Symbol(hashVariable.getName()), hashExpression);
+                newAssignments.put(hashVariable, hashExpression);
                 allHashVariables.put(hashComputation, hashVariable);
             }
 
@@ -731,7 +732,7 @@ public class HashGenerationOptimizer
             for (Symbol symbol : planWithProperties.getNode().getOutputSymbols()) {
                 HashComputation partitionSymbols = resultHashSymbols.get(symbol);
                 if (partitionSymbols == null || requiredHashes.getHashes().contains(partitionSymbols)) {
-                    assignments.put(symbol, symbol.toSymbolReference());
+                    assignments.put(symbolAllocator.toVariableReference(symbol), symbol.toSymbolReference());
 
                     if (partitionSymbols != null) {
                         outputHashVariables.put(partitionSymbols, planWithProperties.getHashVariables().get(partitionSymbols));
@@ -744,8 +745,7 @@ public class HashGenerationOptimizer
                 if (!planWithProperties.getHashVariables().containsKey(hashComputation)) {
                     Expression hashExpression = hashComputation.getHashExpression();
                     VariableReferenceExpression hashVariable = symbolAllocator.newHashVariable();
-                    Symbol hashSymbol = new Symbol(hashVariable.getName());
-                    assignments.put(hashSymbol, hashExpression);
+                    assignments.put(hashVariable, hashExpression);
                     outputHashVariables.put(hashComputation, hashVariable);
                 }
             }
@@ -979,12 +979,12 @@ public class HashGenerationOptimizer
         }
     }
 
-    private static Map<Symbol, Symbol> computeIdentityTranslations(Map<Symbol, Expression> assignments)
+    private static Map<VariableReferenceExpression, VariableReferenceExpression> computeIdentityTranslations(Map<VariableReferenceExpression, Expression> assignments)
     {
-        Map<Symbol, Symbol> outputToInput = new HashMap<>();
-        for (Map.Entry<Symbol, Expression> assignment : assignments.entrySet()) {
+        Map<VariableReferenceExpression, VariableReferenceExpression> outputToInput = new HashMap<>();
+        for (Map.Entry<VariableReferenceExpression, Expression> assignment : assignments.entrySet()) {
             if (assignment.getValue() instanceof SymbolReference) {
-                outputToInput.put(assignment.getKey(), Symbol.from(assignment.getValue()));
+                outputToInput.put(assignment.getKey(), new VariableReferenceExpression(((SymbolReference) assignment.getValue()).getName(), assignment.getKey().getType()));
             }
         }
         return outputToInput;

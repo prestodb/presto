@@ -74,9 +74,21 @@ public class EffectivePredicateExtractor
     private static final Predicate<Map.Entry<Symbol, ? extends Expression>> SYMBOL_MATCHES_EXPRESSION =
             entry -> entry.getValue().equals(entry.getKey().toSymbolReference());
 
-    private static final Function<Map.Entry<Symbol, ? extends Expression>, Expression> ENTRY_TO_EQUALITY =
+    private static final Function<Map.Entry<Symbol, ? extends Expression>, Expression> SYMBOL_ENTRY_TO_EQUALITY =
             entry -> {
                 SymbolReference reference = entry.getKey().toSymbolReference();
+                Expression expression = entry.getValue();
+                // TODO: this is not correct with respect to NULLs ('reference IS NULL' would be correct, rather than 'reference = NULL')
+                // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
+                return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, reference, expression);
+            };
+
+    private static final Predicate<Map.Entry<VariableReferenceExpression, ? extends Expression>> VARIABLE_MATCHES_EXPRESSION =
+            entry -> entry.getValue().equals(new SymbolReference(entry.getKey().getName()));
+
+    private static final Function<Map.Entry<VariableReferenceExpression, ? extends Expression>, Expression> VARIABLE_ENTRY_TO_EQUALITY =
+            entry -> {
+                SymbolReference reference = new SymbolReference(entry.getKey().getName());
                 Expression expression = entry.getValue();
                 // TODO: this is not correct with respect to NULLs ('reference IS NULL' would be correct, rather than 'reference = NULL')
                 // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
@@ -163,8 +175,8 @@ public class EffectivePredicateExtractor
             Expression underlyingPredicate = node.getSource().accept(this, context);
 
             List<Expression> projectionEqualities = node.getAssignments().entrySet().stream()
-                    .filter(SYMBOL_MATCHES_EXPRESSION.negate())
-                    .map(ENTRY_TO_EQUALITY)
+                    .filter(VARIABLE_MATCHES_EXPRESSION.negate())
+                    .map(VARIABLE_ENTRY_TO_EQUALITY)
                     .collect(toImmutableList());
 
             return pullExpressionThroughSymbols(combineConjuncts(
@@ -313,7 +325,7 @@ public class EffectivePredicateExtractor
 
                 List<Expression> equalities = mapping.apply(i).stream()
                         .filter(SYMBOL_MATCHES_EXPRESSION.negate())
-                        .map(ENTRY_TO_EQUALITY)
+                        .map(SYMBOL_ENTRY_TO_EQUALITY)
                         .collect(toImmutableList());
 
                 sourceOutputConjuncts.add(ImmutableSet.copyOf(extractConjuncts(pullExpressionThroughSymbols(combineConjuncts(
@@ -333,13 +345,6 @@ public class EffectivePredicateExtractor
             }
 
             return combineConjuncts(potentialOutputConjuncts);
-        }
-
-        private static List<Expression> pullExpressionsThroughSymbols(List<Expression> expressions, Collection<Symbol> symbols)
-        {
-            return expressions.stream()
-                    .map(expression -> pullExpressionThroughSymbols(expression, symbols))
-                    .collect(toImmutableList());
         }
 
         private static Expression pullExpressionThroughSymbols(Expression expression, Collection<Symbol> symbols)

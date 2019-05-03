@@ -58,7 +58,7 @@ public class TestExpressionRewriteRuleSet
     {
         tester().assertThat(zeroRewriter.projectExpressionRewrite())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("y"), PlanBuilder.expression("x IS NOT NULL")),
+                        Assignments.of(p.variable("y"), PlanBuilder.expression("x IS NOT NULL")),
                         p.values(p.symbol("x"))))
                 .matches(
                         project(ImmutableMap.of("y", expression("0")), values("x")));
@@ -69,7 +69,7 @@ public class TestExpressionRewriteRuleSet
     {
         tester().assertThat(zeroRewriter.projectExpressionRewrite())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("y"), PlanBuilder.expression("0")),
+                        Assignments.of(p.variable("y"), PlanBuilder.expression("0")),
                         p.values(p.symbol("x"))))
                 .doesNotFire();
     }
@@ -165,7 +165,7 @@ public class TestExpressionRewriteRuleSet
         tester().assertThat(applyRewriter.applyExpressionRewrite())
                 .on(p -> p.apply(
                         Assignments.of(
-                                p.symbol("a", BIGINT),
+                                p.variable("a", BIGINT),
                                 new InPredicate(
                                         new LongLiteral("1"),
                                         new InListExpression(ImmutableList.of(
@@ -188,7 +188,7 @@ public class TestExpressionRewriteRuleSet
         tester().assertThat(applyRewriter.applyExpressionRewrite())
                 .on(p -> p.apply(
                         Assignments.of(
-                                p.symbol("a", BIGINT),
+                                p.variable("a", BIGINT),
                                 new InPredicate(
                                         new LongLiteral("0"),
                                         new InListExpression(ImmutableList.of(

@@ -29,7 +29,7 @@ public class TestRemoveUnreferencedScalarApplyNodes
     {
         tester().assertThat(new RemoveUnreferencedScalarApplyNodes())
                 .on(p -> p.apply(
-                        Assignments.of(p.symbol("z"), p.expression("x IN (y)")),
+                        Assignments.of(p.variable("z"), p.expression("x IN (y)")),
                         ImmutableList.of(),
                         p.values(p.symbol("x")),
                         p.values(p.symbol("y"))))

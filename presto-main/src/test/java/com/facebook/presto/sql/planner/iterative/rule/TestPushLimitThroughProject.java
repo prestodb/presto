@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.Assignments;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -33,7 +34,7 @@ public class TestPushLimitThroughProject
     {
         tester().assertThat(new PushLimitThroughProject())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
+                    VariableReferenceExpression a = p.variable("a");
                     return p.limit(1,
                             p.project(
                                     Assignments.of(a, TRUE_LITERAL),
@@ -50,10 +51,10 @@ public class TestPushLimitThroughProject
     {
         tester().assertThat(new PushLimitThroughProject())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
+                    VariableReferenceExpression a = p.variable("a");
                     return p.limit(1,
                             p.project(
-                                    Assignments.of(a, a.toSymbolReference()),
+                                    Assignments.of(a, new SymbolReference(a.getName())),
                                     p.values(a)));
                 }).doesNotFire();
     }

@@ -106,7 +106,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                 .on(p -> p.lateral(
                         ImmutableList.of(p.variable(p.symbol("corr"))),
                         p.values(p.symbol("corr")),
-                        p.project(Assignments.of(p.symbol("expr"), p.expression("sum + 1")),
+                        p.project(Assignments.of(p.variable("expr"), p.expression("sum + 1")),
                                 p.aggregation(ab -> ab
                                         .source(p.values(p.symbol("a"), p.symbol("b")))
                                         .addAggregation(p.variable(p.symbol("sum")), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))

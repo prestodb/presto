@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -55,7 +54,7 @@ final class PlanMatchingVisitor
     public MatchResult visitExchange(ExchangeNode node, PlanMatchPattern pattern)
     {
         List<List<VariableReferenceExpression>> allInputs = node.getInputs();
-        List<Symbol> outputs = node.getOutputSymbols();
+        List<VariableReferenceExpression> outputs = node.getOutputVariables();
 
         MatchResult result = super.visitExchange(node, pattern);
 

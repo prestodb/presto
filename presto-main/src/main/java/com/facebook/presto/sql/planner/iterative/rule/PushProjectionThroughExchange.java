@@ -100,16 +100,15 @@ public class PushProjectionThroughExchange
             partitioningColumns.stream()
                     .map(outputToInputMap::get)
                     .forEach(nameReference -> {
-                        Symbol symbol = Symbol.from(nameReference);
-                        projections.put(symbol, nameReference);
-                        inputs.add(toVariableReference(symbol, types));
+                        VariableReferenceExpression variable = toVariableReference(Symbol.from(nameReference), types);
+                        projections.put(variable, nameReference);
+                        inputs.add(variable);
                     });
 
             if (exchange.getPartitioningScheme().getHashColumn().isPresent()) {
                 // Need to retain the hash symbol for the exchange
                 VariableReferenceExpression hashVariable = exchange.getPartitioningScheme().getHashColumn().get();
-                Symbol hashSymbol = new Symbol(hashVariable.getName());
-                projections.put(hashSymbol, hashSymbol.toSymbolReference());
+                projections.put(hashVariable, new SymbolReference(hashVariable.getName()));
                 inputs.add(hashVariable);
             }
 
@@ -120,17 +119,17 @@ public class PushProjectionThroughExchange
                         .filter(variable -> !partitioningColumns.contains(variable))
                         .map(outputToInputMap::get)
                         .forEach(nameReference -> {
-                            Symbol symbol = Symbol.from(nameReference);
-                            projections.put(symbol, nameReference);
-                            inputs.add(toVariableReference(symbol, types));
+                            VariableReferenceExpression variable = toVariableReference(Symbol.from(nameReference), types);
+                            projections.put(variable, nameReference);
+                            inputs.add(variable);
                         });
             }
 
-            for (Map.Entry<Symbol, Expression> projection : project.getAssignments().entrySet()) {
+            for (Map.Entry<VariableReferenceExpression, Expression> projection : project.getAssignments().entrySet()) {
                 Expression translatedExpression = inlineVariables(outputToInputMap, projection.getValue());
-                Type type = context.getSymbolAllocator().getTypes().get(projection.getKey());
+                Type type = projection.getKey().getType();
                 VariableReferenceExpression variable = context.getSymbolAllocator().newVariable(translatedExpression, type);
-                projections.put(new Symbol(variable.getName()), translatedExpression);
+                projections.put(variable, translatedExpression);
                 inputs.add(variable);
             }
             newSourceBuilder.add(new ProjectNode(context.getIdAllocator().getNextId(), exchange.getSources().get(i), projections.build()));
@@ -146,8 +145,8 @@ public class PushProjectionThroughExchange
                     .filter(variable -> !partitioningColumns.contains(variable))
                     .forEach(outputBuilder::add);
         }
-        for (Map.Entry<Symbol, Expression> projection : project.getAssignments().entrySet()) {
-            outputBuilder.add(toVariableReference(projection.getKey(), types));
+        for (Map.Entry<VariableReferenceExpression, Expression> projection : project.getAssignments().entrySet()) {
+            outputBuilder.add(projection.getKey());
         }
 
         // outputBuilder contains all partition and hash symbols so simply swap the output layout
@@ -168,7 +167,7 @@ public class PushProjectionThroughExchange
                 exchange.getOrderingScheme());
 
         // we need to strip unnecessary symbols (hash, partitioning columns).
-        return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), result, ImmutableSet.copyOf(project.getOutputSymbols())).orElse(result));
+        return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), context.getSymbolAllocator(), result, ImmutableSet.copyOf(project.getOutputSymbols())).orElse(result));
     }
 
     private static boolean isSymbolToSymbolProjection(ProjectNode project)

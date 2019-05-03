@@ -34,6 +34,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -77,12 +78,12 @@ public class ScalarAggregationToJoinRewriter
             return lateralJoinNode;
         }
 
-        Symbol nonNull = symbolAllocator.newSymbol("non_null", BooleanType.BOOLEAN);
+        VariableReferenceExpression nonNull = symbolAllocator.newVariable("non_null", BooleanType.BOOLEAN);
         Assignments scalarAggregationSourceAssignments = Assignments.builder()
-                .putIdentities(source.get().getNode().getOutputSymbols())
+                .putIdentities(symbolAllocator.toVariableReferences(source.get().getNode().getOutputSymbols()))
                 .put(nonNull, TRUE_LITERAL)
                 .build();
-        ProjectNode scalarAggregationSourceWithNonNullableSymbol = new ProjectNode(
+        ProjectNode scalarAggregationSourceWithNonNullableVariable = new ProjectNode(
                 idAllocator.getNextId(),
                 source.get().getNode(),
                 scalarAggregationSourceAssignments);
@@ -90,7 +91,7 @@ public class ScalarAggregationToJoinRewriter
         return rewriteScalarAggregation(
                 lateralJoinNode,
                 aggregation,
-                scalarAggregationSourceWithNonNullableSymbol,
+                scalarAggregationSourceWithNonNullableVariable,
                 source.get().getCorrelatedPredicates(),
                 nonNull);
     }
@@ -100,7 +101,7 @@ public class ScalarAggregationToJoinRewriter
             AggregationNode scalarAggregation,
             PlanNode scalarAggregationSource,
             Optional<Expression> joinExpression,
-            Symbol nonNull)
+            VariableReferenceExpression nonNull)
     {
         AssignUniqueId inputWithUniqueColumns = new AssignUniqueId(
                 idAllocator.getNextId(),
@@ -136,11 +137,11 @@ public class ScalarAggregationToJoinRewriter
                 .recurseOnlyWhen(EnforceSingleRowNode.class::isInstance)
                 .findFirst();
 
-        List<Symbol> aggregationOutputSymbols = getTruncatedAggregationSymbols(lateralJoinNode, aggregationNode.get());
+        List<VariableReferenceExpression> aggregationOutputVariables = getTruncatedAggregationVariables(lateralJoinNode, aggregationNode.get());
 
         if (subqueryProjection.isPresent()) {
             Assignments assignments = Assignments.builder()
-                    .putIdentities(aggregationOutputSymbols)
+                    .putIdentities(aggregationOutputVariables)
                     .putAll(subqueryProjection.get().getAssignments())
                     .build();
 
@@ -153,31 +154,31 @@ public class ScalarAggregationToJoinRewriter
             return new ProjectNode(
                     idAllocator.getNextId(),
                     aggregationNode.get(),
-                    Assignments.identity(aggregationOutputSymbols));
+                    Assignments.identity(aggregationOutputVariables));
         }
     }
 
-    private static List<Symbol> getTruncatedAggregationSymbols(LateralJoinNode lateralJoinNode, AggregationNode aggregationNode)
+    private List<VariableReferenceExpression> getTruncatedAggregationVariables(LateralJoinNode lateralJoinNode, AggregationNode aggregationNode)
     {
-        Set<Symbol> applySymbols = new HashSet<>(lateralJoinNode.getOutputSymbols());
-        return aggregationNode.getOutputSymbols().stream()
-                .filter(applySymbols::contains)
+        Set<VariableReferenceExpression> applyVariables = new HashSet<>(symbolAllocator.toVariableReferences(lateralJoinNode.getOutputSymbols()));
+        return aggregationNode.getOutputVariables().stream()
+                .filter(applyVariables::contains)
                 .collect(toImmutableList());
     }
 
     private Optional<AggregationNode> createAggregationNode(
             AggregationNode scalarAggregation,
             JoinNode leftOuterJoin,
-            Symbol nonNullableAggregationSourceSymbol)
+            VariableReferenceExpression nonNull)
     {
         ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregations = ImmutableMap.builder();
         for (Map.Entry<VariableReferenceExpression, Aggregation> entry : scalarAggregation.getAggregations().entrySet()) {
             VariableReferenceExpression variable = entry.getKey();
             if (functionResolution.isCountFunction(entry.getValue().getFunctionHandle())) {
-                Type scalarAggregationSourceType = symbolAllocator.getTypes().get(nonNullableAggregationSourceSymbol);
+                Type scalarAggregationSourceType = nonNull.getType();
                 aggregations.put(variable, new Aggregation(
                         functionResolution.countFunction(scalarAggregationSourceType),
-                        ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference()),
+                        ImmutableList.of(new SymbolReference(nonNull.getName())),
                         Optional.empty(),
                         Optional.empty(),
                         false,

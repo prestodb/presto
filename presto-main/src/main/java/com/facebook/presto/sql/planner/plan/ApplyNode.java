@@ -146,7 +146,7 @@ public class ApplyNode
     {
         return ImmutableList.<Symbol>builder()
                 .addAll(input.getOutputSymbols())
-                .addAll(subqueryAssignments.getOutputs())
+                .addAll(subqueryAssignments.getOutputSymbols())
                 .build();
     }
 

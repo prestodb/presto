@@ -22,7 +22,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -207,24 +206,24 @@ public class ImplementIntersectAndExceptAsUnion
         {
             ImmutableList.Builder<PlanNode> result = ImmutableList.builder();
             for (int i = 0; i < nodes.size(); i++) {
-                result.add(appendMarkers(nodes.get(i), i, markers, Maps.transformValues(node.sourceSymbolMap(i), Symbol::toSymbolReference)));
+                result.add(appendMarkers(nodes.get(i), i, markers, Maps.transformValues(node.sourceVariableMap(i), variable -> new SymbolReference(variable.getName()))));
             }
             return result.build();
         }
 
-        private PlanNode appendMarkers(PlanNode source, int markerIndex, List<VariableReferenceExpression> markers, Map<Symbol, SymbolReference> projections)
+        private PlanNode appendMarkers(PlanNode source, int markerIndex, List<VariableReferenceExpression> markers, Map<VariableReferenceExpression, SymbolReference> projections)
         {
             Assignments.Builder assignments = Assignments.builder();
             // add existing intersect symbols to projection
-            for (Map.Entry<Symbol, SymbolReference> entry : projections.entrySet()) {
-                Symbol symbol = symbolAllocator.newSymbol(entry.getKey().getName(), symbolAllocator.getTypes().get(entry.getKey()));
-                assignments.put(symbol, entry.getValue());
+            for (Map.Entry<VariableReferenceExpression, SymbolReference> entry : projections.entrySet()) {
+                VariableReferenceExpression variable = symbolAllocator.newVariable(entry.getKey().getName(), entry.getKey().getType());
+                assignments.put(variable, entry.getValue());
             }
 
             // add extra marker fields to the projection
             for (int i = 0; i < markers.size(); ++i) {
                 Expression expression = (i == markerIndex) ? TRUE_LITERAL : new Cast(new NullLiteral(), StandardTypes.BOOLEAN);
-                assignments.put(symbolAllocator.newSymbol(markers.get(i).getName(), BOOLEAN), expression);
+                assignments.put(symbolAllocator.newVariable(markers.get(i).getName(), BOOLEAN), expression);
             }
 
             return new ProjectNode(idAllocator.getNextId(), source, assignments.build());

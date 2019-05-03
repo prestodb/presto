@@ -251,6 +251,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARB
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReferences;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
@@ -279,7 +280,6 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Range.closedOpen;
 import static io.airlift.units.DataSize.Unit.BYTE;
-import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.IntStream.range;
@@ -1145,9 +1145,9 @@ public class LocalExecutionPlanner
             PlanNode sourceNode = node.getSource();
 
             RowExpression filterExpression = node.getPredicate();
-            List<Symbol> outputSymbols = node.getOutputSymbols();
+            List<VariableReferenceExpression> outputVariables = toVariableReferences(node.getOutputSymbols(), context.getTypes());
 
-            return visitScanFilterAndProject(context, node.getId(), sourceNode, Optional.of(filterExpression), Assignments.identity(outputSymbols), outputSymbols);
+            return visitScanFilterAndProject(context, node.getId(), sourceNode, Optional.of(filterExpression), Assignments.identity(outputVariables), outputVariables);
         }
 
         @Override
@@ -1164,9 +1164,7 @@ public class LocalExecutionPlanner
                 sourceNode = node.getSource();
             }
 
-            List<Symbol> outputSymbols = node.getOutputSymbols();
-
-            return visitScanFilterAndProject(context, node.getId(), sourceNode, filterExpression, node.getAssignments(), outputSymbols);
+            return visitScanFilterAndProject(context, node.getId(), sourceNode, filterExpression, node.getAssignments(), node.getOutputVariables());
         }
 
         // TODO: This should be refactored, so that there's an optimizer that merges scan-filter-project into a single PlanNode
@@ -1176,7 +1174,7 @@ public class LocalExecutionPlanner
                 PlanNode sourceNode,
                 Optional<RowExpression> filterExpression,
                 Assignments assignments,
-                List<Symbol> outputSymbols)
+                List<VariableReferenceExpression> outputVariables)
         {
             // if source is a table scan we fold it directly into the filter and project
             // otherwise we plan it as a normal operator
@@ -1197,8 +1195,6 @@ public class LocalExecutionPlanner
                     Symbol symbol = new Symbol(variable.getName());
                     sourceLayout.put(symbol, input);
 
-                    Type type = requireNonNull(context.getTypes().get(symbol), format("No type for symbol %s", symbol));
-
                     channel++;
                 }
             }
@@ -1216,17 +1212,17 @@ public class LocalExecutionPlanner
 
             // build output mapping
             ImmutableMap.Builder<Symbol, Integer> outputMappingsBuilder = ImmutableMap.builder();
-            for (int i = 0; i < outputSymbols.size(); i++) {
-                Symbol symbol = outputSymbols.get(i);
-                outputMappingsBuilder.put(symbol, i);
+            for (int i = 0; i < outputVariables.size(); i++) {
+                VariableReferenceExpression variable = outputVariables.get(i);
+                outputMappingsBuilder.put(new Symbol(variable.getName()), i);
             }
             Map<Symbol, Integer> outputMappings = outputMappingsBuilder.build();
 
             // compiler uses inputs instead of symbols, so rewrite the expressions first
 
             List<Expression> projections = new ArrayList<>();
-            for (Symbol symbol : outputSymbols) {
-                projections.add(assignments.get(symbol));
+            for (VariableReferenceExpression variable : outputVariables) {
+                projections.add(assignments.get(variable));
             }
 
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(

@@ -25,6 +25,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.primitives.Ints;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -206,7 +207,7 @@ public class SymbolAllocator
         return new VariableReferenceExpression(symbol.getName(), getTypes().get(symbol));
     }
 
-    public List<VariableReferenceExpression> toVariableReferences(List<Symbol> symbols)
+    public List<VariableReferenceExpression> toVariableReferences(Collection<Symbol> symbols)
     {
         return symbols.stream()
                 .map(symbol -> new VariableReferenceExpression(symbol.getName(), getTypes().get(symbol)))

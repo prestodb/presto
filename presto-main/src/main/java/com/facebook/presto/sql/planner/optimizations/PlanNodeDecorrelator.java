@@ -260,16 +260,14 @@ public class PlanNodeDecorrelator
             }
 
             DecorrelationResult childDecorrelationResult = childDecorrelationResultOptional.get();
-            Set<Symbol> nodeOutputSymbols = ImmutableSet.copyOf(node.getOutputSymbols());
-            List<Symbol> symbolsToAdd = childDecorrelationResult.variablesToPropagate.stream()
-                    .map(VariableReferenceExpression::getName)
-                    .map(Symbol::new)
-                    .filter(symbol -> !nodeOutputSymbols.contains(symbol))
+            Set<VariableReferenceExpression> nodeOutputVariables = ImmutableSet.copyOf(symbolAllocator.toVariableReferences(node.getOutputSymbols()));
+            List<VariableReferenceExpression> variablesToAdd = childDecorrelationResult.variablesToPropagate.stream()
+                    .filter(variable -> !nodeOutputVariables.contains(variable))
                     .collect(toImmutableList());
 
             Assignments assignments = Assignments.builder()
                     .putAll(node.getAssignments())
-                    .putIdentities(symbolsToAdd)
+                    .putIdentities(variablesToAdd)
                     .build();
 
             return Optional.of(new DecorrelationResult(

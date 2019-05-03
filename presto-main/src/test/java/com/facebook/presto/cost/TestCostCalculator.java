@@ -177,7 +177,7 @@ public class TestCostCalculator
     public void testProject()
     {
         TableScanNode tableScan = tableScan("ts", "orderkey");
-        PlanNode project = project("project", tableScan, "string", new Cast(new SymbolReference("orderkey"), "VARCHAR"));
+        PlanNode project = project("project", tableScan, new VariableReferenceExpression("string", VARCHAR), new Cast(new SymbolReference("orderkey"), "VARCHAR"));
         Map<String, PlanCostEstimate> costs = ImmutableMap.of("ts", cpuCost(1000));
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
                 "project", statsEstimate(project, 4000),
@@ -784,12 +784,12 @@ public class TestCostCalculator
                 TupleDomain.all());
     }
 
-    private PlanNode project(String id, PlanNode source, String symbol, Expression expression)
+    private PlanNode project(String id, PlanNode source, VariableReferenceExpression variable, Expression expression)
     {
         return new ProjectNode(
                 new PlanNodeId(id),
                 source,
-                Assignments.of(new Symbol(symbol), expression));
+                Assignments.of(variable, expression));
     }
 
     private AggregationNode aggregation(String id, PlanNode source)

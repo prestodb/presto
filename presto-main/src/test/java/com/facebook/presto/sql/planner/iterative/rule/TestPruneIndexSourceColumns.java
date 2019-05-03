@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
@@ -51,7 +52,7 @@ public class TestPruneIndexSourceColumns
     public void testNotAllOutputsReferenced()
     {
         tester().assertThat(new PruneIndexSourceColumns())
-                .on(p -> buildProjectedIndexSource(p, symbol -> symbol.getName().equals("orderkey")))
+                .on(p -> buildProjectedIndexSource(p, variable -> variable.getName().equals("orderkey")))
                 .matches(
                         strictProject(
                                 ImmutableMap.of("x", expression("orderkey")),
@@ -71,7 +72,7 @@ public class TestPruneIndexSourceColumns
                 .doesNotFire();
     }
 
-    private static PlanNode buildProjectedIndexSource(PlanBuilder p, Predicate<Symbol> projectionFilter)
+    private static PlanNode buildProjectedIndexSource(PlanBuilder p, Predicate<VariableReferenceExpression> projectionFilter)
     {
         Symbol orderkey = p.symbol("orderkey", INTEGER);
         Symbol custkey = p.symbol("custkey", INTEGER);
@@ -81,7 +82,7 @@ public class TestPruneIndexSourceColumns
         ColumnHandle totalpriceHandle = new TpchColumnHandle(totalprice.getName(), DOUBLE);
         return p.project(
                 Assignments.identity(
-                        ImmutableList.of(orderkey, custkey, totalprice).stream()
+                        ImmutableList.of(p.variable(orderkey), p.variable(custkey), p.variable(totalprice)).stream()
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),
                 p.indexSource(

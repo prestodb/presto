@@ -22,7 +22,6 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.SymbolMapper;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -166,9 +165,9 @@ public class PushPartialAggregationThroughExchange
 
             Assignments.Builder assignments = Assignments.builder();
 
-            for (Symbol output : aggregation.getOutputSymbols()) {
-                Symbol input = symbolMapper.map(output);
-                assignments.put(output, input.toSymbolReference());
+            for (VariableReferenceExpression output : aggregation.getOutputVariables()) {
+                VariableReferenceExpression input = symbolMapper.map(output);
+                assignments.put(output, new SymbolReference(input.getName()));
             }
             partials.add(new ProjectNode(context.getIdAllocator().getNextId(), mappedPartial, assignments.build()));
         }

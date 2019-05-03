@@ -50,7 +50,7 @@ public class PruneAggregationSourceColumns
                         .flatMap(PruneAggregationSourceColumns::getAggregationInputs))
                 .collect(toImmutableSet());
 
-        return restrictChildOutputs(context.getIdAllocator(), aggregationNode, requiredInputs)
+        return restrictChildOutputs(context.getIdAllocator(), context.getSymbolAllocator(), aggregationNode, requiredInputs)
                 .map(Result::ofPlanNode)
                 .orElse(Result.empty());
     }

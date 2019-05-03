@@ -13,16 +13,17 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableCollection;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static org.testng.Assert.assertTrue;
 
 public class TestAssingments
 {
-    private final Assignments assignments = Assignments.of(new Symbol("test"), TRUE_LITERAL);
+    private final Assignments assignments = Assignments.of(new VariableReferenceExpression("test", BIGINT), TRUE_LITERAL);
 
     @Test
     public void testOutputsImmutable()

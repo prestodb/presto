@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -35,7 +36,7 @@ public class TestPruneMarkDistinctColumns
                 .on(p ->
                 {
                     Symbol key = p.symbol("key");
-                    Symbol key2 = p.symbol("key2");
+                    VariableReferenceExpression key2 = p.variable("key2");
                     Symbol mark = p.symbol("mark");
                     Symbol unused = p.symbol("unused");
                     return p.project(
@@ -55,13 +56,13 @@ public class TestPruneMarkDistinctColumns
                 .on(p ->
                 {
                     Symbol key = p.symbol("key");
-                    Symbol mark = p.symbol("mark");
+                    VariableReferenceExpression mark = p.variable("mark");
                     Symbol hash = p.symbol("hash");
                     Symbol unused = p.symbol("unused");
                     return p.project(
                             Assignments.identity(mark),
                             p.markDistinct(
-                                    p.variable(mark),
+                                    mark,
                                     ImmutableList.of(p.variable(key)),
                                     p.variable(hash),
                                     p.values(key, hash, unused)));
@@ -83,11 +84,11 @@ public class TestPruneMarkDistinctColumns
         tester().assertThat(new PruneMarkDistinctColumns())
                 .on(p ->
                 {
-                    Symbol key = p.symbol("key");
-                    Symbol mark = p.symbol("mark");
+                    VariableReferenceExpression key = p.variable("key");
+                    VariableReferenceExpression mark = p.variable("mark");
                     return p.project(
                             Assignments.identity(mark),
-                            p.markDistinct(p.variable(mark), ImmutableList.of(p.variable(key)), p.values(key)));
+                            p.markDistinct(mark, ImmutableList.of(key), p.values(key)));
                 })
                 .doesNotFire();
     }
@@ -98,11 +99,11 @@ public class TestPruneMarkDistinctColumns
         tester().assertThat(new PruneMarkDistinctColumns())
                 .on(p ->
                 {
-                    Symbol key = p.symbol("key");
-                    Symbol mark = p.symbol("mark");
+                    VariableReferenceExpression key = p.variable("key");
+                    VariableReferenceExpression mark = p.variable("mark");
                     return p.project(
                             Assignments.identity(key, mark),
-                            p.markDistinct(p.variable(mark), ImmutableList.of(p.variable(key)), p.values(key)));
+                            p.markDistinct(mark, ImmutableList.of(key), p.values(key)));
                 })
                 .doesNotFire();
     }

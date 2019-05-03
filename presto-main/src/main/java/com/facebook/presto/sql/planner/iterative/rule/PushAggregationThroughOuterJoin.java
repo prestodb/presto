@@ -269,10 +269,10 @@ public class PushAggregationThroughOuterJoin
         Assignments.Builder assignmentsBuilder = Assignments.builder();
         for (Symbol symbol : outerJoin.getOutputSymbols()) {
             if (aggregationNode.getAggregations().keySet().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()).contains(symbol)) {
-                assignmentsBuilder.put(symbol, new CoalesceExpression(symbol.toSymbolReference(), sourceAggregationToOverNullMapping.get(symbol).toSymbolReference()));
+                assignmentsBuilder.put(symbolAllocator.toVariableReference(symbol), new CoalesceExpression(symbol.toSymbolReference(), sourceAggregationToOverNullMapping.get(symbol).toSymbolReference()));
             }
             else {
-                assignmentsBuilder.put(symbol, symbol.toSymbolReference());
+                assignmentsBuilder.put(symbolAllocator.toVariableReference(symbol), symbol.toSymbolReference());
             }
         }
         return Optional.of(new ProjectNode(idAllocator.getNextId(), crossJoin, assignmentsBuilder.build()));
