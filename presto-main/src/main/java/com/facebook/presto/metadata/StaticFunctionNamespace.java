@@ -36,6 +36,7 @@ import com.facebook.presto.operator.aggregation.DoubleCovarianceAggregation;
 import com.facebook.presto.operator.aggregation.DoubleHistogramAggregation;
 import com.facebook.presto.operator.aggregation.DoubleRegressionAggregation;
 import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
+import com.facebook.presto.operator.aggregation.EntropyAggregation;
 import com.facebook.presto.operator.aggregation.GeometricMeanAggregations;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.IntervalDayToSecondAverageAggregation;
@@ -442,6 +443,7 @@ class StaticFunctionNamespace
                 .aggregates(BooleanAndAggregation.class)
                 .aggregates(BooleanOrAggregation.class)
                 .aggregates(DoubleSumAggregation.class)
+                .aggregates(EntropyAggregation.class)
                 .aggregates(RealSumAggregation.class)
                 .aggregates(LongSumAggregation.class)
                 .aggregates(IntervalDayToSecondSumAggregation.class)
