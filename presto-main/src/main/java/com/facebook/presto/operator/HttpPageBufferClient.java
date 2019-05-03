@@ -598,7 +598,7 @@ public final class HttpPageBufferClient
                 }
             }
             catch (PageTransportErrorException e) {
-                throw new PageTransportErrorException(format("Error fetching %s: %s", request.getUri().toASCIIString(), e.getMessage()), e);
+                throw new PageTransportErrorException("Error fetching " + request.getUri().toASCIIString(), e);
             }
         }
 
