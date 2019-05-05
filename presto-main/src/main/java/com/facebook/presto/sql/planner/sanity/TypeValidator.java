@@ -155,32 +155,24 @@ public final class TypeValidator
             }
         }
 
-        private void checkTypeSignature(Symbol symbol, TypeSignature actualTypeSignature)
-        {
-            TypeSignature expectedTypeSignature = types.get(symbol).getTypeSignature();
-            verifyTypeSignature(symbol, expectedTypeSignature, actualTypeSignature);
-        }
-
         private void checkCall(VariableReferenceExpression variable, CallExpression call)
         {
             Type actualType = call.getType();
             verifyTypeSignature(variable, actualType.getTypeSignature());
         }
 
-        private void checkFunctionSignature(Map<Symbol, Aggregation> aggregations)
+        private void checkFunctionSignature(Map<VariableReferenceExpression, Aggregation> aggregations)
         {
-            for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
-                checkTypeSignature(entry.getKey(), metadata.getFunctionManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getReturnType());
+            for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
+                verifyTypeSignature(entry.getKey(), metadata.getFunctionManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getReturnType());
             }
         }
 
-        private void checkAggregation(Map<Symbol, Aggregation> aggregations)
+        private void checkAggregation(Map<VariableReferenceExpression, Aggregation> aggregations)
         {
-            for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
-                Symbol symbol = entry.getKey();
+            for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
                 verifyTypeSignature(
-                        symbol,
-                        types.get(symbol).getTypeSignature(),
+                        entry.getKey(),
                         metadata.getFunctionManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getReturnType());
                 // TODO check if the argument type agrees with function handle (will be added once Aggregation is using CallExpression).
             }

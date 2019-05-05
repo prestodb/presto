@@ -14,8 +14,10 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
@@ -23,6 +25,8 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
 import java.util.Set;
+
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class AggregationNodeUtils
 {
@@ -45,6 +49,17 @@ public class AggregationNodeUtils
         aggregation.getArguments().forEach(argument -> builder.addAll(SymbolsExtractor.extractAll(argument)));
         aggregation.getFilter().ifPresent(filter -> builder.addAll(SymbolsExtractor.extractAll(filter)));
         aggregation.getOrderBy().ifPresent(orderingScheme -> builder.addAll(orderingScheme.getOrderBy()));
+        return builder.build();
+    }
+
+    public static Set<VariableReferenceExpression> extractUniqueVariables(AggregationNode.Aggregation aggregation, TypeProvider types)
+    {
+        ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
+        aggregation.getArguments().forEach(argument -> builder.addAll(SymbolsExtractor.extractAllVariable(argument, types)));
+        aggregation.getFilter().ifPresent(filter -> builder.addAll(SymbolsExtractor.extractAllVariable(filter, types)));
+        aggregation.getOrderBy().ifPresent(orderingScheme -> builder.addAll(orderingScheme.getOrderBy().stream()
+                .map(symbol -> new VariableReferenceExpression(symbol.getName(), types.get(symbol)))
+                .collect(toImmutableSet())));
         return builder.build();
     }
 }

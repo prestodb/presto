@@ -37,6 +37,7 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -44,7 +45,7 @@ public class AggregationNode
         extends PlanNode
 {
     private final PlanNode source;
-    private final Map<Symbol, Aggregation> aggregations;
+    private final Map<VariableReferenceExpression, Aggregation> aggregations;
     private final GroupingSetDescriptor groupingSets;
     private final List<Symbol> preGroupedSymbols;
     private final Step step;
@@ -56,7 +57,7 @@ public class AggregationNode
     public AggregationNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("aggregations") Map<Symbol, Aggregation> aggregations,
+            @JsonProperty("aggregations") Map<VariableReferenceExpression, Aggregation> aggregations,
             @JsonProperty("groupingSets") GroupingSetDescriptor groupingSets,
             @JsonProperty("preGroupedSymbols") List<Symbol> preGroupedSymbols,
             @JsonProperty("step") Step step,
@@ -89,7 +90,7 @@ public class AggregationNode
         ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
         outputs.addAll(groupingSets.getGroupingKeys());
         hashVariable.ifPresent(variable -> outputs.add(new Symbol(variable.getName())));
-        outputs.addAll(aggregations.keySet());
+        outputs.addAll(aggregations.keySet().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
 
         this.outputs = outputs.build();
     }
@@ -141,7 +142,7 @@ public class AggregationNode
     }
 
     @JsonProperty
-    public Map<Symbol, Aggregation> getAggregations()
+    public Map<VariableReferenceExpression, Aggregation> getAggregations()
     {
         return aggregations;
     }

@@ -149,6 +149,10 @@ public class PushAggregationThroughOuterJoin
                 aggregation.getHashVariable(),
                 aggregation.getGroupIdSymbol());
 
+        List<Symbol> rewrittenAggregationSymbols = rewrittenAggregation.getAggregations().keySet().stream()
+                .map(VariableReferenceExpression::getName)
+                .map(Symbol::new)
+                .collect(toImmutableList());
         JoinNode rewrittenJoin;
         if (join.getType() == JoinNode.Type.LEFT) {
             rewrittenJoin = new JoinNode(
@@ -159,7 +163,7 @@ public class PushAggregationThroughOuterJoin
                     join.getCriteria(),
                     ImmutableList.<Symbol>builder()
                             .addAll(join.getLeft().getOutputSymbols())
-                            .addAll(rewrittenAggregation.getAggregations().keySet())
+                            .addAll(rewrittenAggregationSymbols)
                             .build(),
                     join.getFilter(),
                     join.getLeftHashVariable(),
@@ -174,7 +178,7 @@ public class PushAggregationThroughOuterJoin
                     join.getRight(),
                     join.getCriteria(),
                     ImmutableList.<Symbol>builder()
-                            .addAll(rewrittenAggregation.getAggregations().keySet())
+                            .addAll(rewrittenAggregationSymbols)
                             .addAll(join.getRight().getOutputSymbols())
                             .build(),
                     join.getFilter(),
@@ -264,7 +268,7 @@ public class PushAggregationThroughOuterJoin
         // Add coalesce expressions for all aggregation functions
         Assignments.Builder assignmentsBuilder = Assignments.builder();
         for (Symbol symbol : outerJoin.getOutputSymbols()) {
-            if (aggregationNode.getAggregations().containsKey(symbol)) {
+            if (aggregationNode.getAggregations().keySet().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()).contains(symbol)) {
                 assignmentsBuilder.put(symbol, new CoalesceExpression(symbol.toSymbolReference(), sourceAggregationToOverNullMapping.get(symbol).toSymbolReference()));
             }
             else {
@@ -303,9 +307,9 @@ public class PushAggregationThroughOuterJoin
         // that points to the nullRow. Map the symbols from the aggregations in referenceAggregation to the
         // symbols in these new aggregations.
         ImmutableMap.Builder<Symbol, Symbol> aggregationsSymbolMappingBuilder = ImmutableMap.builder();
-        ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> aggregationsOverNullBuilder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : referenceAggregation.getAggregations().entrySet()) {
-            Symbol aggregationSymbol = entry.getKey();
+        ImmutableMap.Builder<VariableReferenceExpression, AggregationNode.Aggregation> aggregationsOverNullBuilder = ImmutableMap.builder();
+        for (Map.Entry<VariableReferenceExpression, AggregationNode.Aggregation> entry : referenceAggregation.getAggregations().entrySet()) {
+            VariableReferenceExpression aggregationVariable = entry.getKey();
             AggregationNode.Aggregation aggregation = entry.getValue();
 
             if (!isUsingSymbols(aggregation, sourcesSymbolMapping.keySet())) {
@@ -320,9 +324,9 @@ public class PushAggregationThroughOuterJoin
                     aggregation.isDistinct(),
                     aggregation.getMask().map(x -> Symbol.from(sourcesSymbolMapping.get(x))));
             String functionName = functionManager.getFunctionMetadata(overNullAggregation.getFunctionHandle()).getName();
-            Symbol overNullSymbol = symbolAllocator.newSymbol(functionName, symbolAllocator.getTypes().get(aggregationSymbol));
-            aggregationsOverNullBuilder.put(overNullSymbol, overNullAggregation);
-            aggregationsSymbolMappingBuilder.put(aggregationSymbol, overNullSymbol);
+            VariableReferenceExpression overNull = symbolAllocator.newVariable(functionName, aggregationVariable.getType());
+            aggregationsOverNullBuilder.put(overNull, overNullAggregation);
+            aggregationsSymbolMappingBuilder.put(new Symbol(aggregationVariable.getName()), new Symbol(overNull.getName()));
         }
         Map<Symbol, Symbol> aggregationsSymbolMapping = aggregationsSymbolMappingBuilder.build();
 

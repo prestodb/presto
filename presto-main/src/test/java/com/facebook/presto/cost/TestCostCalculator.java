@@ -775,7 +775,7 @@ public class TestCostCalculator
         return new AggregationNode(
                 new PlanNodeId(id),
                 source,
-                ImmutableMap.of(new Symbol("count"), aggregation),
+                ImmutableMap.of(new VariableReferenceExpression("count", BIGINT), aggregation),
                 singleGroupingSet(source.getOutputSymbols()),
                 ImmutableList.of(),
                 AggregationNode.Step.FINAL,

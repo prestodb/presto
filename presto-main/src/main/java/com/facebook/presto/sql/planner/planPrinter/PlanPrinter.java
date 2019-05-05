@@ -490,7 +490,7 @@ public class PlanPrinter
             NodeRepresentation nodeOutput = addNode(node,
                     format("Aggregate%s%s%s", type, key, formatHash(node.getHashVariable())));
 
-            for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
+            for (Map.Entry<VariableReferenceExpression, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
                 nodeOutput.appendDetailsLine("%s := %s", entry.getKey(), formatAggregation(entry.getValue()));
             }
 

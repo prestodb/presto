@@ -344,15 +344,15 @@ public class PruneUnreferencedOutputs
                 expectedInputs.add(new Symbol(node.getHashVariable().get().getName()));
             }
 
-            ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
-            for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
-                Symbol symbol = entry.getKey();
+            ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregations = ImmutableMap.builder();
+            for (Map.Entry<VariableReferenceExpression, Aggregation> entry : node.getAggregations().entrySet()) {
+                VariableReferenceExpression variable = entry.getKey();
 
-                if (context.get().contains(symbol)) {
+                if (context.get().stream().map(Symbol::getName).collect(toImmutableSet()).contains(variable.getName())) {
                     Aggregation aggregation = entry.getValue();
                     expectedInputs.addAll(extractUnique(aggregation));
                     aggregation.getMask().ifPresent(expectedInputs::add);
-                    aggregations.put(symbol, aggregation);
+                    aggregations.put(variable, aggregation);
                 }
             }
 

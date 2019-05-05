@@ -72,7 +72,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                         p.values(p.symbol("corr")),
                         p.aggregation(ab -> ab
                                 .source(p.values(p.symbol("a"), p.symbol("b")))
-                                .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                                .addAggregation(p.variable(p.symbol("sum")), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
                                 .singleGroupingSet(p.symbol("b")))))
                 .doesNotFire();
     }
@@ -86,7 +86,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                         p.values(p.symbol("corr")),
                         p.aggregation(ab -> ab
                                 .source(p.values(p.symbol("a"), p.symbol("b")))
-                                .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                                .addAggregation(p.variable(p.symbol("sum")), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
                                 .globalGrouping())))
                 .matches(
                         project(ImmutableMap.of("sum_1", expression("sum_1"), "corr", expression("corr")),
@@ -109,7 +109,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                         p.project(Assignments.of(p.symbol("expr"), p.expression("sum + 1")),
                                 p.aggregation(ab -> ab
                                         .source(p.values(p.symbol("a"), p.symbol("b")))
-                                        .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                                        .addAggregation(p.variable(p.symbol("sum")), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
                                         .globalGrouping()))))
                 .matches(
                         project(ImmutableMap.of("corr", expression("corr"), "expr", expression("(\"sum_1\" + 1)")),

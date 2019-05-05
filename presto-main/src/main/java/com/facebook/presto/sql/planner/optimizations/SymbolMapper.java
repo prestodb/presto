@@ -117,8 +117,8 @@ public class SymbolMapper
 
     private AggregationNode map(AggregationNode node, PlanNode source, PlanNodeId newNodeId)
     {
-        ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
-        for (Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
+        ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregations = ImmutableMap.builder();
+        for (Entry<VariableReferenceExpression, Aggregation> entry : node.getAggregations().entrySet()) {
             aggregations.put(map(entry.getKey()), map(entry.getValue()));
         }
 
