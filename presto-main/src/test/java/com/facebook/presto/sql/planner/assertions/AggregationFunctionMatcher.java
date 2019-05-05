@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -48,10 +49,10 @@ public class AggregationFunctionMatcher
         AggregationNode aggregationNode = (AggregationNode) node;
 
         FunctionCall expectedCall = callMaker.getExpectedValue(symbolAliases);
-        for (Map.Entry<Symbol, Aggregation> assignment : aggregationNode.getAggregations().entrySet()) {
+        for (Map.Entry<VariableReferenceExpression, Aggregation> assignment : aggregationNode.getAggregations().entrySet()) {
             if (expectedCall.equals(assignment.getValue().getCall())) {
                 checkState(!result.isPresent(), "Ambiguous function calls in %s", aggregationNode);
-                result = Optional.of(assignment.getKey());
+                result = Optional.of(new Symbol(assignment.getKey().getName()));
             }
         }
 

@@ -80,7 +80,7 @@ public class TestExpressionRewriteRuleSet
                 .on(p -> p.aggregation(a -> a
                         .globalGrouping()
                         .addAggregation(
-                                p.symbol("count_1", BIGINT),
+                                p.variable(p.symbol("count_1", BIGINT)),
                                 new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
                                 ImmutableList.of(BIGINT))
                         .source(
@@ -98,7 +98,7 @@ public class TestExpressionRewriteRuleSet
                 .on(p -> p.aggregation(a -> a
                         .globalGrouping()
                         .addAggregation(
-                                p.symbol("count_1", DateType.DATE),
+                                p.variable(p.symbol("count_1", DateType.DATE)),
                                 nowCall,
                                 ImmutableList.of())
                         .source(

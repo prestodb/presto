@@ -289,7 +289,7 @@ public class PlanBuilder
     public class AggregationBuilder
     {
         private PlanNode source;
-        private Map<Symbol, Aggregation> assignments = new HashMap<>();
+        private Map<VariableReferenceExpression, Aggregation> assignments = new HashMap<>();
         private AggregationNode.GroupingSetDescriptor groupingSets;
         private List<Symbol> preGroupedSymbols = new ArrayList<>();
         private Step step = Step.SINGLE;
@@ -303,17 +303,17 @@ public class PlanBuilder
             return this;
         }
 
-        public AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes)
+        public AggregationBuilder addAggregation(VariableReferenceExpression output, Expression expression, List<Type> inputTypes)
         {
             return addAggregation(output, expression, inputTypes, Optional.empty());
         }
 
-        public AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes, Symbol mask)
+        public AggregationBuilder addAggregation(VariableReferenceExpression output, Expression expression, List<Type> inputTypes, Symbol mask)
         {
             return addAggregation(output, expression, inputTypes, Optional.of(mask));
         }
 
-        private AggregationBuilder addAggregation(Symbol output, Expression expression, List<Type> inputTypes, Optional<Symbol> mask)
+        private AggregationBuilder addAggregation(VariableReferenceExpression output, Expression expression, List<Type> inputTypes, Optional<Symbol> mask)
         {
             checkArgument(expression instanceof FunctionCall);
             FunctionCall aggregation = (FunctionCall) expression;
@@ -321,7 +321,7 @@ public class PlanBuilder
             return addAggregation(output, new Aggregation(aggregation, functionHandle, mask));
         }
 
-        public AggregationBuilder addAggregation(Symbol output, Aggregation aggregation)
+        public AggregationBuilder addAggregation(VariableReferenceExpression output, Aggregation aggregation)
         {
             assignments.put(output, aggregation);
             return this;

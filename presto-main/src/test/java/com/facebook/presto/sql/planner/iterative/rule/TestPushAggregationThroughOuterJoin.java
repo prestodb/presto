@@ -14,6 +14,7 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
@@ -57,7 +58,7 @@ public class TestPushAggregationThroughOuterJoin
                                         Optional.empty(),
                                         Optional.empty(),
                                         Optional.empty()))
-                        .addAggregation(p.symbol("AVG", DOUBLE), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.variable(p.symbol("AVG", DOUBLE)), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.symbol("COL1"))))
                 .matches(
                         project(ImmutableMap.of(
@@ -96,7 +97,7 @@ public class TestPushAggregationThroughOuterJoin
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()))
-                        .addAggregation(p.symbol("AVG", DOUBLE), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.variable(p.symbol("AVG", DOUBLE)), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.symbol("COL1"))))
                 .matches(
                         project(ImmutableMap.of(
@@ -139,7 +140,7 @@ public class TestPushAggregationThroughOuterJoin
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()))
-                        .addAggregation(new Symbol("AVG"), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.variable(new Symbol("AVG")), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(new Symbol("COL1"))))
                 .doesNotFire();
 
@@ -165,7 +166,7 @@ public class TestPushAggregationThroughOuterJoin
                                         Optional.empty(),
                                         Optional.empty(),
                                         Optional.empty()))
-                        .addAggregation(p.symbol("AVG", DOUBLE), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.variable(p.symbol("AVG", DOUBLE)), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.symbol("COL1"))))
                 .doesNotFire();
     }
@@ -183,7 +184,7 @@ public class TestPushAggregationThroughOuterJoin
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()))
-                        .addAggregation(new Symbol("AVG"), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
+                        .addAggregation(new VariableReferenceExpression("AVG", DOUBLE), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(new Symbol("COL1"), new Symbol("COL3"))))
                 .doesNotFire();
     }
@@ -202,7 +203,7 @@ public class TestPushAggregationThroughOuterJoin
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()))
-                        .addAggregation(new Symbol("SUM"), PlanBuilder.expression("sum(COL1)"), ImmutableList.of(DOUBLE))
+                        .addAggregation(new VariableReferenceExpression("SUM", DOUBLE), PlanBuilder.expression("sum(COL1)"), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(new Symbol("COL1"))))
                 .doesNotFire();
     }

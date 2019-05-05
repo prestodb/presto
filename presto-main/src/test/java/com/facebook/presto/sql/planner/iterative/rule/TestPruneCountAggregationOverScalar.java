@@ -50,7 +50,7 @@ public class TestPruneCountAggregationOverScalar
                         p.aggregation((a) -> a
                                 .globalGrouping()
                                 .addAggregation(
-                                        p.symbol("count_1", BIGINT),
+                                        p.variable(p.symbol("count_1", BIGINT)),
                                         new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
                                         ImmutableList.of(BIGINT))
                                 .source(
@@ -65,7 +65,7 @@ public class TestPruneCountAggregationOverScalar
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
-                                        p.symbol("count_1", BIGINT),
+                                        p.variable(p.symbol("count_1", BIGINT)),
                                         new FunctionCall(QualifiedName.of("count"), ImmutableList.of()), ImmutableList.of(BIGINT))
                                 .globalGrouping()
                                 .step(AggregationNode.Step.SINGLE)
@@ -84,7 +84,7 @@ public class TestPruneCountAggregationOverScalar
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
-                                        p.symbol("count_1", BIGINT),
+                                        p.variable(p.symbol("count_1", BIGINT)),
                                         new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
                                         ImmutableList.of(BIGINT))
                                 .step(AggregationNode.Step.SINGLE)
@@ -103,7 +103,7 @@ public class TestPruneCountAggregationOverScalar
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
-                                        p.symbol("count_1", BIGINT),
+                                        p.variable(p.symbol("count_1", BIGINT)),
                                         new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
                                         ImmutableList.of(BIGINT))
                                 .step(AggregationNode.Step.SINGLE)
@@ -119,7 +119,7 @@ public class TestPruneCountAggregationOverScalar
                 .on(p ->
                         p.aggregation((a) -> a
                                 .addAggregation(
-                                        p.symbol("count_1", BIGINT),
+                                        p.variable(p.symbol("count_1", BIGINT)),
                                         new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
                                         ImmutableList.of(BIGINT))
                                 .step(AggregationNode.Step.SINGLE)
@@ -142,7 +142,7 @@ public class TestPruneCountAggregationOverScalar
                     Symbol totalPrice = p.symbol("total_price", DOUBLE);
                     VariableReferenceExpression totalPriceVariable = new VariableReferenceExpression(totalPrice.getName(), DOUBLE);
                     AggregationNode inner = p.aggregation((a) -> a
-                            .addAggregation(totalPrice,
+                            .addAggregation(totalPriceVariable,
                                     new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(new SymbolReference("totalprice"))),
                                     ImmutableList.of(DOUBLE))
                             .globalGrouping()
@@ -161,7 +161,7 @@ public class TestPruneCountAggregationOverScalar
 
                     return p.aggregation((a) -> a
                             .addAggregation(
-                                    p.symbol("sum_outer", DOUBLE),
+                                    p.variable(p.symbol("sum_outer", DOUBLE)),
                                     new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(new SymbolReference("sum_inner"))),
                                     ImmutableList.of(DOUBLE))
                             .globalGrouping()

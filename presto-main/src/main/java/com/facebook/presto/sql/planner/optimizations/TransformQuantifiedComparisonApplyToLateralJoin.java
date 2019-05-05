@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
@@ -134,10 +135,10 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
             Type outputColumnType = types.get(outputColumn);
             checkState(outputColumnType.isOrderable(), "Subquery result type must be orderable");
 
-            Symbol minValue = symbolAllocator.newSymbol(MIN.toString(), outputColumnType);
-            Symbol maxValue = symbolAllocator.newSymbol(MAX.toString(), outputColumnType);
-            Symbol countAllValue = symbolAllocator.newSymbol("count_all", BigintType.BIGINT);
-            Symbol countNonNullValue = symbolAllocator.newSymbol("count_non_null", BigintType.BIGINT);
+            VariableReferenceExpression minValue = symbolAllocator.newVariable(MIN.toString(), outputColumnType);
+            VariableReferenceExpression maxValue = symbolAllocator.newVariable(MAX.toString(), outputColumnType);
+            VariableReferenceExpression countAllValue = symbolAllocator.newVariable("count_all", BigintType.BIGINT);
+            VariableReferenceExpression countNonNullValue = symbolAllocator.newVariable("count_non_null", BigintType.BIGINT);
 
             List<Expression> outputColumnReferences = ImmutableList.of(outputColumn.toSymbolReference());
             List<TypeSignatureProvider> outputColumnTypeSignatures = fromTypes(outputColumnType);
@@ -176,7 +177,12 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     LateralJoinNode.Type.INNER,
                     node.getOriginSubqueryError());
 
-            Expression valueComparedToSubquery = rewriteUsingBounds(quantifiedComparison, minValue, maxValue, countAllValue, countNonNullValue);
+            Expression valueComparedToSubquery = rewriteUsingBounds(
+                    quantifiedComparison,
+                    new Symbol(minValue.getName()),
+                    new Symbol(maxValue.getName()),
+                    new Symbol(countAllValue.getName()),
+                    new Symbol(countNonNullValue.getName()));
 
             Symbol quantifiedComparisonSymbol = getOnlyElement(node.getSubqueryAssignments().getSymbols());
 

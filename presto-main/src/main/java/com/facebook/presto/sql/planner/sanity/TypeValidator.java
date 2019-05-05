@@ -156,18 +156,11 @@ public final class TypeValidator
             }
         }
 
-        private void checkTypeSignature(Symbol symbol, TypeSignature actualTypeSignature)
+        private void checkCall(VariableReferenceExpression variable, FunctionCall call)
         {
-            TypeSignature expectedTypeSignature = types.get(symbol).getTypeSignature();
-            verifyTypeSignature(symbol, expectedTypeSignature, actualTypeSignature);
-        }
-
-        private void checkCall(Symbol symbol, FunctionCall call)
-        {
-            Type expectedType = types.get(symbol);
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, call, emptyList(), warningCollector);
             Type actualType = expressionTypes.get(NodeRef.<Expression>of(call));
-            verifyTypeSignature(symbol, expectedType.getTypeSignature(), actualType.getTypeSignature());
+            verifyTypeSignature(variable, actualType.getTypeSignature());
         }
 
         private void checkCall(VariableReferenceExpression variable, CallExpression call)
@@ -176,16 +169,16 @@ public final class TypeValidator
             verifyTypeSignature(variable, actualType.getTypeSignature());
         }
 
-        private void checkFunctionSignature(Map<Symbol, Aggregation> aggregations)
+        private void checkFunctionSignature(Map<VariableReferenceExpression, Aggregation> aggregations)
         {
-            for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
-                checkTypeSignature(entry.getKey(), metadata.getFunctionManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getReturnType());
+            for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
+                verifyTypeSignature(entry.getKey(), metadata.getFunctionManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getReturnType());
             }
         }
 
-        private void checkFunctionCall(Map<Symbol, Aggregation> aggregations)
+        private void checkFunctionCall(Map<VariableReferenceExpression, Aggregation> aggregations)
         {
-            for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
+            for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
                 checkCall(entry.getKey(), entry.getValue().getCall());
             }
         }

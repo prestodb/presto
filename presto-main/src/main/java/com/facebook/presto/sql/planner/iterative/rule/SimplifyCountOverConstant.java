@@ -17,6 +17,7 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -67,15 +68,15 @@ public class SimplifyCountOverConstant
         ProjectNode child = captures.get(CHILD);
 
         boolean changed = false;
-        Map<Symbol, AggregationNode.Aggregation> aggregations = new LinkedHashMap<>(parent.getAggregations());
+        Map<VariableReferenceExpression, AggregationNode.Aggregation> aggregations = new LinkedHashMap<>(parent.getAggregations());
 
-        for (Entry<Symbol, AggregationNode.Aggregation> entry : parent.getAggregations().entrySet()) {
-            Symbol symbol = entry.getKey();
+        for (Entry<VariableReferenceExpression, AggregationNode.Aggregation> entry : parent.getAggregations().entrySet()) {
+            VariableReferenceExpression variable = entry.getKey();
             AggregationNode.Aggregation aggregation = entry.getValue();
 
             if (isCountOverConstant(aggregation, child.getAssignments())) {
                 changed = true;
-                aggregations.put(symbol, new AggregationNode.Aggregation(
+                aggregations.put(variable, new AggregationNode.Aggregation(
                         new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
                         functionManager.lookupFunction("count", ImmutableList.of()),
                         aggregation.getMask()));

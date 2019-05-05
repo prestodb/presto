@@ -167,8 +167,8 @@ public class TestEffectivePredicateExtractor
                                 greaterThan(AE, bigintLiteral(2)),
                                 equals(EE, FE))),
                 ImmutableMap.of(
-                        C, new Aggregation(functionCall, functionHandle, Optional.empty()),
-                        D, new Aggregation(functionCall, functionHandle, Optional.empty())),
+                        CV, new Aggregation(functionCall, functionHandle, Optional.empty()),
+                        DV, new Aggregation(functionCall, functionHandle, Optional.empty())),
                 singleGroupingSet(ImmutableList.of(A, B, C)),
                 ImmutableList.of(),
                 AggregationNode.Step.FINAL,
