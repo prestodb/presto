@@ -115,10 +115,10 @@ public class MultipleDistinctAggregationToMarkDistinct
         // the distinct marker for the given set of input columns
         Map<Set<Symbol>, VariableReferenceExpression> markers = new HashMap<>();
 
-        Map<Symbol, Aggregation> newAggregations = new HashMap<>();
+        Map<VariableReferenceExpression, Aggregation> newAggregations = new HashMap<>();
         PlanNode subPlan = parent.getSource();
 
-        for (Map.Entry<Symbol, Aggregation> entry : parent.getAggregations().entrySet()) {
+        for (Map.Entry<VariableReferenceExpression, Aggregation> entry : parent.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
 
             if (aggregation.isDistinct() && !aggregation.getFilter().isPresent() && !aggregation.getMask().isPresent()) {

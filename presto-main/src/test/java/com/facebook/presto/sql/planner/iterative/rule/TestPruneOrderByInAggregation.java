@@ -63,8 +63,8 @@ public class TestPruneOrderByInAggregation
 
     private AggregationNode buildAggregation(PlanBuilder planBuilder)
     {
-        Symbol avg = planBuilder.symbol("avg");
-        Symbol arrayAgg = planBuilder.symbol("array_agg");
+        VariableReferenceExpression avg = planBuilder.variable(planBuilder.symbol("avg"));
+        VariableReferenceExpression arrayAgg = planBuilder.variable(planBuilder.symbol("array_agg"));
         Symbol input = planBuilder.symbol("input");
         Symbol key = planBuilder.symbol("key");
         Symbol keyHash = planBuilder.symbol("keyHash");

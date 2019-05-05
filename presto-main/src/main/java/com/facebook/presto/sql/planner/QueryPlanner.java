@@ -551,11 +551,11 @@ class QueryPlanner
         aggregationTranslations.copyMappingsFrom(groupingTranslations);
 
         // 2.d. Rewrite aggregates
-        ImmutableMap.Builder<Symbol, Aggregation> aggregationsBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregationsBuilder = ImmutableMap.builder();
         boolean needPostProjectionCoercion = false;
         for (FunctionCall aggregate : analysis.getAggregates(node)) {
             Expression rewritten = argumentTranslations.rewrite(aggregate);
-            Symbol newSymbol = symbolAllocator.newSymbol(rewritten, analysis.getType(aggregate));
+            VariableReferenceExpression newVariable = symbolAllocator.newVariable(rewritten, analysis.getType(aggregate));
 
             // TODO: this is a hack, because we apply coercions to the output of expressions, rather than the arguments to expressions.
             // Therefore we can end up with this implicit cast, and have to move it into a post-projection
@@ -563,10 +563,10 @@ class QueryPlanner
                 rewritten = ((Cast) rewritten).getExpression();
                 needPostProjectionCoercion = true;
             }
-            aggregationTranslations.put(aggregate, newSymbol);
+            aggregationTranslations.put(aggregate, new Symbol(newVariable.getName()));
             FunctionCall rewrittenFunction = (FunctionCall) rewritten;
 
-            aggregationsBuilder.put(newSymbol,
+            aggregationsBuilder.put(newVariable,
                     new Aggregation(
                             analysis.getFunctionHandle(aggregate),
                             rewrittenFunction.getArguments(),
@@ -575,7 +575,7 @@ class QueryPlanner
                             rewrittenFunction.isDistinct(),
                             Optional.empty()));
         }
-        Map<Symbol, Aggregation> aggregations = aggregationsBuilder.build();
+        Map<VariableReferenceExpression, Aggregation> aggregations = aggregationsBuilder.build();
 
         ImmutableSet.Builder<Integer> globalGroupingSets = ImmutableSet.builder();
         for (int i = 0; i < groupingSets.size(); i++) {

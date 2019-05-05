@@ -162,10 +162,7 @@ public class ImplementIntersectAndExceptAsUnion
             UnionNode union = union(withMarkers, ImmutableList.copyOf(concat(outputs, markers)));
 
             // add count aggregations and filter rows where any of the counts is >= 1
-            List<Symbol> aggregationOutputs = allocateVariables(markers.size(), "count", BIGINT).stream()
-                    .map(VariableReferenceExpression::getName)
-                    .map(Symbol::new)
-                    .collect(toImmutableList());
+            List<VariableReferenceExpression> aggregationOutputs = allocateVariables(markers.size(), "count", BIGINT);
             AggregationNode aggregation = computeCounts(union, node.getOutputSymbols(), markers, aggregationOutputs);
             FilterNode filterNode = addFilterForIntersect(aggregation);
 
@@ -190,10 +187,7 @@ public class ImplementIntersectAndExceptAsUnion
             UnionNode union = union(withMarkers, ImmutableList.copyOf(concat(outputs, markers)));
 
             // add count aggregations and filter rows where count for the first source is >= 1 and all others are 0
-            List<Symbol> aggregationOutputs = allocateVariables(markers.size(), "count", BIGINT).stream()
-                    .map(VariableReferenceExpression::getName)
-                    .map(Symbol::new)
-                    .collect(toImmutableList());
+            List<VariableReferenceExpression> aggregationOutputs = allocateVariables(markers.size(), "count", BIGINT);
             AggregationNode aggregation = computeCounts(union, node.getOutputSymbols(), markers, aggregationOutputs);
             FilterNode filterNode = addFilterForExcept(aggregation, aggregationOutputs.get(0), aggregationOutputs.subList(1, aggregationOutputs.size()));
 
@@ -248,12 +242,12 @@ public class ImplementIntersectAndExceptAsUnion
             return new UnionNode(idAllocator.getNextId(), nodes, outputsToInputs.build());
         }
 
-        private AggregationNode computeCounts(UnionNode sourceNode, List<Symbol> originalColumns, List<VariableReferenceExpression> markers, List<Symbol> aggregationOutputs)
+        private AggregationNode computeCounts(UnionNode sourceNode, List<Symbol> originalColumns, List<VariableReferenceExpression> markers, List<VariableReferenceExpression> aggregationOutputs)
         {
-            ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
+            ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregations = ImmutableMap.builder();
 
             for (int i = 0; i < markers.size(); i++) {
-                Symbol output = aggregationOutputs.get(i);
+                VariableReferenceExpression output = aggregationOutputs.get(i);
                 aggregations.put(output, new Aggregation(
                         functionResolution.countFunction(BIGINT),
                         ImmutableList.of(new SymbolReference(markers.get(i).getName())),
@@ -276,17 +270,17 @@ public class ImplementIntersectAndExceptAsUnion
         private FilterNode addFilterForIntersect(AggregationNode aggregation)
         {
             ImmutableList<Expression> predicates = aggregation.getAggregations().keySet().stream()
-                    .map(column -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, column.toSymbolReference(), new GenericLiteral("BIGINT", "1")))
+                    .map(column -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(column.getName()), new GenericLiteral("BIGINT", "1")))
                     .collect(toImmutableList());
             return new FilterNode(idAllocator.getNextId(), aggregation, castToRowExpression(ExpressionUtils.and(predicates)));
         }
 
-        private FilterNode addFilterForExcept(AggregationNode aggregation, Symbol firstSource, List<Symbol> remainingSources)
+        private FilterNode addFilterForExcept(AggregationNode aggregation, VariableReferenceExpression firstSource, List<VariableReferenceExpression> remainingSources)
         {
             ImmutableList.Builder<Expression> predicatesBuilder = ImmutableList.builder();
-            predicatesBuilder.add(new ComparisonExpression(GREATER_THAN_OR_EQUAL, firstSource.toSymbolReference(), new GenericLiteral("BIGINT", "1")));
-            for (Symbol symbol : remainingSources) {
-                predicatesBuilder.add(new ComparisonExpression(EQUAL, symbol.toSymbolReference(), new GenericLiteral("BIGINT", "0")));
+            predicatesBuilder.add(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(firstSource.getName()), new GenericLiteral("BIGINT", "1")));
+            for (VariableReferenceExpression variable : remainingSources) {
+                predicatesBuilder.add(new ComparisonExpression(EQUAL, new SymbolReference(variable.getName()), new GenericLiteral("BIGINT", "0")));
             }
 
             return new FilterNode(idAllocator.getNextId(), aggregation, castToRowExpression(ExpressionUtils.and(predicatesBuilder.build())));

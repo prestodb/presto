@@ -274,7 +274,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.DiscreteDomain.integers;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -2191,8 +2190,7 @@ public class LocalExecutionPlanner
                 if (groupingSymbols.isEmpty()) {
                     return createAggregationOperatorFactory(
                             node.getId(),
-                            aggregation.getAggregations().entrySet().stream()
-                                    .collect(toImmutableMap(entry -> new Symbol(entry.getKey().getName()), Map.Entry::getValue)),
+                            aggregation.getAggregations(),
                             PARTIAL,
                             STATS_START_CHANNEL,
                             outputMapping,
@@ -2202,8 +2200,7 @@ public class LocalExecutionPlanner
                 }
                 return createHashAggregationOperatorFactory(
                         node.getId(),
-                        aggregation.getAggregations().entrySet().stream()
-                                .collect(toImmutableMap(entry -> new Symbol(entry.getKey().getName()), Map.Entry::getValue)),
+                        aggregation.getAggregations(),
                         ImmutableSet.of(),
                         groupingSymbols,
                         PARTIAL,
@@ -2274,8 +2271,7 @@ public class LocalExecutionPlanner
                 if (groupingSymbols.isEmpty()) {
                     return createAggregationOperatorFactory(
                             node.getId(),
-                            aggregation.getAggregations().entrySet().stream()
-                                    .collect(toImmutableMap(entry -> new Symbol(entry.getKey().getName()), Map.Entry::getValue)),
+                            aggregation.getAggregations(),
                             FINAL,
                             0,
                             outputMapping,
@@ -2285,8 +2281,7 @@ public class LocalExecutionPlanner
                 }
                 return createHashAggregationOperatorFactory(
                         node.getId(),
-                        aggregation.getAggregations().entrySet().stream()
-                                .collect(toImmutableMap(entry -> new Symbol(entry.getKey().getName()), Map.Entry::getValue)),
+                        aggregation.getAggregations(),
                         ImmutableSet.of(),
                         aggregation.getGroupingSymbols(),
                         FINAL,
@@ -2652,7 +2647,7 @@ public class LocalExecutionPlanner
 
         private AggregationOperatorFactory createAggregationOperatorFactory(
                 PlanNodeId planNodeId,
-                Map<Symbol, Aggregation> aggregations,
+                Map<VariableReferenceExpression, Aggregation> aggregations,
                 Step step,
                 int startOutputChannel,
                 ImmutableMap.Builder<Symbol, Integer> outputMappings,
@@ -2662,11 +2657,11 @@ public class LocalExecutionPlanner
         {
             int outputChannel = startOutputChannel;
             ImmutableList.Builder<AccumulatorFactory> accumulatorFactories = ImmutableList.builder();
-            for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
-                Symbol symbol = entry.getKey();
+            for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
+                VariableReferenceExpression variable = entry.getKey();
                 Aggregation aggregation = entry.getValue();
                 accumulatorFactories.add(buildAccumulatorFactory(source, aggregation));
-                outputMappings.put(symbol, outputChannel); // one aggregation per channel
+                outputMappings.put(new Symbol(variable.getName()), outputChannel); // one aggregation per channel
                 outputChannel++;
             }
             return new AggregationOperatorFactory(context.getNextOperatorId(), planNodeId, step, accumulatorFactories.build(), useSystemMemory);
@@ -2704,7 +2699,7 @@ public class LocalExecutionPlanner
 
         private OperatorFactory createHashAggregationOperatorFactory(
                 PlanNodeId planNodeId,
-                Map<Symbol, Aggregation> aggregations,
+                Map<VariableReferenceExpression, Aggregation> aggregations,
                 Set<Integer> globalGroupingSets,
                 List<Symbol> groupbySymbols,
                 Step step,
@@ -2722,14 +2717,14 @@ public class LocalExecutionPlanner
                 Optional<DataSize> maxPartialAggregationMemorySize,
                 boolean useSystemMemory)
         {
-            List<Symbol> aggregationOutputSymbols = new ArrayList<>();
+            List<VariableReferenceExpression> aggregationOutputSymbols = new ArrayList<>();
             List<AccumulatorFactory> accumulatorFactories = new ArrayList<>();
-            for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
-                Symbol symbol = entry.getKey();
+            for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
+                VariableReferenceExpression variable = entry.getKey();
                 Aggregation aggregation = entry.getValue();
 
                 accumulatorFactories.add(buildAccumulatorFactory(source, aggregation));
-                aggregationOutputSymbols.add(symbol);
+                aggregationOutputSymbols.add(variable);
             }
 
             // add group-by key fields each in a separate channel
@@ -2749,8 +2744,8 @@ public class LocalExecutionPlanner
             }
 
             // aggregations go in following channels
-            for (Symbol symbol : aggregationOutputSymbols) {
-                outputMappings.put(symbol, channel);
+            for (VariableReferenceExpression variable : aggregationOutputSymbols) {
+                outputMappings.put(new Symbol(variable.getName()), channel);
                 channel++;
             }
 

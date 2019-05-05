@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
@@ -169,12 +170,12 @@ public class ScalarAggregationToJoinRewriter
             JoinNode leftOuterJoin,
             Symbol nonNullableAggregationSourceSymbol)
     {
-        ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Aggregation> entry : scalarAggregation.getAggregations().entrySet()) {
-            Symbol symbol = entry.getKey();
+        ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregations = ImmutableMap.builder();
+        for (Map.Entry<VariableReferenceExpression, Aggregation> entry : scalarAggregation.getAggregations().entrySet()) {
+            VariableReferenceExpression variable = entry.getKey();
             if (functionResolution.isCountFunction(entry.getValue().getFunctionHandle())) {
                 Type scalarAggregationSourceType = symbolAllocator.getTypes().get(nonNullableAggregationSourceSymbol);
-                aggregations.put(symbol, new Aggregation(
+                aggregations.put(variable, new Aggregation(
                         functionResolution.countFunction(scalarAggregationSourceType),
                         ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference()),
                         Optional.empty(),
@@ -183,7 +184,7 @@ public class ScalarAggregationToJoinRewriter
                         entry.getValue().getMask()));
             }
             else {
-                aggregations.put(symbol, entry.getValue());
+                aggregations.put(variable, entry.getValue());
             }
         }
 

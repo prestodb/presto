@@ -18,6 +18,7 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
@@ -193,8 +194,8 @@ public class TransformCorrelatedInPredicateToJoin
 
         JoinNode leftOuterJoin = leftOuterJoin(idAllocator, probeSide, buildSide, joinExpression);
 
-        Symbol countMatchesSymbol = symbolAllocator.newSymbol("countMatches", BIGINT);
-        Symbol countNullMatchesSymbol = symbolAllocator.newSymbol("countNullMatches", BIGINT);
+        VariableReferenceExpression countMatchesVariable = symbolAllocator.newVariable("countMatches", BIGINT);
+        VariableReferenceExpression countNullMatchesVariable = symbolAllocator.newVariable("countNullMatches", BIGINT);
 
         Expression matchCondition = and(
                 isNotNull(probeSideSymbol),
@@ -207,9 +208,9 @@ public class TransformCorrelatedInPredicateToJoin
         AggregationNode aggregation = new AggregationNode(
                 idAllocator.getNextId(),
                 leftOuterJoin,
-                ImmutableMap.<Symbol, AggregationNode.Aggregation>builder()
-                        .put(countMatchesSymbol, countWithFilter(matchCondition))
-                        .put(countNullMatchesSymbol, countWithFilter(nullMatchCondition))
+                ImmutableMap.<VariableReferenceExpression, AggregationNode.Aggregation>builder()
+                        .put(countMatchesVariable, countWithFilter(matchCondition))
+                        .put(countNullMatchesVariable, countWithFilter(nullMatchCondition))
                         .build(),
                 singleGroupingSet(probeSide.getOutputSymbols()),
                 ImmutableList.of(),
@@ -220,8 +221,8 @@ public class TransformCorrelatedInPredicateToJoin
         // TODO since we care only about "some count > 0", we could have specialized node instead of leftOuterJoin that does the job without materializing join results
         SearchedCaseExpression inPredicateEquivalent = new SearchedCaseExpression(
                 ImmutableList.of(
-                        new WhenClause(isGreaterThan(countMatchesSymbol, 0), booleanConstant(true)),
-                        new WhenClause(isGreaterThan(countNullMatchesSymbol, 0), booleanConstant(null))),
+                        new WhenClause(isGreaterThan(countMatchesVariable, 0), booleanConstant(true)),
+                        new WhenClause(isGreaterThan(countNullMatchesVariable, 0), booleanConstant(null))),
                 Optional.of(booleanConstant(false)));
         return new ProjectNode(
                 idAllocator.getNextId(),
@@ -261,11 +262,11 @@ public class TransformCorrelatedInPredicateToJoin
                 Optional.<Symbol>empty()); /* mask */
     }
 
-    private static Expression isGreaterThan(Symbol symbol, long value)
+    private static Expression isGreaterThan(VariableReferenceExpression variable, long value)
     {
         return new ComparisonExpression(
                 ComparisonExpression.Operator.GREATER_THAN,
-                symbol.toSymbolReference(),
+                new SymbolReference(variable.getName()),
                 bigint(value));
     }
 

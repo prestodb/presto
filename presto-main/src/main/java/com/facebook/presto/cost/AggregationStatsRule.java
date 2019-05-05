@@ -15,6 +15,7 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
@@ -63,7 +64,7 @@ public class AggregationStatsRule
                 node.getAggregations()));
     }
 
-    public static PlanNodeStatsEstimate groupBy(PlanNodeStatsEstimate sourceStats, Collection<Symbol> groupBySymbols, Map<Symbol, Aggregation> aggregations)
+    public static PlanNodeStatsEstimate groupBy(PlanNodeStatsEstimate sourceStats, Collection<Symbol> groupBySymbols, Map<VariableReferenceExpression, Aggregation> aggregations)
     {
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
         for (Symbol groupBySymbol : groupBySymbols) {
@@ -84,8 +85,8 @@ public class AggregationStatsRule
         }
         result.setOutputRowCount(min(rowsCount, sourceStats.getOutputRowCount()));
 
-        for (Map.Entry<Symbol, Aggregation> aggregationEntry : aggregations.entrySet()) {
-            result.addSymbolStatistics(aggregationEntry.getKey(), estimateAggregationStats(aggregationEntry.getValue(), sourceStats));
+        for (Map.Entry<VariableReferenceExpression, Aggregation> aggregationEntry : aggregations.entrySet()) {
+            result.addSymbolStatistics(new Symbol(aggregationEntry.getKey().getName()), estimateAggregationStats(aggregationEntry.getValue(), sourceStats));
         }
 
         return result.build();

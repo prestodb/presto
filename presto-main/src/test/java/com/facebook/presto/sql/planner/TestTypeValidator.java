@@ -201,12 +201,12 @@ public class TestTypeValidator
     @Test
     public void testValidAggregation()
     {
-        Symbol aggregationSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
+        VariableReferenceExpression aggregationVariable = symbolAllocator.newVariable("sum", DOUBLE);
 
         PlanNode node = new AggregationNode(
                 newId(),
                 baseTableScan,
-                ImmutableMap.of(aggregationSymbol, new Aggregation(
+                ImmutableMap.of(aggregationVariable, new Aggregation(
                         FUNCTION_MANAGER.lookupFunction("sum", fromTypes(DOUBLE)),
                         ImmutableList.of(columnC.toSymbolReference()),
                         Optional.empty(),
@@ -253,15 +253,15 @@ public class TestTypeValidator
     }
 
     // This test will be disable temporarily until we converted Aggregation to use CallExpression
-    @Test(enabled = false, expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint")
+    @Test(enabled = false, expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of variable 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint")
     public void testInvalidAggregationFunctionCall()
     {
-        Symbol aggregationSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
+        VariableReferenceExpression aggregationVariable = symbolAllocator.newVariable("sum", DOUBLE);
 
         PlanNode node = new AggregationNode(
                 newId(),
                 baseTableScan,
-                ImmutableMap.of(aggregationSymbol, new Aggregation(
+                ImmutableMap.of(aggregationVariable, new Aggregation(
                         FUNCTION_MANAGER.lookupFunction("sum", fromTypes(DOUBLE)),
                         ImmutableList.of(columnA.toSymbolReference()),
                         Optional.empty(),
@@ -277,15 +277,15 @@ public class TestTypeValidator
         assertTypesValid(node);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of variable 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint")
     public void testInvalidAggregationFunctionSignature()
     {
-        Symbol aggregationSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
+        VariableReferenceExpression aggregationVariable = symbolAllocator.newVariable("sum", DOUBLE);
 
         PlanNode node = new AggregationNode(
                 newId(),
                 baseTableScan,
-                ImmutableMap.of(aggregationSymbol, new Aggregation(
+                ImmutableMap.of(aggregationVariable, new Aggregation(
                         FUNCTION_MANAGER.lookupFunction("sum", fromTypes(BIGINT)), // should be DOUBLE
                         ImmutableList.of(columnC.toSymbolReference()),
                         Optional.empty(),

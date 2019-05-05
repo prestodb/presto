@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -81,12 +82,12 @@ public class ImplementFilteredAggregations
     public Result apply(AggregationNode aggregation, Captures captures, Context context)
     {
         Assignments.Builder newAssignments = Assignments.builder();
-        ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregations = ImmutableMap.builder();
         ImmutableList.Builder<Expression> maskSymbols = ImmutableList.builder();
         boolean aggregateWithoutFilterPresent = false;
 
-        for (Map.Entry<Symbol, Aggregation> entry : aggregation.getAggregations().entrySet()) {
-            Symbol output = entry.getKey();
+        for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregation.getAggregations().entrySet()) {
+            VariableReferenceExpression output = entry.getKey();
 
             // strip the filters
             Optional<Symbol> mask = entry.getValue().getMask();

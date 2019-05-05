@@ -101,7 +101,7 @@ public class PushPartialAggregationThroughJoin
         return Result.empty();
     }
 
-    private boolean allAggregationsOn(Map<Symbol, AggregationNode.Aggregation> aggregations, List<Symbol> symbols)
+    private boolean allAggregationsOn(Map<VariableReferenceExpression, AggregationNode.Aggregation> aggregations, List<Symbol> symbols)
     {
         Set<Symbol> inputs = aggregations.values()
                 .stream()

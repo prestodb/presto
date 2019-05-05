@@ -54,7 +54,7 @@ public class TestPushPartialAggregationThroughJoin
                                         Optional.of(expression("LEFT_NON_EQUI <= RIGHT_NON_EQUI")),
                                         Optional.of(p.variable(p.symbol("LEFT_HASH"))),
                                         Optional.of(p.variable(p.symbol("RIGHT_HASH")))))
-                        .addAggregation(p.symbol("AVG", DOUBLE), expression("AVG(LEFT_AGGR)"), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.variable(p.symbol("AVG", DOUBLE)), expression("AVG(LEFT_AGGR)"), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.symbol("LEFT_GROUP_BY"), p.symbol("RIGHT_GROUP_BY"))
                         .step(PARTIAL)))
                 .matches(project(ImmutableMap.of(

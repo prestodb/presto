@@ -96,6 +96,12 @@ public final class SymbolsExtractor
         new SymbolBuilderVisitor().process(expression, builder);
         return builder.build();
     }
+    public static List<VariableReferenceExpression> extractAllVariable(Expression expression, TypeProvider types)
+    {
+        ImmutableList.Builder<VariableReferenceExpression> builder = ImmutableList.builder();
+        new VariableFromExpressionBuilderVisitor(types).process(expression, builder);
+        return builder.build();
+    }
 
     public static List<VariableReferenceExpression> extractAll(RowExpression expression)
     {
@@ -144,6 +150,24 @@ public final class SymbolsExtractor
         protected Void visitSymbolReference(SymbolReference node, ImmutableList.Builder<Symbol> builder)
         {
             builder.add(Symbol.from(node));
+            return null;
+        }
+    }
+
+    private static class VariableFromExpressionBuilderVisitor
+            extends DefaultExpressionTraversalVisitor<Void, ImmutableList.Builder<VariableReferenceExpression>>
+    {
+        private final TypeProvider types;
+
+        protected VariableFromExpressionBuilderVisitor(TypeProvider types)
+        {
+            this.types = types;
+        }
+
+        @Override
+        protected Void visitSymbolReference(SymbolReference node, ImmutableList.Builder<VariableReferenceExpression> builder)
+        {
+            builder.add(new VariableReferenceExpression(node.getName(), types.get(Symbol.from(node))));
             return null;
         }
     }

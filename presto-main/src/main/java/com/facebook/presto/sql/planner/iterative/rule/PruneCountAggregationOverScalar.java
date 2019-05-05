@@ -17,7 +17,7 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
@@ -60,8 +60,8 @@ public class PruneCountAggregationOverScalar
         if (!parent.hasDefaultOutput() || parent.getOutputSymbols().size() != 1) {
             return Result.empty();
         }
-        Map<Symbol, AggregationNode.Aggregation> assignments = parent.getAggregations();
-        for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
+        Map<VariableReferenceExpression, AggregationNode.Aggregation> assignments = parent.getAggregations();
+        for (Map.Entry<VariableReferenceExpression, AggregationNode.Aggregation> entry : assignments.entrySet()) {
             AggregationNode.Aggregation aggregation = entry.getValue();
             requireNonNull(aggregation, "aggregation is null");
             if (!functionResolution.isCountFunction(aggregation.getFunctionHandle()) || !aggregation.getArguments().isEmpty()) {

@@ -73,7 +73,7 @@ public class TestPruneAggregationSourceColumns
 
     private AggregationNode buildAggregation(PlanBuilder planBuilder, Predicate<Symbol> sourceSymbolFilter)
     {
-        Symbol avg = planBuilder.symbol("avg");
+        VariableReferenceExpression avg = planBuilder.variable(planBuilder.symbol("avg"));
         Symbol input = planBuilder.symbol("input");
         Symbol key = planBuilder.symbol("key");
         Symbol keyHash = planBuilder.symbol("keyHash");

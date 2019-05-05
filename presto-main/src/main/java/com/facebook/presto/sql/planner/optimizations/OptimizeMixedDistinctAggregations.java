@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
@@ -38,6 +39,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -148,15 +150,15 @@ public class OptimizeMixedDistinctAggregations
 
             // Change aggregate node to do second aggregation, handles this part of optimized plan mentioned above:
             //          SELECT a1, a2,..., an, arbitrary(if(group = 0, f1)),...., arbitrary(if(group = 0, fm)), F(if(group = 1, c))
-            ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
+            ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregations = ImmutableMap.builder();
             // Add coalesce projection node to handle count(), count_if(), approx_distinct() functions return a
             // non-null result without any input
-            ImmutableMap.Builder<Symbol, Symbol> coalesceSymbolsBuilder = ImmutableMap.builder();
-            for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
+            ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> coalesceVariablesBuilder = ImmutableMap.builder();
+            for (Map.Entry<VariableReferenceExpression, Aggregation> entry : node.getAggregations().entrySet()) {
                 if (entry.getValue().getMask().isPresent()) {
                     aggregations.put(entry.getKey(), new Aggregation(
                             entry.getValue().getFunctionHandle(),
-                            ImmutableList.of(aggregateInfo.getNewDistinctAggregateSymbol().toSymbolReference()),
+                            ImmutableList.of(new SymbolReference(aggregateInfo.getNewDistinctAggregateVariable().getName())),
                             Optional.empty(),
                             Optional.empty(),
                             false,
@@ -164,26 +166,26 @@ public class OptimizeMixedDistinctAggregations
                 }
                 else {
                     // Aggregations on non-distinct are already done by new node, just extract the non-null value
-                    Symbol argument = aggregateInfo.getNewNonDistinctAggregateSymbols().get(entry.getKey());
+                    VariableReferenceExpression argument = aggregateInfo.getNewNonDistinctAggregateVariables().get(entry.getKey());
                     Aggregation aggregation = new Aggregation(
-                            metadata.getFunctionManager().lookupFunction("arbitrary", ImmutableList.of(new TypeSignatureProvider(symbolAllocator.getTypes().get(argument).getTypeSignature()))),
-                            ImmutableList.of(argument.toSymbolReference()),
+                            metadata.getFunctionManager().lookupFunction("arbitrary", ImmutableList.of(new TypeSignatureProvider(argument.getType().getTypeSignature()))),
+                            ImmutableList.of(new SymbolReference(argument.getName())),
                             Optional.empty(),
                             Optional.empty(),
                             false,
                             Optional.empty());
                     String functionName = metadata.getFunctionManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getName();
                     if (functionName.equals("count") || functionName.equals("count_if") || functionName.equals("approx_distinct")) {
-                        Symbol newSymbol = symbolAllocator.newSymbol("expr", symbolAllocator.getTypes().get(entry.getKey()));
-                        aggregations.put(newSymbol, aggregation);
-                        coalesceSymbolsBuilder.put(newSymbol, entry.getKey());
+                        VariableReferenceExpression newVariable = symbolAllocator.newVariable("expr", entry.getKey().getType());
+                        aggregations.put(newVariable, aggregation);
+                        coalesceVariablesBuilder.put(newVariable, entry.getKey());
                     }
                     else {
                         aggregations.put(entry.getKey(), aggregation);
                     }
                 }
             }
-            Map<Symbol, Symbol> coalesceSymbols = coalesceSymbolsBuilder.build();
+            Map<VariableReferenceExpression, VariableReferenceExpression> coalesceVariables = coalesceVariablesBuilder.build();
 
             AggregationNode aggregationNode = new AggregationNode(
                     idAllocator.getNextId(),
@@ -195,15 +197,20 @@ public class OptimizeMixedDistinctAggregations
                     Optional.empty(),
                     node.getGroupIdSymbol());
 
-            if (coalesceSymbols.isEmpty()) {
+            if (coalesceVariables.isEmpty()) {
                 return aggregationNode;
             }
 
             Assignments.Builder outputSymbols = Assignments.builder();
             for (Symbol symbol : aggregationNode.getOutputSymbols()) {
-                if (coalesceSymbols.containsKey(symbol)) {
+                if (coalesceVariables.keySet().stream().anyMatch(variable -> variable.getName().equals(symbol.getName()))) {
                     Expression expression = new CoalesceExpression(symbol.toSymbolReference(), new Cast(new LongLiteral("0"), "bigint"));
-                    outputSymbols.put(coalesceSymbols.get(symbol), expression);
+                    outputSymbols.put(new Symbol(coalesceVariables.entrySet().stream()
+                            .filter(entry -> entry.getKey().getName().equals(symbol.getName()))
+                            .collect(toImmutableList())
+                            .get(0)
+                            .getValue()
+                            .getName()), expression);
                 }
                 else {
                     outputSymbols.putIdentity(symbol);
@@ -262,7 +269,7 @@ public class OptimizeMixedDistinctAggregations
             groupByKeys.add(distinctSymbol);
             groupByKeys.add(groupSymbol);
 
-            ImmutableMap.Builder<Symbol, Symbol> aggregationOutputSymbolsMapBuilder = ImmutableMap.builder();
+            ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> aggregationOutputVariablesMapBuilder = ImmutableMap.builder();
             AggregationNode aggregationNode = createNonDistinctAggregation(
                     aggregateInfo.get(),
                     distinctSymbol,
@@ -270,9 +277,9 @@ public class OptimizeMixedDistinctAggregations
                     groupByKeys,
                     groupIdNode,
                     node,
-                    aggregationOutputSymbolsMapBuilder);
+                    aggregationOutputVariablesMapBuilder);
             // This map has mapping only for aggregation on non-distinct symbols which the new AggregationNode handles
-            Map<Symbol, Symbol> aggregationOutputSymbolsMap = aggregationOutputSymbolsMapBuilder.build();
+            Map<VariableReferenceExpression, VariableReferenceExpression> aggregationOutputVariablesMap = aggregationOutputVariablesMapBuilder.build();
 
             // 3. Add new project node that adds if expressions
             ProjectNode projectNode = createProjectNode(
@@ -281,7 +288,7 @@ public class OptimizeMixedDistinctAggregations
                     distinctSymbol,
                     groupSymbol,
                     groupBySymbols,
-                    aggregationOutputSymbolsMap);
+                    aggregationOutputVariablesMap);
 
             return projectNode;
         }
@@ -318,14 +325,14 @@ public class OptimizeMixedDistinctAggregations
                 Symbol distinctSymbol,
                 Symbol groupSymbol,
                 List<Symbol> groupBySymbols,
-                Map<Symbol, Symbol> aggregationOutputSymbolsMap)
+                Map<VariableReferenceExpression, VariableReferenceExpression> aggregationOutputVariablesMap)
         {
             Assignments.Builder outputSymbols = Assignments.builder();
-            ImmutableMap.Builder<Symbol, Symbol> outputNonDistinctAggregateSymbols = ImmutableMap.builder();
+            ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> outputNonDistinctAggregateVariables = ImmutableMap.builder();
             for (Symbol symbol : source.getOutputSymbols()) {
                 if (distinctSymbol.equals(symbol)) {
-                    Symbol newSymbol = symbolAllocator.newSymbol("expr", symbolAllocator.getTypes().get(symbol));
-                    aggregateInfo.setNewDistinctAggregateSymbol(newSymbol);
+                    VariableReferenceExpression newVariable = symbolAllocator.newVariable("expr", symbolAllocator.getTypes().get(symbol));
+                    aggregateInfo.setNewDistinctAggregateSymbol(newVariable);
 
                     Expression expression = createIfExpression(
                             groupSymbol.toSymbolReference(),
@@ -333,19 +340,23 @@ public class OptimizeMixedDistinctAggregations
                             ComparisonExpression.Operator.EQUAL,
                             symbol.toSymbolReference(),
                             symbolAllocator.getTypes().get(symbol));
-                    outputSymbols.put(newSymbol, expression);
+                    outputSymbols.put(new Symbol(newVariable.getName()), expression);
                 }
-                else if (aggregationOutputSymbolsMap.containsKey(symbol)) {
-                    Symbol newSymbol = symbolAllocator.newSymbol("expr", symbolAllocator.getTypes().get(symbol));
+                else if (aggregationOutputVariablesMap.entrySet().stream().anyMatch(entry -> entry.getKey().getName().equals(symbol.getName()))) {
+                    VariableReferenceExpression newVariable = symbolAllocator.newVariable("expr", symbolAllocator.getTypes().get(symbol));
                     // key of outputNonDistinctAggregateSymbols is key of an aggregation in AggrNode above, it will now aggregate on this Map's value
-                    outputNonDistinctAggregateSymbols.put(aggregationOutputSymbolsMap.get(symbol), newSymbol);
+                    outputNonDistinctAggregateVariables.put(aggregationOutputVariablesMap.entrySet().stream()
+                            .filter(entry -> entry.getKey().getName().equals(symbol.getName()))
+                            .collect(toImmutableList())
+                            .get(0)
+                            .getValue(), newVariable);
                     Expression expression = createIfExpression(
                             groupSymbol.toSymbolReference(),
                             new Cast(new LongLiteral("0"), "bigint"), // TODO: this should use GROUPING() when that's available instead of relying on specific group numbering
                             ComparisonExpression.Operator.EQUAL,
                             symbol.toSymbolReference(),
                             symbolAllocator.getTypes().get(symbol));
-                    outputSymbols.put(newSymbol, expression);
+                    outputSymbols.put(new Symbol(newVariable.getName()), expression);
                 }
 
                 // A symbol can appear both in groupBy and distinct/non-distinct aggregation
@@ -359,7 +370,7 @@ public class OptimizeMixedDistinctAggregations
             // unused mask will be removed by PruneUnreferencedOutputs
             outputSymbols.put(aggregateInfo.getMask(), new NullLiteral());
 
-            aggregateInfo.setNewNonDistinctAggregateSymbols(outputNonDistinctAggregateSymbols.build());
+            aggregateInfo.setNewNonDistinctAggregateSymbols(outputNonDistinctAggregateVariables.build());
 
             return new ProjectNode(idAllocator.getNextId(), source, outputSymbols.build());
         }
@@ -417,14 +428,14 @@ public class OptimizeMixedDistinctAggregations
                 Set<Symbol> groupByKeys,
                 GroupIdNode groupIdNode,
                 MarkDistinctNode originalNode,
-                ImmutableMap.Builder<Symbol, Symbol> aggregationOutputSymbolsMapBuilder)
+                ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> aggregationOutputSymbolsMapBuilder)
         {
-            ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
-            for (Map.Entry<Symbol, Aggregation> entry : aggregateInfo.getAggregations().entrySet()) {
+            ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregations = ImmutableMap.builder();
+            for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregateInfo.getAggregations().entrySet()) {
                 if (!entry.getValue().getMask().isPresent()) {
-                    Symbol newSymbol = symbolAllocator.newSymbol(entry.getKey().toSymbolReference(), symbolAllocator.getTypes().get(entry.getKey()));
+                    VariableReferenceExpression newVariable = symbolAllocator.newVariable(entry.getKey());
                     Aggregation aggregation = entry.getValue();
-                    aggregationOutputSymbolsMapBuilder.put(newSymbol, entry.getKey());
+                    aggregationOutputSymbolsMapBuilder.put(newVariable, entry.getKey());
                     // Handling for cases when mask symbol appears in non distinct aggregations too
                     // Now the aggregation should happen over the duplicate symbol added before
                     List<Expression> arguments;
@@ -443,7 +454,7 @@ public class OptimizeMixedDistinctAggregations
                     else {
                         arguments = entry.getValue().getArguments();
                     }
-                    aggregations.put(newSymbol, new Aggregation(
+                    aggregations.put(newVariable, new Aggregation(
                             entry.getValue().getFunctionHandle(),
                             arguments,
                             Optional.empty(),
@@ -477,14 +488,14 @@ public class OptimizeMixedDistinctAggregations
     {
         private final List<Symbol> groupBySymbols;
         private final Symbol mask;
-        private final Map<Symbol, Aggregation> aggregations;
+        private final Map<VariableReferenceExpression, Aggregation> aggregations;
 
-        // Filled on the way back, these are the symbols corresponding to their distinct or non-distinct original symbols
-        private Map<Symbol, Symbol> newNonDistinctAggregateSymbols;
-        private Symbol newDistinctAggregateSymbol;
+        // Filled on the way back, these are the variables corresponding to their distinct or non-distinct original variables
+        private Map<VariableReferenceExpression, VariableReferenceExpression> newNonDistinctAggregateVariables;
+        private VariableReferenceExpression newDistinctAggregateVariable;
         private boolean foundMarkDistinct;
 
-        public AggregateInfo(List<Symbol> groupBySymbols, Symbol mask, Map<Symbol, Aggregation> aggregations)
+        public AggregateInfo(List<Symbol> groupBySymbols, Symbol mask, Map<VariableReferenceExpression, Aggregation> aggregations)
         {
             this.groupBySymbols = ImmutableList.copyOf(groupBySymbols);
 
@@ -513,24 +524,24 @@ public class OptimizeMixedDistinctAggregations
                     .collect(Collectors.toList());
         }
 
-        public Symbol getNewDistinctAggregateSymbol()
+        public VariableReferenceExpression getNewDistinctAggregateVariable()
         {
-            return newDistinctAggregateSymbol;
+            return newDistinctAggregateVariable;
         }
 
-        public void setNewDistinctAggregateSymbol(Symbol newDistinctAggregateSymbol)
+        public void setNewDistinctAggregateSymbol(VariableReferenceExpression newDistinctAggregateVariable)
         {
-            this.newDistinctAggregateSymbol = newDistinctAggregateSymbol;
+            this.newDistinctAggregateVariable = newDistinctAggregateVariable;
         }
 
-        public Map<Symbol, Symbol> getNewNonDistinctAggregateSymbols()
+        public Map<VariableReferenceExpression, VariableReferenceExpression> getNewNonDistinctAggregateVariables()
         {
-            return newNonDistinctAggregateSymbols;
+            return newNonDistinctAggregateVariables;
         }
 
-        public void setNewNonDistinctAggregateSymbols(Map<Symbol, Symbol> newNonDistinctAggregateSymbols)
+        public void setNewNonDistinctAggregateSymbols(Map<VariableReferenceExpression, VariableReferenceExpression> newNonDistinctAggregateVariables)
         {
-            this.newNonDistinctAggregateSymbols = newNonDistinctAggregateSymbols;
+            this.newNonDistinctAggregateVariables = newNonDistinctAggregateVariables;
         }
 
         public Symbol getMask()
@@ -543,7 +554,7 @@ public class OptimizeMixedDistinctAggregations
             return groupBySymbols;
         }
 
-        public Map<Symbol, Aggregation> getAggregations()
+        public Map<VariableReferenceExpression, Aggregation> getAggregations()
         {
             return aggregations;
         }

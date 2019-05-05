@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
@@ -79,7 +80,7 @@ public class AggregationMatcher
             return NO_MATCH;
         }
 
-        List<Symbol> aggregationsWithMask = aggregationNode.getAggregations()
+        List<VariableReferenceExpression> aggregationsWithMask = aggregationNode.getAggregations()
                 .entrySet()
                 .stream()
                 .filter(entry -> entry.getValue().isDistinct())
@@ -90,8 +91,8 @@ public class AggregationMatcher
             return NO_MATCH;
         }
 
-        for (Symbol symbol : aggregationsWithMask) {
-            if (!masks.keySet().contains(symbol)) {
+        for (VariableReferenceExpression variable : aggregationsWithMask) {
+            if (!masks.keySet().contains(new Symbol(variable.getName()))) {
                 return NO_MATCH;
             }
         }

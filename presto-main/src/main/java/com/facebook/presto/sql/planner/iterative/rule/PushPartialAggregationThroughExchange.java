@@ -19,6 +19,7 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
@@ -31,6 +32,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LambdaExpression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
@@ -196,17 +198,17 @@ public class PushPartialAggregationThroughExchange
     private PlanNode split(AggregationNode node, Context context)
     {
         // otherwise, add a partial and final with an exchange in between
-        Map<Symbol, AggregationNode.Aggregation> intermediateAggregation = new HashMap<>();
-        Map<Symbol, AggregationNode.Aggregation> finalAggregation = new HashMap<>();
-        for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
+        Map<VariableReferenceExpression, AggregationNode.Aggregation> intermediateAggregation = new HashMap<>();
+        Map<VariableReferenceExpression, AggregationNode.Aggregation> finalAggregation = new HashMap<>();
+        for (Map.Entry<VariableReferenceExpression, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
             AggregationNode.Aggregation originalAggregation = entry.getValue();
             String functionName = functionManager.getFunctionMetadata(originalAggregation.getFunctionHandle()).getName();
             FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
             InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
-            Symbol intermediateSymbol = context.getSymbolAllocator().newSymbol(functionName, function.getIntermediateType());
+            VariableReferenceExpression intermediateVariable = context.getSymbolAllocator().newVariable(functionName, function.getIntermediateType());
 
             checkState(!originalAggregation.getOrderBy().isPresent(), "Aggregate with ORDER BY does not support partial aggregation");
-            intermediateAggregation.put(intermediateSymbol, new AggregationNode.Aggregation(
+            intermediateAggregation.put(intermediateVariable, new AggregationNode.Aggregation(
                     functionHandle,
                     originalAggregation.getArguments(),
                     originalAggregation.getFilter(),
@@ -217,10 +219,9 @@ public class PushPartialAggregationThroughExchange
             // rewrite final aggregation in terms of intermediate function
             finalAggregation.put(entry.getKey(),
                     new AggregationNode.Aggregation(
-
                             functionHandle,
                             ImmutableList.<Expression>builder()
-                                    .add(intermediateSymbol.toSymbolReference())
+                                    .add(new SymbolReference(intermediateVariable.getName()))
                                     .addAll(originalAggregation.getArguments().stream()
                                             .filter(LambdaExpression.class::isInstance)
                                             .collect(toImmutableList()))

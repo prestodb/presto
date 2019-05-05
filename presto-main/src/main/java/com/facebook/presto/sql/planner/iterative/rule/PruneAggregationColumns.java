@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -24,6 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class PruneAggregationColumns
         extends ProjectOffPushDownRule<AggregationNode>
@@ -39,9 +41,10 @@ public class PruneAggregationColumns
             AggregationNode aggregationNode,
             Set<Symbol> referencedOutputs)
     {
-        Map<Symbol, AggregationNode.Aggregation> prunedAggregations = Maps.filterKeys(
+        Set<String> referencedOutputNames = referencedOutputs.stream().map(Symbol::getName).collect(toImmutableSet());
+        Map<VariableReferenceExpression, AggregationNode.Aggregation> prunedAggregations = Maps.filterKeys(
                 aggregationNode.getAggregations(),
-                referencedOutputs::contains);
+                variable -> referencedOutputNames.contains(variable.getName()));
 
         if (prunedAggregations.size() == aggregationNode.getAggregations().size()) {
             return Optional.empty();

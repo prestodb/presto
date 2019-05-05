@@ -292,7 +292,7 @@ public class LogicalPlanner
                 new AggregationNode(
                         idAllocator.getNextId(),
                         new TableScanNode(idAllocator.getNextId(), targetTable, tableScanOutputs.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()), tableScanOutputs, symbolToColumnHandle.build()),
-                        statisticAggregations.getAggregations().entrySet().stream().collect(toImmutableMap(entry -> new Symbol(entry.getKey().getName()), Map.Entry::getValue)),
+                        statisticAggregations.getAggregations(),
                         singleGroupingSet(groupingSymbols),
                         ImmutableList.of(),
                         AggregationNode.Step.SINGLE,
