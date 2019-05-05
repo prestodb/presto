@@ -13,12 +13,24 @@
  */
 package com.facebook.presto.spi.relation;
 
-/**
- * A set of services/utilities that are helpful for connectors to operate on row expressions
- */
-public interface RowExpressionService
-{
-    DomainTranslator getDomainTranslator();
+import com.facebook.presto.spi.ConnectorSession;
 
-    ExpressionOptimizer getExpressionOptimizer();
+public interface ExpressionOptimizer
+{
+    /**
+     * Optimize a RowExpression to
+     */
+    RowExpression optimize(RowExpression rowExpression, Level level, ConnectorSession session);
+
+    enum Level
+    {
+        /**
+         * SERIALIZABLE guarantees the optimized RowExpression can be serialized and deserialized
+         */
+        SERIALIZABLE,
+        /**
+         * MOST_OPTIMIZED removes all redundancy in a RowExpression but can end up with non-serializable objects (e.g., Regex).
+         */
+        MOST_OPTIMIZED
+    }
 }
