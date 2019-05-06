@@ -263,7 +263,7 @@ public class TransformCorrelatedInPredicateToJoin
         return new AggregationNode.Aggregation(
                 countCall,
                 functionManager.lookupFunction("count", ImmutableList.of()),
-                Optional.<Symbol>empty()); /* mask */
+                Optional.empty()); /* mask */
     }
 
     private static Expression isGreaterThan(VariableReferenceExpression variable, long value)

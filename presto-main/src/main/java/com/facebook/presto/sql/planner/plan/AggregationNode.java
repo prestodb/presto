@@ -362,13 +362,13 @@ public class AggregationNode
     {
         private final FunctionCall call;
         private final FunctionHandle functionHandle;
-        private final Optional<Symbol> mask;
+        private final Optional<VariableReferenceExpression> mask;
 
         @JsonCreator
         public Aggregation(
                 @JsonProperty("call") FunctionCall call,
                 @JsonProperty("functionHandle") FunctionHandle functionHandle,
-                @JsonProperty("mask") Optional<Symbol> mask)
+                @JsonProperty("mask") Optional<VariableReferenceExpression> mask)
         {
             this.call = requireNonNull(call, "call is null");
             this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
@@ -388,7 +388,7 @@ public class AggregationNode
         }
 
         @JsonProperty
-        public Optional<Symbol> getMask()
+        public Optional<VariableReferenceExpression> getMask()
         {
             return mask;
         }

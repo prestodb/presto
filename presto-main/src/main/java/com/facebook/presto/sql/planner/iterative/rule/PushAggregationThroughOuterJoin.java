@@ -310,7 +310,7 @@ public class PushAggregationThroughOuterJoin
             AggregationNode.Aggregation overNullAggregation = new AggregationNode.Aggregation(
                     (FunctionCall) inlineSymbols(sourcesSymbolMapping, aggregation.getCall()),
                     aggregation.getFunctionHandle(),
-                    aggregation.getMask().map(x -> Symbol.from(sourcesSymbolMapping.get(x))));
+                    aggregation.getMask().map(x -> new VariableReferenceExpression(sourcesSymbolMapping.get(new Symbol(x.getName())).getName(), x.getType())));
             VariableReferenceExpression overNull = symbolAllocator.newVariable(overNullAggregation.getCall(), aggregationVariable.getType());
             aggregationsOverNullBuilder.put(overNull, overNullAggregation);
             aggregationsSymbolMappingBuilder.put(new Symbol(aggregationVariable.getName()), new Symbol(overNull.getName()));

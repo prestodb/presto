@@ -114,9 +114,9 @@ public class OptimizeMixedDistinctAggregations
             // optimize if and only if
             // some aggregation functions have a distinct mask symbol
             // and if not all aggregation functions on same distinct mask symbol (this case handled by SingleDistinctOptimizer)
-            List<Symbol> masks = node.getAggregations().values().stream()
+            List<VariableReferenceExpression> masks = node.getAggregations().values().stream()
                     .map(Aggregation::getMask).filter(Optional::isPresent).map(Optional::get).collect(toImmutableList());
-            Set<Symbol> uniqueMasks = ImmutableSet.copyOf(masks);
+            Set<VariableReferenceExpression> uniqueMasks = ImmutableSet.copyOf(masks);
             if (uniqueMasks.size() != 1 || masks.size() == node.getAggregations().size()) {
                 return context.defaultRewrite(node, Optional.empty());
             }
@@ -227,7 +227,7 @@ public class OptimizeMixedDistinctAggregations
             Optional<AggregateInfo> aggregateInfo = context.get();
 
             // presence of aggregateInfo => mask also present
-            if (!aggregateInfo.isPresent() || !aggregateInfo.get().getMask().equals(node.getMarkerSymbol())) {
+            if (!aggregateInfo.isPresent() || !aggregateInfo.get().getMask().getName().equals(node.getMarkerSymbol().getName())) {
                 return context.defaultRewrite(node, Optional.empty());
             }
 
@@ -304,7 +304,7 @@ public class OptimizeMixedDistinctAggregations
                 }
             }
 
-            if (!symbolAllocator.getTypes().get(aggregateInfo.getMask()).isComparable()) {
+            if (!aggregateInfo.getMask().getType().isComparable()) {
                 return false;
             }
 
@@ -369,7 +369,7 @@ public class OptimizeMixedDistinctAggregations
 
             // add null assignment for mask
             // unused mask will be removed by PruneUnreferencedOutputs
-            outputSymbols.put(aggregateInfo.getMask(), new NullLiteral());
+            outputSymbols.put(new Symbol(aggregateInfo.getMask().getName()), new NullLiteral());
 
             aggregateInfo.setNewNonDistinctAggregateSymbols(outputNonDistinctAggregateVariables.build());
 
@@ -480,7 +480,7 @@ public class OptimizeMixedDistinctAggregations
     private static class AggregateInfo
     {
         private final List<Symbol> groupBySymbols;
-        private final Symbol mask;
+        private final VariableReferenceExpression mask;
         private final Map<VariableReferenceExpression, Aggregation> aggregations;
 
         // Filled on the way back, these are the variables corresponding to their distinct or non-distinct original variables
@@ -488,7 +488,7 @@ public class OptimizeMixedDistinctAggregations
         private VariableReferenceExpression newDistinctAggregateVariable;
         private boolean foundMarkDistinct;
 
-        public AggregateInfo(List<Symbol> groupBySymbols, Symbol mask, Map<VariableReferenceExpression, Aggregation> aggregations)
+        public AggregateInfo(List<Symbol> groupBySymbols, VariableReferenceExpression mask, Map<VariableReferenceExpression, Aggregation> aggregations)
         {
             this.groupBySymbols = ImmutableList.copyOf(groupBySymbols);
 
@@ -539,7 +539,7 @@ public class OptimizeMixedDistinctAggregations
             this.newNonDistinctAggregateVariables = newNonDistinctAggregateVariables;
         }
 
-        public Symbol getMask()
+        public VariableReferenceExpression getMask()
         {
             return mask;
         }
