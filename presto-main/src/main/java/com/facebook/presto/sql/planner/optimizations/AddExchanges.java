@@ -670,9 +670,13 @@ public class AddExchanges
         {
             List<Symbol> leftSymbols = node.getCriteria().stream()
                     .map(JoinNode.EquiJoinClause::getLeft)
+                    .map(VariableReferenceExpression::getName)
+                    .map(Symbol::new)
                     .collect(toImmutableList());
             List<Symbol> rightSymbols = node.getCriteria().stream()
                     .map(JoinNode.EquiJoinClause::getRight)
+                    .map(VariableReferenceExpression::getName)
+                    .map(Symbol::new)
                     .collect(toImmutableList());
 
             JoinNode.DistributionType distributionType = node.getDistributionType().orElseThrow(() -> new IllegalArgumentException("distributionType not yet set"));
@@ -957,6 +961,8 @@ public class AddExchanges
         {
             List<Symbol> joinColumns = node.getCriteria().stream()
                     .map(IndexJoinNode.EquiJoinClause::getProbe)
+                    .map(VariableReferenceExpression::getName)
+                    .map(Symbol::new)
                     .collect(toImmutableList());
 
             // Only prefer grouping on join columns if no parent local property preferences

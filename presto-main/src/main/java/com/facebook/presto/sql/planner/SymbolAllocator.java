@@ -183,6 +183,11 @@ public class SymbolAllocator
         return nextId++;
     }
 
+    public VariableReferenceExpression toVariableReference(Symbol symbol)
+    {
+        return new VariableReferenceExpression(symbol.getName(), getTypes().get(symbol));
+    }
+
     public List<VariableReferenceExpression> toVariableReferences(List<Symbol> symbols)
     {
         return symbols.stream()
