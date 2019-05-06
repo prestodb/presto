@@ -21,6 +21,7 @@ import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
@@ -235,5 +236,47 @@ public final class FunctionResolution
     public boolean isTryFunction(FunctionHandle functionHandle)
     {
         return functionManager.getFunctionMetadata(functionHandle).getName().equals("TRY");
+    }
+
+    @Override
+    public boolean isCountFunction(FunctionHandle functionHandle)
+    {
+        return functionManager.getFunctionMetadata(functionHandle).getName().equalsIgnoreCase("count");
+    }
+
+    @Override
+    public FunctionHandle countFunction()
+    {
+        return functionManager.lookupFunction("count", ImmutableList.of());
+    }
+
+    @Override
+    public FunctionHandle countFunction(Type valueType)
+    {
+        return functionManager.lookupFunction("count", fromTypes(valueType));
+    }
+
+    @Override
+    public boolean isMaxFunction(FunctionHandle functionHandle)
+    {
+        return functionManager.getFunctionMetadata(functionHandle).getName().equalsIgnoreCase("max");
+    }
+
+    @Override
+    public FunctionHandle maxFunction(Type valueType)
+    {
+        return functionManager.lookupFunction("max", fromTypes(valueType));
+    }
+
+    @Override
+    public boolean isMinFunction(FunctionHandle functionHandle)
+    {
+        return functionManager.getFunctionMetadata(functionHandle).getName().equalsIgnoreCase("min");
+    }
+
+    @Override
+    public FunctionHandle minFunction(Type valueType)
+    {
+        return functionManager.lookupFunction("min", fromTypes(valueType));
     }
 }

@@ -50,4 +50,18 @@ public interface StandardFunctionResolution
     boolean isSubscriptFunction(FunctionHandle functionHandle);
 
     boolean isCastFunction(FunctionHandle functionHandle);
+
+    boolean isCountFunction(FunctionHandle functionHandle);
+
+    FunctionHandle countFunction();
+
+    FunctionHandle countFunction(Type valueType);
+
+    boolean isMaxFunction(FunctionHandle functionHandle);
+
+    FunctionHandle maxFunction(Type valueType);
+
+    boolean isMinFunction(FunctionHandle functionHandle);
+
+    FunctionHandle minFunction(Type valueType);
 }
