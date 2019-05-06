@@ -315,10 +315,10 @@ class RelationPlanner
 
             for (int i = 0; i < leftComparisonExpressions.size(); i++) {
                 if (joinConditionComparisonOperators.get(i) == ComparisonExpression.Operator.EQUAL) {
-                    Symbol leftSymbol = leftPlanBuilder.translate(leftComparisonExpressions.get(i));
-                    Symbol rightSymbol = rightPlanBuilder.translate(rightComparisonExpressions.get(i));
+                    VariableReferenceExpression leftVariable = leftPlanBuilder.translateToVariable(leftComparisonExpressions.get(i));
+                    VariableReferenceExpression righVariable = rightPlanBuilder.translateToVariable(rightComparisonExpressions.get(i));
 
-                    equiClauses.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
+                    equiClauses.add(new JoinNode.EquiJoinClause(leftVariable, righVariable));
                 }
                 else {
                     Expression leftExpression = leftPlanBuilder.rewrite(leftComparisonExpressions.get(i));
@@ -432,8 +432,8 @@ class RelationPlanner
 
         ImmutableList.Builder<JoinNode.EquiJoinClause> clauses = ImmutableList.builder();
 
-        Map<Identifier, Symbol> leftJoinColumns = new HashMap<>();
-        Map<Identifier, Symbol> rightJoinColumns = new HashMap<>();
+        Map<Identifier, VariableReferenceExpression> leftJoinColumns = new HashMap<>();
+        Map<Identifier, VariableReferenceExpression> rightJoinColumns = new HashMap<>();
 
         Assignments.Builder leftCoercions = Assignments.builder();
         Assignments.Builder rightCoercions = Assignments.builder();
@@ -445,9 +445,9 @@ class RelationPlanner
             Type type = analysis.getType(identifier);
 
             // compute the coercion for the field on the left to the common supertype of left & right
-            Symbol leftOutput = symbolAllocator.newSymbol(identifier, type);
+            VariableReferenceExpression leftOutput = symbolAllocator.newVariable(identifier, type);
             int leftField = joinAnalysis.getLeftJoinFields().get(i);
-            leftCoercions.put(leftOutput, new Cast(
+            leftCoercions.put(new Symbol(leftOutput.getName()), new Cast(
                     left.getSymbol(leftField).toSymbolReference(),
                     type.getTypeSignature().toString(),
                     false,
@@ -455,9 +455,9 @@ class RelationPlanner
             leftJoinColumns.put(identifier, leftOutput);
 
             // compute the coercion for the field on the right to the common supertype of left & right
-            Symbol rightOutput = symbolAllocator.newSymbol(identifier, type);
+            VariableReferenceExpression rightOutput = symbolAllocator.newVariable(identifier, type);
             int rightField = joinAnalysis.getRightJoinFields().get(i);
-            rightCoercions.put(rightOutput, new Cast(
+            rightCoercions.put(new Symbol(rightOutput.getName()), new Cast(
                     right.getSymbol(rightField).toSymbolReference(),
                     type.getTypeSignature().toString(),
                     false,
@@ -494,8 +494,8 @@ class RelationPlanner
             VariableReferenceExpression output = symbolAllocator.newVariable(column, analysis.getType(column));
             outputs.add(output);
             assignments.put(new Symbol(output.getName()), new CoalesceExpression(
-                    leftJoinColumns.get(column).toSymbolReference(),
-                    rightJoinColumns.get(column).toSymbolReference()));
+                    new SymbolReference(leftJoinColumns.get(column).getName()),
+                    new SymbolReference(rightJoinColumns.get(column).getName())));
         }
 
         for (int field : joinAnalysis.getOtherLeftFields()) {

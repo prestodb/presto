@@ -193,7 +193,7 @@ public class PruneUnreferencedOutputs
             }
 
             ImmutableSet.Builder<Symbol> leftInputsBuilder = ImmutableSet.builder();
-            leftInputsBuilder.addAll(context.get()).addAll(Iterables.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft));
+            leftInputsBuilder.addAll(context.get()).addAll(node.getCriteria().stream().map(equiJoin -> new Symbol(equiJoin.getLeft().getName())).collect(toImmutableSet()));
             if (node.getLeftHashVariable().isPresent()) {
                 leftInputsBuilder.add(new Symbol(node.getLeftHashVariable().get().getName()));
             }
@@ -201,7 +201,7 @@ public class PruneUnreferencedOutputs
             Set<Symbol> leftInputs = leftInputsBuilder.build();
 
             ImmutableSet.Builder<Symbol> rightInputsBuilder = ImmutableSet.builder();
-            rightInputsBuilder.addAll(context.get()).addAll(Iterables.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight));
+            rightInputsBuilder.addAll(context.get()).addAll(node.getCriteria().stream().map(equiJoin -> new Symbol(equiJoin.getRight().getName())).collect(toImmutableSet()));
             if (node.getRightHashVariable().isPresent()) {
                 rightInputsBuilder.add(new Symbol(node.getRightHashVariable().get().getName()));
             }
@@ -298,7 +298,7 @@ public class PruneUnreferencedOutputs
         {
             ImmutableSet.Builder<Symbol> probeInputsBuilder = ImmutableSet.builder();
             probeInputsBuilder.addAll(context.get())
-                    .addAll(Iterables.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause::getProbe));
+                    .addAll(node.getCriteria().stream().map(equiJoin -> new Symbol(equiJoin.getProbe().getName())).collect(toImmutableSet()));
             if (node.getProbeHashVariable().isPresent()) {
                 probeInputsBuilder.add(new Symbol(node.getProbeHashVariable().get().getName()));
             }
@@ -306,7 +306,7 @@ public class PruneUnreferencedOutputs
 
             ImmutableSet.Builder<Symbol> indexInputBuilder = ImmutableSet.builder();
             indexInputBuilder.addAll(context.get())
-                    .addAll(Iterables.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause::getIndex));
+                    .addAll(node.getCriteria().stream().map(equiJoin -> new Symbol(equiJoin.getIndex().getName())).collect(toImmutableSet()));
             if (node.getIndexHashVariable().isPresent()) {
                 indexInputBuilder.add(new Symbol(node.getIndexHashVariable().get().getName()));
             }
@@ -325,14 +325,14 @@ public class PruneUnreferencedOutputs
                     .filter(context.get()::contains)
                     .collect(toImmutableList());
 
-            Set<Symbol> newLookupSymbols = node.getLookupSymbols().stream()
-                    .filter(context.get()::contains)
+            Set<VariableReferenceExpression> newLookupVariables = node.getLookupVariables().stream()
+                    .filter(variable -> context.get().contains(new Symbol(variable.getName())))
                     .collect(toImmutableSet());
 
             Map<Symbol, ColumnHandle> newAssignments = newOutputSymbols.stream()
                     .collect(Collectors.toMap(Function.identity(), node.getAssignments()::get));
 
-            return new IndexSourceNode(node.getId(), node.getIndexHandle(), node.getTableHandle(), newLookupSymbols, newOutputSymbols, newAssignments, node.getCurrentConstraint());
+            return new IndexSourceNode(node.getId(), node.getIndexHandle(), node.getTableHandle(), newLookupVariables, newOutputSymbols, newAssignments, node.getCurrentConstraint());
         }
 
         @Override

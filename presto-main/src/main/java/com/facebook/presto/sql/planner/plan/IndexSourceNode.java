@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -30,6 +31,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class IndexSourceNode
@@ -37,7 +39,7 @@ public class IndexSourceNode
 {
     private final IndexHandle indexHandle;
     private final TableHandle tableHandle;
-    private final Set<Symbol> lookupSymbols;
+    private final Set<VariableReferenceExpression> lookupVariables;
     private final List<Symbol> outputSymbols;
     private final Map<Symbol, ColumnHandle> assignments; // symbol -> column
     private final TupleDomain<ColumnHandle> currentConstraint; // constraint over the input data the operator will guarantee
@@ -47,7 +49,7 @@ public class IndexSourceNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("indexHandle") IndexHandle indexHandle,
             @JsonProperty("tableHandle") TableHandle tableHandle,
-            @JsonProperty("lookupSymbols") Set<Symbol> lookupSymbols,
+            @JsonProperty("lookupVariables") Set<VariableReferenceExpression> lookupVariables,
             @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
             @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
             @JsonProperty("currentConstraint") TupleDomain<ColumnHandle> currentConstraint)
@@ -55,14 +57,15 @@ public class IndexSourceNode
         super(id);
         this.indexHandle = requireNonNull(indexHandle, "indexHandle is null");
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-        this.lookupSymbols = ImmutableSet.copyOf(requireNonNull(lookupSymbols, "lookupSymbols is null"));
+        this.lookupVariables = ImmutableSet.copyOf(requireNonNull(lookupVariables, "lookupVariables is null"));
         this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputSymbols, "outputSymbols is null"));
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
         this.currentConstraint = requireNonNull(currentConstraint, "effectiveTupleDomain is null");
-        checkArgument(!lookupSymbols.isEmpty(), "lookupSymbols is empty");
+        checkArgument(!lookupVariables.isEmpty(), "lookupVariables is empty");
         checkArgument(!outputSymbols.isEmpty(), "outputSymbols is empty");
-        checkArgument(assignments.keySet().containsAll(lookupSymbols), "Assignments do not include all lookup symbols");
-        checkArgument(outputSymbols.containsAll(lookupSymbols), "Lookup symbols need to be part of the output symbols");
+        List<Symbol> lookupSymbols = lookupVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
+        checkArgument(assignments.keySet().containsAll(lookupSymbols), "Assignments do not include all lookup variables");
+        checkArgument(outputSymbols.containsAll(lookupSymbols), "Lookup variables need to be part of the output symbols");
     }
 
     @JsonProperty
@@ -78,9 +81,9 @@ public class IndexSourceNode
     }
 
     @JsonProperty
-    public Set<Symbol> getLookupSymbols()
+    public Set<VariableReferenceExpression> getLookupVariables()
     {
-        return lookupSymbols;
+        return lookupVariables;
     }
 
     @Override

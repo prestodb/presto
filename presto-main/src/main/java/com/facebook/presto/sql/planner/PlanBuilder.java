@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -78,6 +79,11 @@ class PlanBuilder
     public Symbol translate(Expression expression)
     {
         return translations.get(expression);
+    }
+
+    public VariableReferenceExpression translateToVariable(Expression expression)
+    {
+        return translations.getVariable(expression);
     }
 
     public Expression rewrite(Expression expression)

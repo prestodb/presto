@@ -90,7 +90,7 @@ public class TestPruneIndexSourceColumns
                                 new TpchTableHandle("orders", TINY_SCALE_FACTOR),
                                 TestingTransactionHandle.create(),
                                 Optional.empty()),
-                        ImmutableSet.of(orderkey, custkey),
+                        ImmutableSet.of(p.variable(orderkey), p.variable(custkey)),
                         ImmutableList.of(orderkey, custkey, totalprice),
                         ImmutableMap.of(
                                 orderkey, orderkeyHandle,

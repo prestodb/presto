@@ -73,7 +73,7 @@ public class EliminateCrossJoins
     @Override
     public Result apply(JoinNode node, Captures captures, Context context)
     {
-        JoinGraph joinGraph = JoinGraph.buildShallowFrom(node, context.getLookup());
+        JoinGraph joinGraph = JoinGraph.buildShallowFrom(node, context.getLookup(), context.getSymbolAllocator().getTypes());
         if (joinGraph.size() < 3) {
             return Result.empty();
         }
@@ -169,8 +169,8 @@ public class EliminateCrossJoins
                 PlanNode targetNode = edge.getTargetNode();
                 if (alreadyJoinedNodes.contains(targetNode.getId())) {
                     criteria.add(new JoinNode.EquiJoinClause(
-                            edge.getTargetSymbol(),
-                            edge.getSourceSymbol()));
+                            edge.getTargetVariable(),
+                            edge.getSourceVariable()));
                 }
             }
 

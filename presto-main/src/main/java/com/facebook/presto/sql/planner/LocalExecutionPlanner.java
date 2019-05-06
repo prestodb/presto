@@ -660,14 +660,14 @@ public class LocalExecutionPlanner
 
     private static class IndexSourceContext
     {
-        private final SetMultimap<Symbol, Integer> indexLookupToProbeInput;
+        private final SetMultimap<VariableReferenceExpression, Integer> indexLookupToProbeInput;
 
-        public IndexSourceContext(SetMultimap<Symbol, Integer> indexLookupToProbeInput)
+        public IndexSourceContext(SetMultimap<VariableReferenceExpression, Integer> indexLookupToProbeInput)
         {
             this.indexLookupToProbeInput = ImmutableSetMultimap.copyOf(requireNonNull(indexLookupToProbeInput, "indexLookupToProbeInput is null"));
         }
 
-        private SetMultimap<Symbol, Integer> getIndexLookupToProbeInput()
+        private SetMultimap<VariableReferenceExpression, Integer> getIndexLookupToProbeInput()
         {
             return indexLookupToProbeInput;
         }
@@ -1412,19 +1412,22 @@ public class LocalExecutionPlanner
             checkState(context.getIndexSourceContext().isPresent(), "Must be in an index source context");
             IndexSourceContext indexSourceContext = context.getIndexSourceContext().get();
 
-            SetMultimap<Symbol, Integer> indexLookupToProbeInput = indexSourceContext.getIndexLookupToProbeInput();
-            checkState(indexLookupToProbeInput.keySet().equals(node.getLookupSymbols()));
+            SetMultimap<VariableReferenceExpression, Integer> indexLookupToProbeInput = indexSourceContext.getIndexLookupToProbeInput();
+            checkState(indexLookupToProbeInput.keySet().equals(node.getLookupVariables()));
 
             // Finalize the symbol lookup layout for the index source
-            List<Symbol> lookupSymbolSchema = ImmutableList.copyOf(node.getLookupSymbols());
+            List<Symbol> lookupSymbolSchema = node.getLookupVariables().stream()
+                    .map(VariableReferenceExpression::getName)
+                    .map(Symbol::new)
+                    .collect(toImmutableList());
 
             // Identify how to remap the probe key Input to match the source index lookup layout
             ImmutableList.Builder<Integer> remappedProbeKeyChannelsBuilder = ImmutableList.builder();
             // Identify overlapping fields that can produce the same lookup symbol.
             // We will filter incoming keys to ensure that overlapping fields will have the same value.
             ImmutableList.Builder<Set<Integer>> overlappingFieldSetsBuilder = ImmutableList.builder();
-            for (Symbol lookupSymbol : lookupSymbolSchema) {
-                Set<Integer> potentialProbeInputs = indexLookupToProbeInput.get(lookupSymbol);
+            for (VariableReferenceExpression lookupVariable : node.getLookupVariables()) {
+                Set<Integer> potentialProbeInputs = indexLookupToProbeInput.get(lookupVariable);
                 checkState(!potentialProbeInputs.isEmpty(), "Must have at least one source from the probe input");
                 if (potentialProbeInputs.size() > 1) {
                     overlappingFieldSetsBuilder.add(potentialProbeInputs.stream().collect(toImmutableSet()));
@@ -1453,28 +1456,28 @@ public class LocalExecutionPlanner
          * This method creates a mapping from each index source lookup symbol (directly applied to the index)
          * to the corresponding probe key Input
          */
-        private SetMultimap<Symbol, Integer> mapIndexSourceLookupSymbolToProbeKeyInput(IndexJoinNode node, Map<Symbol, Integer> probeKeyLayout)
+        private SetMultimap<VariableReferenceExpression, Integer> mapIndexSourceLookupSymbolToProbeKeyInput(IndexJoinNode node, Map<VariableReferenceExpression, Integer> probeKeyLayout)
         {
-            Set<Symbol> indexJoinSymbols = node.getCriteria().stream()
+            Set<VariableReferenceExpression> indexJoinVariables = node.getCriteria().stream()
                     .map(IndexJoinNode.EquiJoinClause::getIndex)
                     .collect(toImmutableSet());
 
             // Trace the index join symbols to the index source lookup symbols
             // Map: Index join symbol => Index source lookup symbol
-            Map<Symbol, Symbol> indexKeyTrace = IndexJoinOptimizer.IndexKeyTracer.trace(node.getIndexSource(), indexJoinSymbols);
+            Map<VariableReferenceExpression, VariableReferenceExpression> indexKeyTrace = IndexJoinOptimizer.IndexKeyTracer.trace(node.getIndexSource(), indexJoinVariables);
 
             // Map the index join symbols to the probe key Input
-            Multimap<Symbol, Integer> indexToProbeKeyInput = HashMultimap.create();
+            Multimap<VariableReferenceExpression, Integer> indexToProbeKeyInput = HashMultimap.create();
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
                 indexToProbeKeyInput.put(clause.getIndex(), probeKeyLayout.get(clause.getProbe()));
             }
 
             // Create the mapping from index source look up symbol to probe key Input
-            ImmutableSetMultimap.Builder<Symbol, Integer> builder = ImmutableSetMultimap.builder();
-            for (Map.Entry<Symbol, Symbol> entry : indexKeyTrace.entrySet()) {
-                Symbol indexJoinSymbol = entry.getKey();
-                Symbol indexLookupSymbol = entry.getValue();
-                builder.putAll(indexLookupSymbol, indexToProbeKeyInput.get(indexJoinSymbol));
+            ImmutableSetMultimap.Builder<VariableReferenceExpression, Integer> builder = ImmutableSetMultimap.builder();
+            for (Map.Entry<VariableReferenceExpression, VariableReferenceExpression> entry : indexKeyTrace.entrySet()) {
+                VariableReferenceExpression indexJoinVariable = entry.getKey();
+                VariableReferenceExpression indexLookupVariable = entry.getValue();
+                builder.putAll(indexJoinVariable, indexToProbeKeyInput.get(indexLookupVariable));
             }
             return builder.build();
         }
@@ -1484,8 +1487,10 @@ public class LocalExecutionPlanner
         {
             List<IndexJoinNode.EquiJoinClause> clauses = node.getCriteria();
 
-            List<Symbol> probeSymbols = Lists.transform(clauses, IndexJoinNode.EquiJoinClause::getProbe);
-            List<Symbol> indexSymbols = Lists.transform(clauses, IndexJoinNode.EquiJoinClause::getIndex);
+            List<VariableReferenceExpression> probeVariables = clauses.stream().map(IndexJoinNode.EquiJoinClause::getProbe).collect(toImmutableList());
+            List<Symbol> probeSymbols = probeVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
+            List<VariableReferenceExpression> indexVariables = clauses.stream().map(IndexJoinNode.EquiJoinClause::getIndex).collect(toImmutableList());
+            List<Symbol> indexSymbols = indexVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
 
             // Plan probe side
             PhysicalOperation probeSource = node.getProbeSource().accept(this, context);
@@ -1494,14 +1499,14 @@ public class LocalExecutionPlanner
                     .map(OptionalInt::of).orElse(OptionalInt.empty());
 
             // The probe key channels will be handed to the index according to probeSymbol order
-            Map<Symbol, Integer> probeKeyLayout = new HashMap<>();
-            for (int i = 0; i < probeSymbols.size(); i++) {
+            Map<VariableReferenceExpression, Integer> probeKeyLayout = new HashMap<>();
+            for (int i = 0; i < probeVariables.size(); i++) {
                 // Duplicate symbols can appear and we only need to take take one of the Inputs
-                probeKeyLayout.put(probeSymbols.get(i), i);
+                probeKeyLayout.put(probeVariables.get(i), i);
             }
 
             // Plan the index source side
-            SetMultimap<Symbol, Integer> indexLookupToProbeInput = mapIndexSourceLookupSymbolToProbeKeyInput(node, probeKeyLayout);
+            SetMultimap<VariableReferenceExpression, Integer> indexLookupToProbeInput = mapIndexSourceLookupSymbolToProbeKeyInput(node, probeKeyLayout);
             LocalExecutionPlanContext indexContext = context.createIndexSourceSubContext(new IndexSourceContext(indexLookupToProbeInput));
             PhysicalOperation indexSource = node.getIndexSource().accept(this, indexContext);
             List<Integer> indexOutputChannels = getChannelsForSymbols(indexSymbols, indexSource.getLayout());
@@ -1509,10 +1514,10 @@ public class LocalExecutionPlanner
                     .map(OptionalInt::of).orElse(OptionalInt.empty());
 
             // Identify just the join keys/channels needed for lookup by the index source (does not have to use all of them).
-            Set<Symbol> indexSymbolsNeededBySource = IndexJoinOptimizer.IndexKeyTracer.trace(node.getIndexSource(), ImmutableSet.copyOf(indexSymbols)).keySet();
+            Set<VariableReferenceExpression> indexVariablesNeededBySource = IndexJoinOptimizer.IndexKeyTracer.trace(node.getIndexSource(), ImmutableSet.copyOf(indexVariables)).keySet();
 
             Set<Integer> lookupSourceInputChannels = node.getCriteria().stream()
-                    .filter(equiJoinClause -> indexSymbolsNeededBySource.contains(equiJoinClause.getIndex()))
+                    .filter(equiJoinClause -> indexVariablesNeededBySource.contains(equiJoinClause.getIndex()))
                     .map(IndexJoinNode.EquiJoinClause::getProbe)
                     .map(probeKeyLayout::get)
                     .collect(toImmutableSet());
@@ -1520,14 +1525,14 @@ public class LocalExecutionPlanner
             Optional<DynamicTupleFilterFactory> dynamicTupleFilterFactory = Optional.empty();
             if (lookupSourceInputChannels.size() < probeKeyLayout.values().size()) {
                 int[] nonLookupInputChannels = Ints.toArray(node.getCriteria().stream()
-                        .filter(equiJoinClause -> !indexSymbolsNeededBySource.contains(equiJoinClause.getIndex()))
+                        .filter(equiJoinClause -> !indexVariablesNeededBySource.contains(equiJoinClause.getIndex()))
                         .map(IndexJoinNode.EquiJoinClause::getProbe)
                         .map(probeKeyLayout::get)
                         .collect(toImmutableList()));
                 int[] nonLookupOutputChannels = Ints.toArray(node.getCriteria().stream()
-                        .filter(equiJoinClause -> !indexSymbolsNeededBySource.contains(equiJoinClause.getIndex()))
+                        .filter(equiJoinClause -> !indexVariablesNeededBySource.contains(equiJoinClause.getIndex()))
                         .map(IndexJoinNode.EquiJoinClause::getIndex)
-                        .map(indexSource.getLayout()::get)
+                        .map(variable -> indexSource.getLayout().get(new Symbol(variable.getName())))
                         .collect(toImmutableList()));
 
                 int filterOperatorId = indexContext.getNextOperatorId();
@@ -1605,15 +1610,15 @@ public class LocalExecutionPlanner
             }
 
             List<JoinNode.EquiJoinClause> clauses = node.getCriteria();
-            List<Symbol> leftSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft);
-            List<Symbol> rightSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getRight);
+            List<VariableReferenceExpression> leftVariables = Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft);
+            List<VariableReferenceExpression> rightVariables = Lists.transform(clauses, JoinNode.EquiJoinClause::getRight);
 
             switch (node.getType()) {
                 case INNER:
                 case LEFT:
                 case RIGHT:
                 case FULL:
-                    return createLookupJoin(node, node.getLeft(), leftSymbols, node.getLeftHashVariable(), node.getRight(), rightSymbols, node.getRightHashVariable(), context);
+                    return createLookupJoin(node, node.getLeft(), leftVariables, node.getLeftHashVariable(), node.getRight(), rightVariables, node.getRightHashVariable(), context);
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
@@ -1924,10 +1929,10 @@ public class LocalExecutionPlanner
 
         private PhysicalOperation createLookupJoin(JoinNode node,
                 PlanNode probeNode,
-                List<Symbol> probeSymbols,
+                List<VariableReferenceExpression> probeVariables,
                 Optional<VariableReferenceExpression> probeHashVariable,
                 PlanNode buildNode,
-                List<Symbol> buildSymbols,
+                List<VariableReferenceExpression> buildVariables,
                 Optional<VariableReferenceExpression> buildHashVariable,
                 LocalExecutionPlanContext context)
         {
@@ -1936,9 +1941,9 @@ public class LocalExecutionPlanner
 
             // Plan build
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory =
-                    createLookupSourceFactory(node, buildNode, buildSymbols, buildHashVariable, probeSource, context);
+                    createLookupSourceFactory(node, buildNode, buildVariables, buildHashVariable, probeSource, context);
 
-            OperatorFactory operator = createLookupJoin(node, probeSource, probeSymbols, probeHashVariable, lookupSourceFactory, context);
+            OperatorFactory operator = createLookupJoin(node, probeSource, probeVariables, probeHashVariable, lookupSourceFactory, context);
 
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
             List<Symbol> outputSymbols = node.getOutputSymbols();
@@ -1953,7 +1958,7 @@ public class LocalExecutionPlanner
         private JoinBridgeManager<PartitionedLookupSourceFactory> createLookupSourceFactory(
                 JoinNode node,
                 PlanNode buildNode,
-                List<Symbol> buildSymbols,
+                List<VariableReferenceExpression> buildVariables,
                 Optional<VariableReferenceExpression> buildHashVariable,
                 PhysicalOperation probeSource,
                 LocalExecutionPlanContext context)
@@ -1971,7 +1976,7 @@ public class LocalExecutionPlanner
                     .filter(symbol -> node.getRight().getOutputSymbols().contains(symbol))
                     .collect(toImmutableList());
             List<Integer> buildOutputChannels = ImmutableList.copyOf(getChannelsForSymbols(buildOutputSymbols, buildSource.getLayout()));
-            List<Integer> buildChannels = ImmutableList.copyOf(getChannelsForSymbols(buildSymbols, buildSource.getLayout()));
+            List<Integer> buildChannels = ImmutableList.copyOf(getChannelsForSymbols(buildVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()), buildSource.getLayout()));
             OptionalInt buildHashChannel = buildHashVariable.map(variableChannelGetter(buildSource))
                     .map(OptionalInt::of).orElse(OptionalInt.empty());
 
@@ -2072,7 +2077,7 @@ public class LocalExecutionPlanner
         private OperatorFactory createLookupJoin(
                 JoinNode node,
                 PhysicalOperation probeSource,
-                List<Symbol> probeSymbols,
+                List<VariableReferenceExpression> probeVariables,
                 Optional<VariableReferenceExpression> probeHashVariable,
                 JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactoryManager,
                 LocalExecutionPlanContext context)
@@ -2082,7 +2087,7 @@ public class LocalExecutionPlanner
                     .filter(symbol -> node.getLeft().getOutputSymbols().contains(symbol))
                     .collect(toImmutableList());
             List<Integer> probeOutputChannels = ImmutableList.copyOf(getChannelsForSymbols(probeOutputSymbols, probeSource.getLayout()));
-            List<Integer> probeJoinChannels = ImmutableList.copyOf(getChannelsForSymbols(probeSymbols, probeSource.getLayout()));
+            List<Integer> probeJoinChannels = ImmutableList.copyOf(getChannelsForSymbols(probeVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()), probeSource.getLayout()));
             OptionalInt probeHashChannel = probeHashVariable.map(variableChannelGetter(probeSource))
                     .map(OptionalInt::of).orElse(OptionalInt.empty());
             OptionalInt totalOperatorsCount = getJoinOperatorsCountForSpill(context, session);

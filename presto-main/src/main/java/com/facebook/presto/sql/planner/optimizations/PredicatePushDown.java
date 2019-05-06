@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.EffectivePredicateExtractor;
@@ -477,17 +478,17 @@ public class PredicatePushDown
                     Expression leftExpression = (alignedComparison) ? equality.getLeft() : equality.getRight();
                     Expression rightExpression = (alignedComparison) ? equality.getRight() : equality.getLeft();
 
-                    Symbol leftSymbol = symbolForExpression(leftExpression);
-                    if (!node.getLeft().getOutputSymbols().contains(leftSymbol)) {
-                        leftProjections.put(leftSymbol, leftExpression);
+                    VariableReferenceExpression leftVariable = variableForExpression(leftExpression);
+                    if (!node.getLeft().getOutputSymbols().contains(new Symbol(leftVariable.getName()))) {
+                        leftProjections.put(new Symbol(leftVariable.getName()), leftExpression);
                     }
 
-                    Symbol rightSymbol = symbolForExpression(rightExpression);
-                    if (!node.getRight().getOutputSymbols().contains(rightSymbol)) {
-                        rightProjections.put(rightSymbol, rightExpression);
+                    VariableReferenceExpression rightVariable = variableForExpression(rightExpression);
+                    if (!node.getRight().getOutputSymbols().contains(new Symbol(rightVariable.getName()))) {
+                        rightProjections.put(new Symbol(rightVariable.getName()), rightExpression);
                     }
 
-                    equiJoinClauses.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
+                    equiJoinClauses.add(new JoinNode.EquiJoinClause(leftVariable, rightVariable));
                 }
                 else {
                     joinFilterBuilder.add(conjunct);
@@ -649,13 +650,13 @@ public class PredicatePushDown
             return output;
         }
 
-        private Symbol symbolForExpression(Expression expression)
+        private VariableReferenceExpression variableForExpression(Expression expression)
         {
             if (expression instanceof SymbolReference) {
-                return Symbol.from(expression);
+                return new VariableReferenceExpression(((SymbolReference) expression).getName(), extractType(expression));
             }
 
-            return symbolAllocator.newSymbol(expression, extractType(expression));
+            return symbolAllocator.newVariable(expression, extractType(expression));
         }
 
         private static OuterJoinPushDownResult processLimitedOuterJoin(Expression inheritedPredicate, Expression outerEffectivePredicate, Expression innerEffectivePredicate, Expression joinPredicate, Collection<Symbol> outerSymbols)

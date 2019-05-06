@@ -150,8 +150,8 @@ public class TranslateExpressions
                     joinNode.getCriteria(),
                     joinNode.getOutputSymbols(),
                     Optional.of(rewritten),
-                    joinNode.getLeftHashSymbol(),
-                    joinNode.getRightHashSymbol(),
+                    joinNode.getLeftHashVariable(),
+                    joinNode.getRightHashVariable(),
                     joinNode.getDistributionType()));
         }
     }

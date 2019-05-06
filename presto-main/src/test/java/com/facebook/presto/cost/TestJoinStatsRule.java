@@ -14,6 +14,7 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -129,7 +130,7 @@ public class TestJoinStatsRule
             return pb
                     .join(INNER, pb.values(leftJoinColumnSymbol, leftOtherColumnSymbol),
                             pb.values(rightJoinColumnSymbol, rightOtherColumnSymbol),
-                            new EquiJoinClause(leftJoinColumnSymbol, rightJoinColumnSymbol), new EquiJoinClause(leftJoinColumnSymbol, rightJoinColumnSymbol));
+                            new EquiJoinClause(pb.variable(leftJoinColumnSymbol), pb.variable(rightJoinColumnSymbol)), new EquiJoinClause(pb.variable(leftJoinColumnSymbol), pb.variable(rightJoinColumnSymbol)));
         }).withSourceStats(0, LEFT_STATS)
                 .withSourceStats(1, RIGHT_STATS)
                 .check(stats -> stats.equalTo(innerJoinStats));
@@ -155,7 +156,7 @@ public class TestJoinStatsRule
             return pb
                     .join(INNER, pb.values(leftJoinColumnSymbol, leftJoinColumnSymbol2),
                             pb.values(rightJoinColumnSymbol, rightJoinColumnSymbol2),
-                            new EquiJoinClause(leftJoinColumnSymbol2, rightJoinColumnSymbol2), new EquiJoinClause(leftJoinColumnSymbol, rightJoinColumnSymbol));
+                            new EquiJoinClause(pb.variable(leftJoinColumnSymbol2), pb.variable(rightJoinColumnSymbol2)), new EquiJoinClause(pb.variable(leftJoinColumnSymbol), pb.variable(rightJoinColumnSymbol)));
         }).withSourceStats(0, planNodeStats(LEFT_ROWS_COUNT, LEFT_JOIN_COLUMN_STATS, LEFT_JOIN_COLUMN_2_STATS))
                 .withSourceStats(1, planNodeStats(RIGHT_ROWS_COUNT, RIGHT_JOIN_COLUMN_STATS, RIGHT_JOIN_COLUMN_2_STATS))
                 .check(stats -> stats.equalTo(innerJoinStats));
@@ -183,7 +184,7 @@ public class TestJoinStatsRule
             return pb
                     .join(INNER, pb.values(leftJoinColumnSymbol, leftJoinColumnSymbol2),
                             pb.values(rightJoinColumnSymbol, rightJoinColumnSymbol2),
-                            ImmutableList.of(new EquiJoinClause(leftJoinColumnSymbol2, rightJoinColumnSymbol2), new EquiJoinClause(leftJoinColumnSymbol, rightJoinColumnSymbol)),
+                            ImmutableList.of(new EquiJoinClause(pb.variable(leftJoinColumnSymbol2), pb.variable(rightJoinColumnSymbol2)), new EquiJoinClause(pb.variable(leftJoinColumnSymbol), pb.variable(rightJoinColumnSymbol))),
                             ImmutableList.of(leftJoinColumnSymbol, leftJoinColumnSymbol2, rightJoinColumnSymbol, rightJoinColumnSymbol2),
                             Optional.of(leftJoinColumnLessThanTen));
         }).withSourceStats(0, planNodeStats(LEFT_ROWS_COUNT, LEFT_JOIN_COLUMN_STATS, LEFT_JOIN_COLUMN_2_STATS))
@@ -199,7 +200,7 @@ public class TestJoinStatsRule
                 LEFT_OTHER_COLUMN_STATS);
         PlanNodeStatsEstimate actual = JOIN_STATS_RULE.calculateJoinComplementStats(
                 Optional.empty(),
-                ImmutableList.of(new EquiJoinClause(new Symbol(LEFT_JOIN_COLUMN), new Symbol(RIGHT_JOIN_COLUMN))),
+                ImmutableList.of(new EquiJoinClause(new VariableReferenceExpression(LEFT_JOIN_COLUMN, BIGINT), new VariableReferenceExpression(RIGHT_JOIN_COLUMN, BIGINT))),
                 LEFT_STATS,
                 RIGHT_STATS,
                 TYPES);
@@ -217,7 +218,7 @@ public class TestJoinStatsRule
                 TYPES);
         PlanNodeStatsEstimate actual = JOIN_STATS_RULE.calculateJoinComplementStats(
                 Optional.empty(),
-                ImmutableList.of(new EquiJoinClause(new Symbol(RIGHT_JOIN_COLUMN), new Symbol(LEFT_JOIN_COLUMN))),
+                ImmutableList.of(new EquiJoinClause(new VariableReferenceExpression(RIGHT_JOIN_COLUMN, BIGINT), new VariableReferenceExpression(LEFT_JOIN_COLUMN, BIGINT))),
                 RIGHT_STATS,
                 LEFT_STATS,
                 TYPES);
@@ -247,7 +248,9 @@ public class TestJoinStatsRule
                 .mapOutputRowCount(rowCount -> rowCount / UNKNOWN_FILTER_COEFFICIENT);
         PlanNodeStatsEstimate actual = JOIN_STATS_RULE.calculateJoinComplementStats(
                 Optional.empty(),
-                ImmutableList.of(new EquiJoinClause(new Symbol(LEFT_JOIN_COLUMN), new Symbol(RIGHT_JOIN_COLUMN)), new EquiJoinClause(new Symbol(LEFT_OTHER_COLUMN), new Symbol(RIGHT_OTHER_COLUMN))),
+                ImmutableList.of(
+                        new EquiJoinClause(new VariableReferenceExpression(LEFT_JOIN_COLUMN, BIGINT), new VariableReferenceExpression(RIGHT_JOIN_COLUMN, BIGINT)),
+                        new EquiJoinClause(new VariableReferenceExpression(LEFT_OTHER_COLUMN, BIGINT), new VariableReferenceExpression(RIGHT_OTHER_COLUMN, BIGINT))),
                 LEFT_STATS,
                 RIGHT_STATS,
                 TYPES);
@@ -340,7 +343,7 @@ public class TestJoinStatsRule
             return pb
                     .join(joinType, pb.values(leftJoinColumnSymbol, leftOtherColumnSymbol),
                             pb.values(rightJoinColumnSymbol, rightOtherColumnSymbol),
-                            new EquiJoinClause(leftJoinColumnSymbol, rightJoinColumnSymbol));
+                            new EquiJoinClause(pb.variable(leftJoinColumnSymbol), pb.variable(rightJoinColumnSymbol)));
         }).withSourceStats(0, leftStats)
                 .withSourceStats(1, rightStats)
                 .check(JOIN_STATS_RULE, stats -> stats.equalTo(resultStats));

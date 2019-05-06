@@ -101,7 +101,7 @@ public class TestPruneJoinColumns
                         JoinNode.Type.INNER,
                         p.values(leftKey, leftValue),
                         p.values(rightKey, rightValue),
-                        ImmutableList.of(new JoinNode.EquiJoinClause(leftKey, rightKey)),
+                        ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(leftKey), p.variable(rightKey))),
                         outputs,
                         Optional.empty(),
                         Optional.empty(),

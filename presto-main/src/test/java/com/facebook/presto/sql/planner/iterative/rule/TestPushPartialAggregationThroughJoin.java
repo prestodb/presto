@@ -49,7 +49,7 @@ public class TestPushPartialAggregationThroughJoin
                                         INNER,
                                         p.values(p.symbol("LEFT_EQUI"), p.symbol("LEFT_NON_EQUI"), p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_AGGR"), p.symbol("LEFT_HASH")),
                                         p.values(p.symbol("RIGHT_EQUI"), p.symbol("RIGHT_NON_EQUI"), p.symbol("RIGHT_GROUP_BY"), p.symbol("RIGHT_HASH")),
-                                        ImmutableList.of(new EquiJoinClause(p.symbol("LEFT_EQUI"), p.symbol("RIGHT_EQUI"))),
+                                        ImmutableList.of(new EquiJoinClause(p.variable(p.symbol("LEFT_EQUI")), p.variable(p.symbol("RIGHT_EQUI")))),
                                         ImmutableList.of(p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_AGGR"), p.symbol("RIGHT_GROUP_BY")),
                                         Optional.of(expression("LEFT_NON_EQUI <= RIGHT_NON_EQUI")),
                                         Optional.of(p.variable(p.symbol("LEFT_HASH"))),

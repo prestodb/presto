@@ -33,7 +33,6 @@ import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
-import com.facebook.presto.sql.planner.plan.IndexJoinNode.EquiJoinClause;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
@@ -315,11 +314,11 @@ public class HashGenerationOptimizer
 
             // join does not pass through preferred hash symbols since they take more memory and since
             // the join node filters, may take more compute
-            Optional<HashComputation> leftHashComputation = computeHash(Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft));
+            Optional<HashComputation> leftHashComputation = computeHash(Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft).stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()));
             PlanWithProperties left = planAndEnforce(node.getLeft(), new HashComputationSet(leftHashComputation), true, new HashComputationSet(leftHashComputation));
             VariableReferenceExpression leftHashVariable = left.getRequiredHashVariable(leftHashComputation.get());
 
-            Optional<HashComputation> rightHashComputation = computeHash(Lists.transform(clauses, JoinNode.EquiJoinClause::getRight));
+            Optional<HashComputation> rightHashComputation = computeHash(Lists.transform(clauses, JoinNode.EquiJoinClause::getRight).stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()));
             // drop undesired hash symbols from build to save memory
             PlanWithProperties right = planAndEnforce(node.getRight(), new HashComputationSet(rightHashComputation), true, new HashComputationSet(rightHashComputation));
             VariableReferenceExpression rightHashVariable = right.getRequiredHashVariable(rightHashComputation.get());
@@ -424,7 +423,7 @@ public class HashGenerationOptimizer
 
             // join does not pass through preferred hash symbols since they take more memory and since
             // the join node filters, may take more compute
-            Optional<HashComputation> probeHashComputation = computeHash(Lists.transform(clauses, IndexJoinNode.EquiJoinClause::getProbe));
+            Optional<HashComputation> probeHashComputation = computeHash(clauses.stream().map(equiJoin -> new Symbol(equiJoin.getProbe().getName())).collect(toImmutableList()));
             PlanWithProperties probe = planAndEnforce(
                     node.getProbeSource(),
                     new HashComputationSet(probeHashComputation),
@@ -432,7 +431,7 @@ public class HashGenerationOptimizer
                     new HashComputationSet(probeHashComputation));
             VariableReferenceExpression probeHashVariable = probe.getRequiredHashVariable(probeHashComputation.get());
 
-            Optional<HashComputation> indexHashComputation = computeHash(Lists.transform(clauses, EquiJoinClause::getIndex));
+            Optional<HashComputation> indexHashComputation = computeHash(clauses.stream().map(equiJoin -> new Symbol(equiJoin.getIndex().getName())).collect(toImmutableList()));
             HashComputationSet requiredHashes = new HashComputationSet(indexHashComputation);
             PlanWithProperties index = planAndEnforce(node.getIndexSource(), requiredHashes, true, requiredHashes);
             VariableReferenceExpression indexHashVariable = index.getRequiredHashVariable(indexHashComputation.get());

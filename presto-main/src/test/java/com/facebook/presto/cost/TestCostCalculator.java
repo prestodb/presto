@@ -793,7 +793,7 @@ public class TestCostCalculator
         ImmutableList.Builder<JoinNode.EquiJoinClause> criteria = ImmutableList.builder();
 
         for (int i = 0; i < symbols.length; i += 2) {
-            criteria.add(new JoinNode.EquiJoinClause(new Symbol(symbols[i]), new Symbol(symbols[i + 1])));
+            criteria.add(new JoinNode.EquiJoinClause(new VariableReferenceExpression(symbols[i], BIGINT), new VariableReferenceExpression(symbols[i + 1], BIGINT)));
         }
 
         return new JoinNode(

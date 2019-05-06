@@ -41,7 +41,7 @@ public class TestPushLimitThroughOuterJoin
                                     LEFT,
                                     p.values(5, leftKey),
                                     p.values(5, rightKey),
-                                    new EquiJoinClause(leftKey, rightKey)));
+                                    new EquiJoinClause(p.variable(leftKey), p.variable(rightKey))));
                 })
                 .matches(
                         limit(1,
@@ -64,7 +64,7 @@ public class TestPushLimitThroughOuterJoin
                                     FULL,
                                     p.values(5, leftKey),
                                     p.values(5, rightKey),
-                                    new EquiJoinClause(leftKey, rightKey)));
+                                    new EquiJoinClause(p.variable(leftKey), p.variable(rightKey))));
                 })
                 .doesNotFire();
     }
@@ -81,7 +81,7 @@ public class TestPushLimitThroughOuterJoin
                                     LEFT,
                                     p.limit(1, p.values(5, leftKey)),
                                     p.values(5, rightKey),
-                                    new EquiJoinClause(leftKey, rightKey)));
+                                    new EquiJoinClause(p.variable(leftKey), p.variable(rightKey))));
                 })
                 .doesNotFire();
     }

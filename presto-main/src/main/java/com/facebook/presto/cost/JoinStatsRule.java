@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.util.MoreMath;
 import com.google.common.annotations.VisibleForTesting;
 
@@ -221,7 +222,7 @@ public class JoinStatsRule
             Session session,
             TypeProvider types)
     {
-        ComparisonExpression drivingPredicate = new ComparisonExpression(EQUAL, drivingClause.getLeft().toSymbolReference(), drivingClause.getRight().toSymbolReference());
+        ComparisonExpression drivingPredicate = new ComparisonExpression(EQUAL, new SymbolReference(drivingClause.getLeft().getName()), new SymbolReference(drivingClause.getRight().getName()));
         PlanNodeStatsEstimate filteredStats = filterStatsCalculator.filterStats(stats, drivingPredicate, session, types);
         for (EquiJoinClause clause : remainingClauses) {
             filteredStats = filterByAuxiliaryClause(filteredStats, clause, types);

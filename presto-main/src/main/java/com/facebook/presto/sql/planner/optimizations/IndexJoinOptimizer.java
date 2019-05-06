@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.ResolvedIndex;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.Symbol;
@@ -64,6 +65,7 @@ import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
@@ -113,33 +115,33 @@ public class IndexJoinOptimizer
             PlanNode rightRewritten = context.rewrite(node.getRight());
 
             if (!node.getCriteria().isEmpty()) { // Index join only possible with JOIN criteria
-                List<Symbol> leftJoinSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft);
-                List<Symbol> rightJoinSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight);
+                List<VariableReferenceExpression> leftJoinVariables = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft);
+                List<VariableReferenceExpression> rightJoinVariables = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight);
 
                 Optional<PlanNode> leftIndexCandidate = IndexSourceRewriter.rewriteWithIndex(
                         leftRewritten,
-                        ImmutableSet.copyOf(leftJoinSymbols),
+                        ImmutableSet.copyOf(leftJoinVariables),
                         symbolAllocator,
                         idAllocator,
                         metadata,
                         session);
                 if (leftIndexCandidate.isPresent()) {
                     // Sanity check that we can trace the path for the index lookup key
-                    Map<Symbol, Symbol> trace = IndexKeyTracer.trace(leftIndexCandidate.get(), ImmutableSet.copyOf(leftJoinSymbols));
-                    checkState(!trace.isEmpty() && leftJoinSymbols.containsAll(trace.keySet()));
+                    Map<VariableReferenceExpression, VariableReferenceExpression> trace = IndexKeyTracer.trace(leftIndexCandidate.get(), ImmutableSet.copyOf(leftJoinVariables));
+                    checkState(!trace.isEmpty() && leftJoinVariables.containsAll(trace.keySet()));
                 }
 
                 Optional<PlanNode> rightIndexCandidate = IndexSourceRewriter.rewriteWithIndex(
                         rightRewritten,
-                        ImmutableSet.copyOf(rightJoinSymbols),
+                        ImmutableSet.copyOf(rightJoinVariables),
                         symbolAllocator,
                         idAllocator,
                         metadata,
                         session);
                 if (rightIndexCandidate.isPresent()) {
                     // Sanity check that we can trace the path for the index lookup key
-                    Map<Symbol, Symbol> trace = IndexKeyTracer.trace(rightIndexCandidate.get(), ImmutableSet.copyOf(rightJoinSymbols));
-                    checkState(!trace.isEmpty() && rightJoinSymbols.containsAll(trace.keySet()));
+                    Map<VariableReferenceExpression, VariableReferenceExpression> trace = IndexKeyTracer.trace(rightIndexCandidate.get(), ImmutableSet.copyOf(rightJoinVariables));
+                    checkState(!trace.isEmpty() && rightJoinVariables.containsAll(trace.keySet()));
                 }
 
                 switch (node.getType()) {
@@ -147,10 +149,10 @@ public class IndexJoinOptimizer
                         // Prefer the right candidate over the left candidate
                         PlanNode indexJoinNode = null;
                         if (rightIndexCandidate.isPresent()) {
-                            indexJoinNode = new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), Optional.empty(), Optional.empty());
+                            indexJoinNode = new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinVariables, rightJoinVariables), Optional.empty(), Optional.empty());
                         }
                         else if (leftIndexCandidate.isPresent()) {
-                            indexJoinNode = new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), Optional.empty(), Optional.empty());
+                            indexJoinNode = new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinVariables, leftJoinVariables), Optional.empty(), Optional.empty());
                         }
 
                         if (indexJoinNode != null) {
@@ -172,14 +174,14 @@ public class IndexJoinOptimizer
                     case LEFT:
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (!node.getFilter().isPresent() && rightIndexCandidate.isPresent()) {
-                            return createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), idAllocator);
+                            return createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinVariables, rightJoinVariables), idAllocator);
                         }
                         break;
 
                     case RIGHT:
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (!node.getFilter().isPresent() && leftIndexCandidate.isPresent()) {
-                            return createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), idAllocator);
+                            return createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinVariables, leftJoinVariables), idAllocator);
                         }
                         break;
 
@@ -209,12 +211,12 @@ public class IndexJoinOptimizer
             return result;
         }
 
-        private static List<IndexJoinNode.EquiJoinClause> createEquiJoinClause(List<Symbol> probeSymbols, List<Symbol> indexSymbols)
+        private static List<IndexJoinNode.EquiJoinClause> createEquiJoinClause(List<VariableReferenceExpression> probeVariables, List<VariableReferenceExpression> indexVariables)
         {
-            checkArgument(probeSymbols.size() == indexSymbols.size());
+            checkArgument(probeVariables.size() == indexVariables.size());
             ImmutableList.Builder<IndexJoinNode.EquiJoinClause> builder = ImmutableList.builder();
-            for (int i = 0; i < probeSymbols.size(); i++) {
-                builder.add(new IndexJoinNode.EquiJoinClause(probeSymbols.get(i), indexSymbols.get(i)));
+            for (int i = 0; i < probeVariables.size(); i++) {
+                builder.add(new IndexJoinNode.EquiJoinClause(probeVariables.get(i), indexVariables.get(i)));
             }
             return builder.build();
         }
@@ -243,7 +245,7 @@ public class IndexJoinOptimizer
 
         public static Optional<PlanNode> rewriteWithIndex(
                 PlanNode planNode,
-                Set<Symbol> lookupSymbols,
+                Set<VariableReferenceExpression> lookupVariables,
                 SymbolAllocator symbolAllocator,
                 PlanNodeIdAllocator idAllocator,
                 Metadata metadata,
@@ -251,7 +253,7 @@ public class IndexJoinOptimizer
         {
             AtomicBoolean success = new AtomicBoolean();
             IndexSourceRewriter indexSourceRewriter = new IndexSourceRewriter(symbolAllocator, idAllocator, metadata, session);
-            PlanNode rewritten = SimplePlanRewriter.rewriteWith(indexSourceRewriter, planNode, new Context(lookupSymbols, success));
+            PlanNode rewritten = SimplePlanRewriter.rewriteWith(indexSourceRewriter, planNode, new Context(lookupVariables, success));
             if (success.get()) {
                 return Optional.of(rewritten);
             }
@@ -283,10 +285,14 @@ public class IndexJoinOptimizer
                     .transform(node.getAssignments()::get)
                     .intersect(node.getEnforcedConstraint());
 
-            checkState(node.getOutputSymbols().containsAll(context.getLookupSymbols()));
+            checkState(node.getOutputSymbols().containsAll(
+                    context.getLookupVariables().stream()
+                            .map(VariableReferenceExpression::getName)
+                            .map(Symbol::new)
+                            .collect(toImmutableList())));
 
-            Set<ColumnHandle> lookupColumns = context.getLookupSymbols().stream()
-                    .map(node.getAssignments()::get)
+            Set<ColumnHandle> lookupColumns = context.getLookupVariables().stream()
+                    .map(variable -> node.getAssignments().get(new Symbol(variable.getName())))
                     .collect(toImmutableSet());
 
             Set<ColumnHandle> outputColumns = node.getOutputSymbols().stream().map(node.getAssignments()::get).collect(toImmutableSet());
@@ -304,7 +310,7 @@ public class IndexJoinOptimizer
                     idAllocator.getNextId(),
                     resolvedIndex.getIndexHandle(),
                     node.getTable(),
-                    context.getLookupSymbols(),
+                    context.getLookupVariables(),
                     node.getOutputSymbols(),
                     node.getAssignments(),
                     simplifiedConstraint);
@@ -324,18 +330,21 @@ public class IndexJoinOptimizer
         @Override
         public PlanNode visitProject(ProjectNode node, RewriteContext<Context> context)
         {
-            // Rewrite the lookup symbols in terms of only the pre-projected symbols that have direct translations
-            Set<Symbol> newLookupSymbols = context.get().getLookupSymbols().stream()
-                    .map(node.getAssignments()::get)
-                    .filter(SymbolReference.class::isInstance)
-                    .map(Symbol::from)
-                    .collect(toImmutableSet());
+            // Rewrite the lookup variables in terms of only the pre-projected variables that have direct translations
+            ImmutableSet.Builder<VariableReferenceExpression> newLookupVariablesBuilder = ImmutableSet.builder();
+            for (VariableReferenceExpression variable : context.get().getLookupVariables()) {
+                Expression expression = node.getAssignments().get(new Symbol(variable.getName()));
+                if (expression instanceof SymbolReference) {
+                    newLookupVariablesBuilder.add(new VariableReferenceExpression(((SymbolReference) expression).getName(), variable.getType()));
+                }
+            }
+            ImmutableSet<VariableReferenceExpression> newLookupVariables = newLookupVariablesBuilder.build();
 
-            if (newLookupSymbols.isEmpty()) {
+            if (newLookupVariables.isEmpty()) {
                 return node;
             }
 
-            return context.defaultRewrite(node, new Context(newLookupSymbols, context.get().getSuccess()));
+            return context.defaultRewrite(node, new Context(newLookupVariables, context.get().getSuccess()));
         }
 
         @Override
@@ -345,7 +354,7 @@ public class IndexJoinOptimizer
                 return planTableScan((TableScanNode) node.getSource(), castToExpression(node.getPredicate()), context.get());
             }
 
-            return context.defaultRewrite(node, new Context(context.get().getLookupSymbols(), context.get().getSuccess()));
+            return context.defaultRewrite(node, new Context(context.get().getLookupVariables(), context.get().getSuccess()));
         }
 
         @Override
@@ -356,7 +365,7 @@ public class IndexJoinOptimizer
                 return node;
             }
 
-            // Don't need this restriction if we can prove that all order by symbols are deterministically produced
+            // Don't need this restriction if we can prove that all order by variables are deterministically produced
             if (node.getOrderingScheme().isPresent()) {
                 return node;
             }
@@ -368,16 +377,16 @@ public class IndexJoinOptimizer
                 return node;
             }
 
-            // Lookup symbols can only be passed through if they are part of the partitioning
-            Set<Symbol> partitionByLookupSymbols = context.get().getLookupSymbols().stream()
-                    .filter(node.getPartitionBy()::contains)
+            // Lookup variables can only be passed through if they are part of the partitioning
+            Set<VariableReferenceExpression> partitionByLookupVariables = context.get().getLookupVariables().stream()
+                    .filter(variable -> node.getPartitionBy().contains(new Symbol(variable.getName())))
                     .collect(toImmutableSet());
 
-            if (partitionByLookupSymbols.isEmpty()) {
+            if (partitionByLookupVariables.isEmpty()) {
                 return node;
             }
 
-            return context.defaultRewrite(node, new Context(partitionByLookupSymbols, context.get().getSuccess()));
+            return context.defaultRewrite(node, new Context(partitionByLookupVariables, context.get().getSuccess()));
         }
 
         @Override
@@ -389,16 +398,16 @@ public class IndexJoinOptimizer
         @Override
         public PlanNode visitIndexJoin(IndexJoinNode node, RewriteContext<Context> context)
         {
-            // Lookup symbols can only be passed through the probe side of an index join
-            Set<Symbol> probeLookupSymbols = context.get().getLookupSymbols().stream()
-                    .filter(node.getProbeSource().getOutputSymbols()::contains)
+            // Lookup variables can only be passed through the probe side of an index join
+            Set<VariableReferenceExpression> probeLookupVariables = context.get().getLookupVariables().stream()
+                    .filter(variable -> node.getProbeSource().getOutputSymbols().contains(new Symbol(variable.getName())))
                     .collect(toImmutableSet());
 
-            if (probeLookupSymbols.isEmpty()) {
+            if (probeLookupVariables.isEmpty()) {
                 return node;
             }
 
-            PlanNode rewrittenProbeSource = context.rewrite(node.getProbeSource(), new Context(probeLookupSymbols, context.get().getSuccess()));
+            PlanNode rewrittenProbeSource = context.rewrite(node.getProbeSource(), new Context(probeLookupVariables, context.get().getSuccess()));
 
             PlanNode source = node;
             if (rewrittenProbeSource != node.getProbeSource()) {
@@ -411,16 +420,16 @@ public class IndexJoinOptimizer
         @Override
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Context> context)
         {
-            // Lookup symbols can only be passed through if they are part of the group by columns
-            Set<Symbol> groupByLookupSymbols = context.get().getLookupSymbols().stream()
-                    .filter(node.getGroupingKeys()::contains)
+            // Lookup variables can only be passed through if they are part of the group by columns
+            Set<VariableReferenceExpression> groupByLookupVariables = context.get().getLookupVariables().stream()
+                    .filter(variable -> node.getGroupingKeys().contains(new Symbol(variable.getName())))
                     .collect(toImmutableSet());
 
-            if (groupByLookupSymbols.isEmpty()) {
+            if (groupByLookupVariables.isEmpty()) {
                 return node;
             }
 
-            return context.defaultRewrite(node, new Context(groupByLookupSymbols, context.get().getSuccess()));
+            return context.defaultRewrite(node, new Context(groupByLookupVariables, context.get().getSuccess()));
         }
 
         @Override
@@ -432,19 +441,20 @@ public class IndexJoinOptimizer
 
         public static class Context
         {
-            private final Set<Symbol> lookupSymbols;
+            private final Set<VariableReferenceExpression> lookupVariables;
             private final AtomicBoolean success;
 
-            public Context(Set<Symbol> lookupSymbols, AtomicBoolean success)
+            public Context(Set<VariableReferenceExpression> lookupVariables, AtomicBoolean success)
             {
-                checkArgument(!lookupSymbols.isEmpty(), "lookupSymbols can not be empty");
-                this.lookupSymbols = ImmutableSet.copyOf(requireNonNull(lookupSymbols, "lookupSymbols is null"));
+                requireNonNull(lookupVariables, "lookupVariables is null");
+                checkArgument(!lookupVariables.isEmpty(), "lookupVariables can not be empty");
+                this.lookupVariables = ImmutableSet.copyOf(lookupVariables);
                 this.success = requireNonNull(success, "success is null");
             }
 
-            public Set<Symbol> getLookupSymbols()
+            public Set<VariableReferenceExpression> getLookupVariables()
             {
-                return lookupSymbols;
+                return lookupVariables;
             }
 
             public AtomicBoolean getSuccess()
@@ -460,93 +470,93 @@ public class IndexJoinOptimizer
     }
 
     /**
-     * Identify the mapping from the lookup symbols used at the top of the index plan to
-     * the actual symbols produced by the IndexSource. Note that multiple top-level lookup symbols may share the same
-     * underlying IndexSource symbol. Also note that lookup symbols that do not correspond to underlying index source symbols
+     * Identify the mapping from the lookup variables used at the top of the index plan to
+     * the actual variables produced by the IndexSource. Note that multiple top-level lookup variables may share the same
+     * underlying IndexSource symbol. Also note that lookup variables that do not correspond to underlying index source variables
      * will be omitted from the returned Map.
      */
     public static class IndexKeyTracer
     {
-        public static Map<Symbol, Symbol> trace(PlanNode node, Set<Symbol> lookupSymbols)
+        public static Map<VariableReferenceExpression, VariableReferenceExpression> trace(PlanNode node, Set<VariableReferenceExpression> lookupVariables)
         {
-            return node.accept(new Visitor(), lookupSymbols);
+            return node.accept(new Visitor(), lookupVariables);
         }
 
         private static class Visitor
-                extends InternalPlanVisitor<Map<Symbol, Symbol>, Set<Symbol>>
+                extends InternalPlanVisitor<Map<VariableReferenceExpression, VariableReferenceExpression>, Set<VariableReferenceExpression>>
         {
             @Override
-            protected Map<Symbol, Symbol> visitPlan(PlanNode node, Set<Symbol> lookupSymbols)
+            protected Map<VariableReferenceExpression, VariableReferenceExpression> visitPlan(PlanNode node, Set<VariableReferenceExpression> lookupVariables)
             {
                 throw new UnsupportedOperationException("Node not expected to be part of Index pipeline: " + node);
             }
 
             @Override
-            public Map<Symbol, Symbol> visitProject(ProjectNode node, Set<Symbol> lookupSymbols)
+            public Map<VariableReferenceExpression, VariableReferenceExpression> visitProject(ProjectNode node, Set<VariableReferenceExpression> lookupVariables)
             {
-                // Map from output Symbols to source Symbols
+                // Map from output variables to source variables
                 Map<Symbol, Symbol> directSymbolTranslationOutputMap = Maps.transformValues(Maps.filterValues(node.getAssignments().getMap(), SymbolReference.class::isInstance), Symbol::from);
-                Map<Symbol, Symbol> outputToSourceMap = lookupSymbols.stream()
-                        .filter(directSymbolTranslationOutputMap.keySet()::contains)
-                        .collect(toImmutableMap(identity(), directSymbolTranslationOutputMap::get));
+                Map<VariableReferenceExpression, VariableReferenceExpression> outputToSourceMap = lookupVariables.stream()
+                        .filter(variable -> directSymbolTranslationOutputMap.keySet().contains(new Symbol(variable.getName())))
+                        .collect(toImmutableMap(identity(), variable -> new VariableReferenceExpression(directSymbolTranslationOutputMap.get(new Symbol(variable.getName())).getName(), variable.getType())));
 
-                checkState(!outputToSourceMap.isEmpty(), "No lookup symbols were able to pass through the projection");
+                checkState(!outputToSourceMap.isEmpty(), "No lookup variables were able to pass through the projection");
 
-                // Map from source Symbols to underlying index source Symbols
-                Map<Symbol, Symbol> sourceToIndexMap = node.getSource().accept(this, ImmutableSet.copyOf(outputToSourceMap.values()));
+                // Map from source variables to underlying index source variables
+                Map<VariableReferenceExpression, VariableReferenceExpression> sourceToIndexMap = node.getSource().accept(this, ImmutableSet.copyOf(outputToSourceMap.values()));
 
-                // Generate the Map the connects lookup symbols to underlying index source symbols
-                Map<Symbol, Symbol> outputToIndexMap = Maps.transformValues(Maps.filterValues(outputToSourceMap, in(sourceToIndexMap.keySet())), Functions.forMap(sourceToIndexMap));
+                // Generate the Map the connects lookup variables to underlying index source variables
+                Map<VariableReferenceExpression, VariableReferenceExpression> outputToIndexMap = Maps.transformValues(Maps.filterValues(outputToSourceMap, in(sourceToIndexMap.keySet())), Functions.forMap(sourceToIndexMap));
                 return ImmutableMap.copyOf(outputToIndexMap);
             }
 
             @Override
-            public Map<Symbol, Symbol> visitFilter(FilterNode node, Set<Symbol> lookupSymbols)
+            public Map<VariableReferenceExpression, VariableReferenceExpression> visitFilter(FilterNode node, Set<VariableReferenceExpression> lookupVariables)
             {
-                return node.getSource().accept(this, lookupSymbols);
+                return node.getSource().accept(this, lookupVariables);
             }
 
             @Override
-            public Map<Symbol, Symbol> visitWindow(WindowNode node, Set<Symbol> lookupSymbols)
+            public Map<VariableReferenceExpression, VariableReferenceExpression> visitWindow(WindowNode node, Set<VariableReferenceExpression> lookupVariables)
             {
-                Set<Symbol> partitionByLookupSymbols = lookupSymbols.stream()
-                        .filter(node.getPartitionBy()::contains)
+                Set<VariableReferenceExpression> partitionByLookupVariables = lookupVariables.stream()
+                        .filter(variable -> node.getPartitionBy().contains(new Symbol(variable.getName())))
                         .collect(toImmutableSet());
-                checkState(!partitionByLookupSymbols.isEmpty(), "No lookup symbols were able to pass through the aggregation group by");
-                return node.getSource().accept(this, partitionByLookupSymbols);
+                checkState(!partitionByLookupVariables.isEmpty(), "No lookup variables were able to pass through the aggregation group by");
+                return node.getSource().accept(this, partitionByLookupVariables);
             }
 
             @Override
-            public Map<Symbol, Symbol> visitIndexJoin(IndexJoinNode node, Set<Symbol> lookupSymbols)
+            public Map<VariableReferenceExpression, VariableReferenceExpression> visitIndexJoin(IndexJoinNode node, Set<VariableReferenceExpression> lookupVariables)
             {
-                Set<Symbol> probeLookupSymbols = lookupSymbols.stream()
-                        .filter(node.getProbeSource().getOutputSymbols()::contains)
+                Set<VariableReferenceExpression> probeLookupVariables = lookupVariables.stream()
+                        .filter(variable -> node.getProbeSource().getOutputSymbols().contains(new Symbol(variable.getName())))
                         .collect(toImmutableSet());
-                checkState(!probeLookupSymbols.isEmpty(), "No lookup symbols were able to pass through the index join probe source");
-                return node.getProbeSource().accept(this, probeLookupSymbols);
+                checkState(!probeLookupVariables.isEmpty(), "No lookup variables were able to pass through the index join probe source");
+                return node.getProbeSource().accept(this, probeLookupVariables);
             }
 
             @Override
-            public Map<Symbol, Symbol> visitAggregation(AggregationNode node, Set<Symbol> lookupSymbols)
+            public Map<VariableReferenceExpression, VariableReferenceExpression> visitAggregation(AggregationNode node, Set<VariableReferenceExpression> lookupVariables)
             {
-                Set<Symbol> groupByLookupSymbols = lookupSymbols.stream()
-                        .filter(node.getGroupingKeys()::contains)
+                Set<VariableReferenceExpression> groupByLookupVariables = lookupVariables.stream()
+                        .filter(variable -> node.getGroupingKeys().contains(new Symbol(variable.getName())))
                         .collect(toImmutableSet());
-                checkState(!groupByLookupSymbols.isEmpty(), "No lookup symbols were able to pass through the aggregation group by");
-                return node.getSource().accept(this, groupByLookupSymbols);
+                checkState(!groupByLookupVariables.isEmpty(), "No lookup variables were able to pass through the aggregation group by");
+                return node.getSource().accept(this, groupByLookupVariables);
             }
 
             @Override
-            public Map<Symbol, Symbol> visitSort(SortNode node, Set<Symbol> lookupSymbols)
+            public Map<VariableReferenceExpression, VariableReferenceExpression> visitSort(SortNode node, Set<VariableReferenceExpression> lookupVariables)
             {
-                return node.getSource().accept(this, lookupSymbols);
+                return node.getSource().accept(this, lookupVariables);
             }
 
             @Override
-            public Map<Symbol, Symbol> visitIndexSource(IndexSourceNode node, Set<Symbol> lookupSymbols)
+            public Map<VariableReferenceExpression, VariableReferenceExpression> visitIndexSource(IndexSourceNode node, Set<VariableReferenceExpression> lookupVariables)
             {
-                checkState(node.getLookupSymbols().equals(lookupSymbols), "lookupSymbols must be the same as IndexSource lookup symbols");
-                return lookupSymbols.stream().collect(toImmutableMap(identity(), identity()));
+                checkState(node.getLookupVariables().equals(lookupVariables), "lookupVariables must be the same as IndexSource lookup variables");
+                return lookupVariables.stream().collect(toImmutableMap(identity(), identity()));
             }
         }
     }

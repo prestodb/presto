@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VariableWidthType;
@@ -130,9 +131,21 @@ public class PlanNodeStatsEstimate
                 .build();
     }
 
+    public PlanNodeStatsEstimate mapSymbolColumnStatistics(VariableReferenceExpression variable, Function<SymbolStatsEstimate, SymbolStatsEstimate> mappingFunction)
+    {
+        return buildFrom(this)
+                .addSymbolStatistics(variable, mappingFunction.apply(getSymbolStatistics(variable)))
+                .build();
+    }
+
     public SymbolStatsEstimate getSymbolStatistics(Symbol symbol)
     {
         return symbolStatistics.getOrDefault(symbol, SymbolStatsEstimate.unknown());
+    }
+
+    public SymbolStatsEstimate getSymbolStatistics(VariableReferenceExpression variable)
+    {
+        return symbolStatistics.getOrDefault(new Symbol(variable.getName()), SymbolStatsEstimate.unknown());
     }
 
     @JsonProperty
@@ -215,6 +228,12 @@ public class PlanNodeStatsEstimate
         public Builder addSymbolStatistics(Symbol symbol, SymbolStatsEstimate statistics)
         {
             symbolStatistics = symbolStatistics.plus(symbol, statistics);
+            return this;
+        }
+
+        public Builder addSymbolStatistics(VariableReferenceExpression variable, SymbolStatsEstimate statistics)
+        {
+            symbolStatistics = symbolStatistics.plus(new Symbol(variable.getName()), statistics);
             return this;
         }
 

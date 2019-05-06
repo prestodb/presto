@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.ResolvedField;
@@ -171,6 +172,12 @@ class TranslationMap
         }
 
         return expressionToSymbols.get(translated);
+    }
+
+    public VariableReferenceExpression getVariable(Expression expression)
+    {
+        Symbol symbol = get(expression);
+        return new VariableReferenceExpression(symbol.getName(), analysis.getType(expression));
     }
 
     public void put(Expression expression, Expression rewritten)

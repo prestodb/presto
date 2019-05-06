@@ -300,24 +300,24 @@ public class JoinNode
 
     public static class EquiJoinClause
     {
-        private final Symbol left;
-        private final Symbol right;
+        private final VariableReferenceExpression left;
+        private final VariableReferenceExpression right;
 
         @JsonCreator
-        public EquiJoinClause(@JsonProperty("left") Symbol left, @JsonProperty("right") Symbol right)
+        public EquiJoinClause(@JsonProperty("left") VariableReferenceExpression left, @JsonProperty("right") VariableReferenceExpression right)
         {
             this.left = requireNonNull(left, "left is null");
             this.right = requireNonNull(right, "right is null");
         }
 
         @JsonProperty("left")
-        public Symbol getLeft()
+        public VariableReferenceExpression getLeft()
         {
             return left;
         }
 
         @JsonProperty("right")
-        public Symbol getRight()
+        public VariableReferenceExpression getRight()
         {
             return right;
         }

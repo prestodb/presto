@@ -15,6 +15,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.MultiJoinNode;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
@@ -34,6 +35,7 @@ import org.testng.annotations.Test;
 import java.util.LinkedHashSet;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.MultiJoinNode.toMultiJoinNode;
@@ -328,7 +330,7 @@ public class TestJoinNodeFlattener
 
     private EquiJoinClause equiJoinClause(Symbol symbol1, Symbol symbol2)
     {
-        return new EquiJoinClause(symbol1, symbol2);
+        return new EquiJoinClause(new VariableReferenceExpression(symbol1.getName(), BIGINT), new VariableReferenceExpression(symbol2.getName(), BIGINT));
     }
 
     private PlanBuilder planBuilder()

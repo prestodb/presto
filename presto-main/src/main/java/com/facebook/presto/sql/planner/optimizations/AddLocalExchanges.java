@@ -21,6 +21,7 @@ import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -55,7 +56,6 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -591,7 +591,11 @@ public class AddLocalExchanges
             }
 
             // this build consumes the input completely, so we do not pass through parent preferences
-            List<Symbol> buildHashSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight);
+            List<Symbol> buildHashSymbols = node.getCriteria().stream()
+                    .map(JoinNode.EquiJoinClause::getRight)
+                    .map(VariableReferenceExpression::getName)
+                    .map(Symbol::new)
+                    .collect(toImmutableList());
             StreamPreferredProperties buildPreference;
             if (getTaskConcurrency(session) > 1) {
                 buildPreference = exactlyPartitionedOn(buildHashSymbols);

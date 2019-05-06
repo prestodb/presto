@@ -142,24 +142,24 @@ public class IndexJoinNode
 
     public static class EquiJoinClause
     {
-        private final Symbol probe;
-        private final Symbol index;
+        private final VariableReferenceExpression probe;
+        private final VariableReferenceExpression index;
 
         @JsonCreator
-        public EquiJoinClause(@JsonProperty("probe") Symbol probe, @JsonProperty("index") Symbol index)
+        public EquiJoinClause(@JsonProperty("probe") VariableReferenceExpression probe, @JsonProperty("index") VariableReferenceExpression index)
         {
             this.probe = requireNonNull(probe, "probe is null");
             this.index = requireNonNull(index, "index is null");
         }
 
         @JsonProperty("probe")
-        public Symbol getProbe()
+        public VariableReferenceExpression getProbe()
         {
             return probe;
         }
 
         @JsonProperty("index")
-        public Symbol getIndex()
+        public VariableReferenceExpression getIndex()
         {
             return index;
         }

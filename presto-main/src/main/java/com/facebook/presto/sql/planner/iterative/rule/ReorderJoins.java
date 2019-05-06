@@ -21,9 +21,11 @@ import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.EqualityInference;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -246,7 +248,7 @@ public class ReorderJoins
             List<Expression> joinPredicates = getJoinPredicates(leftSymbols, rightSymbols);
             List<EquiJoinClause> joinConditions = joinPredicates.stream()
                     .filter(JoinEnumerator::isJoinEqualityCondition)
-                    .map(predicate -> toEquiJoinClause((ComparisonExpression) predicate, leftSymbols))
+                    .map(predicate -> toEquiJoinClause((ComparisonExpression) predicate, leftSymbols, context.getSymbolAllocator()))
                     .collect(toImmutableList());
             if (joinConditions.isEmpty()) {
                 return INFINITE_COST_RESULT;
@@ -357,11 +359,12 @@ public class ReorderJoins
                     && ((ComparisonExpression) expression).getRight() instanceof SymbolReference;
         }
 
-        private static EquiJoinClause toEquiJoinClause(ComparisonExpression equality, Set<Symbol> leftSymbols)
+        private static EquiJoinClause toEquiJoinClause(ComparisonExpression equality, Set<Symbol> leftSymbols, SymbolAllocator symbolAllocator)
         {
             Symbol leftSymbol = Symbol.from(equality.getLeft());
-            Symbol rightSymbol = Symbol.from(equality.getRight());
-            EquiJoinClause equiJoinClause = new EquiJoinClause(leftSymbol, rightSymbol);
+            VariableReferenceExpression leftVariable = symbolAllocator.toVariableReference(leftSymbol);
+            VariableReferenceExpression rightVariable = symbolAllocator.toVariableReference(Symbol.from(equality.getRight()));
+            EquiJoinClause equiJoinClause = new EquiJoinClause(leftVariable, rightVariable);
             return leftSymbols.contains(leftSymbol) ? equiJoinClause : equiJoinClause.flip();
         }
 
