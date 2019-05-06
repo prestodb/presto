@@ -827,11 +827,11 @@ public class PropertyDerivations
         // if the column is part of the equality conditions and its counterpart
         // is exposed, use that, instead
         for (JoinNode.EquiJoinClause equality : equalities) {
-            if (equality.getLeft().equals(column) && columns.contains(equality.getRight())) {
-                return Optional.of(equality.getRight());
+            if (equality.getLeft().getName().equals(column.getName()) && columns.contains(new Symbol(equality.getRight().getName()))) {
+                return Optional.of(new Symbol(equality.getRight().getName()));
             }
-            else if (equality.getRight().equals(column) && columns.contains(equality.getLeft())) {
-                return Optional.of(equality.getLeft());
+            else if (equality.getRight().getName().equals(column.getName()) && columns.contains(new Symbol(equality.getLeft().getName()))) {
+                return Optional.of(new Symbol(equality.getLeft().getName()));
             }
         }
 

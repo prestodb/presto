@@ -523,7 +523,7 @@ public class PlanBuilder
 
     public IndexSourceNode indexSource(
             TableHandle tableHandle,
-            Set<Symbol> lookupSymbols,
+            Set<VariableReferenceExpression> lookupVariables,
             List<Symbol> outputSymbols,
             Map<Symbol, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> effectiveTupleDomain)
@@ -535,7 +535,7 @@ public class PlanBuilder
                         TestingConnectorTransactionHandle.INSTANCE,
                         TestingConnectorIndexHandle.INSTANCE),
                 tableHandle,
-                lookupSymbols,
+                lookupVariables,
                 outputSymbols,
                 assignments,
                 effectiveTupleDomain);

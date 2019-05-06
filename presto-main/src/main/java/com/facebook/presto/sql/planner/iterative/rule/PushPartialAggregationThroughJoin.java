@@ -130,8 +130,8 @@ public class PushPartialAggregationThroughJoin
     private Set<Symbol> getJoinRequiredSymbols(JoinNode node)
     {
         return Streams.concat(
-                node.getCriteria().stream().map(JoinNode.EquiJoinClause::getLeft),
-                node.getCriteria().stream().map(JoinNode.EquiJoinClause::getRight),
+                node.getCriteria().stream().map(JoinNode.EquiJoinClause::getLeft).map(this::toSymbol),
+                node.getCriteria().stream().map(JoinNode.EquiJoinClause::getRight).map(this::toSymbol),
                 node.getFilter().map(OriginalExpressionUtils::castToExpression).map(SymbolsExtractor::extractUnique).orElse(ImmutableSet.of()).stream(),
                 node.getLeftHashVariable().map(this::toSymbol).map(ImmutableSet::of).orElse(ImmutableSet.of()).stream(),
                 node.getRightHashVariable().map(this::toSymbol).map(ImmutableSet::of).orElse(ImmutableSet.of()).stream())

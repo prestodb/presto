@@ -425,7 +425,7 @@ public class PlanPrinter
         {
             NodeRepresentation nodeOutput = addNode(node,
                     "IndexSource",
-                    format("[%s, lookup = %s]", node.getIndexHandle(), node.getLookupSymbols()));
+                    format("[%s, lookup = %s]", node.getIndexHandle(), node.getLookupVariables()));
 
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
                 if (node.getOutputSymbols().contains(entry.getKey())) {
@@ -441,8 +441,8 @@ public class PlanPrinter
             List<Expression> joinExpressions = new ArrayList<>();
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
                 joinExpressions.add(new ComparisonExpression(ComparisonExpression.Operator.EQUAL,
-                        clause.getProbe().toSymbolReference(),
-                        clause.getIndex().toSymbolReference()));
+                        new SymbolReference(clause.getProbe().getName()),
+                        new SymbolReference(clause.getIndex().getName())));
             }
 
             addNode(node,

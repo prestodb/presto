@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -60,6 +61,8 @@ public class PruneJoinChildrenColumns
                 .addAll(
                         joinNode.getCriteria().stream()
                                 .map(JoinNode.EquiJoinClause::getLeft)
+                                .map(VariableReferenceExpression::getName)
+                                .map(Symbol::new)
                                 .iterator())
                 .addAll(joinNode.getLeftHashVariable().map(variable -> new Symbol(variable.getName())).map(ImmutableSet::of).orElse(ImmutableSet.of()))
                 .build();
@@ -69,6 +72,8 @@ public class PruneJoinChildrenColumns
                 .addAll(
                         joinNode.getCriteria().stream()
                                 .map(JoinNode.EquiJoinClause::getRight)
+                                .map(VariableReferenceExpression::getName)
+                                .map(Symbol::new)
                                 .iterator())
                 .addAll(joinNode.getRightHashVariable().map(variable -> new Symbol(variable.getName())).map(ImmutableSet::of).orElse(ImmutableSet.of()))
                 .build();

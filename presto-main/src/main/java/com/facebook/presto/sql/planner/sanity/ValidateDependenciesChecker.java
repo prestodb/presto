@@ -349,8 +349,8 @@ public final class ValidateDependenciesChecker
                     .build();
 
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
-                checkArgument(leftInputs.contains(clause.getLeft()), "Symbol from join clause (%s) not in left source (%s)", clause.getLeft(), node.getLeft().getOutputSymbols());
-                checkArgument(rightInputs.contains(clause.getRight()), "Symbol from join clause (%s) not in right source (%s)", clause.getRight(), node.getRight().getOutputSymbols());
+                checkArgument(leftInputs.contains(new Symbol(clause.getLeft().getName())), "Symbol from join clause (%s) not in left source (%s)", clause.getLeft(), node.getLeft().getOutputSymbols());
+                checkArgument(rightInputs.contains(new Symbol(clause.getRight().getName())), "Symbol from join clause (%s) not in right source (%s)", clause.getRight(), node.getRight().getOutputSymbols());
             }
 
             node.getFilter().ifPresent(predicate -> {
@@ -448,14 +448,14 @@ public final class ValidateDependenciesChecker
             Set<Symbol> probeInputs = createInputs(node.getProbeSource(), boundSymbols);
             Set<Symbol> indexSourceInputs = createInputs(node.getIndexSource(), boundSymbols);
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
-                checkArgument(probeInputs.contains(clause.getProbe()), "Probe symbol from index join clause (%s) not in probe source (%s)", clause.getProbe(), node.getProbeSource().getOutputSymbols());
-                checkArgument(indexSourceInputs.contains(clause.getIndex()), "Index symbol from index join clause (%s) not in index source (%s)", clause.getIndex(), node.getIndexSource().getOutputSymbols());
+                checkArgument(probeInputs.contains(new Symbol(clause.getProbe().getName())), "Probe symbol from index join clause (%s) not in probe source (%s)", clause.getProbe(), node.getProbeSource().getOutputSymbols());
+                checkArgument(indexSourceInputs.contains(new Symbol(clause.getIndex().getName())), "Index symbol from index join clause (%s) not in index source (%s)", clause.getIndex(), node.getIndexSource().getOutputSymbols());
             }
 
-            Set<Symbol> lookupSymbols = node.getCriteria().stream()
+            Set<VariableReferenceExpression> lookupSymbols = node.getCriteria().stream()
                     .map(IndexJoinNode.EquiJoinClause::getIndex)
                     .collect(toImmutableSet());
-            Map<Symbol, Symbol> trace = IndexKeyTracer.trace(node.getIndexSource(), lookupSymbols);
+            Map<VariableReferenceExpression, VariableReferenceExpression> trace = IndexKeyTracer.trace(node.getIndexSource(), lookupSymbols);
             checkArgument(!trace.isEmpty() && lookupSymbols.containsAll(trace.keySet()),
                     "Index lookup symbols are not traceable to index source: %s",
                     lookupSymbols);
@@ -466,7 +466,10 @@ public final class ValidateDependenciesChecker
         @Override
         public Void visitIndexSource(IndexSourceNode node, Set<Symbol> boundSymbols)
         {
-            checkDependencies(node.getOutputSymbols(), node.getLookupSymbols(), "Lookup symbols must be part of output symbols");
+            checkDependencies(
+                    node.getOutputSymbols(),
+                    node.getLookupVariables().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()),
+                    "Lookup variables must be part of output symbols");
             checkDependencies(node.getAssignments().keySet(), node.getOutputSymbols(), "Assignments must contain mappings for output symbols");
 
             return null;

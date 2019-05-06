@@ -13,13 +13,16 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class TypeProvider
@@ -39,6 +42,11 @@ public class TypeProvider
     public static TypeProvider empty()
     {
         return new TypeProvider(ImmutableMap.of());
+    }
+
+    public static TypeProvider fromVariables(VariableReferenceExpression... variables)
+    {
+        return new TypeProvider(Arrays.asList(variables).stream().collect(toImmutableMap(variable -> new Symbol(variable.getName()), VariableReferenceExpression::getType)));
     }
 
     private TypeProvider(Map<Symbol, Type> types)

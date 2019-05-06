@@ -138,6 +138,8 @@ public class PushAggregationThroughOuterJoin
 
         List<Symbol> groupingKeys = join.getCriteria().stream()
                 .map(join.getType() == JoinNode.Type.RIGHT ? JoinNode.EquiJoinClause::getLeft : JoinNode.EquiJoinClause::getRight)
+                .map(VariableReferenceExpression::getName)
+                .map(Symbol::new)
                 .collect(toImmutableList());
         AggregationNode rewrittenAggregation = new AggregationNode(
                 aggregation.getId(),

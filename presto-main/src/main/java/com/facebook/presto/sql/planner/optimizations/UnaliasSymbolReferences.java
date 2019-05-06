@@ -521,8 +521,8 @@ public class UnaliasSymbolReferences
 
             if (node.getType().equals(INNER)) {
                 canonicalCriteria.stream()
-                        .filter(clause -> types.get(clause.getLeft()).equals(types.get(clause.getRight())))
-                        .filter(clause -> node.getOutputSymbols().contains(clause.getLeft()))
+                        .filter(clause -> clause.getLeft().getType().equals(clause.getRight().getType()))
+                        .filter(clause -> node.getOutputSymbols().contains(new Symbol(clause.getLeft().getName())))
                         .forEach(clause -> map(clause.getRight(), clause.getLeft()));
             }
 
@@ -569,7 +569,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitIndexSource(IndexSourceNode node, RewriteContext<Void> context)
         {
-            return new IndexSourceNode(node.getId(), node.getIndexHandle(), node.getTableHandle(), canonicalize(node.getLookupSymbols()), node.getOutputSymbols(), node.getAssignments(), node.getCurrentConstraint());
+            return new IndexSourceNode(node.getId(), node.getIndexHandle(), node.getTableHandle(), canonicalizeVariables(node.getLookupVariables()), node.getOutputSymbols(), node.getAssignments(), node.getCurrentConstraint());
         }
 
         @Override
@@ -626,6 +626,12 @@ public class UnaliasSymbolReferences
         {
             Preconditions.checkArgument(!symbol.equals(canonical), "Can't map symbol to itself: %s", symbol);
             mapping.put(symbol.getName(), canonical.getName());
+        }
+
+        private void map(VariableReferenceExpression variable, VariableReferenceExpression canonical)
+        {
+            Preconditions.checkArgument(!variable.equals(canonical), "Can't map variable to itself: %s", variable);
+            mapping.put(variable.getName(), canonical.getName());
         }
 
         private Assignments canonicalize(Assignments oldAssignments)
@@ -762,6 +768,13 @@ public class UnaliasSymbolReferences
         private Set<Symbol> canonicalize(Set<Symbol> symbols)
         {
             return symbols.stream()
+                    .map(this::canonicalize)
+                    .collect(toImmutableSet());
+        }
+
+        private Set<VariableReferenceExpression> canonicalizeVariables(Set<VariableReferenceExpression> variables)
+        {
+            return variables.stream()
                     .map(this::canonicalize)
                     .collect(toImmutableSet());
         }
