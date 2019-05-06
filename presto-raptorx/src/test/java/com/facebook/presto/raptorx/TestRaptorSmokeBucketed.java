@@ -34,7 +34,7 @@ public class TestRaptorSmokeBucketed
     {
         assertQuery("" +
                         "SELECT count(DISTINCT bucket_number)\n" +
-                        "FROM system.chunks\n" +
+                        "FROM system.shards\n" +
                         "WHERE table_schema = 'tpch'\n" +
                         "  AND table_name = 'orders'",
                 "SELECT 25");
@@ -46,6 +46,6 @@ public class TestRaptorSmokeBucketed
         String plan = (String) computeActual(
                 Session.builder(getSession()).setSystemProperty(COLOCATED_JOIN, "true").build(),
                 "EXPLAIN SELECT count(*) FROM orders JOIN lineitem USING (orderkey)").getOnlyValue();
-        assertThat(plan).containsOnlyOnce("RemoteExchange");
+        assertThat(plan).containsOnlyOnce("RemoteStreamingExchange");
     }
 }

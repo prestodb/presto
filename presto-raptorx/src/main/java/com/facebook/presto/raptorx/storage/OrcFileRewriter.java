@@ -21,7 +21,6 @@ import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -163,11 +162,7 @@ public final class OrcFileRewriter
             }
         }
 
-        Block[] maskedBlocks = new Block[blocks.length];
-        for (int i = 0; i < blocks.length; i++) {
-            maskedBlocks[i] = new DictionaryBlock(size, blocks[i], ids);
-        }
-        return new Page(maskedBlocks);
+        return new Page(blocks).getPositions(ids, 0, size);
     }
 
     public static class OrcFileInfo
