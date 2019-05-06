@@ -15,6 +15,7 @@ package com.facebook.presto.raptorx.systemtable;
 
 import com.facebook.presto.raptorx.TransactionManager;
 import com.facebook.presto.raptorx.metadata.ChunkMetadata;
+import com.facebook.presto.raptorx.metadata.TableInfo;
 import com.facebook.presto.raptorx.transaction.Transaction;
 import com.facebook.presto.raptorx.util.IteratorPageSource;
 import com.facebook.presto.raptorx.util.PageListBuilder;
@@ -45,6 +46,7 @@ import static com.facebook.presto.raptorx.util.PredicateUtil.listTables;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
@@ -62,7 +64,7 @@ public class ChunkSystemTable
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
 
         this.tableMetadata = new ConnectorTableMetadata(
-                new SchemaTableName("system", "chunks"),
+                new SchemaTableName("system", "shards"),
                 ImmutableList.<ColumnMetadata>builder()
                         .add(new ColumnMetadata("table_schema", VARCHAR))
                         .add(new ColumnMetadata("table_name", VARCHAR))
@@ -72,6 +74,8 @@ public class ChunkSystemTable
                         .add(new ColumnMetadata("compressed_size", BIGINT))
                         .add(new ColumnMetadata("row_count", BIGINT))
                         .add(new ColumnMetadata("xxhash64", createVarcharType(16)))
+                        .add(new ColumnMetadata("min_timestamp", TIMESTAMP))
+                        .add(new ColumnMetadata("max_timestamp", TIMESTAMP))
                         .build());
     }
 
@@ -117,16 +121,17 @@ public class ChunkSystemTable
             return;
         }
 
+        TableInfo tableInfo = transaction.getTableInfo(tableId.get());
         Collection<ChunkMetadata> chunks = transaction.getChunks(tableId.get());
         for (ChunkMetadata chunk : chunks) {
-            builder.beginRow();
-            writeChunk(builder, tableName, chunk);
-            builder.endRow();
+            writeChunk(builder, tableName, chunk, tableInfo.getTemporalColumnId().isPresent());
         }
     }
 
-    private static void writeChunk(PageListBuilder builder, SchemaTableName tableName, ChunkMetadata chunk)
+    private static void writeChunk(PageListBuilder builder, SchemaTableName tableName, ChunkMetadata chunk, boolean hasTemporal)
     {
+        builder.beginRow();
+
         builder.appendVarchar(tableName.getSchemaName());
         builder.appendVarchar(tableName.getTableName());
         builder.appendBigint(chunk.getChunkId());
@@ -135,5 +140,14 @@ public class ChunkSystemTable
         builder.appendBigint(chunk.getCompressedSize());
         builder.appendBigint(chunk.getRowCount());
         builder.appendVarchar(format("%016x", chunk.getXxhash64()));
+        if (hasTemporal) {
+            builder.appendBigint(chunk.getTemporalMin().getAsLong());
+            builder.appendBigint(chunk.getTemporalMax().getAsLong());
+        }
+        else {
+            builder.appendNull();
+            builder.appendNull();
+        }
+        builder.endRow();
     }
 }

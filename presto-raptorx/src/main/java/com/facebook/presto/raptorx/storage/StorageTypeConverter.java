@@ -31,6 +31,8 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
+import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -62,6 +64,8 @@ public class StorageTypeConverter
                 type.equals(REAL) ||
                 isCharType(type) ||
                 isVarcharType(type) ||
+                isLongDecimal(type) ||
+                isShortDecimal(type) ||
                 type.equals(VARBINARY)) {
             return type;
         }
