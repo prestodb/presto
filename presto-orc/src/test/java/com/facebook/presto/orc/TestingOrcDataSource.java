@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.stream.OrcDataReader;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -79,7 +80,7 @@ class TestingOrcDataSource
     }
 
     @Override
-    public <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges)
+    public <K> Map<K, OrcDataReader> readFully(Map<K, DiskRange> diskRanges)
             throws IOException
     {
         readCount += diskRanges.size();

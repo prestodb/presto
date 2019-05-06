@@ -13,12 +13,10 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.stream.AbstractDiskOrcDataReader;
+import com.facebook.presto.orc.stream.MemoryOrcDataReader;
+import com.facebook.presto.orc.stream.OrcDataReader;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.BasicSliceInput;
-import io.airlift.slice.ChunkedSliceInput;
-import io.airlift.slice.ChunkedSliceInput.BufferReference;
-import io.airlift.slice.ChunkedSliceInput.SliceLoader;
-import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -28,10 +26,10 @@ import java.io.UncheckedIOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.function.Supplier;
 
 import static com.facebook.presto.orc.OrcDataSourceUtils.getDiskRangeSlice;
 import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static java.lang.Math.toIntExact;
@@ -110,7 +108,7 @@ public abstract class AbstractOrcDataSource
     }
 
     @Override
-    public final <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges)
+    public final <K> Map<K, OrcDataReader> readFully(Map<K, DiskRange> diskRanges)
             throws IOException
     {
         requireNonNull(diskRanges, "diskRanges is null");
@@ -139,14 +137,14 @@ public abstract class AbstractOrcDataSource
         Map<K, DiskRange> largeRanges = largeRangesBuilder.build();
 
         // read ranges
-        ImmutableMap.Builder<K, OrcDataSourceInput> slices = ImmutableMap.builder();
+        ImmutableMap.Builder<K, OrcDataReader> slices = ImmutableMap.builder();
         slices.putAll(readSmallDiskRanges(smallRanges));
         slices.putAll(readLargeDiskRanges(largeRanges));
 
         return slices.build();
     }
 
-    private <K> Map<K, OrcDataSourceInput> readSmallDiskRanges(Map<K, DiskRange> diskRanges)
+    private <K> Map<K, OrcDataReader> readSmallDiskRanges(Map<K, DiskRange> diskRanges)
             throws IOException
     {
         if (diskRanges.isEmpty()) {
@@ -155,15 +153,14 @@ public abstract class AbstractOrcDataSource
 
         Iterable<DiskRange> mergedRanges = mergeAdjacentDiskRanges(diskRanges.values(), maxMergeDistance, maxBufferSize);
 
-        ImmutableMap.Builder<K, OrcDataSourceInput> slices = ImmutableMap.builder();
+        ImmutableMap.Builder<K, OrcDataReader> slices = ImmutableMap.builder();
         if (lazyReadSmallRanges) {
             for (DiskRange mergedRange : mergedRanges) {
                 LazyBufferLoader mergedRangeLazyLoader = new LazyBufferLoader(mergedRange);
                 for (Entry<K, DiskRange> diskRangeEntry : diskRanges.entrySet()) {
                     DiskRange diskRange = diskRangeEntry.getValue();
                     if (mergedRange.contains(diskRange)) {
-                        FixedLengthSliceInput sliceInput = new LazySliceInput(diskRange.getLength(), new LazyMergedSliceLoader(diskRange, mergedRangeLazyLoader));
-                        slices.put(diskRangeEntry.getKey(), new OrcDataSourceInput(sliceInput, diskRange.getLength()));
+                        slices.put(diskRangeEntry.getKey(), new MergedOrcDataReader(id, diskRange, mergedRangeLazyLoader));
                     }
                 }
             }
@@ -177,27 +174,25 @@ public abstract class AbstractOrcDataSource
             }
 
             for (Entry<K, DiskRange> entry : diskRanges.entrySet()) {
-                slices.put(entry.getKey(), new OrcDataSourceInput(getDiskRangeSlice(entry.getValue(), buffers).getInput(), entry.getValue().getLength()));
+                slices.put(entry.getKey(), new MemoryOrcDataReader(id, getDiskRangeSlice(entry.getValue(), buffers), entry.getValue().getLength()));
             }
         }
 
-        Map<K, OrcDataSourceInput> sliceStreams = slices.build();
+        Map<K, OrcDataReader> sliceStreams = slices.build();
         verify(sliceStreams.keySet().equals(diskRanges.keySet()));
         return sliceStreams;
     }
 
-    private <K> Map<K, OrcDataSourceInput> readLargeDiskRanges(Map<K, DiskRange> diskRanges)
+    private <K> Map<K, OrcDataReader> readLargeDiskRanges(Map<K, DiskRange> diskRanges)
     {
         if (diskRanges.isEmpty()) {
             return ImmutableMap.of();
         }
 
-        ImmutableMap.Builder<K, OrcDataSourceInput> slices = ImmutableMap.builder();
+        ImmutableMap.Builder<K, OrcDataReader> slices = ImmutableMap.builder();
         for (Entry<K, DiskRange> entry : diskRanges.entrySet()) {
             DiskRange diskRange = entry.getValue();
-            int bufferSize = toIntExact(streamBufferSize.toBytes());
-            FixedLengthSliceInput sliceInput = new LazySliceInput(diskRange.getLength(), new LazyChunkedSliceLoader(diskRange, bufferSize));
-            slices.put(entry.getKey(), new OrcDataSourceInput(sliceInput, bufferSize));
+            slices.put(entry.getKey(), new DiskOrcDataReader(diskRange));
         }
         return slices.build();
     }
@@ -241,106 +236,97 @@ public abstract class AbstractOrcDataSource
         }
     }
 
-    private final class LazyMergedSliceLoader
-            implements Supplier<FixedLengthSliceInput>
+    private final class MergedOrcDataReader
+            implements OrcDataReader
     {
+        private final OrcDataSourceId orcDataSourceId;
         private final DiskRange diskRange;
         private final LazyBufferLoader lazyBufferLoader;
+        private Slice data;
 
-        public LazyMergedSliceLoader(DiskRange diskRange, LazyBufferLoader lazyBufferLoader)
+        public MergedOrcDataReader(OrcDataSourceId orcDataSourceId, DiskRange diskRange, LazyBufferLoader lazyBufferLoader)
         {
+            this.orcDataSourceId = requireNonNull(orcDataSourceId, "orcDataSourceId is null");
             this.diskRange = requireNonNull(diskRange, "diskRange is null");
             this.lazyBufferLoader = requireNonNull(lazyBufferLoader, "lazyBufferLoader is null");
         }
 
         @Override
-        public FixedLengthSliceInput get()
+        public OrcDataSourceId getOrcDataSourceId()
         {
-            Slice buffer = lazyBufferLoader.loadNestedDiskRangeBuffer(diskRange);
-            return new BasicSliceInput(buffer);
-        }
-    }
-
-    private class ChunkedSliceLoader
-            implements SliceLoader<SliceBufferReference>
-    {
-        private final DiskRange diskRange;
-
-        public ChunkedSliceLoader(DiskRange diskRange)
-        {
-            this.diskRange = diskRange;
+            return orcDataSourceId;
         }
 
         @Override
-        public SliceBufferReference createBuffer(int bufferSize)
+        public long getRetainedSize()
         {
-            return new SliceBufferReference(bufferSize);
+            return data == null ? 0 : diskRange.getLength();
         }
 
         @Override
-        public long getSize()
+        public int getSize()
         {
             return diskRange.getLength();
         }
 
         @Override
-        public void load(long position, SliceBufferReference bufferReference, int length)
+        public int getMaxBufferSize()
         {
-            try {
-                readFully(diskRange.getOffset() + position, bufferReference.getBuffer(), 0, length);
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
+            return diskRange.getLength();
         }
 
         @Override
-        public void close()
+        public Slice seekBuffer(int newPosition)
+                throws IOException
         {
-        }
-    }
-
-    private static class SliceBufferReference
-            implements BufferReference
-    {
-        private final byte[] buffer;
-        private final Slice slice;
-
-        public SliceBufferReference(int bufferSize)
-        {
-            this.buffer = new byte[bufferSize];
-            this.slice = Slices.wrappedBuffer(buffer);
-        }
-
-        public byte[] getBuffer()
-        {
-            return buffer;
+            if (data == null) {
+                data = lazyBufferLoader.loadNestedDiskRangeBuffer(diskRange);
+                if (data == null) {
+                    throw new OrcCorruptionException(id, "Data loader returned null");
+                }
+                if (data.length() != diskRange.getLength()) {
+                    throw new OrcCorruptionException(id, "Expected to load %s bytes, but %s bytes were loaded", diskRange.getLength(), data.length());
+                }
+            }
+            return data.slice(newPosition, data.length() - newPosition);
         }
 
         @Override
-        public Slice getSlice()
+        public String toString()
         {
-            return slice;
+            return toStringHelper(this)
+                    .add("orcDataSourceId", orcDataSourceId)
+                    .add("diskRange", diskRange)
+                    .toString();
         }
     }
 
-    private final class LazyChunkedSliceLoader
-            implements Supplier<FixedLengthSliceInput>
+    private class DiskOrcDataReader
+            extends AbstractDiskOrcDataReader
     {
         private final DiskRange diskRange;
-        private final int bufferSize;
 
-        public LazyChunkedSliceLoader(DiskRange diskRange, int bufferSize)
+        public DiskOrcDataReader(DiskRange diskRange)
         {
-            this.diskRange = requireNonNull(diskRange, "diskRange is null");
-            checkArgument(bufferSize > 0, "bufferSize must be greater than 0");
-            this.bufferSize = bufferSize;
+            super(id, requireNonNull(diskRange, "diskRange is null").getLength(), toIntExact(streamBufferSize.toBytes()));
+            this.diskRange = diskRange;
         }
 
         @Override
-        public FixedLengthSliceInput get()
+        public void read(long position, byte[] buffer, int bufferOffset, int length)
+                throws IOException
         {
-            return new ChunkedSliceInput(new ChunkedSliceLoader(diskRange), bufferSize);
+            readFully(diskRange.getOffset() + position, buffer, bufferOffset, length);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("orcDataSourceId", getOrcDataSourceId())
+                    .add("diskRange", diskRange)
+                    .add("maxBufferSize", getMaxBufferSize())
+                    .toString();
         }
     }
 }

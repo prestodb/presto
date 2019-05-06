@@ -18,6 +18,7 @@ import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.metadata.StripeInformation;
+import com.facebook.presto.orc.stream.OrcChunkLoader;
 import com.facebook.presto.orc.stream.OrcInputStream;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -101,7 +102,7 @@ public class TestOrcWriter
             for (StripeInformation stripe : footer.getStripes()) {
                 // read the footer
                 Slice tailBuffer = orcDataSource.readFully(stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength(), toIntExact(stripe.getFooterLength()));
-                try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), tailBuffer.getInput(), Optional.empty(), newSimpleAggregatedMemoryContext(), tailBuffer.length())) {
+                try (InputStream inputStream = new OrcInputStream(OrcChunkLoader.create(orcDataSource.getId(), tailBuffer, Optional.empty(), newSimpleAggregatedMemoryContext()))) {
                     StripeFooter stripeFooter = ORC.createMetadataReader().readStripeFooter(footer.getTypes(), inputStream);
 
                     int size = 0;

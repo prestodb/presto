@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.stream.OrcDataReader;
 import io.airlift.slice.Slice;
 
 import java.io.Closeable;
@@ -33,7 +34,7 @@ public interface OrcDataSource
     Slice readFully(long position, int length)
             throws IOException;
 
-    <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges)
+    <K> Map<K, OrcDataReader> readFully(Map<K, DiskRange> diskRanges)
             throws IOException;
 
     @Override

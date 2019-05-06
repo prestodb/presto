@@ -16,6 +16,7 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.OrcTester.Format;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.StripeInformation;
+import com.facebook.presto.orc.stream.OrcDataReader;
 import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -287,7 +288,7 @@ public class TestCachingOrcDataSource
         }
 
         @Override
-        public <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges)
+        public <K> Map<K, OrcDataReader> readFully(Map<K, DiskRange> diskRanges)
         {
             throw new UnsupportedOperationException();
         }
