@@ -351,7 +351,7 @@ public class PruneUnreferencedOutputs
                 if (context.get().stream().map(Symbol::getName).collect(toImmutableSet()).contains(variable.getName())) {
                     Aggregation aggregation = entry.getValue();
                     expectedInputs.addAll(extractUnique(aggregation));
-                    aggregation.getMask().ifPresent(expectedInputs::add);
+                    aggregation.getMask().ifPresent(mask -> expectedInputs.add(new Symbol(mask.getName())));
                     aggregations.put(variable, aggregation);
                 }
             }

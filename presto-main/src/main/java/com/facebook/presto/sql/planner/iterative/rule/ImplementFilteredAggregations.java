@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -90,16 +91,16 @@ public class ImplementFilteredAggregations
             VariableReferenceExpression output = entry.getKey();
 
             // strip the filters
-            Optional<Symbol> mask = entry.getValue().getMask();
+            Optional<VariableReferenceExpression> mask = entry.getValue().getMask();
 
             if (entry.getValue().getFilter().isPresent()) {
                 Expression filter = entry.getValue().getFilter().get();
-                Symbol symbol = context.getSymbolAllocator().newSymbol(filter, BOOLEAN);
+                VariableReferenceExpression variable = context.getSymbolAllocator().newVariable(filter, BOOLEAN);
                 verify(!mask.isPresent(), "Expected aggregation without mask symbols, see Rule pattern");
-                newAssignments.put(symbol, filter);
-                mask = Optional.of(symbol);
+                newAssignments.put(new Symbol(variable.getName()), filter);
+                mask = Optional.of(variable);
 
-                maskSymbols.add(symbol.toSymbolReference());
+                maskSymbols.add(new SymbolReference(variable.getName()));
             }
             else {
                 aggregateWithoutFilterPresent = true;

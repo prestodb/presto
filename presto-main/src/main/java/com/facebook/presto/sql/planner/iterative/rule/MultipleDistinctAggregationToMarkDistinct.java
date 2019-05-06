@@ -152,7 +152,7 @@ public class MultipleDistinctAggregationToMarkDistinct
                                 aggregation.getFilter(),
                                 aggregation.getOrderBy(),
                                 false,
-                                Optional.of(new Symbol(marker.getName()))));
+                                Optional.of(marker)));
             }
             else {
                 newAggregations.put(entry.getKey(), aggregation);
