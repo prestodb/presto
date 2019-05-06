@@ -88,7 +88,7 @@ public class TestPruneAggregationSourceColumns
 
         return planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
                 .singleGroupingSet(key)
-                .addAggregation(avg, planBuilder.expression("avg(input)"), ImmutableList.of(BIGINT), mask)
+                .addAggregation(avg, planBuilder.expression("avg(input)"), ImmutableList.of(BIGINT), planBuilder.variable(mask))
                 .hashVariable(planBuilder.variable(keyHash))
                 .source(
                         planBuilder.values(

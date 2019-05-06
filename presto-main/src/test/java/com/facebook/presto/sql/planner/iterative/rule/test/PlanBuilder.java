@@ -309,12 +309,12 @@ public class PlanBuilder
             return addAggregation(output, expression, inputTypes, Optional.empty());
         }
 
-        public AggregationBuilder addAggregation(VariableReferenceExpression output, Expression expression, List<Type> inputTypes, Symbol mask)
+        public AggregationBuilder addAggregation(VariableReferenceExpression output, Expression expression, List<Type> inputTypes, VariableReferenceExpression mask)
         {
             return addAggregation(output, expression, inputTypes, Optional.of(mask));
         }
 
-        private AggregationBuilder addAggregation(VariableReferenceExpression output, Expression expression, List<Type> inputTypes, Optional<Symbol> mask)
+        private AggregationBuilder addAggregation(VariableReferenceExpression output, Expression expression, List<Type> inputTypes, Optional<VariableReferenceExpression> mask)
         {
             checkArgument(expression instanceof FunctionCall);
             FunctionCall call = (FunctionCall) expression;

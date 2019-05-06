@@ -59,7 +59,7 @@ public class PruneAggregationSourceColumns
     {
         return Streams.concat(
                 AggregationNodeUtils.extractUnique(aggregation).stream(),
-                aggregation.getMask().map(Stream::of).orElse(Stream.empty()));
+                aggregation.getMask().map(VariableReferenceExpression::getName).map(Symbol::new).map(Stream::of).orElse(Stream.empty()));
     }
 
     private Symbol toSymbol(VariableReferenceExpression variable)

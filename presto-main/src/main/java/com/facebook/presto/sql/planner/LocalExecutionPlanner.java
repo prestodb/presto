@@ -2596,7 +2596,7 @@ public class LocalExecutionPlanner
                 }
             }
 
-            Optional<Integer> maskChannel = aggregation.getMask().map(value -> source.getLayout().get(value));
+            Optional<Integer> maskChannel = aggregation.getMask().map(value -> source.getLayout().get(new Symbol(value.getName())));
             List<SortOrder> sortOrders = ImmutableList.of();
             List<Symbol> sortKeys = ImmutableList.of();
             if (aggregation.getOrderBy().isPresent()) {

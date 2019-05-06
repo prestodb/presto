@@ -259,7 +259,7 @@ public class TransformCorrelatedInPredicateToJoin
                 Optional.of(condition),
                 Optional.empty(),
                 false,
-                Optional.<Symbol>empty()); /* mask */
+                Optional.empty()); /* mask */
     }
 
     private static Expression isGreaterThan(VariableReferenceExpression variable, long value)

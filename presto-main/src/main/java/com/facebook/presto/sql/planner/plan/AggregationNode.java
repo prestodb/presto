@@ -363,7 +363,7 @@ public class AggregationNode
         private final Optional<Expression> filter;
         private final Optional<OrderingScheme> orderingScheme;
         private final boolean isDistinct;
-        private final Optional<Symbol> mask;
+        private final Optional<VariableReferenceExpression> mask;
 
         @JsonCreator
         public Aggregation(
@@ -372,7 +372,7 @@ public class AggregationNode
                 @JsonProperty("filter") Optional<Expression> filter,
                 @JsonProperty("orderBy") Optional<OrderingScheme> orderingScheme,
                 @JsonProperty("isDistinct") boolean isDistinct,
-                @JsonProperty("mask") Optional<Symbol> mask)
+                @JsonProperty("mask") Optional<VariableReferenceExpression> mask)
         {
             this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
             this.arguments = requireNonNull(arguments, "arguments is null");
@@ -413,7 +413,7 @@ public class AggregationNode
         }
 
         @JsonProperty
-        public Optional<Symbol> getMask()
+        public Optional<VariableReferenceExpression> getMask()
         {
             return mask;
         }

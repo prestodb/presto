@@ -322,7 +322,7 @@ public class PushAggregationThroughOuterJoin
                     aggregation.getFilter().map(filter -> inlineSymbols(sourcesSymbolMapping, filter)),
                     aggregation.getOrderBy().map(orderBy -> inlineOrderBySymbols(sourcesSymbolMapping, orderBy)),
                     aggregation.isDistinct(),
-                    aggregation.getMask().map(x -> Symbol.from(sourcesSymbolMapping.get(x))));
+                    aggregation.getMask().map(x -> new VariableReferenceExpression(sourcesSymbolMapping.get(new Symbol(x.getName())).getName(), x.getType())));
             String functionName = functionManager.getFunctionMetadata(overNullAggregation.getFunctionHandle()).getName();
             VariableReferenceExpression overNull = symbolAllocator.newVariable(functionName, aggregationVariable.getType());
             aggregationsOverNullBuilder.put(overNull, overNullAggregation);
