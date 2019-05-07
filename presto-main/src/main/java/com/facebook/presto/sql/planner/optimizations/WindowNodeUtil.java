@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -45,7 +46,10 @@ public final class WindowNodeUtil
     public static boolean dependsOn(WindowNode parent, WindowNode child)
     {
         return parent.getPartitionBy().stream().anyMatch(child.getCreatedSymbols()::contains)
-                || (parent.getOrderingScheme().isPresent() && parent.getOrderingScheme().get().getOrderBy().stream().anyMatch(child.getCreatedSymbols()::contains))
+                || (parent.getOrderingScheme().isPresent() && parent.getOrderingScheme().get().getOrderBy().stream()
+                .map(VariableReferenceExpression::getName)
+                .map(Symbol::new)
+                .anyMatch(child.getCreatedSymbols()::contains))
                 || parent.getWindowFunctions().values().stream()
                 .map(WindowNodeUtil::extractWindowFunctionUnique)
                 .flatMap(Collection::stream)

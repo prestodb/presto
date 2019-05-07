@@ -35,7 +35,6 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
-import com.facebook.presto.sql.planner.PlannerUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TestingConnectorIndexHandle;
 import com.facebook.presto.sql.planner.TestingConnectorTransactionHandle;
@@ -75,6 +74,7 @@ import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.base.Functions;
@@ -96,6 +96,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.sql.planner.PlannerUtils.toOrderingScheme;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.relational.Expressions.constant;
@@ -238,7 +239,7 @@ public class PlanBuilder
         return new LimitNode(idAllocator.getNextId(), source, limit, false);
     }
 
-    public TopNNode topN(long count, List<Symbol> orderBy, PlanNode source)
+    public TopNNode topN(long count, List<VariableReferenceExpression> orderBy, PlanNode source)
     {
         return new TopNNode(
                 idAllocator.getNextId(),
@@ -282,13 +283,14 @@ public class PlanBuilder
 
     public AggregationNode aggregation(Consumer<AggregationBuilder> aggregationBuilderConsumer)
     {
-        AggregationBuilder aggregationBuilder = new AggregationBuilder();
+        AggregationBuilder aggregationBuilder = new AggregationBuilder(getTypes());
         aggregationBuilderConsumer.accept(aggregationBuilder);
         return aggregationBuilder.build();
     }
 
     public class AggregationBuilder
     {
+        private final TypeProvider types;
         private PlanNode source;
         private Map<VariableReferenceExpression, Aggregation> assignments = new HashMap<>();
         private AggregationNode.GroupingSetDescriptor groupingSets;
@@ -298,6 +300,10 @@ public class PlanBuilder
         private Optional<Symbol> groupIdSymbol = Optional.empty();
         private Session session = testSessionBuilder().build();
 
+        public AggregationBuilder(TypeProvider types)
+        {
+            this.types = types;
+        }
         public AggregationBuilder source(PlanNode source)
         {
             this.source = source;
@@ -323,7 +329,7 @@ public class PlanBuilder
                     functionHandle,
                     call.getArguments(),
                     call.getFilter(),
-                    call.getOrderBy().map(PlannerUtils::toOrderingScheme),
+                    call.getOrderBy().map(OrderBy::getSortItems).map(sortItems -> toOrderingScheme(sortItems, types)),
                     call.isDistinct(),
                     mask));
         }
@@ -825,6 +831,6 @@ public class PlanBuilder
 
     public TypeProvider getTypes()
     {
-        return TypeProvider.copyOf(symbols);
+        return TypeProvider.viewOf(symbols);
     }
 }

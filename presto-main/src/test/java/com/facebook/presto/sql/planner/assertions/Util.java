@@ -77,7 +77,7 @@ final class Util
         for (int i = 0; i < expectedOrderBy.size(); ++i) {
             Ordering ordering = expectedOrderBy.get(i);
             Symbol symbol = Symbol.from(symbolAliases.get(ordering.getField()));
-            if (!symbol.equals(orderingScheme.getOrderBy().get(i))) {
+            if (!symbol.equals(new Symbol(orderingScheme.getOrderBy().get(i).getName()))) {
                 return false;
             }
             if (!ordering.getSortOrder().equals(orderingScheme.getOrdering(symbol))) {

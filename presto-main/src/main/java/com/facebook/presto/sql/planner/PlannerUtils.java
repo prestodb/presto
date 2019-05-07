@@ -14,18 +14,17 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.google.common.collect.ImmutableList;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class PlannerUtils
 {
@@ -45,28 +44,18 @@ public class PlannerUtils
         return SortOrder.DESC_NULLS_LAST;
     }
 
-    public static OrderingScheme toOrderingScheme(List<SortItem> sortItems)
-    {
-        return toOrderingScheme(sortItems, item -> {
-            checkArgument(item instanceof SymbolReference, "must be symbol reference");
-            return new Symbol(((SymbolReference) item).getName());
-        });
-    }
-
-    public static OrderingScheme toOrderingScheme(List<SortItem> sortItems, Function<Expression, Symbol> translator)
+    public static OrderingScheme toOrderingScheme(List<SortItem> sortItems, TypeProvider typeProvider)
     {
         // The logic is similar to QueryPlanner::sort
-        Map<Symbol, SortOrder> orderings = new LinkedHashMap<>();
+        Map<VariableReferenceExpression, SortOrder> orderings = new LinkedHashMap<>();
         for (SortItem item : sortItems) {
-            Symbol symbol = translator.apply(item.getSortKey());
+            Expression sortKey = item.getSortKey();
+            checkArgument(sortKey instanceof SymbolReference, "must be symbol reference");
+            Symbol symbol = Symbol.from(sortKey);
+            VariableReferenceExpression variable = new VariableReferenceExpression(symbol.getName(), typeProvider.get(symbol));
             // don't override existing keys, i.e. when "ORDER BY a ASC, a DESC" is specified
-            orderings.putIfAbsent(symbol, toSortOrder(item));
+            orderings.putIfAbsent(variable, toSortOrder(item));
         }
-        return new OrderingScheme(orderings.keySet().stream().collect(toImmutableList()), orderings);
-    }
-
-    public static OrderingScheme toOrderingScheme(OrderBy orderBy)
-    {
-        return toOrderingScheme(orderBy.getSortItems());
+        return new OrderingScheme(ImmutableList.copyOf(orderings.keySet()), orderings);
     }
 }

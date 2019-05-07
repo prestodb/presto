@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -161,7 +162,8 @@ public class TestPushProjectionThroughExchange
                     Symbol bTimes5 = p.symbol("b_times_5");
                     Symbol hTimes5 = p.symbol("h_times_5");
                     Symbol sortSymbol = p.symbol("sortSymbol");
-                    OrderingScheme orderingScheme = new OrderingScheme(ImmutableList.of(sortSymbol), ImmutableMap.of(sortSymbol, SortOrder.ASC_NULLS_FIRST));
+                    VariableReferenceExpression sortVariable = p.variable(sortSymbol);
+                    OrderingScheme orderingScheme = new OrderingScheme(ImmutableList.of(sortVariable), ImmutableMap.of(sortVariable, SortOrder.ASC_NULLS_FIRST));
                     return p.project(
                             Assignments.builder()
                                     .put(aTimes5, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, new SymbolReference("a"), new LongLiteral("5")))

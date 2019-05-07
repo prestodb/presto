@@ -42,6 +42,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -128,7 +129,7 @@ public class ExchangeNode
             PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
             checkArgument(!scope.isRemote() || partitioningHandle.equals(SINGLE_DISTRIBUTION), "remote merging exchange requires single distribution");
             checkArgument(!scope.isLocal() || partitioningHandle.equals(FIXED_PASSTHROUGH_DISTRIBUTION), "local merging exchange requires passthrough distribution");
-            checkArgument(partitioningScheme.getOutputLayout().containsAll(ordering.getOrderBy()), "Partitioning scheme does not supply all required ordering symbols");
+            checkArgument(partitioningScheme.getOutputLayout().containsAll(ordering.getOrderBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList())), "Partitioning scheme does not supply all required ordering symbols");
         });
         this.type = type;
         this.sources = sources;

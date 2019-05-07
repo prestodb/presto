@@ -281,19 +281,19 @@ public class GatherAndMergeWindows
 
             OrderingScheme o1OrderingScheme = o1.getOrderingScheme().get();
             OrderingScheme o2OrderingScheme = o2.getOrderingScheme().get();
-            Iterator<Symbol> iterator1 = o1OrderingScheme.getOrderBy().iterator();
-            Iterator<Symbol> iterator2 = o2OrderingScheme.getOrderBy().iterator();
+            Iterator<VariableReferenceExpression> iterator1 = o1OrderingScheme.getOrderBy().iterator();
+            Iterator<VariableReferenceExpression> iterator2 = o2OrderingScheme.getOrderBy().iterator();
 
             while (iterator1.hasNext() && iterator2.hasNext()) {
-                Symbol symbol1 = iterator1.next();
-                Symbol symbol2 = iterator2.next();
+                VariableReferenceExpression variable1 = iterator1.next();
+                VariableReferenceExpression variable2 = iterator2.next();
 
-                int orderByComparison = symbol1.compareTo(symbol2);
+                int orderByComparison = variable1.compareTo(variable2);
                 if (orderByComparison != 0) {
                     return orderByComparison;
                 }
                 else {
-                    int sortOrderComparison = o1OrderingScheme.getOrdering(symbol1).compareTo(o2OrderingScheme.getOrdering(symbol2));
+                    int sortOrderComparison = o1OrderingScheme.getOrdering(variable1).compareTo(o2OrderingScheme.getOrdering(variable2));
                     if (sortOrderComparison != 0) {
                         return sortOrderComparison;
                     }

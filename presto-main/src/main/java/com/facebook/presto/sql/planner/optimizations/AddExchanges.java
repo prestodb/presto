@@ -321,7 +321,7 @@ public class AddExchanges
             }
             node.getOrderingScheme().ifPresent(orderingScheme ->
                     orderingScheme.getOrderBy().stream()
-                            .map(symbol -> new SortingProperty<>(symbol, orderingScheme.getOrdering(symbol)))
+                            .map(variable -> new SortingProperty<>(new Symbol(variable.getName()), orderingScheme.getOrdering(variable)))
                             .forEach(desiredProperties::add));
 
             PlanWithProperties child = planChild(
@@ -464,8 +464,8 @@ public class AddExchanges
                 // skip the SortNode if the local properties guarantee ordering on Sort keys
                 // TODO: This should be extracted as a separate optimizer once the planner is able to reason about the ordering of each operator
                 List<LocalProperty<Symbol>> desiredProperties = new ArrayList<>();
-                for (Symbol symbol : node.getOrderingScheme().getOrderBy()) {
-                    desiredProperties.add(new SortingProperty<>(symbol, node.getOrderingScheme().getOrdering(symbol)));
+                for (VariableReferenceExpression variable : node.getOrderingScheme().getOrderBy()) {
+                    desiredProperties.add(new SortingProperty<>(new Symbol(variable.getName()), node.getOrderingScheme().getOrdering(variable)));
                 }
 
                 if (LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).stream()

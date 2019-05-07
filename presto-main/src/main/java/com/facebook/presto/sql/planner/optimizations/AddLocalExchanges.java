@@ -343,7 +343,7 @@ public class AddLocalExchanges
             }
             node.getOrderingScheme().ifPresent(orderingScheme ->
                     orderingScheme.getOrderBy().stream()
-                            .map(symbol -> new SortingProperty<>(symbol, orderingScheme.getOrdering(symbol)))
+                            .map(variable -> new SortingProperty<>(new Symbol(variable.getName()), orderingScheme.getOrdering(variable)))
                             .forEach(desiredProperties::add));
             Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).iterator();
 

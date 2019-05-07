@@ -120,8 +120,8 @@ public class TestWindowNode
         WindowNode.Specification specification = new WindowNode.Specification(
                 ImmutableList.of(columnA),
                 Optional.of(new OrderingScheme(
-                        ImmutableList.of(columnB),
-                        ImmutableMap.of(columnB, SortOrder.ASC_NULLS_FIRST))));
+                        ImmutableList.of(variableB),
+                        ImmutableMap.of(variableB, SortOrder.ASC_NULLS_FIRST))));
         CallExpression call = call("sum", functionHandle, BIGINT, new VariableReferenceExpression(columnC.getName(), BIGINT));
         Map<VariableReferenceExpression, WindowNode.Function> functions = ImmutableMap.of(windowVariable, new WindowNode.Function(call, frame));
         Optional<VariableReferenceExpression> hashVariable = Optional.of(variableB);

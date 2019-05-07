@@ -100,9 +100,6 @@ public class ExpressionExtractor
                         aggregation.getOrderBy()
                                 .map(OrderingScheme::getOrderBy)
                                 .orElse(ImmutableList.of())
-                                .stream()
-                                .map(Symbol::toSymbolReference)
-                                .map(OriginalExpressionUtils::castToRowExpression)
                                 .forEach(context::add);
                     });
             return super.visitAggregation(node, context);

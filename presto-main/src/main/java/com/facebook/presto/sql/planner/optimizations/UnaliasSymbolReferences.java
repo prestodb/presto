@@ -751,18 +751,18 @@ public class UnaliasSymbolReferences
 
         private OrderingScheme canonicalizeAndDistinct(OrderingScheme orderingScheme)
         {
-            Set<Symbol> added = new HashSet<>();
-            ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
-            ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
-            for (Symbol symbol : orderingScheme.getOrderBy()) {
-                Symbol canonical = canonicalize(symbol);
+            Set<VariableReferenceExpression> added = new HashSet<>();
+            ImmutableList.Builder<VariableReferenceExpression> variables = ImmutableList.builder();
+            ImmutableMap.Builder<VariableReferenceExpression, SortOrder> orderings = ImmutableMap.builder();
+            for (VariableReferenceExpression variable : orderingScheme.getOrderBy()) {
+                VariableReferenceExpression canonical = canonicalize(variable);
                 if (added.add(canonical)) {
-                    symbols.add(canonical);
-                    orderings.put(canonical, orderingScheme.getOrdering(symbol));
+                    variables.add(canonical);
+                    orderings.put(canonical, orderingScheme.getOrdering(variable));
                 }
             }
 
-            return new OrderingScheme(symbols.build(), orderings.build());
+            return new OrderingScheme(variables.build(), orderings.build());
         }
 
         private Set<Symbol> canonicalize(Set<Symbol> symbols)

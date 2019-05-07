@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.OrderBy;
+import com.facebook.presto.sql.tree.SymbolReference;
 
 import java.util.Map;
 import java.util.Optional;
@@ -86,9 +87,9 @@ public class AggregationFunctionMatcher
             return false;
         }
         for (int i = 0; i < expectedSortOrder.getSortItems().size(); i++) {
-            Symbol orderingSymbol = orderingScheme.getOrderBy().get(i);
-            if (expectedSortOrder.getSortItems().get(i).getSortKey().equals(orderingSymbol.toSymbolReference()) &&
-                    toSortOrder(expectedSortOrder.getSortItems().get(i)).equals(orderingScheme.getOrdering(orderingSymbol))) {
+            VariableReferenceExpression orderingVariable = orderingScheme.getOrderBy().get(i);
+            if (expectedSortOrder.getSortItems().get(i).getSortKey().equals(new SymbolReference(orderingVariable.getName())) &&
+                    toSortOrder(expectedSortOrder.getSortItems().get(i)).equals(orderingScheme.getOrdering(orderingVariable))) {
                 continue;
             }
             return false;

@@ -14,11 +14,14 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 
 import java.util.List;
 import java.util.Map;
@@ -27,16 +30,17 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class OrderingScheme
 {
-    private final List<Symbol> orderBy;
-    private final Map<Symbol, SortOrder> orderings;
+    private final List<VariableReferenceExpression> orderBy;
+    private final Map<VariableReferenceExpression, SortOrder> orderings;
 
     @JsonCreator
-    public OrderingScheme(@JsonProperty("orderBy") List<Symbol> orderBy, @JsonProperty("orderings") Map<Symbol, SortOrder> orderings)
+    public OrderingScheme(@JsonProperty("orderBy") List<VariableReferenceExpression> orderBy, @JsonProperty("orderings") Map<VariableReferenceExpression, SortOrder> orderings)
     {
         requireNonNull(orderBy, "orderBy is null");
         requireNonNull(orderings, "orderings is null");
@@ -47,13 +51,13 @@ public class OrderingScheme
     }
 
     @JsonProperty
-    public List<Symbol> getOrderBy()
+    public List<VariableReferenceExpression> getOrderBy()
     {
         return orderBy;
     }
 
     @JsonProperty
-    public Map<Symbol, SortOrder> getOrderings()
+    public Map<VariableReferenceExpression, SortOrder> getOrderings()
     {
         return orderings;
     }
@@ -65,10 +69,16 @@ public class OrderingScheme
                 .collect(toImmutableList());
     }
 
+    public SortOrder getOrdering(VariableReferenceExpression variable)
+    {
+        checkArgument(orderings.containsKey(variable), format("No ordering for variable: %s", variable));
+        return orderings.get(variable);
+    }
+
+    @VisibleForTesting
     public SortOrder getOrdering(Symbol symbol)
     {
-        checkArgument(orderings.containsKey(symbol), format("No ordering for symbol: %s", symbol));
-        return orderings.get(symbol);
+        return getOnlyElement(Maps.filterKeys(orderings, variable -> variable.getName().equals(symbol.getName())).values());
     }
 
     @Override
