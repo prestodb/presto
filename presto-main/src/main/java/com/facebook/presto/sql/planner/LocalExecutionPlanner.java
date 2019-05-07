@@ -726,7 +726,7 @@ public class LocalExecutionPlanner
 
             OrderingScheme orderingScheme = node.getOrderingScheme().get();
             ImmutableMap<Symbol, Integer> layout = makeLayout(node);
-            List<Integer> sortChannels = getChannelsForSymbols(orderingScheme.getOrderBy(), layout);
+            List<Integer> sortChannels = getChannelsForVariables(orderingScheme.getOrderBy(), layout);
             List<SortOrder> sortOrder = orderingScheme.getOrderingList();
 
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
@@ -835,9 +835,9 @@ public class LocalExecutionPlanner
                     .map(channel -> source.getTypes().get(channel))
                     .collect(toImmutableList());
 
-            List<Symbol> orderBySymbols = node.getOrderingScheme().getOrderBy();
-            List<Integer> sortChannels = getChannelsForSymbols(orderBySymbols, source.getLayout());
-            List<SortOrder> sortOrder = orderBySymbols.stream()
+            List<VariableReferenceExpression> orderByVariables = node.getOrderingScheme().getOrderBy();
+            List<Integer> sortChannels = getChannelsForVariables(orderByVariables, source.getLayout());
+            List<SortOrder> sortOrder = orderByVariables.stream()
                     .map(symbol -> node.getOrderingScheme().getOrdering(symbol))
                     .collect(toImmutableList());
 
@@ -889,7 +889,7 @@ public class LocalExecutionPlanner
 
             if (node.getOrderingScheme().isPresent()) {
                 OrderingScheme orderingScheme = node.getOrderingScheme().get();
-                sortChannels = getChannelsForSymbols(orderingScheme.getOrderBy(), source.getLayout());
+                sortChannels = getChannelsForVariables(orderingScheme.getOrderBy(), source.getLayout());
                 sortOrder = orderingScheme.getOrderingList();
             }
 
@@ -967,13 +967,13 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            List<Symbol> orderBySymbols = node.getOrderingScheme().getOrderBy();
+            List<VariableReferenceExpression> orderByVariables = node.getOrderingScheme().getOrderBy();
 
             List<Integer> sortChannels = new ArrayList<>();
             List<SortOrder> sortOrders = new ArrayList<>();
-            for (Symbol symbol : orderBySymbols) {
-                sortChannels.add(source.getLayout().get(symbol));
-                sortOrders.add(node.getOrderingScheme().getOrdering(symbol));
+            for (VariableReferenceExpression variable : orderByVariables) {
+                sortChannels.add(source.getLayout().get(new Symbol(variable.getName())));
+                sortOrders.add(node.getOrderingScheme().getOrdering(variable));
             }
 
             OperatorFactory operator = new TopNOperatorFactory(
@@ -992,13 +992,13 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            List<Symbol> orderBySymbols = node.getOrderingScheme().getOrderBy();
+            List<VariableReferenceExpression> orderByVariables = node.getOrderingScheme().getOrderBy();
 
-            List<Integer> orderByChannels = getChannelsForSymbols(orderBySymbols, source.getLayout());
+            List<Integer> orderByChannels = getChannelsForVariables(orderByVariables, source.getLayout());
 
             ImmutableList.Builder<SortOrder> sortOrder = ImmutableList.builder();
-            for (Symbol symbol : orderBySymbols) {
-                sortOrder.add(node.getOrderingScheme().getOrdering(symbol));
+            for (VariableReferenceExpression variable : orderByVariables) {
+                sortOrder.add(node.getOrderingScheme().getOrdering(variable));
             }
 
             ImmutableList.Builder<Integer> outputChannels = ImmutableList.builder();
@@ -2412,7 +2412,7 @@ public class LocalExecutionPlanner
 
             OrderingScheme orderingScheme = node.getOrderingScheme().get();
             ImmutableMap<Symbol, Integer> layout = makeLayout(node);
-            List<Integer> sortChannels = getChannelsForSymbols(orderingScheme.getOrderBy(), layout);
+            List<Integer> sortChannels = getChannelsForVariables(orderingScheme.getOrderBy(), layout);
             List<SortOrder> orderings = orderingScheme.getOrderingList();
             OperatorFactory operatorFactory = new LocalMergeSourceOperatorFactory(
                     context.getNextOperatorId(),
@@ -2603,7 +2603,7 @@ public class LocalExecutionPlanner
 
             Optional<Integer> maskChannel = aggregation.getMask().map(value -> source.getLayout().get(new Symbol(value.getName())));
             List<SortOrder> sortOrders = ImmutableList.of();
-            List<Symbol> sortKeys = ImmutableList.of();
+            List<VariableReferenceExpression> sortKeys = ImmutableList.of();
             if (aggregation.getOrderBy().isPresent()) {
                 OrderingScheme orderBy = aggregation.getOrderBy().get();
                 sortKeys = orderBy.getOrderBy();
@@ -2614,7 +2614,7 @@ public class LocalExecutionPlanner
                     valueChannels,
                     maskChannel,
                     source.getTypes(),
-                    getChannelsForSymbols(sortKeys, source.getLayout()),
+                    getChannelsForVariables(sortKeys, source.getLayout()),
                     sortOrders,
                     pagesIndexFactory,
                     aggregation.isDistinct(),
@@ -2830,6 +2830,15 @@ public class LocalExecutionPlanner
         ImmutableList.Builder<Integer> builder = ImmutableList.builder();
         for (Symbol symbol : symbols) {
             builder.add(layout.get(symbol));
+        }
+        return builder.build();
+    }
+
+    private static List<Integer> getChannelsForVariables(List<VariableReferenceExpression> variables, Map<Symbol, Integer> layout)
+    {
+        ImmutableList.Builder<Integer> builder = ImmutableList.builder();
+        for (VariableReferenceExpression variable : variables) {
+            builder.add(layout.get(new Symbol(variable.getName())));
         }
         return builder.build();
     }

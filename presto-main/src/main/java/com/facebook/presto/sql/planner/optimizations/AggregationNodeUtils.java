@@ -48,7 +48,10 @@ public class AggregationNodeUtils
         ImmutableSet.Builder<Symbol> builder = ImmutableSet.builder();
         aggregation.getArguments().forEach(argument -> builder.addAll(SymbolsExtractor.extractAll(argument)));
         aggregation.getFilter().ifPresent(filter -> builder.addAll(SymbolsExtractor.extractAll(filter)));
-        aggregation.getOrderBy().ifPresent(orderingScheme -> builder.addAll(orderingScheme.getOrderBy()));
+        aggregation.getOrderBy().ifPresent(orderingScheme -> builder.addAll(orderingScheme.getOrderBy().stream()
+                .map(VariableReferenceExpression::getName)
+                .map(Symbol::new)
+                .collect(toImmutableSet())));
         return builder.build();
     }
 
@@ -57,9 +60,7 @@ public class AggregationNodeUtils
         ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
         aggregation.getArguments().forEach(argument -> builder.addAll(SymbolsExtractor.extractAllVariable(argument, types)));
         aggregation.getFilter().ifPresent(filter -> builder.addAll(SymbolsExtractor.extractAllVariable(filter, types)));
-        aggregation.getOrderBy().ifPresent(orderingScheme -> builder.addAll(orderingScheme.getOrderBy().stream()
-                .map(symbol -> new VariableReferenceExpression(symbol.getName(), types.get(symbol)))
-                .collect(toImmutableSet())));
+        aggregation.getOrderBy().ifPresent(orderingScheme -> builder.addAll(orderingScheme.getOrderBy()));
         return builder.build();
     }
 }

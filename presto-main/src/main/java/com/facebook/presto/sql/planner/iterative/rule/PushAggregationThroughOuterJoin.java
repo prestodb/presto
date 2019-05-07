@@ -349,12 +349,12 @@ public class PushAggregationThroughOuterJoin
     private static OrderingScheme inlineOrderBySymbols(Map<Symbol, SymbolReference> symbolMapping, OrderingScheme orderingScheme)
     {
         // This is a logic expanded from ExpressionTreeRewriter::rewriteSortItems
-        ImmutableList.Builder<Symbol> orderBy = ImmutableList.builder();
-        ImmutableMap.Builder<Symbol, SortOrder> ordering = new ImmutableMap.Builder<>();
-        for (Symbol symbol : orderingScheme.getOrderBy()) {
-            Symbol translated = Symbol.from(symbolMapping.get(symbol));
+        ImmutableList.Builder<VariableReferenceExpression> orderBy = ImmutableList.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, SortOrder> ordering = new ImmutableMap.Builder<>();
+        for (VariableReferenceExpression variable : orderingScheme.getOrderBy()) {
+            VariableReferenceExpression translated = new VariableReferenceExpression(symbolMapping.get(new Symbol(variable.getName())).getName(), variable.getType());
             orderBy.add(translated);
-            ordering.put(translated, orderingScheme.getOrdering(symbol));
+            ordering.put(translated, orderingScheme.getOrdering(variable));
         }
         return new OrderingScheme(orderBy.build(), ordering.build());
     }

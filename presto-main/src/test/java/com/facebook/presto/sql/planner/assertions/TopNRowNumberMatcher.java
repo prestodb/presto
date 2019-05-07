@@ -30,6 +30,7 @@ import java.util.Optional;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
+import static com.facebook.presto.sql.planner.assertions.SpecificationProvider.matchSpecification;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -71,9 +72,7 @@ public class TopNRowNumberMatcher
         TopNRowNumberNode topNRowNumberNode = (TopNRowNumberNode) node;
 
         if (!specification
-                .map(expectedSpecification ->
-                        expectedSpecification.getExpectedValue(symbolAliases)
-                                .equals(topNRowNumberNode.getSpecification()))
+                .map(expectedSpecification -> matchSpecification(topNRowNumberNode.getSpecification(), expectedSpecification.getExpectedValue(symbolAliases)))
                 .orElse(true)) {
             return NO_MATCH;
         }

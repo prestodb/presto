@@ -149,15 +149,15 @@ public class SymbolMapper
 
     public TopNNode map(TopNNode node, PlanNode source, PlanNodeId newNodeId)
     {
-        ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
-        ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
-        Set<Symbol> seenCanonicals = new HashSet<>(node.getOrderingScheme().getOrderBy().size());
-        for (Symbol symbol : node.getOrderingScheme().getOrderBy()) {
-            Symbol canonical = map(symbol);
+        ImmutableList.Builder<VariableReferenceExpression> variables = ImmutableList.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, SortOrder> orderings = ImmutableMap.builder();
+        Set<VariableReferenceExpression> seenCanonicals = new HashSet<>(node.getOrderingScheme().getOrderBy().size());
+        for (VariableReferenceExpression variable : node.getOrderingScheme().getOrderBy()) {
+            VariableReferenceExpression canonical = map(variable);
             if (seenCanonicals.add(canonical)) {
                 seenCanonicals.add(canonical);
-                symbols.add(canonical);
-                orderings.put(canonical, node.getOrderingScheme().getOrdering(symbol));
+                variables.add(canonical);
+                orderings.put(canonical, node.getOrderingScheme().getOrdering(variable));
             }
         }
 
@@ -165,7 +165,7 @@ public class SymbolMapper
                 newNodeId,
                 source,
                 node.getCount(),
-                new OrderingScheme(symbols.build(), orderings.build()),
+                new OrderingScheme(variables.build(), orderings.build()),
                 node.getStep());
     }
 

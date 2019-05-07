@@ -214,8 +214,8 @@ public class TestPruneWindowColumns
                         new WindowNode.Specification(
                                 ImmutableList.of(partitionKey),
                                 Optional.of(new OrderingScheme(
-                                        ImmutableList.of(orderKey),
-                                        ImmutableMap.of(orderKey, SortOrder.ASC_NULLS_FIRST)))),
+                                        ImmutableList.of(p.variable(orderKey)),
+                                        ImmutableMap.of(p.variable(orderKey), SortOrder.ASC_NULLS_FIRST)))),
                         ImmutableMap.of(
                                 p.variable(output1),
                                 new WindowNode.Function(

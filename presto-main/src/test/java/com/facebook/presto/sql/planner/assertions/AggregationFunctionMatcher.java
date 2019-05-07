@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.PlannerUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -66,8 +65,9 @@ public class AggregationFunctionMatcher
         return expectedCall.getName().getSuffix().equalsIgnoreCase(functionManager.getFunctionMetadata(aggregation.getFunctionHandle()).getName()) &&
                 expectedCall.getArguments().equals(aggregation.getArguments()) &&
                 expectedCall.getFilter().equals(aggregation.getFilter()) &&
-                expectedCall.isDistinct() == aggregation.isDistinct() &&
-                expectedCall.getOrderBy().map(PlannerUtils::toOrderingScheme).equals(aggregation.getOrderBy());
+                expectedCall.isDistinct() == aggregation.isDistinct();
+        // TODO expectedCall should be a callExpression as well. There's no way to convert FunctionCall to CallExpression without type analysis
+//                expectedCall.getOrderBy().map(OrderBy::getSortItems).map(sortItems -> toOrderingScheme(sortItems, )).equals(aggregation.getOrderBy());
     }
 
     @Override
