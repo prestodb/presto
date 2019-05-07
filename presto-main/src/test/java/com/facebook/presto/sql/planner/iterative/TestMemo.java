@@ -24,9 +24,14 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 
+import static com.facebook.presto.sql.planner.iterative.Pattern.any;
+import static com.facebook.presto.sql.planner.iterative.Pattern.typeOf;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+import static org.testng.AssertJUnit.assertFalse;
 
 public class TestMemo
 {
@@ -253,6 +258,69 @@ public class TestMemo
         assertEquals(memo.getCost(xGroup), Optional.empty());
     }
 
+    @Test
+    public void testPlanIterator()
+    {
+        PlanNode z = node("z");
+        PlanNode y1 = node("y1", z);
+        PlanNode y2 = node("y2", z);
+        PlanNode x = node("x", y1, y2);
+
+        Memo memo = new Memo(idAllocator, x);
+        assertEquals(memo.getGroupCount(), 5);
+        PlanIterator it = memo.getRootIterator();
+        assertTrue(it.getParents().isEmpty());
+        Pattern<NamedNode> pattern = namedNode()
+                .with(nameMatches("x"))
+                .sources(
+                        namedNode()
+                                .sources(namedNode()),
+                        namedNode());
+        NamedNode node = it.get(NamedNode.class);
+        assertEquals(node.getName(), "x");
+        assertTrue(it.matches(pattern));
+        assertFalse(it.matches(namedNode()
+                .with(nameMatches("x"))
+                .sources(
+                        namedNode()
+                                .sources(namedNode()
+                                                .with(nameMatches("unknown")),
+                                        namedNode()))));
+        assertFalse(it.matches(namedNode()
+                .with(nameMatches("x"))
+                .sources(
+                        typeOf(GenericNode.class)
+                                .sources(
+                                        namedNode()
+                                                .with(nameMatches("z")),
+                                        any()))));
+        assertTrue(it.matches(namedNode()
+                .with(nameMatches("x"))
+                .sources(
+                        any().sources(
+                                namedNode().with(nameMatches("z"))),
+                        any())));
+        PlanIterator it2 = it.getSources().get(0);
+        assertTrue(it2.is(NamedNode.class));
+        assertEquals(it2.get(NamedNode.class).getName(), "y1");
+        assertTrue(it2.getParents().get(0).matches(namedNode().with(nameMatches("x"))));
+        assertTrue(it2.matches(
+                namedNode().parents(
+                        namedNode()
+                                .with(nameMatches("x"))
+                                .noParent())));
+    }
+
+    private static Predicate<NamedNode> nameMatches(String name)
+    {
+        return node -> node.getName().equalsIgnoreCase(name);
+    }
+
+    private static Pattern<NamedNode> namedNode()
+    {
+        return typeOf(NamedNode.class);
+    }
+
     private static void assertMatchesStructure(PlanNode actual, PlanNode expected)
     {
         assertEquals(actual.getClass(), expected.getClass());
@@ -309,6 +377,48 @@ public class TestMemo
         public PlanNode replaceChildren(List<PlanNode> newChildren)
         {
             return new GenericNode(getId(), newChildren);
+        }
+    }
+
+    private NamedNode node(String name, PlanNode... children)
+    {
+        return new NamedNode(idAllocator.getNextId(), name, ImmutableList.copyOf(children));
+    }
+
+    private static class NamedNode
+            extends PlanNode
+    {
+        private final List<PlanNode> sources;
+        private final String name;
+
+        public NamedNode(PlanNodeId id, String name, List<PlanNode> sources)
+        {
+            super(id);
+            this.sources = ImmutableList.copyOf(sources);
+            this.name = name;
+        }
+
+        public String getName()
+        {
+            return name;
+        }
+
+        @Override
+        public List<PlanNode> getSources()
+        {
+            return sources;
+        }
+
+        @Override
+        public List<Symbol> getOutputSymbols()
+        {
+            return ImmutableList.of();
+        }
+
+        @Override
+        public PlanNode replaceChildren(List<PlanNode> newChildren)
+        {
+            return new NamedNode(getId(), name, newChildren);
         }
     }
 }

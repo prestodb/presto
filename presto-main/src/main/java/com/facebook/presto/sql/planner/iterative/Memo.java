@@ -24,6 +24,7 @@ import javax.annotation.Nullable;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -33,6 +34,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -82,6 +84,16 @@ public class Memo
     public int getRootGroup()
     {
         return rootGroup;
+    }
+
+    public PlanIterator getRootIterator()
+    {
+        return new PlanIteratorImpl(this, rootGroup);
+    }
+
+    public PlanIterator getIterator(int groupId)
+    {
+        return new PlanIteratorImpl(this, groupId);
     }
 
     private Group getGroup(int group)
@@ -261,6 +273,61 @@ public class Memo
         private Group(PlanNode member)
         {
             this.membership = requireNonNull(member, "member is null");
+        }
+    }
+
+    private static class PlanIteratorImpl
+            implements PlanIterator
+    {
+        private final Memo memo;
+        private final int groupId;
+
+        public PlanIteratorImpl(Memo memo, int groupId)
+        {
+            this.memo = memo;
+            this.groupId = groupId;
+        }
+
+        @Override
+        public <T extends PlanNode> T get(Class<T> nodeType)
+        {
+            PlanNode node = memo.getNode(groupId);
+            return nodeType.cast(node);
+        }
+
+        @Override
+        public <T extends PlanNode> boolean is(Class<T> nodeType)
+        {
+            PlanNode node = memo.getNode(groupId);
+            return node != null && nodeType.isInstance(node);
+        }
+
+        @Override
+        public <T extends PlanNode> boolean matches(Pattern<T> pattern)
+        {
+            return pattern.matches(this);
+        }
+
+        @Override
+        public List<PlanIterator> getSources()
+        {
+            PlanNode node = memo.getNode(groupId);
+            return node.getSources()
+                    .stream()
+                    .map(GroupReference.class::cast)
+                    .map(source -> new PlanIteratorImpl(memo, source.getGroupId()))
+                    .collect(toImmutableList());
+        }
+
+        @Override
+        public List<PlanIterator> getParents()
+        {
+            return memo.getGroup(groupId).incomingReferences.entrySet()
+                    .stream()
+                    .mapToInt(entry -> entry.getElement())
+                    .filter(id -> id != ROOT_GROUP_REF)
+                    .mapToObj(parentId -> new PlanIteratorImpl(memo, parentId))
+                    .collect(toImmutableList());
         }
     }
 }
