@@ -74,7 +74,9 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.facebook.presto.sql.relational.LogicalRowExpressions.and;
+import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
@@ -422,7 +424,11 @@ public class FilterStatsCalculator
             SymbolStatsEstimate leftStats = getExpressionStats(left);
             Optional<Symbol> leftSymbol = left instanceof SymbolReference ? Optional.of(Symbol.from(left)) : Optional.empty();
             if (right instanceof Literal) {
-                OptionalDouble literal = doubleValueFromLiteral(getType(left), (Literal) right);
+                Object literalValue = LiteralInterpreter.evaluate(metadata, session.toConnectorSession(), right);
+                if (literalValue == null) {
+                    return visitBooleanLiteral(FALSE_LITERAL, null);
+                }
+                OptionalDouble literal = toStatsRepresentation(metadata, session, getType(left), literalValue);
                 return estimateExpressionToLiteralComparison(input, leftStats, leftSymbol, literal, operator);
             }
 
@@ -463,12 +469,6 @@ public class FilterStatsCalculator
                 return requireNonNull(input.getSymbolStatistics(symbol), () -> format("No statistics for symbol %s", symbol));
             }
             return scalarStatsCalculator.calculate(expression, input, session, types);
-        }
-
-        private OptionalDouble doubleValueFromLiteral(Type type, Literal literal)
-        {
-            Object literalValue = LiteralInterpreter.evaluate(metadata, session.toConnectorSession(), literal);
-            return toStatsRepresentation(metadata, session, type, literalValue);
         }
     }
 
@@ -567,7 +567,11 @@ public class FilterStatsCalculator
                 SymbolStatsEstimate leftStats = getRowExpressionStats(left);
                 Optional<Symbol> leftSymbol = left instanceof VariableReferenceExpression ? Optional.of(new Symbol(((VariableReferenceExpression) left).getName())) : Optional.empty();
                 if (right instanceof ConstantExpression) {
-                    OptionalDouble literal = toStatsRepresentation(metadata, session, right.getType(), ((ConstantExpression) right).getValue());
+                    Object rightValue = ((ConstantExpression) right).getValue();
+                    if (rightValue == null) {
+                        return visitConstant(constantNull(BOOLEAN), null);
+                    }
+                    OptionalDouble literal = toStatsRepresentation(metadata, session, right.getType(), rightValue);
                     return estimateExpressionToLiteralComparison(input, leftStats, leftSymbol, literal, getComparisonOperator(operatorType));
                 }
 
