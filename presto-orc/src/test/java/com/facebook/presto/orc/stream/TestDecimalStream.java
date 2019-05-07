@@ -122,6 +122,22 @@ public class TestDecimalStream
     }
 
     @Test
+    public void testReadToEdgeOfChunkShort()
+            throws IOException
+    {
+        OrcChunkLoader loader = new TestingChunkLoader(
+                new OrcDataSourceId("read to edge of chunk short"),
+                ImmutableList.of(
+                        encodeValues(ImmutableList.of(BigInteger.valueOf(Long.MAX_VALUE))),
+                        encodeValues(ImmutableList.of(BigInteger.valueOf(Long.MAX_VALUE)))));
+
+        DecimalInputStream stream = new DecimalInputStream(loader);
+
+        assertEquals(nextShortDecimalValue(stream), Long.MAX_VALUE);
+        assertEquals(nextShortDecimalValue(stream), Long.MAX_VALUE);
+    }
+
+    @Test
     public void testSkipToEdgeOfChunkLong()
             throws IOException
     {
@@ -134,6 +150,22 @@ public class TestDecimalStream
         DecimalInputStream stream = new DecimalInputStream(loader);
 
         stream.skip(1);
+        assertEquals(nextLongDecimalValue(stream), BigInteger.valueOf(Long.MAX_VALUE));
+    }
+
+    @Test
+    public void testReadToEdgeOfChunkLong()
+            throws IOException
+    {
+        OrcChunkLoader loader = new TestingChunkLoader(
+                new OrcDataSourceId("skip to edge of chunk long"),
+                ImmutableList.of(
+                        encodeValues(ImmutableList.of(BigInteger.valueOf(Long.MAX_VALUE))),
+                        encodeValues(ImmutableList.of(BigInteger.valueOf(Long.MAX_VALUE)))));
+
+        DecimalInputStream stream = new DecimalInputStream(loader);
+
+        assertEquals(nextLongDecimalValue(stream), BigInteger.valueOf(Long.MAX_VALUE));
         assertEquals(nextLongDecimalValue(stream), BigInteger.valueOf(Long.MAX_VALUE));
     }
 
