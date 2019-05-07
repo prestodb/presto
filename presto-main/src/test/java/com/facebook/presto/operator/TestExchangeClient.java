@@ -358,22 +358,25 @@ public class TestExchangeClient
         exchangeClient.addLocation(location1, taskId1);
         exchangeClient.addLocation(location2, taskId2);
 
-        // fetch a page
         assertEquals(exchangeClient.isClosed(), false);
-        assertPageEquals(getNextPage(exchangeClient), createPage(1));
 
-        // remove remote source while pages are still available
+        // Wait until exactly one page is buffered:
+        //  * We cannot call ExchangeClient#pollPage() directly, since it will schedule the next request to buffer data,
+        //    and this request to buffer data could win the race against the request to remove remote source.
+        //  * Buffer capacity is set to 1 byte, so only one page can be buffered.
+        while (exchangeClient.getStatus().getBufferedPages() == 0) {
+            MILLISECONDS.sleep(10);
+        }
+        assertEquals(exchangeClient.getStatus().getBufferedPages(), 1);
+
+        // remove remote source
         exchangeClient.removeRemoteSource(taskId1);
 
-        SerializedPage nextPage = exchangeClient.pollPage();
-        if (nextPage != null) {
-            // After the first page get polled, it is possible for the second page get buffered
-            // before remote source get removed.
-            assertPageEquals(nextPage, createPage(2));
-            // Buffer capacity is set to 1 byte, so the third page cannot be buffered.
-            // Client should not receive any further pages from removed remote source.
-            assertNull(exchangeClient.pollPage());
-        }
+        // the previously buffered page will still be read out
+        assertPageEquals(getNextPage(exchangeClient), createPage(1));
+
+        // client should not receive any further pages from removed remote source
+        assertNull(exchangeClient.pollPage());
         assertEquals(exchangeClient.getStatus().getBufferedPages(), 0);
 
         // add pages to another source
