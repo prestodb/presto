@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
@@ -138,6 +139,8 @@ public class PushProjectionThroughExchange
         exchange.getPartitioningScheme().getHashColumn().ifPresent(variable -> outputBuilder.add(new Symbol(variable.getName())));
         if (exchange.getOrderingScheme().isPresent()) {
             exchange.getOrderingScheme().get().getOrderBy().stream()
+                    .map(VariableReferenceExpression::getName)
+                    .map(Symbol::new)
                     .filter(symbol -> !partitioningColumns.contains(symbol))
                     .forEach(outputBuilder::add);
         }

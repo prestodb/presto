@@ -237,7 +237,7 @@ public class PlanBuilder
         return new LimitNode(idAllocator.getNextId(), source, limit, false);
     }
 
-    public TopNNode topN(long count, List<Symbol> orderBy, PlanNode source)
+    public TopNNode topN(long count, List<VariableReferenceExpression> orderBy, PlanNode source)
     {
         return new TopNNode(
                 idAllocator.getNextId(),

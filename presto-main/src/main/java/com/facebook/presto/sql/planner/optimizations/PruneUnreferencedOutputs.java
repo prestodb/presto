@@ -134,7 +134,7 @@ public class PruneUnreferencedOutputs
             node.getPartitioningScheme().getHashColumn().ifPresent(variable -> expectedOutputSymbols.add(new Symbol(variable.getName())));
             node.getPartitioningScheme().getPartitioning().getColumns().stream()
                     .forEach(expectedOutputSymbols::add);
-            node.getOrderingScheme().ifPresent(orderingScheme -> expectedOutputSymbols.addAll(orderingScheme.getOrderBy()));
+            node.getOrderingScheme().ifPresent(orderingScheme -> expectedOutputSymbols.addAll(orderingScheme.getOrderBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet())));
 
             List<List<Symbol>> inputsBySource = new ArrayList<>(node.getInputs().size());
             for (int i = 0; i < node.getInputs().size(); i++) {
@@ -376,7 +376,7 @@ public class PruneUnreferencedOutputs
 
             node.getOrderingScheme().ifPresent(orderingScheme ->
                     orderingScheme.getOrderBy()
-                            .forEach(expectedInputs::add));
+                            .forEach(variable -> expectedInputs.add(new Symbol(variable.getName()))));
 
             for (WindowNode.Frame frame : node.getFrames()) {
                 if (frame.getStartValue().isPresent()) {
@@ -583,7 +583,7 @@ public class PruneUnreferencedOutputs
         {
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(context.get())
-                    .addAll(node.getOrderingScheme().getOrderBy());
+                    .addAll(node.getOrderingScheme().getOrderBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
@@ -612,7 +612,7 @@ public class PruneUnreferencedOutputs
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(context.get())
                     .addAll(node.getPartitionBy())
-                    .addAll(node.getOrderingScheme().getOrderBy());
+                    .addAll(node.getOrderingScheme().getOrderBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
 
             if (node.getHashVariable().isPresent()) {
                 expectedInputs.add(new Symbol(node.getHashVariable().get().getName()));
@@ -631,7 +631,7 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitSort(SortNode node, RewriteContext<Set<Symbol>> context)
         {
-            Set<Symbol> expectedInputs = ImmutableSet.copyOf(concat(context.get(), node.getOrderingScheme().getOrderBy()));
+            Set<Symbol> expectedInputs = ImmutableSet.copyOf(concat(context.get(), node.getOrderingScheme().getOrderBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet())));
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
 

@@ -59,7 +59,7 @@ public class PruneWindowColumns
         windowNode.getOrderingScheme().ifPresent(
                 orderingScheme -> orderingScheme
                         .getOrderBy()
-                        .forEach(referencedInputs::add));
+                        .forEach(variable -> referencedInputs.add(new Symbol(variable.getName()))));
         windowNode.getHashVariable().ifPresent(variable -> referencedInputs.add(new Symbol(variable.getName())));
 
         for (WindowNode.Function windowFunction : referencedFunctions.values()) {

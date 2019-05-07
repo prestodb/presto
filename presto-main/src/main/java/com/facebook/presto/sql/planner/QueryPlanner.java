@@ -756,11 +756,11 @@ class QueryPlanner
             }
 
             // Rewrite ORDER BY in terms of pre-projected inputs
-            LinkedHashMap<Symbol, SortOrder> orderings = new LinkedHashMap<>();
+            LinkedHashMap<VariableReferenceExpression, SortOrder> orderings = new LinkedHashMap<>();
             for (SortItem item : getSortItemsFromOrderBy(window.getOrderBy())) {
-                Symbol symbol = subPlan.translate(item.getSortKey());
+                VariableReferenceExpression variable = subPlan.translateToVariable(item.getSortKey());
                 // don't override existing keys, i.e. when "ORDER BY a ASC, a DESC" is specified
-                orderings.putIfAbsent(symbol, toSortOrder(item));
+                orderings.putIfAbsent(variable, toSortOrder(item));
             }
 
             // Rewrite frame bounds in terms of pre-projected inputs
@@ -821,11 +821,11 @@ class QueryPlanner
                     frame);
 
             List<Symbol> sourceSymbols = subPlan.getRoot().getOutputSymbols();
-            ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
-            orderBySymbols.addAll(orderings.keySet());
+            ImmutableList.Builder<VariableReferenceExpression> orderByVariables = ImmutableList.builder();
+            orderByVariables.addAll(orderings.keySet());
             Optional<OrderingScheme> orderingScheme = Optional.empty();
             if (!orderings.isEmpty()) {
-                orderingScheme = Optional.of(new OrderingScheme(orderBySymbols.build(), orderings));
+                orderingScheme = Optional.of(new OrderingScheme(orderByVariables.build(), orderings));
             }
 
             // create window node
@@ -894,20 +894,20 @@ class QueryPlanner
 
         Iterator<SortItem> sortItems = orderBy.get().getSortItems().iterator();
 
-        ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
-        Map<Symbol, SortOrder> orderings = new HashMap<>();
+        ImmutableList.Builder<VariableReferenceExpression> orderByVariables = ImmutableList.builder();
+        Map<VariableReferenceExpression, SortOrder> orderings = new HashMap<>();
         for (Expression fieldOrExpression : orderByExpressions) {
-            Symbol symbol = subPlan.translate(fieldOrExpression);
+            VariableReferenceExpression variable = subPlan.translateToVariable(fieldOrExpression);
 
             SortItem sortItem = sortItems.next();
-            if (!orderings.containsKey(symbol)) {
-                orderBySymbols.add(symbol);
-                orderings.put(symbol, toSortOrder(sortItem));
+            if (!orderings.containsKey(variable)) {
+                orderByVariables.add(variable);
+                orderings.put(variable, toSortOrder(sortItem));
             }
         }
 
         PlanNode planNode;
-        OrderingScheme orderingScheme = new OrderingScheme(orderBySymbols.build(), orderings);
+        OrderingScheme orderingScheme = new OrderingScheme(orderByVariables.build(), orderings);
         if (limit.isPresent() && !limit.get().equalsIgnoreCase("all")) {
             planNode = new TopNNode(idAllocator.getNextId(), subPlan.getRoot(), Long.parseLong(limit.get()), orderingScheme, TopNNode.Step.SINGLE);
         }

@@ -171,7 +171,7 @@ public final class ValidateDependenciesChecker
             if (node.getOrderingScheme().isPresent()) {
                 checkDependencies(
                         inputs,
-                        node.getOrderingScheme().get().getOrderBy(),
+                        node.getOrderingScheme().get().getOrderBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()),
                         "Invalid node. Order by symbols (%s) not in source plan output (%s)",
                         node.getOrderingScheme().get().getOrderBy(), node.getSource().getOutputSymbols());
             }
@@ -205,7 +205,7 @@ public final class ValidateDependenciesChecker
             checkDependencies(inputs, node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().getOutputSymbols());
             checkDependencies(
                     inputs,
-                    node.getOrderingScheme().getOrderBy(),
+                    node.getOrderingScheme().getOrderBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()),
                     "Invalid node. Order by symbols (%s) not in source plan output (%s)",
                     node.getOrderingScheme().getOrderBy(), node.getSource().getOutputSymbols());
 
@@ -278,7 +278,7 @@ public final class ValidateDependenciesChecker
             checkDependencies(inputs, node.getOutputSymbols(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
             checkDependencies(
                     inputs,
-                    node.getOrderingScheme().getOrderBy(),
+                    node.getOrderingScheme().getOrderBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()),
                     "Invalid node. Order by dependencies (%s) not in source plan output (%s)",
                     node.getOrderingScheme().getOrderBy(),
                     node.getSource().getOutputSymbols());
@@ -296,7 +296,7 @@ public final class ValidateDependenciesChecker
             checkDependencies(inputs, node.getOutputSymbols(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
             checkDependencies(
                     inputs,
-                    node.getOrderingScheme().getOrderBy(),
+                    node.getOrderingScheme().getOrderBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()),
                     "Invalid node. Order by dependencies (%s) not in source plan output (%s)",
                     node.getOrderingScheme().getOrderBy(), node.getSource().getOutputSymbols());
 

@@ -79,7 +79,7 @@ public class TestPruneTopNColumns
                 Assignments.identity(ImmutableList.of(a, b).stream().filter(projectionTopN).collect(toImmutableSet())),
                 planBuilder.topN(
                         COUNT,
-                        ImmutableList.of(b),
+                        ImmutableList.of(planBuilder.variable(b)),
                         planBuilder.values(a, b)));
     }
 }

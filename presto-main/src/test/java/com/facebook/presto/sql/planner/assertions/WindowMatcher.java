@@ -33,6 +33,7 @@ import java.util.Set;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
+import static com.facebook.presto.sql.planner.assertions.SpecificationProvider.matchSpecification;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -84,9 +85,7 @@ public final class WindowMatcher
         }
 
         if (!specification
-                .map(expectedSpecification ->
-                        expectedSpecification.getExpectedValue(symbolAliases)
-                                .equals(windowNode.getSpecification()))
+                .map(expectedSpecification -> matchSpecification(windowNode.getSpecification(), expectedSpecification.getExpectedValue(symbolAliases)))
                 .orElse(true)) {
             return NO_MATCH;
         }
