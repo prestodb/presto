@@ -486,6 +486,8 @@ public class TestFilterStatsCalculator
     @Test
     public void testInPredicateFilter()
     {
+        assertExpression("x IN (null)").outputRowsCount(0.0);
+
         // One value in range
         assertExpression("x IN (7.5e0)")
                 .outputRowsCount(18.75)
