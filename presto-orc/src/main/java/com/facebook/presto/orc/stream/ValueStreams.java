@@ -81,7 +81,7 @@ public final class ValueStreams
                 case TIMESTAMP:
                     return createLongStream(new OrcInputStream(chunkLoader), encoding, type, true, usesVInt);
                 case DECIMAL:
-                    return new DecimalInputStream(new OrcInputStream(chunkLoader));
+                    return new DecimalInputStream(chunkLoader);
             }
         }
 

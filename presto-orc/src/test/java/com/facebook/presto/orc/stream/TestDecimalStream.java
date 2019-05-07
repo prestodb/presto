@@ -95,33 +95,31 @@ public class TestDecimalStream
         writeBigInteger(baos, BigInteger.valueOf(Long.MAX_VALUE));
         writeBigInteger(baos, BigInteger.valueOf(Long.MIN_VALUE));
 
-        OrcInputStream inputStream = orcInputStreamFor("skip test", baos.toByteArray());
-        DecimalInputStream stream = new DecimalInputStream(inputStream);
+        OrcChunkLoader chunkLoader = orcChunkLoaderFor("skip test", baos.toByteArray());
+        DecimalInputStream stream = new DecimalInputStream(chunkLoader);
         stream.skip(1);
-        assertEquals(stream.nextLong(), Long.MIN_VALUE);
+        assertEquals(nextShortDecimalValue(stream), Long.MIN_VALUE);
     }
 
     private static void assertReadsShortValue(long value)
             throws IOException
     {
-        DecimalInputStream stream = new DecimalInputStream(decimalInputStream(BigInteger.valueOf(value)));
-        assertEquals(stream.nextLong(), value);
+        DecimalInputStream stream = new DecimalInputStream(decimalChunkLoader(BigInteger.valueOf(value)));
+        assertEquals(nextShortDecimalValue(stream), value);
     }
 
     private static void assertReadsLongValue(BigInteger value)
             throws IOException
     {
-        DecimalInputStream stream = new DecimalInputStream(decimalInputStream(value));
-        Slice decimal = unscaledDecimal();
-        stream.nextLongDecimal(decimal);
-        assertEquals(unscaledDecimalToBigInteger(decimal), value);
+        DecimalInputStream stream = new DecimalInputStream(decimalChunkLoader(value));
+        assertEquals(nextLongDecimalValue(stream), value);
     }
 
     private static void assertShortValueReadFails(BigInteger value)
     {
         assertThrows(OrcCorruptionException.class, () -> {
-            DecimalInputStream stream = new DecimalInputStream(decimalInputStream(value));
-            stream.nextLong();
+            DecimalInputStream stream = new DecimalInputStream(decimalChunkLoader(value));
+            nextShortDecimalValue(stream);
         });
     }
 
@@ -129,22 +127,38 @@ public class TestDecimalStream
     {
         Slice decimal = unscaledDecimal();
         assertThrows(OrcCorruptionException.class, () -> {
-            DecimalInputStream stream = new DecimalInputStream(decimalInputStream(value));
-            stream.nextLongDecimal(decimal);
+            DecimalInputStream stream = new DecimalInputStream(decimalChunkLoader(value));
+            nextLongDecimalValue(stream);
         });
     }
 
-    private static OrcInputStream decimalInputStream(BigInteger value)
+    private static long nextShortDecimalValue(DecimalInputStream stream)
+            throws IOException
+    {
+        long[] values = new long[1];
+        stream.nextShortDecimal(values, 1);
+        return values[0];
+    }
+
+    private static BigInteger nextLongDecimalValue(DecimalInputStream stream)
+            throws IOException
+    {
+        long[] decimal = new long[2];
+        stream.nextLongDecimal(decimal, 1);
+        return unscaledDecimalToBigInteger(Slices.wrappedLongArray(decimal));
+    }
+
+    private static OrcChunkLoader decimalChunkLoader(BigInteger value)
             throws IOException
     {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         writeBigInteger(baos, value);
-        return orcInputStreamFor(value.toString(), baos.toByteArray());
+        return orcChunkLoaderFor(value.toString(), baos.toByteArray());
     }
 
-    private static OrcInputStream orcInputStreamFor(String source, byte[] bytes)
+    private static OrcChunkLoader orcChunkLoaderFor(String source, byte[] bytes)
     {
-        return new OrcInputStream(OrcChunkLoader.create(new OrcDataSourceId(source), Slices.wrappedBuffer(bytes), Optional.empty(), newSimpleAggregatedMemoryContext()));
+        return OrcChunkLoader.create(new OrcDataSourceId(source), Slices.wrappedBuffer(bytes), Optional.empty(), newSimpleAggregatedMemoryContext());
     }
 
     // copied from org.apache.hadoop.hive.ql.io.orc.SerializationUtils.java

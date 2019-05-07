@@ -234,6 +234,44 @@ public abstract class AbstractTestOrcReader
         tester.testRoundTrip(DECIMAL_TYPE_PRECISION_17, decimalSequence("-30000000000", "1000000", 60_000, 17, 8));
         tester.testRoundTrip(DECIMAL_TYPE_PRECISION_18, decimalSequence("-30000000000", "1000000", 60_000, 18, 8));
         tester.testRoundTrip(DECIMAL_TYPE_PRECISION_38, decimalSequence("-3000000000000000000", "100000000000000", 60_000, 38, 16));
+
+        Random random = new Random(0);
+        List<SqlDecimal> values = new ArrayList<>();
+        values.add(new SqlDecimal(new BigInteger(Strings.repeat("9", 18)), DECIMAL_TYPE_PRECISION_18.getPrecision(), DECIMAL_TYPE_PRECISION_18.getScale()));
+        values.add(new SqlDecimal(new BigInteger("-" + Strings.repeat("9", 18)), DECIMAL_TYPE_PRECISION_18.getPrecision(), DECIMAL_TYPE_PRECISION_18.getScale()));
+        BigInteger nextValue = BigInteger.ONE;
+        for (int i = 0; i < 59; i++) {
+            values.add(new SqlDecimal(nextValue, DECIMAL_TYPE_PRECISION_18.getPrecision(), DECIMAL_TYPE_PRECISION_18.getScale()));
+            values.add(new SqlDecimal(nextValue.negate(), DECIMAL_TYPE_PRECISION_18.getPrecision(), DECIMAL_TYPE_PRECISION_18.getScale()));
+            nextValue = nextValue.multiply(BigInteger.valueOf(2));
+        }
+        for (int i = 0; i < 100_000; ++i) {
+            BigInteger value = new BigInteger(59, random);
+            if (random.nextBoolean()) {
+                value = value.negate();
+            }
+            values.add(new SqlDecimal(value, DECIMAL_TYPE_PRECISION_18.getPrecision(), DECIMAL_TYPE_PRECISION_18.getScale()));
+        }
+        tester.testRoundTrip(DECIMAL_TYPE_PRECISION_18, values);
+
+        random = new Random(0);
+        values = new ArrayList<>();
+        values.add(new SqlDecimal(new BigInteger(Strings.repeat("9", 38)), DECIMAL_TYPE_PRECISION_38.getPrecision(), DECIMAL_TYPE_PRECISION_38.getScale()));
+        values.add(new SqlDecimal(new BigInteger("-" + Strings.repeat("9", 38)), DECIMAL_TYPE_PRECISION_38.getPrecision(), DECIMAL_TYPE_PRECISION_38.getScale()));
+        nextValue = BigInteger.ONE;
+        for (int i = 0; i < 127; i++) {
+            values.add(new SqlDecimal(nextValue, 38, 16));
+            values.add(new SqlDecimal(nextValue.negate(), 38, 16));
+            nextValue = nextValue.multiply(BigInteger.valueOf(2));
+        }
+        for (int i = 0; i < 100_000; ++i) {
+            BigInteger value = new BigInteger(126, random);
+            if (random.nextBoolean()) {
+                value = value.negate();
+            }
+            values.add(new SqlDecimal(value, DECIMAL_TYPE_PRECISION_38.getPrecision(), DECIMAL_TYPE_PRECISION_38.getScale()));
+        }
+        tester.testRoundTrip(DECIMAL_TYPE_PRECISION_38, values);
     }
 
     @Test

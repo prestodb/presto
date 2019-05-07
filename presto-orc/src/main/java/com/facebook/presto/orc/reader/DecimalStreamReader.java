@@ -23,26 +23,32 @@ import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.Int128ArrayBlock;
+import com.facebook.presto.spi.block.LongArrayBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
+import static com.facebook.presto.orc.reader.ReaderUtils.minNonNullValueSize;
+import static com.facebook.presto.orc.reader.ReaderUtils.unpackInt128Nulls;
+import static com.facebook.presto.orc.reader.ReaderUtils.unpackLongNulls;
 import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
-import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.rescale;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -76,6 +82,8 @@ public class DecimalStreamReader
 
     private boolean rowGroupOpen;
 
+    private long[] nonNullValueTemp = new long[0];
+
     private LocalMemoryContext systemMemoryContext;
 
     public DecimalStreamReader(Type type, StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
@@ -105,70 +113,165 @@ public class DecimalStreamReader
 
         seekToOffset();
 
-        if (decimalStream == null && scaleStream == null && presentStream != null) {
+        Block block;
+        if (decimalStream == null && scaleStream == null) {
+            if (presentStream == null) {
+                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is null but present stream is missing");
+            }
             presentStream.skip(nextBatchSize);
-            Block nullValueBlock = RunLengthEncodedBlock.create(type, null, nextBatchSize);
-            readOffset = 0;
-            nextBatchSize = 0;
-            return nullValueBlock;
+            block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
         }
-
-        BlockBuilder builder = type.createBlockBuilder(null, nextBatchSize);
-
-        if (presentStream == null) {
-            if (decimalStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but decimal stream is not present");
-            }
-            if (scaleStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but scale stream is not present");
-            }
-
-            for (int i = 0; i < nextBatchSize; i++) {
-                long sourceScale = scaleStream.next();
-                if (type.isShort()) {
-                    long rescaledDecimal = Decimals.rescale(decimalStream.nextLong(), (int) sourceScale, type.getScale());
-                    type.writeLong(builder, rescaledDecimal);
-                }
-                else {
-                    Slice decimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
-                    Slice rescaledDecimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
-
-                    decimalStream.nextLongDecimal(decimal);
-                    rescale(decimal, (int) (type.getScale() - sourceScale), rescaledDecimal);
-                    type.writeSlice(builder, rescaledDecimal);
-                }
-            }
+        else if (presentStream == null) {
+            checkDataStreamsArePresent();
+            block = readNonNullBlock();
         }
         else {
-            verify(decimalStream != null);
-            verify(scaleStream != null);
-            for (int i = 0; i < nextBatchSize; i++) {
-                if (presentStream.nextBit()) {
-                    // The current row is not null
-                    long sourceScale = scaleStream.next();
-                    if (type.isShort()) {
-                        long rescaledDecimal = Decimals.rescale(decimalStream.nextLong(), (int) sourceScale, type.getScale());
-                        type.writeLong(builder, rescaledDecimal);
-                    }
-                    else {
-                        Slice decimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
-                        Slice rescaledDecimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
-
-                        decimalStream.nextLongDecimal(decimal);
-                        rescale(decimal, (int) (type.getScale() - sourceScale), rescaledDecimal);
-                        type.writeSlice(builder, rescaledDecimal);
-                    }
-                }
-                else {
-                    builder.appendNull();
-                }
+            checkDataStreamsArePresent();
+            boolean[] isNull = new boolean[nextBatchSize];
+            int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
+            if (nullCount == 0) {
+                block = readNonNullBlock();
+            }
+            else if (nullCount != nextBatchSize) {
+                block = readNullBlock(isNull, nextBatchSize - nullCount);
+            }
+            else {
+                block = RunLengthEncodedBlock.create(DOUBLE, null, nextBatchSize);
             }
         }
 
         readOffset = 0;
         nextBatchSize = 0;
 
-        return builder.build();
+        return block;
+    }
+
+    private void checkDataStreamsArePresent()
+            throws OrcCorruptionException
+    {
+        if (decimalStream == null) {
+            throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but decimal stream is missing");
+        }
+        if (scaleStream == null) {
+            throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but scale stream is missing");
+        }
+    }
+
+    private Block readNonNullBlock()
+            throws IOException
+    {
+        Block block;
+        if (type.isShort()) {
+            block = readShortNotNullBlock();
+        }
+        else {
+            block = readLongNotNullBlock();
+        }
+        return block;
+    }
+
+    private Block readShortNotNullBlock()
+            throws IOException
+    {
+        verify(scaleStream != null);
+        verify(decimalStream != null);
+
+        long[] data = new long[nextBatchSize];
+        decimalStream.nextShortDecimal(data, nextBatchSize);
+
+        for (int i = 0; i < nextBatchSize; i++) {
+            long sourceScale = scaleStream.next();
+            if (sourceScale != type.getScale()) {
+                data[i] = Decimals.rescale(data[i], (int) sourceScale, type.getScale());
+            }
+        }
+        return new LongArrayBlock(nextBatchSize, Optional.empty(), data);
+    }
+
+    private Block readLongNotNullBlock()
+            throws IOException
+    {
+        verify(decimalStream != null);
+        verify(scaleStream != null);
+
+        long[] data = new long[nextBatchSize * 2];
+        decimalStream.nextLongDecimal(data, nextBatchSize);
+
+        for (int offset = 0; offset < data.length; offset += 2) {
+            long sourceScale = scaleStream.next();
+            if (sourceScale != type.getScale()) {
+                Slice decimal = Slices.wrappedLongArray(data[offset], data[offset + 1]);
+                UnscaledDecimal128Arithmetic.rescale(decimal, (int) (type.getScale() - sourceScale), Slices.wrappedLongArray(data, offset, 2));
+            }
+        }
+        return new Int128ArrayBlock(nextBatchSize, Optional.empty(), data);
+    }
+
+    private Block readNullBlock(boolean[] isNull, int nonNullCount)
+            throws IOException
+    {
+        Block block;
+        if (type.isShort()) {
+            block = readShortNullBlock(isNull, nonNullCount);
+        }
+        else {
+            block = readLongNullBlock(isNull, nonNullCount);
+        }
+        return block;
+    }
+
+    private Block readShortNullBlock(boolean[] isNull, int nonNullCount)
+            throws IOException
+    {
+        verify(decimalStream != null);
+        verify(scaleStream != null);
+
+        int minNonNullValueSize = minNonNullValueSize(nonNullCount);
+        if (nonNullValueTemp.length < minNonNullValueSize) {
+            nonNullValueTemp = new long[minNonNullValueSize];
+            systemMemoryContext.setBytes(sizeOf(nonNullValueTemp));
+        }
+
+        decimalStream.nextShortDecimal(nonNullValueTemp, nonNullCount);
+
+        for (int i = 0; i < nonNullCount; i++) {
+            long sourceScale = scaleStream.next();
+            if (sourceScale != type.getScale()) {
+                nonNullValueTemp[i] = Decimals.rescale(nonNullValueTemp[i], (int) sourceScale, type.getScale());
+            }
+        }
+
+        long[] result = unpackLongNulls(nonNullValueTemp, isNull);
+
+        return new LongArrayBlock(nextBatchSize, Optional.of(isNull), result);
+    }
+
+    private Block readLongNullBlock(boolean[] isNull, int nonNullCount)
+            throws IOException
+    {
+        verify(decimalStream != null);
+        verify(scaleStream != null);
+
+        int minTempSize = minNonNullValueSize(nonNullCount) * 2;
+        if (nonNullValueTemp.length < minTempSize) {
+            nonNullValueTemp = new long[minTempSize];
+            systemMemoryContext.setBytes(sizeOf(nonNullValueTemp));
+        }
+
+        decimalStream.nextLongDecimal(nonNullValueTemp, nonNullCount);
+
+        // rescale if necessary
+        for (int offset = 0; offset < nonNullCount * 2; offset += 2) {
+            long sourceScale = scaleStream.next();
+            if (sourceScale != type.getScale()) {
+                Slice decimal = Slices.wrappedLongArray(nonNullValueTemp[offset], nonNullValueTemp[offset + 1]);
+                UnscaledDecimal128Arithmetic.rescale(decimal, (int) (type.getScale() - sourceScale), Slices.wrappedLongArray(nonNullValueTemp, offset, 2));
+            }
+        }
+
+        long[] result = unpackInt128Nulls(nonNullValueTemp, isNull);
+
+        return new Int128ArrayBlock(nextBatchSize, Optional.of(isNull), result);
     }
 
     private void openRowGroup()
@@ -190,12 +293,9 @@ public class DecimalStreamReader
                 readOffset = presentStream.countBitsSet(readOffset);
             }
             if (readOffset > 0) {
-                if (decimalStream == null) {
-                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but decimal stream is not present");
-                }
-                if (scaleStream == null) {
-                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but scale stream is not present");
-                }
+                checkDataStreamsArePresent();
+                verify(decimalStream != null);
+                verify(scaleStream != null);
 
                 decimalStream.skip(readOffset);
                 scaleStream.skip(readOffset);

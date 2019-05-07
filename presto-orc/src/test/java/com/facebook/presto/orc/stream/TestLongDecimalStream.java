@@ -17,6 +17,7 @@ import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.checkpoint.DecimalStreamCheckpoint;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -68,15 +69,15 @@ public class TestLongDecimalStream
             throws OrcCorruptionException
     {
         Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
-        return new DecimalInputStream(new OrcInputStream(OrcChunkLoader.create(ORC_DATA_SOURCE_ID, slice, orcDecompressor, newSimpleAggregatedMemoryContext())));
+        return new DecimalInputStream(OrcChunkLoader.create(ORC_DATA_SOURCE_ID, slice, orcDecompressor, newSimpleAggregatedMemoryContext()));
     }
 
     @Override
     protected Slice readValue(DecimalInputStream valueStream)
             throws IOException
     {
-        Slice decimal = unscaledDecimal();
-        valueStream.nextLongDecimal(decimal);
-        return decimal;
+        long[] decimal = new long[2];
+        valueStream.nextLongDecimal(decimal, 1);
+        return Slices.wrappedLongArray(decimal);
     }
 }

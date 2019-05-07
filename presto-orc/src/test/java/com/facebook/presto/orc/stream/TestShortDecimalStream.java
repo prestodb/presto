@@ -67,14 +67,15 @@ public class TestShortDecimalStream
             throws OrcCorruptionException
     {
         Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
-        OrcInputStream input = new OrcInputStream(OrcChunkLoader.create(ORC_DATA_SOURCE_ID, slice, orcDecompressor, newSimpleAggregatedMemoryContext()));
-        return new DecimalInputStream(input);
+        return new DecimalInputStream(OrcChunkLoader.create(ORC_DATA_SOURCE_ID, slice, orcDecompressor, newSimpleAggregatedMemoryContext()));
     }
 
     @Override
     protected Long readValue(DecimalInputStream valueStream)
             throws IOException
     {
-        return valueStream.nextLong();
+        long[] values = new long[1];
+        valueStream.nextShortDecimal(values, 1);
+        return values[0];
     }
 }
