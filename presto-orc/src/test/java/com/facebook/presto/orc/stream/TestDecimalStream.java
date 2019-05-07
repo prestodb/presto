@@ -15,6 +15,8 @@ package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSourceId;
+import com.google.common.collect.ImmutableList;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
@@ -23,6 +25,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigInteger;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -99,6 +103,49 @@ public class TestDecimalStream
         DecimalInputStream stream = new DecimalInputStream(chunkLoader);
         stream.skip(1);
         assertEquals(nextShortDecimalValue(stream), Long.MIN_VALUE);
+    }
+
+    @Test
+    public void testSkipToEdgeOfChunkShort()
+            throws IOException
+    {
+        OrcChunkLoader loader = new TestingChunkLoader(
+                new OrcDataSourceId("skip to edge of chunk short"),
+                ImmutableList.of(
+                        encodeValues(ImmutableList.of(BigInteger.valueOf(Long.MAX_VALUE))),
+                        encodeValues(ImmutableList.of(BigInteger.valueOf(Long.MAX_VALUE)))));
+
+        DecimalInputStream stream = new DecimalInputStream(loader);
+
+        stream.skip(1);
+        assertEquals(nextShortDecimalValue(stream), Long.MAX_VALUE);
+    }
+
+    @Test
+    public void testSkipToEdgeOfChunkLong()
+            throws IOException
+    {
+        OrcChunkLoader loader = new TestingChunkLoader(
+                new OrcDataSourceId("skip to edge of chunk long"),
+                ImmutableList.of(
+                        encodeValues(ImmutableList.of(BigInteger.valueOf(Long.MAX_VALUE))),
+                        encodeValues(ImmutableList.of(BigInteger.valueOf(Long.MAX_VALUE)))));
+
+        DecimalInputStream stream = new DecimalInputStream(loader);
+
+        stream.skip(1);
+        assertEquals(nextLongDecimalValue(stream), BigInteger.valueOf(Long.MAX_VALUE));
+    }
+
+    private static Slice encodeValues(List<BigInteger> values)
+            throws IOException
+    {
+        DynamicSliceOutput output = new DynamicSliceOutput(1);
+        for (BigInteger value : values) {
+            writeBigInteger(output, value);
+        }
+
+        return output.slice();
     }
 
     private static void assertReadsShortValue(long value)
@@ -189,6 +236,48 @@ public class TestDecimalStream
                 }
             }
             value = value.shiftRight(63);
+        }
+    }
+
+    private static class TestingChunkLoader
+            implements OrcChunkLoader
+    {
+        private final OrcDataSourceId dataSourceId;
+        private final Iterator<Slice> chunks;
+
+        public TestingChunkLoader(OrcDataSourceId dataSourceId, List<Slice> chunks)
+        {
+            this.dataSourceId = dataSourceId;
+            this.chunks = chunks.iterator();
+        }
+
+        @Override
+        public OrcDataSourceId getOrcDataSourceId()
+        {
+            return dataSourceId;
+        }
+
+        @Override
+        public boolean hasNextChunk()
+        {
+            return chunks.hasNext();
+        }
+
+        @Override
+        public Slice nextChunk()
+        {
+            return chunks.next();
+        }
+
+        @Override
+        public long getLastCheckpoint()
+        {
+            return 0;
+        }
+
+        @Override
+        public void seekToCheckpoint(long checkpoint)
+        {
         }
     }
 }

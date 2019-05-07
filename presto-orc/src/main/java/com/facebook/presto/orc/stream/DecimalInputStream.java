@@ -168,6 +168,10 @@ public class DecimalInputStream
         long value;
         boolean last = false;
 
+        if (blockOffset == block.length()) {
+            advance();
+        }
+
         int offset = 0;
         while (true) {
             value = block.getByte(blockOffset);
@@ -317,6 +321,11 @@ public class DecimalInputStream
         boolean last = false;
 
         int offset = 0;
+
+        if (blockOffset == block.length()) {
+            advance();
+        }
+
         while (true) {
             value = block.getByte(blockOffset);
             blockOffset++;
