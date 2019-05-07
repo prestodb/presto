@@ -100,7 +100,6 @@ public class TestHiveBucketedTables
         onHive().executeQuery(format("ALTER TABLE %s CLUSTERED BY regionkey INTO 5 BUCKETS", tableName));
         populateHivePartitionedTable(tableName, NATION.getName(), "part_key = 'insert_3'");
 
-        disableBucketedExecution();
         assertThat(query(format("SELECT count(*) FROM %s WHERE n_nationkey = 1", tableName)))
                 .containsExactly(row(3));
     }

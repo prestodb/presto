@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
+import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
@@ -75,6 +76,7 @@ import static com.facebook.presto.spi.predicate.TupleDomain.all;
 import static com.facebook.presto.spi.predicate.TupleDomain.none;
 import static com.facebook.presto.spi.type.Chars.padSpaces;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
@@ -149,6 +151,22 @@ public class HivePartitionManager
                 .collect(toList());
 
         List<String> partitionNames = getFilteredPartitionNames(metastore, tableName, partitionColumns, effectivePredicate);
+
+        // Prototype Only. Don't do this in production!!!
+        // There might be hundreds of thousands of partitions
+        //  * the call can be too expensive.
+        //  * we can OOM the coordinator...
+        /*
+        Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(table.getDatabaseName(), table.getTableName(), partitionNames);
+        checkState(partitions.values().stream().allMatch(Optional::isPresent));
+        boolean allPartitionsBucketed = partitions.values().stream()
+                .map(Optional::get)
+                .allMatch(partition -> partition.getStorage().getBucketProperty().isPresent());
+        if (!allPartitionsBucketed) {
+            hiveBucketHandle = Optional.empty();
+            bucketFilter = Optional.empty();
+        }
+        */
 
         Iterable<HivePartition> partitionsIterable = () -> partitionNames.stream()
                 // Apply extra filters which could not be done by getFilteredPartitionNames
