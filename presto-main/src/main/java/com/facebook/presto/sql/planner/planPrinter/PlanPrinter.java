@@ -163,7 +163,7 @@ public class PlanPrinter
                 .sum(), MILLISECONDS));
 
         this.representation = new PlanRepresentation(planRoot, types, totalCpuTime, totalScheduledTime);
-        this.formatter = new RowExpressionFormatter(session.toConnectorSession());
+        this.formatter = new RowExpressionFormatter(session.toConnectorSession(), functionManager);
 
         Visitor visitor = new Visitor(stageExecutionStrategy, types, estimatedStatsAndCosts, session, stats);
         planRoot.accept(visitor, null);
@@ -312,7 +312,7 @@ public class PlanPrinter
         return builder.toString();
     }
 
-    public static String graphvizLogicalPlan(PlanNode plan, TypeProvider types, Session session)
+    public static String graphvizLogicalPlan(PlanNode plan, TypeProvider types, Session session, FunctionManager functionManager)
     {
         // TODO: This should move to something like GraphvizRenderer
         PlanFragment fragment = new PlanFragment(
@@ -325,12 +325,12 @@ public class PlanPrinter
                 StageExecutionDescriptor.ungroupedExecution(),
                 StatsAndCosts.empty(),
                 Optional.empty());
-        return GraphvizPrinter.printLogical(ImmutableList.of(fragment), session);
+        return GraphvizPrinter.printLogical(ImmutableList.of(fragment), session, functionManager);
     }
 
-    public static String graphvizDistributedPlan(SubPlan plan, Session session)
+    public static String graphvizDistributedPlan(SubPlan plan, Session session, FunctionManager functionManager)
     {
-        return GraphvizPrinter.printDistributed(plan, session);
+        return GraphvizPrinter.printDistributed(plan, session, functionManager);
     }
 
     private class Visitor

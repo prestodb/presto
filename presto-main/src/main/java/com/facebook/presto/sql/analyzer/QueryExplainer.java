@@ -144,10 +144,10 @@ public class QueryExplainer
         switch (planType) {
             case LOGICAL:
                 Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
-                return graphvizLogicalPlan(plan.getRoot(), plan.getTypes(), session);
+                return graphvizLogicalPlan(plan.getRoot(), plan.getTypes(), session, metadata.getFunctionManager());
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
-                return graphvizDistributedPlan(subPlan, session);
+                return graphvizDistributedPlan(subPlan, session, metadata.getFunctionManager());
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }

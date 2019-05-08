@@ -13,18 +13,50 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.metadata.CastType;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.block.LongArrayBlockBuilder;
+import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.planPrinter.RowExpressionFormatter;
+import com.facebook.presto.type.TypeRegistry;
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.function.OperatorType.ADD;
+import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
+import static com.facebook.presto.spi.function.OperatorType.CAST;
+import static com.facebook.presto.spi.function.OperatorType.DIVIDE;
+import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
+import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.MODULUS;
+import static com.facebook.presto.spi.function.OperatorType.MULTIPLY;
+import static com.facebook.presto.spi.function.OperatorType.NEGATION;
+import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
+import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.CharType.createCharType;
@@ -37,6 +69,8 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.facebook.presto.type.ColorType.COLOR;
@@ -46,7 +80,12 @@ import static org.testng.Assert.assertEquals;
 
 public class TestRowExpressionFormatter
 {
-    private static final RowExpressionFormatter FORMATTER = new RowExpressionFormatter(TEST_SESSION.toConnectorSession());
+    private static final TypeManager typeManager = new TypeRegistry();
+    private static final FunctionManager functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+    private static final RowExpressionFormatter FORMATTER = new RowExpressionFormatter(TEST_SESSION.toConnectorSession(), functionManager);
+    private static final VariableReferenceExpression C_BIGINT = new VariableReferenceExpression("c_bigint", BIGINT);
+    private static final VariableReferenceExpression C_BIGINT_ARRAY = new VariableReferenceExpression("c_bigint_array", new ArrayType(BIGINT));
+
     @Test
     public void testConstants()
     {
@@ -116,9 +155,159 @@ public class TestRowExpressionFormatter
         assertEquals(format(constantExpression), "[Block: position count: 2; size: 96 bytes]");
     }
 
+    @Test
+    public void testCalls()
+    {
+        RowExpression callExpression;
+
+        // arithmetic
+        callExpression = createCallExpression(ADD);
+        assertEquals(format(callExpression), "(c_bigint) + (BIGINT 5)");
+        callExpression = createCallExpression(SUBTRACT);
+        assertEquals(format(callExpression), "(c_bigint) - (BIGINT 5)");
+        callExpression = createCallExpression(MULTIPLY);
+        assertEquals(format(callExpression), "(c_bigint) * (BIGINT 5)");
+        callExpression = createCallExpression(DIVIDE);
+        assertEquals(format(callExpression), "(c_bigint) / (BIGINT 5)");
+        callExpression = createCallExpression(MODULUS);
+        assertEquals(format(callExpression), "(c_bigint) % (BIGINT 5)");
+
+        // comparison
+        callExpression = createCallExpression(GREATER_THAN);
+        assertEquals(format(callExpression), "(c_bigint) > (BIGINT 5)");
+        callExpression = createCallExpression(LESS_THAN);
+        assertEquals(format(callExpression), "(c_bigint) < (BIGINT 5)");
+        callExpression = createCallExpression(GREATER_THAN_OR_EQUAL);
+        assertEquals(format(callExpression), "(c_bigint) >= (BIGINT 5)");
+        callExpression = createCallExpression(LESS_THAN_OR_EQUAL);
+        assertEquals(format(callExpression), "(c_bigint) <= (BIGINT 5)");
+        callExpression = createCallExpression(EQUAL);
+        assertEquals(format(callExpression), "(c_bigint) = (BIGINT 5)");
+        callExpression = createCallExpression(NOT_EQUAL);
+        assertEquals(format(callExpression), "(c_bigint) <> (BIGINT 5)");
+        callExpression = createCallExpression(IS_DISTINCT_FROM);
+        assertEquals(format(callExpression), "(c_bigint) IS DISTINCT FROM (BIGINT 5)");
+
+        // negation
+        RowExpression expression = createCallExpression(ADD);
+        callExpression = call(
+                NEGATION.name(),
+                functionManager.resolveOperator(NEGATION, fromTypes(expression.getType())),
+                expression.getType(),
+                expression);
+        assertEquals(format(callExpression), "-((c_bigint) + (BIGINT 5))");
+
+        // subscript
+        ArrayType arrayType = (ArrayType) C_BIGINT_ARRAY.getType();
+        Type elementType = arrayType.getElementType();
+        RowExpression subscriptExpression = call(SUBSCRIPT.name(),
+                functionManager.resolveOperator(SUBSCRIPT, fromTypes(arrayType, elementType)),
+                elementType,
+                ImmutableList.of(C_BIGINT_ARRAY, constant(0, INTEGER)));
+        callExpression = subscriptExpression;
+        assertEquals(format(callExpression), "c_bigint_array[INTEGER 0]");
+
+        // cast
+        callExpression = call(
+            CAST.name(),
+            functionManager.lookupCast(CastType.CAST, TINYINT.getTypeSignature(), BIGINT.getTypeSignature()),
+            BIGINT,
+            constant(1, TINYINT));
+        assertEquals(format(callExpression), "CAST(TINYINT 1 AS bigint)");
+
+        // between
+        callExpression = call(
+                BETWEEN.name(),
+                functionManager.resolveOperator(BETWEEN, fromTypes(BIGINT, BIGINT, BIGINT)),
+                BOOLEAN,
+                subscriptExpression,
+                constant(1, BIGINT),
+                constant(5, BIGINT));
+        assertEquals(format(callExpression), "c_bigint_array[INTEGER 0] BETWEEN (BIGINT 1) AND (BIGINT 5)");
+
+        // other
+        callExpression = call(
+                HASH_CODE.name(),
+                functionManager.resolveOperator(HASH_CODE, fromTypes(BIGINT)),
+                BIGINT,
+                constant(1, BIGINT));
+        assertEquals(format(callExpression), "HASH_CODE(BIGINT 1)");
+    }
+
+    @Test
+    public void testSpecialForm()
+    {
+        RowExpression specialFormExpression;
+
+        // or and and
+        specialFormExpression = new SpecialFormExpression(OR, BOOLEAN, createCallExpression(NOT_EQUAL), createCallExpression(IS_DISTINCT_FROM));
+        assertEquals(format(specialFormExpression), "((c_bigint) <> (BIGINT 5)) OR ((c_bigint) IS DISTINCT FROM (BIGINT 5))");
+        specialFormExpression = new SpecialFormExpression(AND, BOOLEAN, createCallExpression(EQUAL), createCallExpression(GREATER_THAN));
+        assertEquals(format(specialFormExpression), "((c_bigint) = (BIGINT 5)) AND ((c_bigint) > (BIGINT 5))");
+
+        // other
+        specialFormExpression = new SpecialFormExpression(IS_NULL, BOOLEAN, createCallExpression(ADD));
+        assertEquals(format(specialFormExpression), "IS_NULL((c_bigint) + (BIGINT 5))");
+    }
+
+    @Test
+    public void testComplex()
+    {
+        RowExpression complexExpression;
+
+        RowExpression expression = createCallExpression(ADD);
+        complexExpression = call(
+                SUBTRACT.name(),
+                functionManager.resolveOperator(SUBTRACT, fromTypes(BIGINT, BIGINT)),
+                BIGINT,
+                C_BIGINT,
+                expression);
+        assertEquals(format(complexExpression), "(c_bigint) - ((c_bigint) + (BIGINT 5))");
+
+        RowExpression expression1 = createCallExpression(ADD);
+        RowExpression expression2 = call(
+                MULTIPLY.name(),
+                functionManager.resolveOperator(MULTIPLY, fromTypes(BIGINT, BIGINT)),
+                BIGINT,
+                expression1,
+                C_BIGINT);
+        RowExpression expression3 = createCallExpression(GREATER_THAN);
+        complexExpression = new SpecialFormExpression(OR, BOOLEAN, expression2, expression3);
+        assertEquals(format(complexExpression), "(((c_bigint) + (BIGINT 5)) * (c_bigint)) OR ((c_bigint) > (BIGINT 5))");
+
+        ArrayType arrayType = (ArrayType) C_BIGINT_ARRAY.getType();
+        Type elementType = arrayType.getElementType();
+        expression1 = call(SUBSCRIPT.name(),
+                functionManager.resolveOperator(SUBSCRIPT, fromTypes(arrayType, elementType)),
+                elementType,
+                ImmutableList.of(C_BIGINT_ARRAY, constant(5, INTEGER)));
+        expression2 = call(
+                NEGATION.name(),
+                functionManager.resolveOperator(NEGATION, fromTypes(expression1.getType())),
+                expression1.getType(),
+                expression1);
+        expression3 = call(
+                ADD.name(),
+                functionManager.resolveOperator(ADD, fromTypes(expression2.getType(), BIGINT)),
+                BIGINT,
+                expression2,
+                constant(5L, BIGINT));
+        assertEquals(format(expression3), "(-(c_bigint_array[INTEGER 5])) + (BIGINT 5)");
+    }
+
     protected static Object decimal(String decimalString)
     {
         return Decimals.parseIncludeLeadingZerosInPrecision(decimalString).getObject();
+    }
+
+    private static CallExpression createCallExpression(OperatorType type)
+    {
+        return call(
+                type.name(),
+                functionManager.resolveOperator(type, fromTypes(BIGINT, BIGINT)),
+                BIGINT,
+                C_BIGINT,
+                constant(5L, BIGINT));
     }
 
     private static String format(RowExpression expression)
