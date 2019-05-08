@@ -43,7 +43,6 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.Functions;
-import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -65,7 +64,6 @@ import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
@@ -282,20 +280,16 @@ public class IndexJoinOptimizer
                     symbolAllocator.getTypes());
 
             TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain()
-                    .transform(node.getAssignments()::get)
+                    .transform(symbol -> node.getAssignments().entrySet().stream().collect(toImmutableMap(entry -> new Symbol(entry.getKey().getName()), Map.Entry::getValue)).get(symbol))
                     .intersect(node.getEnforcedConstraint());
 
-            checkState(node.getOutputSymbols().containsAll(
-                    context.getLookupVariables().stream()
-                            .map(VariableReferenceExpression::getName)
-                            .map(Symbol::new)
-                            .collect(toImmutableList())));
+            checkState(node.getOutputVariables().containsAll(context.getLookupVariables()));
 
             Set<ColumnHandle> lookupColumns = context.getLookupVariables().stream()
-                    .map(variable -> node.getAssignments().get(new Symbol(variable.getName())))
+                    .map(variable -> node.getAssignments().get(variable))
                     .collect(toImmutableSet());
 
-            Set<ColumnHandle> outputColumns = node.getOutputSymbols().stream().map(node.getAssignments()::get).collect(toImmutableSet());
+            Set<ColumnHandle> outputColumns = node.getOutputVariables().stream().map(node.getAssignments()::get).collect(toImmutableSet());
 
             Optional<ResolvedIndex> optionalResolvedIndex = metadata.resolveIndex(session, node.getTable(), lookupColumns, outputColumns, simplifiedConstraint);
             if (!optionalResolvedIndex.isPresent()) {
@@ -304,7 +298,8 @@ public class IndexJoinOptimizer
             }
             ResolvedIndex resolvedIndex = optionalResolvedIndex.get();
 
-            Map<ColumnHandle, Symbol> inverseAssignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
+            Map<ColumnHandle, Symbol> inverseAssignments = node.getAssignments().entrySet().stream()
+                    .collect(toImmutableMap(Map.Entry::getValue, entry -> new Symbol(entry.getKey().getName())));
 
             PlanNode source = new IndexSourceNode(
                     idAllocator.getNextId(),

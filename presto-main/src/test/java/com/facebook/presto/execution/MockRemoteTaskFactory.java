@@ -117,7 +117,7 @@ public class MockRemoteTaskFactory
                         new TableHandle(new ConnectorId("test"), new TestingTableHandle(), TestingTransactionHandle.create(), Optional.of(TestingHandle.INSTANCE)),
                         ImmutableList.of(symbol),
                         ImmutableList.of(variable),
-                        ImmutableMap.of(symbol, new TestingColumnHandle("column"))),
+                        ImmutableMap.of(variable, new TestingColumnHandle("column"))),
                 ImmutableMap.of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(sourceId),

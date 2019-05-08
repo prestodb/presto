@@ -709,8 +709,7 @@ public class PropertyDerivations
         public ActualProperties visitTableScan(TableScanNode node, List<ActualProperties> inputProperties)
         {
             TableLayout layout = metadata.getLayout(session, node.getTable());
-            Map<ColumnHandle, VariableReferenceExpression> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse().entrySet().stream()
-                    .collect(toImmutableMap(Map.Entry::getKey, entry -> toVariableReference(entry.getValue(), types)));
+            Map<ColumnHandle, VariableReferenceExpression> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
             ActualProperties.Builder properties = ActualProperties.builder();
 

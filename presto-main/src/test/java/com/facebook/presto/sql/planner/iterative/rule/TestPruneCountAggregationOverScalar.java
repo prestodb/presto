@@ -157,7 +157,7 @@ public class TestPruneCountAggregationOverScalar
                                                             Optional.empty()),
                                                     ImmutableList.of(totalPrice),
                                                     ImmutableList.of(totalPriceVariable),
-                                                    ImmutableMap.of(totalPrice, new TpchColumnHandle(totalPrice.getName(), DOUBLE))))));
+                                                    ImmutableMap.of(totalPriceVariable, new TpchColumnHandle(totalPrice.getName(), DOUBLE))))));
 
                     return p.aggregation((a) -> a
                             .addAggregation(

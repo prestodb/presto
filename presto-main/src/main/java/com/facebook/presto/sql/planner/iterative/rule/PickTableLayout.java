@@ -77,6 +77,7 @@ import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToR
 import static com.facebook.presto.sql.relational.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
 import static java.util.Collections.emptyList;
@@ -233,13 +234,14 @@ public class PickTableLayout
             if (metadata.isPushdownFilterSupported(session, tableHandle)) {
                 PushdownFilterResult pushdownFilterResult = metadata.pushdownFilter(session, tableHandle, TRUE);
                 if (pushdownFilterResult.getLayout().getPredicate().isNone()) {
-                    return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), tableScanNode.getOutputSymbols(), ImmutableList.of()));
+                    return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), tableScanNode.getOutputSymbols(), tableScanNode.getOutputVariables(), ImmutableList.of()));
                 }
 
                 return Result.ofPlanNode(new TableScanNode(
                         tableScanNode.getId(),
                         pushdownFilterResult.getLayout().getNewTableHandle(),
                         tableScanNode.getOutputSymbols(),
+                        tableScanNode.getOutputVariables(),
                         tableScanNode.getAssignments(),
                         pushdownFilterResult.getLayout().getPredicate(),
                         TupleDomain.all()));
@@ -249,8 +251,8 @@ public class PickTableLayout
                     session,
                     tableHandle,
                     Constraint.alwaysTrue(),
-                    Optional.of(tableScanNode.getOutputSymbols().stream()
-                            .map(tableScanNode.getAssignments()::get)
+                    Optional.of(tableScanNode.getOutputVariables().stream()
+                            .map(variable -> tableScanNode.getAssignments().get(variable))
                             .collect(toImmutableSet())));
 
             if (layout.getLayout().getPredicate().isNone()) {
@@ -292,21 +294,22 @@ public class PickTableLayout
 
             BiMap<VariableReferenceExpression, VariableReferenceExpression> symbolToColumnMapping = node.getAssignments().entrySet().stream()
                     .collect(toImmutableBiMap(
-                            entry -> new VariableReferenceExpression(entry.getKey().getName(), types.get(entry.getKey())),
-                            entry -> new VariableReferenceExpression(getColumnName(session, metadata, node.getTable(), entry.getValue()), types.get(entry.getKey()))));
+                            entry -> new VariableReferenceExpression(entry.getKey().getName(), types.get(new Symbol(entry.getKey().getName()))),
+                            entry -> new VariableReferenceExpression(getColumnName(session, metadata, node.getTable(), entry.getValue()), types.get(new Symbol(entry.getKey().getName())))));
             RowExpression translatedPredicate = replaceExpression(SqlToRowExpressionTranslator.translate(predicate, predicateTypes, ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), session, false), symbolToColumnMapping);
 
             PushdownFilterResult pushdownFilterResult = metadata.pushdownFilter(session, node.getTable(), translatedPredicate);
 
             TableLayout layout = pushdownFilterResult.getLayout();
             if (layout.getPredicate().isNone()) {
-                return new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of());
+                return new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), node.getOutputVariables(), ImmutableList.of());
             }
 
             TableScanNode tableScan = new TableScanNode(
                     node.getId(),
                     layout.getNewTableHandle(),
                     node.getOutputSymbols(),
+                    node.getOutputVariables(),
                     node.getAssignments(),
                     layout.getPredicate(),
                     TupleDomain.all());
@@ -328,10 +331,10 @@ public class PickTableLayout
                 types);
 
         TupleDomain<ColumnHandle> newDomain = decomposedPredicate.getTupleDomain()
-                .transform(node.getAssignments()::get)
+                .transform(symbol -> node.getAssignments().entrySet().stream().collect(toImmutableMap(entry -> new Symbol(entry.getKey().getName()), Map.Entry::getValue)).get(symbol))
                 .intersect(node.getEnforcedConstraint());
 
-        Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
+        Map<ColumnHandle, VariableReferenceExpression> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
         Constraint<ColumnHandle> constraint;
         if (pruneWithPredicateExpression) {
@@ -345,7 +348,7 @@ public class PickTableLayout
                             deterministicPredicate,
                             // Simplify the tuple domain to avoid creating an expression with too many nodes,
                             // which would be expensive to evaluate in the call to isCandidate below.
-                            domainTranslator.toPredicate(newDomain.simplify().transform(assignments::get))));
+                            domainTranslator.toPredicate(newDomain.simplify().transform(column -> assignments.containsKey(column) ? new Symbol(assignments.get(column).getName()) : null))));
             constraint = new Constraint<>(newDomain, evaluator::isCandidate);
         }
         else {
@@ -362,8 +365,8 @@ public class PickTableLayout
                 session,
                 node.getTable(),
                 constraint,
-                Optional.of(node.getOutputSymbols().stream()
-                        .map(node.getAssignments()::get)
+                Optional.of(node.getOutputVariables().stream()
+                        .map(variable -> node.getAssignments().get(variable))
                         .collect(toImmutableSet())));
 
         if (layout.getLayout().getPredicate().isNone()) {
@@ -388,7 +391,7 @@ public class PickTableLayout
         //   and non-TupleDomain-expressible expressions should be retained. Changing the order can lead
         //   to failures of previously successful queries.
         Expression resultingPredicate = combineConjuncts(
-                domainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(assignments::get)),
+                domainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(column -> new Symbol(assignments.get(column).getName()))),
                 filterNonDeterministicConjuncts(predicate),
                 decomposedPredicate.getRemainingExpression());
 
@@ -405,11 +408,11 @@ public class PickTableLayout
 
     private static class LayoutConstraintEvaluator
     {
-        private final Map<Symbol, ColumnHandle> assignments;
+        private final Map<VariableReferenceExpression, ColumnHandle> assignments;
         private final ExpressionInterpreter evaluator;
         private final Set<ColumnHandle> arguments;
 
-        public LayoutConstraintEvaluator(Metadata metadata, SqlParser parser, Session session, TypeProvider types, Map<Symbol, ColumnHandle> assignments, Expression expression)
+        public LayoutConstraintEvaluator(Metadata metadata, SqlParser parser, Session session, TypeProvider types, Map<VariableReferenceExpression, ColumnHandle> assignments, Expression expression)
         {
             this.assignments = assignments;
 
@@ -417,7 +420,7 @@ public class PickTableLayout
 
             evaluator = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
             arguments = SymbolsExtractor.extractUnique(expression).stream()
-                    .map(assignments::get)
+                    .map(symbol -> assignments.entrySet().stream().collect(toImmutableMap(entry -> new Symbol(entry.getKey().getName()), Map.Entry::getValue)).get(symbol))
                     .collect(toImmutableSet());
         }
 

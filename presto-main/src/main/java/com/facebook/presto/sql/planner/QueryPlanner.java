@@ -207,30 +207,29 @@ class QueryPlanner
         Type rowIdType = metadata.getColumnMetadata(session, handle, rowIdHandle).getType();
 
         // add table columns
-        ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
-        ImmutableList.Builder<VariableReferenceExpression> outputVariables = ImmutableList.builder();
-        ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
+        ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> columns = ImmutableMap.builder();
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (Field field : descriptor.getAllFields()) {
-            Symbol symbol = symbolAllocator.newSymbol(field.getName().get(), field.getType());
-            outputSymbols.add(symbol);
-            outputVariables.add(new VariableReferenceExpression(symbol.getName(), field.getType()));
-            columns.put(symbol, analysis.getColumn(field));
+            VariableReferenceExpression variable = symbolAllocator.newVariable(field.getName().get(), field.getType());
+            outputVariablesBuilder.add(variable);
+            columns.put(variable, analysis.getColumn(field));
             fields.add(field);
         }
 
         // add rowId column
         Field rowIdField = Field.newUnqualified(Optional.empty(), rowIdType);
-        Symbol rowIdSymbol = symbolAllocator.newSymbol("$rowId", rowIdField.getType());
-        outputSymbols.add(rowIdSymbol);
-        outputVariables.add(new VariableReferenceExpression(rowIdSymbol.getName(), rowIdField.getType()));
-        columns.put(rowIdSymbol, rowIdHandle);
+        VariableReferenceExpression rowIdVariable = symbolAllocator.newVariable("$rowId", rowIdField.getType());
+        outputVariablesBuilder.add(rowIdVariable);
+        columns.put(rowIdVariable, rowIdHandle);
         fields.add(rowIdField);
 
         // create table scan
-        PlanNode tableScan = new TableScanNode(idAllocator.getNextId(), handle, outputSymbols.build(), outputVariables.build(), columns.build());
+        List<VariableReferenceExpression> outputVariables = outputVariablesBuilder.build();
+        List<Symbol> outputSymbols = outputVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
+        PlanNode tableScan = new TableScanNode(idAllocator.getNextId(), handle, outputSymbols, outputVariables, columns.build());
         Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields.build())).build();
-        RelationPlan relationPlan = new RelationPlan(tableScan, scope, symbolAllocator.toVariableReferences(outputSymbols.build()));
+        RelationPlan relationPlan = new RelationPlan(tableScan, scope, outputVariables);
 
         TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToSymbolMap);
         translations.setFieldMappings(relationPlan.getFieldSymbolMappings());

@@ -255,7 +255,7 @@ public final class StreamPropertyDerivations
         public StreamProperties visitTableScan(TableScanNode node, List<StreamProperties> inputProperties)
         {
             TableLayout layout = metadata.getLayout(session, node.getTable());
-            Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
+            Map<ColumnHandle, VariableReferenceExpression> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
             // Globally constant assignments
             Set<ColumnHandle> constants = new HashSet<>();
@@ -265,7 +265,7 @@ public final class StreamPropertyDerivations
                     .forEach(entry -> constants.add(entry.getKey()));
 
             Optional<Set<VariableReferenceExpression>> streamPartitionSymbols = layout.getStreamPartitioningColumns()
-                    .flatMap(columns -> getNonConstantSymbols(columns, assignments, constants));
+                    .flatMap(columns -> getNonConstantVariables(columns, assignments, constants));
 
             // if we are partitioned on empty set, we must say multiple of unknown partitioning, because
             // the connector does not guarantee a single split in this case (since it might not understand
@@ -276,7 +276,7 @@ public final class StreamPropertyDerivations
             return new StreamProperties(MULTIPLE, streamPartitionSymbols, false);
         }
 
-        private Optional<Set<VariableReferenceExpression>> getNonConstantSymbols(Set<ColumnHandle> columnHandles, Map<ColumnHandle, Symbol> assignments, Set<ColumnHandle> globalConstants)
+        private Optional<Set<VariableReferenceExpression>> getNonConstantVariables(Set<ColumnHandle> columnHandles, Map<ColumnHandle, VariableReferenceExpression> assignments, Set<ColumnHandle> globalConstants)
         {
             // Strip off the constants from the partitioning columns (since those are not required for translation)
             Set<ColumnHandle> constantsStrippedPartitionColumns = columnHandles.stream()
@@ -285,11 +285,11 @@ public final class StreamPropertyDerivations
             ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
 
             for (ColumnHandle column : constantsStrippedPartitionColumns) {
-                Symbol translated = assignments.get(column);
+                VariableReferenceExpression translated = assignments.get(column);
                 if (translated == null) {
                     return Optional.empty();
                 }
-                builder.add(toVariableReference(translated, types));
+                builder.add(translated);
             }
 
             return Optional.of(builder.build());

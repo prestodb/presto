@@ -80,7 +80,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.extractUnique;
@@ -88,10 +87,12 @@ import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Sets.intersection;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 /**
  * Removes all computation that does is not referenced transitively from the root of the plan
@@ -116,12 +117,19 @@ public class PruneUnreferencedOutputs
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(), plan, ImmutableSet.of());
+        return SimplePlanRewriter.rewriteWith(new Rewriter(symbolAllocator), plan, ImmutableSet.of());
     }
 
     private static class Rewriter
             extends SimplePlanRewriter<Set<Symbol>>
     {
+        private final SymbolAllocator symbolAllocator;
+
+        public Rewriter(SymbolAllocator symbolAllocator)
+        {
+            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+        }
+
         @Override
         public PlanNode visitExplainAnalyze(ExplainAnalyzeNode node, RewriteContext<Set<Symbol>> context)
         {
@@ -329,8 +337,8 @@ public class PruneUnreferencedOutputs
                     .filter(variable -> context.get().contains(new Symbol(variable.getName())))
                     .collect(toImmutableSet());
 
-            Map<Symbol, ColumnHandle> newAssignments = newOutputSymbols.stream()
-                    .collect(Collectors.toMap(Function.identity(), node.getAssignments()::get));
+            Map<VariableReferenceExpression, ColumnHandle> newAssignments = newOutputSymbols.stream()
+                    .collect(toImmutableMap(symbolAllocator::toVariableReference, symbol -> node.getAssignments().get(symbolAllocator.toVariableReference(symbol))));
 
             return new IndexSourceNode(node.getId(), node.getIndexHandle(), node.getTableHandle(), newLookupVariables, newOutputSymbols, newAssignments, node.getCurrentConstraint());
         }
@@ -423,24 +431,21 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Set<Symbol>> context)
         {
-            List<Symbol> newOutputs = node.getOutputSymbols().stream()
-                    .filter(context.get()::contains)
-                    .collect(toImmutableList());
             Set<String> contextSymbols = context.get().stream()
                     .map(Symbol::getName)
                     .collect(toImmutableSet());
-            List<VariableReferenceExpression> newVariables = node.getOutputVariables().stream()
+            List<VariableReferenceExpression> newOutputs = node.getOutputVariables().stream()
                     .filter(variable -> contextSymbols.contains(variable.getName()))
                     .collect(toImmutableList());
 
-            Map<Symbol, ColumnHandle> newAssignments = newOutputs.stream()
-                    .collect(Collectors.toMap(Function.identity(), node.getAssignments()::get));
+            Map<VariableReferenceExpression, ColumnHandle> newAssignments = newOutputs.stream()
+                    .collect(Collectors.toMap(identity(), node.getAssignments()::get));
 
             return new TableScanNode(
                     node.getId(),
                     node.getTable(),
+                    newOutputs.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()),
                     newOutputs,
-                    newVariables,
                     newAssignments,
                     node.getCurrentConstraint(),
                     node.getEnforcedConstraint());

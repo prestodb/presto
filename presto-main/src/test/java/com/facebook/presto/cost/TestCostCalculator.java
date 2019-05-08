@@ -763,10 +763,10 @@ public class TestCostCalculator
         List<VariableReferenceExpression> variables = Arrays.stream(symbols)
                 .map(symbol -> new VariableReferenceExpression(symbol, BIGINT))
                 .collect(toImmutableList());
-        ImmutableMap.Builder<Symbol, ColumnHandle> assignments = ImmutableMap.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> assignments = ImmutableMap.builder();
 
-        for (Symbol symbol : symbolsList) {
-            assignments.put(symbol, new TpchColumnHandle("orderkey", BIGINT));
+        for (VariableReferenceExpression variable : variables) {
+            assignments.put(variable, new TpchColumnHandle("orderkey", BIGINT));
         }
 
         TpchTableHandle tableHandle = new TpchTableHandle("orders", 1.0);

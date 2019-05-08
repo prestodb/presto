@@ -18,6 +18,7 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.sql.planner.Symbol;
@@ -60,8 +61,8 @@ public class TableScanStatsRule
         TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), constraint);
         Map<Symbol, SymbolStatsEstimate> outputSymbolStats = new HashMap<>();
 
-        for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
-            Symbol symbol = entry.getKey();
+        for (Map.Entry<VariableReferenceExpression, ColumnHandle> entry : node.getAssignments().entrySet()) {
+            Symbol symbol = new Symbol(entry.getKey().getName());
             Optional<ColumnStatistics> columnStatistics = Optional.ofNullable(tableStatistics.getColumnStatistics().get(entry.getValue()));
             outputSymbolStats.put(symbol, columnStatistics.map(statistics -> toSymbolStatistics(tableStatistics, statistics)).orElse(SymbolStatsEstimate.unknown()));
         }

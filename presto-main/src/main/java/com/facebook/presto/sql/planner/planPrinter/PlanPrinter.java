@@ -428,8 +428,8 @@ public class PlanPrinter
                     "IndexSource",
                     format("[%s, lookup = %s]", node.getIndexHandle(), node.getLookupVariables()));
 
-            for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
-                if (node.getOutputSymbols().contains(entry.getKey())) {
+            for (Map.Entry<VariableReferenceExpression, ColumnHandle> entry : node.getAssignments().entrySet()) {
+                if (node.getOutputSymbols().contains(new Symbol(entry.getKey().getName()))) {
                     nodeOutput.appendDetailsLine("%s := %s", entry.getKey(), entry.getValue());
                 }
             }
@@ -801,7 +801,7 @@ public class PlanPrinter
             }
             else {
                 // first, print output columns and their constraints
-                for (Map.Entry<Symbol, ColumnHandle> assignment : node.getAssignments().entrySet()) {
+                for (Map.Entry<VariableReferenceExpression, ColumnHandle> assignment : node.getAssignments().entrySet()) {
                     ColumnHandle column = assignment.getValue();
                     nodeOutput.appendDetailsLine("%s := %s", assignment.getKey(), column);
                     printConstraint(nodeOutput, column, predicate);

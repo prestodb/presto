@@ -47,7 +47,6 @@ import com.google.common.collect.ListMultimap;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -66,6 +65,7 @@ import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UN
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
 import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 @Test(singleThreaded = true)
 public class TestTypeValidator
@@ -107,26 +107,20 @@ public class TestTypeValidator
         variableC = new VariableReferenceExpression(columnC.getName(), DOUBLE);
         variableD = new VariableReferenceExpression(columnD.getName(), DATE);
         variableE = new VariableReferenceExpression(columnE.getName(), VarcharType.createVarcharType(3));
-        List<VariableReferenceExpression> variables = ImmutableList.of(
-                variableA,
-                variableB,
-                variableC,
-                variableD,
-                variableE);
 
-        Map<Symbol, ColumnHandle> assignments = ImmutableMap.<Symbol, ColumnHandle>builder()
-                .put(columnA, new TestingColumnHandle("a"))
-                .put(columnB, new TestingColumnHandle("b"))
-                .put(columnC, new TestingColumnHandle("c"))
-                .put(columnD, new TestingColumnHandle("d"))
-                .put(columnE, new TestingColumnHandle("e"))
+        Map<VariableReferenceExpression, ColumnHandle> assignments = ImmutableMap.<VariableReferenceExpression, ColumnHandle>builder()
+                .put(variableA, new TestingColumnHandle("a"))
+                .put(variableB, new TestingColumnHandle("b"))
+                .put(variableC, new TestingColumnHandle("c"))
+                .put(variableD, new TestingColumnHandle("d"))
+                .put(variableE, new TestingColumnHandle("e"))
                 .build();
 
         baseTableScan = new TableScanNode(
                 newId(),
                 TEST_TABLE_HANDLE,
+                assignments.keySet().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()),
                 ImmutableList.copyOf(assignments.keySet()),
-                variables,
                 assignments,
                 TupleDomain.all(),
                 TupleDomain.all());

@@ -461,7 +461,7 @@ public class TestSourcePartitionedScheduler
                 new TableHandle(CONNECTOR_ID, new TestingTableHandle(), TestingTransactionHandle.create(), Optional.empty()),
                 ImmutableList.of(symbol),
                 ImmutableList.of(variable),
-                ImmutableMap.of(symbol, new TestingColumnHandle("column")),
+                ImmutableMap.of(variable, new TestingColumnHandle("column")),
                 false);
 
         RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("remote_id"), new PlanFragmentId(0), ImmutableList.of(), Optional.empty(), GATHER);

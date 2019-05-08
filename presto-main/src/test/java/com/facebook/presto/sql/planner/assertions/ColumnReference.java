@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -46,7 +47,7 @@ public class ColumnReference
     public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         TableHandle tableHandle;
-        Map<Symbol, ColumnHandle> assignments;
+        Map<VariableReferenceExpression, ColumnHandle> assignments;
 
         if (node instanceof TableScanNode) {
             TableScanNode tableScanNode = (TableScanNode) node;
@@ -77,13 +78,13 @@ public class ColumnReference
         return getAssignedSymbol(assignments, columnHandle.get());
     }
 
-    private Optional<Symbol> getAssignedSymbol(Map<Symbol, ColumnHandle> assignments, ColumnHandle columnHandle)
+    private Optional<Symbol> getAssignedSymbol(Map<VariableReferenceExpression, ColumnHandle> assignments, ColumnHandle columnHandle)
     {
         Optional<Symbol> result = Optional.empty();
-        for (Map.Entry<Symbol, ColumnHandle> entry : assignments.entrySet()) {
+        for (Map.Entry<VariableReferenceExpression, ColumnHandle> entry : assignments.entrySet()) {
             if (entry.getValue().equals(columnHandle)) {
                 checkState(!result.isPresent(), "Multiple ColumnHandles found for %s:%s in table scan assignments", tableName, columnName);
-                result = Optional.of(entry.getKey());
+                result = Optional.of(new Symbol(entry.getKey().getName()));
             }
         }
         return result;

@@ -101,7 +101,7 @@ public final class TaskTestUtils
                     new TableHandle(CONNECTOR_ID, new TestingTableHandle(), TRANSACTION_HANDLE, Optional.empty()),
                     ImmutableList.of(SYMBOL),
                     ImmutableList.of(VARIABLE),
-                    ImmutableMap.of(SYMBOL, new TestingColumnHandle("column", 0, BIGINT))),
+                    ImmutableMap.of(VARIABLE, new TestingColumnHandle("column", 0, BIGINT))),
             ImmutableMap.of(SYMBOL, VARCHAR),
             SOURCE_DISTRIBUTION,
             ImmutableList.of(TABLE_SCAN_NODE_ID),

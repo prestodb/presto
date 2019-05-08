@@ -46,9 +46,9 @@ public class PruneIndexSourceColumns
                 .filter(variable -> referencedOutputs.contains(new Symbol(variable.getName())))
                 .collect(toImmutableSet());
 
-        Map<Symbol, ColumnHandle> prunedAssignments = Maps.filterEntries(
+        Map<VariableReferenceExpression, ColumnHandle> prunedAssignments = Maps.filterEntries(
                 indexSourceNode.getAssignments(),
-                entry -> referencedOutputs.contains(entry.getKey()) ||
+                entry -> referencedOutputs.contains(new Symbol(entry.getKey().getName())) ||
                         tupleDomainReferencesColumnHandle(indexSourceNode.getCurrentConstraint(), entry.getValue()));
 
         List<Symbol> prunedOutputList =

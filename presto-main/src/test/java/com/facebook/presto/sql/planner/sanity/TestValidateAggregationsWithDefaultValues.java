@@ -73,7 +73,7 @@ public class TestValidateAggregationsWithDefaultValues
         TpchColumnHandle nationkeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
         symbol = builder.symbol("nationkey");
         variable = builder.variable(symbol);
-        tableScanNode = builder.tableScan(nationTableHandle, ImmutableList.of(symbol), ImmutableList.of(variable), ImmutableMap.of(symbol, nationkeyColumnHandle));
+        tableScanNode = builder.tableScan(nationTableHandle, ImmutableList.of(symbol), ImmutableList.of(variable), ImmutableMap.of(variable, nationkeyColumnHandle));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Final aggregation with default value not separated from partial aggregation by remote hash exchange")

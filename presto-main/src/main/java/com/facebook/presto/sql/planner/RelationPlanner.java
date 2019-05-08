@@ -154,20 +154,20 @@ class RelationPlanner
 
         TableHandle handle = analysis.getTableHandle(node);
 
-        ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
         ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
-        ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> columns = ImmutableMap.builder();
         for (Field field : scope.getRelationType().getAllFields()) {
-            Symbol symbol = symbolAllocator.newSymbol(field.getName().get(), field.getType());
-            outputSymbolsBuilder.add(symbol);
-            columns.put(symbol, analysis.getColumn(field));
-
-            VariableReferenceExpression variable = new VariableReferenceExpression(symbol.getName(), field.getType());
+            VariableReferenceExpression variable = symbolAllocator.newVariable(field.getName().get(), field.getType());
             outputVariablesBuilder.add(variable);
+            columns.put(variable, analysis.getColumn(field));
         }
 
-        List<Symbol> outputSymbols = outputSymbolsBuilder.build();
-        PlanNode root = new TableScanNode(idAllocator.getNextId(), handle, outputSymbols, outputVariablesBuilder.build(), columns.build());
+        List<VariableReferenceExpression> outputVariables = outputVariablesBuilder.build();
+        List<Symbol> outputSymbols = outputVariables.stream()
+                .map(VariableReferenceExpression::getName)
+                .map(Symbol::new)
+                .collect(toImmutableList());
+        PlanNode root = new TableScanNode(idAllocator.getNextId(), handle, outputSymbols, outputVariables, columns.build());
         return new RelationPlan(root, scope, symbolAllocator.toVariableReferences(outputSymbols));
     }
 

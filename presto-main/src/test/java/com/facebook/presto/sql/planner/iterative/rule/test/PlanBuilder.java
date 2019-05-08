@@ -415,7 +415,7 @@ public class PlanBuilder
         return new LateralJoinNode(idAllocator.getNextId(), input, subquery, correlation, LateralJoinNode.Type.INNER, "");
     }
 
-    public TableScanNode tableScan(List<Symbol> symbols, List<VariableReferenceExpression> variables, Map<Symbol, ColumnHandle> assignments)
+    public TableScanNode tableScan(List<Symbol> symbols, List<VariableReferenceExpression> variables, Map<VariableReferenceExpression, ColumnHandle> assignments)
     {
         TableHandle tableHandle = new TableHandle(
                 new ConnectorId("testConnector"),
@@ -425,7 +425,7 @@ public class PlanBuilder
         return tableScan(tableHandle, symbols, variables, assignments, TupleDomain.all(), TupleDomain.all());
     }
 
-    public TableScanNode tableScan(TableHandle tableHandle, List<Symbol> symbols, List<VariableReferenceExpression> variables, Map<Symbol, ColumnHandle> assignments)
+    public TableScanNode tableScan(TableHandle tableHandle, List<Symbol> symbols, List<VariableReferenceExpression> variables, Map<VariableReferenceExpression, ColumnHandle> assignments)
     {
         return tableScan(tableHandle, symbols, variables, assignments, TupleDomain.all(), TupleDomain.all());
     }
@@ -434,7 +434,7 @@ public class PlanBuilder
             TableHandle tableHandle,
             List<Symbol> symbols,
             List<VariableReferenceExpression> variables,
-            Map<Symbol, ColumnHandle> assignments,
+            Map<VariableReferenceExpression, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> currentConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint)
     {
@@ -531,7 +531,7 @@ public class PlanBuilder
             TableHandle tableHandle,
             Set<VariableReferenceExpression> lookupVariables,
             List<Symbol> outputSymbols,
-            Map<Symbol, ColumnHandle> assignments,
+            Map<VariableReferenceExpression, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> effectiveTupleDomain)
     {
         return new IndexSourceNode(

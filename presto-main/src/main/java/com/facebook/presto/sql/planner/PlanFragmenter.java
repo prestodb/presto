@@ -602,8 +602,8 @@ public class PlanFragmenter
                 PartitioningMetadata expectedPartitioningMetadata)
         {
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
-            Map<Symbol, ColumnMetadata> outputColumns = outputSymbols.stream()
-                    .collect(toImmutableMap(identity(), symbolToColumnMap::get));
+            Map<VariableReferenceExpression, ColumnMetadata> outputColumns = outputVariables.stream()
+                    .collect(toImmutableMap(identity(), variable -> symbolToColumnMap.get(new Symbol(variable.getName()))));
             Set<ColumnHandle> outputColumnHandles = outputColumns.values().stream()
                     .map(ColumnMetadata::getName)
                     .map(columnHandles::get)
@@ -619,7 +619,7 @@ public class PlanFragmenter
                             .collect(toImmutableList()));
             verify(selectedLayout.getLayout().getTablePartitioning().equals(Optional.of(expectedPartitioning)), "invalid temporary table partitioning");
 
-            Map<Symbol, ColumnHandle> assignments = outputSymbols.stream()
+            Map<VariableReferenceExpression, ColumnHandle> assignments = outputVariables.stream()
                     .collect(toImmutableMap(identity(), symbol -> columnHandles.get(outputColumns.get(symbol).getName())));
 
             return new TableScanNode(

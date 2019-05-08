@@ -41,7 +41,7 @@ public class IndexSourceNode
     private final TableHandle tableHandle;
     private final Set<VariableReferenceExpression> lookupVariables;
     private final List<Symbol> outputSymbols;
-    private final Map<Symbol, ColumnHandle> assignments; // symbol -> column
+    private final Map<VariableReferenceExpression, ColumnHandle> assignments; // symbol -> column
     private final TupleDomain<ColumnHandle> currentConstraint; // constraint over the input data the operator will guarantee
 
     @JsonCreator
@@ -51,7 +51,7 @@ public class IndexSourceNode
             @JsonProperty("tableHandle") TableHandle tableHandle,
             @JsonProperty("lookupVariables") Set<VariableReferenceExpression> lookupVariables,
             @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
-            @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
+            @JsonProperty("assignments") Map<VariableReferenceExpression, ColumnHandle> assignments,
             @JsonProperty("currentConstraint") TupleDomain<ColumnHandle> currentConstraint)
     {
         super(id);
@@ -63,8 +63,8 @@ public class IndexSourceNode
         this.currentConstraint = requireNonNull(currentConstraint, "effectiveTupleDomain is null");
         checkArgument(!lookupVariables.isEmpty(), "lookupVariables is empty");
         checkArgument(!outputSymbols.isEmpty(), "outputSymbols is empty");
+        checkArgument(assignments.keySet().containsAll(lookupVariables), "Assignments do not include all lookup variables");
         List<Symbol> lookupSymbols = lookupVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
-        checkArgument(assignments.keySet().containsAll(lookupSymbols), "Assignments do not include all lookup variables");
         checkArgument(outputSymbols.containsAll(lookupSymbols), "Lookup variables need to be part of the output symbols");
     }
 
@@ -94,7 +94,7 @@ public class IndexSourceNode
     }
 
     @JsonProperty
-    public Map<Symbol, ColumnHandle> getAssignments()
+    public Map<VariableReferenceExpression, ColumnHandle> getAssignments()
     {
         return assignments;
     }

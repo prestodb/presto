@@ -93,9 +93,9 @@ public class TestPruneIndexSourceColumns
                         ImmutableSet.of(p.variable(orderkey), p.variable(custkey)),
                         ImmutableList.of(orderkey, custkey, totalprice),
                         ImmutableMap.of(
-                                orderkey, orderkeyHandle,
-                                custkey, custkeyHandle,
-                                totalprice, totalpriceHandle),
+                                p.variable(orderkey), orderkeyHandle,
+                                p.variable(custkey), custkeyHandle,
+                                p.variable(totalprice), totalpriceHandle),
                         TupleDomain.fromFixedValues(ImmutableMap.of(totalpriceHandle, asNull(DOUBLE)))));
     }
 }

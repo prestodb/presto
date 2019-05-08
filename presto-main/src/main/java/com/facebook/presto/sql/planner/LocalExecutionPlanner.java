@@ -268,7 +268,6 @@ import static com.facebook.presto.util.SpatialJoinUtils.ST_INTERSECTS;
 import static com.facebook.presto.util.SpatialJoinUtils.ST_WITHIN;
 import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialComparisons;
 import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialFunctions;
-import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -1189,10 +1188,11 @@ public class LocalExecutionPlanner
                 sourceLayout = new LinkedHashMap<>();
                 columns = new ArrayList<>();
                 int channel = 0;
-                for (Symbol symbol : tableScanNode.getOutputSymbols()) {
-                    columns.add(tableScanNode.getAssignments().get(symbol));
+                for (VariableReferenceExpression variable : tableScanNode.getOutputVariables()) {
+                    columns.add(tableScanNode.getAssignments().get(variable));
 
                     Integer input = channel;
+                    Symbol symbol = new Symbol(variable.getName());
                     sourceLayout.put(symbol, input);
 
                     Type type = requireNonNull(context.getTypes().get(symbol), format("No type for symbol %s", symbol));
@@ -1304,8 +1304,8 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableScan(TableScanNode node, LocalExecutionPlanContext context)
         {
             List<ColumnHandle> columns = new ArrayList<>();
-            for (Symbol symbol : node.getOutputSymbols()) {
-                columns.add(node.getAssignments().get(symbol));
+            for (VariableReferenceExpression variable : node.getOutputVariables()) {
+                columns.add(node.getAssignments().get(variable));
             }
 
             OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), node.getId(), pageSourceProvider, columns);
@@ -1413,10 +1413,7 @@ public class LocalExecutionPlanner
             checkState(indexLookupToProbeInput.keySet().equals(node.getLookupVariables()));
 
             // Finalize the symbol lookup layout for the index source
-            List<Symbol> lookupSymbolSchema = node.getLookupVariables().stream()
-                    .map(VariableReferenceExpression::getName)
-                    .map(Symbol::new)
-                    .collect(toImmutableList());
+            List<VariableReferenceExpression> lookupSymbolSchema = ImmutableList.copyOf(node.getLookupVariables());
 
             // Identify how to remap the probe key Input to match the source index lookup layout
             ImmutableList.Builder<Integer> remappedProbeKeyChannelsBuilder = ImmutableList.builder();
@@ -1441,8 +1438,12 @@ public class LocalExecutionPlanner
             };
 
             // Declare the input and output schemas for the index and acquire the actual Index
-            List<ColumnHandle> lookupSchema = Lists.transform(lookupSymbolSchema, forMap(node.getAssignments()));
-            List<ColumnHandle> outputSchema = Lists.transform(node.getOutputSymbols(), forMap(node.getAssignments()));
+            List<ColumnHandle> lookupSchema = lookupSymbolSchema.stream().map(node.getAssignments()::get).collect(toImmutableList());
+            List<ColumnHandle> outputSchema = node.getAssignments().entrySet().stream()
+                    .filter(entry -> node.getOutputSymbols().contains(new Symbol(entry.getKey().getName())))
+                    .map(Map.Entry::getValue)
+                    .collect(toImmutableList());
+
             ConnectorIndex index = indexManager.getIndex(session, node.getIndexHandle(), lookupSchema, outputSchema);
 
             OperatorFactory operatorFactory = new IndexSourceOperator.IndexSourceOperatorFactory(context.getNextOperatorId(), node.getId(), index, probeKeyNormalizer);

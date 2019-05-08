@@ -474,7 +474,10 @@ public final class ValidateDependenciesChecker
                     node.getOutputSymbols(),
                     node.getLookupVariables().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()),
                     "Lookup variables must be part of output symbols");
-            checkDependencies(node.getAssignments().keySet(), node.getOutputSymbols(), "Assignments must contain mappings for output symbols");
+            checkDependencies(
+                    node.getAssignments().keySet().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()),
+                    node.getOutputSymbols(),
+                    "Assignments must contain mappings for output symbols");
 
             return null;
         }

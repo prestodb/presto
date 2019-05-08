@@ -19,17 +19,15 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.planner.LiteralEncoder;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -121,20 +119,15 @@ public class MetadataQueryOptimizer
             // verify all outputs of table scan are partition keys
             TableScanNode tableScan = result.get();
 
-            ImmutableMap.Builder<Symbol, Type> typesBuilder = ImmutableMap.builder();
-            ImmutableMap.Builder<Symbol, ColumnHandle> columnBuilder = ImmutableMap.builder();
+            ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> columnBuilder = ImmutableMap.builder();
 
-            List<Symbol> inputs = tableScan.getOutputSymbols();
-            for (Symbol symbol : inputs) {
-                ColumnHandle column = tableScan.getAssignments().get(symbol);
-                ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableScan.getTable(), column);
-
-                typesBuilder.put(symbol, columnMetadata.getType());
-                columnBuilder.put(symbol, column);
+            List<VariableReferenceExpression> inputs = tableScan.getOutputVariables();
+            for (VariableReferenceExpression variable : inputs) {
+                ColumnHandle column = tableScan.getAssignments().get(variable);
+                columnBuilder.put(variable, column);
             }
 
-            Map<Symbol, ColumnHandle> columns = columnBuilder.build();
-            Map<Symbol, Type> types = typesBuilder.build();
+            Map<VariableReferenceExpression, ColumnHandle> columns = columnBuilder.build();
 
             // Materialize the list of partitions and replace the TableScan node
             // with a Values node
@@ -163,16 +156,15 @@ public class MetadataQueryOptimizer
 
                     ImmutableList.Builder<RowExpression> rowBuilder = ImmutableList.builder();
                     // for each input column, add a literal expression using the entry value
-                    for (Symbol input : inputs) {
+                    for (VariableReferenceExpression input : inputs) {
                         ColumnHandle column = columns.get(input);
-                        Type type = types.get(input);
                         NullableValue value = entries.get(column);
                         if (value == null) {
                             // partition key does not have a single value, so bail out to be safe
                             return context.defaultRewrite(node);
                         }
                         else {
-                            rowBuilder.add(constant(value.getValue(), type));
+                            rowBuilder.add(constant(value.getValue(), input.getType()));
                         }
                     }
                     rowsBuilder.add(rowBuilder.build());
@@ -180,7 +172,7 @@ public class MetadataQueryOptimizer
             }
 
             // replace the tablescan node with a values node
-            ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), inputs, tableScan.getOutputVariables(), rowsBuilder.build());
+            ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), tableScan.getOutputSymbols(), inputs, rowsBuilder.build());
             return SimplePlanRewriter.rewriteWith(new Replacer(valuesNode), node);
         }
 

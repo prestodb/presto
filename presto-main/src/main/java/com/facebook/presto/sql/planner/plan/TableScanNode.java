@@ -40,7 +40,7 @@ public class TableScanNode
 {
     private final TableHandle table;
     private final List<Symbol> outputSymbols;
-    private final Map<Symbol, ColumnHandle> assignments;
+    private final Map<VariableReferenceExpression, ColumnHandle> assignments;
     private final List<VariableReferenceExpression> outputVariables;
 
     // Used during predicate refinement over multiple passes of predicate pushdown
@@ -59,7 +59,7 @@ public class TableScanNode
             @JsonProperty("table") TableHandle table,
             @JsonProperty("outputSymbols") List<Symbol> outputs,
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
-            @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
+            @JsonProperty("assignments") Map<VariableReferenceExpression, ColumnHandle> assignments,
             @JsonProperty("temporaryTable") boolean temporaryTable)
     {
         // This constructor is for JSON deserialization only. Do not use.
@@ -68,7 +68,7 @@ public class TableScanNode
         this.outputSymbols = unmodifiableList(new ArrayList<>(requireNonNull(outputs, "outputs is null")));
         this.outputVariables = unmodifiableList(requireNonNull(outputVariables, "outputVariables is null"));
         this.assignments = unmodifiableMap(new HashMap<>(requireNonNull(assignments, "assignments is null")));
-        checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
+        checkArgument(assignments.keySet().containsAll(outputVariables), "assignments does not cover all of outputs");
         this.temporaryTable = temporaryTable;
         this.currentConstraint = null;
         this.enforcedConstraint = null;
@@ -79,7 +79,7 @@ public class TableScanNode
             TableHandle table,
             List<Symbol> outputs,
             List<VariableReferenceExpression> outputVariables,
-            Map<Symbol, ColumnHandle> assignments)
+            Map<VariableReferenceExpression, ColumnHandle> assignments)
     {
         this(id, table, outputs, outputVariables, assignments, TupleDomain.all(), TupleDomain.all(), false);
     }
@@ -89,7 +89,7 @@ public class TableScanNode
             TableHandle table,
             List<Symbol> outputs,
             List<VariableReferenceExpression> outputVariables,
-            Map<Symbol, ColumnHandle> assignments,
+            Map<VariableReferenceExpression, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> currentConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint)
     {
@@ -101,7 +101,7 @@ public class TableScanNode
             TableHandle table,
             List<Symbol> outputs,
             List<VariableReferenceExpression> outputVariables,
-            Map<Symbol, ColumnHandle> assignments,
+            Map<VariableReferenceExpression, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> currentConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint,
             boolean temporaryTable)
@@ -111,7 +111,7 @@ public class TableScanNode
         this.outputSymbols = unmodifiableList(new ArrayList<>(requireNonNull(outputs, "outputs is null")));
         this.outputVariables = unmodifiableList(requireNonNull(outputVariables, "outputVariables is null"));
         this.assignments = unmodifiableMap(new HashMap<>(requireNonNull(assignments, "assignments is null")));
-        checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
+        checkArgument(assignments.keySet().containsAll(outputVariables), "assignments does not cover all of outputs");
         this.currentConstraint = requireNonNull(currentConstraint, "currentConstraint is null");
         this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
         this.temporaryTable = temporaryTable;
@@ -134,7 +134,7 @@ public class TableScanNode
      * Get the mapping from symbols to columns
      */
     @JsonProperty("assignments")
-    public Map<Symbol, ColumnHandle> getAssignments()
+    public Map<VariableReferenceExpression, ColumnHandle> getAssignments()
     {
         return assignments;
     }

@@ -61,8 +61,8 @@ public class TestPruneTableScanColumns
                                     ImmutableList.of(orderdate, totalprice),
                                     ImmutableList.of(orderdateVariable, totalpriceVariable),
                                     ImmutableMap.of(
-                                            orderdate, new TpchColumnHandle(orderdate.getName(), DATE),
-                                            totalprice, new TpchColumnHandle(totalprice.getName(), DOUBLE))));
+                                            orderdateVariable, new TpchColumnHandle(orderdate.getName(), DATE),
+                                            totalpriceVariable, new TpchColumnHandle(totalprice.getName(), DOUBLE))));
                 })
                 .matches(
                         strictProject(
@@ -82,7 +82,7 @@ public class TestPruneTableScanColumns
                             p.tableScan(
                                     ImmutableList.of(x),
                                     ImmutableList.of(xv),
-                                    ImmutableMap.of(p.symbol("x"), new TestingColumnHandle("x"))));
+                                    ImmutableMap.of(p.variable(p.symbol("x")), new TestingColumnHandle("x"))));
                 })
                 .doesNotFire();
     }

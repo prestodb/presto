@@ -15,11 +15,13 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class LookupSymbolResolver
@@ -28,12 +30,12 @@ public class LookupSymbolResolver
     private final Map<Symbol, ColumnHandle> assignments;
     private final Map<ColumnHandle, NullableValue> bindings;
 
-    public LookupSymbolResolver(Map<Symbol, ColumnHandle> assignments, Map<ColumnHandle, NullableValue> bindings)
+    public LookupSymbolResolver(Map<VariableReferenceExpression, ColumnHandle> assignments, Map<ColumnHandle, NullableValue> bindings)
     {
         requireNonNull(assignments, "assignments is null");
         requireNonNull(bindings, "bindings is null");
 
-        this.assignments = ImmutableMap.copyOf(assignments);
+        this.assignments = assignments.entrySet().stream().collect(toImmutableMap(entry -> new Symbol(entry.getKey().getName()), Map.Entry::getValue));
         this.bindings = ImmutableMap.copyOf(bindings);
     }
 
