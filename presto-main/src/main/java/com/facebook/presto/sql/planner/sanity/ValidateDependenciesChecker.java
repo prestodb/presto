@@ -402,7 +402,14 @@ public final class ValidateDependenciesChecker
                     .addAll(rightInputs)
                     .build();
 
-            Set<Symbol> predicateSymbols = SymbolsExtractor.extractUnique(node.getFilter());
+            Set<Symbol> predicateSymbols;
+            if (isExpression(node.getFilter())) {
+                predicateSymbols = SymbolsExtractor.extractUnique(castToExpression(node.getFilter()));
+            }
+            else {
+                predicateSymbols = SymbolsExtractor.extractUnique(node.getFilter());
+            }
+
             checkArgument(
                     allInputs.containsAll(predicateSymbols),
                     "Symbol from filter (%s) not in sources (%s)",

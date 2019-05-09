@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.plan.WindowNode.Function;
@@ -45,6 +46,7 @@ import static com.facebook.presto.execution.warnings.WarningCollector.NOOP;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
+import static com.facebook.presto.sql.planner.plan.Patterns.spatialJoin;
 import static com.facebook.presto.sql.planner.plan.Patterns.values;
 import static com.facebook.presto.sql.planner.plan.Patterns.window;
 import static com.facebook.presto.sql.relational.Expressions.call;
@@ -71,7 +73,45 @@ public class TranslateExpressions
                 new ValuesExpressionTranslation(),
                 new FilterExpressionTranslation(),
                 new WindowExpressionTranslation(),
-                new JoinExpressionTranslation());
+                new JoinExpressionTranslation(),
+                new SpatialJoinExpressionTranslation());
+    }
+
+    private final class SpatialJoinExpressionTranslation
+            implements Rule<SpatialJoinNode>
+    {
+        @Override
+        public Pattern<SpatialJoinNode> getPattern()
+        {
+            return spatialJoin();
+        }
+
+        @Override
+        public Result apply(SpatialJoinNode spatialJoinNode, Captures captures, Context context)
+        {
+            RowExpression filter = spatialJoinNode.getFilter();
+            RowExpression rewritten;
+            if (isExpression(filter)) {
+                rewritten = toRowExpression(castToExpression(filter), context);
+            }
+            else {
+                rewritten = filter;
+            }
+
+            if (filter.equals(rewritten)) {
+                return Result.empty();
+            }
+            return Result.ofPlanNode(new SpatialJoinNode(
+                    spatialJoinNode.getId(),
+                    spatialJoinNode.getType(),
+                    spatialJoinNode.getLeft(),
+                    spatialJoinNode.getRight(),
+                    spatialJoinNode.getOutputSymbols(),
+                    rewritten,
+                    spatialJoinNode.getLeftPartitionSymbol(),
+                    spatialJoinNode.getRightPartitionSymbol(),
+                    spatialJoinNode.getKdbTree()));
+        }
     }
 
     private final class JoinExpressionTranslation

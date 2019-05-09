@@ -556,7 +556,7 @@ public class PredicatePushDown
 
             Expression leftEffectivePredicate = effectivePredicateExtractor.extract(node.getLeft());
             Expression rightEffectivePredicate = effectivePredicateExtractor.extract(node.getRight());
-            Expression joinPredicate = node.getFilter();
+            Expression joinPredicate = castToExpression(node.getFilter());
 
             Expression leftPredicate;
             Expression rightPredicate;
@@ -622,7 +622,7 @@ public class PredicatePushDown
                         leftSource,
                         rightSource,
                         node.getOutputSymbols(),
-                        newJoinPredicate,
+                        castToRowExpression(newJoinPredicate),
                         node.getLeftPartitionSymbol(),
                         node.getRightPartitionSymbol(),
                         node.getKdbTree());

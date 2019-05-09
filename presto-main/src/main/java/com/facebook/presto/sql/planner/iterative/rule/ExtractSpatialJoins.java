@@ -443,7 +443,7 @@ public class ExtractSpatialJoins
                 newLeftNode,
                 newRightNode,
                 outputSymbols,
-                newFilter,
+                castToRowExpression(newFilter),
                 leftPartitionSymbol,
                 rightPartitionSymbol,
                 kdbTree.map(KdbTreeUtils::toJson)));
