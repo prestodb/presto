@@ -56,6 +56,8 @@
     "processedInputPositions": 0,
     "outputDataSize": "0B",
     "outputPositions": 0,
+    "writtenPositions": 0,
+    "logicalWrittenDataSize": "0B",
     "physicalWrittenDataSize": "0B",
     "stageGcStatistics": [],
     "operatorSummaries": []

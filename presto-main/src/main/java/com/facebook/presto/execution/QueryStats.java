@@ -15,7 +15,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.operator.TableWriterOperator;
 import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -88,6 +87,8 @@ public class QueryStats
     private final DataSize outputDataSize;
     private final long outputPositions;
 
+    private final long writtenPositions;
+    private final DataSize logicalWrittenDataSize;
     private final DataSize physicalWrittenDataSize;
 
     private final List<StageGcStatistics> stageGcStatistics;
@@ -143,6 +144,8 @@ public class QueryStats
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
 
+            @JsonProperty("writtenPositions") long writtenPositions,
+            @JsonProperty("logicalWrittenDataSize") DataSize logicalWrittenDataSize,
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
 
             @JsonProperty("stageGcStatistics") List<StageGcStatistics> stageGcStatistics,
@@ -206,6 +209,9 @@ public class QueryStats
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
 
+        checkArgument(writtenPositions >= 0, "writtenPositions is negative: %s", writtenPositions);
+        this.writtenPositions = writtenPositions;
+        this.logicalWrittenDataSize = requireNonNull(logicalWrittenDataSize, "logicalWrittenDataSize is null");
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
 
         this.stageGcStatistics = ImmutableList.copyOf(requireNonNull(stageGcStatistics, "stageGcStatistics is null"));
@@ -255,6 +261,8 @@ public class QueryStats
                 0,
                 new DataSize(0, BYTE),
                 0,
+                0,
+                new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
                 ImmutableList.of(),
                 ImmutableList.of());
@@ -490,28 +498,21 @@ public class QueryStats
     }
 
     @JsonProperty
-    public DataSize getPhysicalWrittenDataSize()
-    {
-        return physicalWrittenDataSize;
-    }
-
-    @JsonProperty
     public long getWrittenPositions()
     {
-        return operatorSummaries.stream()
-                .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
-                .mapToLong(OperatorStats::getInputPositions)
-                .sum();
+        return writtenPositions;
     }
 
     @JsonProperty
     public DataSize getLogicalWrittenDataSize()
     {
-        return succinctBytes(
-                operatorSummaries.stream()
-                        .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
-                        .mapToLong(stats -> stats.getInputDataSize().toBytes())
-                        .sum());
+        return logicalWrittenDataSize;
+    }
+
+    @JsonProperty
+    public DataSize getPhysicalWrittenDataSize()
+    {
+        return physicalWrittenDataSize;
     }
 
     @JsonProperty
