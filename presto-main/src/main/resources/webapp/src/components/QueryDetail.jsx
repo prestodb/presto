@@ -1368,26 +1368,26 @@ export class QueryDetail extends React.Component {
                                     </tr>
                                     <tr>
                                         <td className="info-title">
-                                            Written Rows
+                                            Written Output Rows
                                         </td>
                                         <td className="info-text">
-                                            {formatCount(query.queryStats.writtenPositions)}
+                                            {formatCount(query.queryStats.writtenOutputPositions)}
                                         </td>
                                     </tr>
                                     <tr>
                                         <td className="info-title">
-                                            Logical Written Data
+                                            Written Output Logical Data Size
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.logicalWrittenDataSize}
+                                            {query.queryStats.writtenOutputLogicalDataSize}
                                         </td>
                                     </tr>
                                     <tr>
                                         <td className="info-title">
-                                            Physical Written Data
+                                            Written Output Physical Data Size
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.physicalWrittenDataSize}
+                                            {query.queryStats.writtenOutputPhysicalDataSize}
                                         </td>
                                     </tr>
                                     {parseDataSize(query.queryStats.spilledDataSize) > 0 &&
