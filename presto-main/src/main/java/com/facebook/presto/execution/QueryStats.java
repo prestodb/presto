@@ -87,9 +87,9 @@ public class QueryStats
     private final DataSize outputDataSize;
     private final long outputPositions;
 
-    private final long writtenPositions;
-    private final DataSize logicalWrittenDataSize;
-    private final DataSize physicalWrittenDataSize;
+    private final long writtenOutputPositions;
+    private final DataSize writtenOutputLogicalDataSize;
+    private final DataSize writtenOutputPhysicalDataSize;
 
     private final List<StageGcStatistics> stageGcStatistics;
 
@@ -144,9 +144,9 @@ public class QueryStats
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
 
-            @JsonProperty("writtenPositions") long writtenPositions,
-            @JsonProperty("logicalWrittenDataSize") DataSize logicalWrittenDataSize,
-            @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
+            @JsonProperty("writtenOutputPositions") long writtenOutputPositions,
+            @JsonProperty("writtenOutputLogicalDataSize") DataSize writtenOutputLogicalDataSize,
+            @JsonProperty("writtenOutputPhysicalDataSize") DataSize writtenOutputPhysicalDataSize,
 
             @JsonProperty("stageGcStatistics") List<StageGcStatistics> stageGcStatistics,
 
@@ -209,10 +209,10 @@ public class QueryStats
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
 
-        checkArgument(writtenPositions >= 0, "writtenPositions is negative: %s", writtenPositions);
-        this.writtenPositions = writtenPositions;
-        this.logicalWrittenDataSize = requireNonNull(logicalWrittenDataSize, "logicalWrittenDataSize is null");
-        this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
+        checkArgument(writtenOutputPositions >= 0, "writtenOutputPositions is negative: %s", writtenOutputPositions);
+        this.writtenOutputPositions = writtenOutputPositions;
+        this.writtenOutputLogicalDataSize = requireNonNull(writtenOutputLogicalDataSize, "writtenOutputLogicalDataSize is null");
+        this.writtenOutputPhysicalDataSize = requireNonNull(writtenOutputPhysicalDataSize, "writtenOutputPhysicalDataSize is null");
 
         this.stageGcStatistics = ImmutableList.copyOf(requireNonNull(stageGcStatistics, "stageGcStatistics is null"));
 
@@ -498,21 +498,21 @@ public class QueryStats
     }
 
     @JsonProperty
-    public long getWrittenPositions()
+    public long getWrittenOutputPositions()
     {
-        return writtenPositions;
+        return writtenOutputPositions;
     }
 
     @JsonProperty
-    public DataSize getLogicalWrittenDataSize()
+    public DataSize getWrittenOutputLogicalDataSize()
     {
-        return logicalWrittenDataSize;
+        return writtenOutputLogicalDataSize;
     }
 
     @JsonProperty
-    public DataSize getPhysicalWrittenDataSize()
+    public DataSize getWrittenOutputPhysicalDataSize()
     {
-        return physicalWrittenDataSize;
+        return writtenOutputPhysicalDataSize;
     }
 
     @JsonProperty

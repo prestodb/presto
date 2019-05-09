@@ -259,9 +259,9 @@ public class TestQueryStats
         assertEquals(actual.getOutputDataSize(), new DataSize(28, BYTE));
         assertEquals(actual.getOutputPositions(), 29);
 
-        assertEquals(actual.getWrittenPositions(), 30);
-        assertEquals(actual.getLogicalWrittenDataSize(), new DataSize(31, BYTE));
-        assertEquals(actual.getPhysicalWrittenDataSize(), new DataSize(32, BYTE));
+        assertEquals(actual.getWrittenOutputPositions(), 30);
+        assertEquals(actual.getWrittenOutputLogicalDataSize(), new DataSize(31, BYTE));
+        assertEquals(actual.getWrittenOutputPhysicalDataSize(), new DataSize(32, BYTE));
 
         assertEquals(actual.getStageGcStatistics().size(), 1);
         StageGcStatistics gcStatistics = actual.getStageGcStatistics().get(0);

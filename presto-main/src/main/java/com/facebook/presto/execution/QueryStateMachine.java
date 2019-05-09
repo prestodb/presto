@@ -435,9 +435,9 @@ public class QueryStateMachine
         long outputDataSize = 0;
         long outputPositions = 0;
 
-        long writtenPositions = 0;
-        long logicalWrittenDataSize = 0;
-        long physicalWrittenDataSize = 0;
+        long writtenOutputPositions = 0;
+        long writtenOutputLogicalDataSize = 0;
+        long writtenOutputPhysicalDataSize = 0;
 
         ImmutableList.Builder<StageGcStatistics> stageGcStatistics = ImmutableList.builder();
 
@@ -478,15 +478,15 @@ public class QueryStateMachine
                 processedInputPositions += stageStats.getProcessedInputPositions();
             }
 
-            writtenPositions += stageInfo.getStageStats().getOperatorSummaries().stream()
+            writtenOutputPositions += stageInfo.getStageStats().getOperatorSummaries().stream()
                     .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
                     .mapToLong(OperatorStats::getInputPositions)
                     .sum();
-            logicalWrittenDataSize += stageInfo.getStageStats().getOperatorSummaries().stream()
+            writtenOutputLogicalDataSize += stageInfo.getStageStats().getOperatorSummaries().stream()
                     .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
                     .mapToLong(stats -> stats.getInputDataSize().toBytes())
                     .sum();
-            physicalWrittenDataSize += stageStats.getPhysicalWrittenDataSize().toBytes();
+            writtenOutputPhysicalDataSize += stageStats.getPhysicalWrittenDataSize().toBytes();
 
             stageGcStatistics.add(stageStats.getGcInfo());
 
@@ -549,9 +549,9 @@ public class QueryStateMachine
                 succinctBytes(outputDataSize),
                 outputPositions,
 
-                writtenPositions,
-                succinctBytes(logicalWrittenDataSize),
-                succinctBytes(physicalWrittenDataSize),
+                writtenOutputPositions,
+                succinctBytes(writtenOutputLogicalDataSize),
+                succinctBytes(writtenOutputPhysicalDataSize),
 
                 stageGcStatistics.build(),
 
@@ -1016,9 +1016,9 @@ public class QueryStateMachine
                 queryStats.getProcessedInputPositions(),
                 queryStats.getOutputDataSize(),
                 queryStats.getOutputPositions(),
-                queryStats.getWrittenPositions(),
-                queryStats.getLogicalWrittenDataSize(),
-                queryStats.getPhysicalWrittenDataSize(),
+                queryStats.getWrittenOutputPositions(),
+                queryStats.getWrittenOutputLogicalDataSize(),
+                queryStats.getWrittenOutputPhysicalDataSize(),
                 queryStats.getStageGcStatistics(),
                 ImmutableList.of()); // Remove the operator summaries as OperatorInfo (especially ExchangeClientStatus) can hold onto a large amount of memory
     }
