@@ -21,6 +21,7 @@ import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.operator.TableWriterOperator;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.BasicQueryStats;
@@ -434,6 +435,8 @@ public class QueryStateMachine
         long outputDataSize = 0;
         long outputPositions = 0;
 
+        long writtenPositions = 0;
+        long logicalWrittenDataSize = 0;
         long physicalWrittenDataSize = 0;
 
         ImmutableList.Builder<StageGcStatistics> stageGcStatistics = ImmutableList.builder();
@@ -475,6 +478,14 @@ public class QueryStateMachine
                 processedInputPositions += stageStats.getProcessedInputPositions();
             }
 
+            writtenPositions += stageInfo.getStageStats().getOperatorSummaries().stream()
+                    .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
+                    .mapToLong(OperatorStats::getInputPositions)
+                    .sum();
+            logicalWrittenDataSize += stageInfo.getStageStats().getOperatorSummaries().stream()
+                    .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
+                    .mapToLong(stats -> stats.getInputDataSize().toBytes())
+                    .sum();
             physicalWrittenDataSize += stageStats.getPhysicalWrittenDataSize().toBytes();
 
             stageGcStatistics.add(stageStats.getGcInfo());
@@ -538,6 +549,8 @@ public class QueryStateMachine
                 succinctBytes(outputDataSize),
                 outputPositions,
 
+                writtenPositions,
+                succinctBytes(logicalWrittenDataSize),
                 succinctBytes(physicalWrittenDataSize),
 
                 stageGcStatistics.build(),
@@ -1003,6 +1016,8 @@ public class QueryStateMachine
                 queryStats.getProcessedInputPositions(),
                 queryStats.getOutputDataSize(),
                 queryStats.getOutputPositions(),
+                queryStats.getWrittenPositions(),
+                queryStats.getLogicalWrittenDataSize(),
                 queryStats.getPhysicalWrittenDataSize(),
                 queryStats.getStageGcStatistics(),
                 ImmutableList.of()); // Remove the operator summaries as OperatorInfo (especially ExchangeClientStatus) can hold onto a large amount of memory
