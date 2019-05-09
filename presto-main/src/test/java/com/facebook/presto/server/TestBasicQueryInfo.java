@@ -94,6 +94,7 @@ public class TestBasicQueryInfo
                                 33,
                                 DataSize.valueOf("34GB"),
                                 DataSize.valueOf("35GB"),
+                                DataSize.valueOf("36GB"),
                                 ImmutableList.of(new StageGcStatistics(
                                         101,
                                         102,

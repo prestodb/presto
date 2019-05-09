@@ -120,6 +120,7 @@ public class MockRemoteTaskFactory
                 ImmutableList.of(sourceId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
                 StageExecutionDescriptor.ungroupedExecution(),
+                false,
                 StatsAndCosts.empty(),
                 Optional.empty());
 

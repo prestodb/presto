@@ -439,6 +439,8 @@ public class QueryStateMachine
         long writtenOutputLogicalDataSize = 0;
         long writtenOutputPhysicalDataSize = 0;
 
+        long writtenIntermediatePhysicalDataSize = 0;
+
         ImmutableList.Builder<StageGcStatistics> stageGcStatistics = ImmutableList.builder();
 
         boolean fullyBlocked = rootStage.isPresent();
@@ -469,24 +471,31 @@ public class QueryStateMachine
                 blockedReasons.addAll(stageStats.getBlockedReasons());
             }
 
-            Optional<PlanFragment> plan = stageInfo.getPlan();
-            if (plan.isPresent() && plan.get().getPartitionedSourceNodes().stream().anyMatch(TableScanNode.class::isInstance)) {
-                rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
-                rawInputPositions += stageStats.getRawInputPositions();
+            if (stageInfo.getPlan().isPresent()) {
+                PlanFragment plan = stageInfo.getPlan().get();
+                if (plan.getPartitionedSourceNodes().stream().anyMatch(TableScanNode.class::isInstance)) {
+                    rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
+                    rawInputPositions += stageStats.getRawInputPositions();
 
-                processedInputDataSize += stageStats.getProcessedInputDataSize().toBytes();
-                processedInputPositions += stageStats.getProcessedInputPositions();
+                    processedInputDataSize += stageStats.getProcessedInputDataSize().toBytes();
+                    processedInputPositions += stageStats.getProcessedInputPositions();
+                }
+
+                if (plan.isMaterializedExchangeSource()) {
+                    writtenOutputPhysicalDataSize += stageStats.getPhysicalWrittenDataSize().toBytes();
+                }
+                else {
+                    writtenOutputPositions += stageInfo.getStageStats().getOperatorSummaries().stream()
+                            .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
+                            .mapToLong(OperatorStats::getInputPositions)
+                            .sum();
+                    writtenOutputLogicalDataSize += stageInfo.getStageStats().getOperatorSummaries().stream()
+                            .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
+                            .mapToLong(stats -> stats.getInputDataSize().toBytes())
+                            .sum();
+                    writtenOutputPhysicalDataSize += stageStats.getPhysicalWrittenDataSize().toBytes();
+                }
             }
-
-            writtenOutputPositions += stageInfo.getStageStats().getOperatorSummaries().stream()
-                    .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
-                    .mapToLong(OperatorStats::getInputPositions)
-                    .sum();
-            writtenOutputLogicalDataSize += stageInfo.getStageStats().getOperatorSummaries().stream()
-                    .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
-                    .mapToLong(stats -> stats.getInputDataSize().toBytes())
-                    .sum();
-            writtenOutputPhysicalDataSize += stageStats.getPhysicalWrittenDataSize().toBytes();
 
             stageGcStatistics.add(stageStats.getGcInfo());
 
@@ -552,6 +561,8 @@ public class QueryStateMachine
                 writtenOutputPositions,
                 succinctBytes(writtenOutputLogicalDataSize),
                 succinctBytes(writtenOutputPhysicalDataSize),
+
+                succinctBytes(writtenIntermediatePhysicalDataSize),
 
                 stageGcStatistics.build(),
 
@@ -1019,6 +1030,7 @@ public class QueryStateMachine
                 queryStats.getWrittenOutputPositions(),
                 queryStats.getWrittenOutputLogicalDataSize(),
                 queryStats.getWrittenOutputPhysicalDataSize(),
+                queryStats.getWrittenIntermediatePhysicalDataSize(),
                 queryStats.getStageGcStatistics(),
                 ImmutableList.of()); // Remove the operator summaries as OperatorInfo (especially ExchangeClientStatus) can hold onto a large amount of memory
     }

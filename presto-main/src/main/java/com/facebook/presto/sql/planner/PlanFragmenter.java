@@ -149,7 +149,9 @@ public class PlanFragmenter
                 idAllocator,
                 new SymbolAllocator(plan.getTypes().allTypes()));
 
-        FragmentProperties properties = new FragmentProperties(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()));
+        FragmentProperties properties = new FragmentProperties(
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()),
+                false);
         if (forceSingleNode || isForceSingleNodeOutput(session)) {
             properties = properties.setSingleNodeDistribution();
         }
@@ -239,6 +241,7 @@ public class PlanFragmenter
                         outputPartitioningScheme.isReplicateNullsAndAny(),
                         outputPartitioningScheme.getBucketToPartition()),
                 fragment.getStageExecutionDescriptor(),
+                fragment.isMaterializedExchangeSource(),
                 fragment.getStatsAndCosts(),
                 fragment.getJsonRepresentation());
 
@@ -315,6 +318,7 @@ public class PlanFragmenter
                     schedulingOrder,
                     properties.getPartitioningScheme(),
                     StageExecutionDescriptor.ungroupedExecution(),
+                    properties.isMaterializedExchangeSource(),
                     statsAndCosts.getForSubplan(root),
                     Optional.of(jsonFragmentPlan(root, fragmentSymbolTypes, metadata.getFunctionManager(), session)));
 
@@ -416,7 +420,9 @@ public class PlanFragmenter
 
             ImmutableList.Builder<SubPlan> builder = ImmutableList.builder();
             for (int sourceIndex = 0; sourceIndex < exchange.getSources().size(); sourceIndex++) {
-                FragmentProperties childProperties = new FragmentProperties(partitioningScheme.translateOutputLayout(exchange.getInputs().get(sourceIndex)));
+                FragmentProperties childProperties = new FragmentProperties(
+                        partitioningScheme.translateOutputLayout(exchange.getInputs().get(sourceIndex)),
+                        context.get().isMaterializedExchangeSource());
                 builder.add(buildSubPlan(exchange.getSources().get(sourceIndex), childProperties, context));
             }
 
@@ -476,9 +482,9 @@ public class PlanFragmenter
                     partitioningSymbolAssignments.getConstants(),
                     partitioningMetadata);
 
-            FragmentProperties writeProperties = new FragmentProperties(new PartitioningScheme(
-                    Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
-                    write.getOutputSymbols()));
+            FragmentProperties writeProperties = new FragmentProperties(
+                    new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), write.getOutputSymbols()),
+                    true);
             writeProperties.setCoordinatorOnlyDistribution();
 
             List<SubPlan> children = ImmutableList.of(buildSubPlan(write, writeProperties, context));
@@ -675,13 +681,15 @@ public class PlanFragmenter
         private final List<SubPlan> children = new ArrayList<>();
 
         private final PartitioningScheme partitioningScheme;
+        private final boolean materializedExchangeSource;
 
         private Optional<PartitioningHandle> partitioningHandle = Optional.empty();
         private final Set<PlanNodeId> partitionedSources = new HashSet<>();
 
-        public FragmentProperties(PartitioningScheme partitioningScheme)
+        public FragmentProperties(PartitioningScheme partitioningScheme, boolean materializedExchangeSource)
         {
             this.partitioningScheme = partitioningScheme;
+            this.materializedExchangeSource = materializedExchangeSource;
         }
 
         public List<SubPlan> getChildren()
@@ -798,6 +806,11 @@ public class PlanFragmenter
         public PartitioningScheme getPartitioningScheme()
         {
             return partitioningScheme;
+        }
+
+        public boolean isMaterializedExchangeSource()
+        {
+            return materializedExchangeSource;
         }
 
         public PartitioningHandle getPartitioningHandle()
