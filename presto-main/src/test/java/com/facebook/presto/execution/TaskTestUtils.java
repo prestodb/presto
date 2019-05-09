@@ -102,6 +102,7 @@ public final class TaskTestUtils
             new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(SYMBOL))
                     .withBucketToPartition(Optional.of(new int[1])),
             StageExecutionDescriptor.ungroupedExecution(),
+            false,
             StatsAndCosts.empty(),
             Optional.empty());
 

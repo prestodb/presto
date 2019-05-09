@@ -59,6 +59,7 @@
     "writtenOutputPositions": 0,
     "writtenOutputLogicalDataSize": "0B",
     "writtenOutputPhysicalDataSize": "0B",
+    "writtenIntermediatePhysicalDataSize": "0B",
     "stageGcStatistics": [],
     "operatorSummaries": []
   },

@@ -190,6 +190,8 @@ public class TestQueryStats
             new DataSize(31, BYTE),
             new DataSize(32, BYTE),
 
+            new DataSize(33, BYTE),
+
             ImmutableList.of(new StageGcStatistics(
                     101,
                     102,
@@ -260,8 +262,11 @@ public class TestQueryStats
         assertEquals(actual.getOutputPositions(), 29);
 
         assertEquals(actual.getWrittenOutputPositions(), 30);
+
         assertEquals(actual.getWrittenOutputLogicalDataSize(), new DataSize(31, BYTE));
         assertEquals(actual.getWrittenOutputPhysicalDataSize(), new DataSize(32, BYTE));
+
+        assertEquals(actual.getWrittenIntermediatePhysicalDataSize(), new DataSize(33, BYTE));
 
         assertEquals(actual.getStageGcStatistics().size(), 1);
         StageGcStatistics gcStatistics = actual.getStageGcStatistics().get(0);

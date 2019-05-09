@@ -144,6 +144,7 @@ public class TestQueryStateInfo
                         33,
                         DataSize.valueOf("34GB"),
                         DataSize.valueOf("35GB"),
+                        DataSize.valueOf("36GB"),
                         ImmutableList.of(),
                         ImmutableList.of()),
                 Optional.empty(),

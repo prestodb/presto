@@ -91,6 +91,8 @@ public class QueryStats
     private final DataSize writtenOutputLogicalDataSize;
     private final DataSize writtenOutputPhysicalDataSize;
 
+    private final DataSize writtenIntermediatePhysicalDataSize;
+
     private final List<StageGcStatistics> stageGcStatistics;
 
     private final List<OperatorStats> operatorSummaries;
@@ -147,6 +149,8 @@ public class QueryStats
             @JsonProperty("writtenOutputPositions") long writtenOutputPositions,
             @JsonProperty("writtenOutputLogicalDataSize") DataSize writtenOutputLogicalDataSize,
             @JsonProperty("writtenOutputPhysicalDataSize") DataSize writtenOutputPhysicalDataSize,
+
+            @JsonProperty("writtenIntermediatePhysicalDataSize") DataSize writtenIntermediatePhysicalDataSize,
 
             @JsonProperty("stageGcStatistics") List<StageGcStatistics> stageGcStatistics,
 
@@ -213,6 +217,7 @@ public class QueryStats
         this.writtenOutputPositions = writtenOutputPositions;
         this.writtenOutputLogicalDataSize = requireNonNull(writtenOutputLogicalDataSize, "writtenOutputLogicalDataSize is null");
         this.writtenOutputPhysicalDataSize = requireNonNull(writtenOutputPhysicalDataSize, "writtenOutputPhysicalDataSize is null");
+        this.writtenIntermediatePhysicalDataSize = requireNonNull(writtenIntermediatePhysicalDataSize, "writtenIntermediatePhysicalDataSize is null");
 
         this.stageGcStatistics = ImmutableList.copyOf(requireNonNull(stageGcStatistics, "stageGcStatistics is null"));
 
@@ -262,6 +267,7 @@ public class QueryStats
                 new DataSize(0, BYTE),
                 0,
                 0,
+                new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
                 ImmutableList.of(),
@@ -513,6 +519,12 @@ public class QueryStats
     public DataSize getWrittenOutputPhysicalDataSize()
     {
         return writtenOutputPhysicalDataSize;
+    }
+
+    @JsonProperty
+    public DataSize getWrittenIntermediatePhysicalDataSize()
+    {
+        return writtenIntermediatePhysicalDataSize;
     }
 
     @JsonProperty
