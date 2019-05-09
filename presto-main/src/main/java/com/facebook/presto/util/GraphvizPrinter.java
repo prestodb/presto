@@ -486,7 +486,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitSpatialJoin(SpatialJoinNode node, Void context)
         {
-            printNode(node, node.getType().getJoinLabel(), node.getFilter().toString(), NODE_COLORS.get(NodeType.JOIN));
+            printNode(node, node.getType().getJoinLabel(), formatter.formatRowExpression(node.getFilter()), NODE_COLORS.get(NodeType.JOIN));
 
             node.getLeft().accept(this, context);
             node.getRight().accept(this, context);
