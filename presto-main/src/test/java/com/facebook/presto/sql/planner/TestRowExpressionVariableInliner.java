@@ -24,17 +24,17 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
-public class TestRowExpressionSymbolInliner
+public class TestRowExpressionVariableInliner
 {
     private static final FunctionHandle TEST_FUNCTION = () -> null;
 
     @Test
     public void testInlineVariable()
     {
-        assertEquals(RowExpressionSymbolInliner.inlineSymbols(
+        assertEquals(RowExpressionVariableInliner.inlineVariables(
                 ImmutableMap.of(
-                        symbol("a"),
-                        symbol("b")),
+                        variable("a"),
+                        variable("b")),
                 variable("a")),
                 variable("b"));
     }
@@ -42,12 +42,12 @@ public class TestRowExpressionSymbolInliner
     @Test
     public void testInlineLambda()
     {
-        assertEquals(RowExpressionSymbolInliner.inlineSymbols(
+        assertEquals(RowExpressionVariableInliner.inlineVariables(
                 ImmutableMap.of(
-                        symbol("a"),
-                        symbol("b"),
-                        symbol("lambda_argument"),
-                        symbol("c")),
+                        variable("a"),
+                        variable("b"),
+                        variable("lambda_argument"),
+                        variable("c")),
                 new CallExpression("apply", TEST_FUNCTION, BIGINT, ImmutableList.of(
                         variable("a"),
                         new LambdaDefinitionExpression(
