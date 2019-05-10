@@ -169,15 +169,6 @@ public class H2QueryRunner
                 ")");
         insertRows(tpchMetadata, PART);
 
-        handle.execute("CREATE TABLE partsupp (\n" +
-                "  partkey bigint NOT NULL,\n" +
-                "  suppkey bigint NOT NULL,\n" +
-                "  availqty integer NOT NULL,\n" +
-                "  supplycost double NOT NULL,\n" +
-                "  comment varchar(199) NOT NULL\n" +
-                ")");
-        insertRows(tpchMetadata, PART_SUPPLIER);
-
         handle.execute("CREATE TABLE lineitem_aria_nulls AS\n" +
                 "SELECT *\n" +
 //                "   CASEWHEN(have_complex_nulls, null, map(array[1, 2, 3], array[orderkey, partkey, suppkey])) as order_part_supp_map,\n" +

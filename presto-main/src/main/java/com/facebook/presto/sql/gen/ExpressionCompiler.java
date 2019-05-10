@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageFilter;
@@ -62,6 +63,7 @@ import static java.util.Objects.requireNonNull;
 
 public class ExpressionCompiler
 {
+    private final FunctionManager functionManager;
     private final PageFunctionCompiler pageFunctionCompiler;
     private final LoadingCache<CacheKey, Class<? extends CursorProcessor>> cursorProcessors;
     private final CacheStatsMBean cacheStatsMBean;
@@ -69,7 +71,7 @@ public class ExpressionCompiler
     @Inject
     public ExpressionCompiler(Metadata metadata, PageFunctionCompiler pageFunctionCompiler)
     {
-        requireNonNull(metadata, "metadata is null");
+        this.functionManager = requireNonNull(metadata, "metadata is null").getFunctionManager();
         this.pageFunctionCompiler = requireNonNull(pageFunctionCompiler, "pageFunctionCompiler is null");
         this.cursorProcessors = CacheBuilder.newBuilder()
                 .recordStats()
@@ -246,7 +248,7 @@ public class ExpressionCompiler
 
     private void collectConjuncts(RowExpression expression, ImmutableList.Builder<RowExpression> conjuncts)
     {
-        if (expression instanceof CallExpression && ((CallExpression) expression).getFunctionHandle().getSignature().getName().equals("AND")) {
+        if (expression instanceof CallExpression && functionManager.getFunctionMetadata(((CallExpression) expression).getFunctionHandle()).getName().equals("AND")) {
             for (RowExpression argument : ((CallExpression) expression).getArguments()) {
                 collectConjuncts(argument, conjuncts);
             }

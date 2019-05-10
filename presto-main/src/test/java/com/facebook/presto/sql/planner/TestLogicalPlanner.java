@@ -1079,6 +1079,19 @@ public class TestLogicalPlanner
                                                 tableScan("lineitem_ext", ImmutableMap.of("shipinfo", "shipinfo", "l_orderkey", "orderkey")))))));
 
         assertPlanWithSession(
+                "SELECT o.orderkey FROM orders o, lineitem_ext l " +
+                        "WHERE o.orderkey = l.orderkey AND o.custkey > l.ints[2]",
+                pushdownSubfields, true,
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("o_orderkey", "l_orderkey")), Optional.of("custkey > ints_filtered[2]"),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey", "custkey", "custkey"))),
+                                anyTree(
+                                        project(
+                                                ImmutableMap.of("ints_filtered", expression(format("filter_by_subscript_paths(ints, %s)", optimizeExpression("array['ints[2]']", new ArrayType(createVarcharType(7)))))),
+                                                tableScan("lineitem_ext", ImmutableMap.of("ints", "ints", "l_orderkey", "orderkey")))))));
+
+        assertPlanWithSession(
                 "SELECT t.ints[2] FROM lineitem_ext CROSS JOIN UNNEST (nested_ints) AS t(ints)",
                 pushdownSubfields, true,
                 anyTree(

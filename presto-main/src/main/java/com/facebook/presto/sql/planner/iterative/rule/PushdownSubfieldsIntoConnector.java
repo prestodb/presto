@@ -182,7 +182,6 @@ public class PushdownSubfieldsIntoConnector
                     tableScan.getOutputSymbols(),
                     tableScan.getAssignments().entrySet().stream()
                             .collect(toImmutableMap(Map.Entry::getKey, e -> prunedColumns.getOrDefault(e.getValue(), e.getValue()))),
-                    tableScan.getLayout(),
                     tableScan.getCurrentConstraint(),
                     tableScan.getEnforcedConstraint());
 

@@ -107,7 +107,7 @@ public class PushdownSubfields
         public PlanNode visitJoin(JoinNode node, RewriteContext<Void> context)
         {
             if (node.getFilter().isPresent()) {
-                collectSubfieldPaths(node.getFilter().get());
+                collectSubfieldPaths(castToExpression(node.getFilter().get()));
             }
 
             PlanNode left = context.rewrite(node.getLeft(), context.get());
@@ -192,7 +192,6 @@ public class PushdownSubfields
                             .map(s -> symbolMap.getOrDefault(s, s))
                             .collect(toImmutableList()),
                     newAssignments.build(),
-                    node.getLayout(),
                     node.getCurrentConstraint(),
                     node.getEnforcedConstraint());
 
