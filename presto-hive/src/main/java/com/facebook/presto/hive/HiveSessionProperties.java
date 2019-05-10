@@ -80,7 +80,6 @@ public final class HiveSessionProperties
     private static final String S3_SELECT_PUSHDOWN_ENABLED = "s3_select_pushdown_enabled";
     private static final String TEMPORARY_STAGING_DIRECTORY_ENABLED = "temporary_staging_directory_enabled";
     private static final String TEMPORARY_STAGING_DIRECTORY_PATH = "temporary_staging_directory_path";
-    public static final String WRITING_STAGING_FILES_ENABLED = "writing_staging_files_enabled";
     private static final String TEMPORARY_TABLE_SCHEMA = "temporary_table_schema";
     private static final String TEMPORARY_TABLE_STORAGE_FORMAT = "temporary_table_storage_format";
     private static final String TEMPORARY_TABLE_COMPRESSION_CODEC = "temporary_table_compression_codec";
@@ -330,11 +329,6 @@ public final class HiveSessionProperties
                         "Temporary staging directory location",
                         hiveClientConfig.getTemporaryStagingDirectoryPath(),
                         false),
-                booleanProperty(
-                        WRITING_STAGING_FILES_ENABLED,
-                        "Experimental: Write table to staging files and rename to target files when commit",
-                        hiveClientConfig.isWritingStagingFilesEnabled(),
-                        false),
                 stringProperty(
                         TEMPORARY_TABLE_SCHEMA,
                         "Schema where to create temporary tables",
@@ -580,11 +574,6 @@ public final class HiveSessionProperties
     public static String getTemporaryStagingDirectoryPath(ConnectorSession session)
     {
         return session.getProperty(TEMPORARY_STAGING_DIRECTORY_PATH, String.class);
-    }
-
-    public static boolean isWritingStagingFilesEnabled(ConnectorSession session)
-    {
-        return session.getProperty(WRITING_STAGING_FILES_ENABLED, Boolean.class);
     }
 
     public static String getTemporaryTableSchema(ConnectorSession session)
