@@ -1,0 +1,26 @@
+{
+    "tableName": "machine",
+    "schemaName": "telemetry",
+    "host": "localhost",
+    "port": "9300",
+    "clusterName": "test",
+    "index": "machine",
+    "type": "doc",
+    "columns": [
+
+            {
+                "name": "Name",
+                "type": "varchar",
+                "jsonPath": "Name",
+                "jsonType": "varchar",
+                "ordinalPosition": "0"
+            },
+            {
+              "name": "ProductionCount",
+              "type": "bigint",
+              "jsonPath": "ProductionCount",
+              "jsonType": "bigint",
+              "ordinalPosition": "1"
+            }
+        ]
+}

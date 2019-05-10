@@ -24,13 +24,18 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 import static com.facebook.presto.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
 import static com.facebook.presto.elasticsearch.EmbeddedElasticsearchNode.createEmbeddedElasticsearchNode;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
+import static org.elasticsearch.client.Requests.refreshRequest;
 
 public class TestElasticsearchIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
@@ -88,6 +93,32 @@ public class TestElasticsearchIntegrationSmokeTest
                 .row("clerk", "varchar", "", "")
                 .row("shippriority", "bigint", "", "")
                 .row("comment", "varchar", "", "").build();
+        assertEquals(actualResult, expectedColumns, format("%s != %s", actualResult, expectedColumns));
+    }
+
+    @Test
+    public void testCaseSensitiveField()
+    {
+        String indexName = "machine";
+        String tableName = "telemetry.Machine";
+
+        Map<String, Object> source = new HashMap<>();
+        source.put("ProductionCount", 32L);
+        source.put("Name", "A Big Machine");
+
+        embeddedElasticsearchNode.getClient().prepareIndex(indexName.toLowerCase(ENGLISH), "doc").setSource(source).get();
+        embeddedElasticsearchNode.getClient().admin().indices().refresh(refreshRequest(indexName)).actionGet();
+
+        MaterializedResult actualColumns = computeActual("SELECT name, ProductionCount FROM " + tableName).toTestTypes();
+        MaterializedResult.Builder builder = resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, BIGINT);
+        for (MaterializedRow row : actualColumns.getMaterializedRows()) {
+            builder.row(row.getField(0), row.getField(1));
+        }
+
+        MaterializedResult actualResult = builder.build();
+        builder = resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, BIGINT);
+        MaterializedResult expectedColumns = builder
+                .row("A Big Machine", 32L).build();
         assertEquals(actualResult, expectedColumns, format("%s != %s", actualResult, expectedColumns));
     }
 }

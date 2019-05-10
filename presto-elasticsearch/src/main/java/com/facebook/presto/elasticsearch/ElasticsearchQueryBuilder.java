@@ -102,7 +102,7 @@ public class ElasticsearchQueryBuilder
     {
         String indices = index != null && !index.isEmpty() ? index : "_all";
         List<String> fields = columns.stream()
-                .map(ElasticsearchColumnHandle::getColumnName)
+                .map(ElasticsearchColumnHandle::getColumnJsonPath)
                 .collect(toList());
         SearchRequestBuilder searchRequestBuilder = client.prepareSearch(indices)
                 .setTypes(type)
