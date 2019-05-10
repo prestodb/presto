@@ -28,6 +28,7 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
+@Deprecated
 public final class ExpressionSymbolInliner
 {
     public static Expression inlineSymbols(Map<Symbol, ? extends Expression> mapping, Expression expression)
