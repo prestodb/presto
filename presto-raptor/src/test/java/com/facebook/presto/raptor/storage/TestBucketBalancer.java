@@ -80,7 +80,7 @@ public class TestBucketBalancer
 
         NodeSupplier nodeSupplier = nodeManager::getWorkerNodes;
         shardManager = createShardManager(dbi, nodeSupplier);
-        balancer = new BucketBalancer(nodeSupplier, shardManager, true, new Duration(1, DAYS), new Duration(1, DAYS), 0, true, true, "test");
+        balancer = new BucketBalancer(nodeSupplier, shardManager, true, new Duration(1, DAYS), 0, true, true, "test");
     }
 
     @AfterMethod(alwaysRun = true)
