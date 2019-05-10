@@ -26,27 +26,27 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
-public final class RowExpressionSymbolInliner
+public final class RowExpressionVariableInliner
         extends RowExpressionRewriter<Void>
 {
     private final Set<String> excludedNames = new HashSet<>();
-    private final Map<Symbol, Symbol> mapping;
+    private final Map<VariableReferenceExpression, RowExpression> mapping;
 
-    private RowExpressionSymbolInliner(Map<Symbol, Symbol> mapping)
+    private RowExpressionVariableInliner(Map<VariableReferenceExpression, RowExpression> mapping)
     {
         this.mapping = mapping;
     }
 
-    public static RowExpression inlineSymbols(Map<Symbol, Symbol> mapping, RowExpression expression)
+    public static RowExpression inlineVariables(Map<VariableReferenceExpression, RowExpression> mapping, RowExpression expression)
     {
-        return RowExpressionTreeRewriter.rewriteWith(new RowExpressionSymbolInliner(mapping), expression);
+        return RowExpressionTreeRewriter.rewriteWith(new RowExpressionVariableInliner(mapping), expression);
     }
 
     @Override
     public RowExpression rewriteVariableReference(VariableReferenceExpression node, Void context, RowExpressionTreeRewriter<Void> treeRewriter)
     {
         if (!excludedNames.contains(node.getName())) {
-            RowExpression result = new VariableReferenceExpression(mapping.get(new Symbol(node.getName())).getName(), node.getType());
+            RowExpression result = mapping.get(node);
             checkState(result != null, "Cannot resolve symbol %s", node.getName());
             return result;
         }
