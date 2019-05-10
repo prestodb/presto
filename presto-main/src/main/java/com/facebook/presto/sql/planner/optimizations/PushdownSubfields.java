@@ -21,7 +21,6 @@ import com.facebook.presto.spi.SubfieldPath;
 import com.facebook.presto.spi.SubfieldPath.NestedField;
 import com.facebook.presto.spi.SubfieldPath.PathElement;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.SubfieldUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -108,7 +107,7 @@ public class PushdownSubfields
         public PlanNode visitJoin(JoinNode node, RewriteContext<Void> context)
         {
             if (node.getFilter().isPresent()) {
-                collectSubfieldPaths(node.getFilter().get());
+                collectSubfieldPaths(castToExpression(node.getFilter().get()));
             }
 
             PlanNode left = context.rewrite(node.getLeft(), context.get());
@@ -379,12 +378,7 @@ public class PushdownSubfields
 
         private void collectSubfieldPaths(AggregationNode.Aggregation expression)
         {
-            throw new UnsupportedOperationException();
-        }
-
-        private void collectSubfieldPaths(RowExpression expression)
-        {
-            throw new UnsupportedOperationException();
+            // TODO Implement
         }
 
         private void collectSubfieldPaths(Node expression)
