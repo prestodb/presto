@@ -97,7 +97,7 @@ public class ThriftIndexedTpchService
                 ImmutableSet.copyOf(splitInfo.getLookupColumnNames()))
                 .orElseThrow(() -> new IllegalArgumentException(String.format("No such index: %s%s", splitInfo.getTableName(), splitInfo.getLookupColumnNames())));
         List<Type> lookupColumnTypes = types(splitInfo.getTableName(), splitInfo.getLookupColumnNames());
-        RecordSet keyRecordSet = new ListBasedRecordSet(splitInfo.getKeys(), lookupColumnTypes);
+        RecordSet keyRecordSet = new MappedRecordSet(new ListBasedRecordSet(splitInfo.getKeys(), lookupColumnTypes), computeRemap(splitInfo.getLookupColumnNames(), indexedTable.getKeyColumns()));
         RecordSet outputRecordSet = lookupIndexKeys(keyRecordSet, indexedTable, outputColumnNames);
         return new RecordPageSource(outputRecordSet);
     }
