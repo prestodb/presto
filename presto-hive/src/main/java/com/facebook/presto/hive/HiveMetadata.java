@@ -148,7 +148,6 @@ import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedMismatch
 import static com.facebook.presto.hive.HiveSessionProperties.isRespectTableFormat;
 import static com.facebook.presto.hive.HiveSessionProperties.isSortedWritingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
-import static com.facebook.presto.hive.HiveSessionProperties.isWritingStagingFilesEnabled;
 import static com.facebook.presto.hive.HiveTableProperties.AVRO_SCHEMA_URL;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
@@ -213,7 +212,6 @@ import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -1143,13 +1141,6 @@ public class HiveMetadata
 
         List<PartitionUpdate> partitionUpdates = getPartitionUpdates(fragments);
 
-        if (isWritingStagingFilesEnabled(session)) {
-            stagingFileCommitter.commitFiles(session, handle.getSchemaName(), handle.getTableName(), partitionUpdates);
-        }
-        else {
-            verifyNoStagingFilesWritten(partitionUpdates);
-        }
-
         WriteInfo writeInfo = locationService.getQueryWriteInfo(handle.getLocationHandle());
         Table table = buildTableObject(
                 session.getQueryId(),
@@ -1411,13 +1402,6 @@ public class HiveMetadata
 
         List<PartitionUpdate> partitionUpdates = getPartitionUpdates(fragments);
 
-        if (isWritingStagingFilesEnabled(session)) {
-            stagingFileCommitter.commitFiles(session, handle.getSchemaName(), handle.getTableName(), partitionUpdates);
-        }
-        else {
-            verifyNoStagingFilesWritten(partitionUpdates);
-        }
-
         HiveStorageFormat tableStorageFormat = handle.getTableStorageFormat();
         partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
 
@@ -1511,14 +1495,6 @@ public class HiveMetadata
                         .map(PartitionUpdate::getName)
                         .map(name -> name.isEmpty() ? UNPARTITIONED_ID : name)
                         .collect(Collectors.toList())));
-    }
-
-    private void verifyNoStagingFilesWritten(List<PartitionUpdate> partitionUpdates)
-    {
-        checkState(partitionUpdates.stream()
-                .map(PartitionUpdate::getFileWriteInfos)
-                .flatMap(List::stream)
-                .allMatch(stagingFileInfo -> stagingFileInfo.getWriteFileName().equals(stagingFileInfo.getTargetFileName())));
     }
 
     private List<String> getTargetFileNames(List<FileWriteInfo> fileWriteInfos)

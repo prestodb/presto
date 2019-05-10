@@ -67,7 +67,6 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMA
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
-import static com.facebook.presto.hive.HiveSessionProperties.isWritingStagingFilesEnabled;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.hive.HiveWriteUtils.createPartitionValues;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
@@ -430,15 +429,7 @@ public class HiveWriterFactory
             targetFileName = filePrefix + "_" + randomUUID() + extension;
         }
 
-        String writeFileName;
-        if (isWritingStagingFilesEnabled(session)) {
-            writeFileName = ".tmp.presto." + filePrefix + "_" + randomUUID() + extension;
-        }
-        else {
-            writeFileName = targetFileName;
-        }
-
-        Path path = new Path(writeInfo.getWritePath(), writeFileName);
+        Path path = new Path(writeInfo.getWritePath(), targetFileName);
 
         HiveFileWriter hiveFileWriter = null;
         for (HiveFileWriterFactory fileWriterFactory : fileWriterFactories) {
@@ -546,7 +537,7 @@ public class HiveWriterFactory
                 hiveFileWriter,
                 partitionName,
                 updateMode,
-                new FileWriteInfo(writeFileName, targetFileName),
+                new FileWriteInfo(targetFileName, targetFileName),
                 writeInfo.getWritePath().toString(),
                 writeInfo.getTargetPath().toString(),
                 onCommit,

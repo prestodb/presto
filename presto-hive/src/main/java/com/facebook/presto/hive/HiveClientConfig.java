@@ -1258,19 +1258,6 @@ public class HiveClientConfig
         return this;
     }
 
-    public boolean isWritingStagingFilesEnabled()
-    {
-        return writingStagingFilesEnabled;
-    }
-
-    @Config("hive.writing-staging-files-enabled")
-    @ConfigDescription("Write data to staging files and rename to target files when commit")
-    public HiveClientConfig setWritingStagingFilesEnabled(boolean writingStagingFilesEnabled)
-    {
-        this.writingStagingFilesEnabled = writingStagingFilesEnabled;
-        return this;
-    }
-
     @NotNull
     public String getTemporaryTableSchema()
     {
