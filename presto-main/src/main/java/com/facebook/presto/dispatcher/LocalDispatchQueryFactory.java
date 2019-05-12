@@ -24,10 +24,8 @@ import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.execution.QueryStateMachine;
 import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -57,7 +55,6 @@ public class LocalDispatchQueryFactory
     private final QueryMonitor queryMonitor;
     private final LocationFactory locationFactory;
 
-    private final CoordinatorLocation coordinatorLocation;
     private final ClusterSizeMonitor clusterSizeMonitor;
 
     private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
@@ -72,7 +69,6 @@ public class LocalDispatchQueryFactory
             QueryMonitor queryMonitor,
             LocationFactory locationFactory,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
-            InternalNodeManager internalNodeManager,
             ClusterSizeMonitor clusterSizeMonitor,
             @ForQueryExecution ExecutorService executorService)
 
@@ -85,8 +81,6 @@ public class LocalDispatchQueryFactory
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.executionFactories = requireNonNull(executionFactories, "executionFactories is null");
 
-        Node currentNode = requireNonNull(internalNodeManager, "internalNodeManager is null").getCurrentNode();
-        this.coordinatorLocation = new CoordinatorLocation(Optional.of(currentNode.getHttpUri()), Optional.of(currentNode.getHttpUri()));
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
 
         this.executorService = listeningDecorator(requireNonNull(executorService, "executorService is null"));
@@ -130,7 +124,6 @@ public class LocalDispatchQueryFactory
         return new LocalDispatchQuery(
                 stateMachine,
                 queryExecutionFuture,
-                coordinatorLocation,
                 clusterSizeMonitor,
                 queryExecutor,
                 queryExecution -> executorService.submit(() -> queryManager.createQuery(queryExecution)));
