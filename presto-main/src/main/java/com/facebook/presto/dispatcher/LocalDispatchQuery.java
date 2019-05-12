@@ -51,8 +51,6 @@ public class LocalDispatchQuery
     private final QueryStateMachine stateMachine;
     private final ListenableFuture<QueryExecution> queryExecutionFuture;
 
-    private final CoordinatorLocation coordinatorLocation;
-
     private final ClusterSizeMonitor clusterSizeMonitor;
 
     private final ExecutorService queryExecutor;
@@ -62,14 +60,12 @@ public class LocalDispatchQuery
     public LocalDispatchQuery(
             QueryStateMachine stateMachine,
             ListenableFuture<QueryExecution> queryExecutionFuture,
-            CoordinatorLocation coordinatorLocation,
             ClusterSizeMonitor clusterSizeMonitor,
             ExecutorService queryExecutor,
             Function<QueryExecution, ListenableFuture<?>> querySubmitter)
     {
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.queryExecutionFuture = requireNonNull(queryExecutionFuture, "queryExecutionFuture is null");
-        this.coordinatorLocation = requireNonNull(coordinatorLocation, "coordinatorLocation is null");
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
         this.querySubmitter = requireNonNull(querySubmitter, "querySubmitter is null");
@@ -134,7 +130,7 @@ public class LocalDispatchQuery
         BasicQueryInfo queryInfo = stateMachine.getBasicQueryInfo(Optional.empty());
         Optional<CoordinatorLocation> coordinator = Optional.empty();
         if (queryInfo.getState().ordinal() >= PLANNING.ordinal()) {
-            coordinator = Optional.of(coordinatorLocation);
+            coordinator = Optional.of(new LocalCoordinatorLocation());
         }
         Optional<ExecutionFailureInfo> failureInfo = Optional.empty();
         if (queryInfo.getState() == FAILED) {
