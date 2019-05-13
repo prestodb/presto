@@ -456,6 +456,18 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void commitPartition(Session session, OutputTableHandle tableHandle, int partitionId, Collection<Slice> fragments)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void commitPartition(Session session, InsertTableHandle tableHandle, int partitionId, Collection<Slice> fragments)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public FunctionManager getFunctionManager()
     {
         throw new UnsupportedOperationException();

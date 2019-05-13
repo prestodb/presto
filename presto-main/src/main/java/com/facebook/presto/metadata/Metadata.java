@@ -398,6 +398,18 @@ public interface Metadata
      */
     List<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix);
 
+    /**
+     * Commits partition for table creation.
+     * @apiNote This method is unstable and subject to change in the future.
+     */
+    void commitPartition(Session session, OutputTableHandle tableHandle, int partitionId, Collection<Slice> fragments);
+
+    /**
+     * Commits partition for table insertion.
+     * @apiNote This method is unstable and subject to change in the future.
+     */
+    void commitPartition(Session session, InsertTableHandle tableHandle, int partitionId, Collection<Slice> fragments);
+
     FunctionManager getFunctionManager();
 
     ProcedureRegistry getProcedureRegistry();

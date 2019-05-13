@@ -574,4 +574,20 @@ public class ClassLoaderSafeConnectorMetadata
             return delegate.listTablePrivileges(session, prefix);
         }
     }
+
+    @Override
+    public void commitPartition(ConnectorSession session, ConnectorOutputTableHandle tableHandle, int partitionId, Collection<Slice> fragments)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.commitPartition(session, tableHandle, partitionId, fragments);
+        }
+    }
+
+    @Override
+    public void commitPartition(ConnectorSession session, ConnectorInsertTableHandle tableHandle, int partitionId, Collection<Slice> fragments)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.commitPartition(session, tableHandle, partitionId, fragments);
+        }
+    }
 }
