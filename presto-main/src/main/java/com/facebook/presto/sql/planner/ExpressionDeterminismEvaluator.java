@@ -24,10 +24,11 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Determines whether a given Expression is deterministic
+ * @deprecated Use {@link com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator}
  */
-public final class DeterminismEvaluator
+public final class ExpressionDeterminismEvaluator
 {
-    private DeterminismEvaluator() {}
+    private ExpressionDeterminismEvaluator() {}
 
     public static boolean isDeterministic(Expression expression)
     {

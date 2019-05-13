@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.DeterminismEvaluator;
+import com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -124,7 +124,7 @@ public class ExtractCommonPredicatesExpressionRewriter
          */
         private static Expression distributeIfPossible(LogicalBinaryExpression expression)
         {
-            if (!DeterminismEvaluator.isDeterministic(expression)) {
+            if (!ExpressionDeterminismEvaluator.isDeterministic(expression)) {
                 // Do not distribute boolean expressions if there are any non-deterministic elements
                 // TODO: This can be optimized further if non-deterministic elements are not repeated
                 return expression;
@@ -168,7 +168,7 @@ public class ExtractCommonPredicatesExpressionRewriter
         private static Set<Expression> filterDeterministicPredicates(List<Expression> predicates)
         {
             return predicates.stream()
-                    .filter(DeterminismEvaluator::isDeterministic)
+                    .filter(ExpressionDeterminismEvaluator::isDeterministic)
                     .collect(toSet());
         }
 

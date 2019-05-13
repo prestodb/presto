@@ -119,7 +119,7 @@ import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verify
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
-import static com.facebook.presto.sql.planner.DeterminismEvaluator.isDeterministic;
+import static com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.Interpreters.interpretDereference;
 import static com.facebook.presto.sql.planner.Interpreters.interpretLikePredicate;
 import static com.facebook.presto.sql.planner.LiteralEncoder.isSupportedLiteralType;
@@ -611,7 +611,7 @@ public class ExpressionInterpreter
                 List<Expression> expressionValues = toExpressions(values, types);
                 List<Expression> simplifiedExpressionValues = Stream.concat(
                         expressionValues.stream()
-                                .filter(DeterminismEvaluator::isDeterministic)
+                                .filter(ExpressionDeterminismEvaluator::isDeterministic)
                                 .distinct(),
                         expressionValues.stream()
                                 .filter((expression -> !isDeterministic(expression))))
