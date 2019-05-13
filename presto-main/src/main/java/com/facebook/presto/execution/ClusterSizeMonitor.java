@@ -36,10 +36,8 @@ import java.util.function.Consumer;
 
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
-import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -49,13 +47,9 @@ public class ClusterSizeMonitor
 {
     private final InternalNodeManager nodeManager;
     private final boolean includeCoordinator;
-    private final int initializationMinCount;
-    private final Duration initializationMaxWait;
     private final int executionMinCount;
     private final Duration executionMaxWait;
     private final ScheduledExecutorService executor;
-
-    private final long createNanos = System.nanoTime();
 
     private final Consumer<AllNodes> listener = this::updateAllNodes;
 
@@ -65,34 +59,24 @@ public class ClusterSizeMonitor
     @GuardedBy("this")
     private final List<SettableFuture<?>> futures = new ArrayList<>();
 
-    @GuardedBy("this")
-    private boolean minimumWorkerRequirementMet;
-
     @Inject
     public ClusterSizeMonitor(InternalNodeManager nodeManager, NodeSchedulerConfig nodeSchedulerConfig, QueryManagerConfig queryManagerConfig)
     {
         this(
                 nodeManager,
                 requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeCoordinator(),
-                requireNonNull(queryManagerConfig, "queryManagerConfig is null").getInitializationRequiredWorkers(),
-                queryManagerConfig.getInitializationTimeout(),
-                queryManagerConfig.getRequiredWorkers(),
+                requireNonNull(queryManagerConfig, "queryManagerConfig is null").getRequiredWorkers(),
                 queryManagerConfig.getRequiredWorkersMaxWait());
     }
 
     public ClusterSizeMonitor(
             InternalNodeManager nodeManager,
             boolean includeCoordinator,
-            int initializationMinCount,
-            Duration initializationMaxWait,
             int executionMinCount,
             Duration executionMaxWait)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.includeCoordinator = includeCoordinator;
-        checkArgument(initializationMinCount >= 0, "initializationMinCount is negative");
-        this.initializationMinCount = initializationMinCount;
-        this.initializationMaxWait = requireNonNull(initializationMaxWait, "initializationMaxWait is null");
         checkArgument(executionMinCount >= 0, "executionMinCount is negative");
         this.executionMinCount = executionMinCount;
         this.executionMaxWait = requireNonNull(executionMaxWait, "executionMaxWait is null");
@@ -110,18 +94,6 @@ public class ClusterSizeMonitor
     public void stop()
     {
         nodeManager.removeNodeChangeListener(listener);
-    }
-
-    public synchronized void verifyInitialMinimumWorkersRequirement()
-    {
-        if (minimumWorkerRequirementMet) {
-            return;
-        }
-
-        if (currentCount < initializationMinCount && nanosSince(createNanos).compareTo(initializationMaxWait) < 0) {
-            throw new PrestoException(SERVER_STARTING_UP, format("Cluster is still initializing, there are insufficient active worker nodes (%s) to run query", currentCount));
-        }
-        minimumWorkerRequirementMet = true;
     }
 
     /**
