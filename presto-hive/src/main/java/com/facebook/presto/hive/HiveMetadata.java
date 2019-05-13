@@ -2153,6 +2153,20 @@ public class HiveMetadata
         return result.build();
     }
 
+    @Override
+    public void commitPartition(ConnectorSession session, ConnectorOutputTableHandle tableHandle, int partitionId, Collection<Slice> fragments)
+    {
+        HiveOutputTableHandle handle = (HiveOutputTableHandle) tableHandle;
+        stagingFileCommitter.commitFiles(session, handle.getSchemaName(), handle.getTableName(), getPartitionUpdates(fragments));
+    }
+
+    @Override
+    public void commitPartition(ConnectorSession session, ConnectorInsertTableHandle tableHandle, int partitionId, Collection<Slice> fragments)
+    {
+        HiveInsertTableHandle handle = (HiveInsertTableHandle) tableHandle;
+        stagingFileCommitter.commitFiles(session, handle.getSchemaName(), handle.getTableName(), getPartitionUpdates(fragments));
+    }
+
     private List<GrantInfo> buildGrants(SchemaTableName tableName, PrestoPrincipal principal)
     {
         ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();

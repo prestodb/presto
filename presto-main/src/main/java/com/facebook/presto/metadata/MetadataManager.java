@@ -1124,6 +1124,28 @@ public class MetadataManager
     }
 
     @Override
+    public void commitPartition(Session session, OutputTableHandle tableHandle, int partitionId, Collection<Slice> fragments)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+
+        metadata.commitPartition(connectorSession, tableHandle.getConnectorHandle(), partitionId, fragments);
+    }
+
+    @Override
+    public void commitPartition(Session session, InsertTableHandle tableHandle, int partitionId, Collection<Slice> fragments)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+
+        metadata.commitPartition(connectorSession, tableHandle.getConnectorHandle(), partitionId, fragments);
+    }
+
+    @Override
     public FunctionManager getFunctionManager()
     {
         // TODO: transactional when FunctionManager is made transactional
