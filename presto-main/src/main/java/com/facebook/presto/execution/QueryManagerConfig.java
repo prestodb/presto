@@ -64,9 +64,6 @@ public class QueryManagerConfig
     private Duration queryMaxExecutionTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
 
-    private int initializationRequiredWorkers = 1;
-    private Duration initializationTimeout = new Duration(5, TimeUnit.MINUTES);
-
     private int requiredWorkers = 1;
     private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
 
@@ -383,34 +380,6 @@ public class QueryManagerConfig
     public QueryManagerConfig setQueryExecutionPolicy(String queryExecutionPolicy)
     {
         this.queryExecutionPolicy = queryExecutionPolicy;
-        return this;
-    }
-
-    @Min(1)
-    public int getInitializationRequiredWorkers()
-    {
-        return initializationRequiredWorkers;
-    }
-
-    @Config("query-manager.initialization-required-workers")
-    @ConfigDescription("Minimum number of workers that must be available before the cluster will accept queries")
-    public QueryManagerConfig setInitializationRequiredWorkers(int initializationRequiredWorkers)
-    {
-        this.initializationRequiredWorkers = initializationRequiredWorkers;
-        return this;
-    }
-
-    @NotNull
-    public Duration getInitializationTimeout()
-    {
-        return initializationTimeout;
-    }
-
-    @Config("query-manager.initialization-timeout")
-    @ConfigDescription("After this time, the cluster will accept queries even if the minimum required workers are not available")
-    public QueryManagerConfig setInitializationTimeout(Duration initializationTimeout)
-    {
-        this.initializationTimeout = initializationTimeout;
         return this;
     }
 
