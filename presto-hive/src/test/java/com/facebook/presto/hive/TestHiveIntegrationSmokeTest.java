@@ -2752,6 +2752,18 @@ public class TestHiveIntegrationSmokeTest
                 assertRemoteMaterializedExchangesCount(1)
                         // make sure that the window function has been planned as a TopNRowNumberNode
                         .andThen(plan -> assertTrue(searchFrom(plan.getRoot()).where(node -> node instanceof TopNRowNumberNode).matches())));
+
+        // union
+        assertQuery(
+                materializeExchangesSession,
+                "SELECT partkey, count(*), sum(cost) " +
+                        "FROM ( " +
+                        "  SELECT partkey, CAST(extendedprice AS BIGINT) cost FROM lineitem " +
+                        "  UNION ALL " +
+                        "  SELECT partkey, CAST(supplycost AS BIGINT) cost FROM partsupp " +
+                        ") " +
+                        "GROUP BY partkey",
+                assertRemoteMaterializedExchangesCount(2));
     }
 
     public static Consumer<Plan> assertRemoteMaterializedExchangesCount(int expectedRemoteExchangesCount)
