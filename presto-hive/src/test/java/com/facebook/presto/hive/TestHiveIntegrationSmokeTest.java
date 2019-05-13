@@ -2719,6 +2719,18 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate("DROP TABLE IF EXISTS test_bucketed_lineitem1");
             assertUpdate("DROP TABLE IF EXISTS test_bucketed_lineitem2");
         }
+
+        // union
+        assertQuery(
+                materializeExchangesSession,
+                "SELECT partkey, count(*), sum(cost) " +
+                        "FROM ( " +
+                        "  SELECT partkey, CAST(extendedprice AS BIGINT) cost FROM lineitem " +
+                        "  UNION ALL " +
+                        "  SELECT partkey, CAST(supplycost AS BIGINT) cost FROM partsupp " +
+                        ") " +
+                        "GROUP BY partkey",
+                assertRemoteMaterializedExchangesCount(2));
     }
 
     public static Consumer<Plan> assertRemoteMaterializedExchangesCount(int expectedRemoteExchangesCount)
