@@ -358,7 +358,7 @@ public final class ExpressionDomainTranslator
 
                     // We can only make inferences if the remaining expressions on both side are equal and deterministic
                     if (leftResult.getRemainingExpression().equals(rightResult.getRemainingExpression()) &&
-                            DeterminismEvaluator.isDeterministic(leftResult.getRemainingExpression())) {
+                            ExpressionDeterminismEvaluator.isDeterministic(leftResult.getRemainingExpression())) {
                         // The column-wise union is equivalent to the strict union if
                         // 1) If both TupleDomains consist of the same exact single column (e.g. left TupleDomain => (a > 0), right TupleDomain => (a < 10))
                         // 2) If one TupleDomain is a superset of the other (e.g. left TupleDomain => (a > 0, b > 0 && b < 10), right TupleDomain => (a > 5, b = 5))

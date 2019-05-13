@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql;
 
-import com.facebook.presto.sql.planner.DeterminismEvaluator;
+import com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -234,12 +234,12 @@ public final class ExpressionUtils
 
     public static Expression filterDeterministicConjuncts(Expression expression)
     {
-        return filterConjuncts(expression, DeterminismEvaluator::isDeterministic);
+        return filterConjuncts(expression, ExpressionDeterminismEvaluator::isDeterministic);
     }
 
     public static Expression filterNonDeterministicConjuncts(Expression expression)
     {
-        return filterConjuncts(expression, not(DeterminismEvaluator::isDeterministic));
+        return filterConjuncts(expression, not(ExpressionDeterminismEvaluator::isDeterministic));
     }
 
     public static Expression filterConjuncts(Expression expression, Predicate<Expression> predicate)
@@ -295,7 +295,7 @@ public final class ExpressionUtils
 
         ImmutableList.Builder<Expression> result = ImmutableList.builder();
         for (Expression expression : expressions) {
-            if (!DeterminismEvaluator.isDeterministic(expression)) {
+            if (!ExpressionDeterminismEvaluator.isDeterministic(expression)) {
                 result.add(expression);
             }
             else if (!seen.contains(expression)) {

@@ -24,17 +24,17 @@ import java.util.Arrays;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class TestDeterminismEvaluator
+public class TestExpressionDeterminismEvaluator
 {
     @Test
     public void testSanity()
     {
-        assertFalse(DeterminismEvaluator.isDeterministic(function("rand")));
-        assertFalse(DeterminismEvaluator.isDeterministic(function("random")));
-        assertFalse(DeterminismEvaluator.isDeterministic(function("shuffle")));
-        assertTrue(DeterminismEvaluator.isDeterministic(function("abs", input("symbol"))));
-        assertFalse(DeterminismEvaluator.isDeterministic(function("abs", function("rand"))));
-        assertTrue(DeterminismEvaluator.isDeterministic(function("abs", function("abs", input("symbol")))));
+        assertFalse(ExpressionDeterminismEvaluator.isDeterministic(function("rand")));
+        assertFalse(ExpressionDeterminismEvaluator.isDeterministic(function("random")));
+        assertFalse(ExpressionDeterminismEvaluator.isDeterministic(function("shuffle")));
+        assertTrue(ExpressionDeterminismEvaluator.isDeterministic(function("abs", input("symbol"))));
+        assertFalse(ExpressionDeterminismEvaluator.isDeterministic(function("abs", function("rand"))));
+        assertTrue(ExpressionDeterminismEvaluator.isDeterministic(function("abs", function("abs", input("symbol")))));
     }
 
     private static FunctionCall function(String name, Expression... inputs)
