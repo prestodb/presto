@@ -168,6 +168,23 @@ public class H2QueryRunner
                 "  comment VARCHAR(23) NOT NULL\n" +
                 ")");
         insertRows(tpchMetadata, PART);
+
+        handle.execute("CREATE TABLE lineitem_nulls AS\n" +
+                "SELECT *\n" +
+                "FROM (\n" +
+                "   SELECT \n" +
+                "       orderkey,\n" +
+                "       linenumber,\n" +
+                "       have_simple_nulls and mod(orderkey + linenumber, 5) = 0 AS have_complex_nulls,\n" +
+                "       CASEWHEN(have_simple_nulls and mod(orderkey + linenumber, 11) = 0, null, partkey) as partkey,\n" +
+                "       CASEWHEN(have_simple_nulls and mod(orderkey + linenumber, 13) = 0, null, suppkey) as suppkey,\n" +
+                "       CASEWHEN(have_simple_nulls and mod (orderkey + linenumber, 17) = 0, null, quantity) as quantity,\n" +
+                "       CASEWHEN(have_simple_nulls and mod (orderkey + linenumber, 19) = 0, null, extendedprice) as extendedprice,\n" +
+                "       CASEWHEN(have_simple_nulls and mod (orderkey + linenumber, 23) = 0, null, shipmode) as shipmode,\n" +
+                "       CASEWHEN(have_simple_nulls and mod (orderkey + linenumber, 7) = 0, null, comment) as comment,\n" +
+                "       CASEWHEN(have_simple_nulls and mod(orderkey + linenumber, 31) = 0, null, returnflag = 'R') as is_returned,\n" +
+                "       CASEWHEN(have_simple_nulls and mod(orderkey + linenumber, 37) = 0, null, CAST(quantity + 1 as real)) as float_quantity\n" +
+                "   FROM (SELECT mod(orderkey, 198000) > 99000 as have_simple_nulls, * FROM lineitem))\n");
     }
 
     private void insertRows(TpchMetadata tpchMetadata, TpchTable tpchTable)

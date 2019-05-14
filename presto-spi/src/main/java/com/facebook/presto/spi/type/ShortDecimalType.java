@@ -26,7 +26,7 @@ import java.math.BigInteger;
 import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
-final class ShortDecimalType
+public final class ShortDecimalType
         extends DecimalType
 {
     ShortDecimalType(int precision, int scale)

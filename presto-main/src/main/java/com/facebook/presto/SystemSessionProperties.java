@@ -129,6 +129,7 @@ public final class SystemSessionProperties
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
     public static final String PUSH_LIMIT_THROUGH_OUTER_JOIN = "push_limit_through_outer_join";
     public static final String MAX_CONCURRENT_MATERIALIZATIONS = "max_concurrent_materializations";
+    public static final String OPTIMIZED_PARTITIONED_OUTPUT = "optmized_partitioned_output";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -620,6 +621,11 @@ public final class SystemSessionProperties
                         MAX_CONCURRENT_MATERIALIZATIONS,
                         "Maximum number of materializing plan sections that can run concurrently",
                         featuresConfig.getMaxConcurrentMaterializations(),
+                        false),
+                booleanProperty(
+                        OPTIMIZED_PARTITIONED_OUTPUT,
+                        "push limits to the outer side of an outer join",
+                        featuresConfig.isOptimizedPartitionedOutput(),
                         false));
     }
 
@@ -1051,5 +1057,10 @@ public final class SystemSessionProperties
     public static int getMaxConcurrentMaterializations(Session session)
     {
         return session.getSystemProperty(MAX_CONCURRENT_MATERIALIZATIONS, Integer.class);
+    }
+
+    public static boolean isOptimizedPartitionedOutputEnabled(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZED_PARTITIONED_OUTPUT, Boolean.class);
     }
 }

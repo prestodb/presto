@@ -29,7 +29,7 @@ import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.UNSCALED
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.compare;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
-final class LongDecimalType
+public final class LongDecimalType
         extends DecimalType
 {
     LongDecimalType(int precision, int scale)

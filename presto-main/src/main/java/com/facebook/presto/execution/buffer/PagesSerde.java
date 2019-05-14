@@ -34,6 +34,7 @@ import static com.facebook.presto.execution.buffer.PagesSerdeUtil.readRawPage;
 import static com.facebook.presto.execution.buffer.PagesSerdeUtil.writeRawPage;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.compress.lz4.Lz4RawCompressor.maxCompressedLength;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -46,6 +47,7 @@ public class PagesSerde
     private final Optional<Compressor> compressor;
     private final Optional<Decompressor> decompressor;
     private final Optional<SpillCipher> spillCipher;
+    private byte[] compressionBuffer;
 
     public PagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<Compressor> compressor, Optional<Decompressor> decompressor, Optional<SpillCipher> spillCipher)
     {
@@ -86,6 +88,31 @@ public class PagesSerde
         }
 
         return new SerializedPage(slice, markers, page.getPositionCount(), uncompressedSize);
+    }
+
+    public SerializedPage wrapBuffer(Slice buffer, int positionCount)
+    {
+        byte markers = PageCodecMarker.none();
+        if (!compressor.isPresent()) {
+            return new SerializedPage(buffer, markers, positionCount, buffer.length());
+        }
+
+        int maxCompressedLength = maxCompressedLength(buffer.length());
+        if (compressionBuffer == null || compressionBuffer.length < maxCompressedLength) {
+            compressionBuffer = new byte[maxCompressedLength];
+        }
+        int actualCompressedLength = compressor.get().compress((byte[]) buffer.getBase(), 0, buffer.length(), compressionBuffer, 0, maxCompressedLength);
+
+        if (((1.0 * actualCompressedLength) / buffer.length()) > MINIMUM_COMPRESSION_RATIO) {
+            return new SerializedPage(buffer, markers, positionCount, buffer.length());
+        }
+
+        markers = COMPRESSED.set(markers);
+        return new SerializedPage(
+                Slices.copyOf(Slices.wrappedBuffer(compressionBuffer, 0, actualCompressedLength)),
+                markers,
+                positionCount,
+                buffer.length());
     }
 
     public Page deserialize(SerializedPage serializedPage)

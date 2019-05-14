@@ -133,6 +133,7 @@ public class FeaturesConfig
 
     private boolean jsonSerdeCodeGenerationEnabled;
     private int maxConcurrentMaterializations = 10;
+    private boolean useOptimizedPartitionedOutput;
 
     public enum JoinReorderingStrategy
     {
@@ -1028,5 +1029,10 @@ public class FeaturesConfig
     public int getMaxConcurrentMaterializations()
     {
         return maxConcurrentMaterializations;
+    }
+
+    public boolean isOptimizedPartitionedOutput()
+    {
+        return useOptimizedPartitionedOutput;
     }
 }

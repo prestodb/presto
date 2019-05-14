@@ -134,4 +134,14 @@ public final class ColumnarRow
     {
         return fields[index];
     }
+
+    public int getOffset(int position)
+    {
+        return ((AbstractRowBlock) nullCheckBlock).getFieldBlockOffset(position);
+    }
+
+    public Block getNullCheckBlock()
+    {
+        return nullCheckBlock;
+    }
 }
