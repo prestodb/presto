@@ -35,6 +35,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorPushdownFilterResult;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
@@ -60,9 +61,15 @@ import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.DefaultRowExpressionTraversalVisitor;
+import com.facebook.presto.spi.relation.DomainTranslator.ExtractionResult;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.RowExpressionService;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -77,6 +84,7 @@ import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Suppliers;
@@ -207,8 +215,8 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
-import static com.facebook.presto.spi.predicate.TupleDomain.all;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -254,6 +262,8 @@ public class HiveMetadata
     private final DateTimeZone timeZone;
     private final TypeManager typeManager;
     private final LocationService locationService;
+    private final StandardFunctionResolution functionResolution;
+    private final RowExpressionService rowExpressionService;
     private final TableParameterCodec tableParameterCodec;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final boolean writesToNonManagedTablesEnabled;
@@ -274,6 +284,8 @@ public class HiveMetadata
             boolean createsOfNonManagedTablesEnabled,
             TypeManager typeManager,
             LocationService locationService,
+            StandardFunctionResolution functionResolution,
+            RowExpressionService rowExpressionService,
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             TypeTranslator typeTranslator,
@@ -290,6 +302,8 @@ public class HiveMetadata
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
+        this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
+        this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.tableParameterCodec = requireNonNull(tableParameterCodec, "tableParameterCodec is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
@@ -1692,7 +1706,7 @@ public class HiveMetadata
         }
 
         List<ColumnHandle> partitionColumns = layoutHandle.getPartitionColumns();
-        if (!layoutHandle.getEffectivePredicate().getDomains()
+        if (!layoutHandle.getDomainPredicate().getDomains()
                 .map(domains -> filterKeys(domains, not(in(partitionColumns))))
                 .orElse(ImmutableMap.of()).isEmpty()) {
             throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely");
@@ -1736,6 +1750,83 @@ public class HiveMetadata
     }
 
     @Override
+    public boolean isPushdownFilterSupported(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        if (((HiveTableHandle) tableHandle).getAnalyzePartitionValues().isPresent()) {
+            return false;
+        }
+
+        return isAriaScanEnabled(session, tableHandle);
+    }
+
+    @Override
+    public ConnectorPushdownFilterResult pushdownFilter(ConnectorSession session, ConnectorTableHandle tableHandle, RowExpression filter)
+    {
+        // Split the filter into 3 groups of conjuncts:
+        //  - range filters that apply to entire columns,
+        //  - range filters that apply to subfields,
+        //  - more complex filters
+        ExtractionResult<Subfield> decomposedFilter = rowExpressionService.getDomainTranslator()
+                .fromPredicate(session, filter, new SubfieldExtractor(functionResolution));
+
+        Map<String, ColumnHandle> columnHandles = getColumnHandles(session, tableHandle);
+        TupleDomain<ColumnHandle> entireColumnDomain = decomposedFilter.getTupleDomain()
+                .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
+                .transform(columnHandles::get);
+        HivePartitionResult hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, new Constraint<>(entireColumnDomain), session);
+
+        TupleDomain<Subfield> domainPredicate = withColumnDomains(ImmutableMap.<Subfield, Domain>builder()
+                .putAll(hivePartitionResult.getUnenforcedConstraint()
+                        .transform(HiveMetadata::toSubfield)
+                        .getDomains()
+                        .orElse(ImmutableMap.of()))
+                .putAll(decomposedFilter.getTupleDomain()
+                        .transform(subfield -> !isEntireColumn(subfield) ? subfield : null)
+                        .getDomains()
+                        .orElse(ImmutableMap.of()))
+                .build());
+
+        Map<String, HiveColumnHandle> filterColumns = extractAll(filter).stream()
+                .map(VariableReferenceExpression::getName)
+                .map(columnHandles::get)
+                .map(HiveColumnHandle.class::cast)
+                .collect(toImmutableMap(HiveColumnHandle::getName, Functions.identity()));
+
+        return new ConnectorPushdownFilterResult(
+                getTableLayout(
+                        session,
+                        new HiveTableLayoutHandle(
+                                ((HiveTableHandle) tableHandle).getSchemaTableName(),
+                                ImmutableList.copyOf(hivePartitionResult.getPartitionColumns()),
+                                getPartitionsAsList(hivePartitionResult),
+                                domainPredicate,
+                                decomposedFilter.getRemainingExpression(),
+                                filterColumns,
+                                hivePartitionResult.getEnforcedConstraint(),
+                                hivePartitionResult.getBucketHandle(),
+                                hivePartitionResult.getBucketFilter())),
+                TRUE);
+    }
+
+    private static Set<VariableReferenceExpression> extractAll(RowExpression expression)
+    {
+        ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
+        expression.accept(new VariableReferenceBuilderVisitor(), builder);
+        return builder.build();
+    }
+
+    private static class VariableReferenceBuilderVisitor
+            extends DefaultRowExpressionTraversalVisitor<ImmutableSet.Builder<VariableReferenceExpression>>
+    {
+        @Override
+        public Void visitVariableReference(VariableReferenceExpression variable, ImmutableSet.Builder<VariableReferenceExpression> builder)
+        {
+            builder.add(variable);
+            return null;
+        }
+    }
+
+    @Override
     public Map<ColumnHandle, ColumnHandle> pushdownSubfieldPruning(
             ConnectorSession session,
             ConnectorTableHandle table,
@@ -1775,9 +1866,6 @@ public class HiveMetadata
             hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, constraint, session);
         }
 
-        // TODO Synchronize this flag with engine's aria-enabled
-        boolean ariaScanEnabled = isAriaScanEnabled(session, tableHandle);
-
         return ImmutableList.of(new ConnectorTableLayoutResult(
                 getTableLayout(
                         session,
@@ -1785,11 +1873,23 @@ public class HiveMetadata
                                 handle.getSchemaTableName(),
                                 ImmutableList.copyOf(hivePartitionResult.getPartitionColumns()),
                                 getPartitionsAsList(hivePartitionResult),
-                                hivePartitionResult.getEffectivePredicate(),
+                                hivePartitionResult.getEffectivePredicate().transform(HiveMetadata::toSubfield),
+                                TRUE,
+                                ImmutableMap.of(),
                                 hivePartitionResult.getEnforcedConstraint(),
                                 hivePartitionResult.getBucketHandle(),
                                 hivePartitionResult.getBucketFilter())),
-                ariaScanEnabled ? all() : hivePartitionResult.getUnenforcedConstraint()));
+                                hivePartitionResult.getUnenforcedConstraint()));
+    }
+
+    private static Subfield toSubfield(ColumnHandle columnHandle)
+    {
+        return new Subfield(((HiveColumnHandle) columnHandle).getName(), ImmutableList.of());
+    }
+
+    private static boolean isEntireColumn(Subfield subfield)
+    {
+        return subfield.getPath().isEmpty();
     }
 
     private boolean isAriaScanEnabled(ConnectorSession session, ConnectorTableHandle tableHandle)
@@ -1819,7 +1919,10 @@ public class HiveMetadata
         }
         else {
             ImmutableMap.Builder<ColumnHandle, Domain> predicateBuilder = ImmutableMap.builder();
-            hiveLayoutHandle.getEffectivePredicate().getDomains()
+            hiveLayoutHandle.getDomainPredicate()
+                    .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
+                    .transform(hiveLayoutHandle.getPredicateColumns()::get)
+                    .getDomains()
                     .map(domains -> filterKeys(domains, not(in(partitionColumns))))
                     .ifPresent(predicateBuilder::putAll);
             createPredicate(partitionColumns, partitions).getDomains()
@@ -1954,7 +2057,9 @@ public class HiveMetadata
                 hiveLayoutHandle.getSchemaTableName(),
                 hiveLayoutHandle.getPartitionColumns(),
                 hiveLayoutHandle.getPartitions().get(),
-                hiveLayoutHandle.getEffectivePredicate(),
+                hiveLayoutHandle.getDomainPredicate(),
+                hiveLayoutHandle.getRemainingPredicate(),
+                hiveLayoutHandle.getPredicateColumns(),
                 hiveLayoutHandle.getPartitionColumnPredicate(),
                 Optional.of(new HiveBucketHandle(bucketHandle.getColumns(), bucketHandle.getTableBucketCount(), hivePartitioningHandle.getBucketCount())),
                 hiveLayoutHandle.getBucketFilter());

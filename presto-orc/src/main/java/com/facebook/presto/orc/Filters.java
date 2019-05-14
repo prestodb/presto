@@ -496,7 +496,7 @@ public class Filters
     {
         private final Map<PathElement, Filter> filters = new HashMap();
 
-        StructFilter()
+        public StructFilter()
         {
             super(false);
         }

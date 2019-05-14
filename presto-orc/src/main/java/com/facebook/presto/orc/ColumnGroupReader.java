@@ -15,7 +15,7 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.reader.StreamReader;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageSourceOptions.FilterFunction;
+import com.facebook.presto.spi.PageSourceOptions.AbstractFilterFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
@@ -30,6 +30,9 @@ import java.util.Set;
 
 import static com.facebook.presto.orc.OrcRecordReader.UNLIMITED_BUDGET;
 import static com.facebook.presto.orc.ResizedArrays.newIntArrayForReuse;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -38,7 +41,7 @@ public class ColumnGroupReader
     private static final int BUDGET_HARD_LIMIT_MULTIPLIER = 4;
     private static final int MIN_READER_BUDGET = 8000;
 
-    private final FilterFunction[] filterFunctions;
+    private final AbstractFilterFunction[] filterFunctions;
     private final int[] outputChannels;
     private final Block[] constantBlocks;
 
@@ -49,7 +52,7 @@ public class ColumnGroupReader
     // Corresponds pairwise to sortedStreamReaders. A FilterFunction is at
     // index i where i is the index of its last operand in
     // sortedStreamReaders.
-    private FilterFunction[][] filterFunctionOrder;
+    private AbstractFilterFunction[][] filterFunctionOrder;
     private QualifyingSet inputQualifyingSet;
     private QualifyingSet outputQualifyingSet;
 
@@ -78,7 +81,7 @@ public class ColumnGroupReader
             int[] internalChannels,
             int[] outputChannels,
             Map<Integer, Filter> filters,
-            FilterFunction[] filterFunctions,
+            AbstractFilterFunction[] filterFunctions,
             boolean enforceMemoryBudget,
             Block[] constantBlocks)
     {
@@ -87,23 +90,36 @@ public class ColumnGroupReader
         this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
         this.constantBlocks = requireNonNull(constantBlocks, "constantBlocks is null");
         channelToStreamReader = new HashMap();
+
+        Set<Integer> filterFunctionInputChannels = Arrays.stream(filterFunctions)
+                .map(AbstractFilterFunction::getInputChannels)
+                .flatMapToInt(Arrays::stream)
+                .distinct()
+                .boxed()
+                .collect(toImmutableSet());
         for (int i = 0; i < channelColumns.length; i++) {
             int columnIndex = channelColumns[i];
             if (presentColumns != null && !presentColumns.contains(columnIndex)) {
                 continue;
             }
-            int internalChannel = i < internalChannels.length ? internalChannels[i] : -1;
+
+            // TODO Replace internalChannels with boolean[]
+
+            boolean outputData = i < internalChannels.length && internalChannels[i] != -1;
+            boolean filterFunctionInput = filterFunctionInputChannels.contains(i);
             Filter filter = filters.get(columnIndex);
-            if (internalChannel == -1 && filter == null) {
-                if (streamReaders[columnIndex] != null) {
-                    throw new IllegalArgumentException("There should be no StreamReader if there is no filter and the value of the column is unreferenced");
-                }
+
+            StreamReader streamReader = streamReaders[columnIndex];
+            if (streamReader == null) {
+                checkState(!outputData && filter == null && !filterFunctionInput, "Stream reader missing");
                 continue;
             }
-            StreamReader streamReader = streamReaders[columnIndex];
-            streamReader.setFilterAndChannel(filter, internalChannel, columnIndex, types.get(i));
-            if (internalChannel != -1) {
-                channelToStreamReader.put(internalChannel, streamReader);
+
+            checkState(outputData || filter != null || filterFunctionInput, "Unexpected stream reader for unreferenced column");
+
+            streamReader.setFilterAndChannel(filter, outputData || filterFunctionInput ? i : -1, columnIndex, types.get(i));
+            if (outputData) {
+                channelToStreamReader.put(i, streamReader);
             }
         }
         this.filterFunctions = requireNonNull(filterFunctions, "filterFunctions is null");
@@ -176,22 +192,22 @@ public class ColumnGroupReader
         readerBudget = new long[sortedStreamReaders.length];
     }
 
-    private void installFilterFunction(int idx, FilterFunction function)
+    private void installFilterFunction(int idx, AbstractFilterFunction function)
     {
         if (idx >= filterFunctionOrder.length) {
             filterFunctionOrder = Arrays.copyOf(filterFunctionOrder, idx + 1);
         }
         if (filterFunctionOrder[idx] == null) {
-            filterFunctionOrder[idx] = new FilterFunction[1];
+            filterFunctionOrder[idx] = new AbstractFilterFunction[1];
         }
         else {
-            FilterFunction[] list = filterFunctionOrder[idx];
+            AbstractFilterFunction[] list = filterFunctionOrder[idx];
             filterFunctionOrder[idx] = Arrays.copyOf(list, list.length + 1);
         }
         filterFunctionOrder[idx][filterFunctionOrder[idx].length - 1] = function;
     }
 
-    private static int compareFilters(FilterFunction a, FilterFunction b)
+    private static int compareFilters(AbstractFilterFunction a, AbstractFilterFunction b)
     {
         if (a.getTimePerDroppedValue() < b.getTimePerDroppedValue()) {
             return -1;
@@ -209,18 +225,18 @@ public class ColumnGroupReader
     // come before the next best.
     private void setupFilterFunctions()
     {
-        filterFunctionOrder = new FilterFunction[0][];
+        filterFunctionOrder = new AbstractFilterFunction[0][];
         if (filterFunctions.length == 0) {
             return;
         }
-        Arrays.sort(filterFunctions, (FilterFunction a, FilterFunction b) -> compareFilters(a, b));
+        Arrays.sort(filterFunctions, (AbstractFilterFunction a, AbstractFilterFunction b) -> compareFilters(a, b));
         firstNonFilter = numFilters;
-        for (FilterFunction filter : filterFunctions) {
+        for (AbstractFilterFunction filter : filterFunctions) {
             placeFunctionAndOperands(filter);
         }
     }
 
-    private void placeFunctionAndOperands(FilterFunction function)
+    private void placeFunctionAndOperands(AbstractFilterFunction function)
     {
         int functionIdx = 0;
         int[] channels = function.getInputChannels();
@@ -274,7 +290,7 @@ public class ColumnGroupReader
         }
         time = 0;
         for (int i = 0; i < filterFunctions.length; i++) {
-            FilterFunction filter = filterFunctions[i];
+            AbstractFilterFunction filter = filterFunctions[i];
             double filterTime = filter.getTimePerDroppedValue();
             if (filterTime < time) {
                 reorderFunctions = true;
@@ -321,7 +337,7 @@ public class ColumnGroupReader
                 // placed at the latest position that reads an
                 // input.
                 if (i < filterFunctionOrder.length && filterFunctionOrder[i] != null) {
-                    for (FilterFunction function : filterFunctionOrder[i]) {
+                    for (AbstractFilterFunction function : filterFunctionOrder[i]) {
                         selectivity *= function.getSelectivity();
                     }
                 }
@@ -454,12 +470,13 @@ public class ColumnGroupReader
     private QualifyingSet evaluateFilterFunction(int streamIdx, QualifyingSet qualifyingSet)
     {
         boolean isFirstFunction = true;
-        for (FilterFunction function : filterFunctionOrder[streamIdx]) {
+        for (AbstractFilterFunction function : filterFunctionOrder[streamIdx]) {
             int[] channels = function.getInputChannels();
             Block[] blocks = new Block[channels.length];
             int numRows = qualifyingSet.getPositionCount();
             for (int channelIdx = 0; channelIdx < channels.length; channelIdx++) {
                 blocks[channelIdx] = makeFilterFunctionInputBlock(channelIdx, streamIdx, numRows, function);
+                verify(blocks[channelIdx].getPositionCount() == numRows, "Unexpected number of positions in block: " + blocks[channelIdx].getPositionCount() + " .vs " + numRows);
             }
             if (filterResults == null || filterResults.length < numRows) {
                 filterResults = newIntArrayForReuse(numRows);
@@ -487,7 +504,7 @@ public class ColumnGroupReader
         return qualifyingSet;
     }
 
-    private Block makeFilterFunctionInputBlock(int channelIdx, int streamIdx, int numRows, FilterFunction function)
+    private Block makeFilterFunctionInputBlock(int channelIdx, int streamIdx, int numRows, AbstractFilterFunction function)
     {
         int channel = function.getInputChannels()[channelIdx];
         if (constantBlocks[channel] != null) {
@@ -541,7 +558,7 @@ public class ColumnGroupReader
     // Returns true if the reader at operandIdx should add a row
     // number mapping for an input of filterFunction that is produced
     // by a reader to the left of operandIdx.
-    private boolean needRowNumberMap(int operandIdx, FilterFunction filterFunction)
+    private boolean needRowNumberMap(int operandIdx, AbstractFilterFunction filterFunction)
     {
         // If there is a non-function filter, this introduces a row number mapping.
         if (sortedStreamReaders[operandIdx].getFilter() != null) {

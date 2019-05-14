@@ -30,8 +30,8 @@ import com.facebook.presto.orc.reader.StreamReaders;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageSourceOptions;
+import com.facebook.presto.spi.PageSourceOptions.AbstractFilterFunction;
 import com.facebook.presto.spi.PageSourceOptions.ErrorSet;
-import com.facebook.presto.spi.PageSourceOptions.FilterFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.Block;
@@ -133,7 +133,9 @@ public class OrcRecordReader
     private final boolean reorderFilters;
     private final boolean enforceMemoryBudget;
 
-    private OrcPredicate predicate;
+    private final OrcPredicate predicate;
+    private final Map<Integer, Filter> columnFilters;
+    private final List<AbstractFilterFunction> filterFunctions;
     // For getNextPage interface.
     private ColumnGroupReader reader;
     private QualifyingSet qualifyingSet = new QualifyingSet();
@@ -147,12 +149,14 @@ public class OrcRecordReader
     private boolean constantFilterIsFalse;
     private Throwable constantError;
     private Block[] constantBlocks;
-    private List<FilterFunction> nonDeterministicConstantFilters;
+    private List<AbstractFilterFunction> nonDeterministicConstantFilters;
 
     public OrcRecordReader(
             Map<Integer, Type> includedColumns,
             Map<Integer, List<Subfield>> includedSubfields,
             OrcPredicate predicate,
+            Map<Integer, Filter> columnFilters,
+            List<AbstractFilterFunction> filterFunctions,
             long numberOfRows,
             List<StripeInformation> fileStripes,
             List<ColumnStatistics> fileStats,
@@ -196,6 +200,8 @@ public class OrcRecordReader
         this.fileStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(includedColumns));
         this.systemMemoryUsage = systemMemoryUsage.newAggregatedMemoryContext();
         this.predicate = predicate;
+        this.columnFilters = requireNonNull(columnFilters, "columnFilters is null");
+        this.filterFunctions = requireNonNull(filterFunctions, "filterFunctions is null");
         this.reorderFilters = reorderFilters;
         this.enforceMemoryBudget = enforceMemoryBudget;
 
@@ -775,10 +781,9 @@ public class OrcRecordReader
         reuseBlocks = options.getReusePages();
         this.constantBlocks = requireNonNull(constantBlocks, "constantBlocks is null");
         verify(currentRowGroup == -1, "Should not call pushdownFilterAndProjection() after getNextPage()");
-        Map<Integer, Filter> filters = predicate.getFilters();
         for (int i = 0; i < channelColumns.length; i++) {
             if (constantBlocks[i] != null) {
-                Filter filter = filters.get(channelColumns[i]);
+                Filter filter = columnFilters.get(channelColumns[i]);
                 if (filter != null) {
                     verify(constantBlocks[i].isNull(0), "Non-null constant blocks are not supported");
                     if (!filter.testNull()) {
@@ -788,10 +793,10 @@ public class OrcRecordReader
                 }
             }
         }
-        FilterFunction[] filterFunctions = options.getFilterFunctions();
+
         boolean anyConstantFilterFunctions = false;
-        ImmutableList.Builder<FilterFunction> nonDeterministicBuilder = ImmutableList.builder();
-        for (FilterFunction filter : filterFunctions) {
+        ImmutableList.Builder<AbstractFilterFunction> nonDeterministicBuilder = ImmutableList.builder();
+        for (AbstractFilterFunction filter : filterFunctions) {
             if (isConstantFilterFunction(filter, constantBlocks)) {
                 if (filter.isDeterministic()) {
                     qualifyingSet.setRange(0, 1);
@@ -811,7 +816,19 @@ public class OrcRecordReader
                 anyConstantFilterFunctions = true;
             }
         }
+
         nonDeterministicConstantFilters = nonDeterministicBuilder.build();
+
+        AbstractFilterFunction[] nonConstantFilterFunctions;
+        if (anyConstantFilterFunctions) {
+            nonConstantFilterFunctions = filterFunctions.stream()
+                    .filter(f -> !isConstantFilterFunction(f, constantBlocks))
+                    .toArray(AbstractFilterFunction[]::new);
+        }
+        else {
+            nonConstantFilterFunctions = this.filterFunctions.toArray(new AbstractFilterFunction[0]);
+        }
+
         reader = new ColumnGroupReader(
                 streamReaders,
                 presentColumns,
@@ -819,20 +836,20 @@ public class OrcRecordReader
                 types,
                 options.getInternalChannels(),
                 options.getOutputChannels(),
-                filters,
-                anyConstantFilterFunctions ? Arrays.stream(filterFunctions).filter(f -> !isConstantFilterFunction(f, constantBlocks)).toArray(FilterFunction[]::new) : filterFunctions,
+                columnFilters,
+                nonConstantFilterFunctions,
                 enforceMemoryBudget,
                 constantBlocks);
         targetResultBytes = options.getTargetBytes();
         reader.setResultSizeBudget(targetResultBytes);
     }
 
-    private static boolean isConstantFilterFunction(FilterFunction filter, Block[] constantBlocks)
+    private static boolean isConstantFilterFunction(AbstractFilterFunction filter, Block[] constantBlocks)
     {
         return Arrays.stream(filter.getInputChannels()).allMatch(channel -> constantBlocks[channel] != null);
     }
 
-    private static void evaluateConstantFilterFunction(FilterFunction filter, Block[] constantBlocks, QualifyingSet qualifyingSet)
+    private static void evaluateConstantFilterFunction(AbstractFilterFunction filter, Block[] constantBlocks, QualifyingSet qualifyingSet)
     {
         int[] channels = filter.getInputChannels();
         Block[] inputs = new Block[channels.length];
@@ -978,7 +995,7 @@ public class OrcRecordReader
 
     private void applyNonDeterministicConstantFilters()
     {
-        for (FilterFunction filter : nonDeterministicConstantFilters) {
+        for (AbstractFilterFunction filter : nonDeterministicConstantFilters) {
             evaluateConstantFilterFunction(filter, constantBlocks, qualifyingSet);
         }
     }

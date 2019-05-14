@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.metadata.statistics.BinaryStatistics;
 import com.facebook.presto.orc.metadata.statistics.BooleanStatistics;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
@@ -28,13 +27,12 @@ import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.TestingMetadata;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 
+import static com.facebook.presto.orc.TupleDomainFilters.toFilter;
 import static com.facebook.presto.orc.TupleDomainOrcPredicate.getDomain;
 import static com.facebook.presto.orc.metadata.statistics.ShortDecimalStatisticsBuilder.SHORT_DECIMAL_VALUE_BYTES;
 import static com.facebook.presto.spi.predicate.Domain.all;
@@ -46,7 +44,6 @@ import static com.facebook.presto.spi.predicate.Domain.singleValue;
 import static com.facebook.presto.spi.predicate.Range.greaterThanOrEqual;
 import static com.facebook.presto.spi.predicate.Range.lessThanOrEqual;
 import static com.facebook.presto.spi.predicate.Range.range;
-import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.CharType.createCharType;
@@ -60,7 +57,6 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestTupleDomainOrcPredicate
 {
@@ -82,20 +78,12 @@ public class TestTupleDomainOrcPredicate
 
     private void assertFilter(ColumnHandle columnHandle, Type type, Domain domain, Filter expectedFilter)
     {
-        TupleDomainOrcPredicate predicate = new TupleDomainOrcPredicate(
-                withColumnDomains(ImmutableMap.of(columnHandle, domain)),
-                ImmutableList.of(new ColumnReference<>(columnHandle, 0, type)),
-                false);
-        assertEquals(ImmutableMap.of(0, expectedFilter), predicate.getFilters());
+        assertEquals(expectedFilter, toFilter(domain));
     }
 
     private void assertNoFilter(ColumnHandle columnHandle, Type type, Domain domain)
     {
-        TupleDomainOrcPredicate predicate = new TupleDomainOrcPredicate(
-                withColumnDomains(ImmutableMap.of(columnHandle, domain)),
-                ImmutableList.of(new ColumnReference<>(columnHandle, 0, type)),
-                false);
-        assertTrue(predicate.getFilters().isEmpty());
+        assertEquals(null, toFilter(domain));
     }
 
     @Test

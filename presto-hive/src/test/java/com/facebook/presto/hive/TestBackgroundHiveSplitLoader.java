@@ -21,6 +21,7 @@ import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.testing.TestingConnectorSession;
@@ -58,6 +59,7 @@ import static com.facebook.presto.hive.HiveUtil.getRegularColumnHandles;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -319,7 +321,9 @@ public class TestBackgroundHiveSplitLoader
                 SESSION,
                 SIMPLE_TABLE.getDatabaseName(),
                 SIMPLE_TABLE.getTableName(),
-                compactEffectivePredicate,
+                compactEffectivePredicate.transform(column -> new Subfield(column.getName(), ImmutableList.of())),
+                TRUE,
+                ImmutableMap.of(),
                 1,
                 1,
                 new DataSize(32, MEGABYTE),

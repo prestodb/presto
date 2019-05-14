@@ -24,9 +24,11 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -199,10 +201,15 @@ public class HiveSplitManager
 
         Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(metastore, table, tableName, partitions, bucketHandle.map(HiveBucketHandle::toTableBucketProperty), session);
 
+        Map<String, HiveColumnHandle> predicateColumns = layout.getPredicateColumns();
+        TupleDomain<HiveColumnHandle> entireColumnDomains = layout.getDomainPredicate()
+                .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
+                .transform(predicateColumns::get);
+
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
                 table,
                 hivePartitions,
-                layout.getEffectivePredicate(),
+                entireColumnDomains,
                 createBucketSplitInfo(bucketHandle, bucketFilter),
                 session,
                 hdfsEnvironment,
@@ -219,7 +226,9 @@ public class HiveSplitManager
                         session,
                         table.getDatabaseName(),
                         table.getTableName(),
-                        layout.getEffectivePredicate(),
+                        layout.getDomainPredicate(),
+                        layout.getRemainingPredicate(),
+                        predicateColumns,
                         maxInitialSplits,
                         maxOutstandingSplits,
                         maxOutstandingSplitsSize,
@@ -232,7 +241,9 @@ public class HiveSplitManager
                         session,
                         table.getDatabaseName(),
                         table.getTableName(),
-                        layout.getEffectivePredicate(),
+                        layout.getDomainPredicate(),
+                        layout.getRemainingPredicate(),
+                        predicateColumns,
                         maxInitialSplits,
                         maxOutstandingSplits,
                         maxOutstandingSplitsSize,
@@ -246,6 +257,11 @@ public class HiveSplitManager
         hiveSplitLoader.start(splitSource);
 
         return splitSource;
+    }
+
+    private static boolean isEntireColumn(Subfield subfield)
+    {
+        return subfield.getPath().isEmpty();
     }
 
     @Managed

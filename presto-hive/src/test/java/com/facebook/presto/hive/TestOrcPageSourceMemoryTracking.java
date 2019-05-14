@@ -92,11 +92,15 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveTestUtils.DETERMINISM_EVALUATOR;
+import static com.facebook.presto.hive.HiveTestUtils.EXPRESSION_OPTIMIZER;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static com.facebook.presto.hive.HiveTestUtils.PREDICATE_COMPILER;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -466,7 +470,7 @@ public class TestOrcPageSourceMemoryTracking
 
         public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats, ConnectorSession session)
         {
-            OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, stats);
+            OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(TYPE_MANAGER, DETERMINISM_EVALUATOR, EXPRESSION_OPTIMIZER, PREDICATE_COMPILER, false, 100, HDFS_ENVIRONMENT, stats);
             return HivePageSourceProvider.createHivePageSource(
                     ImmutableSet.of(),
                     ImmutableSet.of(orcPageSourceFactory),
@@ -479,6 +483,8 @@ public class TestOrcPageSourceMemoryTracking
                     fileSplit.getLength(),
                     schema,
                     TupleDomain.all(),
+                    TRUE,
+                    ImmutableMap.of(),
                     columns,
                     partitionKeys,
                     DateTimeZone.UTC,

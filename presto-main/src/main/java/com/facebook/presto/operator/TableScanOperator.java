@@ -19,7 +19,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageSourceOptions;
-import com.facebook.presto.spi.PageSourceOptions.FilterFunction;
+import com.facebook.presto.spi.PageSourceOptions.AbstractFilterFunction;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.EmptySplit;
@@ -279,7 +279,7 @@ public class TableScanOperator
                 channels,
                 channels,
                 reusePages,
-                new FilterFunction[0],
+                new AbstractFilterFunction[0],
                 512 * 1024);
         source.pushdownFilterAndProjection(options);
     }
