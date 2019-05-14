@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorPushdownFilterResult;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -33,6 +34,7 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -108,6 +110,22 @@ public interface ConnectorMetadata
             Map<ColumnHandle, List<Subfield>> desiredSubfields)
     {
         return Collections.emptyMap();
+    }
+
+    /**
+     * Experimental: if true, the engine will invoke pushdownFilter instead of getTableLayouts.
+     */
+    default boolean isPushdownFilterSupported(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return false;
+    }
+
+    /**
+     * Experimental: returns table layout that encapsulates the given filter.
+     */
+    default ConnectorPushdownFilterResult pushdownFilter(ConnectorSession session, ConnectorTableHandle tableHandle, RowExpression filter)
+    {
+        throw new UnsupportedOperationException();
     }
 
     /**

@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorPushdownFilterResult;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -44,6 +45,7 @@ import com.facebook.presto.spi.connector.ConnectorPartitioningMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -404,6 +406,26 @@ public class MetadataManager
         }
 
         return new TableLayoutResult(fromConnectorLayout(connectorId, table.getConnectorHandle(), table.getTransaction(), layouts.get(0).getTableLayout()), layouts.get(0).getUnenforcedConstraint());
+    }
+
+    @Override
+    public boolean isPushdownFilterSupported(Session session, TableHandle tableHandle)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+        return metadata.isPushdownFilterSupported(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
+    }
+
+    @Override
+    public PushdownFilterResult pushdownFilter(Session session, TableHandle tableHandle, RowExpression filter)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+        ConnectorPushdownFilterResult result = metadata.pushdownFilter(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), filter);
+        TableLayout layout = fromConnectorLayout(connectorId, tableHandle.getConnectorHandle(), tableHandle.getTransaction(), result.getLayout());
+        return new PushdownFilterResult(layout, result.getUnenforcedConstraint());
     }
 
     @Override

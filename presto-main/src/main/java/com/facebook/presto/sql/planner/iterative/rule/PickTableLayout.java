@@ -19,14 +19,23 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.PushdownFilterResult;
+import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.operator.scalar.TryFunction;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.InputReferenceExpression;
+import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.RowExpressionVisitor;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
@@ -34,7 +43,6 @@ import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.LookupSymbolResolver;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolWithSubfieldPath;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -42,11 +50,14 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
@@ -66,9 +77,12 @@ import static com.facebook.presto.sql.planner.iterative.rule.PreconditionRules.c
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
+import static com.facebook.presto.sql.relational.LogicalRowExpressions.TRUE;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
 import static java.util.Collections.emptyList;
@@ -242,6 +256,66 @@ public class PickTableLayout
         }
     }
 
+    private static final class TranslateVariableNamesVisitor
+            implements RowExpressionVisitor<RowExpression, Map<String, String>>
+    {
+        @Override
+        public RowExpression visitCall(CallExpression call, Map<String, String> context)
+        {
+            return new CallExpression(
+                    call.getDisplayName(),
+                    call.getFunctionHandle(),
+                    call.getType(),
+                    call.getArguments().stream()
+                            .map(expression -> expression.accept(this, context))
+                            .collect(toImmutableList()));
+        }
+
+        @Override
+        public RowExpression visitInputReference(InputReferenceExpression reference, Map<String, String> context)
+        {
+            return reference;
+        }
+
+        @Override
+        public RowExpression visitConstant(ConstantExpression literal, Map<String, String> context)
+        {
+            return literal;
+        }
+
+        @Override
+        public RowExpression visitLambda(LambdaDefinitionExpression lambda, Map<String, String> context)
+        {
+            return new LambdaDefinitionExpression(
+                    lambda.getArgumentTypes(),
+                    lambda.getArguments(),
+                    lambda.getBody().accept(this, context));
+        }
+
+        @Override
+        public RowExpression visitVariableReference(VariableReferenceExpression reference, Map<String, String> context)
+        {
+            String newName = context.get(reference.getName());
+            if (newName != null) {
+                return new VariableReferenceExpression(newName, reference.getType());
+            }
+
+            // This variable must be part of a lambda expression
+            return reference;
+        }
+
+        @Override
+        public RowExpression visitSpecialForm(SpecialFormExpression specialForm, Map<String, String> context)
+        {
+            return new SpecialFormExpression(
+                    specialForm.getForm(),
+                    specialForm.getType(),
+                    specialForm.getArguments().stream()
+                            .map(expression -> expression.accept(this, context))
+                            .collect(toImmutableList()));
+        }
+    }
+
     public static PlanNode pushPredicateIntoTableScan(
             TableScanNode node,
             Expression predicate,
@@ -253,16 +327,50 @@ public class PickTableLayout
             SqlParser parser,
             ExpressionDomainTranslator domainTranslator)
     {
-        boolean supportsSubfieldTupleDomain = false;
-        if (isAriaScanEnabled(session)) {
-            // Subfield TupleDomain extraction is only on for Aria
-            // because even if the Aria path were not run, this
-            // extraction would alter predicate order and the non-Aria
-            // path can't have that.
-            for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
-                supportsSubfieldTupleDomain = entry.getValue().supportsSubfieldTupleDomain();
-                break;
+        if (isAriaScanEnabled(session) && metadata.isPushdownFilterSupported(session, node.getTable())) {
+            if (node.getTable().getLayout().isPresent()) {
+                return node;
             }
+
+            Map<NodeRef<Expression>, Type> predicateTypes = getExpressionTypes(
+                    session,
+                    metadata,
+                    parser,
+                    types,
+                    predicate,
+                    emptyList(),
+                    WarningCollector.NOOP,
+                    false);
+
+            BiMap<String, String> symbolToColumnNameMap = node.getAssignments().entrySet().stream()
+                    .collect(toImmutableBiMap(
+                            entry -> entry.getKey().getName(),
+                            entry -> metadata.getColumnMetadata(session, node.getTable(), entry.getValue()).getName()));
+            RowExpression translatedPredicate = SqlToRowExpressionTranslator.translate(predicate, predicateTypes, ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), session, false)
+                    .accept(new TranslateVariableNamesVisitor(), symbolToColumnNameMap);
+
+            PushdownFilterResult result = metadata.pushdownFilter(session, node.getTable(), translatedPredicate);
+
+            TableLayout layout = result.getLayout();
+            if (layout.getPredicate().isNone()) {
+                return new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of());
+            }
+
+            TableScanNode tableScan = new TableScanNode(
+                    node.getId(),
+                    layout.getNewTableHandle(),
+                    node.getOutputSymbols(),
+                    node.getAssignments(),
+                    layout.getPredicate(),
+                    TupleDomain.none());
+
+            RowExpression unenforcedConstraint = result.getUnenforcedConstraint()
+                    .accept(new TranslateVariableNamesVisitor(), symbolToColumnNameMap.inverse());
+            if (!TRUE.equals(unenforcedConstraint)) {
+                return new FilterNode(idAllocator.getNextId(), tableScan, unenforcedConstraint);
+            }
+
+            return tableScan;
         }
 
         // don't include non-deterministic predicates
@@ -271,10 +379,10 @@ public class PickTableLayout
                 metadata,
                 session,
                 deterministicPredicate,
-                types, supportsSubfieldTupleDomain);
+                types);
 
         TupleDomain<ColumnHandle> newDomain = decomposedPredicate.getTupleDomain()
-                .transform(symbol -> toColumnHandle(node.getAssignments(), symbol))
+                .transform(node.getAssignments()::get)
                 .intersect(node.getEnforcedConstraint());
 
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
@@ -341,25 +449,6 @@ public class PickTableLayout
             return new FilterNode(idAllocator.getNextId(), tableScan, castToRowExpression(resultingPredicate));
         }
         return tableScan;
-    }
-
-    private static ColumnHandle toColumnHandle(Map<Symbol, ColumnHandle> assignments, Symbol symbol)
-    {
-        if (symbol instanceof SymbolWithSubfieldPath) {
-            Subfield path = ((SymbolWithSubfieldPath) symbol).getSubfieldPath();
-            return assignments.get(new Symbol(path.getRootName())).createSubfieldColumnHandle(path);
-        }
-
-        return assignments.get(symbol);
-    }
-
-    private static Symbol fromColumnHandle(Map<ColumnHandle, Symbol> assignments, ColumnHandle columnHandle)
-    {
-        Subfield path = columnHandle.getSubfieldPath();
-        if (path != null) {
-            return new SymbolWithSubfieldPath(path);
-        }
-        return assignments.get(columnHandle);
     }
 
     private static class LayoutConstraintEvaluator
