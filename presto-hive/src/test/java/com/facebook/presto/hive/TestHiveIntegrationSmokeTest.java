@@ -34,6 +34,9 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.RowNumberNode;
+import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
+import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.ColumnConstraint;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.FormattedDomain;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.FormattedMarker;
@@ -2718,6 +2721,29 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate("DROP TABLE IF EXISTS test_bucketed_lineitem1");
             assertUpdate("DROP TABLE IF EXISTS test_bucketed_lineitem2");
         }
+
+        // Window functions
+        assertQuery(
+                materializeExchangesSession,
+                "SELECT sum(rn) FROM (SELECT row_number() OVER(PARTITION BY orderkey ORDER BY linenumber) as rn FROM lineitem) WHERE rn > 5",
+                "SELECT 41137",
+                assertRemoteMaterializedExchangesCount(1)
+                        // make sure that the window function has been planned as a WindowNode
+                        .andThen(plan -> assertTrue(searchFrom(plan.getRoot()).where(node -> node instanceof WindowNode).matches())));
+        assertQuery(
+                materializeExchangesSession,
+                "SELECT sum(rn) FROM (SELECT row_number() OVER(PARTITION BY orderkey) as rn FROM lineitem)",
+                "SELECT 180782",
+                assertRemoteMaterializedExchangesCount(1)
+                        // make sure that the window function has been planned as a RowNumberNode
+                        .andThen(plan -> assertTrue(searchFrom(plan.getRoot()).where(node -> node instanceof RowNumberNode).matches())));
+        assertQuery(
+                materializeExchangesSession,
+                "SELECT sum(rn) FROM (SELECT row_number() OVER(PARTITION BY orderkey ORDER BY linenumber) as rn FROM lineitem) WHERE rn < 5",
+                "SELECT 107455",
+                assertRemoteMaterializedExchangesCount(1)
+                        // make sure that the window function has been planned as a TopNRowNumberNode
+                        .andThen(plan -> assertTrue(searchFrom(plan.getRoot()).where(node -> node instanceof TopNRowNumberNode).matches())));
     }
 
     public static Consumer<Plan> assertRemoteMaterializedExchangesCount(int expectedRemoteExchangesCount)
