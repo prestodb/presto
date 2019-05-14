@@ -47,6 +47,7 @@ import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
@@ -950,6 +951,16 @@ public class PlanFragmenter
         }
 
         private GroupedExecutionProperties processWindowFunction(PlanNode node)
+        {
+            GroupedExecutionProperties properties = getOnlyElement(node.getSources()).accept(this, null);
+            if (groupedExecutionForAggregation && properties.isCurrentNodeCapable()) {
+                return new GroupedExecutionProperties(true, true, properties.capableTableScanNodes);
+            }
+            return GroupedExecutionProperties.notCapable();
+        }
+
+        @Override
+        public GroupedExecutionProperties visitMarkDistinct(MarkDistinctNode node, Void context)
         {
             GroupedExecutionProperties properties = getOnlyElement(node.getSources()).accept(this, null);
             if (groupedExecutionForAggregation && properties.isCurrentNodeCapable()) {
