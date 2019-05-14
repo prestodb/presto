@@ -17,10 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
-import com.facebook.presto.spi.Subfield;
-import com.facebook.presto.spi.Subfield.LongSubscript;
-import com.facebook.presto.spi.Subfield.NestedField;
-import com.facebook.presto.spi.Subfield.StringSubscript;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.predicate.DiscreteValues;
@@ -43,20 +39,15 @@ import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
-import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -75,8 +66,6 @@ import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.combineDisjunctsWithDefault;
 import static com.facebook.presto.sql.ExpressionUtils.or;
-import static com.facebook.presto.sql.planner.SubfieldUtils.deferenceOrSubscriptExpressionToPath;
-import static com.facebook.presto.sql.planner.SubfieldUtils.isDereferenceOrSubscriptExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
@@ -116,36 +105,11 @@ public final class ExpressionDomainTranslator
         Map<Symbol, Domain> domains = tupleDomain.getDomains().get();
         return domains.entrySet().stream()
                 .sorted(comparing(entry -> entry.getKey().getName()))
-            .map(entry -> toPredicate(entry.getValue(), toSymbolExpression(entry.getKey())))
+                .map(entry -> toPredicate(entry.getValue(), entry.getKey().toSymbolReference()))
                 .collect(collectingAndThen(toImmutableList(), ExpressionUtils::combineConjuncts));
     }
 
-    private static Expression toSymbolExpression(Symbol symbol)
-    {
-        if (symbol instanceof SymbolWithSubfieldPath) {
-            Subfield path = ((SymbolWithSubfieldPath) symbol).getSubfieldPath();
-            Expression base = new SymbolReference(symbol.getName());
-            for (Subfield.PathElement element : path.getPath()) {
-                if (element instanceof NestedField) {
-                    base = new DereferenceExpression(base, new Identifier(((NestedField) element).getName()));
-                }
-                else if (element instanceof LongSubscript) {
-                    base = new SubscriptExpression(base, new LongLiteral(String.valueOf(((LongSubscript) element).getIndex())));
-                }
-                else if (element instanceof StringSubscript) {
-                    base = new SubscriptExpression(base, new StringLiteral(((StringSubscript) element).getIndex()));
-                }
-                else {
-                    throw new IllegalArgumentException("Unsupported path element: " + element.getClass().getSimpleName());
-                }
-            }
-            return base;
-        }
-
-        return symbol.toSymbolReference();
-    }
-
-    private Expression toPredicate(Domain domain, Expression reference)
+    private Expression toPredicate(Domain domain, SymbolReference reference)
     {
         if (domain.getValues().isNone()) {
             return domain.isNullAllowed() ? new IsNullPredicate(reference) : FALSE_LITERAL;
@@ -172,7 +136,7 @@ public final class ExpressionDomainTranslator
         return combineDisjunctsWithDefault(disjuncts, TRUE_LITERAL);
     }
 
-    private Expression processRange(Type type, Range range, Expression reference)
+    private Expression processRange(Type type, Range range, SymbolReference reference)
     {
         if (range.isAll()) {
             return TRUE_LITERAL;
@@ -218,7 +182,7 @@ public final class ExpressionDomainTranslator
         return combineConjuncts(rangeConjuncts);
     }
 
-    private Expression combineRangeWithExcludedPoints(Type type, Expression reference, Range range, List<Expression> excludedPoints)
+    private Expression combineRangeWithExcludedPoints(Type type, SymbolReference reference, Range range, List<Expression> excludedPoints)
     {
         if (excludedPoints.isEmpty()) {
             return processRange(type, range, reference);
@@ -232,7 +196,7 @@ public final class ExpressionDomainTranslator
         return combineConjuncts(processRange(type, range, reference), excludedPointsExpression);
     }
 
-    private List<Expression> extractDisjuncts(Type type, Ranges ranges, Expression reference)
+    private List<Expression> extractDisjuncts(Type type, Ranges ranges, SymbolReference reference)
     {
         List<Expression> disjuncts = new ArrayList<>();
         List<Expression> singleValues = new ArrayList<>();
@@ -275,7 +239,7 @@ public final class ExpressionDomainTranslator
         return disjuncts;
     }
 
-    private List<Expression> extractDisjuncts(Type type, DiscreteValues discreteValues, Expression reference)
+    private List<Expression> extractDisjuncts(Type type, DiscreteValues discreteValues, SymbolReference reference)
     {
         List<Expression> values = discreteValues.getValues().stream()
                 .map(object -> literalEncoder.toExpression(object, type))
@@ -304,15 +268,6 @@ public final class ExpressionDomainTranslator
                 && !range.getHigh().isUpperUnbounded() && range.getHigh().getBound() == Marker.Bound.EXACTLY;
     }
 
-    public static ExtractionResult fromPredicate(
-            Metadata metadata,
-            Session session,
-            Expression predicate,
-            TypeProvider types)
-    {
-        return fromPredicate(metadata, session, predicate, types, false);
-    }
-
     /**
      * Convert an Expression predicate into an ExtractionResult consisting of:
      * 1) A successfully extracted TupleDomain
@@ -323,10 +278,9 @@ public final class ExpressionDomainTranslator
             Metadata metadata,
             Session session,
             Expression predicate,
-            TypeProvider types,
-            boolean includeSubfields)
+            TypeProvider types)
     {
-        return new Visitor(metadata, session, types, includeSubfields).process(predicate, false);
+        return new Visitor(metadata, session, types).process(predicate, false);
     }
 
     private static class Visitor
@@ -337,16 +291,14 @@ public final class ExpressionDomainTranslator
         private final Session session;
         private final TypeProvider types;
         private final InterpretedFunctionInvoker functionInvoker;
-        private final boolean includeSubfields;
 
-        private Visitor(Metadata metadata, Session session, TypeProvider types, boolean includeSubfields)
+        private Visitor(Metadata metadata, Session session, TypeProvider types)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
             this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionManager());
-            this.includeSubfields = includeSubfields;
         }
 
         private Type checkedTypeLookup(Symbol symbol)
@@ -488,21 +440,6 @@ public final class ExpressionDomainTranslator
                 }
 
                 return super.visitComparisonExpression(node, complement);
-            }
-
-            if (includeSubfields && isDereferenceOrSubscriptExpression(symbolExpression)) {
-                Subfield path = deferenceOrSubscriptExpressionToPath(symbolExpression);
-                if (path == null) {
-                    return super.visitComparisonExpression(node, complement);
-                }
-
-                NullableValue value = normalized.getValue();
-                return createComparisonExtractionResult(
-                        normalized.getComparisonOperator(),
-                        new SymbolWithSubfieldPath(path),
-                        value.getType(),
-                        value.getValue(),
-                        complement);
             }
 
             return super.visitComparisonExpression(node, complement);

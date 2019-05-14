@@ -26,6 +26,7 @@ import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -116,6 +117,17 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Map<ColumnHandle, ColumnHandle> pushdownSubfieldPruning(Session session, TableHandle tableHandle, Map<ColumnHandle, List<Subfield>> desiredSubfields)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    public boolean isPushdownFilterSupported(Session session, TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public PushdownFilterResult pushdownFilter(Session session, TableHandle tableHandle, RowExpression filter)
     {
         throw new UnsupportedOperationException();
     }

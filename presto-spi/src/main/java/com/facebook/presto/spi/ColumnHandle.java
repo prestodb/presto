@@ -15,11 +15,6 @@ package com.facebook.presto.spi;
 
 public interface ColumnHandle
 {
-    default boolean supportsSubfieldTupleDomain()
-    {
-        return false;
-    }
-
     /* Returns a ColumnHandle that refers to the subfield at
      * 'path'. Such a ColumnHandle may occur as a key in a TupleDomain
      * for filtering non-top level columns */
