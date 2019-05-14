@@ -23,6 +23,7 @@ import {
     getQueryStateColor,
     GLYPHICON_DEFAULT,
     GLYPHICON_HIGHLIGHT,
+    GLYPHICON_WARNING,
     parseDataSize,
     parseDuration,
     truncateString
@@ -69,9 +70,8 @@ export class QueryListItem extends React.Component {
         const query = this.props.query;
         if (query.warnings && query.warnings.length) {
             return (
-                <span className="tinystat query-warning" data-toggle="tooltip" title="Warning">
-            </span>
-            )
+                <span className="glyphicon glyphicon-stop" style={GLYPHICON_WARNING} data-toggle="tooltip" title="Warning"/>
+            );
         }
     }
 

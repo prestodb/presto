@@ -21,6 +21,7 @@ import * as d3 from "d3";
 
 export const GLYPHICON_DEFAULT = {color: '#1edcff'};
 export const GLYPHICON_HIGHLIGHT = {color: '#999999'};
+export const GLYPHICON_WARNING = {color: 'yellow'};
 
 const STATE_COLOR_MAP = {
     QUEUED: '#1b8f72',
