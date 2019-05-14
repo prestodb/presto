@@ -44,7 +44,7 @@ public class WindowNode
         extends InternalPlanNode
 {
     private final PlanNode source;
-    private final Set<Symbol> prePartitionedInputs;
+    private final Set<VariableReferenceExpression> prePartitionedInputs;
     private final Specification specification;
     private final int preSortedOrderPrefix;
     private final Map<VariableReferenceExpression, Function> windowFunctions;
@@ -57,7 +57,7 @@ public class WindowNode
             @JsonProperty("specification") Specification specification,
             @JsonProperty("windowFunctions") Map<VariableReferenceExpression, Function> windowFunctions,
             @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable,
-            @JsonProperty("prePartitionedInputs") Set<Symbol> prePartitionedInputs,
+            @JsonProperty("prePartitionedInputs") Set<VariableReferenceExpression> prePartitionedInputs,
             @JsonProperty("preSortedOrderPrefix") int preSortedOrderPrefix)
     {
         super(id);
@@ -125,7 +125,7 @@ public class WindowNode
         return specification;
     }
 
-    public List<Symbol> getPartitionBy()
+    public List<VariableReferenceExpression> getPartitionBy()
     {
         return specification.getPartitionBy();
     }
@@ -155,7 +155,7 @@ public class WindowNode
     }
 
     @JsonProperty
-    public Set<Symbol> getPrePartitionedInputs()
+    public Set<VariableReferenceExpression> getPrePartitionedInputs()
     {
         return prePartitionedInputs;
     }
@@ -181,12 +181,12 @@ public class WindowNode
     @Immutable
     public static class Specification
     {
-        private final List<Symbol> partitionBy;
+        private final List<VariableReferenceExpression> partitionBy;
         private final Optional<OrderingScheme> orderingScheme;
 
         @JsonCreator
         public Specification(
-                @JsonProperty("partitionBy") List<Symbol> partitionBy,
+                @JsonProperty("partitionBy") List<VariableReferenceExpression> partitionBy,
                 @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme)
         {
             requireNonNull(partitionBy, "partitionBy is null");
@@ -197,7 +197,7 @@ public class WindowNode
         }
 
         @JsonProperty
-        public List<Symbol> getPartitionBy()
+        public List<VariableReferenceExpression> getPartitionBy()
         {
             return partitionBy;
         }

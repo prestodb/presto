@@ -15,6 +15,7 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
@@ -53,8 +54,8 @@ public class RowNumberStatsRule
         double sourceRowsCount = sourceStats.getOutputRowCount();
 
         double partitionCount = 1;
-        for (Symbol groupBySymbol : node.getPartitionBy()) {
-            SymbolStatsEstimate symbolStatistics = sourceStats.getSymbolStatistics(groupBySymbol);
+        for (VariableReferenceExpression groupByVariable : node.getPartitionBy()) {
+            SymbolStatsEstimate symbolStatistics = sourceStats.getSymbolStatistics(new Symbol(groupByVariable.getName()));
             int nullRow = (symbolStatistics.getNullsFraction() == 0.0) ? 0 : 1;
             // assuming no correlation between grouping keys
             partitionCount *= symbolStatistics.getDistinctValuesCount() + nullRow;

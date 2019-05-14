@@ -99,7 +99,7 @@ public final class TopNRowNumberNode
         return specification;
     }
 
-    public List<Symbol> getPartitionBy()
+    public List<VariableReferenceExpression> getPartitionBy()
     {
         return specification.getPartitionBy();
     }

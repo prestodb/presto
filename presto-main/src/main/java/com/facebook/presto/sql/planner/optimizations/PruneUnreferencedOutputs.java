@@ -373,7 +373,7 @@ public class PruneUnreferencedOutputs
         {
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(context.get())
-                    .addAll(node.getPartitionBy());
+                    .addAll(node.getPartitionBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
 
             node.getOrderingScheme().ifPresent(orderingScheme ->
                     orderingScheme.getOrderBy()
@@ -597,7 +597,7 @@ public class PruneUnreferencedOutputs
             ImmutableSet.Builder<Symbol> inputsBuilder = ImmutableSet.builder();
             ImmutableSet.Builder<Symbol> expectedInputs = inputsBuilder
                     .addAll(context.get())
-                    .addAll(node.getPartitionBy());
+                    .addAll(node.getPartitionBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
 
             if (node.getHashVariable().isPresent()) {
                 inputsBuilder.add(new Symbol(node.getHashVariable().get().getName()));
@@ -612,7 +612,7 @@ public class PruneUnreferencedOutputs
         {
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(context.get())
-                    .addAll(node.getPartitionBy())
+                    .addAll(node.getPartitionBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()))
                     .addAll(node.getOrderingScheme().getOrderBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
 
             if (node.getHashVariable().isPresent()) {

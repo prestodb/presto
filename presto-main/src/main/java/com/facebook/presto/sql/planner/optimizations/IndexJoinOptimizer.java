@@ -379,7 +379,7 @@ public class IndexJoinOptimizer
 
             // Lookup variables can only be passed through if they are part of the partitioning
             Set<VariableReferenceExpression> partitionByLookupVariables = context.get().getLookupVariables().stream()
-                    .filter(variable -> node.getPartitionBy().contains(new Symbol(variable.getName())))
+                    .filter(node.getPartitionBy()::contains)
                     .collect(toImmutableSet());
 
             if (partitionByLookupVariables.isEmpty()) {
@@ -520,7 +520,7 @@ public class IndexJoinOptimizer
             public Map<VariableReferenceExpression, VariableReferenceExpression> visitWindow(WindowNode node, Set<VariableReferenceExpression> lookupVariables)
             {
                 Set<VariableReferenceExpression> partitionByLookupVariables = lookupVariables.stream()
-                        .filter(variable -> node.getPartitionBy().contains(new Symbol(variable.getName())))
+                        .filter(node.getPartitionBy()::contains)
                         .collect(toImmutableSet());
                 checkState(!partitionByLookupVariables.isEmpty(), "No lookup variables were able to pass through the aggregation group by");
                 return node.getSource().accept(this, partitionByLookupVariables);

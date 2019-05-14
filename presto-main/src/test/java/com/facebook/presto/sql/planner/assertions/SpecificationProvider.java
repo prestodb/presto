@@ -67,7 +67,7 @@ public class SpecificationProvider
         return new WindowNode.Specification(
                 partitionBy
                         .stream()
-                        .map(alias -> alias.toSymbol(aliases))
+                        .map(alias -> new VariableReferenceExpression(alias.toSymbol(aliases).getName(), UNKNOWN))
                         .collect(toImmutableList()),
                 orderingScheme);
     }
@@ -89,7 +89,8 @@ public class SpecificationProvider
      */
     public static boolean matchSpecification(WindowNode.Specification actual, WindowNode.Specification expected)
     {
-        return actual.getPartitionBy().equals(expected.getPartitionBy()) &&
+        return actual.getPartitionBy().stream().map(VariableReferenceExpression::getName).collect(toImmutableList())
+                .equals(expected.getPartitionBy().stream().map(VariableReferenceExpression::getName).collect(toImmutableList())) &&
                 actual.getOrderingScheme().map(orderingScheme -> orderingScheme.getOrderBy().stream()
                         .map(VariableReferenceExpression::getName)
                         .collect(toImmutableSet())

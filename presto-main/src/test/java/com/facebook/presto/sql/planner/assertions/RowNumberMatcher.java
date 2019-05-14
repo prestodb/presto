@@ -68,8 +68,9 @@ public class RowNumberMatcher
         if (!partitionBy
                 .map(expectedPartitionBy -> expectedPartitionBy.stream()
                         .map(alias -> alias.toSymbol(symbolAliases))
+                        .map(Symbol::getName)
                         .collect(toImmutableList())
-                        .equals(rowNumberNode.getPartitionBy()))
+                        .equals(rowNumberNode.getPartitionBy().stream().map(VariableReferenceExpression::getName).collect(toImmutableList())))
                 .orElse(true)) {
             return NO_MATCH;
         }

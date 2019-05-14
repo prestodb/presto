@@ -99,6 +99,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.filter;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -217,7 +218,7 @@ public class PredicatePushDown
         @Override
         public PlanNode visitWindow(WindowNode node, RewriteContext<Expression> context)
         {
-            List<Symbol> partitionSymbols = node.getPartitionBy();
+            List<Symbol> partitionSymbols = node.getPartitionBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
 
             // TODO: This could be broader. We can push down conjucts if they are constant for all rows in a window partition.
             // The simplest way to guarantee this is if the conjucts are deterministic functions of the partitioning symbols.

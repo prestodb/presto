@@ -39,7 +39,7 @@ public class TestRowNumberStatsRule
         // grouping on a key with 0 nulls fraction without max rows per partition limit
         tester().assertStatsFor(pb -> pb
                 .rowNumber(
-                        ImmutableList.of(pb.symbol("x", BIGINT)),
+                        ImmutableList.of(pb.variable(pb.symbol("x", BIGINT))),
                         Optional.empty(),
                         pb.symbol("z", BIGINT),
                         pb.variable(pb.symbol("z", BIGINT)),
@@ -62,7 +62,7 @@ public class TestRowNumberStatsRule
         // grouping on a key with 0 nulls fraction with max rows per partition limit
         tester().assertStatsFor(pb -> pb
                 .rowNumber(
-                        ImmutableList.of(pb.symbol("x", BIGINT)),
+                        ImmutableList.of(pb.variable(pb.symbol("x", BIGINT))),
                         Optional.of(1),
                         pb.symbol("z", BIGINT),
                         pb.variable(pb.symbol("z", BIGINT)),
@@ -83,7 +83,7 @@ public class TestRowNumberStatsRule
         // grouping on a key with non zero nulls fraction
         tester().assertStatsFor(pb -> pb
                 .rowNumber(
-                        ImmutableList.of(pb.symbol("y", BIGINT)),
+                        ImmutableList.of(pb.variable(pb.symbol("y", BIGINT))),
                         Optional.empty(),
                         pb.symbol("z", BIGINT),
                         pb.variable(pb.symbol("z", BIGINT)),
@@ -104,7 +104,7 @@ public class TestRowNumberStatsRule
         // unknown input row count
         tester().assertStatsFor(pb -> pb
                 .rowNumber(
-                        ImmutableList.of(pb.symbol("x", BIGINT)),
+                        ImmutableList.of(pb.variable(pb.symbol("x", BIGINT))),
                         Optional.of(1),
                         pb.symbol("z", BIGINT),
                         pb.variable(pb.symbol("z", BIGINT)),
@@ -122,7 +122,7 @@ public class TestRowNumberStatsRule
         // grouping on multiple keys with the number of estimated groups less than the row count
         tester().assertStatsFor(pb -> pb
                 .rowNumber(
-                        ImmutableList.of(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT)),
+                        ImmutableList.of(pb.variable(pb.symbol("x", BIGINT)), pb.variable(pb.symbol("y", BIGINT))),
                         Optional.empty(),
                         pb.symbol("z", BIGINT),
                         pb.variable(pb.symbol("z", BIGINT)),
@@ -143,7 +143,7 @@ public class TestRowNumberStatsRule
         // grouping on multiple keys with the number of estimated groups greater than the row count
         tester().assertStatsFor(pb -> pb
                 .rowNumber(
-                        ImmutableList.of(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT)),
+                        ImmutableList.of(pb.variable(pb.symbol("x", BIGINT)), pb.variable(pb.symbol("y", BIGINT))),
                         Optional.empty(),
                         pb.symbol("z", BIGINT),
                         pb.variable(pb.symbol("z", BIGINT)),
@@ -164,7 +164,7 @@ public class TestRowNumberStatsRule
         // grouping on multiple keys with stats for one of the keys are unknown
         tester().assertStatsFor(pb -> pb
                 .rowNumber(
-                        ImmutableList.of(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT)),
+                        ImmutableList.of(pb.variable(pb.symbol("x", BIGINT)), pb.variable(pb.symbol("y", BIGINT))),
                         Optional.empty(),
                         pb.symbol("z", BIGINT),
                         pb.variable(pb.symbol("z", BIGINT)),

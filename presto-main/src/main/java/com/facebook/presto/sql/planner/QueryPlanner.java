@@ -759,9 +759,9 @@ class QueryPlanner
             subPlan = subPlan.appendProjections(inputs.build(), symbolAllocator, idAllocator);
 
             // Rewrite PARTITION BY in terms of pre-projected inputs
-            ImmutableList.Builder<Symbol> partitionBySymbols = ImmutableList.builder();
+            ImmutableList.Builder<VariableReferenceExpression> partitionByVariables = ImmutableList.builder();
             for (Expression expression : window.getPartitionBy()) {
-                partitionBySymbols.add(subPlan.translate(expression));
+                partitionByVariables.add(subPlan.translateToVariable(expression));
             }
 
             // Rewrite ORDER BY in terms of pre-projected inputs
@@ -843,7 +843,7 @@ class QueryPlanner
                             idAllocator.getNextId(),
                             subPlan.getRoot(),
                             new WindowNode.Specification(
-                                    partitionBySymbols.build(),
+                                    partitionByVariables.build(),
                                     orderingScheme),
                             ImmutableMap.of(newVariable, function),
                             Optional.empty(),

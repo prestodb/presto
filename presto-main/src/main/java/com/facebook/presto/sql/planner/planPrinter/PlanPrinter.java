@@ -557,11 +557,11 @@ public class PlanPrinter
 
             List<String> args = new ArrayList<>();
             if (!partitionBy.isEmpty()) {
-                List<Symbol> prePartitioned = node.getPartitionBy().stream()
+                List<VariableReferenceExpression> prePartitioned = node.getPartitionBy().stream()
                         .filter(node.getPrePartitionedInputs()::contains)
                         .collect(toImmutableList());
 
-                List<Symbol> notPrePartitioned = node.getPartitionBy().stream()
+                List<VariableReferenceExpression> notPrePartitioned = node.getPartitionBy().stream()
                         .filter(column -> !node.getPrePartitionedInputs().contains(column))
                         .collect(toImmutableList());
 
