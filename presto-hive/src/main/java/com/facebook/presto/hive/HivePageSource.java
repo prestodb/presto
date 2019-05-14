@@ -19,7 +19,7 @@ import com.facebook.presto.hive.HivePageSourceProvider.ColumnMappingKind;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageSourceOptions;
-import com.facebook.presto.spi.PageSourceOptions.FilterFunction;
+import com.facebook.presto.spi.PageSourceOptions.AbstractFilterFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
@@ -786,7 +786,7 @@ public class HivePageSource
     @Override
     public boolean pushdownFilterAndProjection(PageSourceOptions options)
     {
-        List<FilterFunction> remainingFilterFunctions = pushdownFilterOnPrefilledColumns(options);
+        List<AbstractFilterFunction> remainingFilterFunctions = pushdownFilterOnPrefilledColumns(options);
 
         if (filterOnPrefilledValuesFailed) {
             return true;
@@ -798,10 +798,10 @@ public class HivePageSource
         return filterAndProjectPushedDown;
     }
 
-    private List<FilterFunction> pushdownFilterOnPrefilledColumns(PageSourceOptions options)
+    private List<AbstractFilterFunction> pushdownFilterOnPrefilledColumns(PageSourceOptions options)
     {
-        ImmutableList.Builder<FilterFunction> remainingFilterFunctions = ImmutableList.builder();
-        for (FilterFunction filterFunction : options.getFilterFunctions()) {
+        ImmutableList.Builder<AbstractFilterFunction> remainingFilterFunctions = ImmutableList.builder();
+        for (AbstractFilterFunction filterFunction : options.getFilterFunctions()) {
             Set<ColumnMappingKind> inputKinds = getInputKinds(filterFunction);
             if (!inputKinds.contains(PREFILLED)) {
                 remainingFilterFunctions.add(filterFunction);
@@ -827,7 +827,7 @@ public class HivePageSource
         return remainingFilterFunctions.build();
     }
 
-    private PageSourceOptions createPageSourceOptionsForDelegate(PageSourceOptions options, List<FilterFunction> filterFunctions)
+    private PageSourceOptions createPageSourceOptionsForDelegate(PageSourceOptions options, List<AbstractFilterFunction> filterFunctions)
     {
         // Remove non-regular and non-interim columns from internal and output channels
         int[] internalChannels = Arrays.copyOf(options.getInternalChannels(), options.getInternalChannels().length);
@@ -846,11 +846,11 @@ public class HivePageSource
                 internalChannels,
                 outputChannels,
                 options.getReusePages(),
-                filterFunctions.toArray(new FilterFunction[0]),
+                filterFunctions.toArray(new AbstractFilterFunction[0]),
                 options.getTargetBytes());
     }
 
-    private Set<ColumnMappingKind> getInputKinds(FilterFunction filterFunction)
+    private Set<ColumnMappingKind> getInputKinds(AbstractFilterFunction filterFunction)
     {
         return Arrays.stream(filterFunction.getInputChannels())
                 .mapToObj(columnMappings::get)
@@ -858,7 +858,7 @@ public class HivePageSource
                 .collect(toImmutableSet());
     }
 
-    private boolean evaluateFilterFunctionOnPrefilledValues(FilterFunction filterFunction)
+    private boolean evaluateFilterFunctionOnPrefilledValues(AbstractFilterFunction filterFunction)
     {
         int[] inputChannels = filterFunction.getInputChannels();
         Block[] blocks = new Block[inputChannels.length];

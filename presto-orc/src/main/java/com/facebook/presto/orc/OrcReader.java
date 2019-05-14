@@ -21,9 +21,11 @@ import com.facebook.presto.orc.metadata.Metadata;
 import com.facebook.presto.orc.metadata.PostScript;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.stream.OrcInputStream;
+import com.facebook.presto.spi.PageSourceOptions.AbstractFilterFunction;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -225,18 +227,20 @@ public class OrcReader
 
     public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryUsage, int initialBatchSize)
     {
-        return createRecordReader(includedColumns, ImmutableMap.of(), predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize, false, false);
+        return createRecordReader(includedColumns, ImmutableMap.of(), predicate, ImmutableMap.of(), ImmutableList.of(), 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize, false, false);
     }
 
     public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, Map<Integer, List<Subfield>> includedSubfields, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryUsage, int initialBatchSize)
     {
-        return createRecordReader(includedColumns, includedSubfields, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize, false, false);
+        return createRecordReader(includedColumns, includedSubfields, predicate, ImmutableMap.of(), ImmutableList.of(), 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize, false, false);
     }
 
     public OrcRecordReader createRecordReader(
             Map<Integer, Type> includedColumns,
             Map<Integer, List<Subfield>> includedSubfields,
             OrcPredicate predicate,
+            Map<Integer, Filter> columnFilters,
+            List<AbstractFilterFunction> filterFunctions,
             long offset,
             long length,
             DateTimeZone hiveStorageTimeZone,
@@ -249,6 +253,8 @@ public class OrcReader
                 requireNonNull(includedColumns, "includedColumns is null"),
                 requireNonNull(includedSubfields, "includedSubfields is null"),
                 requireNonNull(predicate, "predicate is null"),
+                requireNonNull(columnFilters, "columnFilters is null"),
+                requireNonNull(filterFunctions, "filterFunctions is null"),
                 footer.getNumberOfRows(),
                 footer.getStripes(),
                 footer.getFileStats(),

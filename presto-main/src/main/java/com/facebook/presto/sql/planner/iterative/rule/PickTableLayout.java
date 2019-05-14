@@ -69,6 +69,7 @@ import static com.facebook.presto.SystemSessionProperties.isAriaScanEnabled;
 import static com.facebook.presto.SystemSessionProperties.isNewOptimizerEnabled;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.metadata.TableLayoutResult.computeEnforced;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterNonDeterministicConjuncts;
@@ -77,7 +78,6 @@ import static com.facebook.presto.sql.planner.iterative.rule.PreconditionRules.c
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
-import static com.facebook.presto.sql.relational.LogicalRowExpressions.TRUE;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;

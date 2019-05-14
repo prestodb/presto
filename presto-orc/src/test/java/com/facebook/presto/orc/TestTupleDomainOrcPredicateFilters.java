@@ -17,7 +17,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.orc.Filters.BigintRange;
 import com.facebook.presto.orc.Filters.MultiRange;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.LiteralEncoder;
@@ -39,9 +39,9 @@ import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.testing.TestingMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -49,9 +49,11 @@ import org.testng.annotations.Test;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
+import static com.facebook.presto.orc.TupleDomainFilters.toFilter;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.CharType.createCharType;
@@ -201,16 +203,10 @@ public class TestTupleDomainOrcPredicateFilters
 
     private Filter getFilter(Expression expression, Symbol column, Type type)
     {
-        ColumnHandle columnHandle = new TestingMetadata.TestingColumnHandle(column.getName());
-        TupleDomain<TestingMetadata.TestingColumnHandle> tupleDomain = fromPredicate(expression).getTupleDomain()
-                .transform(symbol -> new TestingMetadata.TestingColumnHandle(symbol.getName()));
-        Map<Integer, Filter> filters = new TupleDomainOrcPredicate(
-                tupleDomain,
-                ImmutableList.of(columnReference(columnHandle, type)),
-                false).getFilters();
-        assertTrue(filters != null);
-        assertEquals(filters.size(), 1);
-        return filters.get(0);
+        Optional<Map<Symbol, Domain>> domains = fromPredicate(expression).getTupleDomain().getDomains();
+        assertTrue(domains.isPresent());
+        Domain domain = Iterables.getOnlyElement(domains.get().values());
+        return toFilter(domain);
     }
 
     private TupleDomainOrcPredicate.ColumnReference columnReference(ColumnHandle column, Type type)

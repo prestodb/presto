@@ -22,7 +22,7 @@ public class PageSourceOptions
     private final boolean reusePages;
     private final int[] internalChannels;
     private final int[] outputChannels;
-    private final FilterFunction[] filterFunctions;
+    private final AbstractFilterFunction[] filterFunctions;
     private final int targetBytes;
 
     public static class FilterStats
@@ -59,14 +59,14 @@ public class PageSourceOptions
         }
     }
 
-    public abstract static class FilterFunction
+    public abstract static class AbstractFilterFunction
             extends FilterStats
     {
         protected final int[] inputChannels;
         protected int initialCost = 1;
         private int[][] channelRowNumberMaps;
 
-        public FilterFunction(int[] inputChannels, int initialCost)
+        public AbstractFilterFunction(int[] inputChannels, int initialCost)
         {
             this.inputChannels = inputChannels;
             this.channelRowNumberMaps = new int[inputChannels.length][];
@@ -181,7 +181,7 @@ public class PageSourceOptions
     public PageSourceOptions(int[] internalChannels,
                              int[] outputChannels,
                              boolean reusePages,
-                             FilterFunction[] filterFunctions,
+                             AbstractFilterFunction[] filterFunctions,
                              int targetBytes)
     {
         this.internalChannels = requireNonNull(internalChannels, "internalChannels is null");
@@ -206,7 +206,7 @@ public class PageSourceOptions
         return reusePages;
     }
 
-    public FilterFunction[] getFilterFunctions()
+    public AbstractFilterFunction[] getFilterFunctions()
     {
         return filterFunctions;
     }

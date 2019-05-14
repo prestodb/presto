@@ -222,7 +222,7 @@ public class ScanFilterAndProjectOperator
     }
 
     private static class FilterExpression
-            extends PageSourceOptions.FilterFunction
+            extends PageSourceOptions.AbstractFilterFunction
     {
         final ConnectorSession session;
         final PageFilter filter;
