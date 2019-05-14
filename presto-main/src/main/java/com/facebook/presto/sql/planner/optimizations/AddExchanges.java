@@ -324,21 +324,20 @@ public class AddExchanges
         {
             List<LocalProperty<VariableReferenceExpression>> desiredProperties = new ArrayList<>();
             if (!node.getPartitionBy().isEmpty()) {
-                desiredProperties.add(new GroupingProperty<>(toVariableReferences(node.getPartitionBy(), types)));
+                desiredProperties.add(new GroupingProperty<>(node.getPartitionBy()));
             }
             node.getOrderingScheme().ifPresent(orderingScheme ->
                     orderingScheme.getOrderBy().stream()
                             .map(variable -> new SortingProperty<>(variable, orderingScheme.getOrdering(variable)))
                             .forEach(desiredProperties::add));
 
-            List<VariableReferenceExpression> partitionVariables = toVariableReferences(node.getPartitionBy(), types);
             PlanWithProperties child = planChild(
                     node,
-                    PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(partitionVariables), desiredProperties)
+                    PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getPartitionBy()), desiredProperties)
                             .mergeWithParent(preferredProperties));
 
-            if (!child.getProperties().isStreamPartitionedOn(partitionVariables) &&
-                    !child.getProperties().isNodePartitionedOn(partitionVariables)) {
+            if (!child.getProperties().isStreamPartitionedOn(node.getPartitionBy()) &&
+                    !child.getProperties().isNodePartitionedOn(node.getPartitionBy())) {
                 if (node.getPartitionBy().isEmpty()) {
                     child = withDerivedProperties(
                             gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode(), types),
@@ -346,7 +345,7 @@ public class AddExchanges
                 }
                 else {
                     child = withDerivedProperties(
-                            partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode(), createPartitioning(toVariableReferences(node.getPartitionBy(), types)), node.getHashVariable(), types),
+                            partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode(), createPartitioning(node.getPartitionBy()), node.getHashVariable(), types),
                             child.getProperties());
                 }
             }
@@ -369,21 +368,20 @@ public class AddExchanges
                 return rebaseAndDeriveProperties(node, child);
             }
 
-            List<VariableReferenceExpression> partitionVariables = toVariableReferences(node.getPartitionBy(), types);
             PlanWithProperties child = planChild(
                     node,
-                    PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(partitionVariables), grouped(partitionVariables))
+                    PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getPartitionBy()), grouped(node.getPartitionBy()))
                             .mergeWithParent(preferredProperties));
 
             // TODO: add config option/session property to force parallel plan if child is unpartitioned and window has a PARTITION BY clause
-            if (!child.getProperties().isStreamPartitionedOn(partitionVariables)
-                    && !child.getProperties().isNodePartitionedOn(partitionVariables)) {
+            if (!child.getProperties().isStreamPartitionedOn(node.getPartitionBy())
+                    && !child.getProperties().isNodePartitionedOn(node.getPartitionBy())) {
                 child = withDerivedProperties(
                         partitionedExchange(
                                 idAllocator.getNextId(),
                                 REMOTE_STREAMING,
                                 child.getNode(),
-                                createPartitioning(toVariableReferences(node.getPartitionBy(), types)),
+                                createPartitioning(node.getPartitionBy()),
                                 node.getHashVariable(),
                                 types),
                         child.getProperties());
@@ -400,27 +398,25 @@ public class AddExchanges
             PreferredProperties preferredChildProperties;
             Function<PlanNode, PlanNode> addExchange;
 
-            List<VariableReferenceExpression> partitionVariables = toVariableReferences(node.getPartitionBy(), types);
-
             if (node.getPartitionBy().isEmpty()) {
                 preferredChildProperties = PreferredProperties.any();
                 addExchange = partial -> gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, partial, types);
             }
             else {
-                preferredChildProperties = PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(partitionVariables), grouped(partitionVariables))
+                preferredChildProperties = PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getPartitionBy()), grouped(node.getPartitionBy()))
                         .mergeWithParent(preferredProperties);
                 addExchange = partial -> partitionedExchange(
                         idAllocator.getNextId(),
                         REMOTE_STREAMING,
                         partial,
-                        createPartitioning(toVariableReferences(node.getPartitionBy(), types)),
+                        createPartitioning(node.getPartitionBy()),
                         node.getHashVariable(),
                         types);
             }
 
             PlanWithProperties child = planChild(node, preferredChildProperties);
-            if (!child.getProperties().isStreamPartitionedOn(partitionVariables)
-                    && !child.getProperties().isNodePartitionedOn(partitionVariables)) {
+            if (!child.getProperties().isStreamPartitionedOn(node.getPartitionBy())
+                    && !child.getProperties().isNodePartitionedOn(node.getPartitionBy())) {
                 // add exchange + push function to child
                 child = withDerivedProperties(
                         new TopNRowNumberNode(

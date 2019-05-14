@@ -245,14 +245,14 @@ public class GatherAndMergeWindows
 
         private static int comparePartitionBy(WindowNode o1, WindowNode o2)
         {
-            Iterator<Symbol> iterator1 = o1.getPartitionBy().iterator();
-            Iterator<Symbol> iterator2 = o2.getPartitionBy().iterator();
+            Iterator<VariableReferenceExpression> iterator1 = o1.getPartitionBy().iterator();
+            Iterator<VariableReferenceExpression> iterator2 = o2.getPartitionBy().iterator();
 
             while (iterator1.hasNext() && iterator2.hasNext()) {
-                Symbol symbol1 = iterator1.next();
-                Symbol symbol2 = iterator2.next();
+                VariableReferenceExpression variable1 = iterator1.next();
+                VariableReferenceExpression variable2 = iterator2.next();
 
-                int partitionByComparison = symbol1.compareTo(symbol2);
+                int partitionByComparison = variable1.compareTo(variable2);
                 if (partitionByComparison != 0) {
                     return partitionByComparison;
                 }

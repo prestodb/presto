@@ -212,7 +212,7 @@ public class TestPruneWindowColumns
                                 .collect(toImmutableList())),
                 p.window(
                         new WindowNode.Specification(
-                                ImmutableList.of(partitionKey),
+                                ImmutableList.of(p.variable(partitionKey)),
                                 Optional.of(new OrderingScheme(
                                         ImmutableList.of(p.variable(orderKey)),
                                         ImmutableMap.of(p.variable(orderKey), SortOrder.ASC_NULLS_FIRST)))),

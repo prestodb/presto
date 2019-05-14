@@ -32,7 +32,7 @@ public final class RowNumberNode
         extends PlanNode
 {
     private final PlanNode source;
-    private final List<Symbol> partitionBy;
+    private final List<VariableReferenceExpression> partitionBy;
     private final Optional<Integer> maxRowCountPerPartition;
     private final VariableReferenceExpression rowNumberVariable;
     private final Optional<VariableReferenceExpression> hashVariable;
@@ -41,7 +41,7 @@ public final class RowNumberNode
     public RowNumberNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("partitionBy") List<Symbol> partitionBy,
+            @JsonProperty("partitionBy") List<VariableReferenceExpression> partitionBy,
             @JsonProperty("rowNumberVariable") VariableReferenceExpression rowNumberVariable,
             @JsonProperty("maxRowCountPerPartition") Optional<Integer> maxRowCountPerPartition,
             @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable)
@@ -92,7 +92,7 @@ public final class RowNumberNode
     }
 
     @JsonProperty
-    public List<Symbol> getPartitionBy()
+    public List<VariableReferenceExpression> getPartitionBy()
     {
         return partitionBy;
     }

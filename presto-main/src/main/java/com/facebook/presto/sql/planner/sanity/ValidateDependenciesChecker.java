@@ -81,6 +81,7 @@ import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToE
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 /**
@@ -168,7 +169,8 @@ public final class ValidateDependenciesChecker
 
             Set<Symbol> inputs = createInputs(source, boundSymbols);
 
-            checkDependencies(inputs, node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().getOutputSymbols());
+            List<Symbol> partitionBySymbols = node.getPartitionBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
+            checkDependencies(inputs, partitionBySymbols, "Invalid node. Partition by symbols (%s) not in source plan output (%s)", partitionBySymbols, node.getSource().getOutputSymbols());
             if (node.getOrderingScheme().isPresent()) {
                 checkDependencies(
                         inputs,
@@ -203,7 +205,8 @@ public final class ValidateDependenciesChecker
             source.accept(this, boundSymbols); // visit child
 
             Set<Symbol> inputs = createInputs(source, boundSymbols);
-            checkDependencies(inputs, node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().getOutputSymbols());
+            Set<Symbol> partitionBySymbols = node.getPartitionBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet());
+            checkDependencies(inputs, partitionBySymbols, "Invalid node. Partition by symbols (%s) not in source plan output (%s)", partitionBySymbols, node.getSource().getOutputSymbols());
             checkDependencies(
                     inputs,
                     node.getOrderingScheme().getOrderBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()),
@@ -219,7 +222,8 @@ public final class ValidateDependenciesChecker
             PlanNode source = node.getSource();
             source.accept(this, boundSymbols); // visit child
 
-            checkDependencies(source.getOutputSymbols(), node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().getOutputSymbols());
+            Set<Symbol> partitionBySymbols = node.getPartitionBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet());
+            checkDependencies(source.getOutputSymbols(), partitionBySymbols, "Invalid node. Partition by symbols (%s) not in source plan output (%s)", partitionBySymbols, source.getOutputSymbols());
 
             return null;
         }

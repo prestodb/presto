@@ -54,7 +54,7 @@ public class PruneWindowColumns
                 .addAll(windowNode.getSource().getOutputSymbols().stream()
                         .filter(referencedOutputs::contains)
                         .iterator())
-                .addAll(windowNode.getPartitionBy());
+                .addAll(windowNode.getPartitionBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
 
         windowNode.getOrderingScheme().ifPresent(
                 orderingScheme -> orderingScheme

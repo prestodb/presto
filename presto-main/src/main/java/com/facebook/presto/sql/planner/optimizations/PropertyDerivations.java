@@ -253,7 +253,7 @@ public class PropertyDerivations
             // so we should just propagate those underlying local properties that guarantee the pre-partitioning.
             // TODO: come up with a more general form of this operation for other streaming operators
             if (!node.getPrePartitionedInputs().isEmpty()) {
-                GroupingProperty<VariableReferenceExpression> prePartitionedProperty = new GroupingProperty<>(toVariableReferences(node.getPrePartitionedInputs(), types));
+                GroupingProperty<VariableReferenceExpression> prePartitionedProperty = new GroupingProperty<>(node.getPrePartitionedInputs());
                 for (LocalProperty<VariableReferenceExpression> localProperty : properties.getLocalProperties()) {
                     if (!prePartitionedProperty.isSimplifiedBy(localProperty)) {
                         break;
@@ -263,7 +263,7 @@ public class PropertyDerivations
             }
 
             if (!node.getPartitionBy().isEmpty()) {
-                localProperties.add(new GroupingProperty<>(toVariableReferences(node.getPartitionBy(), types)));
+                localProperties.add(new GroupingProperty<>(node.getPartitionBy()));
             }
 
             orderingScheme.ifPresent(scheme ->
@@ -322,7 +322,7 @@ public class PropertyDerivations
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
             ImmutableList.Builder<LocalProperty<VariableReferenceExpression>> localProperties = ImmutableList.builder();
-            localProperties.add(new GroupingProperty<>(toVariableReferences(node.getPartitionBy(), types)));
+            localProperties.add(new GroupingProperty<>(node.getPartitionBy()));
             for (VariableReferenceExpression column : node.getOrderingScheme().getOrderBy()) {
                 localProperties.add(new SortingProperty<>(column, node.getOrderingScheme().getOrdering(column)));
             }

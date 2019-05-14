@@ -313,7 +313,7 @@ public class TestEffectivePredicateExtractor
                                 equals(BE, CE),
                                 lessThan(CE, bigintLiteral(10)))),
                 new WindowNode.Specification(
-                        ImmutableList.of(A),
+                        ImmutableList.of(AV),
                         Optional.of(new OrderingScheme(
                                 ImmutableList.of(AV),
                                 ImmutableMap.of(AV, SortOrder.ASC_NULLS_LAST)))),

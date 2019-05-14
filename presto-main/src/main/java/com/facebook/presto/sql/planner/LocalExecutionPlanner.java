@@ -789,8 +789,7 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            List<Symbol> partitionBySymbols = node.getPartitionBy();
-            List<Integer> partitionChannels = getChannelsForSymbols(partitionBySymbols, source.getLayout());
+            List<Integer> partitionChannels = getChannelsForVariables(node.getPartitionBy(), source.getLayout());
 
             List<Type> partitionTypes = partitionChannels.stream()
                     .map(channel -> source.getTypes().get(channel))
@@ -829,8 +828,7 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            List<Symbol> partitionBySymbols = node.getPartitionBy();
-            List<Integer> partitionChannels = getChannelsForSymbols(partitionBySymbols, source.getLayout());
+            List<Integer> partitionChannels = getChannelsForVariables(node.getPartitionBy(), source.getLayout());
             List<Type> partitionTypes = partitionChannels.stream()
                     .map(channel -> source.getTypes().get(channel))
                     .collect(toImmutableList());
@@ -880,9 +878,8 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            List<Symbol> partitionBySymbols = node.getPartitionBy();
-            List<Integer> partitionChannels = ImmutableList.copyOf(getChannelsForSymbols(partitionBySymbols, source.getLayout()));
-            List<Integer> preGroupedChannels = ImmutableList.copyOf(getChannelsForSymbols(ImmutableList.copyOf(node.getPrePartitionedInputs()), source.getLayout()));
+            List<Integer> partitionChannels = ImmutableList.copyOf(getChannelsForVariables(node.getPartitionBy(), source.getLayout()));
+            List<Integer> preGroupedChannels = ImmutableList.copyOf(getChannelsForVariables(node.getPrePartitionedInputs(), source.getLayout()));
 
             List<Integer> sortChannels = ImmutableList.of();
             List<SortOrder> sortOrder = ImmutableList.of();
@@ -2834,7 +2831,7 @@ public class LocalExecutionPlanner
         return builder.build();
     }
 
-    private static List<Integer> getChannelsForVariables(List<VariableReferenceExpression> variables, Map<Symbol, Integer> layout)
+    private static List<Integer> getChannelsForVariables(Collection<VariableReferenceExpression> variables, Map<Symbol, Integer> layout)
     {
         ImmutableList.Builder<Integer> builder = ImmutableList.builder();
         for (VariableReferenceExpression variable : variables) {

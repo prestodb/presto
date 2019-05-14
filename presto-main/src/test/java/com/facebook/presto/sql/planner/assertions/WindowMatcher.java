@@ -79,7 +79,7 @@ public final class WindowMatcher
                 .map(expectedInputs -> expectedInputs.stream()
                         .map(alias -> alias.toSymbol(symbolAliases))
                         .collect(toImmutableSet())
-                        .equals(windowNode.getPrePartitionedInputs()))
+                        .equals(windowNode.getPrePartitionedInputs().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet())))
                 .orElse(true)) {
             return NO_MATCH;
         }

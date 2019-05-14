@@ -45,7 +45,7 @@ public final class WindowNodeUtil
 
     public static boolean dependsOn(WindowNode parent, WindowNode child)
     {
-        return parent.getPartitionBy().stream().anyMatch(child.getCreatedSymbols()::contains)
+        return parent.getPartitionBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).anyMatch(child.getCreatedSymbols()::contains)
                 || (parent.getOrderingScheme().isPresent() && parent.getOrderingScheme().get().getOrderBy().stream()
                 .map(VariableReferenceExpression::getName)
                 .map(Symbol::new)

@@ -252,7 +252,7 @@ public class HashGenerationOptimizer
                 return planSimpleNodeWithProperties(node, parentPreference);
             }
 
-            Optional<HashComputation> hashComputation = computeHash(node.getPartitionBy());
+            Optional<HashComputation> hashComputation = computeHash(node.getPartitionBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()));
             PlanWithProperties child = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(hashComputation),
@@ -278,7 +278,7 @@ public class HashGenerationOptimizer
                 return planSimpleNodeWithProperties(node, parentPreference);
             }
 
-            Optional<HashComputation> hashComputation = computeHash(node.getPartitionBy());
+            Optional<HashComputation> hashComputation = computeHash(node.getPartitionBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()));
             PlanWithProperties child = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(hashComputation),
@@ -463,7 +463,7 @@ public class HashGenerationOptimizer
                 return planSimpleNodeWithProperties(node, parentPreference, true);
             }
 
-            Optional<HashComputation> hashComputation = computeHash(node.getPartitionBy());
+            Optional<HashComputation> hashComputation = computeHash(node.getPartitionBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()));
             PlanWithProperties child = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(hashComputation),

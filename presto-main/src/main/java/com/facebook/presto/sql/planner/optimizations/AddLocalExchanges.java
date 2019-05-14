@@ -336,13 +336,13 @@ public class AddLocalExchanges
             StreamPreferredProperties childRequirements = parentPreferences
                     .constrainTo(toVariableReferences(node.getSource().getOutputSymbols(), types))
                     .withDefaultParallelism(session)
-                    .withPartitioning(toVariableReferences(node.getPartitionBy(), types));
+                    .withPartitioning(node.getPartitionBy());
 
             PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
 
             List<LocalProperty<VariableReferenceExpression>> desiredProperties = new ArrayList<>();
             if (!node.getPartitionBy().isEmpty()) {
-                desiredProperties.add(new GroupingProperty<>(toVariableReferences(node.getPartitionBy(), types)));
+                desiredProperties.add(new GroupingProperty<>(node.getPartitionBy()));
             }
             node.getOrderingScheme().ifPresent(orderingScheme ->
                     orderingScheme.getOrderBy().stream()
@@ -350,15 +350,12 @@ public class AddLocalExchanges
                             .forEach(desiredProperties::add));
             Iterator<Optional<LocalProperty<VariableReferenceExpression>>> matchIterator = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).iterator();
 
-            Set<Symbol> prePartitionedInputs = ImmutableSet.of();
+            Set<VariableReferenceExpression> prePartitionedInputs = ImmutableSet.of();
             if (!node.getPartitionBy().isEmpty()) {
                 Optional<LocalProperty<VariableReferenceExpression>> groupingRequirement = matchIterator.next();
-                Set<Symbol> unPartitionedInputs = groupingRequirement
-                        .map(LocalProperty::getColumns)
-                        .map(inputs -> inputs.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()))
-                        .orElse(ImmutableSet.of());
+                Set<VariableReferenceExpression> unPartitionedInputs = groupingRequirement.map(LocalProperty::getColumns).orElse(ImmutableSet.of());
                 prePartitionedInputs = node.getPartitionBy().stream()
-                        .filter(symbol -> !unPartitionedInputs.contains(symbol))
+                        .filter(variable -> !unPartitionedInputs.contains(variable))
                         .collect(toImmutableSet());
             }
 
@@ -459,7 +456,7 @@ public class AddLocalExchanges
         public PlanWithProperties visitRowNumber(RowNumberNode node, StreamPreferredProperties parentPreferences)
         {
             // row number requires that all data be partitioned
-            StreamPreferredProperties requiredProperties = parentPreferences.withDefaultParallelism(session).withPartitioning(toVariableReferences(node.getPartitionBy(), types));
+            StreamPreferredProperties requiredProperties = parentPreferences.withDefaultParallelism(session).withPartitioning(node.getPartitionBy());
             return planAndEnforceChildren(node, requiredProperties, requiredProperties);
         }
 
@@ -470,7 +467,7 @@ public class AddLocalExchanges
 
             // final topN row number requires that all data be partitioned
             if (!node.isPartial()) {
-                requiredProperties = requiredProperties.withPartitioning(toVariableReferences(node.getPartitionBy(), types));
+                requiredProperties = requiredProperties.withPartitioning(node.getPartitionBy());
             }
 
             return planAndEnforceChildren(node, requiredProperties, requiredProperties);

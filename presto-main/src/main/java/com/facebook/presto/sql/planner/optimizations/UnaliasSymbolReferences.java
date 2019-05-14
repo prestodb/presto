@@ -222,7 +222,7 @@ public class UnaliasSymbolReferences
                     canonicalizeAndDistinct(node.getSpecification()),
                     functions.build(),
                     canonicalize(node.getHashVariable()),
-                    canonicalize(node.getPrePartitionedInputs()),
+                    canonicalizeVariables(node.getPrePartitionedInputs()),
                     node.getPreSortedOrderPrefix());
         }
 
@@ -413,7 +413,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitRowNumber(RowNumberNode node, RewriteContext<Void> context)
         {
-            return new RowNumberNode(node.getId(), context.rewrite(node.getSource()), canonicalizeAndDistinct(node.getPartitionBy()), canonicalize(node.getRowNumberVariable()), node.getMaxRowCountPerPartition(), canonicalize(node.getHashVariable()));
+            return new RowNumberNode(node.getId(), context.rewrite(node.getSource()), canonicalizeAndDistinctVariable(node.getPartitionBy()), canonicalize(node.getRowNumberVariable()), node.getMaxRowCountPerPartition(), canonicalize(node.getHashVariable()));
         }
 
         @Override
@@ -744,7 +744,7 @@ public class UnaliasSymbolReferences
         private WindowNode.Specification canonicalizeAndDistinct(WindowNode.Specification specification)
         {
             return new WindowNode.Specification(
-                    canonicalizeAndDistinct(specification.getPartitionBy()),
+                    canonicalizeAndDistinctVariable(specification.getPartitionBy()),
                     specification.getOrderingScheme().map(this::canonicalizeAndDistinct));
         }
 

@@ -15,6 +15,7 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
@@ -125,7 +126,7 @@ public class CostCalculatorUsingExchanges
             // copies values for all the columns into a page builder
             if (!node.getMaxRowCountPerPartition().isPresent()) {
                 symbols = ImmutableList.<Symbol>builder()
-                        .addAll(node.getPartitionBy())
+                        .addAll(node.getPartitionBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()))
                         .add(node.getRowNumberSymbol())
                         .build();
             }
