@@ -28,6 +28,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.LogicalRowExpressions;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -68,7 +69,7 @@ public class SimpleFilterProjectSemiJoinStatsRule
         super(normalizer);
         this.filterStatsCalculator = requireNonNull(filterStatsCalculator, "filterStatsCalculator can not be null");
         requireNonNull(functionManager, "functionManager can not be null");
-        this.logicalRowExpressions = new LogicalRowExpressions(functionManager);
+        this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionManager));
         this.functionResolution = new FunctionResolution(functionManager);
     }
 
