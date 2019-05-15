@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
+import com.facebook.presto.sql.planner.optimizations.TranslateExpressions;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
@@ -133,7 +134,14 @@ public class BasePlanTest
     protected void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
     {
         queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers, stage, WarningCollector.NOOP);
+            Plan actualPlan = queryRunner.createPlan(
+                    transactionSession,
+                    sql,
+                    ImmutableList.<PlanOptimizer>builder()
+                            .addAll(optimizers)
+                            .add(translateExpressions()).build(),
+                    stage,
+                    WarningCollector.NOOP);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
             return null;
         });
@@ -158,9 +166,21 @@ public class BasePlanTest
                         new RuleStatsRecorder(),
                         queryRunner.getStatsCalculator(),
                         queryRunner.getCostCalculator(),
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())));
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
+                translateExpressions());
 
         assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
+    }
+
+    private PlanOptimizer translateExpressions()
+    {
+        return new IterativeOptimizer(
+                new RuleStatsRecorder(),
+                queryRunner.getStatsCalculator(),
+                queryRunner.getCostCalculator(),
+                new ImmutableSet.Builder()
+                        .addAll(new TranslateExpressions(queryRunner.getMetadata(), queryRunner.getSqlParser()).rules())
+                        .build());
     }
 
     protected void assertPlanWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, PlanMatchPattern pattern)
