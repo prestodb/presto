@@ -32,7 +32,8 @@ public class TestInput
         Input expected = new Input(new ConnectorId("connectorId"), "schema", "table", Optional.empty(), ImmutableList.of(
                 new Column("column1", "string"),
                 new Column("column2", "string"),
-                new Column("column3", "string")));
+                new Column("column3", "string")),
+                Optional.empty());
 
         String json = codec.toJson(expected);
         Input actual = codec.fromJson(json);

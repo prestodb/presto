@@ -25,12 +25,14 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.teradata.tpcds.Table;
 import com.teradata.tpcds.column.CallCenterColumn;
 import com.teradata.tpcds.column.WebSiteColumn;
+import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.Constraint.alwaysTrue;
+import static java.util.Map.Entry;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -160,6 +162,46 @@ public class TestTpcdsMetadataStatistics
                         .setDistinctValuesCount(Estimate.of(3))
                         .setRange(new DoubleRange(10819L, 11549L))
                         .build());
+    }
+
+    @Test
+    public void testTableStatisticsSerialization()
+    {
+        SchemaTableName schemaTableName = new SchemaTableName("sf1", Table.WEB_SITE.getName());
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
+        TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, alwaysTrue());
+
+        Entry<ColumnHandle, ColumnStatistics> entry = tableStatistics.getColumnStatistics().entrySet().iterator().next();
+
+        TableStatistics expectedTableStatictics = tableStatistics.builder()
+                .setRowCount(tableStatistics.getRowCount())
+                .setColumnStatistics(entry.getKey(), entry.getValue())
+                .build();
+
+        JsonCodec<TableStatistics> codec = JsonCodec.jsonCodec(TableStatistics.class);
+        String json = codec.toJson(expectedTableStatictics);
+        assertEquals(json, "{\n" +
+                "  \"rowCount\" : {\n" +
+                "    \"value\" : 30.0\n" +
+                "  },\n" +
+                "  \"columnStatistics\" : {\n" +
+                "    \"tpcds:web_site_sk\" : {\n" +
+                "      \"nullsFraction\" : {\n" +
+                "        \"value\" : 0.0\n" +
+                "      },\n" +
+                "      \"distinctValuesCount\" : {\n" +
+                "        \"value\" : 30.0\n" +
+                "      },\n" +
+                "      \"dataSize\" : {\n" +
+                "        \"value\" : \"NaN\"\n" +
+                "      },\n" +
+                "      \"range\" : {\n" +
+                "        \"min\" : 1.0,\n" +
+                "        \"max\" : 30.0\n" +
+                "      }\n" +
+                "    }\n" +
+                "  }\n" +
+                "}");
     }
 
     private void assertColumnStatistics(ColumnStatistics actual, ColumnStatistics expected)

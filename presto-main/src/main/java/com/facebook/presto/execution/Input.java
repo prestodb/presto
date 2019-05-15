@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -35,6 +36,7 @@ public final class Input
     private final String table;
     private final List<Column> columns;
     private final Optional<Object> connectorInfo;
+    private final Optional<TableStatistics> statistics;
 
     @JsonCreator
     public Input(
@@ -42,19 +44,15 @@ public final class Input
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table,
             @JsonProperty("connectorInfo") Optional<Object> connectorInfo,
-            @JsonProperty("columns") List<Column> columns)
+            @JsonProperty("columns") List<Column> columns,
+            @JsonProperty("statistics") Optional<TableStatistics> statistics)
     {
-        requireNonNull(connectorId, "connectorId is null");
-        requireNonNull(schema, "schema is null");
-        requireNonNull(table, "table is null");
-        requireNonNull(connectorInfo, "connectorInfo is null");
-        requireNonNull(columns, "columns is null");
-
-        this.connectorId = connectorId;
-        this.schema = schema;
-        this.table = table;
-        this.connectorInfo = connectorInfo;
-        this.columns = ImmutableList.copyOf(columns);
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.schema = requireNonNull(schema, "schema is null");
+        this.table = requireNonNull(table, "table is null");
+        this.connectorInfo = requireNonNull(connectorInfo, "connectorInfo is null");
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        this.statistics = requireNonNull(statistics, "table statistics is null");
     }
 
     @JsonProperty
@@ -87,6 +85,12 @@ public final class Input
         return columns;
     }
 
+    @JsonProperty
+    public Optional<TableStatistics> getStatistics()
+    {
+        return statistics;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -101,13 +105,14 @@ public final class Input
                 Objects.equals(schema, input.schema) &&
                 Objects.equals(table, input.table) &&
                 Objects.equals(columns, input.columns) &&
-                Objects.equals(connectorInfo, input.connectorInfo);
+                Objects.equals(connectorInfo, input.connectorInfo) &&
+                Objects.equals(statistics, input.statistics);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schema, table, columns, connectorInfo);
+        return Objects.hash(connectorId, schema, table, columns, connectorInfo, statistics);
     }
 
     @Override
@@ -118,6 +123,7 @@ public final class Input
                 .addValue(schema)
                 .addValue(table)
                 .addValue(columns)
+                .addValue(statistics)
                 .toString();
     }
 }

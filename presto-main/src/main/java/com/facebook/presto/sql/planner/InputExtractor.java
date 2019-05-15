@@ -20,19 +20,30 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.statistics.ColumnStatistics;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
+import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Map.Entry;
 
 public class InputExtractor
 {
@@ -48,7 +59,7 @@ public class InputExtractor
     public List<Input> extractInputs(PlanNode root)
     {
         Visitor visitor = new Visitor();
-        root.accept(visitor, null);
+        root.accept(visitor, new Context());
 
         return ImmutableList.copyOf(visitor.getInputs());
     }
@@ -58,15 +69,15 @@ public class InputExtractor
         return new Column(columnMetadata.getName(), columnMetadata.getType().toString());
     }
 
-    private Input createInput(TableMetadata table, TableHandle tableHandle, Set<Column> columns)
+    private Input createInput(TableMetadata table, TableHandle tableHandle, Set<Column> columns, Optional<TableStatistics> statistics)
     {
         SchemaTableName schemaTable = table.getTable();
         Optional<Object> inputMetadata = metadata.getInfo(session, tableHandle);
-        return new Input(table.getConnectorId(), schemaTable.getSchemaName(), schemaTable.getTableName(), inputMetadata, ImmutableList.copyOf(columns));
+        return new Input(table.getConnectorId(), schemaTable.getSchemaName(), schemaTable.getTableName(), inputMetadata, ImmutableList.copyOf(columns), statistics);
     }
 
     private class Visitor
-            extends InternalPlanVisitor<Void, Void>
+            extends InternalPlanVisitor<Void, Context>
     {
         private final ImmutableSet.Builder<Input> inputs = ImmutableSet.builder();
 
@@ -76,7 +87,31 @@ public class InputExtractor
         }
 
         @Override
-        public Void visitTableScan(TableScanNode node, Void context)
+        public Void visitJoin(JoinNode node, Context context)
+        {
+            context.setExtractStatistics(true);
+            visitPlan(node, context);
+            return null;
+        }
+
+        @Override
+        public Void visitSemiJoin(SemiJoinNode node, Context context)
+        {
+            context.setExtractStatistics(true);
+            visitPlan(node, context);
+            return null;
+        }
+
+        @Override
+        public Void visitSpatialJoin(SpatialJoinNode node, Context context)
+        {
+            context.setExtractStatistics(true);
+            visitPlan(node, context);
+            return null;
+        }
+
+        @Override
+        public Void visitTableScan(TableScanNode node, Context context)
         {
             TableHandle tableHandle = node.getTable();
 
@@ -85,13 +120,23 @@ public class InputExtractor
                 columns.add(createColumn(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
             }
 
-            inputs.add(createInput(metadata.getTableMetadata(session, tableHandle), tableHandle, columns));
+            Set<ColumnHandle> desiredColumns = node.getAssignments().values().stream().collect(toImmutableSet());
+
+            Optional<TableStatistics> statistics = Optional.empty();
+
+            if (context.isExtractStatistics()) {
+                Constraint<ColumnHandle> constraint = new Constraint<>(node.getCurrentConstraint());
+                TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, constraint);
+                statistics = Optional.of(pruneStatistics(tableStatistics, desiredColumns));
+            }
+
+            inputs.add(createInput(metadata.getTableMetadata(session, tableHandle), tableHandle, columns, statistics));
 
             return null;
         }
 
         @Override
-        public Void visitIndexSource(IndexSourceNode node, Void context)
+        public Void visitIndexSource(IndexSourceNode node, Context context)
         {
             TableHandle tableHandle = node.getTableHandle();
 
@@ -100,18 +145,58 @@ public class InputExtractor
                 columns.add(createColumn(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
             }
 
-            inputs.add(createInput(metadata.getTableMetadata(session, tableHandle), tableHandle, columns));
+            Set<ColumnHandle> desiredColumns = node.getAssignments().values().stream().collect(toImmutableSet());
+
+            Optional<TableStatistics> statistics = Optional.empty();
+
+            if (context.isExtractStatistics()) {
+                Constraint<ColumnHandle> constraint = new Constraint<>(node.getCurrentConstraint());
+                TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, constraint);
+                statistics = Optional.of(pruneStatistics(tableStatistics, desiredColumns));
+            }
+
+            inputs.add(createInput(metadata.getTableMetadata(session, tableHandle), tableHandle, columns, statistics));
 
             return null;
         }
 
         @Override
-        public Void visitPlan(PlanNode node, Void context)
+        public Void visitPlan(PlanNode node, Context context)
         {
             for (PlanNode child : node.getSources()) {
                 child.accept(this, context);
             }
             return null;
+        }
+
+        private TableStatistics pruneStatistics(TableStatistics tableStatistics, Set<ColumnHandle> desiredColumns)
+        {
+            Map<ColumnHandle, ColumnStatistics> columnStatistics = tableStatistics.getColumnStatistics().entrySet().stream()
+                    .filter(entry -> desiredColumns.contains(entry.getKey()))
+                    .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+            return new TableStatistics(tableStatistics.getRowCount(), columnStatistics);
+        }
+    }
+
+    private static class Context
+    {
+        private boolean extractStatistics;
+
+        public Context() {}
+
+        public Context(boolean extractStatistics)
+        {
+            this.extractStatistics = extractStatistics;
+        }
+
+        public boolean isExtractStatistics()
+        {
+            return extractStatistics;
+        }
+
+        public void setExtractStatistics(boolean extractStatistics)
+        {
+            this.extractStatistics = extractStatistics;
         }
     }
 }

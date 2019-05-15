@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.statistics;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Objects;
 
 import static java.lang.Double.isNaN;
@@ -41,11 +43,13 @@ public class DoubleRange
         this.max = max;
     }
 
+    @JsonProperty
     public double getMin()
     {
         return min;
     }
 
+    @JsonProperty
     public double getMax()
     {
         return max;
