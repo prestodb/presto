@@ -136,8 +136,8 @@ public class TestOrcPageSourceMemoryTracking
 
     private final Random random = new Random();
     private final List<TestColumn> testColumns = ImmutableList.<TestColumn>builder()
-            .add(new TestColumn("p_empty_string", javaStringObjectInspector, () -> "", true))
             .add(new TestColumn("p_string", javaStringObjectInspector, () -> Long.toHexString(random.nextLong()), false))
+            .add(new TestColumn("p_empty_string", javaStringObjectInspector, () -> "", true))
             .build();
 
     private File tempFile;
@@ -182,7 +182,7 @@ public class TestOrcPageSourceMemoryTracking
             assertFalse(pageSource.isFinished());
             Page page = pageSource.getNextPage();
             assertNotNull(page);
-            Block block = page.getBlock(1);
+            Block block = page.getBlock(0);
 
             if (memoryUsage == -1) {
                 assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 180000L, 189999L); // Memory usage before lazy-loading the block
@@ -203,7 +203,7 @@ public class TestOrcPageSourceMemoryTracking
             assertFalse(pageSource.isFinished());
             Page page = pageSource.getNextPage();
             assertNotNull(page);
-            Block block = page.getBlock(1);
+            Block block = page.getBlock(0);
 
             if (memoryUsage == -1) {
                 assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 180000L, 189999L); // Memory usage before lazy-loading the block
@@ -224,7 +224,7 @@ public class TestOrcPageSourceMemoryTracking
             assertFalse(pageSource.isFinished());
             Page page = pageSource.getNextPage();
             assertNotNull(page);
-            Block block = page.getBlock(1);
+            Block block = page.getBlock(0);
 
             if (memoryUsage == -1) {
                 assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 90000L, 99999L); // Memory usage before lazy-loading the block
@@ -322,7 +322,7 @@ public class TestOrcPageSourceMemoryTracking
             assertFalse(operator.isFinished());
             Page page = operator.getOutput();
             assertNotNull(page);
-            page.getBlock(1);
+            page.getBlock(0);
             if (memoryUsage == -1) {
                 memoryUsage = driverContext.getSystemMemoryUsage();
                 assertBetweenInclusive(memoryUsage, 460000L, 469999L);
@@ -338,10 +338,10 @@ public class TestOrcPageSourceMemoryTracking
             assertFalse(operator.isFinished());
             Page page = operator.getOutput();
             assertNotNull(page);
-            page.getBlock(1);
+            page.getBlock(0);
             if (memoryUsage == -1) {
                 memoryUsage = driverContext.getSystemMemoryUsage();
-                assertBetweenInclusive(memoryUsage, 460000L, 469999L);
+                assertBetweenInclusive(memoryUsage, 360000L, 369999L);
             }
             else {
                 assertEquals(driverContext.getSystemMemoryUsage(), memoryUsage);
@@ -354,7 +354,7 @@ public class TestOrcPageSourceMemoryTracking
             assertFalse(operator.isFinished());
             Page page = operator.getOutput();
             assertNotNull(page);
-            page.getBlock(1);
+            page.getBlock(0);
             if (memoryUsage == -1) {
                 memoryUsage = driverContext.getSystemMemoryUsage();
                 assertBetweenInclusive(memoryUsage, 360000L, 369999L);
