@@ -69,13 +69,13 @@ import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndSumD
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.capStats;
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.and;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
-import static com.facebook.presto.sql.relational.LogicalRowExpressions.and;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;

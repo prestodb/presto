@@ -11,30 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.relational;
+package com.facebook.presto.spi.relation;
 
-import com.facebook.presto.spi.relation.ConstantExpression;
-import com.facebook.presto.spi.relation.DeterminismEvaluator;
-import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
-import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.google.common.base.Predicates.not;
-import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -68,21 +63,24 @@ public final class LogicalRowExpressions
                 return extractPredicates(form, expression);
             }
         }
-        return ImmutableList.of(expression);
+        return Collections.singletonList(expression);
     }
 
     public static List<RowExpression> extractPredicates(Form form, RowExpression expression)
     {
         if (expression instanceof SpecialFormExpression && ((SpecialFormExpression) expression).getForm() == form) {
             SpecialFormExpression specialFormExpression = (SpecialFormExpression) expression;
-            verify(specialFormExpression.getArguments().size() == 2, "logical binary expression requires exactly 2 operands");
-            return ImmutableList.<RowExpression>builder()
-                    .addAll(extractPredicates(form, specialFormExpression.getArguments().get(0)))
-                    .addAll(extractPredicates(form, specialFormExpression.getArguments().get(1)))
-                    .build();
+            if (specialFormExpression.getArguments().size() != 2) {
+                throw new IllegalStateException("logical binary expression requires exactly 2 operands");
+            }
+
+            List<RowExpression> predicates = new ArrayList<>();
+            predicates.addAll(extractPredicates(form, specialFormExpression.getArguments().get(0)));
+            predicates.addAll(extractPredicates(form, specialFormExpression.getArguments().get(1)));
+            return Collections.unmodifiableList(predicates);
         }
 
-        return ImmutableList.of(expression);
+        return Collections.singletonList(expression);
     }
 
     public static RowExpression and(RowExpression... expressions)
@@ -157,7 +155,7 @@ public final class LogicalRowExpressions
 
             // combine pairs of elements
             while (queue.size() >= 2) {
-                List<RowExpression> arguments = ImmutableList.of(queue.remove(), queue.remove());
+                List<RowExpression> arguments = Arrays.asList(queue.remove(), queue.remove());
                 buffer.add(new SpecialFormExpression(form, BOOLEAN, arguments));
             }
 
@@ -244,14 +242,14 @@ public final class LogicalRowExpressions
 
     public RowExpression filterNonDeterministicConjuncts(RowExpression expression)
     {
-        return filterConjuncts(expression, not(this.determinismEvaluator::isDeterministic));
+        return filterConjuncts(expression, predicate -> !this.determinismEvaluator.isDeterministic(predicate));
     }
 
     public RowExpression filterConjuncts(RowExpression expression, Predicate<RowExpression> predicate)
     {
         List<RowExpression> conjuncts = extractConjuncts(expression).stream()
                 .filter(predicate)
-                .collect(toImmutableList());
+                .collect(Collectors.toList());
 
         return combineConjuncts(conjuncts);
     }
@@ -264,7 +262,7 @@ public final class LogicalRowExpressions
     {
         Set<RowExpression> seen = new HashSet<>();
 
-        ImmutableList.Builder<RowExpression> result = ImmutableList.builder();
+        List<RowExpression> result = new ArrayList<>();
         for (RowExpression expression : expressions) {
             if (!determinismEvaluator.isDeterministic(expression)) {
                 result.add(expression);
@@ -275,6 +273,6 @@ public final class LogicalRowExpressions
             }
         }
 
-        return result.build();
+        return Collections.unmodifiableList(result);
     }
 }
