@@ -14,6 +14,8 @@
 
 package com.facebook.presto.spi.statistics;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Objects;
 
 import static java.lang.Double.NaN;
@@ -62,6 +64,7 @@ public final class Estimate
         return isNaN(value);
     }
 
+    @JsonProperty
     public double getValue()
     {
         return value;

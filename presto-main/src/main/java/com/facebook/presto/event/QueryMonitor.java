@@ -319,7 +319,8 @@ public class QueryMonitor
                     input.getTable(),
                     input.getColumns().stream()
                             .map(Column::getName).collect(Collectors.toList()),
-                    input.getConnectorInfo()));
+                    input.getConnectorInfo(),
+                    input.getStatistics()));
         }
 
         Optional<QueryOutputMetadata> output = Optional.empty();

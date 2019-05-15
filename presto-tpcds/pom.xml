@@ -33,6 +33,11 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>json</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>joda-to-java-time-bridge</artifactId>
             <scope>runtime</scope>
         </dependency>

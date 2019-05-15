@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.statistics;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Objects;
 import java.util.Optional;
 
@@ -56,21 +58,25 @@ public final class ColumnStatistics
         this.range = requireNonNull(range, "range is null");
     }
 
+    @JsonProperty
     public Estimate getNullsFraction()
     {
         return nullsFraction;
     }
 
+    @JsonProperty
     public Estimate getDistinctValuesCount()
     {
         return distinctValuesCount;
     }
 
+    @JsonProperty
     public Estimate getDataSize()
     {
         return dataSize;
     }
 
+    @JsonProperty
     public Optional<DoubleRange> getRange()
     {
         return range;
