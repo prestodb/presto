@@ -23,6 +23,7 @@ import com.facebook.presto.execution.Input;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.metadata.FunctionManager;
@@ -70,6 +71,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.time.Duration.ofMillis;
@@ -172,6 +174,7 @@ public class QueryMonitor
                 createQueryFailureInfo(failure, Optional.empty()),
                 ImmutableList.of(),
                 queryInfo.getQueryType(),
+                ImmutableList.of(),
                 ofEpochMilli(queryInfo.getQueryStats().getCreateTime().getMillis()),
                 ofEpochMilli(queryInfo.getQueryStats().getCreateTime().getMillis()),
                 ofEpochMilli(queryInfo.getQueryStats().getEndTime().getMillis())));
@@ -191,6 +194,9 @@ public class QueryMonitor
                         createQueryFailureInfo(queryInfo.getFailureInfo(), queryInfo.getOutputStage()),
                         queryInfo.getWarnings(),
                         queryInfo.getQueryType(),
+                        queryInfo.getFailedTasks().orElse(ImmutableList.of()).stream()
+                                .map(TaskId::toString)
+                                .collect(toImmutableList()),
                         ofEpochMilli(queryStats.getCreateTime().getMillis()),
                         ofEpochMilli(queryStats.getExecutionStartTime().getMillis()),
                         ofEpochMilli(queryStats.getEndTime() != null ? queryStats.getEndTime().getMillis() : 0)));
