@@ -65,6 +65,20 @@ export class QueryListItem extends React.Component {
         return truncateString(formattedQueryText, 300);
     }
 
+    renderWarning() {
+        const query = this.props.query;
+        if (query.warnings && query.warnings.length) {
+            let warningCodes = [];
+            query.warnings.forEach(function(warning) {
+               warningCodes.push(warning.warningCode.name)
+            });
+
+            return (
+                <span className="glyphicon glyphicon-warning-sign query-warning" data-toggle="tooltip" title={warningCodes.join(', ')}/>
+            );
+        }
+    }
+
     render() {
         const query = this.props.query;
         const progressBarStyle = {width: getProgressBarPercentage(query) + "%", backgroundColor: getQueryStateColor(query)};
@@ -129,8 +143,9 @@ export class QueryListItem extends React.Component {
                 <div className="row">
                     <div className="col-xs-4">
                         <div className="row stat-row query-header query-header-queryid">
-                            <div className="col-xs-9" data-toggle="tooltip" data-placement="bottom" title="Query ID">
-                                <a href={"query.html?" + query.queryId} target="_blank">{query.queryId}</a>
+                            <div className="col-xs-9" data-placement="bottom">
+                                <a href={"query.html?" + query.queryId} target="_blank" data-toggle="tooltip" title="Query ID">{query.queryId}</a>
+                                {this.renderWarning()}
                             </div>
                             <div className="col-xs-3 query-header-timestamp" data-toggle="tooltip" data-placement="bottom" title="Submit time">
                                 <span>{formatShortTime(new Date(Date.parse(query.queryStats.createTime)))}</span>
@@ -309,6 +324,12 @@ export class QueryList extends React.Component {
                 if (query.resourceGroupId && query.resourceGroupId.join(".").toLowerCase().indexOf(term) !== -1) {
                     return true;
                 }
+
+                return query.warnings.some(function (warning) {
+                    if ("warning".indexOf(term) !== -1 || warning.warningCode.name.toLowerCase().indexOf(term) !== -1 || warning.message.toLowerCase().indexOf(term) !== -1) {
+                        return true;
+                    }
+                });
 
             }, this);
         }
