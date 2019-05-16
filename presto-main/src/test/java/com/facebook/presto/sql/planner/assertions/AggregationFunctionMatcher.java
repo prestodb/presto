@@ -16,16 +16,18 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.PlannerUtils;
+import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.OrderBy;
 
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.PlannerUtils.toSortOrder;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -51,7 +53,7 @@ public class AggregationFunctionMatcher
 
         FunctionCall expectedCall = callMaker.getExpectedValue(symbolAliases);
         for (Map.Entry<Symbol, Aggregation> assignment : aggregationNode.getAggregations().entrySet()) {
-            if (compareAggregation(metadata.getFunctionManager(), assignment.getValue(), expectedCall)) {
+            if (verifyAggregation(metadata.getFunctionManager(), assignment.getValue(), expectedCall)) {
                 checkState(!result.isPresent(), "Ambiguous function calls in %s", aggregationNode);
                 result = Optional.of(assignment.getKey());
             }
@@ -60,13 +62,37 @@ public class AggregationFunctionMatcher
         return result;
     }
 
-    private boolean compareAggregation(FunctionManager functionManager, Aggregation aggregation, FunctionCall expectedCall)
+    private static boolean verifyAggregation(FunctionManager functionManager, Aggregation aggregation, FunctionCall expectedCall)
     {
         return expectedCall.getName().getSuffix().equalsIgnoreCase(functionManager.getFunctionMetadata(aggregation.getFunctionHandle()).getName()) &&
                 expectedCall.getArguments().equals(aggregation.getArguments()) &&
                 expectedCall.getFilter().equals(aggregation.getFilter()) &&
                 expectedCall.isDistinct() == aggregation.isDistinct() &&
-                expectedCall.getOrderBy().map(PlannerUtils::toOrderingScheme).equals(aggregation.getOrderBy());
+                verifyAggregationOrderBy(aggregation.getOrderBy(), expectedCall.getOrderBy());
+    }
+
+    private static boolean verifyAggregationOrderBy(Optional<OrderingScheme> orderingScheme, Optional<OrderBy> expectedSortOrder)
+    {
+        if (orderingScheme.isPresent() && expectedSortOrder.isPresent()) {
+            return verifyAggregationOrderBy(orderingScheme.get(), expectedSortOrder.get());
+        }
+        return orderingScheme.isPresent() == expectedSortOrder.isPresent();
+    }
+
+    private static boolean verifyAggregationOrderBy(OrderingScheme orderingScheme, OrderBy expectedSortOrder)
+    {
+        if (orderingScheme.getOrderBy().size() != expectedSortOrder.getSortItems().size()) {
+            return false;
+        }
+        for (int i = 0; i < expectedSortOrder.getSortItems().size(); i++) {
+            Symbol orderingSymbol = orderingScheme.getOrderBy().get(i);
+            if (expectedSortOrder.getSortItems().get(i).getSortKey().equals(orderingSymbol.toSymbolReference()) &&
+                    toSortOrder(expectedSortOrder.getSortItems().get(i)).equals(orderingScheme.getOrdering(orderingSymbol))) {
+                continue;
+            }
+            return false;
+        }
+        return true;
     }
 
     @Override
