@@ -73,7 +73,6 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.base.Functions;
@@ -277,6 +276,7 @@ public class PlanBuilder
         {
             this.types = types;
         }
+
         public AggregationBuilder source(PlanNode source)
         {
             this.source = source;
@@ -302,7 +302,7 @@ public class PlanBuilder
                     functionHandle,
                     call.getArguments(),
                     call.getFilter(),
-                    call.getOrderBy().map(OrderBy::getSortItems).map(sortItems -> toOrderingScheme(sortItems, types)),
+                    call.getOrderBy().map(orderBy -> toOrderingScheme(orderBy, types)),
                     call.isDistinct(),
                     mask));
         }
