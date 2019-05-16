@@ -253,7 +253,7 @@ class QueryStateTimer
 
     private static Duration nanosSince(long start, long now)
     {
-        return succinctNanos(now - start);
+        return succinctNanos(Math.max(0, now - start));
     }
 
     private Duration getDuration(AtomicReference<Duration> finalDuration, AtomicReference<Long> start)
