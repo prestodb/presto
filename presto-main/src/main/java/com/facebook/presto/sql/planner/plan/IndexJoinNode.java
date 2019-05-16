@@ -128,6 +128,15 @@ public class IndexJoinNode
     }
 
     @Override
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        return ImmutableList.<VariableReferenceExpression>builder()
+                .addAll(probeSource.getOutputVariables())
+                .addAll(indexSource.getOutputVariables())
+                .build();
+    }
+
+    @Override
     public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitIndexJoin(this, context);
