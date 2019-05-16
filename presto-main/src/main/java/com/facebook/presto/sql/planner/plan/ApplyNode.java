@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
@@ -28,6 +29,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -38,9 +40,9 @@ public class ApplyNode
     private final PlanNode subquery;
 
     /**
-     * Correlation symbols, returned from input (outer plan) used in subquery (inner plan)
+     * Correlation variables, returned from input (outer plan) used in subquery (inner plan)
      */
-    private final List<Symbol> correlation;
+    private final List<VariableReferenceExpression> correlation;
 
     /**
      * Expressions that use subquery symbols.
@@ -74,7 +76,7 @@ public class ApplyNode
             @JsonProperty("input") PlanNode input,
             @JsonProperty("subquery") PlanNode subquery,
             @JsonProperty("subqueryAssignments") Assignments subqueryAssignments,
-            @JsonProperty("correlation") List<Symbol> correlation,
+            @JsonProperty("correlation") List<VariableReferenceExpression> correlation,
             @JsonProperty("originSubqueryError") String originSubqueryError)
     {
         super(id);
@@ -84,7 +86,7 @@ public class ApplyNode
         requireNonNull(correlation, "correlation is null");
         requireNonNull(originSubqueryError, "originSubqueryError is null");
 
-        checkArgument(input.getOutputSymbols().containsAll(correlation), "Input does not contain symbols from correlation");
+        checkArgument(input.getOutputSymbols().containsAll(correlation.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList())), "Input does not contain symbols from correlation");
         checkArgument(
                 subqueryAssignments.getExpressions().stream().allMatch(ApplyNode::isSupportedSubqueryExpression),
                 "Unexpected expression used for subquery expression");
@@ -103,31 +105,31 @@ public class ApplyNode
                 expression instanceof QuantifiedComparisonExpression;
     }
 
-    @JsonProperty("input")
+    @JsonProperty
     public PlanNode getInput()
     {
         return input;
     }
 
-    @JsonProperty("subquery")
+    @JsonProperty
     public PlanNode getSubquery()
     {
         return subquery;
     }
 
-    @JsonProperty("subqueryAssignments")
+    @JsonProperty
     public Assignments getSubqueryAssignments()
     {
         return subqueryAssignments;
     }
 
-    @JsonProperty("correlation")
-    public List<Symbol> getCorrelation()
+    @JsonProperty
+    public List<VariableReferenceExpression> getCorrelation()
     {
         return correlation;
     }
 
-    @JsonProperty("originSubqueryError")
+    @JsonProperty
     public String getOriginSubqueryError()
     {
         return originSubqueryError;
@@ -140,7 +142,6 @@ public class ApplyNode
     }
 
     @Override
-    @JsonProperty("outputSymbols")
     public List<Symbol> getOutputSymbols()
     {
         return ImmutableList.<Symbol>builder()

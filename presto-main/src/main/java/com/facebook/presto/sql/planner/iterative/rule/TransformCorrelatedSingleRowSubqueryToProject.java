@@ -15,6 +15,8 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
@@ -26,6 +28,7 @@ import java.util.List;
 
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 /**
  * This optimizer can rewrite correlated single row subquery to projection in a way described here:
@@ -68,7 +71,10 @@ public class TransformCorrelatedSingleRowSubqueryToProject
         }
 
         List<ProjectNode> subqueryProjections = searchFrom(parent.getSubquery(), context.getLookup())
-                .where(node -> node instanceof ProjectNode && !node.getOutputSymbols().equals(parent.getCorrelation()))
+                .where(node -> node instanceof ProjectNode && !node.getOutputSymbols().equals(parent.getCorrelation().stream()
+                        .map(VariableReferenceExpression::getName)
+                        .map(Symbol::new)
+                        .collect(toImmutableList())))
                 .findAll();
 
         if (subqueryProjections.size() == 0) {

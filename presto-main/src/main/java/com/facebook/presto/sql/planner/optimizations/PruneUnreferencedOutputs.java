@@ -820,14 +820,14 @@ public class PruneUnreferencedOutputs
             PlanNode subquery = context.rewrite(node.getSubquery(), subqueryAssignmentsSymbols);
 
             // prune not used correlation symbols
-            Set<Symbol> subquerySymbols = SymbolsExtractor.extractUnique(subquery);
-            List<Symbol> newCorrelation = node.getCorrelation().stream()
+            Set<VariableReferenceExpression> subquerySymbols = SymbolsExtractor.extractUniqueVariable(subquery, symbolAllocator.getTypes());
+            List<VariableReferenceExpression> newCorrelation = node.getCorrelation().stream()
                     .filter(subquerySymbols::contains)
                     .collect(toImmutableList());
 
             Set<Symbol> inputContext = ImmutableSet.<Symbol>builder()
                     .addAll(context.get())
-                    .addAll(newCorrelation)
+                    .addAll(newCorrelation.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()))
                     .addAll(subqueryAssignmentsSymbols) // need to include those: e.g: "expr" from "expr IN (SELECT 1)"
                     .build();
             PlanNode input = context.rewrite(node.getInput(), inputContext);
@@ -854,14 +854,14 @@ public class PruneUnreferencedOutputs
             }
 
             // prune not used correlation symbols
-            Set<Symbol> subquerySymbols = SymbolsExtractor.extractUnique(subquery);
-            List<Symbol> newCorrelation = node.getCorrelation().stream()
-                    .filter(subquerySymbols::contains)
+            Set<VariableReferenceExpression> subqueryVariables = SymbolsExtractor.extractUniqueVariable(subquery, symbolAllocator.getTypes());
+            List<VariableReferenceExpression> newCorrelation = node.getCorrelation().stream()
+                    .filter(subqueryVariables::contains)
                     .collect(toImmutableList());
 
             Set<Symbol> inputContext = ImmutableSet.<Symbol>builder()
                     .addAll(context.get())
-                    .addAll(newCorrelation)
+                    .addAll(newCorrelation.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()))
                     .build();
             PlanNode input = context.rewrite(node.getInput(), inputContext);
 

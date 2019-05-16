@@ -44,7 +44,7 @@ public class TestTransformExistsApplyToLateralJoin
         tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata().getFunctionManager()))
                 .on(p ->
                         p.lateral(
-                                ImmutableList.of(p.symbol("a")),
+                                ImmutableList.of(p.variable(p.symbol("a"))),
                                 p.values(p.symbol("a")),
                                 p.values(p.symbol("a"))))
                 .doesNotFire();
@@ -76,7 +76,7 @@ public class TestTransformExistsApplyToLateralJoin
                 .on(p ->
                         p.apply(
                                 Assignments.of(p.symbol("b", BOOLEAN), expression("EXISTS(SELECT TRUE)")),
-                                ImmutableList.of(p.symbol("corr")),
+                                ImmutableList.of(p.variable(p.symbol("corr"))),
                                 p.values(p.symbol("corr")),
                                 p.project(Assignments.of(),
                                         p.filter(

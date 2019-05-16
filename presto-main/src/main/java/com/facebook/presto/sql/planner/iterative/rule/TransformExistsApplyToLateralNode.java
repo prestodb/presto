@@ -132,7 +132,7 @@ public class TransformExistsApplyToLateralNode
                         false),
                 Assignments.of(subqueryTrue, TRUE_LITERAL));
 
-        PlanNodeDecorrelator decorrelator = new PlanNodeDecorrelator(context.getIdAllocator(), context.getLookup());
+        PlanNodeDecorrelator decorrelator = new PlanNodeDecorrelator(context.getIdAllocator(), context.getSymbolAllocator(), context.getLookup());
         if (!decorrelator.decorrelateFilters(subquery, applyNode.getCorrelation()).isPresent()) {
             return Optional.empty();
         }

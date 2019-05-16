@@ -646,16 +646,17 @@ public final class ValidateDependenciesChecker
         @Override
         public Void visitApply(ApplyNode node, Set<Symbol> boundSymbols)
         {
+            Set<Symbol> correlationSymbols = node.getCorrelation().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet());
             Set<Symbol> subqueryCorrelation = ImmutableSet.<Symbol>builder()
                     .addAll(boundSymbols)
-                    .addAll(node.getCorrelation())
+                    .addAll(correlationSymbols)
                     .build();
 
             node.getInput().accept(this, boundSymbols); // visit child
             node.getSubquery().accept(this, subqueryCorrelation); // visit child
 
-            checkDependencies(node.getInput().getOutputSymbols(), node.getCorrelation(), "APPLY input must provide all the necessary correlation symbols for subquery");
-            checkDependencies(SymbolsExtractor.extractUnique(node.getSubquery()), node.getCorrelation(), "not all APPLY correlation symbols are used in subquery");
+            checkDependencies(node.getInput().getOutputSymbols(), correlationSymbols, "APPLY input must provide all the necessary correlation symbols for subquery");
+            checkDependencies(SymbolsExtractor.extractUnique(node.getSubquery()), correlationSymbols, "not all APPLY correlation symbols are used in subquery");
 
             ImmutableSet<Symbol> inputs = ImmutableSet.<Symbol>builder()
                     .addAll(createInputs(node.getSubquery(), boundSymbols))
@@ -673,9 +674,10 @@ public final class ValidateDependenciesChecker
         @Override
         public Void visitLateralJoin(LateralJoinNode node, Set<Symbol> boundSymbols)
         {
+            Set<Symbol> correlationSymbols = node.getCorrelation().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet());
             Set<Symbol> subqueryCorrelation = ImmutableSet.<Symbol>builder()
                     .addAll(boundSymbols)
-                    .addAll(node.getCorrelation())
+                    .addAll(correlationSymbols)
                     .build();
 
             node.getInput().accept(this, boundSymbols); // visit child
@@ -683,11 +685,11 @@ public final class ValidateDependenciesChecker
 
             checkDependencies(
                     node.getInput().getOutputSymbols(),
-                    node.getCorrelation(),
+                    correlationSymbols,
                     "LATERAL input must provide all the necessary correlation symbols for subquery");
             checkDependencies(
                     SymbolsExtractor.extractUnique(node.getSubquery()),
-                    node.getCorrelation(),
+                    correlationSymbols,
                     "not all LATERAL correlation symbols are used in subquery");
 
             return null;

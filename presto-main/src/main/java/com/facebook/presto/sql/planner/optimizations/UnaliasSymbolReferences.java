@@ -475,7 +475,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getInput());
             PlanNode subquery = context.rewrite(node.getSubquery());
-            List<Symbol> canonicalCorrelation = Lists.transform(node.getCorrelation(), this::canonicalize);
+            List<VariableReferenceExpression> canonicalCorrelation = Lists.transform(node.getCorrelation(), this::canonicalize);
 
             return new ApplyNode(node.getId(), source, subquery, canonicalize(node.getSubqueryAssignments()), canonicalCorrelation, node.getOriginSubqueryError());
         }
@@ -485,7 +485,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getInput());
             PlanNode subquery = context.rewrite(node.getSubquery());
-            List<Symbol> canonicalCorrelation = canonicalizeAndDistinct(node.getCorrelation());
+            List<VariableReferenceExpression> canonicalCorrelation = canonicalizeAndDistinctVariable(node.getCorrelation());
 
             return new LateralJoinNode(node.getId(), source, subquery, canonicalCorrelation, node.getType(), node.getOriginSubqueryError());
         }

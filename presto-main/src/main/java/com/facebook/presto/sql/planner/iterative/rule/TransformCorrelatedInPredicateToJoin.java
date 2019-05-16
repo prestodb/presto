@@ -22,6 +22,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -139,7 +140,7 @@ public class TransformCorrelatedInPredicateToJoin
             PlanNodeIdAllocator idAllocator,
             SymbolAllocator symbolAllocator)
     {
-        Optional<Decorrelated> decorrelated = new DecorrelatingVisitor(lookup, apply.getCorrelation())
+        Optional<Decorrelated> decorrelated = new DecorrelatingVisitor(lookup, apply.getCorrelation(), symbolAllocator.getTypes())
                 .decorrelate(apply.getSubquery());
 
         if (!decorrelated.isPresent()) {
@@ -297,12 +298,14 @@ public class TransformCorrelatedInPredicateToJoin
             extends InternalPlanVisitor<Optional<Decorrelated>, PlanNode>
     {
         private final Lookup lookup;
-        private final Set<Symbol> correlation;
+        private final Set<VariableReferenceExpression> correlation;
+        private final TypeProvider types;
 
-        public DecorrelatingVisitor(Lookup lookup, Iterable<Symbol> correlation)
+        public DecorrelatingVisitor(Lookup lookup, Iterable<VariableReferenceExpression> correlation, TypeProvider types)
         {
             this.lookup = requireNonNull(lookup, "lookup is null");
             this.correlation = ImmutableSet.copyOf(requireNonNull(correlation, "correlation is null"));
+            this.types = requireNonNull(types, "types is null");
         }
 
         public Optional<Decorrelated> decorrelate(PlanNode reference)
@@ -328,7 +331,7 @@ public class TransformCorrelatedInPredicateToJoin
                         .flatMap(AstUtils::preOrder)
                         .filter(SymbolReference.class::isInstance)
                         .map(SymbolReference.class::cast)
-                        .filter(symbolReference -> !correlation.contains(Symbol.from(symbolReference)))
+                        .filter(symbolReference -> !correlation.contains(new VariableReferenceExpression(symbolReference.getName(), types.get(Symbol.from(symbolReference)))))
                         .forEach(symbolReference -> assignments.putIdentity(Symbol.from(symbolReference)));
 
                 return new Decorrelated(
@@ -377,7 +380,7 @@ public class TransformCorrelatedInPredicateToJoin
 
         private boolean isCorrelatedShallowly(PlanNode node)
         {
-            return SymbolsExtractor.extractUniqueNonRecursive(node).stream().anyMatch(correlation::contains);
+            return SymbolsExtractor.extractUniqueNonRecursive(node).stream().map(symbol -> new VariableReferenceExpression(symbol.getName(), types.get(symbol))).anyMatch(correlation::contains);
         }
     }
 

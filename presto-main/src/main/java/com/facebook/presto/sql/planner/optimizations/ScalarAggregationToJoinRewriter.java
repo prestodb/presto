@@ -66,12 +66,12 @@ public class ScalarAggregationToJoinRewriter
         this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.lookup = requireNonNull(lookup, "lookup is null");
-        this.planNodeDecorrelator = new PlanNodeDecorrelator(idAllocator, lookup);
+        this.planNodeDecorrelator = new PlanNodeDecorrelator(idAllocator, symbolAllocator, lookup);
     }
 
     public PlanNode rewriteScalarAggregation(LateralJoinNode lateralJoinNode, AggregationNode aggregation)
     {
-        List<Symbol> correlation = lateralJoinNode.getCorrelation();
+        List<VariableReferenceExpression> correlation = lateralJoinNode.getCorrelation();
         Optional<DecorrelatedNode> source = planNodeDecorrelator.decorrelateFilters(lookup.resolve(aggregation.getSource()), correlation);
         if (!source.isPresent()) {
             return lateralJoinNode;

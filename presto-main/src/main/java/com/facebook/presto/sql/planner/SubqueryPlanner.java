@@ -250,7 +250,7 @@ class SubqueryPlanner
                         idAllocator.getNextId(),
                         subPlan.getRoot(),
                         subqueryNode,
-                        ImmutableList.copyOf(SymbolsExtractor.extractUnique(correlation.values())),
+                        ImmutableList.copyOf(SymbolsExtractor.extractUniqueVariable(correlation.values(), symbolAllocator.getTypes())),
                         type,
                         subQueryNotSupportedError(query, "Given correlated subquery")),
                 analysis.getParameters());
@@ -445,7 +445,7 @@ class SubqueryPlanner
                         root,
                         subqueryNode,
                         subqueryAssignments,
-                        ImmutableList.copyOf(SymbolsExtractor.extractUnique(correlation.values())),
+                        ImmutableList.copyOf(SymbolsExtractor.extractUniqueVariable(correlation.values(), symbolAllocator.getTypes())),
                         subQueryNotSupportedError(subquery, "Given correlated subquery")),
                 analysis.getParameters());
     }

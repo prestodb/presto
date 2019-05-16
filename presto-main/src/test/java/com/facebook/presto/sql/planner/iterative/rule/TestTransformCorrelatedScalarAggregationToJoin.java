@@ -46,7 +46,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     {
         tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionManager()))
                 .on(p -> p.lateral(
-                        ImmutableList.of(p.symbol("corr")),
+                        ImmutableList.of(p.variable(p.symbol("corr"))),
                         p.values(p.symbol("corr")),
                         p.values(p.symbol("a"))))
                 .doesNotFire();
@@ -68,7 +68,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     {
         tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionManager()))
                 .on(p -> p.lateral(
-                        ImmutableList.of(p.symbol("corr")),
+                        ImmutableList.of(p.variable(p.symbol("corr"))),
                         p.values(p.symbol("corr")),
                         p.aggregation(ab -> ab
                                 .source(p.values(p.symbol("a"), p.symbol("b")))
@@ -82,7 +82,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     {
         tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionManager()))
                 .on(p -> p.lateral(
-                        ImmutableList.of(p.symbol("corr")),
+                        ImmutableList.of(p.variable(p.symbol("corr"))),
                         p.values(p.symbol("corr")),
                         p.aggregation(ab -> ab
                                 .source(p.values(p.symbol("a"), p.symbol("b")))
@@ -104,7 +104,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     {
         tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionManager()))
                 .on(p -> p.lateral(
-                        ImmutableList.of(p.symbol("corr")),
+                        ImmutableList.of(p.variable(p.symbol("corr"))),
                         p.values(p.symbol("corr")),
                         p.project(Assignments.of(p.symbol("expr"), p.expression("sum + 1")),
                                 p.aggregation(ab -> ab

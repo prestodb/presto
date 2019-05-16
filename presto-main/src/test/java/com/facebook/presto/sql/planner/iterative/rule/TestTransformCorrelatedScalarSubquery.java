@@ -17,7 +17,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -70,7 +69,7 @@ public class TestTransformCorrelatedScalarSubquery
     {
         tester().assertThat(rule)
                 .on(p -> p.lateral(
-                        ImmutableList.of(p.symbol("corr")),
+                        ImmutableList.of(p.variable(p.symbol("corr"))),
                         p.values(p.symbol("corr")),
                         p.values(p.symbol("a"))))
                 .doesNotFire();
@@ -81,7 +80,7 @@ public class TestTransformCorrelatedScalarSubquery
     {
         tester().assertThat(rule)
                 .on(p -> p.lateral(
-                        ImmutableList.<Symbol>of(),
+                        ImmutableList.of(),
                         p.values(p.symbol("a")),
                         p.values(ImmutableList.of(p.symbol("b")), ImmutableList.of(p.variable(p.symbol("b"))), ImmutableList.of(constantExpressions(BIGINT, 1)))))
                 .doesNotFire();
@@ -92,7 +91,7 @@ public class TestTransformCorrelatedScalarSubquery
     {
         tester().assertThat(rule)
                 .on(p -> p.lateral(
-                        ImmutableList.of(p.symbol("corr")),
+                        ImmutableList.of(p.variable(p.symbol("corr"))),
                         p.values(p.symbol("corr")),
                         p.enforceSingleRow(
                                 p.filter(
@@ -120,7 +119,7 @@ public class TestTransformCorrelatedScalarSubquery
     {
         tester().assertThat(rule)
                 .on(p -> p.lateral(
-                        ImmutableList.of(p.symbol("corr")),
+                        ImmutableList.of(p.variable(p.symbol("corr"))),
                         p.values(p.symbol("corr")),
                         p.enforceSingleRow(
                                 p.project(
@@ -150,7 +149,7 @@ public class TestTransformCorrelatedScalarSubquery
     {
         tester().assertThat(rule)
                 .on(p -> p.lateral(
-                        ImmutableList.of(p.symbol("corr")),
+                        ImmutableList.of(p.variable(p.symbol("corr"))),
                         p.values(p.symbol("corr")),
                         p.project(
                                 Assignments.of(p.symbol("a3"), p.expression("a2 + 1")),
@@ -186,7 +185,7 @@ public class TestTransformCorrelatedScalarSubquery
     {
         tester().assertThat(rule)
                 .on(p -> p.lateral(
-                        ImmutableList.of(p.symbol("corr")),
+                        ImmutableList.of(p.variable(p.symbol("corr"))),
                         p.values(p.symbol("corr")),
                         p.enforceSingleRow(
                                 p.filter(
