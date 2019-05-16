@@ -77,6 +77,7 @@ public final class Rectangle
     {
         return xMax - xMin;
     }
+
     public double getHeight()
     {
         return yMax - yMin;
@@ -101,6 +102,21 @@ public final class Rectangle
     public Rectangle merge(Rectangle other)
     {
         return new Rectangle(min(this.xMin, other.xMin), min(this.yMin, other.yMin), max(this.xMax, other.xMax), max(this.yMax, other.yMax));
+    }
+
+    /**
+     * Return the minimum euclidean distance squared to another envelope.
+     * <p>
+     * If they intersect, return 0.0.
+     *
+     * @param other
+     * @return distance squared
+     */
+    public double distance2(Rectangle other)
+    {
+        double dx = max(xMin - other.xMax, 0) + max(other.xMin - xMax, 0);
+        double dy = max(yMin - other.yMax, 0) + max(other.yMin - yMax, 0);
+        return dx * dx + dy * dy;
     }
 
     public int estimateMemorySize()

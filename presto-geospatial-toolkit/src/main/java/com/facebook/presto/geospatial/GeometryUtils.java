@@ -160,4 +160,16 @@ public final class GeometryUtils
 
         return true;
     }
+
+    public static Rectangle getRectangle(Envelope envelope)
+    {
+        Point minPoint = envelope.getLowerLeft();
+        Point maxPoint = envelope.getUpperRight();
+        return new Rectangle(minPoint.getX(), minPoint.getY(), maxPoint.getX(), maxPoint.getY());
+    }
+
+    public static Rectangle getRectangle(OGCGeometry geometry)
+    {
+        return getRectangle(getEnvelope(geometry));
+    }
 }
