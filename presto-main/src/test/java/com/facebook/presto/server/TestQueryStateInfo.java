@@ -166,6 +166,7 @@ public class TestQueryStateInfo
                 Optional.empty(),
                 false,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 }

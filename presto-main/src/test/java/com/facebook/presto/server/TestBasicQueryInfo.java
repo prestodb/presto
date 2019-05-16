@@ -123,7 +123,8 @@ public class TestBasicQueryInfo
                         Optional.empty(),
                         false,
                         Optional.empty(),
-                        Optional.of(QueryType.INSERT)));
+                        Optional.of(QueryType.INSERT),
+                        Optional.empty()));
 
         assertEquals(basicInfo.getQueryId().getId(), "0");
         assertEquals(basicInfo.getState(), RUNNING);
