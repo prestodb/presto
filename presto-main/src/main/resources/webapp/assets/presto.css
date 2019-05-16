@@ -207,6 +207,11 @@ pre {
     margin-bottom: 0;
 }
 
+.query-warning {
+    color: #ffcc00;
+    padding-left: 5px;
+}
+
 .nav-disabled {
     pointer-events: none;
     cursor: not-allowed;
