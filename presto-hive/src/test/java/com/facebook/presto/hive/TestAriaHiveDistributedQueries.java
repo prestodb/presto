@@ -224,6 +224,21 @@ public class TestAriaHiveDistributedQueries
                 "    AND suppkey BETWEEN 1000 AND 5000\n" +
                 "    AND comment > 'f'");
 
+        assertQuery(ariaSession(), "SELECT orderkey, quantity FROM lineitem WHERE cardinality(filter(sequence(1, 10), x -> x < quantity)) = 10",
+                "SELECT orderkey, quantity FROM lineitem WHERE quantity > 10");
+
+        assertQuery(ariaSession(), "SELECT orderkey FROM lineitem WHERE quantity % 3 = 1");
+
+        assertQuery(ariaSession(), "SELECT orderkey, quantity FROM lineitem WHERE quantity % 3 = 1");
+
+        assertQuery(ariaSession(), "SELECT orderkey FROM lineitem WHERE quantity < 100 AND quantity % 3 = 1");
+
+        assertQuery(ariaSession(), "SELECT orderkey, quantity FROM lineitem WHERE quantity < 100 AND quantity % 3 = 1");
+
+        assertQuery(ariaSession(), "SELECT linenumber FROM lineitem WHERE quantity % 3 = 1 AND orderkey % 5 = 1");
+
+        assertQuery(ariaSession(), "SELECT linenumber FROM lineitem WHERE shipmode = 'AIR' AND quantity % 3 = 1 AND orderkey % 5 = 1");
+
         // SliceDictionaryStreamReader for shipinstruct
         assertQuery(ariaSession(), "SELECT\n" +
                 "    linenumber,\n" +
