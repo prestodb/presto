@@ -285,10 +285,10 @@ public class PruneUnreferencedOutputs
                     .build();
 
             ImmutableSet.Builder<Symbol> leftInputs = ImmutableSet.builder();
-            node.getLeftPartitionSymbol().map(leftInputs::add);
+            node.getLeftPartitionVariable().map(VariableReferenceExpression::getName).map(Symbol::new).map(leftInputs::add);
 
             ImmutableSet.Builder<Symbol> rightInputs = ImmutableSet.builder();
-            node.getRightPartitionSymbol().map(rightInputs::add);
+            node.getRightPartitionVariable().map(VariableReferenceExpression::getName).map(Symbol::new).map(rightInputs::add);
 
             PlanNode left = context.rewrite(node.getLeft(), leftInputs.addAll(requiredInputs).build());
             PlanNode right = context.rewrite(node.getRight(), rightInputs.addAll(requiredInputs).build());
@@ -298,7 +298,7 @@ public class PruneUnreferencedOutputs
                     .distinct()
                     .collect(toImmutableList());
 
-            return new SpatialJoinNode(node.getId(), node.getType(), left, right, outputSymbols, node.getFilter(), node.getLeftPartitionSymbol(), node.getRightPartitionSymbol(), node.getKdbTree());
+            return new SpatialJoinNode(node.getId(), node.getType(), left, right, outputSymbols, node.getFilter(), node.getLeftPartitionVariable(), node.getRightPartitionVariable(), node.getKdbTree());
         }
 
         @Override

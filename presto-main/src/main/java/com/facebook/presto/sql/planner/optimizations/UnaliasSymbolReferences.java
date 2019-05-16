@@ -562,7 +562,7 @@ public class UnaliasSymbolReferences
             PlanNode left = context.rewrite(node.getLeft());
             PlanNode right = context.rewrite(node.getRight());
 
-            return new SpatialJoinNode(node.getId(), node.getType(), left, right, canonicalizeAndDistinct(node.getOutputSymbols()), castToRowExpression(canonicalize(castToExpression(node.getFilter()))), canonicalizeOptionalSymbol(node.getLeftPartitionSymbol()), canonicalizeOptionalSymbol(node.getRightPartitionSymbol()), node.getKdbTree());
+            return new SpatialJoinNode(node.getId(), node.getType(), left, right, canonicalizeAndDistinct(node.getOutputSymbols()), castToRowExpression(canonicalize(castToExpression(node.getFilter()))), canonicalize(node.getLeftPartitionVariable()), canonicalize(node.getRightPartitionVariable()), node.getKdbTree());
         }
 
         @Override

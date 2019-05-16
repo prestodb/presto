@@ -567,7 +567,16 @@ public class PredicatePushDown
 
             // See if we can rewrite left join in terms of a plain inner join
             if (node.getType() == SpatialJoinNode.Type.LEFT && canConvertOuterToInner(node.getRight().getOutputSymbols(), inheritedPredicate)) {
-                node = new SpatialJoinNode(node.getId(), SpatialJoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getOutputSymbols(), node.getFilter(), node.getLeftPartitionSymbol(), node.getRightPartitionSymbol(), node.getKdbTree());
+                node = new SpatialJoinNode(
+                        node.getId(),
+                        SpatialJoinNode.Type.INNER,
+                        node.getLeft(),
+                        node.getRight(),
+                        node.getOutputSymbols(),
+                        node.getFilter(),
+                        node.getLeftPartitionVariable(),
+                        node.getRightPartitionVariable(),
+                        node.getKdbTree());
             }
 
             Expression leftEffectivePredicate = effectivePredicateExtractor.extract(node.getLeft());
@@ -639,8 +648,8 @@ public class PredicatePushDown
                         rightSource,
                         node.getOutputSymbols(),
                         castToRowExpression(newJoinPredicate),
-                        node.getLeftPartitionSymbol(),
-                        node.getRightPartitionSymbol(),
+                        node.getLeftPartitionVariable(),
+                        node.getRightPartitionVariable(),
                         node.getKdbTree());
             }
 

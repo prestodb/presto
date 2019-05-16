@@ -1856,7 +1856,7 @@ public class LocalExecutionPlanner
             Function<Symbol, Integer> probeChannelGetter = symbolChannelGetter(probeSource);
             int probeChannel = probeChannelGetter.apply(probeSymbol);
 
-            Optional<Integer> partitionChannel = node.getLeftPartitionSymbol().map(probeChannelGetter::apply);
+            Optional<Integer> partitionChannel = node.getLeftPartitionVariable().map(VariableReferenceExpression::getName).map(Symbol::new).map(probeChannelGetter);
 
             return new SpatialJoinOperatorFactory(
                     context.getNextOperatorId(),
@@ -1896,7 +1896,7 @@ public class LocalExecutionPlanner
                             probeLayout,
                             buildLayout));
 
-            Optional<Integer> partitionChannel = node.getRightPartitionSymbol().map(buildChannelGetter::apply);
+            Optional<Integer> partitionChannel = node.getRightPartitionVariable().map(VariableReferenceExpression::getName).map(Symbol::new).map(buildChannelGetter);
 
             SpatialIndexBuilderOperatorFactory builderOperatorFactory = new SpatialIndexBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),

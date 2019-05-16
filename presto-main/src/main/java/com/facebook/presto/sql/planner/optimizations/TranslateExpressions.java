@@ -108,8 +108,8 @@ public class TranslateExpressions
                     spatialJoinNode.getRight(),
                     spatialJoinNode.getOutputSymbols(),
                     rewritten,
-                    spatialJoinNode.getLeftPartitionSymbol(),
-                    spatialJoinNode.getRightPartitionSymbol(),
+                    spatialJoinNode.getLeftPartitionVariable(),
+                    spatialJoinNode.getRightPartitionVariable(),
                     spatialJoinNode.getKdbTree()));
         }
     }

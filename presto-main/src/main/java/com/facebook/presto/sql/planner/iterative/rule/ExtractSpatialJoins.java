@@ -32,6 +32,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -418,19 +419,19 @@ public class ExtractSpatialJoins
         Expression newFirstArgument = toExpression(newFirstSymbol, firstArgument);
         Expression newSecondArgument = toExpression(newSecondSymbol, secondArgument);
 
-        Optional<Symbol> leftPartitionSymbol = Optional.empty();
-        Optional<Symbol> rightPartitionSymbol = Optional.empty();
+        Optional<VariableReferenceExpression> leftPartitionVariable = Optional.empty();
+        Optional<VariableReferenceExpression> rightPartitionVariable = Optional.empty();
         if (kdbTree.isPresent()) {
-            leftPartitionSymbol = Optional.of(context.getSymbolAllocator().newSymbol("pid", INTEGER));
-            rightPartitionSymbol = Optional.of(context.getSymbolAllocator().newSymbol("pid", INTEGER));
+            leftPartitionVariable = Optional.of(context.getSymbolAllocator().newVariable("pid", INTEGER));
+            rightPartitionVariable = Optional.of(context.getSymbolAllocator().newVariable("pid", INTEGER));
 
             if (alignment > 0) {
-                newLeftNode = addPartitioningNodes(context, newLeftNode, leftPartitionSymbol.get(), kdbTree.get(), newFirstArgument, Optional.empty());
-                newRightNode = addPartitioningNodes(context, newRightNode, rightPartitionSymbol.get(), kdbTree.get(), newSecondArgument, radius);
+                newLeftNode = addPartitioningNodes(context, newLeftNode, leftPartitionVariable.get(), kdbTree.get(), newFirstArgument, Optional.empty());
+                newRightNode = addPartitioningNodes(context, newRightNode, rightPartitionVariable.get(), kdbTree.get(), newSecondArgument, radius);
             }
             else {
-                newLeftNode = addPartitioningNodes(context, newLeftNode, leftPartitionSymbol.get(), kdbTree.get(), newSecondArgument, Optional.empty());
-                newRightNode = addPartitioningNodes(context, newRightNode, rightPartitionSymbol.get(), kdbTree.get(), newFirstArgument, radius);
+                newLeftNode = addPartitioningNodes(context, newLeftNode, leftPartitionVariable.get(), kdbTree.get(), newSecondArgument, Optional.empty());
+                newRightNode = addPartitioningNodes(context, newRightNode, rightPartitionVariable.get(), kdbTree.get(), newFirstArgument, radius);
             }
         }
 
@@ -444,8 +445,8 @@ public class ExtractSpatialJoins
                 newRightNode,
                 outputSymbols,
                 castToRowExpression(newFilter),
-                leftPartitionSymbol,
-                rightPartitionSymbol,
+                leftPartitionVariable,
+                rightPartitionVariable,
                 kdbTree.map(KdbTreeUtils::toJson)));
     }
 
@@ -594,7 +595,7 @@ public class ExtractSpatialJoins
         return new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build());
     }
 
-    private static PlanNode addPartitioningNodes(Context context, PlanNode node, Symbol partitionSymbol, KdbTree kdbTree, Expression geometry, Optional<Expression> radius)
+    private static PlanNode addPartitioningNodes(Context context, PlanNode node, VariableReferenceExpression partitionVariable, KdbTree kdbTree, Expression geometry, Optional<Expression> radius)
     {
         Assignments.Builder projections = Assignments.builder();
         for (Symbol outputSymbol : node.getOutputSymbols()) {
@@ -614,7 +615,7 @@ public class ExtractSpatialJoins
                 context.getIdAllocator().getNextId(),
                 new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build()),
                 node.getOutputSymbols(),
-                ImmutableMap.of(partitionsSymbol, ImmutableList.of(partitionSymbol)),
+                ImmutableMap.of(partitionsSymbol, ImmutableList.of(new Symbol(partitionVariable.getName()))),
                 Optional.empty());
     }
 
