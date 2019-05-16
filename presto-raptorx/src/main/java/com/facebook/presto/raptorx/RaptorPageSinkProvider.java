@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PageSinkProperties;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -29,6 +30,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -48,8 +50,10 @@ public class RaptorPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorOutputTableHandle outputHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputHandle, PageSinkProperties pageSinkProperties)
     {
+        checkArgument(!pageSinkProperties.isPartitionCommitRequired(), "Raptor connector does not support partition commit");
+
         RaptorOutputTableHandle handle = (RaptorOutputTableHandle) outputHandle;
         return new RaptorPageSink(
                 storageManager,
@@ -67,8 +71,10 @@ public class RaptorPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorInsertTableHandle insertHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertHandle, PageSinkProperties pageSinkProperties)
     {
+        checkArgument(!pageSinkProperties.isPartitionCommitRequired(), "Raptor connector does not support partition commit");
+
         RaptorInsertTableHandle handle = (RaptorInsertTableHandle) insertHandle;
         return new RaptorPageSink(
                 storageManager,

@@ -264,10 +264,10 @@ public class TestOrganizationJob
         int ret = 0;
         for (ShardCommitCleanerDao dao : shardDao) {
             if (success) {
-                ret += dao.getSuccessfulTransactionIds(nodeId).size();
+                ret += dao.getSuccessfulWorkerTransactionIds(nodeId).size();
             }
             else {
-                ret += dao.getFailedTransactions(nodeId).size();
+                ret += dao.getFailedWorkerTransactions(nodeId).size();
             }
         }
         return ret;

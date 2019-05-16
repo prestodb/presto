@@ -708,7 +708,8 @@ public class TestRaptorSmoke
     }
 
     @Test
-    public void testInsertSelectDecimal() {
+    public void testInsertSelectDecimal()
+    {
         assertUpdate("CREATE TABLE test_decimal(short_decimal DECIMAL(5,2), long_decimal DECIMAL(25,20))");
         assertUpdate("INSERT INTO test_decimal VALUES(DECIMAL '123.45', DECIMAL '12345.12345678901234567890')", "VALUES(1)");
         assertUpdate("INSERT INTO test_decimal VALUES(NULL, NULL)", "VALUES(1)");

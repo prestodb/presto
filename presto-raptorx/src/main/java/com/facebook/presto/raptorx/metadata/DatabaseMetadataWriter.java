@@ -690,11 +690,6 @@ public class DatabaseMetadataWriter
         return dbShard(tableId, shardDbi.size());
     }
 
-    private int getNodeShard(long nodeId)
-    {
-        return dbShard(nodeId, shardDbi.size());
-    }
-
     private static void failIfRelationExists(MasterWriterDao dao, long schemaId, String name)
     {
         checkConflict(!dao.tableNameExists(schemaId, name.getBytes(UTF_8)), "Table already exists: %s", name);

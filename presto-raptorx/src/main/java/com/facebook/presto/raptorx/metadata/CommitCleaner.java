@@ -197,7 +197,7 @@ public class CommitCleaner
         long workerEndTime = clock.millis() - WORKER_TRANSACTION_AGE.toMillis();
         Set<Long> oldestWorkerSuccessfulTransactions = new HashSet();
         for (ShardCommitCleanerDao shard : shardDao) {
-            oldestWorkerSuccessfulTransactions.addAll(shard.getOldestSuccessfulTransactions(workerEndTime));
+            oldestWorkerSuccessfulTransactions.addAll(shard.getOldestSuccessfulWorkerTransactions(workerEndTime));
         }
         for (Iterable<Long> ids : partition(oldestWorkerSuccessfulTransactions, 1000)) {
             for (ShardCommitCleanerDao shard : shardDao) {
@@ -214,9 +214,9 @@ public class CommitCleaner
         long purgeTime = now + FAILED_TRANSACTION_AGE.toMillis();
         transactionIds = masterDao.getFailedTransactions(maxEndTime);
 
-        // add oldest worker failed transactions, for worker permenantly down
+        // add oldest worker failed transactions, for worker permanently down
         for (ShardCommitCleanerDao shard : shardDao) {
-            transactionIds.addAll(shard.getOldestFailedTransactions(workerEndTime));
+            transactionIds.addAll(shard.getOldestFailedWorkerTransactions(workerEndTime));
         }
 
         for (Iterable<Long> ids : partition(transactionIds, 1000)) {
@@ -234,24 +234,24 @@ public class CommitCleaner
         }
     }
 
-    // TODO(taozhao) For workers, shardDao doesn't have to be a list, each one only deals with its own node_id. May write a separate Cleaner later.
+    // For workers, each one deletes things under its node_id, so in mysql it lock different row.
+    // For storage, workerTransactions are sharded by TableID.
     public void removeOldWorkerTransactions(long nodeId)
     {
         for (int i = 0; i < shardDao.size(); i++) {
             ShardCommitCleanerDao thisDao = shardDao.get(i);
 
-            Set<Long> transactionIds = thisDao.getSuccessfulTransactionIds(nodeId);
-            // TODO: May need to shard CreatedChunks by nodeId too; but in the near future there is only one Mysql, so can live with it for some time.
+            Set<Long> transactionIds = thisDao.getSuccessfulWorkerTransactionIds(nodeId);
             for (Iterable<Long> ids : partition(transactionIds, 1000)) {
                 for (ShardCommitCleanerDao shard : shardDao) {
                     shard.cleanupCreatedChunks(ids);
                 }
-                thisDao.cleanupTransactions(ids);
+                thisDao.cleanupWorkerTransactions(ids);
             }
 
             // transactionManager here contains only this node self's transactions
-            thisDao.abortTransactions(transactionManager.activeTransactions(), clock.millis(), nodeId);
-            transactionIds = thisDao.getFailedTransactions(nodeId);
+            thisDao.abortWorkerTransactions(transactionManager.activeTransactions(), clock.millis(), nodeId);
+            transactionIds = thisDao.getFailedWorkerTransactions(nodeId);
 
             long now = clock.millis();
             for (Iterable<Long> ids : partition(transactionIds, 1000)) {
@@ -265,7 +265,7 @@ public class CommitCleaner
                         moveCreatedToDeleted(now, now, chunks, shard);
                     }
                 }
-                thisDao.cleanupTransactions(ids);
+                thisDao.cleanupWorkerTransactions(ids);
             }
         }
     }

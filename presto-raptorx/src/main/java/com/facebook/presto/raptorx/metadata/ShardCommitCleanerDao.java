@@ -96,54 +96,54 @@ public interface ShardCommitCleanerDao
 
     // worker transactions
 
-    default void abortTransactions(Collection<Long> excludedTransactionIds, long endTime, long nodeId)
+    default void abortWorkerTransactions(Collection<Long> excludedTransactionIds, long endTime, long nodeId)
     {
         if (excludedTransactionIds.isEmpty()) {
-            doAbortTransactions(endTime, nodeId);
+            doAbortWorkerTransactions(endTime, nodeId);
         }
         else {
-            doAbortTransactions(excludedTransactionIds, endTime, nodeId);
+            doAbortWorkerTransactions(excludedTransactionIds, endTime, nodeId);
         }
     }
 
     @SqlUpdate("UPDATE worker_transactions SET successful = FALSE, end_time = :endTime\n" +
             "WHERE successful IS NULL AND node_id = :nodeId")
-    void doAbortTransactions(@Bind long endTime, @Bind long nodeId);
+    void doAbortWorkerTransactions(@Bind long endTime, @Bind long nodeId);
 
     @SqlUpdate("UPDATE worker_transactions SET successful = FALSE, end_time = :endTime\n" +
             "WHERE successful IS NULL\n" +
             "  AND transaction_id NOT IN (<excludedTransactionIds>)\n" +
             "  AND node_id = :nodeId")
-    void doAbortTransactions(
+    void doAbortWorkerTransactions(
             @BindList Iterable<Long> excludedTransactionIds,
             @Bind long endTime,
             @Bind long nodeId);
 
     @SqlQuery("SELECT transaction_id FROM worker_transactions WHERE successful = TRUE AND node_id = :nodeId")
-    Set<Long> getSuccessfulTransactionIds(@Bind long nodeId);
+    Set<Long> getSuccessfulWorkerTransactionIds(@Bind long nodeId);
 
     @SqlUpdate("DELETE FROM worker_transactions WHERE transaction_id IN (<transactionIds>)")
-    void cleanupTransactions(@BindList Iterable<Long> transactionIds);
+    void cleanupWorkerTransactions(@BindList Iterable<Long> transactionIds);
 
     // only for uni-testing purpose
     @SqlQuery("SELECT transaction_id FROM worker_transactions")
-    Set<Long> getAllTransactions();
+    Set<Long> getAllWorkerTransactions();
 
     @SqlQuery("SELECT transaction_id\n" +
             "FROM worker_transactions\n" +
             "WHERE successful = FALSE\n" +
             " AND node_id = :nodeId")
-    Set<Long> getFailedTransactions(@Bind long nodeId);
+    Set<Long> getFailedWorkerTransactions(@Bind long nodeId);
 
     @SqlQuery("SELECT transaction_id\n" +
             "FROM worker_transactions\n" +
             "WHERE successful = TRUE\n" +
             "  AND end_time <= :maxEndTime")
-    Set<Long> getOldestSuccessfulTransactions(@Bind long maxEndTime);
+    Set<Long> getOldestSuccessfulWorkerTransactions(@Bind long maxEndTime);
 
     @SqlQuery("SELECT transaction_id\n" +
             "FROM worker_transactions\n" +
             "WHERE successful = FALSE\n" +
             "  AND end_time <= :maxEndTime")
-    Set<Long> getOldestFailedTransactions(@Bind long maxEndTime);
+    Set<Long> getOldestFailedWorkerTransactions(@Bind long maxEndTime);
 }
