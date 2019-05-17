@@ -61,6 +61,6 @@ public class FixedCountScheduler
                 .map(Optional::get)
                 .collect(toImmutableList());
 
-        return new ScheduleResult(true, newTasks, 0);
+        return ScheduleResult.nonBlocked(true, newTasks, 0);
     }
 }
