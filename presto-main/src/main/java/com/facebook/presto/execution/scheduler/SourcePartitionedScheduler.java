@@ -323,7 +323,7 @@ public class SourcePartitionedScheduler
                     whenFinishedOrNewLifespanAdded.set(null);
                     // fall through
                 case FINISHED:
-                    return new ScheduleResult(
+                    return ScheduleResult.nonBlocked(
                             true,
                             overallNewTasks.build(),
                             overallSplitAssignmentCount);
@@ -333,7 +333,7 @@ public class SourcePartitionedScheduler
         }
 
         if (anyNotBlocked) {
-            return new ScheduleResult(false, overallNewTasks.build(), overallSplitAssignmentCount);
+            return ScheduleResult.nonBlocked(false, overallNewTasks.build(), overallSplitAssignmentCount);
         }
 
         if (anyBlockedOnPlacements || groupedExecution) {
@@ -359,7 +359,7 @@ public class SourcePartitionedScheduler
         }
 
         overallBlockedFutures.add(whenFinishedOrNewLifespanAdded);
-        return new ScheduleResult(
+        return ScheduleResult.blocked(
                 false,
                 overallNewTasks.build(),
                 nonCancellationPropagating(whenAnyComplete(overallBlockedFutures)),
