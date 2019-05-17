@@ -31,7 +31,7 @@ public class TestBucketBalancerConfig
     {
         assertRecordedDefaults(recordDefaults(BucketBalancerConfig.class)
                 .setBalancerEnabled(true)
-                .setBalancerInterval(new Duration(6, HOURS)));
+                .setBalancerInterval(new Duration(1, HOURS)));
     }
 
     @Test

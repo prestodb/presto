@@ -59,7 +59,8 @@ public class TestStorageConfig
                 .setOrganizationDiscoveryInterval(new Duration(6, TimeUnit.HOURS))
                 .setOrganizationEnabled(false)
                 .setOrganizationInterval(new Duration(7, TimeUnit.DAYS))
-                .setOrganizationThreads(5));
+                .setOrganizationThreads(5)
+                .setChunkSequenceCacheCount(1000));
     }
 
     @Test
@@ -84,6 +85,7 @@ public class TestStorageConfig
                 .put("storage.organization-discovery-interval", "2h")
                 .put("storage.max-organization-threads", "12")
                 .put("storage.chunk-day-boundary-time-zone", "PST")
+                .put("storage.chunk-sequence-cachecount", "10")
                 .build();
 
         StorageConfig expected = new StorageConfig()
@@ -104,7 +106,8 @@ public class TestStorageConfig
                 .setOrganizationInterval(new Duration(4, HOURS))
                 .setOrganizationDiscoveryInterval(new Duration(2, HOURS))
                 .setOrganizationThreads(12)
-                .setChunkDayBoundaryTimeZone("PST");
+                .setChunkDayBoundaryTimeZone("PST")
+                .setChunkSequenceCacheCount(10);
 
         assertFullMapping(properties, expected);
     }

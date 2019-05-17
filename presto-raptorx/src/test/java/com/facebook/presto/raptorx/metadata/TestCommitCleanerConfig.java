@@ -31,6 +31,7 @@ public class TestCommitCleanerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(CommitCleanerConfig.class)
+                .setChunkBatchSize(10000)
                 .setInterval(new Duration(5, MINUTES)));
     }
 
@@ -39,9 +40,11 @@ public class TestCommitCleanerConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("metadata.commit-cleaner-interval", "33s")
+                .put("metadata.commit-cleaner-chunk-batch", "100")
                 .build();
 
         CommitCleanerConfig expected = new CommitCleanerConfig()
+                .setChunkBatchSize(100)
                 .setInterval(new Duration(33, SECONDS));
 
         assertFullMapping(properties, expected);

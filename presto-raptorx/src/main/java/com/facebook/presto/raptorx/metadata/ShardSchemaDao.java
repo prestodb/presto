@@ -53,8 +53,8 @@ public interface ShardSchemaDao
             "  uncompressed_size BIGINT NOT NULL,\n" +
             "  UNIQUE (table_id, start_commit_id, end_commit_id, row_id),\n" +
             "  UNIQUE (start_commit_id, row_id),\n" +
-            "  INDEX (table_id, end_commit_id), \n" +
-            "  INDEX (end_commit_id)\n" +
+            "  UNIQUE (table_id, end_commit_id, row_id), \n" +
+            "  UNIQUE (end_commit_id, row_id)\n" +
             ")")
     void createTableSizes();
 
