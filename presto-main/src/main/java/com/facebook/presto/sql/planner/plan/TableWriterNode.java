@@ -45,9 +45,9 @@ public class TableWriterNode
 {
     private final PlanNode source;
     private final WriterTarget target;
-    private final Symbol rowCountSymbol;
-    private final Symbol fragmentSymbol;
-    private final Symbol tableCommitContextSymbol;
+    private final VariableReferenceExpression rowCountVariable;
+    private final VariableReferenceExpression fragmentVariable;
+    private final VariableReferenceExpression tableCommitContextVariable;
     private final List<Symbol> columns;
     private final List<String> columnNames;
     private final Optional<PartitioningScheme> partitioningScheme;
@@ -60,9 +60,9 @@ public class TableWriterNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("target") WriterTarget target,
-            @JsonProperty("rowCountSymbol") Symbol rowCountSymbol,
-            @JsonProperty("fragmentSymbol") Symbol fragmentSymbol,
-            @JsonProperty("tableCommitContextSymbol") Symbol tableCommitContextSymbol,
+            @JsonProperty("rowCountVariable") VariableReferenceExpression rowCountVariable,
+            @JsonProperty("fragmentVariable") VariableReferenceExpression fragmentVariable,
+            @JsonProperty("tableCommitContextVariable") VariableReferenceExpression tableCommitContextVariable,
             @JsonProperty("columns") List<Symbol> columns,
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("partitioningScheme") Optional<PartitioningScheme> partitioningScheme,
@@ -77,9 +77,9 @@ public class TableWriterNode
 
         this.source = requireNonNull(source, "source is null");
         this.target = requireNonNull(target, "target is null");
-        this.rowCountSymbol = requireNonNull(rowCountSymbol, "rowCountSymbol is null");
-        this.fragmentSymbol = requireNonNull(fragmentSymbol, "fragmentSymbol is null");
-        this.tableCommitContextSymbol = requireNonNull(tableCommitContextSymbol, "tableCommitContextSymbol is null");
+        this.rowCountVariable = requireNonNull(rowCountVariable, "rowCountVariable is null");
+        this.fragmentVariable = requireNonNull(fragmentVariable, "fragmentVariable is null");
+        this.tableCommitContextVariable = requireNonNull(tableCommitContextVariable, "tableCommitContextVariable is null");
         this.columns = ImmutableList.copyOf(columns);
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.partitioningScheme = requireNonNull(partitioningScheme, "partitioningScheme is null");
@@ -88,9 +88,9 @@ public class TableWriterNode
         checkArgument(statisticsAggregation.isPresent() == statisticsAggregationDescriptor.isPresent(), "statisticsAggregation and statisticsAggregationDescriptor must be either present or absent");
 
         ImmutableList.Builder<Symbol> outputs = ImmutableList.<Symbol>builder()
-                .add(rowCountSymbol)
-                .add(fragmentSymbol)
-                .add(tableCommitContextSymbol);
+                .add(new Symbol(rowCountVariable.getName()))
+                .add(new Symbol(fragmentVariable.getName()))
+                .add(new Symbol(tableCommitContextVariable.getName()));
         statisticsAggregation.ifPresent(aggregation -> {
             outputs.addAll(aggregation.getGroupingSymbols());
             outputs.addAll(aggregation.getAggregations().keySet().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
@@ -111,21 +111,21 @@ public class TableWriterNode
     }
 
     @JsonProperty
-    public Symbol getRowCountSymbol()
+    public VariableReferenceExpression getRowCountVariable()
     {
-        return rowCountSymbol;
+        return rowCountVariable;
     }
 
     @JsonProperty
-    public Symbol getFragmentSymbol()
+    public VariableReferenceExpression getFragmentVariable()
     {
-        return fragmentSymbol;
+        return fragmentVariable;
     }
 
     @JsonProperty
-    public Symbol getTableCommitContextSymbol()
+    public VariableReferenceExpression getTableCommitContextVariable()
     {
-        return tableCommitContextSymbol;
+        return tableCommitContextVariable;
     }
 
     @JsonProperty
@@ -179,7 +179,7 @@ public class TableWriterNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TableWriterNode(getId(), Iterables.getOnlyElement(newChildren), target, rowCountSymbol, fragmentSymbol, tableCommitContextSymbol, columns, columnNames, partitioningScheme, statisticsAggregation, statisticsAggregationDescriptor);
+        return new TableWriterNode(getId(), Iterables.getOnlyElement(newChildren), target, rowCountVariable, fragmentVariable, tableCommitContextVariable, columns, columnNames, partitioningScheme, statisticsAggregation, statisticsAggregationDescriptor);
     }
 
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "@type")
