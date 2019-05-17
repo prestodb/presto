@@ -150,19 +150,19 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            Map<Symbol, Symbol> newGroupingMappings = new HashMap<>();
-            ImmutableList.Builder<List<Symbol>> newGroupingSets = ImmutableList.builder();
+            Map<VariableReferenceExpression, VariableReferenceExpression> newGroupingMappings = new HashMap<>();
+            ImmutableList.Builder<List<VariableReferenceExpression>> newGroupingSets = ImmutableList.builder();
 
-            for (List<Symbol> groupingSet : node.getGroupingSets()) {
-                ImmutableList.Builder<Symbol> newGroupingSet = ImmutableList.builder();
-                for (Symbol output : groupingSet) {
+            for (List<VariableReferenceExpression> groupingSet : node.getGroupingSets()) {
+                ImmutableList.Builder<VariableReferenceExpression> newGroupingSet = ImmutableList.builder();
+                for (VariableReferenceExpression output : groupingSet) {
                     newGroupingMappings.putIfAbsent(canonicalize(output), canonicalize(node.getGroupingColumns().get(output)));
                     newGroupingSet.add(canonicalize(output));
                 }
                 newGroupingSets.add(newGroupingSet.build());
             }
 
-            return new GroupIdNode(node.getId(), source, newGroupingSets.build(), newGroupingMappings, canonicalizeAndDistinct(node.getAggregationArguments()), canonicalize(node.getGroupIdSymbol()));
+            return new GroupIdNode(node.getId(), source, newGroupingSets.build(), newGroupingMappings, canonicalizeAndDistinctVariable(node.getAggregationArguments()), canonicalize(node.getGroupIdVariable()));
         }
 
         @Override
@@ -176,8 +176,7 @@ public class UnaliasSymbolReferences
         public PlanNode visitMarkDistinct(MarkDistinctNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            List<Symbol> symbols = canonicalizeAndDistinct(node.getDistinctSymbols());
-            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerVariable()), symbols, canonicalize(node.getHashVariable()));
+            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerVariable()), canonicalizeAndDistinctVariable(node.getDistinctVariables()), canonicalize(node.getHashVariable()));
         }
 
         @Override
@@ -357,7 +356,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitDistinctLimit(DistinctLimitNode node, RewriteContext<Void> context)
         {
-            return new DistinctLimitNode(node.getId(), context.rewrite(node.getSource()), node.getLimit(), node.isPartial(), canonicalizeAndDistinct(node.getDistinctSymbols()), canonicalize(node.getHashVariable()));
+            return new DistinctLimitNode(node.getId(), context.rewrite(node.getSource()), node.getLimit(), node.isPartial(), canonicalizeAndDistinctVariable(node.getDistinctVariables()), canonicalize(node.getHashVariable()));
         }
 
         @Override

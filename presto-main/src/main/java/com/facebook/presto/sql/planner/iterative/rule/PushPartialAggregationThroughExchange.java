@@ -116,12 +116,12 @@ public class PushPartialAggregationThroughExchange
         if (exchangeNode.getType() == REPARTITION) {
             // if partitioning columns are not a subset of grouping keys,
             // we can't push this through
-            List<Symbol> partitioningColumns = exchangeNode.getPartitioningScheme()
+            List<VariableReferenceExpression> partitioningColumns = exchangeNode.getPartitioningScheme()
                     .getPartitioning()
                     .getArguments()
                     .stream()
                     .filter(Partitioning.ArgumentBinding::isVariable)
-                    .map(Partitioning.ArgumentBinding::getColumn)
+                    .map(Partitioning.ArgumentBinding::getVariableReference)
                     .collect(Collectors.toList());
 
             if (!aggregationNode.getGroupingKeys().containsAll(partitioningColumns)) {
@@ -243,7 +243,7 @@ public class PushPartialAggregationThroughExchange
                 ImmutableList.of(),
                 PARTIAL,
                 node.getHashVariable(),
-                node.getGroupIdSymbol());
+                node.getGroupIdVariable());
 
         return new AggregationNode(
                 node.getId(),
@@ -255,6 +255,6 @@ public class PushPartialAggregationThroughExchange
                 ImmutableList.of(),
                 FINAL,
                 node.getHashVariable(),
-                node.getGroupIdSymbol());
+                node.getGroupIdVariable());
     }
 }

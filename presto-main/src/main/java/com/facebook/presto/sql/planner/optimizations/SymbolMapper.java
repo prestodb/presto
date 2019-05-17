@@ -141,13 +141,13 @@ public class SymbolMapper
                 source,
                 aggregations.build(),
                 groupingSets(
-                        mapAndDistinctSymbol(node.getGroupingKeys()),
+                        mapAndDistinctVariable(node.getGroupingKeys()),
                         node.getGroupingSetCount(),
                         node.getGlobalGroupingSets()),
                 ImmutableList.of(),
                 node.getStep(),
                 node.getHashVariable().map(this::map),
-                node.getGroupIdSymbol().map(this::map));
+                node.getGroupIdVariable().map(this::map));
     }
 
     private Aggregation map(Aggregation aggregation)

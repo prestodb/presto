@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
@@ -53,6 +54,7 @@ import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATI
 import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.spi.predicate.Domain.singleValue;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
@@ -845,7 +847,7 @@ public class TestLogicalPlanner
                 countOfMatchingNodes(
                         plan,
                         node -> node instanceof AggregationNode
-                                && ((AggregationNode) node).getGroupingKeys().contains(new Symbol("unique"))
+                                && ((AggregationNode) node).getGroupingKeys().contains(new VariableReferenceExpression("unique", BIGINT))
                                 && ((AggregationNode) node).isStreamable()),
                 1);
 

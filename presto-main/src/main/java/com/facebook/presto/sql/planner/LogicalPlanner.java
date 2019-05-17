@@ -285,7 +285,6 @@ public class LogicalPlanner
 
         TableStatisticAggregation tableStatisticAggregation = statisticsAggregationPlanner.createStatisticsAggregation(tableStatisticsMetadata, columnNameToVariable.build());
         StatisticAggregations statisticAggregations = tableStatisticAggregation.getAggregations();
-        List<Symbol> groupingSymbols = statisticAggregations.getGroupingSymbols();
 
         PlanNode planNode = new StatisticsWriterNode(
                 idAllocator.getNextId(),
@@ -293,7 +292,7 @@ public class LogicalPlanner
                         idAllocator.getNextId(),
                         new TableScanNode(idAllocator.getNextId(), targetTable, tableScanOutputs.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()), tableScanOutputs, variableToColumnHandle.build()),
                         statisticAggregations.getAggregations(),
-                        singleGroupingSet(groupingSymbols),
+                        singleGroupingSet(symbolAllocator.toVariableReferences(statisticAggregations.getGroupingSymbols())),
                         ImmutableList.of(),
                         AggregationNode.Step.SINGLE,
                         Optional.empty(),

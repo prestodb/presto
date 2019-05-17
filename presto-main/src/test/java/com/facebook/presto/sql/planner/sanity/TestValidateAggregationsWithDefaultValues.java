@@ -81,10 +81,10 @@ public class TestValidateAggregationsWithDefaultValues
     {
         PlanNode root = builder.aggregation(
                 af -> af.step(FINAL)
-                        .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
+                        .groupingSets(groupingSets(ImmutableList.of(variable), 2, ImmutableSet.of(0)))
                         .source(builder.aggregation(ap -> ap
                                 .step(PARTIAL)
-                                .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
+                                .groupingSets(groupingSets(ImmutableList.of(variable), 2, ImmutableSet.of(0)))
                                 .source(tableScanNode))));
         validatePlan(root, false);
     }
@@ -94,10 +94,10 @@ public class TestValidateAggregationsWithDefaultValues
     {
         PlanNode root = builder.aggregation(
                 af -> af.step(FINAL)
-                        .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
+                        .groupingSets(groupingSets(ImmutableList.of(variable), 2, ImmutableSet.of(0)))
                         .source(builder.aggregation(ap -> ap
                                 .step(PARTIAL)
-                                .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
+                                .groupingSets(groupingSets(ImmutableList.of(variable), 2, ImmutableSet.of(0)))
                                 .source(tableScanNode))));
         validatePlan(root, true);
     }
@@ -107,10 +107,10 @@ public class TestValidateAggregationsWithDefaultValues
     {
         PlanNode root = builder.aggregation(
                 af -> af.step(FINAL)
-                        .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
+                        .groupingSets(groupingSets(ImmutableList.of(variable), 2, ImmutableSet.of(0)))
                         .source(builder.aggregation(ap -> ap
                                 .step(PARTIAL)
-                                .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
+                                .groupingSets(groupingSets(ImmutableList.of(variable), 2, ImmutableSet.of(0)))
                                 .source(builder.values()))));
         validatePlan(root, true);
     }
@@ -120,7 +120,7 @@ public class TestValidateAggregationsWithDefaultValues
     {
         PlanNode root = builder.aggregation(
                 af -> af.step(FINAL)
-                        .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
+                        .groupingSets(groupingSets(ImmutableList.of(variable), 2, ImmutableSet.of(0)))
                         .source(builder.exchange(e -> e
                                 .type(REPARTITION)
                                 .scope(REMOTE_STREAMING)
@@ -128,7 +128,7 @@ public class TestValidateAggregationsWithDefaultValues
                                 .addInputsSet(variable)
                                 .addSource(builder.aggregation(ap -> ap
                                         .step(PARTIAL)
-                                        .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
+                                        .groupingSets(groupingSets(ImmutableList.of(variable), 2, ImmutableSet.of(0)))
                                         .source(tableScanNode))))));
         validatePlan(root, false);
     }
@@ -138,7 +138,7 @@ public class TestValidateAggregationsWithDefaultValues
     {
         PlanNode root = builder.aggregation(
                 af -> af.step(FINAL)
-                        .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
+                        .groupingSets(groupingSets(ImmutableList.of(variable), 2, ImmutableSet.of(0)))
                         .source(builder.exchange(e -> e
                                 .type(REPARTITION)
                                 .scope(LOCAL)
@@ -146,7 +146,7 @@ public class TestValidateAggregationsWithDefaultValues
                                 .addInputsSet(variable)
                                 .addSource(builder.aggregation(ap -> ap
                                         .step(PARTIAL)
-                                        .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
+                                        .groupingSets(groupingSets(ImmutableList.of(variable), 2, ImmutableSet.of(0)))
                                         .source(tableScanNode))))));
         validatePlan(root, true);
     }
@@ -156,7 +156,7 @@ public class TestValidateAggregationsWithDefaultValues
     {
         PlanNode root = builder.aggregation(
                 af -> af.step(FINAL)
-                        .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
+                        .groupingSets(groupingSets(ImmutableList.of(variable), 2, ImmutableSet.of(0)))
                         .source(builder.join(
                                 INNER,
                                 builder.exchange(e -> e
@@ -166,7 +166,7 @@ public class TestValidateAggregationsWithDefaultValues
                                         .addInputsSet(variable)
                                         .addSource(builder.aggregation(ap -> ap
                                                 .step(PARTIAL)
-                                                .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
+                                                .groupingSets(groupingSets(ImmutableList.of(variable), 2, ImmutableSet.of(0)))
                                                 .source(tableScanNode)))),
                                 builder.values())));
         validatePlan(root, true);
@@ -177,12 +177,12 @@ public class TestValidateAggregationsWithDefaultValues
     {
         PlanNode root = builder.aggregation(
                 af -> af.step(FINAL)
-                        .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
+                        .groupingSets(groupingSets(ImmutableList.of(variable), 2, ImmutableSet.of(0)))
                         .source(builder.join(
                                 INNER,
                                 builder.aggregation(ap -> ap
                                         .step(PARTIAL)
-                                        .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
+                                        .groupingSets(groupingSets(ImmutableList.of(variable), 2, ImmutableSet.of(0)))
                                         .source(tableScanNode)),
                                 builder.values())));
         validatePlan(root, true);

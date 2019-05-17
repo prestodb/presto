@@ -33,7 +33,7 @@ public class TestPushLimitThroughMarkDistinct
                         p.limit(
                                 1,
                                 p.markDistinct(
-                                        p.variable(p.symbol("foo")), ImmutableList.of(p.symbol("bar")), p.values())))
+                                        p.variable(p.symbol("foo")), ImmutableList.of(p.variable("bar")), p.values())))
                 .matches(
                         node(MarkDistinctNode.class,
                                 node(LimitNode.class,
@@ -47,7 +47,7 @@ public class TestPushLimitThroughMarkDistinct
                 .on(p ->
                         p.markDistinct(
                                 p.variable(p.symbol("foo")),
-                                ImmutableList.of(p.symbol("bar")),
+                                ImmutableList.of(p.variable("bar")),
                                 p.limit(
                                         1,
                                         p.values())))

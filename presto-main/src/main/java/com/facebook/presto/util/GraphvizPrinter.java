@@ -272,7 +272,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitMarkDistinct(MarkDistinctNode node, Void context)
         {
-            printNode(node, format("MarkDistinct[%s]", node.getMarkerVariable()), format("%s => %s", node.getDistinctSymbols(), node.getMarkerVariable()), NODE_COLORS.get(NodeType.MARK_DISTINCT));
+            printNode(node, format("MarkDistinct[%s]", node.getMarkerVariable()), format("%s => %s", node.getDistinctVariables(), node.getMarkerVariable()), NODE_COLORS.get(NodeType.MARK_DISTINCT));
             return node.getSource().accept(this, context);
         }
 

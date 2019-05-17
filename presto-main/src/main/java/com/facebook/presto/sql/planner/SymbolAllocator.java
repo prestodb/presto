@@ -162,6 +162,24 @@ public class SymbolAllocator
         return newSymbol(nameHint, type, suffix);
     }
 
+    public VariableReferenceExpression newVariable(Expression expression, Type type, String suffix)
+    {
+        String nameHint = "expr";
+        if (expression instanceof Identifier) {
+            nameHint = ((Identifier) expression).getValue();
+        }
+        else if (expression instanceof FunctionCall) {
+            nameHint = ((FunctionCall) expression).getName().getSuffix();
+        }
+        else if (expression instanceof SymbolReference) {
+            nameHint = ((SymbolReference) expression).getName();
+        }
+        else if (expression instanceof GroupingOperation) {
+            nameHint = "grouping";
+        }
+        return newVariable(nameHint, type, suffix);
+    }
+
     public Symbol newSymbol(Field field)
     {
         String nameHint = field.getName().orElse("field");

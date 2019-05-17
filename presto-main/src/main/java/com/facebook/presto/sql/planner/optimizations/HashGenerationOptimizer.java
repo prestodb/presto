@@ -164,8 +164,9 @@ public class HashGenerationOptimizer
         public PlanWithProperties visitAggregation(AggregationNode node, HashComputationSet parentPreference)
         {
             Optional<HashComputation> groupByHash = Optional.empty();
+            List<Symbol> groupingKeys = node.getGroupingKeys().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
             if (!node.isStreamable() && !canSkipHashGeneration(node.getGroupingKeys())) {
-                groupByHash = computeHash(node.getGroupingKeys());
+                groupByHash = computeHash(groupingKeys);
             }
 
             // aggregation does not pass through preferred hash symbols
@@ -180,17 +181,17 @@ public class HashGenerationOptimizer
                             child.getNode(),
                             node.getAggregations(),
                             node.getGroupingSets(),
-                            node.getPreGroupedSymbols(),
+                            node.getPreGroupedVariables(),
                             node.getStep(),
                             hashVariable,
-                            node.getGroupIdSymbol()),
+                            node.getGroupIdVariable()),
                     hashVariable.isPresent() ? ImmutableMap.of(groupByHash.get(), hashVariable.get()) : ImmutableMap.of());
         }
 
-        private boolean canSkipHashGeneration(List<Symbol> partitionSymbols)
+        private boolean canSkipHashGeneration(List<VariableReferenceExpression> partitionVariables)
         {
             // HACK: bigint grouped aggregation has special operators that do not use precomputed hash, so we can skip hash generation
-            return partitionSymbols.isEmpty() || (partitionSymbols.size() == 1 && types.get(Iterables.getOnlyElement(partitionSymbols)).equals(BIGINT));
+            return partitionVariables.isEmpty() || (partitionVariables.size() == 1 && Iterables.getOnlyElement(partitionVariables).getType().equals(BIGINT));
         }
 
         @Override
@@ -204,11 +205,11 @@ public class HashGenerationOptimizer
         public PlanWithProperties visitDistinctLimit(DistinctLimitNode node, HashComputationSet parentPreference)
         {
             // skip hash symbol generation for single bigint
-            if (canSkipHashGeneration(node.getDistinctSymbols())) {
+            if (canSkipHashGeneration(node.getDistinctVariables())) {
                 return planSimpleNodeWithProperties(node, parentPreference);
             }
 
-            Optional<HashComputation> hashComputation = computeHash(node.getDistinctSymbols());
+            Optional<HashComputation> hashComputation = computeHash(node.getDistinctVariables().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()));
             PlanWithProperties child = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(hashComputation),
@@ -220,7 +221,7 @@ public class HashGenerationOptimizer
             // that's functionally dependent on the distinct field in the set of distinct fields of the new node to be able to propagate it downstream.
             // Currently, such precomputed hashes will be dropped by this operation.
             return new PlanWithProperties(
-                    new DistinctLimitNode(node.getId(), child.getNode(), node.getLimit(), node.isPartial(), node.getDistinctSymbols(), Optional.of(hashVariable)),
+                    new DistinctLimitNode(node.getId(), child.getNode(), node.getLimit(), node.isPartial(), node.getDistinctVariables(), Optional.of(hashVariable)),
                     ImmutableMap.of(hashComputation.get(), hashVariable));
         }
 
@@ -228,11 +229,11 @@ public class HashGenerationOptimizer
         public PlanWithProperties visitMarkDistinct(MarkDistinctNode node, HashComputationSet parentPreference)
         {
             // skip hash symbol generation for single bigint
-            if (canSkipHashGeneration(node.getDistinctSymbols())) {
+            if (canSkipHashGeneration(node.getDistinctVariables())) {
                 return planSimpleNodeWithProperties(node, parentPreference);
             }
 
-            Optional<HashComputation> hashComputation = computeHash(node.getDistinctSymbols());
+            Optional<HashComputation> hashComputation = computeHash(node.getDistinctVariables().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()));
             PlanWithProperties child = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(hashComputation),
@@ -241,7 +242,7 @@ public class HashGenerationOptimizer
             VariableReferenceExpression hashVariable = child.getRequiredHashVariable(hashComputation.get());
 
             return new PlanWithProperties(
-                    new MarkDistinctNode(node.getId(), child.getNode(), node.getMarkerVariable(), node.getDistinctSymbols(), Optional.of(hashVariable)),
+                    new MarkDistinctNode(node.getId(), child.getNode(), node.getMarkerVariable(), node.getDistinctVariables(), Optional.of(hashVariable)),
                     child.getHashVariables());
         }
 

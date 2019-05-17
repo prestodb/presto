@@ -125,7 +125,7 @@ public class EffectivePredicateExtractor
 
             Expression underlyingPredicate = node.getSource().accept(this, context);
 
-            return pullExpressionThroughSymbols(underlyingPredicate, node.getGroupingKeys());
+            return pullExpressionThroughSymbols(underlyingPredicate, node.getGroupingKeys().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()));
         }
 
         @Override

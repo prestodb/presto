@@ -179,7 +179,7 @@ public class PlanNodeDecorrelator
                     idAllocator.getNextId(),
                     decorrelatedChildNode,
                     ImmutableMap.of(),
-                    singleGroupingSet(decorrelatedChildNode.getOutputSymbols()),
+                    singleGroupingSet(symbolAllocator.toVariableReferences(decorrelatedChildNode.getOutputSymbols())),
                     ImmutableList.of(),
                     AggregationNode.Step.SINGLE,
                     Optional.empty(),
@@ -218,7 +218,7 @@ public class PlanNodeDecorrelator
             AggregationNode decorrelatedAggregation = childDecorrelationResult.getCorrelatedSymbolMapper()
                     .map(node, childDecorrelationResult.node);
 
-            Set<VariableReferenceExpression> groupingKeys = ImmutableSet.copyOf(symbolAllocator.toVariableReferences(node.getGroupingKeys()));
+            Set<VariableReferenceExpression> groupingKeys = ImmutableSet.copyOf(node.getGroupingKeys());
             List<VariableReferenceExpression> variablesToAdd = childDecorrelationResult.variablesToPropagate.stream()
                     .filter(variable -> !groupingKeys.contains(variable))
                     .collect(toImmutableList());
@@ -231,17 +231,17 @@ public class PlanNodeDecorrelator
                     decorrelatedAggregation.getId(),
                     decorrelatedAggregation.getSource(),
                     decorrelatedAggregation.getAggregations(),
-                    AggregationNode.singleGroupingSet(ImmutableList.<Symbol>builder()
+                    AggregationNode.singleGroupingSet(ImmutableList.<VariableReferenceExpression>builder()
                             .addAll(node.getGroupingKeys())
-                            .addAll(variablesToAdd.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()))
+                            .addAll(variablesToAdd)
                             .build()),
                     ImmutableList.of(),
                     decorrelatedAggregation.getStep(),
                     decorrelatedAggregation.getHashVariable(),
-                    decorrelatedAggregation.getGroupIdSymbol());
+                    decorrelatedAggregation.getGroupIdVariable());
 
             boolean atMostSingleRow = newAggregation.getGroupingSetCount() == 1
-                    && constantVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()).containsAll(newAggregation.getGroupingKeys());
+                    && constantVariables.containsAll(newAggregation.getGroupingKeys());
 
             return Optional.of(new DecorrelationResult(
                     newAggregation,

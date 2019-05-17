@@ -44,7 +44,7 @@ public class PruneAggregationSourceColumns
     public Result apply(AggregationNode aggregationNode, Captures captures, Context context)
     {
         Set<Symbol> requiredInputs = Streams.concat(
-                aggregationNode.getGroupingKeys().stream(),
+                aggregationNode.getGroupingKeys().stream().map(this::toSymbol),
                 aggregationNode.getHashVariable().map(this::toSymbol).map(Stream::of).orElse(Stream.empty()),
                 aggregationNode.getAggregations().values().stream()
                         .flatMap(PruneAggregationSourceColumns::getAggregationInputs))

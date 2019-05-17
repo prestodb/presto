@@ -285,7 +285,7 @@ public class AddLocalExchanges
                 return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
             }
 
-            List<Symbol> groupingKeys = node.getGroupingKeys();
+            List<VariableReferenceExpression> groupingKeys = node.getGroupingKeys();
             if (node.hasDefaultOutput()) {
                 checkState(node.isDecomposable(metadata.getFunctionManager()));
 
@@ -297,7 +297,7 @@ public class AddLocalExchanges
                                 idAllocator.getNextId(),
                                 LOCAL,
                                 child.getNode(),
-                                toVariableReferences(groupingKeys, types),
+                                groupingKeys,
                                 Optional.empty(),
                                 types),
                         child.getProperties());
@@ -307,12 +307,12 @@ public class AddLocalExchanges
             StreamPreferredProperties childRequirements = parentPreferences
                     .constrainTo(toVariableReferences(node.getSource().getOutputSymbols(), types))
                     .withDefaultParallelism(session)
-                    .withPartitioning(toVariableReferences(groupingKeys, types));
+                    .withPartitioning(groupingKeys);
 
             PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
 
-            List<Symbol> preGroupedSymbols = ImmutableList.of();
-            if (!LocalProperties.match(child.getProperties().getLocalProperties(), LocalProperties.grouped(toVariableReferences(groupingKeys, types))).get(0).isPresent()) {
+            List<VariableReferenceExpression> preGroupedSymbols = ImmutableList.of();
+            if (!LocalProperties.match(child.getProperties().getLocalProperties(), LocalProperties.grouped(groupingKeys)).get(0).isPresent()) {
                 // !isPresent() indicates the property was satisfied completely
                 preGroupedSymbols = groupingKeys;
             }
@@ -325,7 +325,7 @@ public class AddLocalExchanges
                     preGroupedSymbols,
                     node.getStep(),
                     node.getHashVariable(),
-                    node.getGroupIdSymbol());
+                    node.getGroupIdVariable());
 
             return deriveProperties(result, child.getProperties());
         }
@@ -385,7 +385,7 @@ public class AddLocalExchanges
             StreamPreferredProperties childRequirements = parentPreferences
                     .constrainTo(toVariableReferences(node.getSource().getOutputSymbols(), types))
                     .withDefaultParallelism(session)
-                    .withPartitioning(toVariableReferences(node.getDistinctSymbols(), types));
+                    .withPartitioning(node.getDistinctVariables());
 
             PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
 
@@ -393,7 +393,7 @@ public class AddLocalExchanges
                     node.getId(),
                     child.getNode(),
                     node.getMarkerVariable(),
-                    pruneMarkDistinctSymbols(node, child.getProperties().getLocalProperties()),
+                    pruneMarkDistinctVariables(node, child.getProperties().getLocalProperties()),
                     node.getHashVariable());
 
             return deriveProperties(result, child.getProperties());
@@ -420,34 +420,33 @@ public class AddLocalExchanges
          * Ideally, this logic would be encapsulated in a separate rule, but currently no rule other
          * than AddLocalExchanges can reason about local properties.
          */
-        private List<Symbol> pruneMarkDistinctSymbols(MarkDistinctNode node, List<LocalProperty<VariableReferenceExpression>> localProperties)
+        private List<VariableReferenceExpression> pruneMarkDistinctVariables(MarkDistinctNode node, List<LocalProperty<VariableReferenceExpression>> localProperties)
         {
             if (localProperties.isEmpty()) {
-                return node.getDistinctSymbols();
+                return node.getDistinctVariables();
             }
 
             // Identify functional dependencies between distinct symbols: in the list of local properties any constant
             // symbol is functionally dependent on the set of symbols that appears earlier.
-            ImmutableSet.Builder<String> redundantVariablesBuilder = ImmutableSet.builder();
+            ImmutableSet.Builder<VariableReferenceExpression> redundantVariablesBuilder = ImmutableSet.builder();
             for (LocalProperty<VariableReferenceExpression> property : localProperties) {
                 if (property instanceof ConstantProperty) {
-                    redundantVariablesBuilder.add(((ConstantProperty<VariableReferenceExpression>) property).getColumn().getName());
+                    redundantVariablesBuilder.add(((ConstantProperty<VariableReferenceExpression>) property).getColumn());
                 }
-                else if (!node.getDistinctSymbols().stream().map(Symbol::getName).collect(toImmutableSet())
-                        .containsAll(property.getColumns().stream().map(VariableReferenceExpression::getName).collect(toImmutableSet()))) {
+                else if (!node.getDistinctVariables().containsAll(property.getColumns())) {
                     // Ran into a non-distinct symbol. There will be no more symbols that are functionally dependent on distinct symbols exclusively.
                     break;
                 }
             }
 
-            Set<String> redundantVariables = redundantVariablesBuilder.build();
-            List<Symbol> remainingSymbols = node.getDistinctSymbols().stream()
-                    .filter(symbol -> !redundantVariables.contains(symbol.getName()))
+            Set<VariableReferenceExpression> redundantVariables = redundantVariablesBuilder.build();
+            List<VariableReferenceExpression> remainingSymbols = node.getDistinctVariables().stream()
+                    .filter(variable -> !redundantVariables.contains(variable))
                     .collect(toImmutableList());
             if (remainingSymbols.isEmpty()) {
                 // This happens when all distinct symbols are constants.
                 // In that case, keep the first symbol (don't drop them all).
-                return ImmutableList.of(node.getDistinctSymbols().get(0));
+                return ImmutableList.of(node.getDistinctVariables().get(0));
             }
             return remainingSymbols;
         }

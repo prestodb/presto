@@ -131,15 +131,13 @@ public class PushAggregationThroughOuterJoin
 
         if (join.getFilter().isPresent()
                 || !(join.getType() == JoinNode.Type.LEFT || join.getType() == JoinNode.Type.RIGHT)
-                || !groupsOnAllColumns(aggregation, getOuterTable(join).getOutputSymbols())
+                || !groupsOnAllColumns(aggregation, context.getSymbolAllocator().toVariableReferences(getOuterTable(join).getOutputSymbols()))
                 || !isDistinct(context.getLookup().resolve(getOuterTable(join)), context.getLookup()::resolve)) {
             return Result.empty();
         }
 
-        List<Symbol> groupingKeys = join.getCriteria().stream()
+        List<VariableReferenceExpression> groupingKeys = join.getCriteria().stream()
                 .map(join.getType() == JoinNode.Type.RIGHT ? JoinNode.EquiJoinClause::getLeft : JoinNode.EquiJoinClause::getRight)
-                .map(VariableReferenceExpression::getName)
-                .map(Symbol::new)
                 .collect(toImmutableList());
         AggregationNode rewrittenAggregation = new AggregationNode(
                 aggregation.getId(),
@@ -149,7 +147,7 @@ public class PushAggregationThroughOuterJoin
                 ImmutableList.of(),
                 aggregation.getStep(),
                 aggregation.getHashVariable(),
-                aggregation.getGroupIdSymbol());
+                aggregation.getGroupIdVariable());
 
         List<Symbol> rewrittenAggregationSymbols = rewrittenAggregation.getAggregations().keySet().stream()
                 .map(VariableReferenceExpression::getName)
@@ -223,7 +221,7 @@ public class PushAggregationThroughOuterJoin
         return outerNode;
     }
 
-    private static boolean groupsOnAllColumns(AggregationNode node, List<Symbol> columns)
+    private static boolean groupsOnAllColumns(AggregationNode node, List<VariableReferenceExpression> columns)
     {
         return new HashSet<>(node.getGroupingKeys()).equals(new HashSet<>(columns));
     }

@@ -347,7 +347,7 @@ public class PruneUnreferencedOutputs
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Set<Symbol>> context)
         {
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
-                    .addAll(node.getGroupingKeys());
+                    .addAll(node.getGroupingKeys().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
             if (node.getHashVariable().isPresent()) {
                 expectedInputs.add(new Symbol(node.getHashVariable().get().getName()));
             }
@@ -373,7 +373,7 @@ public class PruneUnreferencedOutputs
                     ImmutableList.of(),
                     node.getStep(),
                     node.getHashVariable(),
-                    node.getGroupIdSymbol());
+                    node.getGroupIdVariable());
         }
 
         @Override
@@ -467,21 +467,21 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitGroupId(GroupIdNode node, RewriteContext<Set<Symbol>> context)
         {
-            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.builder();
+            ImmutableSet.Builder<VariableReferenceExpression> expectedInputs = ImmutableSet.builder();
 
-            List<Symbol> newAggregationArguments = node.getAggregationArguments().stream()
-                    .filter(context.get()::contains)
+            List<VariableReferenceExpression> newAggregationArguments = node.getAggregationArguments().stream()
+                    .filter(variable -> context.get().contains(new Symbol(variable.getName())))
                     .collect(Collectors.toList());
             expectedInputs.addAll(newAggregationArguments);
 
-            ImmutableList.Builder<List<Symbol>> newGroupingSets = ImmutableList.builder();
-            Map<Symbol, Symbol> newGroupingMapping = new HashMap<>();
+            ImmutableList.Builder<List<VariableReferenceExpression>> newGroupingSets = ImmutableList.builder();
+            Map<VariableReferenceExpression, VariableReferenceExpression> newGroupingMapping = new HashMap<>();
 
-            for (List<Symbol> groupingSet : node.getGroupingSets()) {
-                ImmutableList.Builder<Symbol> newGroupingSet = ImmutableList.builder();
+            for (List<VariableReferenceExpression> groupingSet : node.getGroupingSets()) {
+                ImmutableList.Builder<VariableReferenceExpression> newGroupingSet = ImmutableList.builder();
 
-                for (Symbol output : groupingSet) {
-                    if (context.get().contains(output)) {
+                for (VariableReferenceExpression output : groupingSet) {
+                    if (context.get().contains(new Symbol(output.getName()))) {
                         newGroupingSet.add(output);
                         newGroupingMapping.putIfAbsent(output, node.getGroupingColumns().get(output));
                         expectedInputs.add(node.getGroupingColumns().get(output));
@@ -490,8 +490,8 @@ public class PruneUnreferencedOutputs
                 newGroupingSets.add(newGroupingSet.build());
             }
 
-            PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
-            return new GroupIdNode(node.getId(), source, newGroupingSets.build(), newGroupingMapping, newAggregationArguments, node.getGroupIdSymbol());
+            PlanNode source = context.rewrite(node.getSource(), expectedInputs.build().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
+            return new GroupIdNode(node.getId(), source, newGroupingSets.build(), newGroupingMapping, newAggregationArguments, node.getGroupIdVariable());
         }
 
         @Override
@@ -502,7 +502,7 @@ public class PruneUnreferencedOutputs
             }
 
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
-                    .addAll(node.getDistinctSymbols())
+                    .addAll(node.getDistinctVariables().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()))
                     .addAll(context.get().stream()
                             .filter(symbol -> !symbol.equals(node.getMarkerSymbol()))
                             .collect(toImmutableList()));
@@ -512,7 +512,7 @@ public class PruneUnreferencedOutputs
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
-            return new MarkDistinctNode(node.getId(), source, node.getMarkerVariable(), node.getDistinctSymbols(), node.getHashVariable());
+            return new MarkDistinctNode(node.getId(), source, node.getMarkerVariable(), node.getDistinctVariables(), node.getHashVariable());
         }
 
         @Override
@@ -574,14 +574,15 @@ public class PruneUnreferencedOutputs
         public PlanNode visitDistinctLimit(DistinctLimitNode node, RewriteContext<Set<Symbol>> context)
         {
             Set<Symbol> expectedInputs;
+            Set<Symbol> distinctSymbols = node.getDistinctVariables().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet());
             if (node.getHashVariable().isPresent()) {
-                expectedInputs = ImmutableSet.copyOf(concat(node.getDistinctSymbols(), ImmutableList.of(new Symbol(node.getHashVariable().get().getName()))));
+                expectedInputs = ImmutableSet.copyOf(concat(distinctSymbols, ImmutableList.of(new Symbol(node.getHashVariable().get().getName()))));
             }
             else {
-                expectedInputs = ImmutableSet.copyOf(node.getDistinctSymbols());
+                expectedInputs = distinctSymbols;
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
-            return new DistinctLimitNode(node.getId(), source, node.getLimit(), node.isPartial(), node.getDistinctSymbols(), node.getHashVariable());
+            return new DistinctLimitNode(node.getId(), source, node.getLimit(), node.isPartial(), node.getDistinctVariables(), node.getHashVariable());
         }
 
         @Override

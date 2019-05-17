@@ -34,7 +34,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReferences;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.derivePropertiesRecursively;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -78,13 +77,13 @@ public class ValidateStreamingAggregations
         @Override
         public Void visitAggregation(AggregationNode node, Void context)
         {
-            if (node.getPreGroupedSymbols().isEmpty()) {
+            if (node.getPreGroupedVariables().isEmpty()) {
                 return null;
             }
 
             StreamProperties properties = derivePropertiesRecursively(node.getSource(), metadata, sesstion, types, sqlParser);
 
-            List<LocalProperty<VariableReferenceExpression>> desiredProperties = ImmutableList.of(new GroupingProperty<>(toVariableReferences(node.getPreGroupedSymbols(), types)));
+            List<LocalProperty<VariableReferenceExpression>> desiredProperties = ImmutableList.of(new GroupingProperty<>(node.getPreGroupedVariables()));
             Iterator<Optional<LocalProperty<VariableReferenceExpression>>> matchIterator = LocalProperties.match(properties.getLocalProperties(), desiredProperties).iterator();
             Optional<LocalProperty<VariableReferenceExpression>> unsatisfiedRequirement = Iterators.getOnlyElement(matchIterator);
             checkArgument(!unsatisfiedRequirement.isPresent(), "Streaming aggregation with input not grouped on the grouping keys");

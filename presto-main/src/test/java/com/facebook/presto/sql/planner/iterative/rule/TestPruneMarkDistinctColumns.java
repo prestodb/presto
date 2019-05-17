@@ -40,7 +40,7 @@ public class TestPruneMarkDistinctColumns
                     Symbol unused = p.symbol("unused");
                     return p.project(
                             Assignments.of(key2, key.toSymbolReference()),
-                            p.markDistinct(p.variable(mark), ImmutableList.of(key), p.values(key, unused)));
+                            p.markDistinct(p.variable(mark), ImmutableList.of(p.variable(key)), p.values(key, unused)));
                 })
                 .matches(
                         strictProject(
@@ -62,7 +62,7 @@ public class TestPruneMarkDistinctColumns
                             Assignments.identity(mark),
                             p.markDistinct(
                                     p.variable(mark),
-                                    ImmutableList.of(key),
+                                    ImmutableList.of(p.variable(key)),
                                     p.variable(hash),
                                     p.values(key, hash, unused)));
                 })
@@ -87,7 +87,7 @@ public class TestPruneMarkDistinctColumns
                     Symbol mark = p.symbol("mark");
                     return p.project(
                             Assignments.identity(mark),
-                            p.markDistinct(p.variable(mark), ImmutableList.of(key), p.values(key)));
+                            p.markDistinct(p.variable(mark), ImmutableList.of(p.variable(key)), p.values(key)));
                 })
                 .doesNotFire();
     }
@@ -102,7 +102,7 @@ public class TestPruneMarkDistinctColumns
                     Symbol mark = p.symbol("mark");
                     return p.project(
                             Assignments.identity(key, mark),
-                            p.markDistinct(p.variable(mark), ImmutableList.of(key), p.values(key)));
+                            p.markDistinct(p.variable(mark), ImmutableList.of(p.variable(key)), p.values(key)));
                 })
                 .doesNotFire();
     }

@@ -213,7 +213,7 @@ public class TransformCorrelatedInPredicateToJoin
                         .put(countMatchesVariable, countWithFilter(matchCondition))
                         .put(countNullMatchesVariable, countWithFilter(nullMatchCondition))
                         .build(),
-                singleGroupingSet(probeSide.getOutputSymbols()),
+                singleGroupingSet(symbolAllocator.toVariableReferences(probeSide.getOutputSymbols())),
                 ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),

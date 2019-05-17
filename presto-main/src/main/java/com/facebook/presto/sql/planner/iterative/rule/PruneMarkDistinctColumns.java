@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -45,7 +46,7 @@ public class PruneMarkDistinctColumns
         Set<Symbol> requiredInputs = Streams.concat(
                 referencedOutputs.stream()
                         .filter(symbol -> !symbol.equals(markDistinctNode.getMarkerSymbol())),
-                markDistinctNode.getDistinctSymbols().stream(),
+                markDistinctNode.getDistinctVariables().stream().map(VariableReferenceExpression::getName).map(Symbol::new),
                 markDistinctNode.getHashVariable().map(variable -> Stream.of(new Symbol(variable.getName()))).orElse(Stream.empty()))
                 .collect(toImmutableSet());
 

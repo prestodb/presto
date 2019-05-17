@@ -113,7 +113,7 @@ public class MultipleDistinctAggregationToMarkDistinct
         }
 
         // the distinct marker for the given set of input columns
-        Map<Set<Symbol>, VariableReferenceExpression> markers = new HashMap<>();
+        Map<Set<VariableReferenceExpression>, VariableReferenceExpression> markers = new HashMap<>();
 
         Map<VariableReferenceExpression, Aggregation> newAggregations = new HashMap<>();
         PlanNode subPlan = parent.getSource();
@@ -122,8 +122,9 @@ public class MultipleDistinctAggregationToMarkDistinct
             Aggregation aggregation = entry.getValue();
 
             if (aggregation.isDistinct() && !aggregation.getFilter().isPresent() && !aggregation.getMask().isPresent()) {
-                Set<Symbol> inputs = aggregation.getArguments().stream()
+                Set<VariableReferenceExpression> inputs = aggregation.getArguments().stream()
                         .map(Symbol::from)
+                        .map(context.getSymbolAllocator()::toVariableReference)
                         .collect(toSet());
 
                 VariableReferenceExpression marker = markers.get(inputs);
@@ -131,16 +132,16 @@ public class MultipleDistinctAggregationToMarkDistinct
                     marker = context.getSymbolAllocator().newVariable(Iterables.getLast(inputs).getName(), BOOLEAN, "distinct");
                     markers.put(inputs, marker);
 
-                    ImmutableSet.Builder<Symbol> distinctSymbols = ImmutableSet.<Symbol>builder()
+                    ImmutableSet.Builder<VariableReferenceExpression> distinctVariables = ImmutableSet.<VariableReferenceExpression>builder()
                             .addAll(parent.getGroupingKeys())
                             .addAll(inputs);
-                    parent.getGroupIdSymbol().ifPresent(distinctSymbols::add);
+                    parent.getGroupIdVariable().ifPresent(distinctVariables::add);
 
                     subPlan = new MarkDistinctNode(
                             context.getIdAllocator().getNextId(),
                             subPlan,
                             marker,
-                            ImmutableList.copyOf(distinctSymbols.build()),
+                            ImmutableList.copyOf(distinctVariables.build()),
                             Optional.empty());
                 }
 
@@ -168,6 +169,6 @@ public class MultipleDistinctAggregationToMarkDistinct
                         ImmutableList.of(),
                         parent.getStep(),
                         parent.getHashVariable(),
-                        parent.getGroupIdSymbol()));
+                        parent.getGroupIdVariable()));
     }
 }

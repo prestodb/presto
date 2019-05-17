@@ -169,7 +169,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableMap.of(
                         CV, count(metadata.getFunctionManager()),
                         DV, count(metadata.getFunctionManager())),
-                singleGroupingSet(ImmutableList.of(A, B, C)),
+                singleGroupingSet(ImmutableList.of(AV, BV, CV)),
                 ImmutableList.of(),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),

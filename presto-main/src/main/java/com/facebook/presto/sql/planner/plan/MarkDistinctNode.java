@@ -37,22 +37,22 @@ public class MarkDistinctNode
     private final VariableReferenceExpression markerVariable;
 
     private final Optional<VariableReferenceExpression> hashVariable;
-    private final List<Symbol> distinctSymbols;
+    private final List<VariableReferenceExpression> distinctVariables;
 
     @JsonCreator
     public MarkDistinctNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("markerVariable") VariableReferenceExpression markerVariable,
-            @JsonProperty("distinctSymbols") List<Symbol> distinctSymbols,
+            @JsonProperty("distinctVariables") List<VariableReferenceExpression> distinctVariables,
             @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable)
     {
         super(id);
         this.source = source;
         this.markerVariable = markerVariable;
         this.hashVariable = requireNonNull(hashVariable, "hashVariable is null");
-        requireNonNull(distinctSymbols, "distinctSymbols is null");
-        checkArgument(!distinctSymbols.isEmpty(), "distinctSymbols cannot be empty");
-        this.distinctSymbols = ImmutableList.copyOf(distinctSymbols);
+        requireNonNull(distinctVariables, "distinctVariables is null");
+        checkArgument(!distinctVariables.isEmpty(), "distinctVariables cannot be empty");
+        this.distinctVariables = ImmutableList.copyOf(distinctVariables);
     }
 
     @Override
@@ -97,9 +97,9 @@ public class MarkDistinctNode
     }
 
     @JsonProperty
-    public List<Symbol> getDistinctSymbols()
+    public List<VariableReferenceExpression> getDistinctVariables()
     {
-        return distinctSymbols;
+        return distinctVariables;
     }
 
     @JsonProperty
@@ -117,6 +117,6 @@ public class MarkDistinctNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new MarkDistinctNode(getId(), Iterables.getOnlyElement(newChildren), markerVariable, distinctSymbols, hashVariable);
+        return new MarkDistinctNode(getId(), Iterables.getOnlyElement(newChildren), markerVariable, distinctVariables, hashVariable);
     }
 }

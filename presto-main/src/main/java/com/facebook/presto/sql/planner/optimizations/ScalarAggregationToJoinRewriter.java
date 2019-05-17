@@ -192,7 +192,7 @@ public class ScalarAggregationToJoinRewriter
                 idAllocator.getNextId(),
                 leftOuterJoin,
                 aggregations.build(),
-                singleGroupingSet(leftOuterJoin.getLeft().getOutputSymbols()),
+                singleGroupingSet(symbolAllocator.toVariableReferences(leftOuterJoin.getLeft().getOutputSymbols())),
                 ImmutableList.of(),
                 scalarAggregation.getStep(),
                 scalarAggregation.getHashVariable(),

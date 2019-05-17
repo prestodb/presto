@@ -173,10 +173,10 @@ public class ExpressionRewriteRuleSet
                         aggregationNode.getSource(),
                         aggregations.build(),
                         aggregationNode.getGroupingSets(),
-                        aggregationNode.getPreGroupedSymbols(),
+                        aggregationNode.getPreGroupedVariables(),
                         aggregationNode.getStep(),
                         aggregationNode.getHashVariable(),
-                        aggregationNode.getGroupIdSymbol()));
+                        aggregationNode.getGroupIdVariable()));
             }
             return Result.empty();
         }

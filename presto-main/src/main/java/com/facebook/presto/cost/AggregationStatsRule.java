@@ -64,10 +64,11 @@ public class AggregationStatsRule
                 node.getAggregations()));
     }
 
-    public static PlanNodeStatsEstimate groupBy(PlanNodeStatsEstimate sourceStats, Collection<Symbol> groupBySymbols, Map<VariableReferenceExpression, Aggregation> aggregations)
+    public static PlanNodeStatsEstimate groupBy(PlanNodeStatsEstimate sourceStats, Collection<VariableReferenceExpression> groupByVariables, Map<VariableReferenceExpression, Aggregation> aggregations)
     {
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
-        for (Symbol groupBySymbol : groupBySymbols) {
+        for (VariableReferenceExpression groupByVariable : groupByVariables) {
+            Symbol groupBySymbol = new Symbol(groupByVariable.getName());
             SymbolStatsEstimate symbolStatistics = sourceStats.getSymbolStatistics(groupBySymbol);
             result.addSymbolStatistics(groupBySymbol, symbolStatistics.mapNullsFraction(nullsFraction -> {
                 if (nullsFraction == 0.0) {
@@ -78,7 +79,8 @@ public class AggregationStatsRule
         }
 
         double rowsCount = 1;
-        for (Symbol groupBySymbol : groupBySymbols) {
+        for (VariableReferenceExpression groupByVariable : groupByVariables) {
+            Symbol groupBySymbol = new Symbol(groupByVariable.getName());
             SymbolStatsEstimate symbolStatistics = sourceStats.getSymbolStatistics(groupBySymbol);
             int nullRow = (symbolStatistics.getNullsFraction() == 0.0) ? 0 : 1;
             rowsCount *= symbolStatistics.getDistinctValuesCount() + nullRow;

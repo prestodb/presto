@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -118,8 +119,9 @@ public class SingleDistinctAggregationToGroupBy
         List<Set<Expression>> argumentSets = extractArgumentSets(aggregation)
                 .collect(Collectors.toList());
 
-        Set<Symbol> symbols = Iterables.getOnlyElement(argumentSets).stream()
+        Set<VariableReferenceExpression> variables = Iterables.getOnlyElement(argumentSets).stream()
                 .map(Symbol::from)
+                .map(context.getSymbolAllocator()::toVariableReference)
                 .collect(Collectors.toSet());
 
         return Result.ofPlanNode(
@@ -129,9 +131,9 @@ public class SingleDistinctAggregationToGroupBy
                                 context.getIdAllocator().getNextId(),
                                 aggregation.getSource(),
                                 ImmutableMap.of(),
-                                singleGroupingSet(ImmutableList.<Symbol>builder()
+                                singleGroupingSet(ImmutableList.<VariableReferenceExpression>builder()
                                         .addAll(aggregation.getGroupingKeys())
-                                        .addAll(symbols)
+                                        .addAll(variables)
                                         .build()),
                                 ImmutableList.of(),
                                 SINGLE,
@@ -147,7 +149,7 @@ public class SingleDistinctAggregationToGroupBy
                         emptyList(),
                         aggregation.getStep(),
                         aggregation.getHashVariable(),
-                        aggregation.getGroupIdSymbol()));
+                        aggregation.getGroupIdVariable()));
     }
 
     private static AggregationNode.Aggregation removeDistinct(AggregationNode.Aggregation aggregation)

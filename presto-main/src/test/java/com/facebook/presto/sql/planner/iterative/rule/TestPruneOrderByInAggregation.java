@@ -76,7 +76,7 @@ public class TestPruneOrderByInAggregation
                 planBuilder.variable(keyHash),
                 planBuilder.variable(mask));
         return planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
-                .singleGroupingSet(key)
+                .singleGroupingSet(planBuilder.variable(key))
                 .addAggregation(avg, planBuilder.expression("avg(input order by input)"), ImmutableList.of(BIGINT), planBuilder.variable(mask))
                 .addAggregation(arrayAgg, planBuilder.expression("array_agg(input order by input)"), ImmutableList.of(BIGINT), planBuilder.variable(mask))
                 .hashVariable(planBuilder.variable(keyHash))

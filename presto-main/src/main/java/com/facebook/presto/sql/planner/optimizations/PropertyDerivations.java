@@ -280,19 +280,18 @@ public class PropertyDerivations
         public ActualProperties visitGroupId(GroupIdNode node, List<ActualProperties> inputProperties)
         {
             Map<VariableReferenceExpression, VariableReferenceExpression> inputToOutputMappings = new HashMap<>();
-            for (Map.Entry<Symbol, Symbol> setMapping : node.getGroupingColumns().entrySet()) {
+            for (Map.Entry<VariableReferenceExpression, VariableReferenceExpression> setMapping : node.getGroupingColumns().entrySet()) {
                 if (node.getCommonGroupingColumns().contains(setMapping.getKey())) {
                     // TODO: Add support for translating a property on a single column to multiple columns
                     // when GroupIdNode is copying a single input grouping column into multiple output grouping columns (i.e. aliases), this is basically picking one arbitrarily
-                    inputToOutputMappings.putIfAbsent(toVariableReference(setMapping.getValue(), types), toVariableReference(setMapping.getKey(), types));
+                    inputToOutputMappings.putIfAbsent(setMapping.getValue(), setMapping.getKey());
                 }
             }
 
             // TODO: Add support for translating a property on a single column to multiple columns
             // this is deliberately placed after the grouping columns, because preserving properties has a bigger perf impact
-            for (Symbol argument : node.getAggregationArguments()) {
-                VariableReferenceExpression variable = toVariableReference(argument, types);
-                inputToOutputMappings.putIfAbsent(variable, variable);
+            for (VariableReferenceExpression argument : node.getAggregationArguments()) {
+                inputToOutputMappings.putIfAbsent(argument, argument);
             }
 
             return Iterables.getOnlyElement(inputProperties).translate(column -> Optional.ofNullable(inputToOutputMappings.get(column)));
@@ -303,10 +302,10 @@ public class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            ActualProperties translated = properties.translate(variable -> node.getGroupingKeys().contains(new Symbol(variable.getName())) ? Optional.of(variable) : Optional.empty());
+            ActualProperties translated = properties.translate(variable -> node.getGroupingKeys().contains(variable) ? Optional.of(variable) : Optional.empty());
 
             return ActualProperties.builderFrom(translated)
-                    .local(LocalProperties.grouped(toVariableReferences(node.getGroupingKeys(), types)))
+                    .local(LocalProperties.grouped(node.getGroupingKeys()))
                     .build();
         }
 
@@ -372,7 +371,7 @@ public class PropertyDerivations
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
             return ActualProperties.builderFrom(properties)
-                    .local(LocalProperties.grouped(toVariableReferences(node.getDistinctSymbols(), types)))
+                    .local(LocalProperties.grouped(node.getDistinctVariables()))
                     .build();
         }
 

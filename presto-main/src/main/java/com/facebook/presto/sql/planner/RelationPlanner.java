@@ -861,7 +861,7 @@ class RelationPlanner
         return new AggregationNode(idAllocator.getNextId(),
                 node,
                 ImmutableMap.of(),
-                singleGroupingSet(node.getOutputSymbols()),
+                singleGroupingSet(symbolAllocator.toVariableReferences(node.getOutputSymbols())),
                 ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),

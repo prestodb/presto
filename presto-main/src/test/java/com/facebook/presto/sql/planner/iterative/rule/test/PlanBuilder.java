@@ -260,14 +260,14 @@ public class PlanBuilder
         return new ProjectNode(idAllocator.getNextId(), source, assignments);
     }
 
-    public MarkDistinctNode markDistinct(VariableReferenceExpression markerVariable, List<Symbol> distinctSymbols, PlanNode source)
+    public MarkDistinctNode markDistinct(VariableReferenceExpression markerVariable, List<VariableReferenceExpression> distinctVariables, PlanNode source)
     {
-        return new MarkDistinctNode(idAllocator.getNextId(), source, markerVariable, distinctSymbols, Optional.empty());
+        return new MarkDistinctNode(idAllocator.getNextId(), source, markerVariable, distinctVariables, Optional.empty());
     }
 
-    public MarkDistinctNode markDistinct(VariableReferenceExpression markerVariable, List<Symbol> distinctSymbols, VariableReferenceExpression hashVariable, PlanNode source)
+    public MarkDistinctNode markDistinct(VariableReferenceExpression markerVariable, List<VariableReferenceExpression> distinctVariables, VariableReferenceExpression hashVariable, PlanNode source)
     {
-        return new MarkDistinctNode(idAllocator.getNextId(), source, markerVariable, distinctSymbols, Optional.of(hashVariable));
+        return new MarkDistinctNode(idAllocator.getNextId(), source, markerVariable, distinctVariables, Optional.of(hashVariable));
     }
 
     public FilterNode filter(Expression predicate, PlanNode source)
@@ -293,10 +293,10 @@ public class PlanBuilder
         private PlanNode source;
         private Map<VariableReferenceExpression, Aggregation> assignments = new HashMap<>();
         private AggregationNode.GroupingSetDescriptor groupingSets;
-        private List<Symbol> preGroupedSymbols = new ArrayList<>();
+        private List<VariableReferenceExpression> preGroupedVariables = new ArrayList<>();
         private Step step = Step.SINGLE;
         private Optional<VariableReferenceExpression> hashVariable = Optional.empty();
-        private Optional<Symbol> groupIdSymbol = Optional.empty();
+        private Optional<VariableReferenceExpression> groupIdVariable = Optional.empty();
         private Session session = testSessionBuilder().build();
 
         public AggregationBuilder(TypeProvider types)
@@ -345,9 +345,9 @@ public class PlanBuilder
             return this;
         }
 
-        public AggregationBuilder singleGroupingSet(Symbol... symbols)
+        public AggregationBuilder singleGroupingSet(VariableReferenceExpression... variables)
         {
-            groupingSets(AggregationNode.singleGroupingSet(ImmutableList.copyOf(symbols)));
+            groupingSets(AggregationNode.singleGroupingSet(ImmutableList.copyOf(variables)));
             return this;
         }
 
@@ -358,10 +358,10 @@ public class PlanBuilder
             return this;
         }
 
-        public AggregationBuilder preGroupedSymbols(Symbol... symbols)
+        public AggregationBuilder preGroupedVariables(VariableReferenceExpression... variables)
         {
-            checkState(this.preGroupedSymbols.isEmpty(), "preGroupedSymbols already defined");
-            this.preGroupedSymbols = ImmutableList.copyOf(symbols);
+            checkState(this.preGroupedVariables.isEmpty(), "preGroupedVariables already defined");
+            this.preGroupedVariables = ImmutableList.copyOf(variables);
             return this;
         }
 
@@ -377,9 +377,9 @@ public class PlanBuilder
             return this;
         }
 
-        public AggregationBuilder groupIdSymbol(Symbol groupIdSymbol)
+        public AggregationBuilder groupIdVariable(VariableReferenceExpression groupIdVariable)
         {
-            this.groupIdSymbol = Optional.of(groupIdSymbol);
+            this.groupIdVariable = Optional.of(groupIdVariable);
             return this;
         }
 
@@ -391,10 +391,10 @@ public class PlanBuilder
                     source,
                     assignments,
                     groupingSets,
-                    preGroupedSymbols,
+                    preGroupedVariables,
                     step,
                     hashVariable,
-                    groupIdSymbol);
+                    groupIdVariable);
         }
     }
 
@@ -724,6 +724,11 @@ public class PlanBuilder
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
+    }
+
+    public VariableReferenceExpression variable(String name)
+    {
+        return variable(symbol(name, BIGINT));
     }
 
     public VariableReferenceExpression variable(Symbol symbol)

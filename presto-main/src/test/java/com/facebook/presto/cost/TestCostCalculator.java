@@ -800,7 +800,7 @@ public class TestCostCalculator
                 new PlanNodeId(id),
                 source,
                 ImmutableMap.of(new VariableReferenceExpression("count", BIGINT), aggregation),
-                singleGroupingSet(source.getOutputSymbols()),
+                singleGroupingSet(source.getOutputSymbols().stream().map(symbol -> new VariableReferenceExpression(symbol.getName(), BIGINT)).collect(toImmutableList())),
                 ImmutableList.of(),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),

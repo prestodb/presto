@@ -472,29 +472,29 @@ class QueryPlanner
         // 2.a. Rewrite aggregate arguments
         TranslationMap argumentTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToSymbolMap);
 
-        ImmutableList.Builder<Symbol> aggregationArgumentsBuilder = ImmutableList.builder();
+        ImmutableList.Builder<VariableReferenceExpression> aggregationArgumentsBuilder = ImmutableList.builder();
         for (Expression argument : arguments.build()) {
             Symbol symbol = subPlan.translate(argument);
             argumentTranslations.put(argument, symbol);
-            aggregationArgumentsBuilder.add(symbol);
+            aggregationArgumentsBuilder.add(symbolAllocator.toVariableReference(symbol));
         }
-        List<Symbol> aggregationArguments = aggregationArgumentsBuilder.build();
+        List<VariableReferenceExpression> aggregationArguments = aggregationArgumentsBuilder.build();
 
         // 2.b. Rewrite grouping columns
         TranslationMap groupingTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToSymbolMap);
-        Map<Symbol, Symbol> groupingSetMappings = new LinkedHashMap<>();
+        Map<VariableReferenceExpression, VariableReferenceExpression> groupingSetMappings = new LinkedHashMap<>();
 
         for (Expression expression : groupByExpressions) {
-            Symbol input = subPlan.translate(expression);
-            Symbol output = symbolAllocator.newSymbol(expression, analysis.getTypeWithCoercions(expression), "gid");
-            groupingTranslations.put(expression, output);
+            VariableReferenceExpression input = symbolAllocator.toVariableReference(subPlan.translate(expression));
+            VariableReferenceExpression output = symbolAllocator.newVariable(expression, analysis.getTypeWithCoercions(expression), "gid");
+            groupingTranslations.put(expression, new Symbol(output.getName()));
             groupingSetMappings.put(output, input);
         }
 
         // This tracks the grouping sets before complex expressions are considered (see comments below)
         // It's also used to compute the descriptors needed to implement grouping()
         List<Set<FieldId>> columnOnlyGroupingSets = ImmutableList.of(ImmutableSet.of());
-        List<List<Symbol>> groupingSets = ImmutableList.of(ImmutableList.of());
+        List<List<VariableReferenceExpression>> groupingSets = ImmutableList.of(ImmutableList.of());
 
         if (node.getGroupBy().isPresent()) {
             // For the purpose of "distinct", we need to canonicalize column references that may have varying
@@ -514,15 +514,17 @@ class QueryPlanner
             }
 
             // add in the complex expressions an turn materialize the grouping sets in terms of plan columns
-            ImmutableList.Builder<List<Symbol>> groupingSetBuilder = ImmutableList.builder();
+            ImmutableList.Builder<List<VariableReferenceExpression>> groupingSetBuilder = ImmutableList.builder();
             for (Set<FieldId> groupingSet : columnOnlyGroupingSets) {
-                ImmutableList.Builder<Symbol> columns = ImmutableList.builder();
+                ImmutableList.Builder<VariableReferenceExpression> columns = ImmutableList.builder();
                 groupingSetAnalysis.getComplexExpressions().stream()
                         .map(groupingTranslations::get)
+                        .map(symbolAllocator::toVariableReference)
                         .forEach(columns::add);
 
                 groupingSet.stream()
                         .map(field -> groupingTranslations.get(new FieldReference(field.getFieldIndex())))
+                        .map(symbolAllocator::toVariableReference)
                         .forEach(columns::add);
 
                 groupingSetBuilder.add(columns.build());
@@ -532,16 +534,16 @@ class QueryPlanner
         }
 
         // 2.c. Generate GroupIdNode (multiple grouping sets) or ProjectNode (single grouping set)
-        Optional<Symbol> groupIdSymbol = Optional.empty();
+        Optional<VariableReferenceExpression> groupIdVariable = Optional.empty();
         if (groupingSets.size() > 1) {
-            groupIdSymbol = Optional.of(symbolAllocator.newSymbol("groupId", BIGINT));
-            GroupIdNode groupId = new GroupIdNode(idAllocator.getNextId(), subPlan.getRoot(), groupingSets, groupingSetMappings, aggregationArguments, groupIdSymbol.get());
+            groupIdVariable = Optional.of(symbolAllocator.newVariable("groupId", BIGINT));
+            GroupIdNode groupId = new GroupIdNode(idAllocator.getNextId(), subPlan.getRoot(), groupingSets, groupingSetMappings, aggregationArguments, groupIdVariable.get());
             subPlan = new PlanBuilder(groupingTranslations, groupId, analysis.getParameters());
         }
         else {
             Assignments.Builder assignments = Assignments.builder();
-            aggregationArguments.forEach(assignments::putIdentity);
-            groupingSetMappings.forEach((key, value) -> assignments.put(key, value.toSymbolReference()));
+            aggregationArguments.forEach(variable -> assignments.putIdentity(new Symbol(variable.getName())));
+            groupingSetMappings.forEach((key, value) -> assignments.put(new Symbol(key.getName()), new SymbolReference(value.getName())));
 
             ProjectNode project = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build());
             subPlan = new PlanBuilder(groupingTranslations, project, analysis.getParameters());
@@ -584,12 +586,12 @@ class QueryPlanner
             }
         }
 
-        ImmutableList.Builder<Symbol> groupingKeys = ImmutableList.builder();
+        ImmutableList.Builder<VariableReferenceExpression> groupingKeys = ImmutableList.builder();
         groupingSets.stream()
                 .flatMap(List::stream)
                 .distinct()
                 .forEach(groupingKeys::add);
-        groupIdSymbol.ifPresent(groupingKeys::add);
+        groupIdVariable.ifPresent(groupingKeys::add);
 
         AggregationNode aggregationNode = new AggregationNode(
                 idAllocator.getNextId(),
@@ -602,7 +604,7 @@ class QueryPlanner
                 ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
-                groupIdSymbol);
+                groupIdVariable);
 
         subPlan = new PlanBuilder(aggregationTranslations, aggregationNode, analysis.getParameters());
 
@@ -612,13 +614,13 @@ class QueryPlanner
         if (needPostProjectionCoercion) {
             ImmutableList.Builder<Expression> alreadyCoerced = ImmutableList.builder();
             alreadyCoerced.addAll(groupByExpressions);
-            groupIdSymbol.map(Symbol::toSymbolReference).ifPresent(alreadyCoerced::add);
+            groupIdVariable.map(variable -> new SymbolReference(variable.getName())).ifPresent(alreadyCoerced::add);
 
             subPlan = explicitCoercionFields(subPlan, alreadyCoerced.build(), analysis.getAggregates(node));
         }
 
         // 4. Project and re-write all grouping functions
-        return handleGroupingOperations(subPlan, node, groupIdSymbol, columnOnlyGroupingSets);
+        return handleGroupingOperations(subPlan, node, groupIdVariable, columnOnlyGroupingSets);
     }
 
     private List<Set<FieldId>> enumerateGroupingSets(Analysis.GroupingSetAnalysis groupingSetAnalysis)
@@ -668,7 +670,7 @@ class QueryPlanner
         return allSets;
     }
 
-    private PlanBuilder handleGroupingOperations(PlanBuilder subPlan, QuerySpecification node, Optional<Symbol> groupIdSymbol, List<Set<FieldId>> groupingSets)
+    private PlanBuilder handleGroupingOperations(PlanBuilder subPlan, QuerySpecification node, Optional<VariableReferenceExpression> groupIdVariable, List<Set<FieldId>> groupingSets)
     {
         if (analysis.getGroupingOperations(node).isEmpty()) {
             return subPlan;
@@ -686,7 +688,7 @@ class QueryPlanner
                 .collect(toImmutableList());
 
         for (GroupingOperation groupingOperation : analysis.getGroupingOperations(node)) {
-            Expression rewritten = GroupingOperationRewriter.rewriteGroupingOperation(groupingOperation, descriptor, analysis.getColumnReferenceFields(), groupIdSymbol);
+            Expression rewritten = GroupingOperationRewriter.rewriteGroupingOperation(groupingOperation, descriptor, analysis.getColumnReferenceFields(), groupIdVariable);
             Type coercion = analysis.getCoercion(groupingOperation);
             Symbol symbol = symbolAllocator.newSymbol(rewritten, analysis.getTypeWithCoercions(groupingOperation));
             if (coercion != null) {
@@ -874,7 +876,7 @@ class QueryPlanner
                             idAllocator.getNextId(),
                             subPlan.getRoot(),
                             ImmutableMap.of(),
-                            singleGroupingSet(subPlan.getRoot().getOutputSymbols()),
+                            singleGroupingSet(symbolAllocator.toVariableReferences(subPlan.getRoot().getOutputSymbols())),
                             ImmutableList.of(),
                             AggregationNode.Step.SINGLE,
                             Optional.empty(),

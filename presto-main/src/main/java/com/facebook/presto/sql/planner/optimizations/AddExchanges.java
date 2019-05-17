@@ -234,14 +234,13 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitAggregation(AggregationNode node, PreferredProperties parentPreferredProperties)
         {
-            List<VariableReferenceExpression> groupingKeys = toVariableReferences(node.getGroupingKeys(), types);
-            Set<VariableReferenceExpression> partitioningRequirement = ImmutableSet.copyOf(groupingKeys);
+            Set<VariableReferenceExpression> partitioningRequirement = ImmutableSet.copyOf(node.getGroupingKeys());
 
             boolean preferSingleNode = node.hasSingleNodeExecutionPreference(metadata.getFunctionManager());
             PreferredProperties preferredProperties = preferSingleNode ? PreferredProperties.undistributed() : PreferredProperties.any();
 
             if (!node.getGroupingKeys().isEmpty()) {
-                preferredProperties = PreferredProperties.partitionedWithLocal(partitioningRequirement, grouped(groupingKeys))
+                preferredProperties = PreferredProperties.partitionedWithLocal(partitioningRequirement, grouped(node.getGroupingKeys()))
                         .mergeWithParent(parentPreferredProperties);
             }
 
@@ -263,7 +262,7 @@ public class AddExchanges
                                 idAllocator.getNextId(),
                                 selectExchangeScopeForPartitionedRemoteExchange(child.getNode(), false),
                                 child.getNode(),
-                                createPartitioning(toVariableReferences(node.getGroupingKeys(), types)),
+                                createPartitioning(node.getGroupingKeys()),
                                 node.getHashVariable(),
                                 types),
                         child.getProperties());
@@ -274,21 +273,20 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitGroupId(GroupIdNode node, PreferredProperties preferredProperties)
         {
-            PreferredProperties childPreference = preferredProperties.translate(translateGroupIdSymbols(node, types));
+            PreferredProperties childPreference = preferredProperties.translate(translateGroupIdVariables(node));
             PlanWithProperties child = planChild(node, childPreference);
             return rebaseAndDeriveProperties(node, child);
         }
 
-        private Function<VariableReferenceExpression, Optional<VariableReferenceExpression>> translateGroupIdSymbols(GroupIdNode node, TypeProvider types)
+        private Function<VariableReferenceExpression, Optional<VariableReferenceExpression>> translateGroupIdVariables(GroupIdNode node)
         {
             return variable -> {
-                Symbol symbol = new Symbol(variable.getName());
-                if (node.getAggregationArguments().contains(symbol)) {
+                if (node.getAggregationArguments().contains(variable)) {
                     return Optional.of(variable);
                 }
 
-                if (node.getCommonGroupingColumns().contains(symbol)) {
-                    return Optional.of(toVariableReference(node.getGroupingColumns().get(symbol), types));
+                if (node.getCommonGroupingColumns().contains(variable)) {
+                    return Optional.of((node.getGroupingColumns().get(variable)));
                 }
 
                 return Optional.empty();
@@ -298,19 +296,18 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitMarkDistinct(MarkDistinctNode node, PreferredProperties preferredProperties)
         {
-            List<VariableReferenceExpression> distinctVariables = toVariableReferences(node.getDistinctSymbols(), types);
-            PreferredProperties preferredChildProperties = PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(distinctVariables), grouped(distinctVariables))
+            PreferredProperties preferredChildProperties = PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getDistinctVariables()), grouped(node.getDistinctVariables()))
                     .mergeWithParent(preferredProperties);
             PlanWithProperties child = node.getSource().accept(this, preferredChildProperties);
 
             if (child.getProperties().isSingleNode() ||
-                    !child.getProperties().isStreamPartitionedOn(distinctVariables)) {
+                    !child.getProperties().isStreamPartitionedOn(node.getDistinctVariables())) {
                 child = withDerivedProperties(
                         partitionedExchange(
                                 idAllocator.getNextId(),
                                 selectExchangeScopeForPartitionedRemoteExchange(child.getNode(), false),
                                 child.getNode(),
-                                createPartitioning(distinctVariables),
+                                createPartitioning(node.getDistinctVariables()),
                                 node.getHashVariable(),
                                 types),
                         child.getProperties());
@@ -538,7 +535,7 @@ public class AddExchanges
                         gatheringExchange(
                                 idAllocator.getNextId(),
                                 REMOTE_STREAMING,
-                                new DistinctLimitNode(idAllocator.getNextId(), child.getNode(), node.getLimit(), true, node.getDistinctSymbols(), node.getHashVariable()),
+                                new DistinctLimitNode(idAllocator.getNextId(), child.getNode(), node.getLimit(), true, node.getDistinctVariables(), node.getHashVariable()),
                                 types),
                         child.getProperties());
             }

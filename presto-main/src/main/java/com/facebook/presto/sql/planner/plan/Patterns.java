@@ -17,7 +17,6 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.matching.Property;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 
 import java.util.List;
 import java.util.Optional;
@@ -179,7 +178,7 @@ public class Patterns
 
     public static class Aggregation
     {
-        public static Property<AggregationNode, List<Symbol>> groupingColumns()
+        public static Property<AggregationNode, List<VariableReferenceExpression>> groupingColumns()
         {
             return property("groupingKeys", AggregationNode::getGroupingKeys);
         }

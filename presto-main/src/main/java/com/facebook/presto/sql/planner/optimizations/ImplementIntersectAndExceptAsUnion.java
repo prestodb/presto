@@ -163,7 +163,7 @@ public class ImplementIntersectAndExceptAsUnion
 
             // add count aggregations and filter rows where any of the counts is >= 1
             List<VariableReferenceExpression> aggregationOutputs = allocateVariables(markers.size(), "count", BIGINT);
-            AggregationNode aggregation = computeCounts(union, node.getOutputSymbols(), markers, aggregationOutputs);
+            AggregationNode aggregation = computeCounts(union, node.getOutputVariables(), markers, aggregationOutputs);
             FilterNode filterNode = addFilterForIntersect(aggregation);
 
             return project(filterNode, outputs);
@@ -188,7 +188,7 @@ public class ImplementIntersectAndExceptAsUnion
 
             // add count aggregations and filter rows where count for the first source is >= 1 and all others are 0
             List<VariableReferenceExpression> aggregationOutputs = allocateVariables(markers.size(), "count", BIGINT);
-            AggregationNode aggregation = computeCounts(union, node.getOutputSymbols(), markers, aggregationOutputs);
+            AggregationNode aggregation = computeCounts(union, node.getOutputVariables(), markers, aggregationOutputs);
             FilterNode filterNode = addFilterForExcept(aggregation, aggregationOutputs.get(0), aggregationOutputs.subList(1, aggregationOutputs.size()));
 
             return project(filterNode, outputs);
@@ -242,7 +242,7 @@ public class ImplementIntersectAndExceptAsUnion
             return new UnionNode(idAllocator.getNextId(), nodes, outputsToInputs.build());
         }
 
-        private AggregationNode computeCounts(UnionNode sourceNode, List<Symbol> originalColumns, List<VariableReferenceExpression> markers, List<VariableReferenceExpression> aggregationOutputs)
+        private AggregationNode computeCounts(UnionNode sourceNode, List<VariableReferenceExpression> originalColumns, List<VariableReferenceExpression> markers, List<VariableReferenceExpression> aggregationOutputs)
         {
             ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregations = ImmutableMap.builder();
 

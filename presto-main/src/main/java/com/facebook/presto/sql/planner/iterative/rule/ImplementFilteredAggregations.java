@@ -138,6 +138,6 @@ public class ImplementFilteredAggregations
                         ImmutableList.of(),
                         aggregation.getStep(),
                         aggregation.getHashVariable(),
-                        aggregation.getGroupIdSymbol()));
+                        aggregation.getGroupIdVariable()));
     }
 }

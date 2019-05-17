@@ -92,7 +92,7 @@ public class TestAggregationStatsRule
                         .addAggregation(pb.variable(pb.symbol("sum", BIGINT)), expression("sum(x)"), ImmutableList.of(BIGINT))
                         .addAggregation(pb.variable(pb.symbol("count", BIGINT)), expression("count()"), ImmutableList.of())
                         .addAggregation(pb.variable(pb.symbol("count_on_x", BIGINT)), expression("count(x)"), ImmutableList.of(BIGINT))
-                        .singleGroupingSet(pb.symbol("y", BIGINT), pb.symbol("z", BIGINT))
+                        .singleGroupingSet(pb.variable("y", BIGINT), pb.variable("z", BIGINT))
                         .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT), pb.symbol("z", BIGINT)))))
                 .withSourceStats(PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
@@ -139,7 +139,7 @@ public class TestAggregationStatsRule
         tester().assertStatsFor(pb -> pb
                 .aggregation(ab -> ab
                         .addAggregation(pb.variable(pb.symbol("count_on_x", BIGINT)), expression("count(x)"), ImmutableList.of(BIGINT))
-                        .singleGroupingSet(pb.symbol("y", BIGINT), pb.symbol("z", BIGINT))
+                        .singleGroupingSet(pb.variable("y", BIGINT), pb.variable("z", BIGINT))
                         .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT), pb.symbol("z", BIGINT)))))
                 .withSourceStats(PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)

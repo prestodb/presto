@@ -17,7 +17,6 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -33,6 +32,7 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
 
@@ -129,20 +129,19 @@ public class TransformCorrelatedScalarSubquery
                 lateralJoinNode.getType(),
                 lateralJoinNode.getOriginSubqueryError());
 
-        Symbol isDistinct = context.getSymbolAllocator().newSymbol("is_distinct", BooleanType.BOOLEAN);
-        VariableReferenceExpression isDistinctVariable = new VariableReferenceExpression(isDistinct.getName(), BooleanType.BOOLEAN);
+        VariableReferenceExpression isDistinct = context.getSymbolAllocator().newVariable("is_distinct", BooleanType.BOOLEAN);
         MarkDistinctNode markDistinctNode = new MarkDistinctNode(
                 context.getIdAllocator().getNextId(),
                 rewrittenLateralJoinNode,
-                isDistinctVariable,
-                rewrittenLateralJoinNode.getInput().getOutputSymbols(),
+                isDistinct,
+                context.getSymbolAllocator().toVariableReferences(rewrittenLateralJoinNode.getInput().getOutputSymbols()),
                 Optional.empty());
 
         FilterNode filterNode = new FilterNode(
                 context.getIdAllocator().getNextId(),
                 markDistinctNode,
                 castToRowExpression(new SimpleCaseExpression(
-                        isDistinct.toSymbolReference(),
+                        new SymbolReference(isDistinct.getName()),
                         ImmutableList.of(
                                 new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
                         Optional.of(new Cast(

@@ -68,7 +68,7 @@ public class TestValidateStreamingAggregations
         validatePlan(
                 p -> p.aggregation(
                         a -> a.step(SINGLE)
-                                .singleGroupingSet(p.symbol("nationkey"))
+                                .singleGroupingSet(p.variable("nationkey"))
                                 .source(
                                         p.tableScan(
                                                 nationTableHandle,
@@ -79,8 +79,8 @@ public class TestValidateStreamingAggregations
         validatePlan(
                 p -> p.aggregation(
                         a -> a.step(SINGLE)
-                                .singleGroupingSet(p.symbol("unique"), p.symbol("nationkey"))
-                                .preGroupedSymbols(p.symbol("unique"), p.symbol("nationkey"))
+                                .singleGroupingSet(p.variable("unique"), p.variable("nationkey"))
+                                .preGroupedVariables(p.variable("unique"), p.variable("nationkey"))
                                 .source(
                                         p.assignUniqueId(
                                                 p.variable(p.symbol("unique")),
@@ -97,8 +97,8 @@ public class TestValidateStreamingAggregations
         validatePlan(
                 p -> p.aggregation(
                         a -> a.step(SINGLE)
-                                .singleGroupingSet(p.symbol("nationkey"))
-                                .preGroupedSymbols(p.symbol("nationkey"))
+                                .singleGroupingSet(p.variable("nationkey"))
+                                .preGroupedVariables(p.variable("nationkey"))
                                 .source(
                                         p.tableScan(
                                                 nationTableHandle,

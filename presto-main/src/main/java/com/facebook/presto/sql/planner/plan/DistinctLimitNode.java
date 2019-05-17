@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -36,7 +37,7 @@ public class DistinctLimitNode
     private final PlanNode source;
     private final long limit;
     private final boolean partial;
-    private final List<Symbol> distinctSymbols;
+    private final List<VariableReferenceExpression> distinctVariables;
     private final Optional<VariableReferenceExpression> hashVariable;
 
     @JsonCreator
@@ -45,7 +46,7 @@ public class DistinctLimitNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("limit") long limit,
             @JsonProperty("partial") boolean partial,
-            @JsonProperty("distinctSymbols") List<Symbol> distinctSymbols,
+            @JsonProperty("distinctVariables") List<VariableReferenceExpression> distinctVariables,
             @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable)
     {
         super(id);
@@ -53,9 +54,9 @@ public class DistinctLimitNode
         checkArgument(limit >= 0, "limit must be greater than or equal to zero");
         this.limit = limit;
         this.partial = partial;
-        this.distinctSymbols = ImmutableList.copyOf(distinctSymbols);
+        this.distinctVariables = ImmutableList.copyOf(distinctVariables);
         this.hashVariable = requireNonNull(hashVariable, "hashVariable is null");
-        checkArgument(!hashVariable.isPresent() || !distinctSymbols.contains(hashVariable.get()), "distinctSymbols should not contain hash variable");
+        checkArgument(!hashVariable.isPresent() || !distinctVariables.contains(hashVariable.get()), "distinctVariables should not contain hash variable");
     }
 
     @Override
@@ -89,16 +90,16 @@ public class DistinctLimitNode
     }
 
     @JsonProperty
-    public List<Symbol> getDistinctSymbols()
+    public List<VariableReferenceExpression> getDistinctVariables()
     {
-        return distinctSymbols;
+        return distinctVariables;
     }
 
     @Override
     public List<Symbol> getOutputSymbols()
     {
         ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
-        outputSymbols.addAll(distinctSymbols);
+        outputSymbols.addAll(distinctVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()));
         hashVariable.ifPresent(variable -> outputSymbols.add(new Symbol(variable.getName())));
         return outputSymbols.build();
     }
@@ -112,6 +113,6 @@ public class DistinctLimitNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new DistinctLimitNode(getId(), Iterables.getOnlyElement(newChildren), limit, partial, distinctSymbols, hashVariable);
+        return new DistinctLimitNode(getId(), Iterables.getOnlyElement(newChildren), limit, partial, distinctVariables, hashVariable);
     }
 }

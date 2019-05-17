@@ -74,7 +74,7 @@ public class TestPruneAggregationColumns
                 Assignments.identity(ImmutableList.of(a, b).stream().filter(projectionFilter).collect(toImmutableSet())),
                 planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
                         .source(planBuilder.values(key))
-                        .singleGroupingSet(key)
+                        .singleGroupingSet(planBuilder.variable(key))
                         .addAggregation(planBuilder.variable(a), planBuilder.expression("count()"), ImmutableList.of())
                         .addAggregation(planBuilder.variable(b), planBuilder.expression("count()"), ImmutableList.of())));
     }

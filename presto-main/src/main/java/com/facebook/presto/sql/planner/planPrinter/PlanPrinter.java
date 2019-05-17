@@ -525,7 +525,7 @@ public class PlanPrinter
         public Void visitGroupId(GroupIdNode node, Void context)
         {
             // grouping sets are easier to understand in terms of inputs
-            List<List<Symbol>> inputGroupingSetSymbols = node.getGroupingSets().stream()
+            List<List<VariableReferenceExpression>> inputGroupingSetSymbols = node.getGroupingSets().stream()
                     .map(set -> set.stream()
                             .map(symbol -> node.getGroupingColumns().get(symbol))
                             .collect(Collectors.toList()))
@@ -533,7 +533,7 @@ public class PlanPrinter
 
             NodeRepresentation nodeOutput = addNode(node, "GroupId", format("%s", inputGroupingSetSymbols));
 
-            for (Map.Entry<Symbol, Symbol> mapping : node.getGroupingColumns().entrySet()) {
+            for (Map.Entry<VariableReferenceExpression, VariableReferenceExpression> mapping : node.getGroupingColumns().entrySet()) {
                 nodeOutput.appendDetailsLine("%s := %s", mapping.getKey(), mapping.getValue());
             }
 
@@ -545,7 +545,7 @@ public class PlanPrinter
         {
             addNode(node,
                     "MarkDistinct",
-                    format("[distinct=%s marker=%s]%s", formatOutputs(types, node.getDistinctSymbols()), node.getMarkerVariable(), formatHash(node.getHashVariable())));
+                    format("[distinct=%s marker=%s]%s", formatOutputs(node.getDistinctVariables()), node.getMarkerVariable(), formatHash(node.getHashVariable())));
 
             return processChildren(node, context);
         }
@@ -1217,6 +1217,13 @@ public class PlanPrinter
         }
 
         return "[" + Joiner.on(", ").join(variables) + "]";
+    }
+
+    private static String formatOutputs(Iterable<VariableReferenceExpression> outputs)
+    {
+        return Streams.stream(outputs)
+                .map(input -> input + ":" + input.getType().getDisplayName())
+                .collect(Collectors.joining(", "));
     }
 
     private static String formatOutputs(TypeProvider types, Iterable<Symbol> outputs)
