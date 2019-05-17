@@ -3303,13 +3303,13 @@ public class TestHiveIntegrationSmokeTest
             assertQuery(colocatedOneGroupAtATime, joinMismatchedBuckets, expectedJoinMismatchedBuckets, assertRemoteExchangesCount(1));
         }
         finally {
-            assertUpdate("DROP TABLE IF EXISTS test_grouped_join1");
-            assertUpdate("DROP TABLE IF EXISTS test_grouped_join2");
-            assertUpdate("DROP TABLE IF EXISTS test_grouped_join3");
-            assertUpdate("DROP TABLE IF EXISTS test_grouped_join4");
-            assertUpdate("DROP TABLE IF EXISTS test_grouped_joinN");
-            assertUpdate("DROP TABLE IF EXISTS test_grouped_joinDual");
-            assertUpdate("DROP TABLE IF EXISTS test_grouped_window");
+            assertUpdate(session, "DROP TABLE IF EXISTS test_grouped_join1");
+            assertUpdate(session, "DROP TABLE IF EXISTS test_grouped_join2");
+            assertUpdate(session, "DROP TABLE IF EXISTS test_grouped_join3");
+            assertUpdate(session, "DROP TABLE IF EXISTS test_grouped_join4");
+            assertUpdate(session, "DROP TABLE IF EXISTS test_grouped_joinN");
+            assertUpdate(session, "DROP TABLE IF EXISTS test_grouped_joinDual");
+            assertUpdate(session, "DROP TABLE IF EXISTS test_grouped_window");
         }
     }
 
