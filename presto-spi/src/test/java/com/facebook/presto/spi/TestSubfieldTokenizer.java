@@ -33,6 +33,7 @@ public class TestSubfieldTokenizer
     {
         List<PathElement> elements = ImmutableList.of(
                 new NestedField("b"),
+                new NestedField("$bucket"),
                 new Subfield.LongSubscript(2),
                 new Subfield.StringSubscript("z"),
                 Subfield.allSubscripts(),
