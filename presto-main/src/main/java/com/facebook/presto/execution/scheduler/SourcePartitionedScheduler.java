@@ -20,10 +20,10 @@ import com.facebook.presto.execution.scheduler.FixedSourcePartitionedScheduler.B
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.EmptySplit;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.split.SplitSource.SplitBatch;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;

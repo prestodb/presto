@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;

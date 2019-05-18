@@ -22,7 +22,7 @@ import com.facebook.presto.cost.CostProvider;
 import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;

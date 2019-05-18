@@ -14,8 +14,8 @@
 
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;

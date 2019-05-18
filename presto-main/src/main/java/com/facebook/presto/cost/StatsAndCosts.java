@@ -14,8 +14,8 @@
 
 package com.facebook.presto.cost;
 
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;

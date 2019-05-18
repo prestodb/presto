@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;

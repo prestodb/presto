@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.planner.plan.AggregationNode;

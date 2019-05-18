@@ -27,7 +27,7 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.UpdatablePageSource;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeId;
 
 import java.util.Optional;
 import java.util.function.Function;

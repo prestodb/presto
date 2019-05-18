@@ -15,9 +15,9 @@ package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.Optional;
