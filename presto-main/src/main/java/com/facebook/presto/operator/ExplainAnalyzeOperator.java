@@ -20,7 +20,7 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

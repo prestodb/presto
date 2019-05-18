@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.planPrinter;
 
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.util.Mergeable;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;

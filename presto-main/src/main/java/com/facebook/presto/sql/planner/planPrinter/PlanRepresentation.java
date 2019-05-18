@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner.planPrinter;
 
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import io.airlift.units.Duration;
 
 import java.util.HashMap;
