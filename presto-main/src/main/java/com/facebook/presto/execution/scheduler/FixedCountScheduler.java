@@ -26,6 +26,8 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
+// Technically FixedCountScheduler can be viewed as a special PartitionedStageScheduler
+// where there is no split source. 
 public class FixedCountScheduler
         implements StageScheduler
 {

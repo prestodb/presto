@@ -478,7 +478,7 @@ public class SqlQueryScheduler
                     bucketToPartition = Optional.of(nodePartitionMap.getBucketToPartition());
                 }
 
-                stageSchedulers.put(stageId, new FixedSourcePartitionedScheduler(
+                stageSchedulers.put(stageId, PartitionedStageScheduler.createPartitionedStageSchedulerWithTableScanSource(
                         stage,
                         splitSources,
                         plan.getFragment().getStageExecutionDescriptor(),
