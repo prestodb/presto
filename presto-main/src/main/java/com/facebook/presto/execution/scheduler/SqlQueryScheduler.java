@@ -478,7 +478,7 @@ public class SqlQueryScheduler
                     bucketToPartition = Optional.of(nodePartitionMap.getBucketToPartition());
                 }
 
-                stageSchedulers.put(stageId, PartitionedStageScheduler.createPartitionedStageSchedulerWithTableScanSource(
+                stageSchedulers.put(stageId, new GroupedPartitionedStageScheduler(
                         stage,
                         splitSources,
                         plan.getFragment().getStageExecutionDescriptor(),
@@ -496,7 +496,7 @@ public class SqlQueryScheduler
                 List<InternalNode> partitionToNode = nodePartitionMap.getPartitionToNode();
                 // todo this should asynchronously wait a standard timeout period before failing
                 checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
-                stageSchedulers.put(stageId, new FixedCountScheduler(stage, partitionToNode));
+                stageSchedulers.put(stageId, new AllAtOncePartitionedStageScheduler(stage, partitionToNode));
                 bucketToPartition = Optional.of(nodePartitionMap.getBucketToPartition());
             }
         }

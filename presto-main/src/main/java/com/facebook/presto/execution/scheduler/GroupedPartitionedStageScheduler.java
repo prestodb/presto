@@ -52,8 +52,8 @@ import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
- * PartitionedStageScheduler is used for stages with node partitioning and has table scan sources.
- * For stages with node partitioning but all sources are remote, use FixedCountScheduler.
+ * GroupedPartitionedStageScheduler is used for stages with node partitioning and has table scan sources.
+ * For stages with node partitioning but all sources are remote, use AllAtOncePartitionedStageScheduler.
  *
  * For example:
  *
@@ -68,10 +68,10 @@ import static java.util.Objects.requireNonNull;
  *
  *  TODO: more on the java doc...
  */
-public class PartitionedStageScheduler
+public class GroupedPartitionedStageScheduler
         implements StageScheduler
 {
-    private static final Logger log = Logger.get(PartitionedStageScheduler.class);
+    private static final Logger log = Logger.get(GroupedPartitionedStageScheduler.class);
 
     private final SqlStageExecution stage;
     private final List<InternalNode> nodes;
@@ -80,32 +80,7 @@ public class PartitionedStageScheduler
     private boolean scheduledTasks;
     private final Optional<LifespanScheduler> groupedLifespanScheduler;
 
-    public static PartitionedStageScheduler createPartitionedStageSchedulerWithTableScanSource(
-            SqlStageExecution stage,
-            Map<PlanNodeId, SplitSource> splitSources,
-            StageExecutionDescriptor stageExecutionDescriptor,
-            List<PlanNodeId> schedulingOrder,
-            List<InternalNode> nodes,
-            BucketNodeMap bucketNodeMap,
-            int splitBatchSize,
-            OptionalInt concurrentLifespansPerTask,
-            NodeSelector nodeSelector,
-            List<ConnectorPartitionHandle> partitionHandles)
-    {
-        return new PartitionedStageScheduler(
-                stage,
-                splitSources,
-                stageExecutionDescriptor,
-                schedulingOrder,
-                nodes,
-                bucketNodeMap,
-                splitBatchSize,
-                concurrentLifespansPerTask,
-                nodeSelector,
-                partitionHandles);
-    }
-
-    private PartitionedStageScheduler(
+    public GroupedPartitionedStageScheduler(
             SqlStageExecution stage,
             Map<PlanNodeId, SplitSource> splitSources,
             StageExecutionDescriptor stageExecutionDescriptor,

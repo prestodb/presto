@@ -16,7 +16,7 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
-import com.facebook.presto.execution.scheduler.PartitionedStageScheduler.BucketedSplitPlacementPolicy;
+import com.facebook.presto.execution.scheduler.GroupedPartitionedStageScheduler.BucketedSplitPlacementPolicy;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
@@ -154,7 +154,7 @@ public class SourcePartitionedScheduler
     }
 
     /**
-     * Obtains a {@code SourceScheduler} suitable for use in PartitionedStageScheduler.
+     * Obtains a {@code SourceScheduler} suitable for use in GroupedPartitionedStageScheduler.
      * <p>
      * This returns a {@code SourceScheduler} that can be used for a pipeline
      * that is either ungrouped or grouped. However, the caller is responsible initializing

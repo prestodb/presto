@@ -38,13 +38,13 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TestFixedCountScheduler
+public class TestAllAtOnceGroupedPartitionedStageScheduler
 {
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%s"));
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("stageScheduledExecutor-%s"));
     private final MockRemoteTaskFactory taskFactory;
 
-    public TestFixedCountScheduler()
+    public TestAllAtOnceGroupedPartitionedStageScheduler()
     {
         taskFactory = new MockRemoteTaskFactory(executor, scheduledExecutor);
     }
@@ -59,7 +59,7 @@ public class TestFixedCountScheduler
     @Test
     public void testSingleNode()
     {
-        FixedCountScheduler nodeScheduler = new FixedCountScheduler(
+        AllAtOncePartitionedStageScheduler nodeScheduler = new AllAtOncePartitionedStageScheduler(
                 (node, partition, totalPartitions) -> Optional.of(taskFactory.createTableScanTask(
                         new TaskId("test", 1, 1),
                         node, ImmutableList.of(),
@@ -76,7 +76,7 @@ public class TestFixedCountScheduler
     @Test
     public void testMultipleNodes()
     {
-        FixedCountScheduler nodeScheduler = new FixedCountScheduler(
+        AllAtOncePartitionedStageScheduler nodeScheduler = new AllAtOncePartitionedStageScheduler(
                 (node, partition, totalPartitions) -> Optional.of(taskFactory.createTableScanTask(
                         new TaskId("test", 1, 1),
                         node, ImmutableList.of(),

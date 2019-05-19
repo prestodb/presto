@@ -26,9 +26,7 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-// Technically FixedCountScheduler can be viewed as a special PartitionedStageScheduler
-// where there is no split source. 
-public class FixedCountScheduler
+public class AllAtOncePartitionedStageScheduler
         implements StageScheduler
 {
     public interface TaskScheduler
@@ -39,7 +37,7 @@ public class FixedCountScheduler
     private final TaskScheduler taskScheduler;
     private final List<InternalNode> partitionToNode;
 
-    public FixedCountScheduler(SqlStageExecution stage, List<InternalNode> partitionToNode)
+    public AllAtOncePartitionedStageScheduler(SqlStageExecution stage, List<InternalNode> partitionToNode)
     {
         requireNonNull(stage, "stage is null");
         this.taskScheduler = stage::scheduleTask;
@@ -47,7 +45,7 @@ public class FixedCountScheduler
     }
 
     @VisibleForTesting
-    public FixedCountScheduler(TaskScheduler taskScheduler, List<InternalNode> partitionToNode)
+    public AllAtOncePartitionedStageScheduler(TaskScheduler taskScheduler, List<InternalNode> partitionToNode)
     {
         this.taskScheduler = requireNonNull(taskScheduler, "taskScheduler is null");
         this.partitionToNode = requireNonNull(partitionToNode, "partitionToNode is null");
