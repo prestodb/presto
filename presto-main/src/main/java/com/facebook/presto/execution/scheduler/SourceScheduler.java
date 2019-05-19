@@ -22,7 +22,7 @@ import java.util.List;
 
 public interface SourceScheduler
 {
-    ScheduleResult schedule();
+    StageScheduleResult schedule();
 
     void close();
 

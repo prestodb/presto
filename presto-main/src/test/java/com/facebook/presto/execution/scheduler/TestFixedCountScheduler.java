@@ -66,7 +66,7 @@ public class TestFixedCountScheduler
                         new PartitionedSplitCountTracker(delta -> {}))),
                 generateRandomNodes(1));
 
-        ScheduleResult result = nodeScheduler.schedule();
+        StageScheduleResult result = nodeScheduler.schedule();
         assertTrue(result.isFinished());
         assertTrue(result.getBlocked().isDone());
         assertEquals(result.getNewTasks().size(), 1);
@@ -83,7 +83,7 @@ public class TestFixedCountScheduler
                         new PartitionedSplitCountTracker(delta -> {}))),
                 generateRandomNodes(5));
 
-        ScheduleResult result = nodeScheduler.schedule();
+        StageScheduleResult result = nodeScheduler.schedule();
         assertTrue(result.isFinished());
         assertTrue(result.getBlocked().isDone());
         assertEquals(result.getNewTasks().size(), 5);

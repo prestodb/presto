@@ -24,7 +24,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 
-public class ScheduleResult
+public class StageScheduleResult
 {
     public enum BlockedReason
     {
@@ -60,17 +60,17 @@ public class ScheduleResult
     private final boolean finished;
     private final int splitsScheduled;
 
-    public static ScheduleResult nonBlocked(boolean finished, Iterable<? extends RemoteTask> newTasks, int splitsScheduled)
+    public static StageScheduleResult nonBlocked(boolean finished, Iterable<? extends RemoteTask> newTasks, int splitsScheduled)
     {
-        return new ScheduleResult(finished, newTasks, immediateFuture(null), Optional.empty(), splitsScheduled);
+        return new StageScheduleResult(finished, newTasks, immediateFuture(null), Optional.empty(), splitsScheduled);
     }
 
-    public static ScheduleResult blocked(boolean finished, Iterable<? extends RemoteTask> newTasks, ListenableFuture<?> blocked, BlockedReason blockedReason, int splitsScheduled)
+    public static StageScheduleResult blocked(boolean finished, Iterable<? extends RemoteTask> newTasks, ListenableFuture<?> blocked, BlockedReason blockedReason, int splitsScheduled)
     {
-        return new ScheduleResult(finished, newTasks, blocked, Optional.of(requireNonNull(blockedReason, "blockedReason is null")), splitsScheduled);
+        return new StageScheduleResult(finished, newTasks, blocked, Optional.of(requireNonNull(blockedReason, "blockedReason is null")), splitsScheduled);
     }
 
-    private ScheduleResult(boolean finished, Iterable<? extends RemoteTask> newTasks, ListenableFuture<?> blocked, Optional<BlockedReason> blockedReason, int splitsScheduled)
+    private StageScheduleResult(boolean finished, Iterable<? extends RemoteTask> newTasks, ListenableFuture<?> blocked, Optional<BlockedReason> blockedReason, int splitsScheduled)
     {
         this.finished = finished;
         this.newTasks = ImmutableSet.copyOf(requireNonNull(newTasks, "newTasks is null"));

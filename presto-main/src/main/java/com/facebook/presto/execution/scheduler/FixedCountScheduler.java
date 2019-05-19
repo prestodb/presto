@@ -54,7 +54,7 @@ public class FixedCountScheduler
     }
 
     @Override
-    public ScheduleResult schedule()
+    public StageScheduleResult schedule()
     {
         OptionalInt totalPartitions = OptionalInt.of(partitionToNode.size());
         List<RemoteTask> newTasks = IntStream.range(0, partitionToNode.size())
@@ -65,6 +65,6 @@ public class FixedCountScheduler
 
         // no need to call stage.transitionToSchedulingSplits() since there is no table splits
 
-        return ScheduleResult.nonBlocked(true, newTasks, 0);
+        return StageScheduleResult.nonBlocked(true, newTasks, 0);
     }
 }

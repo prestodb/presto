@@ -41,10 +41,10 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE;
-import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.NO_ACTIVE_DRIVER_GROUP;
-import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.SPLIT_QUEUES_FULL;
-import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.WAITING_FOR_SOURCE;
+import static com.facebook.presto.execution.scheduler.StageScheduleResult.BlockedReason.MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE;
+import static com.facebook.presto.execution.scheduler.StageScheduleResult.BlockedReason.NO_ACTIVE_DRIVER_GROUP;
+import static com.facebook.presto.execution.scheduler.StageScheduleResult.BlockedReason.SPLIT_QUEUES_FULL;
+import static com.facebook.presto.execution.scheduler.StageScheduleResult.BlockedReason.WAITING_FOR_SOURCE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -138,11 +138,11 @@ public class SourcePartitionedScheduler
 
         return new StageScheduler() {
             @Override
-            public ScheduleResult schedule()
+            public StageScheduleResult schedule()
             {
-                ScheduleResult scheduleResult = sourcePartitionedScheduler.schedule();
+                StageScheduleResult stageScheduleResult = sourcePartitionedScheduler.schedule();
                 sourcePartitionedScheduler.drainCompletelyScheduledLifespans();
-                return scheduleResult;
+                return stageScheduleResult;
             }
 
             @Override
@@ -185,7 +185,7 @@ public class SourcePartitionedScheduler
     }
 
     @Override
-    public synchronized ScheduleResult schedule()
+    public synchronized StageScheduleResult schedule()
     {
         dropListenersFromWhenFinishedOrNewLifespansAdded();
 
@@ -322,7 +322,7 @@ public class SourcePartitionedScheduler
                     whenFinishedOrNewLifespanAdded.set(null);
                     // fall through
                 case FINISHED:
-                    return ScheduleResult.nonBlocked(
+                    return StageScheduleResult.nonBlocked(
                             true,
                             overallNewTasks.build(),
                             overallSplitAssignmentCount);
@@ -332,7 +332,7 @@ public class SourcePartitionedScheduler
         }
 
         if (anyNotBlocked) {
-            return ScheduleResult.nonBlocked(false, overallNewTasks.build(), overallSplitAssignmentCount);
+            return StageScheduleResult.nonBlocked(false, overallNewTasks.build(), overallSplitAssignmentCount);
         }
 
         if (anyBlockedOnPlacements) {
@@ -352,7 +352,7 @@ public class SourcePartitionedScheduler
             overallNewTasks.addAll(finalizeTaskCreationIfNecessary());
         }
 
-        ScheduleResult.BlockedReason blockedReason;
+        StageScheduleResult.BlockedReason blockedReason;
         if (anyBlockedOnNextSplitBatch) {
             blockedReason = anyBlockedOnPlacements ? MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE : WAITING_FOR_SOURCE;
         }
@@ -361,7 +361,7 @@ public class SourcePartitionedScheduler
         }
 
         overallBlockedFutures.add(whenFinishedOrNewLifespanAdded);
-        return ScheduleResult.blocked(
+        return StageScheduleResult.blocked(
                 false,
                 overallNewTasks.build(),
                 nonCancellationPropagating(whenAnyComplete(overallBlockedFutures)),

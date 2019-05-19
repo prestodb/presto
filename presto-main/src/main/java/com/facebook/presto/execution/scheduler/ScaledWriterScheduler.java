@@ -31,7 +31,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.WRITER_SCALING;
+import static com.facebook.presto.execution.scheduler.StageScheduleResult.BlockedReason.WRITER_SCALING;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static java.util.Objects.requireNonNull;
@@ -73,7 +73,7 @@ public class ScaledWriterScheduler
     }
 
     @Override
-    public ScheduleResult schedule()
+    public StageScheduleResult schedule()
     {
         List<RemoteTask> writers = scheduleTasks(getNewTaskCount());
 
@@ -81,7 +81,7 @@ public class ScaledWriterScheduler
         future = SettableFuture.create();
         executor.schedule(() -> future.set(null), 200, MILLISECONDS);
 
-        return ScheduleResult.blocked(done.get(), writers, future, WRITER_SCALING, 0);
+        return StageScheduleResult.blocked(done.get(), writers, future, WRITER_SCALING, 0);
     }
 
     private int getNewTaskCount()

@@ -25,7 +25,7 @@ public interface StageScheduler
      * important to note that this is only a hint and the query
      * scheduler may call the schedule method at any time.
      */
-    ScheduleResult schedule();
+    StageScheduleResult schedule();
 
     @Override
     default void close() {}

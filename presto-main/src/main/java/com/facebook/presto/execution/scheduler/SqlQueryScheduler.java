@@ -693,7 +693,7 @@ public class SqlQueryScheduler
                     stage.beginScheduling();
 
                     // perform some scheduling work
-                    ScheduleResult result = stageSchedulers.get(stage.getStageId())
+                    StageScheduleResult result = stageSchedulers.get(stage.getStageId())
                             .schedule();
 
                     // modify parent and children based on the results of the scheduling

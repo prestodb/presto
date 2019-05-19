@@ -16,7 +16,7 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
-import com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason;
+import com.facebook.presto.execution.scheduler.StageScheduleResult.BlockedReason;
 import com.facebook.presto.execution.scheduler.group.DynamicLifespanScheduler;
 import com.facebook.presto.execution.scheduler.group.FixedLifespanScheduler;
 import com.facebook.presto.execution.scheduler.group.LifespanScheduler;
@@ -202,7 +202,7 @@ public class PartitionedStageScheduler
     }
 
     @Override
-    public ScheduleResult schedule()
+    public StageScheduleResult schedule()
     {
         // schedule a task on every node in the distribution
         List<RemoteTask> newTasks = ImmutableList.of();
@@ -250,7 +250,7 @@ public class PartitionedStageScheduler
                 sourceScheduler.startLifespan(lifespan, partitionHandleFor(lifespan));
             }
 
-            ScheduleResult schedule = sourceScheduler.schedule();
+            StageScheduleResult schedule = sourceScheduler.schedule();
             splitsScheduled += schedule.getSplitsScheduled();
             if (schedule.getBlockedReason().isPresent()) {
                 blocked.add(schedule.getBlocked());
@@ -271,10 +271,10 @@ public class PartitionedStageScheduler
         }
 
         if (allBlocked) {
-            return ScheduleResult.blocked(sourceSchedulers.isEmpty(), newTasks, whenAnyComplete(blocked), blockedReason, splitsScheduled);
+            return StageScheduleResult.blocked(sourceSchedulers.isEmpty(), newTasks, whenAnyComplete(blocked), blockedReason, splitsScheduled);
         }
         else {
-            return ScheduleResult.nonBlocked(sourceSchedulers.isEmpty(), newTasks, splitsScheduled);
+            return StageScheduleResult.nonBlocked(sourceSchedulers.isEmpty(), newTasks, splitsScheduled);
         }
     }
 
@@ -350,7 +350,7 @@ public class PartitionedStageScheduler
         }
 
         @Override
-        public ScheduleResult schedule()
+        public StageScheduleResult schedule()
         {
             return sourceScheduler.schedule();
         }
