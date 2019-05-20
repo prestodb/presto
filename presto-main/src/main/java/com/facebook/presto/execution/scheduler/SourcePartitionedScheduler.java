@@ -335,7 +335,7 @@ public class SourcePartitionedScheduler
             return ScheduleResult.nonBlocked(false, overallNewTasks.build(), overallSplitAssignmentCount);
         }
 
-        if (anyBlockedOnPlacements || groupedExecution) {
+        if (anyBlockedOnPlacements) {
             // In a broadcast join, output buffers of the tasks in build source stage have to
             // hold onto all data produced before probe side task scheduling finishes,
             // even if the data is acknowledged by all known consumers. This is because
@@ -346,6 +346,9 @@ public class SourcePartitionedScheduler
             // The build side blocks due to a full output buffer.
             // In the meantime the probe side split cannot be consumed since
             // builder side hash table construction has not finished.
+            //
+            // TODO: When SourcePartitionedScheduler is used as a SourceScheduler, it shouldn't need to worry about
+            //  task scheduling and creation -- these are done by the StageScheduler.
             overallNewTasks.addAll(finalizeTaskCreationIfNecessary());
         }
 

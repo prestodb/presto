@@ -61,6 +61,8 @@ public class FixedCountScheduler
                 .map(Optional::get)
                 .collect(toImmutableList());
 
+        // no need to call stage.transitionToSchedulingSplits() since there is no table splits
+
         return ScheduleResult.nonBlocked(true, newTasks, 0);
     }
 }
