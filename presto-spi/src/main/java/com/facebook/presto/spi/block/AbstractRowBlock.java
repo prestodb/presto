@@ -19,6 +19,7 @@ import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
+import static com.facebook.presto.spi.block.BlockUtil.internalPositionInRange;
 import static com.facebook.presto.spi.block.RowBlock.createRowBlockInternal;
 
 public abstract class AbstractRowBlock
@@ -30,7 +31,7 @@ public abstract class AbstractRowBlock
 
     protected abstract int[] getFieldBlockOffsets();
 
-    protected abstract int getOffsetBase();
+    public abstract int getOffsetBase();
 
     protected abstract boolean[] getRowIsNull();
 
@@ -228,5 +229,20 @@ public abstract class AbstractRowBlock
         if (position < 0 || position >= getPositionCount()) {
             throw new IllegalArgumentException("position is not valid");
         }
+    }
+
+    @Override
+    public Block getBlockUnchecked(int internalPosition)
+    {
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        return new SingleRowBlock(getFieldBlockOffsets()[internalPosition], getRawFieldBlocks());
+    }
+
+    @Override
+    public boolean isNullUnchecked(int internalPosition)
+    {
+        assert mayHaveNull() : "no nulls present";
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        return getRowIsNull()[internalPosition];
     }
 }

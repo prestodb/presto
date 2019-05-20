@@ -58,7 +58,7 @@ public class SingleMapBlockEncoding
         SingleMapBlock singleMapBlock = (SingleMapBlock) block;
         TypeSerde.writeType(sliceOutput, singleMapBlock.getKeyType());
 
-        int offset = singleMapBlock.getOffset();
+        int offset = singleMapBlock.getOffsetBase();
         int positionCount = singleMapBlock.getPositionCount();
         blockEncodingSerde.writeBlock(sliceOutput, singleMapBlock.getRawKeyBlock().getRegion(offset / 2, positionCount / 2));
         blockEncodingSerde.writeBlock(sliceOutput, singleMapBlock.getRawValueBlock().getRegion(offset / 2, positionCount / 2));

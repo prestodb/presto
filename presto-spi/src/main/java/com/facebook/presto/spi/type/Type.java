@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.UncheckedBlock;
 import com.fasterxml.jackson.annotation.JsonValue;
 import io.airlift.slice.Slice;
 
@@ -84,9 +85,21 @@ public interface Type
     boolean getBoolean(Block block, int position);
 
     /**
+     * Gets the value at the {@code block} {@code internalPosition - offsetBase} as a boolean
+     * without boundary checks.
+     */
+    boolean getBooleanUnchecked(UncheckedBlock block, int internalPosition);
+
+    /**
      * Gets the value at the {@code block} {@code position} as a long.
      */
     long getLong(Block block, int position);
+
+    /**
+     * Gets the value at the {@code block} {@code internalPosition - offsetBase} as a long
+     * without boundary checks.
+     */
+    long getLongUnchecked(UncheckedBlock block, int internalPosition);
 
     /**
      * Gets the value at the {@code block} {@code position} as a double.
@@ -94,14 +107,32 @@ public interface Type
     double getDouble(Block block, int position);
 
     /**
+     * Gets the value at the {@code block} {@code internalPosition - offsetBase} as a double
+     * without boundary checks.
+     */
+    double getDoubleUnchecked(UncheckedBlock block, int internalPosition);
+
+    /**
      * Gets the value at the {@code block} {@code position} as a Slice.
      */
     Slice getSlice(Block block, int position);
 
     /**
+     * Gets the value at the {@code block} {@code position} as a Slice
+     * without boundary checks
+     */
+    Slice getSliceUnchecked(Block block, int internalPosition);
+
+    /**
      * Gets the value at the {@code block} {@code position} as an Object.
      */
     Object getObject(Block block, int position);
+
+    /**
+     * Gets the value at the {@code block} {@code internalPosition - offsetBase} as a block
+     * without boundary checks.
+     */
+    Block getBlockUnchecked(Block block, int internalPosition);
 
     /**
      * Writes the boolean value into the {@code BlockBuilder}.

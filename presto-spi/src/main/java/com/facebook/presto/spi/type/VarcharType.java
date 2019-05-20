@@ -149,6 +149,12 @@ public final class VarcharType
         return block.getSlice(position, 0, block.getSliceLength(position));
     }
 
+    @Override
+    public Slice getSliceUnchecked(Block block, int internalPosition)
+    {
+        return block.getSliceUnchecked(internalPosition, 0, block.getSliceLengthUnchecked(internalPosition));
+    }
+
     public void writeString(BlockBuilder blockBuilder, String value)
     {
         writeSlice(blockBuilder, Slices.utf8Slice(value));

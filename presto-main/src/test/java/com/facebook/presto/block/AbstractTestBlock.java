@@ -38,6 +38,7 @@ import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -274,8 +275,15 @@ public abstract class AbstractTestBlock
         assertPositionValue(block.copyPositions(new int[] {position}, 0, 1), 0, expectedValue);
     }
 
-    protected <T> void assertPositionValue(Block block, int position, T expectedValue)
+    private <T> void assertPositionValue(Block block, int position, T expectedValue)
     {
+        assertCheckedPositionValue(block, position, expectedValue);
+        assertPositionValueUnchecked(block, position + block.getOffsetBase(), expectedValue);
+    }
+
+    protected <T> void assertCheckedPositionValue(Block block, int position, T expectedValue)
+    {
+        assertPositionValueUnchecked(block, position + block.getOffsetBase(), expectedValue);
         if (expectedValue == null) {
             assertTrue(block.isNull(position));
             return;
@@ -338,6 +346,74 @@ public abstract class AbstractTestBlock
             }
         }
         else {
+            fail("Unexpected type: " + expectedValue.getClass().getSimpleName());
+        }
+    }
+
+    protected <T> void assertPositionValueUnchecked(Block block, int internalPosition, T expectedValue)
+    {
+        if (expectedValue == null) {
+            assertTrue(block.isNullUnchecked(internalPosition));
+            return;
+        }
+
+        assertFalse(block.mayHaveNull() && block.isNullUnchecked(internalPosition));
+
+        if (expectedValue instanceof Slice) {
+            Slice expectedSliceValue = (Slice) expectedValue;
+
+            if (isByteAccessSupported() && expectedSliceValue.length() >= SIZE_OF_BYTE) {
+                assertEquals(block.getByteUnchecked(internalPosition), expectedSliceValue.getByte(0));
+            }
+
+            if (isShortAccessSupported() && expectedSliceValue.length() >= SIZE_OF_SHORT) {
+                assertEquals(block.getShortUnchecked(internalPosition), expectedSliceValue.getShort(0));
+            }
+
+            if (isIntAccessSupported() && expectedSliceValue.length() >= SIZE_OF_INT) {
+                assertEquals(block.getIntUnchecked(internalPosition), expectedSliceValue.getInt(0));
+            }
+
+            if (isIntAccessSupported() && expectedSliceValue.length() >= SIZE_OF_LONG) {
+                assertEquals(block.getLongUnchecked(internalPosition), expectedSliceValue.getLong(0));
+            }
+
+            if (isAlignedLongAccessSupported()) {
+                for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_LONG; offset += SIZE_OF_LONG) {
+                    assertEquals(block.getLongUnchecked(internalPosition, offset), expectedSliceValue.getLong(offset));
+                }
+            }
+
+            if (isSliceAccessSupported()) {
+                assertEquals(block.getSliceLengthUnchecked(internalPosition), expectedSliceValue.length());
+                assertSlicePositionUnchecked(block, internalPosition, expectedSliceValue);
+            }
+        }
+        else if (expectedValue instanceof long[]) {
+            Block actual = block.getBlockUnchecked(internalPosition);
+            long[] expected = (long[]) expectedValue;
+            assertEquals(actual.getPositionCount(), expected.length);
+            for (int i = 0; i < actual.getPositionCount(); i++) {
+                assertEquals(BIGINT.getLongUnchecked(actual, i + actual.getOffsetBase()), expected[i]);
+            }
+        }
+        else if (expectedValue instanceof Slice[]) {
+            Block actual = block.getBlockUnchecked(internalPosition);
+            Slice[] expected = (Slice[]) expectedValue;
+            assertEquals(actual.getPositionCount(), expected.length);
+            for (int i = 0; i < expected.length; i++) {
+                assertEquals(VARCHAR.getSlice(actual, i), expected[i]);
+            }
+        }
+        else if (expectedValue instanceof long[][]) {
+            Block actual = block.getBlockUnchecked(internalPosition);
+            long[][] expected = (long[][]) expectedValue;
+            assertEquals(actual.getPositionCount(), expected.length);
+            for (int i = 0; i < expected.length; i++) {
+                assertPositionValue(actual, i, expected[i]);
+            }
+        }
+        else {
             throw new IllegalArgumentException();
         }
     }
@@ -368,6 +444,34 @@ public abstract class AbstractTestBlock
             Block segment = blockBuilder.build();
 
             assertTrue(block.equals(position, offset, segment, 0, 0, 3));
+        }
+    }
+
+    protected void assertSlicePositionUnchecked(Block block, int internalPosition, Slice expectedSliceValue)
+    {
+        int length = block.getSliceLengthUnchecked(internalPosition);
+        assertEquals(length, expectedSliceValue.length());
+
+        Block expectedBlock = toSingeValuedBlock(expectedSliceValue);
+        for (int offset = 0; offset < length - 3; offset++) {
+            assertEquals(block.getSliceUnchecked(internalPosition, offset, 3), expectedSliceValue.slice(offset, 3));
+            assertTrue(block.bytesEqual(internalPosition - block.getOffsetBase(), offset, expectedSliceValue, offset, 3));
+            assertFalse(block.bytesEqual(internalPosition - block.getOffsetBase(), offset, Slices.utf8Slice(UUID.randomUUID().toString()), 0, 3));
+
+            assertEquals(block.bytesCompare(internalPosition - block.getOffsetBase(), offset, 3, expectedSliceValue, offset, 3), 0);
+            assertTrue(block.bytesCompare(internalPosition - block.getOffsetBase(), offset, 3, expectedSliceValue, offset, 2) > 0);
+            Slice greaterSlice = createGreaterValue(expectedSliceValue, offset, 3);
+            assertTrue(block.bytesCompare(internalPosition - block.getOffsetBase(), offset, 3, greaterSlice, 0, greaterSlice.length()) < 0);
+
+            assertTrue(block.equals(internalPosition - block.getOffsetBase(), offset, expectedBlock, 0, offset, 3));
+            assertEquals(block.compareTo(internalPosition - block.getOffsetBase(), offset, 3, expectedBlock, 0, offset, 3), 0);
+
+            BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(null, 1);
+            block.writeBytesTo(internalPosition - block.getOffsetBase(), offset, 3, blockBuilder);
+            blockBuilder.closeEntry();
+            Block segment = blockBuilder.build();
+
+            assertTrue(block.equals(internalPosition - block.getOffsetBase(), offset, segment, 0, 0, 3));
         }
     }
 

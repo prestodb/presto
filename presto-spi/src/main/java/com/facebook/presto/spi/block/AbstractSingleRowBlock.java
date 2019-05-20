@@ -16,6 +16,8 @@ package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
 
+import static com.facebook.presto.spi.block.BlockUtil.internalPositionInRange;
+
 public abstract class AbstractSingleRowBlock
         implements Block
 {
@@ -189,5 +191,67 @@ public abstract class AbstractSingleRowBlock
     public Block copyRegion(int position, int length)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public byte getByteUnchecked(int internalPosition)
+    {
+        return getRawFieldBlock(internalPosition).getByte(rowIndex);
+    }
+
+    @Override
+    public short getShortUnchecked(int internalPosition)
+    {
+        return getRawFieldBlock(internalPosition).getShort(rowIndex);
+    }
+
+    @Override
+    public int getIntUnchecked(int internalPosition)
+    {
+        return getRawFieldBlock(internalPosition).getInt(rowIndex);
+    }
+
+    @Override
+    public long getLongUnchecked(int internalPosition)
+    {
+        return getRawFieldBlock(internalPosition).getLong(rowIndex);
+    }
+
+    @Override
+    public long getLongUnchecked(int internalPosition, int offset)
+    {
+        return getRawFieldBlock(internalPosition).getLong(rowIndex, offset);
+    }
+
+    @Override
+    public Slice getSliceUnchecked(int internalPosition, int offset, int length)
+    {
+        return getRawFieldBlock(internalPosition).getSlice(rowIndex, offset, length);
+    }
+
+    @Override
+    public int getSliceLengthUnchecked(int internalPosition)
+    {
+        return getRawFieldBlock(internalPosition).getSliceLength(rowIndex);
+    }
+
+    @Override
+    public Block getBlockUnchecked(int internalPosition)
+    {
+        return getRawFieldBlock(internalPosition).getObject(rowIndex, Block.class);
+    }
+
+    @Override
+    public int getOffsetBase()
+    {
+        return 0;
+    }
+
+    @Override
+    public boolean isNullUnchecked(int internalPosition)
+    {
+        assert mayHaveNull() : "no nulls present";
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        return getRawFieldBlock(internalPosition).isNull(rowIndex);
     }
 }

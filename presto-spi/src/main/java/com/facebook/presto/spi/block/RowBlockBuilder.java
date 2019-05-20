@@ -88,7 +88,7 @@ public class RowBlockBuilder
     }
 
     @Override
-    protected int getOffsetBase()
+    public int getOffsetBase()
     {
         return 0;
     }

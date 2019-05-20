@@ -21,6 +21,7 @@ import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 
 public interface Block
+        extends UncheckedBlock
 {
     /**
      * Gets the length of the value at the {@code position}.

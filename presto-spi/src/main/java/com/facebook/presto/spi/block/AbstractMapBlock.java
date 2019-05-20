@@ -28,6 +28,7 @@ import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
+import static com.facebook.presto.spi.block.BlockUtil.internalPositionInRange;
 import static com.facebook.presto.spi.block.MapBlock.createMapBlockInternal;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static java.util.Objects.requireNonNull;
@@ -69,7 +70,7 @@ public abstract class AbstractMapBlock
     /**
      * offset is entry-based, not position-based. (see getOffsets)
      */
-    protected abstract int getOffsetBase();
+    public abstract int getOffsetBase();
 
     @Nullable
     protected abstract boolean[] getMapIsNull();
@@ -405,5 +406,23 @@ public abstract class AbstractMapBlock
         {
             return INSTANCE_SIZE + sizeOfIntArray(expectedEntryCount);
         }
+    }
+
+    @Override
+    public Block getBlockUnchecked(int internalPosition)
+    {
+        assert internalPositionInRange(internalPosition, this.getOffsetBase(), getPositionCount());
+
+        int startEntryOffset = getOffsets()[internalPosition];
+        int endEntryOffset = getOffsets()[internalPosition + 1];
+        return new SingleMapBlock(startEntryOffset * 2, (endEntryOffset - startEntryOffset) * 2, this);
+    }
+
+    @Override
+    public boolean isNullUnchecked(int internalPosition)
+    {
+        assert mayHaveNull() : "no nulls present";
+        assert internalPositionInRange(internalPosition, this.getOffsetBase(), getPositionCount());
+        return getMapIsNull()[internalPosition];
     }
 }

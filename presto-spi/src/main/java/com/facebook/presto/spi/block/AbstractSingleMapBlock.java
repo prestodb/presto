@@ -16,6 +16,8 @@ package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
 
+import static com.facebook.presto.spi.block.BlockUtil.internalPositionInRange;
+
 public abstract class AbstractSingleMapBlock
         implements Block
 {
@@ -51,85 +53,43 @@ public abstract class AbstractSingleMapBlock
     @Override
     public byte getByte(int position)
     {
-        position = getAbsolutePosition(position);
-        if (position % 2 == 0) {
-            return getRawKeyBlock().getByte(position / 2);
-        }
-        else {
-            return getRawValueBlock().getByte(position / 2);
-        }
+        return getByteUnchecked(getAbsolutePosition(position));
     }
 
     @Override
     public short getShort(int position)
     {
-        position = getAbsolutePosition(position);
-        if (position % 2 == 0) {
-            return getRawKeyBlock().getShort(position / 2);
-        }
-        else {
-            return getRawValueBlock().getShort(position / 2);
-        }
+        return getShortUnchecked(getAbsolutePosition(position));
     }
 
     @Override
     public int getInt(int position)
     {
-        position = getAbsolutePosition(position);
-        if (position % 2 == 0) {
-            return getRawKeyBlock().getInt(position / 2);
-        }
-        else {
-            return getRawValueBlock().getInt(position / 2);
-        }
+        return getIntUnchecked(getAbsolutePosition(position));
     }
 
     @Override
     public long getLong(int position)
     {
-        position = getAbsolutePosition(position);
-        if (position % 2 == 0) {
-            return getRawKeyBlock().getLong(position / 2);
-        }
-        else {
-            return getRawValueBlock().getLong(position / 2);
-        }
+        return getLongUnchecked(getAbsolutePosition(position));
     }
 
     @Override
     public long getLong(int position, int offset)
     {
-        position = getAbsolutePosition(position);
-        if (position % 2 == 0) {
-            return getRawKeyBlock().getLong(position / 2, offset);
-        }
-        else {
-            return getRawValueBlock().getLong(position / 2, offset);
-        }
+        return getLongUnchecked(getAbsolutePosition(position), offset);
     }
 
     @Override
     public Slice getSlice(int position, int offset, int length)
     {
-        position = getAbsolutePosition(position);
-        if (position % 2 == 0) {
-            return getRawKeyBlock().getSlice(position / 2, offset, length);
-        }
-        else {
-            return getRawValueBlock().getSlice(position / 2, offset, length);
-        }
+        return getSliceUnchecked(getAbsolutePosition(position), offset, length);
     }
 
     @Override
     public int getSliceLength(int position)
     {
-        position = getAbsolutePosition(position);
-        if (position % 2 == 0) {
-            return getRawKeyBlock().getSliceLength(position / 2);
-        }
-        else {
-            return getRawValueBlock().getSliceLength(position / 2);
-        }
+        return getSliceLengthUnchecked(getAbsolutePosition(position));
     }
 
     @Override
@@ -280,5 +240,103 @@ public abstract class AbstractSingleMapBlock
     public Block copyRegion(int position, int length)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public byte getByteUnchecked(int internalPosition)
+    {
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        if (internalPosition % 2 == 0) {
+            return getRawKeyBlock().getByte(internalPosition / 2);
+        }
+        return getRawValueBlock().getByte(internalPosition / 2);
+    }
+
+    @Override
+    public short getShortUnchecked(int internalPosition)
+    {
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        if (internalPosition % 2 == 0) {
+            return getRawKeyBlock().getShort(internalPosition / 2);
+        }
+        return getRawValueBlock().getShort(internalPosition / 2);
+    }
+
+    @Override
+    public int getIntUnchecked(int internalPosition)
+    {
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        if (internalPosition % 2 == 0) {
+            return getRawKeyBlock().getInt(internalPosition / 2);
+        }
+        return getRawValueBlock().getInt(internalPosition / 2);
+    }
+
+    @Override
+    public long getLongUnchecked(int internalPosition)
+    {
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        if (internalPosition % 2 == 0) {
+            return getRawKeyBlock().getLong(internalPosition / 2);
+        }
+        return getRawValueBlock().getLong(internalPosition / 2);
+    }
+
+    @Override
+    public long getLongUnchecked(int internalPosition, int offset)
+    {
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        if (internalPosition % 2 == 0) {
+            return getRawKeyBlock().getLong(internalPosition / 2, offset);
+        }
+        return getRawValueBlock().getLong(internalPosition / 2, offset);
+    }
+
+    @Override
+    public Slice getSliceUnchecked(int internalPosition, int offset, int length)
+    {
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        if (internalPosition % 2 == 0) {
+            return getRawKeyBlock().getSlice(internalPosition / 2, offset, length);
+        }
+        return getRawValueBlock().getSlice(internalPosition / 2, offset, length);
+    }
+
+    @Override
+    public int getSliceLengthUnchecked(int internalPosition)
+    {
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        if (internalPosition % 2 == 0) {
+            return getRawKeyBlock().getSliceLength(internalPosition / 2);
+        }
+        return getRawValueBlock().getSliceLength(internalPosition / 2);
+    }
+
+    @Override
+    public Block getBlockUnchecked(int internalPosition)
+    {
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        if (internalPosition % 2 == 0) {
+            return getRawKeyBlock().getObject(internalPosition / 2, Block.class);
+        }
+        return getRawValueBlock().getObject(internalPosition / 2, Block.class);
+    }
+
+    @Override
+    public int getOffsetBase()
+    {
+        return getOffset();
+    }
+
+    @Override
+    public boolean isNullUnchecked(int internalPosition)
+    {
+        assert mayHaveNull() : "no nulls present";
+        assert internalPositionInRange(internalPosition, getOffset(), getPositionCount());
+        // Keys are presumed to be non-null
+        if (internalPosition % 2 == 0) {
+            return false;
+        }
+        return getRawValueBlock().isNull(internalPosition / 2);
     }
 }

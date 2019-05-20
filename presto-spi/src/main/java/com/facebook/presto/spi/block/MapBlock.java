@@ -32,6 +32,7 @@ import static java.util.Objects.requireNonNull;
 
 public class MapBlock
         extends AbstractMapBlock
+        implements Block
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapBlock.class).instanceSize();
 
@@ -229,7 +230,7 @@ public class MapBlock
     }
 
     @Override
-    protected int getOffsetBase()
+    public int getOffsetBase()
     {
         return startOffset;
     }

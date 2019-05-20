@@ -224,13 +224,23 @@ public class TestMapBlock
     }
 
     @Override
-    protected <T> void assertPositionValue(Block block, int position, T expectedValue)
+    protected <T> void assertCheckedPositionValue(Block block, int position, T expectedValue)
     {
         if (expectedValue instanceof Map) {
             assertValue(block, position, (Map<String, Long>) expectedValue);
             return;
         }
-        super.assertPositionValue(block, position, expectedValue);
+        super.assertCheckedPositionValue(block, position, expectedValue);
+    }
+
+    @Override
+    protected <T> void assertPositionValueUnchecked(Block block, int internalPosition, T expectedValue)
+    {
+        if (expectedValue instanceof Map) {
+            assertValueUnchecked(block, internalPosition, (Map<String, Long>) expectedValue);
+            return;
+        }
+        super.assertPositionValueUnchecked(block, internalPosition, expectedValue);
     }
 
     private void assertValue(Block mapBlock, int position, Map<String, Long> map)
@@ -270,6 +280,49 @@ public class TestMapBlock
             }
             else {
                 actualValue = BIGINT.getLong(elementBlock, i + 1);
+            }
+            assertTrue(map.containsKey(actualKey));
+            assertEquals(actualValue, map.get(actualKey));
+        }
+    }
+
+    private void assertValueUnchecked(Block mapBlock, int internalPosition, Map<String, Long> map)
+    {
+        MapType mapType = mapType(VARCHAR, BIGINT);
+
+        // null maps are handled by assertPositionValue
+        requireNonNull(map, "map is null");
+
+        assertFalse(mapBlock.isNullUnchecked((internalPosition)));
+        SingleMapBlock elementBlock = (SingleMapBlock) mapType.getBlockUnchecked(mapBlock, (internalPosition));
+        assertEquals(elementBlock.getPositionCount(), map.size() * 2);
+
+        // Test new/hash-index access: assert inserted keys
+        for (Map.Entry<String, Long> entry : map.entrySet()) {
+            int pos = elementBlock.seekKey(utf8Slice(entry.getKey()));
+            assertNotEquals(pos, -1);
+            if (entry.getValue() == null) {
+                assertTrue(elementBlock.isNullUnchecked(pos + elementBlock.getOffsetBase()));
+            }
+            else {
+                assertFalse(elementBlock.isNullUnchecked(pos + elementBlock.getOffsetBase()));
+                assertEquals(BIGINT.getLongUnchecked(elementBlock, pos + elementBlock.getOffsetBase()), (long) entry.getValue());
+            }
+        }
+        // Test new/hash-index access: assert non-existent keys
+        for (int i = 0; i < 10; i++) {
+            assertEquals(elementBlock.seekKey(utf8Slice("not-inserted-" + i)), -1);
+        }
+
+        // Test legacy/iterative access
+        for (int i = 0; i < elementBlock.getPositionCount(); i += 2) {
+            String actualKey = VARCHAR.getSliceUnchecked(elementBlock, i + elementBlock.getOffset()).toStringUtf8();
+            Long actualValue;
+            if (elementBlock.isNullUnchecked(i + 1 + elementBlock.getOffset())) {
+                actualValue = null;
+            }
+            else {
+                actualValue = BIGINT.getLongUnchecked(elementBlock, i + 1 + elementBlock.getOffsetBase());
             }
             assertTrue(map.containsKey(actualKey));
             assertEquals(actualValue, map.get(actualKey));
