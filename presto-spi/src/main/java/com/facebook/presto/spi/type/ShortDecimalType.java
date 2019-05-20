@@ -19,6 +19,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.LongArrayBlockBuilder;
 import com.facebook.presto.spi.block.PageBuilderStatus;
+import com.facebook.presto.spi.block.UncheckedBlock;
 
 import java.math.BigInteger;
 
@@ -114,6 +115,12 @@ final class ShortDecimalType
     public long getLong(Block block, int position)
     {
         return block.getLong(position);
+    }
+
+    @Override
+    public long getLongUnchecked(UncheckedBlock block, int internalPosition)
+    {
+        return block.getLongUnchecked(internalPosition);
     }
 
     @Override

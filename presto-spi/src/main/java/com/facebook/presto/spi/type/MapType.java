@@ -232,6 +232,12 @@ public class MapType
     }
 
     @Override
+    public Block getBlockUnchecked(Block block, int internalPosition)
+    {
+        return block.getBlockUnchecked(internalPosition);
+    }
+
+    @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
         if (!(value instanceof SingleMapBlock)) {

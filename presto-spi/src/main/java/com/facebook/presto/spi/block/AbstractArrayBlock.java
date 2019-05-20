@@ -21,6 +21,7 @@ import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
+import static com.facebook.presto.spi.block.BlockUtil.internalPositionInRange;
 
 public abstract class AbstractArrayBlock
         implements Block
@@ -29,7 +30,7 @@ public abstract class AbstractArrayBlock
 
     protected abstract int[] getOffsets();
 
-    protected abstract int getOffsetBase();
+    public abstract int getOffsetBase();
 
     @Nullable
     protected abstract boolean[] getValueIsNull();
@@ -233,5 +234,21 @@ public abstract class AbstractArrayBlock
     public interface ArrayBlockFunction<T>
     {
         T apply(Block block, int startPosition, int length);
+    }
+
+    @Override
+    public Block getBlockUnchecked(int internalPosition)
+    {
+        int startValueOffset = getOffsets()[internalPosition];
+        int endValueOffset = getOffsets()[internalPosition + 1];
+        return getRawElementBlock().getRegion(startValueOffset, endValueOffset - startValueOffset);
+    }
+
+    @Override
+    public boolean isNullUnchecked(int internalPosition)
+    {
+        assert mayHaveNull() : "no nulls present";
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        return getValueIsNull()[internalPosition];
     }
 }

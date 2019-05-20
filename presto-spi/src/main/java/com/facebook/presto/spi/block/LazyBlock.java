@@ -289,4 +289,73 @@ public class LazyBlock
         // clear reference to loader to free resources, since load was successful
         loader = null;
     }
+
+    @Override
+    public byte getByteUnchecked(int internalPosition)
+    {
+        assert block != null : "block is not loaded";
+        return block.getByte(internalPosition);
+    }
+
+    @Override
+    public short getShortUnchecked(int internalPosition)
+    {
+        assert block != null : "block is not loaded";
+        return block.getShort(internalPosition);
+    }
+
+    @Override
+    public int getIntUnchecked(int internalPosition)
+    {
+        assert block != null : "block is not loaded";
+        return block.getInt(internalPosition);
+    }
+
+    @Override
+    public long getLongUnchecked(int internalPosition)
+    {
+        assert block != null : "block is not loaded";
+        return block.getLong(internalPosition);
+    }
+
+    @Override
+    public long getLongUnchecked(int internalPosition, int offset)
+    {
+        assert block != null : "block is not loaded";
+        return block.getLong(internalPosition, offset);
+    }
+
+    @Override
+    public Slice getSliceUnchecked(int internalPosition, int offset, int length)
+    {
+        assert block != null : "block is not loaded";
+        return block.getSlice(internalPosition, offset, length);
+    }
+
+    @Override
+    public int getSliceLengthUnchecked(int internalPosition)
+    {
+        assert block != null : "block is not loaded";
+        return block.getSliceLength(internalPosition);
+    }
+
+    @Override
+    public Block getBlockUnchecked(int internalPosition)
+    {
+        assert block != null : "block is not loaded";
+        return block.getObject(internalPosition, Block.class);
+    }
+
+    @Override
+    public int getOffsetBase()
+    {
+        return 0;
+    }
+
+    @Override
+    public boolean isNullUnchecked(int internalPosition)
+    {
+        assert block != null : "block is not loaded";
+        return block.isNull(internalPosition);
+    }
 }

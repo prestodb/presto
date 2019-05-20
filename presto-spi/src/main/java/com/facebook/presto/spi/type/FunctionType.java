@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.UncheckedBlock;
 import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
@@ -132,6 +133,12 @@ public class FunctionType
     }
 
     @Override
+    public boolean getBooleanUnchecked(UncheckedBlock block, int internalPosition)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
+
+    @Override
     public void writeBoolean(BlockBuilder blockBuilder, boolean value)
     {
         throw new UnsupportedOperationException(getClass().getName());
@@ -139,6 +146,12 @@ public class FunctionType
 
     @Override
     public long getLong(Block block, int position)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
+
+    @Override
+    public long getLongUnchecked(UncheckedBlock block, int internalPosition)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
@@ -156,6 +169,12 @@ public class FunctionType
     }
 
     @Override
+    public double getDoubleUnchecked(UncheckedBlock block, int internalPosition)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
+
+    @Override
     public void writeDouble(BlockBuilder blockBuilder, double value)
     {
         throw new UnsupportedOperationException(getClass().getName());
@@ -163,6 +182,12 @@ public class FunctionType
 
     @Override
     public Slice getSlice(Block block, int position)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
+
+    @Override
+    public Slice getSliceUnchecked(Block block, int internalPosition)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
@@ -181,6 +206,12 @@ public class FunctionType
 
     @Override
     public Object getObject(Block block, int position)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
+
+    @Override
+    public Block getBlockUnchecked(Block block, int internalPosition)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }

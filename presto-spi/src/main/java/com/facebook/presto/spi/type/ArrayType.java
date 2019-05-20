@@ -184,6 +184,12 @@ public class ArrayType
     }
 
     @Override
+    public Block getBlockUnchecked(Block block, int internalPosition)
+    {
+        return block.getBlockUnchecked(internalPosition);
+    }
+
+    @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
         blockBuilder.appendStructure((Block) value);
