@@ -2671,28 +2671,48 @@ public abstract class AbstractTestHiveClient
     public void testCreateBucketedTemporaryTable()
             throws Exception
     {
+        testCreateBucketedTemporaryTable(newSession());
+    }
+
+    protected void testCreateBucketedTemporaryTable(ConnectorSession session)
+            throws Exception
+    {
+        testCreateBucketedTemporaryTable(session, true);
+        testCreateBucketedTemporaryTable(session, false);
+    }
+
+    private void testCreateBucketedTemporaryTable(ConnectorSession session, boolean commit)
+            throws Exception
+    {
         // with data
-        testCreateTemporaryTable(TEMPORARY_TABLE_COLUMNS, TEMPORARY_TABLE_BUCKET_COUNT, TEMPORARY_TABLE_BUCKET_COLUMNS, TEMPORARY_TABLE_DATA);
+        testCreateTemporaryTable(TEMPORARY_TABLE_COLUMNS, TEMPORARY_TABLE_BUCKET_COUNT, TEMPORARY_TABLE_BUCKET_COLUMNS, TEMPORARY_TABLE_DATA, session, commit);
 
         // empty
         testCreateTemporaryTable(
                 TEMPORARY_TABLE_COLUMNS,
                 TEMPORARY_TABLE_BUCKET_COUNT,
                 TEMPORARY_TABLE_BUCKET_COLUMNS,
-                MaterializedResult.resultBuilder(SESSION, VARCHAR, VARCHAR).build());
+                MaterializedResult.resultBuilder(SESSION, VARCHAR, VARCHAR).build(),
+                session,
+                commit);
 
         // bucketed on zero columns
-        testCreateTemporaryTable(TEMPORARY_TABLE_COLUMNS, TEMPORARY_TABLE_BUCKET_COUNT, ImmutableList.of(), TEMPORARY_TABLE_DATA);
+        testCreateTemporaryTable(TEMPORARY_TABLE_COLUMNS, TEMPORARY_TABLE_BUCKET_COUNT, ImmutableList.of(), TEMPORARY_TABLE_DATA, session, commit);
     }
 
-    private void testCreateTemporaryTable(List<ColumnMetadata> columns, int bucketCount, List<String> bucketingColumns, MaterializedResult inputRows)
+    private void testCreateTemporaryTable(
+            List<ColumnMetadata> columns,
+            int bucketCount,
+            List<String> bucketingColumns,
+            MaterializedResult inputRows,
+            ConnectorSession session,
+            boolean commit)
             throws Exception
     {
         List<Path> insertLocations = new ArrayList<>();
 
         HiveTableHandle tableHandle;
         try (Transaction transaction = newTransaction()) {
-            ConnectorSession session = newSession();
             ConnectorMetadata metadata = transaction.getMetadata();
 
             // prepare temporary table schema
@@ -2726,7 +2746,7 @@ public abstract class AbstractTestHiveClient
             insertLocations.add(secondInsert.getLocationHandle().getWritePath());
 
             // insert into temporary table
-            ConnectorPageSink secondSink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, firstInsert, PageSinkProperties.defaultProperties());
+            ConnectorPageSink secondSink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, secondInsert, PageSinkProperties.defaultProperties());
             secondSink.appendPage(inputRows.toPage());
             Collection<Slice> secondFragments = getFutureValue(secondSink.finish());
 
@@ -2759,11 +2779,15 @@ public abstract class AbstractTestHiveClient
             MaterializedResult outputRows = readTable(transaction, tableHandle, dataColumnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.empty());
             assertEqualsIgnoreOrder(inputRows.getMaterializedRows(), outputRows.getMaterializedRows());
 
-            transaction.commit();
+            if (commit) {
+                transaction.commit();
+            }
+            else {
+                transaction.rollback();
+            }
         }
 
         try (Transaction transaction = newTransaction()) {
-            ConnectorSession session = newSession();
             ConnectorMetadata metadata = transaction.getMetadata();
 
             assertThatThrownBy(() -> metadata.getColumnHandles(session, tableHandle))
