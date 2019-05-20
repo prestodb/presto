@@ -15,7 +15,7 @@ package com.facebook.presto.execution.scheduler.group;
 
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
-import com.facebook.presto.execution.scheduler.SourceScheduler;
+import com.facebook.presto.execution.scheduler.LegacyBehemothSourceScheduler;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.google.common.collect.ImmutableList;
@@ -82,7 +82,7 @@ public class FixedLifespanScheduler
         this.concurrentLifespansPerTask = requireNonNull(concurrentLifespansPerTask, "concurrentLifespansPerTask is null");
     }
 
-    public void scheduleInitial(SourceScheduler scheduler)
+    public void scheduleInitial(LegacyBehemothSourceScheduler scheduler)
     {
         checkState(!initialScheduled);
         initialScheduled = true;
@@ -119,7 +119,7 @@ public class FixedLifespanScheduler
         verify(totalLifespanExecutionFinished <= partitionHandles.size());
     }
 
-    public SettableFuture schedule(SourceScheduler scheduler)
+    public SettableFuture schedule(LegacyBehemothSourceScheduler scheduler)
     {
         // Return a new future even if newDriverGroupReady has not finished.
         // Returning the same SettableFuture instance could lead to ListenableFuture retaining too many listener objects.

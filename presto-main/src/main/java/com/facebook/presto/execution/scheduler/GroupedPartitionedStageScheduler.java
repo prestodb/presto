@@ -41,7 +41,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsSourceScheduler;
+import static com.facebook.presto.execution.scheduler.LegacyBehemothSourcePartitionedScheduler.newSourcePartitionedSchedulerAsSourceScheduler;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -75,7 +75,7 @@ public class GroupedPartitionedStageScheduler
 
     private final SqlStageExecution stage;
     private final List<InternalNode> nodes;
-    private final List<SourceScheduler> sourceSchedulers;
+    private final List<LegacyBehemothSourceScheduler> legacyBehemothSourceSchedulers;
     private final List<ConnectorPartitionHandle> partitionHandles;
     private boolean scheduledTasks;
     private final Optional<LifespanScheduler> groupedLifespanScheduler;
@@ -106,7 +106,7 @@ public class GroupedPartitionedStageScheduler
 
         BucketedSplitPlacementPolicy splitPlacementPolicy = new BucketedSplitPlacementPolicy(nodeSelector, nodes, bucketNodeMap, stage::getAllTasks);
 
-        ArrayList<SourceScheduler> sourceSchedulers = new ArrayList<>();
+        ArrayList<LegacyBehemothSourceScheduler> legacyBehemothSourceSchedulers = new ArrayList<>();
         checkArgument(
                 partitionHandles.equals(ImmutableList.of(NOT_PARTITIONED)) != stageExecutionDescriptor.isStageGroupedExecution(),
                 "PartitionHandles should be [NOT_PARTITIONED] if and only if all scan nodes use ungrouped execution strategy");
@@ -124,7 +124,7 @@ public class GroupedPartitionedStageScheduler
         for (PlanNodeId planNodeId : schedulingOrder) {
             SplitSource splitSource = splitSources.get(planNodeId);
             boolean groupedExecutionForScanNode = stageExecutionDescriptor.isScanGroupedExecution(planNodeId);
-            SourceScheduler sourceScheduler = newSourcePartitionedSchedulerAsSourceScheduler(
+            LegacyBehemothSourceScheduler legacyBehemothSourceScheduler = newSourcePartitionedSchedulerAsSourceScheduler(
                     stage,
                     planNodeId,
                     splitSource,
@@ -133,14 +133,14 @@ public class GroupedPartitionedStageScheduler
                     groupedExecutionForScanNode);
 
             if (stageExecutionDescriptor.isStageGroupedExecution() && !groupedExecutionForScanNode) {
-                sourceScheduler = new AsGroupedSourceScheduler(sourceScheduler);
+                legacyBehemothSourceScheduler = new AsGroupedLegacyBehemothSourceScheduler(legacyBehemothSourceScheduler);
             }
-            sourceSchedulers.add(sourceScheduler);
+            legacyBehemothSourceSchedulers.add(legacyBehemothSourceScheduler);
 
             if (firstPlanNode) {
                 firstPlanNode = false;
                 if (!stageExecutionDescriptor.isStageGroupedExecution()) {
-                    sourceScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
+                    legacyBehemothSourceScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
                 }
                 else {
                     LifespanScheduler lifespanScheduler;
@@ -157,7 +157,7 @@ public class GroupedPartitionedStageScheduler
                     }
 
                     // Schedule the first few lifespans
-                    lifespanScheduler.scheduleInitial(sourceScheduler);
+                    lifespanScheduler.scheduleInitial(legacyBehemothSourceScheduler);
                     // Schedule new lifespans for finished ones
                     stage.addCompletedDriverGroupsChangedListener(lifespanScheduler::onLifespanExecutionFinished);
                     groupedLifespanScheduler = Optional.of(lifespanScheduler);
@@ -165,7 +165,7 @@ public class GroupedPartitionedStageScheduler
             }
         }
         this.groupedLifespanScheduler = groupedLifespanScheduler;
-        this.sourceSchedulers = sourceSchedulers;
+        this.legacyBehemothSourceSchedulers = legacyBehemothSourceSchedulers;
     }
 
     private ConnectorPartitionHandle partitionHandleFor(Lifespan lifespan)
@@ -201,8 +201,8 @@ public class GroupedPartitionedStageScheduler
 
         if (groupedLifespanScheduler.isPresent()) {
             if (groupedLifespanScheduler.get().allLifespanExecutionFinished()) {
-                for (SourceScheduler sourceScheduler : sourceSchedulers) {
-                    sourceScheduler.notifyAllLifespansFinishedExecution();
+                for (LegacyBehemothSourceScheduler legacyBehemothSourceScheduler : legacyBehemothSourceSchedulers) {
+                    legacyBehemothSourceScheduler.notifyAllLifespansFinishedExecution();
                 }
             }
             else {
@@ -211,21 +211,21 @@ public class GroupedPartitionedStageScheduler
                 //
                 // Invoke schedule method to get a new SettableFuture every time.
                 // Reusing previously returned SettableFuture could lead to the ListenableFuture retaining too many listeners.
-                blocked.add(groupedLifespanScheduler.get().schedule(sourceSchedulers.get(0)));
+                blocked.add(groupedLifespanScheduler.get().schedule(legacyBehemothSourceSchedulers.get(0)));
             }
         }
 
         int splitsScheduled = 0;
-        Iterator<SourceScheduler> schedulerIterator = sourceSchedulers.iterator();
+        Iterator<LegacyBehemothSourceScheduler> schedulerIterator = legacyBehemothSourceSchedulers.iterator();
         List<Lifespan> driverGroupsToStart = ImmutableList.of();
         while (schedulerIterator.hasNext()) {
-            SourceScheduler sourceScheduler = schedulerIterator.next();
+            LegacyBehemothSourceScheduler legacyBehemothSourceScheduler = schedulerIterator.next();
 
             for (Lifespan lifespan : driverGroupsToStart) {
-                sourceScheduler.startLifespan(lifespan, partitionHandleFor(lifespan));
+                legacyBehemothSourceScheduler.startLifespan(lifespan, partitionHandleFor(lifespan));
             }
 
-            StageScheduleResult schedule = sourceScheduler.schedule();
+            StageScheduleResult schedule = legacyBehemothSourceScheduler.schedule();
             splitsScheduled += schedule.getSplitsScheduled();
             if (schedule.getBlockedReason().isPresent()) {
                 blocked.add(schedule.getBlocked());
@@ -236,35 +236,35 @@ public class GroupedPartitionedStageScheduler
                 allBlocked = false;
             }
 
-            driverGroupsToStart = sourceScheduler.drainCompletelyScheduledLifespans();
+            driverGroupsToStart = legacyBehemothSourceScheduler.drainCompletelyScheduledLifespans();
 
             if (schedule.isFinished()) {
-                stage.schedulingComplete(sourceScheduler.getPlanNodeId());
+                stage.schedulingComplete(legacyBehemothSourceScheduler.getPlanNodeId());
                 schedulerIterator.remove();
-                sourceScheduler.close();
+                legacyBehemothSourceScheduler.close();
             }
         }
 
         if (allBlocked) {
-            return StageScheduleResult.blocked(sourceSchedulers.isEmpty(), newTasks, whenAnyComplete(blocked), blockedReason, splitsScheduled);
+            return StageScheduleResult.blocked(legacyBehemothSourceSchedulers.isEmpty(), newTasks, whenAnyComplete(blocked), blockedReason, splitsScheduled);
         }
         else {
-            return StageScheduleResult.nonBlocked(sourceSchedulers.isEmpty(), newTasks, splitsScheduled);
+            return StageScheduleResult.nonBlocked(legacyBehemothSourceSchedulers.isEmpty(), newTasks, splitsScheduled);
         }
     }
 
     @Override
     public void close()
     {
-        for (SourceScheduler sourceScheduler : sourceSchedulers) {
+        for (LegacyBehemothSourceScheduler legacyBehemothSourceScheduler : legacyBehemothSourceSchedulers) {
             try {
-                sourceScheduler.close();
+                legacyBehemothSourceScheduler.close();
             }
             catch (Throwable t) {
                 log.warn(t, "Error closing split source");
             }
         }
-        sourceSchedulers.clear();
+        legacyBehemothSourceSchedulers.clear();
     }
 
     public static class BucketedSplitPlacementPolicy
@@ -310,36 +310,36 @@ public class GroupedPartitionedStageScheduler
         }
     }
 
-    private static class AsGroupedSourceScheduler
-            implements SourceScheduler
+    private static class AsGroupedLegacyBehemothSourceScheduler
+            implements LegacyBehemothSourceScheduler
     {
-        private final SourceScheduler sourceScheduler;
+        private final LegacyBehemothSourceScheduler legacyBehemothSourceScheduler;
         private boolean started;
         private boolean scheduleCompleted;
         private final List<Lifespan> pendingCompleted;
 
-        public AsGroupedSourceScheduler(SourceScheduler sourceScheduler)
+        public AsGroupedLegacyBehemothSourceScheduler(LegacyBehemothSourceScheduler legacyBehemothSourceScheduler)
         {
-            this.sourceScheduler = requireNonNull(sourceScheduler, "sourceScheduler is null");
+            this.legacyBehemothSourceScheduler = requireNonNull(legacyBehemothSourceScheduler, "legacyBehemothSourceScheduler is null");
             pendingCompleted = new ArrayList<>();
         }
 
         @Override
         public StageScheduleResult schedule()
         {
-            return sourceScheduler.schedule();
+            return legacyBehemothSourceScheduler.schedule();
         }
 
         @Override
         public void close()
         {
-            sourceScheduler.close();
+            legacyBehemothSourceScheduler.close();
         }
 
         @Override
         public PlanNodeId getPlanNodeId()
         {
-            return sourceScheduler.getPlanNodeId();
+            return legacyBehemothSourceScheduler.getPlanNodeId();
         }
 
         @Override
@@ -350,14 +350,14 @@ public class GroupedPartitionedStageScheduler
                 return;
             }
             started = true;
-            sourceScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
+            legacyBehemothSourceScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
         }
 
         @Override
         public List<Lifespan> drainCompletelyScheduledLifespans()
         {
             if (!scheduleCompleted) {
-                List<Lifespan> lifespans = sourceScheduler.drainCompletelyScheduledLifespans();
+                List<Lifespan> lifespans = legacyBehemothSourceScheduler.drainCompletelyScheduledLifespans();
                 if (lifespans.isEmpty()) {
                     return ImmutableList.of();
                 }

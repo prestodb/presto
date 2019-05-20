@@ -20,7 +20,10 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 
 import java.util.List;
 
-public interface SourceScheduler
+// This is the legacy source scheduler which is behemoth:
+//   * It cares about bucket, lifespan, ...
+//   * The implementation also cares about task creation (so it's also a stage scheduler!)
+public interface LegacyBehemothSourceScheduler
 {
     StageScheduleResult schedule();
 

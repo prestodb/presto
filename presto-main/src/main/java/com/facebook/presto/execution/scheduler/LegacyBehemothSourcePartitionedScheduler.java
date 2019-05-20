@@ -56,8 +56,8 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static java.util.Objects.requireNonNull;
 
-public class SourcePartitionedScheduler
-        implements SourceScheduler
+public class LegacyBehemothSourcePartitionedScheduler
+        implements LegacyBehemothSourceScheduler
 {
     private enum State
     {
@@ -96,7 +96,7 @@ public class SourcePartitionedScheduler
 
     private SettableFuture<?> whenFinishedOrNewLifespanAdded = SettableFuture.create();
 
-    private SourcePartitionedScheduler(
+    private LegacyBehemothSourcePartitionedScheduler(
             SqlStageExecution stage,
             PlanNodeId partitionedNode,
             SplitSource splitSource,
@@ -120,10 +120,10 @@ public class SourcePartitionedScheduler
     }
 
     /**
-     * Obtains an instance of {@code SourcePartitionedScheduler} suitable for use as a
+     * Obtains an instance of {@code LegacyBehemothSourcePartitionedScheduler} suitable for use as a
      * stage scheduler.
      * <p>
-     * This returns an ungrouped {@code SourcePartitionedScheduler} that requires
+     * This returns an ungrouped {@code LegacyBehemothSourcePartitionedScheduler} that requires
      * minimal management from the caller, which is ideal for use as a stage scheduler.
      */
     public static StageScheduler newSourcePartitionedSchedulerAsStageScheduler(
@@ -133,7 +133,7 @@ public class SourcePartitionedScheduler
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize)
     {
-        SourcePartitionedScheduler sourcePartitionedScheduler = new SourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, false);
+        LegacyBehemothSourcePartitionedScheduler sourcePartitionedScheduler = new LegacyBehemothSourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, false);
         sourcePartitionedScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
 
         return new StageScheduler() {
@@ -154,9 +154,9 @@ public class SourcePartitionedScheduler
     }
 
     /**
-     * Obtains a {@code SourceScheduler} suitable for use in GroupedPartitionedStageScheduler.
+     * Obtains a {@code LegacyBehemothSourceScheduler} suitable for use in GroupedPartitionedStageScheduler.
      * <p>
-     * This returns a {@code SourceScheduler} that can be used for a pipeline
+     * This returns a {@code LegacyBehemothSourceScheduler} that can be used for a pipeline
      * that is either ungrouped or grouped. However, the caller is responsible initializing
      * the driver groups in this scheduler accordingly.
      * <p>
@@ -164,7 +164,7 @@ public class SourcePartitionedScheduler
      * in addition to {@link #schedule()} on the returned object. Otherwise, lifecycle
      * transitioning of the object will not work properly.
      */
-    public static SourceScheduler newSourcePartitionedSchedulerAsSourceScheduler(
+    public static LegacyBehemothSourceScheduler newSourcePartitionedSchedulerAsSourceScheduler(
             SqlStageExecution stage,
             PlanNodeId partitionedNode,
             SplitSource splitSource,
@@ -172,7 +172,7 @@ public class SourcePartitionedScheduler
             int splitBatchSize,
             boolean groupedExecution)
     {
-        return new SourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, groupedExecution);
+        return new LegacyBehemothSourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, groupedExecution);
     }
 
     @Override

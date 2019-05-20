@@ -14,7 +14,7 @@
 package com.facebook.presto.execution.scheduler.group;
 
 import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.execution.scheduler.SourceScheduler;
+import com.facebook.presto.execution.scheduler.LegacyBehemothSourceScheduler;
 import com.google.common.util.concurrent.SettableFuture;
 
 public interface LifespanScheduler
@@ -26,11 +26,11 @@ public interface LifespanScheduler
     // * Invocation of schedule happens sequentially in a single thread.
     // * This object is safely published after invoking scheduleInitial.
 
-    void scheduleInitial(SourceScheduler scheduler);
+    void scheduleInitial(LegacyBehemothSourceScheduler scheduler);
 
     void onLifespanExecutionFinished(Iterable<Lifespan> newlyCompletelyExecutedDriverGroups);
 
-    SettableFuture schedule(SourceScheduler scheduler);
+    SettableFuture schedule(LegacyBehemothSourceScheduler scheduler);
 
     boolean allLifespanExecutionFinished();
 }
