@@ -871,7 +871,7 @@ public class SemiTransactionalHiveMetastore
         setExclusive((delegate, hdfsEnvironment) -> delegate.revokeTablePrivileges(databaseName, tableName, grantee, privileges));
     }
 
-    public synchronized void declareIntentionToWrite(ConnectorSession session, WriteMode writeMode, Path stagingPathRoot, String filePrefix, SchemaTableName schemaTableName)
+    public synchronized void declareIntentionToWrite(ConnectorSession session, WriteMode writeMode, Path stagingPathRoot, String filePrefix, SchemaTableName schemaTableName, boolean temporaryTable)
     {
         setShared();
         if (writeMode == WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
@@ -881,7 +881,7 @@ public class SemiTransactionalHiveMetastore
             }
         }
         HdfsContext context = new HdfsContext(session, schemaTableName.getSchemaName(), schemaTableName.getTableName());
-        declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(writeMode, context, stagingPathRoot, filePrefix, schemaTableName));
+        declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(writeMode, context, stagingPathRoot, filePrefix, schemaTableName, temporaryTable));
     }
 
     public synchronized void commit()
@@ -1043,6 +1043,9 @@ public class SemiTransactionalHiveMetastore
             // Execute deletion tasks
             committer.executeDeletionTasksForFinish();
 
+            // Clean up temporary tables
+            deleteTemporaryTableDirectories(declaredIntentionsToWrite, hdfsEnvironment);
+
             // Clean up empty staging directories (that may recursively contain empty directories)
             committer.deleteEmptyStagingDirectories(declaredIntentionsToWrite);
         }
@@ -1099,7 +1102,7 @@ public class SemiTransactionalHiveMetastore
             Table table = tableAndMore.getTable();
 
             if (table.getTableType().equals(TEMPORARY_TABLE)) {
-                prepareDropTemporaryTable(context, tableAndMore);
+                // do not commit a temporary table to the metastore
                 return;
             }
 
@@ -1161,7 +1164,7 @@ public class SemiTransactionalHiveMetastore
             Table table = tableAndMore.getTable();
 
             if (table.getTableType().equals(TEMPORARY_TABLE)) {
-                prepareDropTemporaryTable(context, tableAndMore);
+                // do not commit a temporary table to the metastore
                 return;
             }
 
@@ -1318,11 +1321,6 @@ public class SemiTransactionalHiveMetastore
                     Optional.of(getPartitionName(partition.getDatabaseName(), partition.getTableName(), partition.getValues())),
                     partitionAndMore.getStatisticsUpdate(),
                     true));
-        }
-
-        private void prepareDropTemporaryTable(HdfsContext context, TableAndMore tableAndMore)
-        {
-            tableAndMore.getCurrentLocation().ifPresent(currentLocation -> deletionTasksForFinish.add(new DirectoryDeletionTask(context, currentLocation)));
         }
 
         private void executeCleanupTasksForAbort(List<String> filePrefixes)
@@ -1514,6 +1512,8 @@ public class SemiTransactionalHiveMetastore
     {
         checkHoldsLock();
 
+        deleteTemporaryTableDirectories(declaredIntentionsToWrite, hdfsEnvironment);
+
         for (DeclaredIntentionToWrite declaredIntentionToWrite : declaredIntentionsToWrite) {
             switch (declaredIntentionToWrite.getMode()) {
                 case STAGE_AND_MOVE_TO_TARGET_DIRECTORY:
@@ -1590,6 +1590,15 @@ public class SemiTransactionalHiveMetastore
                 }
                 default:
                     throw new UnsupportedOperationException("Unknown write mode");
+            }
+        }
+    }
+
+    private static void deleteTemporaryTableDirectories(List<DeclaredIntentionToWrite> declaredIntentionsToWrite, HdfsEnvironment hdfsEnvironment)
+    {
+        for (DeclaredIntentionToWrite declaredIntentionToWrite : declaredIntentionsToWrite) {
+            if (declaredIntentionToWrite.isTemporaryTable()) {
+                deleteRecursivelyIfExists(declaredIntentionToWrite.getContext(), hdfsEnvironment, declaredIntentionToWrite.getRootPath());
             }
         }
     }
@@ -2169,14 +2178,16 @@ public class SemiTransactionalHiveMetastore
         private final String filePrefix;
         private final Path rootPath;
         private final SchemaTableName schemaTableName;
+        private final boolean temporaryTable;
 
-        public DeclaredIntentionToWrite(WriteMode mode, HdfsContext context, Path stagingPathRoot, String filePrefix, SchemaTableName schemaTableName)
+        public DeclaredIntentionToWrite(WriteMode mode, HdfsContext context, Path stagingPathRoot, String filePrefix, SchemaTableName schemaTableName, boolean temporaryTable)
         {
             this.mode = requireNonNull(mode, "mode is null");
             this.context = requireNonNull(context, "context is null");
             this.rootPath = requireNonNull(stagingPathRoot, "stagingPathRoot is null");
             this.filePrefix = requireNonNull(filePrefix, "filePrefix is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            this.temporaryTable = temporaryTable;
         }
 
         public WriteMode getMode()
@@ -2204,6 +2215,11 @@ public class SemiTransactionalHiveMetastore
             return schemaTableName;
         }
 
+        public boolean isTemporaryTable()
+        {
+            return temporaryTable;
+        }
+
         @Override
         public String toString()
         {
@@ -2213,6 +2229,7 @@ public class SemiTransactionalHiveMetastore
                     .add("filePrefix", filePrefix)
                     .add("rootPath", rootPath)
                     .add("schemaTableName", schemaTableName)
+                    .add("temporaryTable", temporaryTable)
                     .toString();
         }
     }
