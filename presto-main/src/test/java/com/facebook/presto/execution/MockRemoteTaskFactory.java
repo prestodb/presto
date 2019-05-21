@@ -349,7 +349,7 @@ public class MockRemoteTaskFactory
             noMoreSplits.add(sourceId);
 
             boolean allSourcesComplete = Stream.concat(
-                    fragment.getPartitionedSources().stream(),
+                    fragment.getTableScanSchedulingOrder().stream(),
                     fragment.getRemoteSourceNodes().stream()
                             .map(PlanNode::getId))
                     .allMatch(noMoreSplits::contains);
@@ -423,8 +423,8 @@ public class MockRemoteTaskFactory
             }
             synchronized (this) {
                 int count = 0;
-                for (PlanNodeId partitionedSource : fragment.getPartitionedSources()) {
-                    Collection<Split> partitionedSplits = splits.get(partitionedSource);
+                for (PlanNodeId tableScanPlanNodeId : fragment.getTableScanSchedulingOrder()) {
+                    Collection<Split> partitionedSplits = splits.get(tableScanPlanNodeId);
                     count += partitionedSplits.size();
                 }
                 return count;

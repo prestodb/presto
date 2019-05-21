@@ -235,7 +235,7 @@ public class PlanFragmenter
                 newRoot,
                 fragment.getSymbols(),
                 fragment.getPartitioning(),
-                fragment.getPartitionedSources(),
+                fragment.getTableScanSchedulingOrder(),
                 new PartitioningScheme(
                         newOutputPartitioning,
                         outputPartitioningScheme.getOutputLayout(),

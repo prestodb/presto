@@ -472,7 +472,7 @@ public class QueryStateMachine
 
             if (stageInfo.getPlan().isPresent()) {
                 PlanFragment plan = stageInfo.getPlan().get();
-                if (!plan.getPartitionedSources().isEmpty()) {
+                if (!plan.getTableScanSchedulingOrder().isEmpty()) {
                     rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
                     rawInputPositions += stageStats.getRawInputPositions();
 
