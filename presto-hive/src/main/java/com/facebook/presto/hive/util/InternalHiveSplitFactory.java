@@ -152,14 +152,14 @@ public class InternalHiveSplitFactory
                 // skip zero-width block, except in the special circumstance: slice is empty, and the block covers the empty slice interval.
                 continue;
             }
-            blockBuilder.add(new InternalHiveBlock(blockStart, blockEnd, getHostAddresses(blockLocation)));
+            blockBuilder.add(new InternalHiveBlock(blockEnd, getHostAddresses(blockLocation)));
         }
         List<InternalHiveBlock> blocks = blockBuilder.build();
         checkBlocks(blocks, start, length);
 
         if (!splittable) {
             // not splittable, use the hosts from the first block if it exists
-            blocks = ImmutableList.of(new InternalHiveBlock(start, start + length, blocks.get(0).getAddresses()));
+            blocks = ImmutableList.of(new InternalHiveBlock(start + length, blocks.get(0).getAddresses()));
         }
 
         return Optional.of(new InternalHiveSplit(
@@ -180,11 +180,7 @@ public class InternalHiveSplitFactory
     {
         checkArgument(length >= 0);
         checkArgument(!blocks.isEmpty());
-        checkArgument(start == blocks.get(0).getStart());
         checkArgument(start + length == blocks.get(blocks.size() - 1).getEnd());
-        for (int i = 1; i < blocks.size(); i++) {
-            checkArgument(blocks.get(i - 1).getEnd() == blocks.get(i).getStart());
-        }
     }
 
     private static boolean allBlocksHaveRealAddress(List<InternalHiveBlock> blocks)

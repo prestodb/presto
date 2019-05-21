@@ -437,7 +437,7 @@ public class TestHiveSplitSource
                     0,
                     100,
                     100,
-                    ImmutableList.of(new InternalHiveBlock(0, 100, ImmutableList.of())),
+                    ImmutableList.of(new InternalHiveBlock(100, ImmutableList.of())),
                     bucketNumber,
                     bucketNumber,
                     true,

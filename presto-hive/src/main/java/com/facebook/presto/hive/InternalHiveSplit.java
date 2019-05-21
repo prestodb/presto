@@ -29,7 +29,6 @@ import java.util.Properties;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -71,7 +70,7 @@ public class InternalHiveSplit
             HiveSplitPartitionInfo partitionInfo)
     {
         checkArgument(start >= 0, "start must be positive");
-        checkArgument(end >= 0, "length must be positive");
+        checkArgument(end >= 0, "end must be positive");
         checkArgument(fileSize >= 0, "fileSize must be positive");
         requireNonNull(path, "path is null");
         requireNonNull(blocks, "blocks is null");
@@ -178,10 +177,6 @@ public class InternalHiveSplit
         start += value;
         if (start == currentBlock().getEnd()) {
             currentBlockIndex++;
-            if (isDone()) {
-                return;
-            }
-            verify(start == currentBlock().getStart());
         }
     }
 
@@ -229,21 +224,14 @@ public class InternalHiveSplit
         private static final int HOST_ADDRESS_INSTANCE_SIZE = ClassLayout.parseClass(HostAddress.class).instanceSize() +
                 ClassLayout.parseClass(String.class).instanceSize();
 
-        private final long start;
         private final long end;
         private final List<HostAddress> addresses;
 
-        public InternalHiveBlock(long start, long end, List<HostAddress> addresses)
+        public InternalHiveBlock(long end, List<HostAddress> addresses)
         {
-            checkArgument(start <= end, "block end cannot be before block start");
-            this.start = start;
+            checkArgument(end >= 0, "block end must be >= 0");
             this.end = end;
             this.addresses = ImmutableList.copyOf(addresses);
-        }
-
-        public long getStart()
-        {
-            return start;
         }
 
         public long getEnd()
