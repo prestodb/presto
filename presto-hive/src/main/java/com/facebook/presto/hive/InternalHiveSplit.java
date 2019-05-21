@@ -42,10 +42,18 @@ public class InternalHiveSplit
             ClassLayout.parseClass(String.class).instanceSize() +
             ClassLayout.parseClass(OptionalInt.class).instanceSize();
 
+    private static final int HOST_ADDRESS_INSTANCE_SIZE = ClassLayout.parseClass(HostAddress.class).instanceSize() +
+            ClassLayout.parseClass(String.class).instanceSize();
+
     private final byte[] path;
     private final long end;
     private final long fileSize;
-    private final List<InternalHiveBlock> blocks;
+
+    // encode the hive blocks as an array of longs and list of list of addresses to save memory
+    //if all blockAddress lists are empty, store only the empty list
+    private final long[] blockEndOffsets;
+    private final List<List<HostAddress>> blockAddresses;
+
     private final OptionalInt readBucketNumber;
     private final OptionalInt tableBucketNumber;
     private final boolean splittable;
@@ -73,7 +81,6 @@ public class InternalHiveSplit
         checkArgument(end >= 0, "end must be positive");
         checkArgument(fileSize >= 0, "fileSize must be positive");
         requireNonNull(path, "path is null");
-        requireNonNull(blocks, "blocks is null");
         requireNonNull(readBucketNumber, "readBucketNumber is null");
         requireNonNull(tableBucketNumber, "tableBucketNumber is null");
         requireNonNull(partitionInfo, "partitionInfo is null");
@@ -82,13 +89,24 @@ public class InternalHiveSplit
         this.start = start;
         this.end = end;
         this.fileSize = fileSize;
-        this.blocks = ImmutableList.copyOf(blocks);
         this.readBucketNumber = readBucketNumber;
         this.tableBucketNumber = tableBucketNumber;
         this.splittable = splittable;
         this.forceLocalScheduling = forceLocalScheduling;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.partitionInfo = partitionInfo;
+
+        ImmutableList.Builder<List<HostAddress>> addressesBuilder = ImmutableList.builder();
+        blockEndOffsets = new long[blocks.size()];
+        boolean allAddressesEmpty = true;
+        for (int i = 0; i < blocks.size(); i++) {
+            InternalHiveBlock block = blocks.get(i);
+            List<HostAddress> addresses = block.getAddresses();
+            allAddressesEmpty = allAddressesEmpty && addresses.isEmpty();
+            addressesBuilder.add(addresses);
+            blockEndOffsets[i] = block.getEnd();
+        }
+        blockAddresses = allAddressesEmpty ? ImmutableList.of() : addressesBuilder.build();
     }
 
     public String getPath()
@@ -164,12 +182,13 @@ public class InternalHiveSplit
     public InternalHiveBlock currentBlock()
     {
         checkState(!isDone(), "All blocks have been consumed");
-        return blocks.get(currentBlockIndex);
+        List<HostAddress> addresses = blockAddresses.isEmpty() ? ImmutableList.of() : blockAddresses.get(currentBlockIndex);
+        return new InternalHiveBlock(blockEndOffsets[currentBlockIndex], addresses);
     }
 
     public boolean isDone()
     {
-        return currentBlockIndex == blocks.size();
+        return currentBlockIndex == blockEndOffsets.length;
     }
 
     public void increaseStart(long value)
@@ -200,9 +219,13 @@ public class InternalHiveSplit
     {
         int result = INSTANCE_SIZE;
         result += path.length;
-        result += sizeOfObjectArray(blocks.size());
-        for (InternalHiveBlock block : blocks) {
-            result += block.getEstimatedSizeInBytes();
+        result += blockEndOffsets.length * Long.BYTES;
+        result += sizeOfObjectArray(blockAddresses.size());
+        for (List<HostAddress> addresses : blockAddresses) {
+            result += sizeOfObjectArray(addresses.size());
+            for (HostAddress address : addresses) {
+                result += HOST_ADDRESS_INSTANCE_SIZE + address.getHostText().length() * Character.BYTES;
+            }
         }
         return result;
     }
@@ -220,10 +243,6 @@ public class InternalHiveSplit
 
     public static class InternalHiveBlock
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(InternalHiveBlock.class).instanceSize();
-        private static final int HOST_ADDRESS_INSTANCE_SIZE = ClassLayout.parseClass(HostAddress.class).instanceSize() +
-                ClassLayout.parseClass(String.class).instanceSize();
-
         private final long end;
         private final List<HostAddress> addresses;
 
@@ -242,16 +261,6 @@ public class InternalHiveSplit
         public List<HostAddress> getAddresses()
         {
             return addresses;
-        }
-
-        public int getEstimatedSizeInBytes()
-        {
-            int result = INSTANCE_SIZE;
-            result += sizeOfObjectArray(addresses.size());
-            for (HostAddress address : addresses) {
-                result += HOST_ADDRESS_INSTANCE_SIZE + address.getHostText().length() * Character.BYTES;
-            }
-            return result;
         }
     }
 }
