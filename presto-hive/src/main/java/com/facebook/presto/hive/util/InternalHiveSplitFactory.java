@@ -16,6 +16,7 @@ package com.facebook.presto.hive.util;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.hive.HiveSplit.BucketConversion;
+import com.facebook.presto.hive.HiveSplitPartitionInfo;
 import com.facebook.presto.hive.HiveTypeName;
 import com.facebook.presto.hive.InternalHiveSplit;
 import com.facebook.presto.hive.InternalHiveSplit.InternalHiveBlock;
@@ -51,43 +52,26 @@ import static java.util.Objects.requireNonNull;
 public class InternalHiveSplitFactory
 {
     private final FileSystem fileSystem;
-    private final String partitionName;
     private final InputFormat<?, ?> inputFormat;
-    private final Properties schema;
-    private final List<HivePartitionKey> partitionKeys;
     private final Optional<Domain> pathDomain;
-    private final Map<Integer, HiveTypeName> columnCoercions;
-    private final Optional<BucketConversion> bucketConversion;
     private final boolean forceLocalScheduling;
     private final boolean s3SelectPushdownEnabled;
+    private final HiveSplitPartitionInfo partitionInfo;
 
     public InternalHiveSplitFactory(
             FileSystem fileSystem,
-            String partitionName,
             InputFormat<?, ?> inputFormat,
-            Properties schema,
-            List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            Map<Integer, HiveTypeName> columnCoercions,
-            Optional<BucketConversion> bucketConversion,
             boolean forceLocalScheduling,
-            boolean s3SelectPushdownEnabled)
+            boolean s3SelectPushdownEnabled,
+            HiveSplitPartitionInfo partitionInfo)
     {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
-        this.partitionName = requireNonNull(partitionName, "partitionName is null");
         this.inputFormat = requireNonNull(inputFormat, "inputFormat is null");
-        this.schema = requireNonNull(schema, "schema is null");
-        this.partitionKeys = requireNonNull(partitionKeys, "partitionKeys is null");
         pathDomain = getPathDomain(requireNonNull(effectivePredicate, "effectivePredicate is null"));
-        this.columnCoercions = requireNonNull(columnCoercions, "columnCoercions is null");
-        this.bucketConversion = requireNonNull(bucketConversion, "bucketConversion is null");
         this.forceLocalScheduling = forceLocalScheduling;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
-    }
-
-    public String getPartitionName()
-    {
-        return partitionName;
+        this.partitionInfo = partitionInfo;
     }
 
     public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, boolean splittable)
@@ -179,21 +163,17 @@ public class InternalHiveSplitFactory
         }
 
         return Optional.of(new InternalHiveSplit(
-                partitionName,
                 pathString,
                 start,
                 start + length,
-                fileSize,
-                schema,
-                partitionKeys,
+                length,
                 blocks,
                 readBucketNumber,
                 tableBucketNumber,
                 splittable,
                 forceLocalScheduling && allBlocksHaveRealAddress(blocks),
-                columnCoercions,
-                bucketConversion,
-                s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(inputFormat, path)));
+                s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(inputFormat, path),
+                partitionInfo));
     }
 
     private static void checkBlocks(List<InternalHiveBlock> blocks, long start, long length)

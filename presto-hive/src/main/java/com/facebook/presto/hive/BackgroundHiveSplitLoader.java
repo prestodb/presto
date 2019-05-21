@@ -305,15 +305,11 @@ public class BackgroundHiveSplitLoader
 
                 InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
                         targetFilesystem,
-                        partitionName,
                         inputFormat,
-                        schema,
-                        partitionKeys,
                         effectivePredicate,
-                        partition.getColumnCoercions(),
-                        Optional.empty(),
                         isForceLocalScheduling(session),
-                        s3SelectPushdownEnabled);
+                        s3SelectPushdownEnabled,
+                        new HiveSplitPartitionInfo(schema, partitionKeys, partitionName, partition.getColumnCoercions(), Optional.empty()));
                 lastResult = addSplitsToSource(targetSplits, splitFactory);
                 if (stopped) {
                     return COMPLETED_FUTURE;
@@ -341,15 +337,16 @@ public class BackgroundHiveSplitLoader
         }
         InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
                 fs,
-                partitionName,
                 inputFormat,
-                schema,
-                partitionKeys,
                 effectivePredicate,
-                partition.getColumnCoercions(),
-                bucketConversionRequiresWorkerParticipation ? bucketConversion : Optional.empty(),
                 isForceLocalScheduling(session),
-                s3SelectPushdownEnabled);
+                s3SelectPushdownEnabled,
+                new HiveSplitPartitionInfo(
+                        schema,
+                        partitionKeys,
+                        partitionName,
+                        partition.getColumnCoercions(),
+                        bucketConversionRequiresWorkerParticipation ? bucketConversion : Optional.empty()));
 
         // To support custom input formats, we want to call getSplits()
         // on the input format to obtain file splits.
@@ -366,7 +363,7 @@ public class BackgroundHiveSplitLoader
 
         // Bucketed partitions are fully loaded immediately since all files must be loaded to determine the file to bucket mapping
         if (tableBucketInfo.isPresent()) {
-            return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.get(), bucketConversion));
+            return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.get(), bucketConversion, partitionName));
         }
 
         // S3 Select pushdown works at the granularity of individual S3 objects,
@@ -409,7 +406,13 @@ public class BackgroundHiveSplitLoader
                 .iterator();
     }
 
-    private List<InternalHiveSplit> getBucketedSplits(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, BucketSplitInfo bucketSplitInfo, Optional<BucketConversion> bucketConversion)
+    private List<InternalHiveSplit> getBucketedSplits(
+            Path path,
+            FileSystem fileSystem,
+            InternalHiveSplitFactory splitFactory,
+            BucketSplitInfo bucketSplitInfo,
+            Optional<BucketConversion> bucketConversion,
+            String partitionName)
     {
         int readBucketCount = bucketSplitInfo.getReadBucketCount();
         int tableBucketCount = bucketSplitInfo.getTableBucketCount();
@@ -428,7 +431,7 @@ public class BackgroundHiveSplitLoader
                     HIVE_INVALID_BUCKET_FILES,
                     format("Hive table '%s' is corrupt. Found sub-directory in bucket directory for partition: %s",
                             new SchemaTableName(table.getDatabaseName(), table.getTableName()),
-                            splitFactory.getPartitionName()));
+                            partitionName));
         }
 
         // verify we found one file per bucket
@@ -439,7 +442,7 @@ public class BackgroundHiveSplitLoader
                             new SchemaTableName(table.getDatabaseName(), table.getTableName()),
                             files.size(),
                             partitionBucketCount,
-                            splitFactory.getPartitionName()));
+                            partitionName));
         }
 
         // Sort FileStatus objects (instead of, e.g., fileStatus.getPath().toString). This matches org.apache.hadoop.hive.ql.metadata.Table.getSortedPaths
