@@ -16,6 +16,7 @@ package com.facebook.presto.split;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.TableHandle;
@@ -25,6 +26,7 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingContext;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 
 import javax.inject.Inject;
@@ -33,6 +35,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -42,12 +45,14 @@ public class SplitManager
     private final ConcurrentMap<ConnectorId, ConnectorSplitManager> splitManagers = new ConcurrentHashMap<>();
     private final int minScheduleSplitBatchSize;
     private final Metadata metadata;
+    private final boolean preferSplitHostAddresses;
 
     @Inject
-    public SplitManager(MetadataManager metadata, QueryManagerConfig config)
+    public SplitManager(MetadataManager metadata, QueryManagerConfig config, NodeSchedulerConfig nodeSchedulerConfig)
     {
         this.metadata = metadata;
         this.minScheduleSplitBatchSize = config.getMinScheduleSplitBatchSize();
+        this.preferSplitHostAddresses = !nodeSchedulerConfig.getNetworkTopology().equals(LEGACY);
     }
 
     public void addConnectorSplitManager(ConnectorId connectorId, ConnectorSplitManager connectorSplitManager)
@@ -83,7 +88,7 @@ public class SplitManager
                 table.getTransaction(),
                 connectorSession,
                 layout,
-                splitSchedulingStrategy);
+                new SplitSchedulingContext(splitSchedulingStrategy, preferSplitHostAddresses));
 
         SplitSource splitSource = new ConnectorAwareSplitSource(connectorId, table.getTransaction(), source);
         if (minScheduleSplitBatchSize > 1) {
