@@ -65,7 +65,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -349,9 +348,10 @@ public class MockRemoteTaskFactory
         {
             noMoreSplits.add(sourceId);
 
-            boolean allSourcesComplete = Stream.concat(fragment.getPartitionedSourceNodes().stream(), fragment.getRemoteSourceNodes().stream())
-                    .filter(Objects::nonNull)
-                    .map(PlanNode::getId)
+            boolean allSourcesComplete = Stream.concat(
+                    fragment.getPartitionedSources().stream(),
+                    fragment.getRemoteSourceNodes().stream()
+                            .map(PlanNode::getId))
                     .allMatch(noMoreSplits::contains);
 
             if (allSourcesComplete) {

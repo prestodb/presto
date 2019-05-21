@@ -46,9 +46,7 @@ public class PlanFragment
     private final Map<Symbol, Type> symbols;
     private final PartitioningHandle partitioning;
     private final List<PlanNodeId> partitionedSources;
-    private final Set<PlanNodeId> partitionedSourcesSet;
     private final List<Type> types;
-    private final Set<PlanNode> partitionedSourceNodes;
     private final List<RemoteSourceNode> remoteSourceNodes;
     private final PartitioningScheme partitioningScheme;
     private final StageExecutionDescriptor stageExecutionDescriptor;
@@ -74,21 +72,17 @@ public class PlanFragment
         this.symbols = requireNonNull(symbols, "symbols is null");
         this.partitioning = requireNonNull(partitioning, "partitioning is null");
         this.partitionedSources = ImmutableList.copyOf(requireNonNull(partitionedSources, "partitionedSources is null"));
-        this.partitionedSourcesSet = ImmutableSet.copyOf(partitionedSources);
         this.stageExecutionDescriptor = requireNonNull(stageExecutionDescriptor, "stageExecutionDescriptor is null");
         this.materializedExchangeSource = materializedExchangeSource;
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
         this.jsonRepresentation = requireNonNull(jsonRepresentation, "jsonRepresentation is null");
 
-        checkArgument(partitionedSourcesSet.size() == partitionedSources.size(), "partitionedSources contains duplicates");
         checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(partitioningScheme.getOutputLayout()),
                 "Root node outputs (%s) does not include all fragment outputs (%s)", root.getOutputSymbols(), partitioningScheme.getOutputLayout());
 
         types = partitioningScheme.getOutputLayout().stream()
                 .map(symbols::get)
                 .collect(toImmutableList());
-
-        this.partitionedSourceNodes = findSources(root, partitionedSources);
 
         ImmutableList.Builder<RemoteSourceNode> remoteSourceNodes = ImmutableList.builder();
         findRemoteSourceNodes(root, remoteSourceNodes);
@@ -127,11 +121,6 @@ public class PlanFragment
         return partitionedSources;
     }
 
-    public boolean isPartitionedSources(PlanNodeId nodeId)
-    {
-        return partitionedSourcesSet.contains(nodeId);
-    }
-
     @JsonProperty
     public PartitioningScheme getPartitioningScheme()
     {
@@ -167,11 +156,6 @@ public class PlanFragment
     public List<Type> getTypes()
     {
         return types;
-    }
-
-    public Set<PlanNode> getPartitionedSourceNodes()
-    {
-        return partitionedSourceNodes;
     }
 
     public boolean isLeaf()
