@@ -763,11 +763,11 @@ public class SqlQueryScheduler
             }
         }
         catch (Throwable t) {
+            scheduling.set(false);
             queryStateMachine.transitionToFailed(t);
             throw t;
         }
         finally {
-            scheduling.set(false);
             RuntimeException closeError = new RuntimeException();
             for (SqlStageExecution stage : stages) {
                 try {
