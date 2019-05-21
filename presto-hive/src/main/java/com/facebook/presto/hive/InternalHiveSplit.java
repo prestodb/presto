@@ -31,6 +31,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
@@ -42,7 +43,7 @@ public class InternalHiveSplit
             ClassLayout.parseClass(String.class).instanceSize() +
             ClassLayout.parseClass(OptionalInt.class).instanceSize();
 
-    private final String path;
+    private final byte[] path;
     private final long end;
     private final long fileSize;
     private final List<InternalHiveBlock> blocks;
@@ -78,7 +79,7 @@ public class InternalHiveSplit
         requireNonNull(tableBucketNumber, "tableBucketNumber is null");
         requireNonNull(partitionInfo, "partitionInfo is null");
 
-        this.path = path;
+        this.path = path.getBytes(UTF_8);
         this.start = start;
         this.end = end;
         this.fileSize = fileSize;
@@ -93,7 +94,7 @@ public class InternalHiveSplit
 
     public String getPath()
     {
-        return path;
+        return new String(path, UTF_8);
     }
 
     public long getStart()
@@ -203,7 +204,7 @@ public class InternalHiveSplit
     public int getEstimatedSizeInBytes()
     {
         int result = INSTANCE_SIZE;
-        result += path.length() * Character.BYTES;
+        result += path.length;
         result += sizeOfObjectArray(blocks.size());
         for (InternalHiveBlock block : blocks) {
             result += block.getEstimatedSizeInBytes();
@@ -215,7 +216,7 @@ public class InternalHiveSplit
     public String toString()
     {
         return toStringHelper(this)
-                .add("path", path)
+                .add("path", new String(relativeUri, UTF_8))
                 .add("start", start)
                 .add("end", end)
                 .add("fileSize", fileSize)
