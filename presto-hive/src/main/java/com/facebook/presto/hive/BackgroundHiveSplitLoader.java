@@ -108,6 +108,7 @@ public class BackgroundHiveSplitLoader
     private final ConnectorSession session;
     private final ConcurrentLazyQueue<HivePartitionMetadata> partitions;
     private final Deque<Iterator<InternalHiveSplit>> fileIterators = new ConcurrentLinkedDeque<>();
+    private final boolean schedulerUsesHostAddresses;
 
     // Purpose of this lock:
     // * Write lock: when you need a consistent view across partitions, fileIterators, and hiveSplitSource.
@@ -140,7 +141,8 @@ public class BackgroundHiveSplitLoader
             DirectoryLister directoryLister,
             Executor executor,
             int loaderConcurrency,
-            boolean recursiveDirWalkerEnabled)
+            boolean recursiveDirWalkerEnabled,
+            boolean schedulerUsesHostAddresses)
     {
         this.table = table;
         this.compactEffectivePredicate = compactEffectivePredicate;
@@ -154,6 +156,7 @@ public class BackgroundHiveSplitLoader
         this.executor = executor;
         this.partitions = new ConcurrentLazyQueue<>(partitions);
         this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
+        this.schedulerUsesHostAddresses = schedulerUsesHostAddresses;
     }
 
     @Override
@@ -309,7 +312,8 @@ public class BackgroundHiveSplitLoader
                         effectivePredicate,
                         isForceLocalScheduling(session),
                         s3SelectPushdownEnabled,
-                        new HiveSplitPartitionInfo(schema, partitionKeys, partitionName, partition.getColumnCoercions(), Optional.empty()));
+                        new HiveSplitPartitionInfo(schema, partitionKeys, partitionName, partition.getColumnCoercions(), Optional.empty()),
+                        schedulerUsesHostAddresses);
                 lastResult = addSplitsToSource(targetSplits, splitFactory);
                 if (stopped) {
                     return COMPLETED_FUTURE;
@@ -346,7 +350,8 @@ public class BackgroundHiveSplitLoader
                         partitionKeys,
                         partitionName,
                         partition.getColumnCoercions(),
-                        bucketConversionRequiresWorkerParticipation ? bucketConversion : Optional.empty()));
+                        bucketConversionRequiresWorkerParticipation ? bucketConversion : Optional.empty()),
+                schedulerUsesHostAddresses);
 
         // To support custom input formats, we want to call getSplits()
         // on the input format to obtain file splits.
