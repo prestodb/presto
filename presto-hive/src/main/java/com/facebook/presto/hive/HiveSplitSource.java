@@ -55,7 +55,6 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxSplitSize;
-import static com.facebook.presto.hive.HiveSessionProperties.isUseRewindableSplitSource;
 import static com.facebook.presto.hive.HiveSplitSource.StateKind.CLOSED;
 import static com.facebook.presto.hive.HiveSplitSource.StateKind.FAILED;
 import static com.facebook.presto.hive.HiveSplitSource.StateKind.INITIAL;
@@ -110,7 +109,8 @@ class HiveSplitSource
             int maxInitialSplits,
             DataSize maxOutstandingSplitsSize,
             HiveSplitLoader splitLoader,
-            CounterStat highMemorySplitSourceCounter)
+            CounterStat highMemorySplitSourceCounter,
+            boolean useRewindableSplitSource)
     {
         requireNonNull(session, "session is null");
         this.queryId = session.getQueryId();
@@ -124,7 +124,7 @@ class HiveSplitSource
 
         this.maxSplitSize = getMaxSplitSize(session);
         this.maxInitialSplitSize = getMaxInitialSplitSize(session);
-        this.useRewindableSplitSource = isUseRewindableSplitSource(session);
+        this.useRewindableSplitSource = useRewindableSplitSource;
         this.remainingInitialSplits = new AtomicInteger(maxInitialSplits);
     }
 
@@ -185,7 +185,8 @@ class HiveSplitSource
                 maxInitialSplits,
                 maxOutstandingSplitsSize,
                 splitLoader,
-                highMemorySplitSourceCounter);
+                highMemorySplitSourceCounter,
+                false);
     }
 
     public static HiveSplitSource bucketed(
@@ -265,7 +266,8 @@ class HiveSplitSource
                 maxInitialSplits,
                 maxOutstandingSplitsSize,
                 splitLoader,
-                highMemorySplitSourceCounter);
+                highMemorySplitSourceCounter,
+                false);
     }
 
     public static HiveSplitSource bucketedRewindable(
@@ -348,7 +350,8 @@ class HiveSplitSource
                 maxInitialSplits,
                 maxOutstandingSplitsSize,
                 splitLoader,
-                highMemorySplitSourceCounter);
+                highMemorySplitSourceCounter,
+                true);
     }
 
     /**
