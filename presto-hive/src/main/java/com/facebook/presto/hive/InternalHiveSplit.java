@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.HiveSplit.BucketConversion;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.concurrent.NotThreadSafe;
@@ -40,74 +39,56 @@ public class InternalHiveSplit
     // Overhead of ImmutableList and ImmutableMap is not accounted because of its complexity.
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(InternalHiveSplit.class).instanceSize() +
             ClassLayout.parseClass(String.class).instanceSize() +
-            ClassLayout.parseClass(Properties.class).instanceSize() +
             ClassLayout.parseClass(String.class).instanceSize() +
             ClassLayout.parseClass(OptionalInt.class).instanceSize();
-    private static final int INTEGER_INSTANCE_SIZE = ClassLayout.parseClass(Integer.class).instanceSize();
 
     private final String path;
     private final long end;
     private final long fileSize;
-    private final Properties schema;
-    private final List<HivePartitionKey> partitionKeys;
     private final List<InternalHiveBlock> blocks;
-    private final String partitionName;
     private final OptionalInt readBucketNumber;
     private final OptionalInt tableBucketNumber;
     private final boolean splittable;
     private final boolean forceLocalScheduling;
-    private final Map<Integer, HiveTypeName> columnCoercions;
-    private final Optional<BucketConversion> bucketConversion;
     private final boolean s3SelectPushdownEnabled;
+    private final HiveSplitPartitionInfo partitionInfo;
 
     private long start;
     private int currentBlockIndex;
 
     public InternalHiveSplit(
-            String partitionName,
             String path,
             long start,
             long end,
             long fileSize,
-            Properties schema,
-            List<HivePartitionKey> partitionKeys,
             List<InternalHiveBlock> blocks,
             OptionalInt readBucketNumber,
             OptionalInt tableBucketNumber,
             boolean splittable,
             boolean forceLocalScheduling,
-            Map<Integer, HiveTypeName> columnCoercions,
-            Optional<BucketConversion> bucketConversion,
-            boolean s3SelectPushdownEnabled)
+            boolean s3SelectPushdownEnabled,
+            HiveSplitPartitionInfo partitionInfo)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(end >= 0, "length must be positive");
         checkArgument(fileSize >= 0, "fileSize must be positive");
-        requireNonNull(partitionName, "partitionName is null");
         requireNonNull(path, "path is null");
-        requireNonNull(schema, "schema is null");
-        requireNonNull(partitionKeys, "partitionKeys is null");
         requireNonNull(blocks, "blocks is null");
         requireNonNull(readBucketNumber, "readBucketNumber is null");
         requireNonNull(tableBucketNumber, "tableBucketNumber is null");
-        requireNonNull(columnCoercions, "columnCoercions is null");
-        requireNonNull(bucketConversion, "bucketConversion is null");
+        requireNonNull(partitionInfo, "partitionInfo is null");
 
-        this.partitionName = partitionName;
         this.path = path;
         this.start = start;
         this.end = end;
         this.fileSize = fileSize;
-        this.schema = schema;
-        this.partitionKeys = ImmutableList.copyOf(partitionKeys);
         this.blocks = ImmutableList.copyOf(blocks);
         this.readBucketNumber = readBucketNumber;
         this.tableBucketNumber = tableBucketNumber;
         this.splittable = splittable;
         this.forceLocalScheduling = forceLocalScheduling;
-        this.columnCoercions = ImmutableMap.copyOf(columnCoercions);
-        this.bucketConversion = bucketConversion;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
+        this.partitionInfo = partitionInfo;
     }
 
     public String getPath()
@@ -137,17 +118,17 @@ public class InternalHiveSplit
 
     public Properties getSchema()
     {
-        return schema;
+        return partitionInfo.getSchema();
     }
 
     public List<HivePartitionKey> getPartitionKeys()
     {
-        return partitionKeys;
+        return partitionInfo.getPartitionKeys();
     }
 
     public String getPartitionName()
     {
-        return partitionName;
+        return partitionInfo.getPartitionName();
     }
 
     public OptionalInt getReadBucketNumber()
@@ -172,12 +153,12 @@ public class InternalHiveSplit
 
     public Map<Integer, HiveTypeName> getColumnCoercions()
     {
-        return columnCoercions;
+        return partitionInfo.getColumnCoercions();
     }
 
     public Optional<BucketConversion> getBucketConversion()
     {
-        return bucketConversion;
+        return partitionInfo.getBucketConversion();
     }
 
     public InternalHiveBlock currentBlock()
@@ -203,28 +184,29 @@ public class InternalHiveSplit
         }
     }
 
+    public HiveSplitPartitionInfo getPartitionInfo()
+    {
+        return partitionInfo;
+    }
+
     public void reset()
     {
         currentBlockIndex = 0;
         start = 0;
     }
 
+    /**
+     * Estimate the size of this InternalHiveSplit. Note that
+     * PartitionInfo is a shared object, so its memory usage is
+     * tracked separately in HiveSplitSource.
+     */
     public int getEstimatedSizeInBytes()
     {
         int result = INSTANCE_SIZE;
         result += path.length() * Character.BYTES;
-        result += sizeOfObjectArray(partitionKeys.size());
-        for (HivePartitionKey partitionKey : partitionKeys) {
-            result += partitionKey.getEstimatedSizeInBytes();
-        }
         result += sizeOfObjectArray(blocks.size());
         for (InternalHiveBlock block : blocks) {
             result += block.getEstimatedSizeInBytes();
-        }
-        result += partitionName.length() * Character.BYTES;
-        result += sizeOfObjectArray(columnCoercions.size());
-        for (HiveTypeName hiveTypeName : columnCoercions.values()) {
-            result += INTEGER_INSTANCE_SIZE + hiveTypeName.getEstimatedSizeInBytes();
         }
         return result;
     }

@@ -346,6 +346,13 @@ class HiveSplitSource
                         }
                         return revivedSplitCount;
                     }
+
+                    @Override
+                    public int decrementAndGetPartitionReferences(InternalHiveSplit split)
+                    {
+                        // we keep all splits forever so references should never decrease
+                        throw new UnsupportedOperationException("decrementPartitionReferences is not supported for rewindable split sources");
+                    }
                 },
                 maxInitialSplits,
                 maxOutstandingSplitsSize,
@@ -378,6 +385,14 @@ class HiveSplitSource
         if (stateReference.get().getKind() != INITIAL) {
             return immediateFuture(null);
         }
+
+        // The PartitionInfo isn't included in the size of the InternalHiveSplit
+        // because it's a shared object. If this is the first InternalHiveSplit
+        // for that PartitionInfo, add its cost
+        if (split.getPartitionInfo().incrementAndGetReferences() == 1) {
+            estimatedSplitSizeInBytes.addAndGet(split.getPartitionInfo().getEstimatedSizeInBytes());
+        }
+
         if (estimatedSplitSizeInBytes.addAndGet(split.getEstimatedSizeInBytes()) > maxOutstandingSplitsBytes) {
             // TODO: investigate alternative split discovery strategies when this error is hit.
             // This limit should never be hit given there is a limit of maxOutstandingSplits.
@@ -485,6 +500,11 @@ class HiveSplitSource
 
                 if (internalSplit.isDone()) {
                     removedEstimatedSizeInBytes += internalSplit.getEstimatedSizeInBytes();
+
+                    // rewindable split sources keep their splits forever
+                    if (!useRewindableSplitSource && queues.decrementAndGetPartitionReferences(internalSplit) == 0) {
+                        removedEstimatedSizeInBytes += internalSplit.getPartitionInfo().getEstimatedSizeInBytes();
+                    }
                 }
                 else {
                     splitsToInsertBuilder.add(internalSplit);
@@ -607,6 +627,11 @@ class HiveSplitSource
 
         // returns the number of finished InternalHiveSplits that are rewound
         int rewind(OptionalInt bucketNumber);
+
+        default int decrementAndGetPartitionReferences(InternalHiveSplit split)
+        {
+            return split.getPartitionInfo().decrementAndGetReferences();
+        }
     }
 
     static class State
