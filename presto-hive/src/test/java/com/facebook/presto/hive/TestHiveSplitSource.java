@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
+import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -443,7 +444,7 @@ public class TestHiveSplitSource
                     true,
                     false,
                     false,
-                    new HiveSplitPartitionInfo(properties("id", String.valueOf(id)), ImmutableList.of(), "partition-name", ImmutableMap.of(), Optional.empty()));
+                    new HiveSplitPartitionInfo(properties("id", String.valueOf(id)), new Path("path").toUri(), ImmutableList.of(), "partition-name", ImmutableMap.of(), Optional.empty()));
         }
 
         private static Properties properties(String key, String value)

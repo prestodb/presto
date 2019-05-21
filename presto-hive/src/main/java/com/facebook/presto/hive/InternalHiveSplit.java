@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.HiveSplit.BucketConversion;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableList;
+import org.apache.hadoop.fs.Path;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.concurrent.NotThreadSafe;
@@ -45,7 +46,7 @@ public class InternalHiveSplit
     private static final int HOST_ADDRESS_INSTANCE_SIZE = ClassLayout.parseClass(HostAddress.class).instanceSize() +
             ClassLayout.parseClass(String.class).instanceSize();
 
-    private final byte[] path;
+    private final byte[] relativeUri;
     private final long end;
     private final long fileSize;
 
@@ -68,7 +69,7 @@ public class InternalHiveSplit
     private int currentBlockIndex;
 
     public InternalHiveSplit(
-            String path,
+            String relativeUri,
             long start,
             long end,
             long fileSize,
@@ -83,12 +84,12 @@ public class InternalHiveSplit
         checkArgument(start >= 0, "start must be positive");
         checkArgument(end >= 0, "end must be positive");
         checkArgument(fileSize >= 0, "fileSize must be positive");
-        requireNonNull(path, "path is null");
+        requireNonNull(relativeUri, "relativeUri is null");
         requireNonNull(readBucketNumber, "readBucketNumber is null");
         requireNonNull(tableBucketNumber, "tableBucketNumber is null");
         requireNonNull(partitionInfo, "partitionInfo is null");
 
-        this.path = path.getBytes(UTF_8);
+        this.relativeUri = relativeUri.getBytes(UTF_8);
         this.start = start;
         this.end = end;
         this.fileSize = fileSize;
@@ -114,7 +115,8 @@ public class InternalHiveSplit
 
     public String getPath()
     {
-        return new String(path, UTF_8);
+        String relativePathString = new String(relativeUri, UTF_8);
+        return new Path(partitionInfo.getPath().resolve(relativePathString)).toString();
     }
 
     public long getStart()
@@ -221,7 +223,7 @@ public class InternalHiveSplit
     public int getEstimatedSizeInBytes()
     {
         int result = INSTANCE_SIZE;
-        result += path.length;
+        result += relativeUri.length;
         result += blockEndOffsets.length * Long.BYTES;
         result += sizeOfObjectArray(blockAddresses.size());
         for (List<HostAddress> addresses : blockAddresses) {
@@ -237,7 +239,7 @@ public class InternalHiveSplit
     public String toString()
     {
         return toStringHelper(this)
-                .add("path", new String(relativeUri, UTF_8))
+                .add("relativeUri", new String(relativeUri, UTF_8))
                 .add("start", start)
                 .add("end", end)
                 .add("fileSize", fileSize)
