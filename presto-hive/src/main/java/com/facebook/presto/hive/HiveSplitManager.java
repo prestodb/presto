@@ -152,7 +152,11 @@ public class HiveSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layoutHandle, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorTableLayoutHandle layoutHandle,
+            SplitSchedulingContext splitSchedulingContext)
     {
         HiveTableLayoutHandle layout = (HiveTableLayoutHandle) layoutHandle;
         SchemaTableName tableName = layout.getSchemaTableName();
@@ -182,7 +186,7 @@ public class HiveSplitManager
 
         // validate bucket bucketed execution
         Optional<HiveBucketHandle> bucketHandle = layout.getBucketHandle();
-        if ((splitSchedulingStrategy == GROUPED_SCHEDULING) && !bucketHandle.isPresent()) {
+        if ((splitSchedulingContext.getSplitSchedulingStrategy() == GROUPED_SCHEDULING) && !bucketHandle.isPresent()) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "SchedulingPolicy is bucketed, but BucketHandle is not present");
         }
 
@@ -213,7 +217,7 @@ public class HiveSplitManager
                 recursiveDfsWalkerEnabled);
 
         HiveSplitSource splitSource;
-        switch (splitSchedulingStrategy) {
+        switch (splitSchedulingContext.getSplitSchedulingStrategy()) {
             case UNGROUPED_SCHEDULING:
                 splitSource = HiveSplitSource.allAtOnce(
                         session,
@@ -241,7 +245,7 @@ public class HiveSplitManager
                         new CounterStat());
                 break;
             default:
-                throw new IllegalArgumentException("Unknown splitSchedulingStrategy: " + splitSchedulingStrategy);
+                throw new IllegalArgumentException("Unknown splitSchedulingStrategy: " + splitSchedulingContext.getSplitSchedulingStrategy());
         }
         hiveSplitLoader.start(splitSource);
 

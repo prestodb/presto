@@ -45,7 +45,11 @@ public class ExampleSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle handle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle handle,
+            ConnectorSession session,
+            ConnectorTableLayoutHandle layout,
+            SplitSchedulingContext splitSchedulingContext)
     {
         ExampleTableLayoutHandle layoutHandle = (ExampleTableLayoutHandle) layout;
         ExampleTableHandle tableHandle = layoutHandle.getTable();

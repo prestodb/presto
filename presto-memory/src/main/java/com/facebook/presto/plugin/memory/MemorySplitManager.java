@@ -38,7 +38,11 @@ public final class MemorySplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layoutHandle, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorTableLayoutHandle layoutHandle,
+            SplitSchedulingContext splitSchedulingContext)
     {
         MemoryTableLayoutHandle layout = (MemoryTableLayoutHandle) layoutHandle;
 
