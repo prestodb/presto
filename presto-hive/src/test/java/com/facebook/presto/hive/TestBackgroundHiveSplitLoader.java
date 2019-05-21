@@ -261,6 +261,7 @@ public class TestBackgroundHiveSplitLoader
                 new TestingDirectoryLister(files),
                 EXECUTOR,
                 2,
+                false,
                 false);
     }
 
@@ -280,6 +281,7 @@ public class TestBackgroundHiveSplitLoader
                 new TestingDirectoryLister(TEST_FILES),
                 directExecutor(),
                 2,
+                false,
                 false);
     }
 

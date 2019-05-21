@@ -14,10 +14,7 @@
 package com.facebook.presto.hive.util;
 
 import com.facebook.presto.hive.HiveColumnHandle;
-import com.facebook.presto.hive.HivePartitionKey;
-import com.facebook.presto.hive.HiveSplit.BucketConversion;
 import com.facebook.presto.hive.HiveSplitPartitionInfo;
-import com.facebook.presto.hive.HiveTypeName;
 import com.facebook.presto.hive.InternalHiveSplit;
 import com.facebook.presto.hive.InternalHiveSplit.InternalHiveBlock;
 import com.facebook.presto.hive.S3SelectPushdown;
@@ -40,7 +37,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
 import static com.facebook.presto.hive.HiveUtil.isSplittable;
@@ -57,6 +53,7 @@ public class InternalHiveSplitFactory
     private final boolean forceLocalScheduling;
     private final boolean s3SelectPushdownEnabled;
     private final HiveSplitPartitionInfo partitionInfo;
+    private final boolean schedulerUsesHostAddresses;
 
     public InternalHiveSplitFactory(
             FileSystem fileSystem,
@@ -64,7 +61,8 @@ public class InternalHiveSplitFactory
             TupleDomain<HiveColumnHandle> effectivePredicate,
             boolean forceLocalScheduling,
             boolean s3SelectPushdownEnabled,
-            HiveSplitPartitionInfo partitionInfo)
+            HiveSplitPartitionInfo partitionInfo,
+            boolean schedulerUsesHostAddresses)
     {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.inputFormat = requireNonNull(inputFormat, "inputFormat is null");
@@ -72,6 +70,7 @@ public class InternalHiveSplitFactory
         this.forceLocalScheduling = forceLocalScheduling;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.partitionInfo = partitionInfo;
+        this.schedulerUsesHostAddresses = schedulerUsesHostAddresses;
     }
 
     public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, boolean splittable)
@@ -152,14 +151,23 @@ public class InternalHiveSplitFactory
                 // skip zero-width block, except in the special circumstance: slice is empty, and the block covers the empty slice interval.
                 continue;
             }
-            blockBuilder.add(new InternalHiveBlock(blockEnd, getHostAddresses(blockLocation)));
+
+            List<HostAddress> addresses = getHostAddresses(blockLocation);
+            if (!needsHostAddresses(forceLocalScheduling, addresses)) {
+                addresses = ImmutableList.of();
+            }
+            blockBuilder.add(new InternalHiveBlock(blockEnd, addresses));
         }
         List<InternalHiveBlock> blocks = blockBuilder.build();
         checkBlocks(blocks, start, length);
 
         if (!splittable) {
             // not splittable, use the hosts from the first block if it exists
-            blocks = ImmutableList.of(new InternalHiveBlock(start + length, blocks.get(0).getAddresses()));
+            List<HostAddress> addresses = blocks.get(0).getAddresses();
+            if (!needsHostAddresses(forceLocalScheduling, addresses)) {
+                addresses = ImmutableList.of();
+            }
+            blocks = ImmutableList.of(new InternalHiveBlock(start + length, addresses));
         }
 
         return Optional.of(new InternalHiveSplit(
@@ -174,6 +182,11 @@ public class InternalHiveSplitFactory
                 forceLocalScheduling && allBlocksHaveRealAddress(blocks),
                 s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(inputFormat, path),
                 partitionInfo));
+    }
+
+    private boolean needsHostAddresses(boolean forceLocalScheduling, List<HostAddress> addresses)
+    {
+        return schedulerUsesHostAddresses || (forceLocalScheduling && hasRealAddress(addresses));
     }
 
     private static void checkBlocks(List<InternalHiveBlock> blocks, long start, long length)

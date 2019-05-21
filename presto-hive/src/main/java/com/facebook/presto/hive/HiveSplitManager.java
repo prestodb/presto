@@ -214,7 +214,8 @@ public class HiveSplitManager
                 directoryLister,
                 executor,
                 splitLoaderConcurrency,
-                recursiveDfsWalkerEnabled);
+                recursiveDfsWalkerEnabled,
+                splitSchedulingContext.schedulerUsesHostAddresses());
 
         HiveSplitSource splitSource;
         switch (splitSchedulingContext.getSplitSchedulingStrategy()) {
