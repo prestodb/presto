@@ -438,7 +438,9 @@ final class ShowQueriesRewrite
 
             if (node.getType() == TABLE) {
                 if (viewDefinition.isPresent()) {
-                    throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a view, not a table", objectName);
+                    Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
+                    String sql = formatSql(new CreateView(createQualifiedName(objectName), query, false), Optional.of(parameters)).trim();
+                    return singleValueQuery("Create View", sql);
                 }
 
                 Optional<TableHandle> tableHandle = metadata.getTableHandle(session, objectName);
