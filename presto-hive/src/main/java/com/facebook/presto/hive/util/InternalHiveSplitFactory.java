@@ -32,6 +32,7 @@ import org.apache.hadoop.mapred.InputFormat;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -170,8 +171,9 @@ public class InternalHiveSplitFactory
             blocks = ImmutableList.of(new InternalHiveBlock(start + length, addresses));
         }
 
+        URI relativePath = partitionInfo.getPath().relativize(path.toUri());
         return Optional.of(new InternalHiveSplit(
-                pathString,
+                relativePath.toString(),
                 start,
                 start + length,
                 length,

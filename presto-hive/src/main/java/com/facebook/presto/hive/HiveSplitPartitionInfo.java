@@ -14,14 +14,18 @@
 
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.PrestoException;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static java.util.Objects.requireNonNull;
 
@@ -35,6 +39,7 @@ public class HiveSplitPartitionInfo
     private static final int INTEGER_INSTANCE_SIZE = ClassLayout.parseClass(Integer.class).instanceSize();
 
     private final Properties schema;
+    private final URI path;
     private final List<HivePartitionKey> partitionKeys;
     private final String partitionName;
     private final Map<Integer, HiveTypeName> columnCoercions;
@@ -45,16 +50,44 @@ public class HiveSplitPartitionInfo
 
     public HiveSplitPartitionInfo(
             Properties schema,
+            URI path,
             List<HivePartitionKey> partitionKeys,
             String partitionName,
             Map<Integer, HiveTypeName> columnCoercions,
             Optional<HiveSplit.BucketConversion> bucketConversion)
     {
-        this.schema = requireNonNull(schema, "schema is null");
-        this.partitionKeys = requireNonNull(partitionKeys, "partitionKeys is null");
-        this.partitionName = requireNonNull(partitionName, "partitionName is null");
-        this.columnCoercions = requireNonNull(columnCoercions, "columnCoersions is null");
-        this.bucketConversion = requireNonNull(bucketConversion, "bucketConversion is null");
+        requireNonNull(schema, "schema is null");
+        requireNonNull(path, "path is null");
+        requireNonNull(partitionKeys, "partitionKeys is null");
+        requireNonNull(partitionName, "partitionName is null");
+        requireNonNull(columnCoercions, "columnCoersions is null");
+        requireNonNull(bucketConversion, "bucketConversion is null");
+
+        this.schema = schema;
+        this.path = ensurePathHasTrailingSlash(path);
+        this.partitionKeys = partitionKeys;
+        this.partitionName = partitionName;
+        this.columnCoercions = columnCoercions;
+        this.bucketConversion = bucketConversion;
+    }
+
+    // Hadoop path strips trailing slashes from the path string,
+    // and Java URI has a bug where a.resolve(a.relativize(b))
+    // doesn't equal 'b' if 'a' had any components after the last slash
+    // https://bugs.openjdk.java.net/browse/JDK-6523089
+    private static URI ensurePathHasTrailingSlash(URI path)
+    {
+        // since this is the partition path, it's always a directory.
+        // it's safe to add a trailing slash
+        if (!path.getPath().endsWith("/")) {
+            try {
+                path = new URI(path.toString() + "/");
+            }
+            catch (URISyntaxException e) {
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+            }
+        }
+        return path;
     }
 
     public Properties getSchema()
@@ -108,4 +141,8 @@ public class HiveSplitPartitionInfo
         return references.decrementAndGet();
     }
 
+    public URI getPath()
+    {
+        return path;
+    }
 }

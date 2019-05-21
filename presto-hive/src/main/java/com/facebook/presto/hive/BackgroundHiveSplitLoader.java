@@ -312,7 +312,7 @@ public class BackgroundHiveSplitLoader
                         effectivePredicate,
                         isForceLocalScheduling(session),
                         s3SelectPushdownEnabled,
-                        new HiveSplitPartitionInfo(schema, partitionKeys, partitionName, partition.getColumnCoercions(), Optional.empty()),
+                        new HiveSplitPartitionInfo(schema, path.toUri(), partitionKeys, partitionName, partition.getColumnCoercions(), Optional.empty()),
                         schedulerUsesHostAddresses);
                 lastResult = addSplitsToSource(targetSplits, splitFactory);
                 if (stopped) {
@@ -347,6 +347,7 @@ public class BackgroundHiveSplitLoader
                 s3SelectPushdownEnabled,
                 new HiveSplitPartitionInfo(
                         schema,
+                        path.toUri(),
                         partitionKeys,
                         partitionName,
                         partition.getColumnCoercions(),
