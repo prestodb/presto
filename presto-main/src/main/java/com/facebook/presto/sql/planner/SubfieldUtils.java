@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.SubfieldPath;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -36,33 +36,32 @@ public class SubfieldUtils
         return expression instanceof DereferenceExpression || expression instanceof SubscriptExpression;
     }
 
-    public static SubfieldPath deferenceOrSubscriptExpressionToPath(Node expression)
+    public static Subfield deferenceOrSubscriptExpressionToPath(Node expression)
     {
-        ImmutableList.Builder<SubfieldPath.PathElement> elements = ImmutableList.builder();
+        ImmutableList.Builder<Subfield.PathElement> elements = ImmutableList.builder();
         while (true) {
             if (expression instanceof SymbolReference) {
-                elements.add(new SubfieldPath.NestedField(((SymbolReference) expression).getName()));
-                return new SubfieldPath(elements.build().reverse());
+                return new Subfield(((SymbolReference) expression).getName(), elements.build().reverse());
             }
 
             if (expression instanceof DereferenceExpression) {
                 DereferenceExpression dereference = (DereferenceExpression) expression;
-                elements.add(new SubfieldPath.NestedField(dereference.getField().getValue()));
+                elements.add(new Subfield.NestedField(dereference.getField().getValue()));
                 expression = dereference.getBase();
             }
             else if (expression instanceof SubscriptExpression) {
                 SubscriptExpression subscript = (SubscriptExpression) expression;
                 Expression index = subscript.getIndex();
                 if (index instanceof LongLiteral) {
-                    elements.add(new SubfieldPath.LongSubscript(((LongLiteral) index).getValue()));
+                    elements.add(new Subfield.LongSubscript(((LongLiteral) index).getValue()));
                 }
                 else if (index instanceof StringLiteral) {
-                    elements.add(new SubfieldPath.StringSubscript(((StringLiteral) index).getValue()));
+                    elements.add(new Subfield.StringSubscript(((StringLiteral) index).getValue()));
                 }
                 else if (index instanceof GenericLiteral) {
                     GenericLiteral literal = (GenericLiteral) index;
                     if (BIGINT.getTypeSignature().equals(TypeSignature.parseTypeSignature(literal.getType()))) {
-                        elements.add(new SubfieldPath.LongSubscript(Long.valueOf(literal.getValue())));
+                        elements.add(new Subfield.LongSubscript(Long.valueOf(literal.getValue())));
                     }
                     else {
                         return null;

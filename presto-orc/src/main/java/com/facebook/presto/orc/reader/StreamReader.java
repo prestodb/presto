@@ -17,7 +17,7 @@ import com.facebook.presto.orc.Filter;
 import com.facebook.presto.orc.QualifyingSet;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.InputStreamSources;
-import com.facebook.presto.spi.SubfieldPath;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 
@@ -32,7 +32,7 @@ public interface StreamReader
     data. 'depth' is the position corresponding to this StreamReader
     in subfields.get(n).getPath(). If subfields is {"a.b.c", "a.b.d"} and this is the StrucStreamReader of b then depth is 1.
     */
-    default void setReferencedSubfields(List<SubfieldPath> subfields, int depth) {}
+    default void setReferencedSubfields(List<Subfield> subfields, int depth) {}
 
     default void setInputQualifyingSet(QualifyingSet qualifyingSet)
     {

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.SubfieldPath;
+import com.facebook.presto.spi.Subfield;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -29,10 +29,10 @@ import static java.util.Objects.requireNonNull;
 public class SymbolWithSubfieldPath
         extends Symbol
 {
-    private final SubfieldPath path;
+    private final Subfield path;
 
     @JsonCreator
-    public SymbolWithSubfieldPath(@JsonProperty("path") SubfieldPath path)
+    public SymbolWithSubfieldPath(@JsonProperty("path") Subfield path)
     {
         super("");
         requireNonNull(path, "path is null");
@@ -40,7 +40,7 @@ public class SymbolWithSubfieldPath
     }
 
     @JsonProperty("path")
-    public SubfieldPath getSubfieldPath()
+    public Subfield getSubfieldPath()
     {
         return path;
     }

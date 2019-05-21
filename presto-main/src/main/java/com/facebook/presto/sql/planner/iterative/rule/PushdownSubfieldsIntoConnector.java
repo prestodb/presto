@@ -20,7 +20,7 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.scalar.FilterBySubscriptPathsFunction;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.SubfieldPath;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -146,14 +146,14 @@ public class PushdownSubfieldsIntoConnector
                             Map.Entry::getKey,
                             e -> Symbol.from(((FunctionCall) e.getValue()).getArguments().get(0))));
 
-            Map<ColumnHandle, List<SubfieldPath>> subfields = project.getAssignments().getExpressions().stream()
+            Map<ColumnHandle, List<Subfield>> subfields = project.getAssignments().getExpressions().stream()
                     .filter(FunctionCall.class::isInstance)
                     .map(FunctionCall.class::cast)
                     .filter(e -> e.getName().equals(FILTER_BY_SUBSCRIPT_PATHS))
                     .collect(toImmutableMap(
                             e -> tableScan.getAssignments().get(Symbol.from(e.getArguments().get(0))),
                             e -> ((ArrayConstructor) e.getArguments().get(1)).getValues().stream()
-                                    .map(path -> new SubfieldPath(((StringLiteral) path).getValue()))
+                                    .map(path -> new Subfield(((StringLiteral) path).getValue()))
                                     .collect(toImmutableList())));
             if (subfields.isEmpty()) {
                 return Result.empty();

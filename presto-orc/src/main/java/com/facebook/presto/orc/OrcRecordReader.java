@@ -33,7 +33,7 @@ import com.facebook.presto.spi.PageSourceOptions;
 import com.facebook.presto.spi.PageSourceOptions.ErrorSet;
 import com.facebook.presto.spi.PageSourceOptions.FilterFunction;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SubfieldPath;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
@@ -151,7 +151,7 @@ public class OrcRecordReader
 
     public OrcRecordReader(
             Map<Integer, Type> includedColumns,
-            Map<Integer, List<SubfieldPath>> includedSubfields,
+            Map<Integer, List<Subfield>> includedSubfields,
             OrcPredicate predicate,
             long numberOfRows,
             List<StripeInformation> fileStripes,
@@ -599,7 +599,7 @@ public class OrcRecordReader
             List<OrcType> types,
             DateTimeZone hiveStorageTimeZone,
             Map<Integer, Type> includedColumns,
-            Map<Integer, List<SubfieldPath>> includedSubfields,
+            Map<Integer, List<Subfield>> includedSubfields,
             AggregatedMemoryContext systemMemoryContext)
     {
         List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
@@ -611,7 +611,7 @@ public class OrcRecordReader
                 StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
                 streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
 
-                List<SubfieldPath> subfieldPaths = includedSubfields.get(columnId);
+                List<Subfield> subfieldPaths = includedSubfields.get(columnId);
                 if (subfieldPaths != null) {
                     streamReaders[columnId].setReferencedSubfields(subfieldPaths, 0);
                 }

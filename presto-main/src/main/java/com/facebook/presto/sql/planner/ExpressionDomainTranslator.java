@@ -17,10 +17,10 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
-import com.facebook.presto.spi.SubfieldPath;
-import com.facebook.presto.spi.SubfieldPath.LongSubscript;
-import com.facebook.presto.spi.SubfieldPath.NestedField;
-import com.facebook.presto.spi.SubfieldPath.StringSubscript;
+import com.facebook.presto.spi.Subfield;
+import com.facebook.presto.spi.Subfield.LongSubscript;
+import com.facebook.presto.spi.Subfield.NestedField;
+import com.facebook.presto.spi.Subfield.StringSubscript;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.predicate.DiscreteValues;
@@ -123,10 +123,9 @@ public final class ExpressionDomainTranslator
     private static Expression toSymbolExpression(Symbol symbol)
     {
         if (symbol instanceof SymbolWithSubfieldPath) {
-            SubfieldPath path = ((SymbolWithSubfieldPath) symbol).getSubfieldPath();
+            Subfield path = ((SymbolWithSubfieldPath) symbol).getSubfieldPath();
             Expression base = new SymbolReference(symbol.getName());
-            for (int i = 1; i < path.getPathElements().size(); i++) {
-                SubfieldPath.PathElement element = path.getPathElements().get(i);
+            for (Subfield.PathElement element : path.getPath()) {
                 if (element instanceof NestedField) {
                     base = new DereferenceExpression(base, new Identifier(((NestedField) element).getName()));
                 }
@@ -492,7 +491,7 @@ public final class ExpressionDomainTranslator
             }
 
             if (includeSubfields && isDereferenceOrSubscriptExpression(symbolExpression)) {
-                SubfieldPath path = deferenceOrSubscriptExpressionToPath(symbolExpression);
+                Subfield path = deferenceOrSubscriptExpressionToPath(symbolExpression);
                 if (path == null) {
                     return super.visitComparisonExpression(node, complement);
                 }

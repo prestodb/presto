@@ -30,7 +30,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.SubfieldPath;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
@@ -105,7 +105,7 @@ public interface ConnectorMetadata
     default Map<ColumnHandle, ColumnHandle> pushdownSubfieldPruning(
             ConnectorSession session,
             ConnectorTableHandle table,
-            Map<ColumnHandle, List<SubfieldPath>> desiredSubfields)
+            Map<ColumnHandle, List<Subfield>> desiredSubfields)
     {
         return Collections.emptyMap();
     }

@@ -18,7 +18,7 @@ import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
 import com.facebook.presto.orc.metadata.statistics.RangeStatistics;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.SubfieldPath;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Marker;
 import com.facebook.presto.spi.predicate.Range;
@@ -352,7 +352,7 @@ public class TupleDomainOrcPredicate<C>
             C column = entry.getKey();
             checkState(column instanceof ColumnHandle, "Unexpected column handle type: " + column.getClass().getSimpleName());
             ColumnHandle columnHandle = (ColumnHandle) column;
-            SubfieldPath subfield = columnHandle.getSubfieldPath();
+            Subfield subfield = columnHandle.getSubfieldPath();
             ColumnHandle topLevelColumn = subfield == null ? columnHandle : columnHandle.createSubfieldColumnHandle(null);
             ColumnReference<C> columnReference = null;
             for (ColumnReference<C> c : columnReferences) {
@@ -431,7 +431,7 @@ public class TupleDomainOrcPredicate<C>
         throw new UnsupportedOperationException("Unsupported type: " + type.getDisplayName());
     }
 
-    private static void addFilter(Integer ordinal, SubfieldPath subfield, Filter filter, Map<Integer, Filter> filters)
+    private static void addFilter(Integer ordinal, Subfield subfield, Filter filter, Map<Integer, Filter> filters)
     {
         if (subfield == null) {
             filters.put(ordinal, filter);
@@ -445,17 +445,17 @@ public class TupleDomainOrcPredicate<C>
             structFilter = new Filters.StructFilter();
             filters.put(ordinal, structFilter);
         }
-        int depth = subfield.getPathElements().size();
-        for (int i = 1; i < depth; i++) {
-            Filter memberFilter = structFilter.getMember(subfield.getPathElements().get(i));
+        int depth = subfield.getPath().size();
+        for (int i = 0; i < depth; i++) {
+            Filter memberFilter = structFilter.getMember(subfield.getPath().get(i));
             if (i == depth - 1) {
                 verify(memberFilter == null);
-                structFilter.addMember(subfield.getPathElements().get(i), filter);
+                structFilter.addMember(subfield.getPath().get(i), filter);
                 return;
             }
             if (memberFilter == null) {
                 memberFilter = new Filters.StructFilter();
-                structFilter.addMember(subfield.getPathElements().get(i), memberFilter);
+                structFilter.addMember(subfield.getPath().get(i), memberFilter);
                 structFilter = (Filters.StructFilter) memberFilter;
             }
             else {

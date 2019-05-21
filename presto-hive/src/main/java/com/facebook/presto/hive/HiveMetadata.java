@@ -51,7 +51,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.spi.SubfieldPath;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
@@ -1739,14 +1739,14 @@ public class HiveMetadata
     public Map<ColumnHandle, ColumnHandle> pushdownSubfieldPruning(
             ConnectorSession session,
             ConnectorTableHandle table,
-            Map<ColumnHandle, List<SubfieldPath>> desiredSubfields)
+            Map<ColumnHandle, List<Subfield>> desiredSubfields)
     {
         if (!isAriaScanEnabled(session, table)) {
             return ImmutableMap.of();
         }
 
         ImmutableMap.Builder<ColumnHandle, ColumnHandle> newColumnHandles = ImmutableMap.builder();
-        for (Map.Entry<ColumnHandle, List<SubfieldPath>> entry : desiredSubfields.entrySet()) {
+        for (Map.Entry<ColumnHandle, List<Subfield>> entry : desiredSubfields.entrySet()) {
             HiveColumnHandle columnHandle = (HiveColumnHandle) entry.getKey();
             newColumnHandles.put(columnHandle, new HiveColumnHandle(
                     columnHandle.getName(),

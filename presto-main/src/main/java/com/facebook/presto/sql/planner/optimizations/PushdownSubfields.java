@@ -17,9 +17,9 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.operator.scalar.FilterBySubscriptPathsFunction;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.SubfieldPath;
-import com.facebook.presto.spi.SubfieldPath.NestedField;
-import com.facebook.presto.spi.SubfieldPath.PathElement;
+import com.facebook.presto.spi.Subfield;
+import com.facebook.presto.spi.Subfield.NestedField;
+import com.facebook.presto.spi.Subfield.PathElement;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.SubfieldUtils;
 import com.facebook.presto.sql.planner.Symbol;
@@ -58,7 +58,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.SystemSessionProperties.isPushdownSubfields;
-import static com.facebook.presto.spi.SubfieldPath.allSubscripts;
+import static com.facebook.presto.spi.Subfield.allSubscripts;
 import static com.facebook.presto.sql.planner.SubfieldUtils.deferenceOrSubscriptExpressionToPath;
 import static com.facebook.presto.sql.planner.SubfieldUtils.isDereferenceOrSubscriptExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
@@ -95,7 +95,7 @@ public class PushdownSubfields
 
         // TODO Move these into context
         private Set<Symbol> fullColumnUses = new HashSet<>();
-        private Set<SubfieldPath> subfieldPaths = new HashSet<>();
+        private Set<Subfield> subfieldPaths = new HashSet<>();
 
         private Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
         {
@@ -146,9 +146,9 @@ public class PushdownSubfields
                     continue;
                 }
 
-                List<SubfieldPath> subfields = new ArrayList();
-                for (SubfieldPath path : subfieldPaths) {
-                    if (path.getColumnName().equals(entry.getKey().getName())) {
+                List<Subfield> subfields = new ArrayList();
+                for (Subfield path : subfieldPaths) {
+                    if (path.getRootName().equals(entry.getKey().getName())) {
                         subfields.add(path);
                     }
                 }
@@ -160,8 +160,8 @@ public class PushdownSubfields
                 // Compute the leaf subfields. If we have a.b.c and
                 // a.b then a.b is the result. If a path is a prefix
                 // of another path, then the longer is discarded.
-                List<SubfieldPath> leafPaths = new ArrayList();
-                for (SubfieldPath path : subfields) {
+                List<Subfield> leafPaths = new ArrayList();
+                for (Subfield path : subfields) {
                     if (!prefixExists(path, subfields)) {
                         leafPaths.add(path);
                     }
@@ -174,7 +174,7 @@ public class PushdownSubfields
                                 ImmutableList.of(
                                         newSymbol.toSymbolReference(),
                                         new ArrayConstructor(leafPaths.stream()
-                                                .map(p -> new StringLiteral(p.getPath()))
+                                                .map(p -> new StringLiteral(p.serialize()))
                                                 .collect(toImmutableList())))));
                 newAssignments.put(newSymbol, entry.getValue());
                 symbolMapBuilder.put(entry.getKey(), newSymbol);
@@ -234,7 +234,7 @@ public class PushdownSubfields
             return node.replaceChildren(ImmutableList.of(source));
         }
 
-        private static boolean prefixExists(SubfieldPath subfieldPath, Collection<SubfieldPath> subfieldPaths)
+        private static boolean prefixExists(Subfield subfieldPath, Collection<Subfield> subfieldPaths)
         {
             return subfieldPaths.stream()
                     .filter(path -> path.isPrefix(subfieldPath))
@@ -245,9 +245,9 @@ public class PushdownSubfields
         private static final class Context
         {
             private final Consumer<Symbol> symbols;
-            private final Consumer<SubfieldPath> subfieldPaths;
+            private final Consumer<Subfield> subfieldPaths;
 
-            private Context(Consumer<Symbol> symbols, Consumer<SubfieldPath> subfieldPaths)
+            private Context(Consumer<Symbol> symbols, Consumer<Subfield> subfieldPaths)
             {
                 this.symbols = requireNonNull(symbols, "symbols is null");
                 this.subfieldPaths = requireNonNull(subfieldPaths, "subfieldPaths is null");
@@ -304,7 +304,7 @@ public class PushdownSubfields
 
         private void processProjectionPaths(Assignments assignments)
         {
-            ImmutableSet.Builder<SubfieldPath> newPaths = ImmutableSet.builder();
+            ImmutableSet.Builder<Subfield> newPaths = ImmutableSet.builder();
             for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
                 Symbol key = entry.getKey();
                 Expression value = entry.getValue();
@@ -313,26 +313,24 @@ public class PushdownSubfields
                     if (fullColumnUses.contains(key)) {
                         fullColumnUses.add(Symbol.from(valueRef));
                     }
-                    for (SubfieldPath path : subfieldPaths) {
-                        if (key.getName().equals(path.getColumnName())) {
-                            newPaths.add(new SubfieldPath(ImmutableList.<PathElement>builder()
-                                    .add(new NestedField(valueRef.getName()))
-                                    .addAll(path.getPathElements().subList(1, path.getPathElements().size()))
-                                    .build()));
+                    for (Subfield path : subfieldPaths) {
+                        if (key.getName().equals(path.getRootName())) {
+                            newPaths.add(new Subfield(valueRef.getName(), path.getPath()));
                         }
                     }
                 }
                 else if (isDereferenceOrSubscriptExpression(value)) {
                     Expression base = SubfieldUtils.getDerefenceOrSubscriptBase(value);
                     if (base instanceof SymbolReference) {
+                        Subfield subfield = deferenceOrSubscriptExpressionToPath(value);
                         if (fullColumnUses.contains(key)) {
-                            subfieldPaths.add(deferenceOrSubscriptExpressionToPath(value));
+                            subfieldPaths.add(subfield);
                         }
-                        for (SubfieldPath path : subfieldPaths) {
-                            if (key.getName().equals(path.getColumnName())) {
-                                newPaths.add(new SubfieldPath(ImmutableList.<PathElement>builder()
-                                        .addAll(deferenceOrSubscriptExpressionToPath(value).getPathElements())
-                                        .addAll(path.getPathElements().subList(1, path.getPathElements().size()))
+                        for (Subfield path : subfieldPaths) {
+                            if (key.getName().equals(path.getRootName())) {
+                                newPaths.add(new Subfield(subfield.getRootName(), ImmutableList.<PathElement>builder()
+                                        .addAll(subfield.getPath())
+                                        .addAll(path.getPath())
                                         .build()));
                             }
                         }
@@ -350,23 +348,19 @@ public class PushdownSubfields
             // If a result is referenced or is a start of a path, add
             // the unnest source + any subscript as the head of the
             // path.
-            List<SubfieldPath> newPaths = new ArrayList();
+            List<Subfield> newPaths = new ArrayList();
             for (Map.Entry<Symbol, List<Symbol>> entry : unnestSymbols.entrySet()) {
                 String source = entry.getKey().getName();
                 for (Symbol member : entry.getValue()) {
                     if (fullColumnUses.contains(member)) {
-                        newPaths.add(new SubfieldPath(ImmutableList.of(
-                                new NestedField(source),
-                                allSubscripts(),
-                                new NestedField(member.getName()))));
+                        newPaths.add(new Subfield(source, ImmutableList.of(allSubscripts(), new NestedField(member.getName()))));
                     }
                     else {
-                        for (SubfieldPath path : subfieldPaths) {
-                            if (member.getName().equals(path.getColumnName())) {
-                                subfieldPaths.add(new SubfieldPath(ImmutableList.<PathElement>builder()
-                                        .add(new NestedField(source))
+                        for (Subfield path : subfieldPaths) {
+                            if (member.getName().equals(path.getRootName())) {
+                                subfieldPaths.add(new Subfield(source, ImmutableList.<PathElement>builder()
                                         .add(allSubscripts())
-                                        .addAll(path.getPathElements().subList(1, path.getPathElements().size()))
+                                        .addAll(path.getPath())
                                         .build()));
                             }
                         }
@@ -389,7 +383,7 @@ public class PushdownSubfields
             }
 
             if (isDereferenceOrSubscriptExpression(expression)) {
-                SubfieldPath path = deferenceOrSubscriptExpressionToPath(expression);
+                Subfield path = deferenceOrSubscriptExpressionToPath(expression);
                 if (path != null) {
                     subfieldPaths.add(path);
                     return;
