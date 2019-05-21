@@ -23,12 +23,12 @@ public interface ColumnHandle
     /* Returns a ColumnHandle that refers to the subfield at
      * 'path'. Such a ColumnHandle may occur as a key in a TupleDomain
      * for filtering non-top level columns */
-    default ColumnHandle createSubfieldColumnHandle(SubfieldPath path)
+    default ColumnHandle createSubfieldColumnHandle(Subfield path)
     {
         throw new UnsupportedOperationException();
     }
 
-    default SubfieldPath getSubfieldPath()
+    default Subfield getSubfieldPath()
     {
         return null;
     }

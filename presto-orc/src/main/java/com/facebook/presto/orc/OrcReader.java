@@ -21,7 +21,7 @@ import com.facebook.presto.orc.metadata.Metadata;
 import com.facebook.presto.orc.metadata.PostScript;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.stream.OrcInputStream;
-import com.facebook.presto.spi.SubfieldPath;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
@@ -228,14 +228,14 @@ public class OrcReader
         return createRecordReader(includedColumns, ImmutableMap.of(), predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize, false, false);
     }
 
-    public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, Map<Integer, List<SubfieldPath>> includedSubfields, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryUsage, int initialBatchSize)
+    public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, Map<Integer, List<Subfield>> includedSubfields, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryUsage, int initialBatchSize)
     {
         return createRecordReader(includedColumns, includedSubfields, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize, false, false);
     }
 
     public OrcRecordReader createRecordReader(
             Map<Integer, Type> includedColumns,
-            Map<Integer, List<SubfieldPath>> includedSubfields,
+            Map<Integer, List<Subfield>> includedSubfields,
             OrcPredicate predicate,
             long offset,
             long length,

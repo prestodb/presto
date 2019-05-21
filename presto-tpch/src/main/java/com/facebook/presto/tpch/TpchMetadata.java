@@ -27,7 +27,7 @@ import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SortingProperty;
-import com.facebook.presto.spi.SubfieldPath;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.predicate.Domain;
@@ -206,7 +206,7 @@ public class TpchMetadata
     public Map<ColumnHandle, ColumnHandle> pushdownSubfieldPruning(
             ConnectorSession session,
             ConnectorTableHandle table,
-            Map<ColumnHandle, List<SubfieldPath>> desiredSubfields)
+            Map<ColumnHandle, List<Subfield>> desiredSubfields)
     {
         if (!isSubfieldPushdownEnabled(session)) {
             return ImmutableMap.of();

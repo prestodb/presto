@@ -21,9 +21,9 @@ import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
-import com.facebook.presto.spi.SubfieldPath;
-import com.facebook.presto.spi.SubfieldPath.LongSubscript;
-import com.facebook.presto.spi.SubfieldPath.PathElement;
+import com.facebook.presto.spi.Subfield;
+import com.facebook.presto.spi.Subfield.LongSubscript;
+import com.facebook.presto.spi.Subfield.PathElement;
 import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
@@ -44,7 +44,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.StreamReaders.createStreamReader;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
-import static com.facebook.presto.spi.SubfieldPath.allSubscripts;
+import static com.facebook.presto.spi.Subfield.allSubscripts;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;
@@ -84,14 +84,14 @@ public class ListStreamReader
     }
 
     @Override
-    public void setReferencedSubfields(List<SubfieldPath> subfields, int depth)
+    public void setReferencedSubfields(List<Subfield> subfields, int depth)
     {
         ImmutableSet.Builder<Integer> referencedSubscripts = ImmutableSet.builder();
-        ImmutableList.Builder<SubfieldPath> pathsForElement = ImmutableList.builder();
+        ImmutableList.Builder<Subfield> pathsForElement = ImmutableList.builder();
         boolean mayPruneElement = true;
-        for (SubfieldPath subfield : subfields) {
-            List<PathElement> pathElements = subfield.getPathElements();
-            PathElement subscript = pathElements.get(depth + 1);
+        for (Subfield subfield : subfields) {
+            List<PathElement> pathElements = subfield.getPath();
+            PathElement subscript = pathElements.get(depth);
             checkArgument(subscript instanceof LongSubscript, "List reader needs a PathElement with a subscript");
             if (subscript == allSubscripts()) {
                 referencedSubscripts = null;
@@ -99,7 +99,7 @@ public class ListStreamReader
             else {
                 referencedSubscripts.add(toIntExact(((LongSubscript) subscript).getIndex()));
             }
-            if (pathElements.size() > depth + 1) {
+            if (pathElements.size() > depth) {
                 pathsForElement.add(subfield);
             }
             else {

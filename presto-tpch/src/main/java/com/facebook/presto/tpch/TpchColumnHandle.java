@@ -14,7 +14,7 @@
 package com.facebook.presto.tpch;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.SubfieldPath;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -30,13 +30,13 @@ public class TpchColumnHandle
 {
     private final String columnName;
     private final Type type;
-    private final List<SubfieldPath> subfieldPaths;
+    private final List<Subfield> subfieldPaths;
 
     @JsonCreator
     public TpchColumnHandle(
             @JsonProperty("columnName") String columnName,
             @JsonProperty("type") Type type,
-            @JsonProperty("subfieldPaths") List<SubfieldPath> subfieldPaths)
+            @JsonProperty("subfieldPaths") List<Subfield> subfieldPaths)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.type = requireNonNull(type, "type is null");
@@ -61,7 +61,7 @@ public class TpchColumnHandle
     }
 
     @JsonProperty
-    public List<SubfieldPath> getSubfieldPaths()
+    public List<Subfield> getSubfieldPaths()
     {
         return subfieldPaths;
     }

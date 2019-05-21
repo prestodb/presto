@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.spi.SubfieldPath;
+import com.facebook.presto.spi.Subfield.PathElement;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -494,19 +494,19 @@ public class Filters
     public static class StructFilter
             extends Filter
     {
-        private final Map<SubfieldPath.PathElement, Filter> filters = new HashMap();
+        private final Map<PathElement, Filter> filters = new HashMap();
 
         StructFilter()
         {
             super(false);
         }
 
-        public Filter getMember(SubfieldPath.PathElement member)
+        public Filter getMember(PathElement member)
         {
             return filters.get(member);
         }
 
-        public void addMember(SubfieldPath.PathElement member, Filter filter)
+        public void addMember(PathElement member, Filter filter)
         {
             filters.put(member, filter);
         }

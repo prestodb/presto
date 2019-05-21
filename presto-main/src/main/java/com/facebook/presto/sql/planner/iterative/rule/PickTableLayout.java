@@ -23,7 +23,7 @@ import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.operator.scalar.TryFunction;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.SubfieldPath;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -346,8 +346,8 @@ public class PickTableLayout
     private static ColumnHandle toColumnHandle(Map<Symbol, ColumnHandle> assignments, Symbol symbol)
     {
         if (symbol instanceof SymbolWithSubfieldPath) {
-            SubfieldPath path = ((SymbolWithSubfieldPath) symbol).getSubfieldPath();
-            return assignments.get(new Symbol(path.getColumnName())).createSubfieldColumnHandle(path);
+            Subfield path = ((SymbolWithSubfieldPath) symbol).getSubfieldPath();
+            return assignments.get(new Symbol(path.getRootName())).createSubfieldColumnHandle(path);
         }
 
         return assignments.get(symbol);
@@ -355,7 +355,7 @@ public class PickTableLayout
 
     private static Symbol fromColumnHandle(Map<ColumnHandle, Symbol> assignments, ColumnHandle columnHandle)
     {
-        SubfieldPath path = columnHandle.getSubfieldPath();
+        Subfield path = columnHandle.getSubfieldPath();
         if (path != null) {
             return new SymbolWithSubfieldPath(path);
         }
