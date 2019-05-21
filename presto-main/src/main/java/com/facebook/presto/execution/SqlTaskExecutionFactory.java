@@ -90,7 +90,7 @@ public class SqlTaskExecutionFactory
                         TypeProvider.copyOf(fragment.getSymbols()),
                         fragment.getPartitioningScheme(),
                         fragment.getStageExecutionDescriptor(),
-                        fragment.getPartitionedSources(),
+                        fragment.getTableScanSchedulingOrder(),
                         outputBuffer,
                         taskExchangeClientManager);
             }

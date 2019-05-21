@@ -238,7 +238,7 @@ public final class HttpRemoteTask
             this.stats = stats;
             this.isBinaryTransportEnabled = isBinaryTransportEnabled;
 
-            this.tableScanPlanNodeIds = ImmutableSet.copyOf(planFragment.getPartitionedSources());
+            this.tableScanPlanNodeIds = ImmutableSet.copyOf(planFragment.getTableScanSchedulingOrder());
             this.remoteSourcePlanNodeIds = planFragment.getRemoteSourceNodes().stream()
                     .map(PlanNode::getId)
                     .collect(toImmutableSet());
@@ -247,7 +247,7 @@ public final class HttpRemoteTask
                 ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), entry.getKey(), entry.getValue());
                 pendingSplits.put(entry.getKey(), scheduledSplit);
             }
-            pendingSourceSplitCount = planFragment.getPartitionedSources().stream()
+            pendingSourceSplitCount = planFragment.getTableScanSchedulingOrder().stream()
                     .filter(initialSplits::containsKey)
                     .mapToInt(partitionedSource -> initialSplits.get(partitionedSource).size())
                     .sum();

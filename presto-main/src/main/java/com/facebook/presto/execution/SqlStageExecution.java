@@ -229,8 +229,8 @@ public final class SqlStageExecution
             stateMachine.transitionToFinished();
         }
 
-        for (PlanNodeId partitionedSource : stateMachine.getFragment().getPartitionedSources()) {
-            schedulingComplete(partitionedSource);
+        for (PlanNodeId tableScanPlanNodeId : stateMachine.getFragment().getTableScanSchedulingOrder()) {
+            schedulingComplete(tableScanPlanNodeId);
         }
     }
 
@@ -380,7 +380,7 @@ public final class SqlStageExecution
         }
         splitsScheduled.set(true);
 
-        checkArgument(stateMachine.getFragment().getPartitionedSources().containsAll(splits.keySet()), "Invalid splits");
+        checkArgument(stateMachine.getFragment().getTableScanSchedulingOrder().containsAll(splits.keySet()), "Invalid splits");
 
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
         Collection<RemoteTask> tasks = this.tasks.get(node);

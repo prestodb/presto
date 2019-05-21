@@ -298,7 +298,7 @@ public class StageStateMachine
                 blockedReasons.addAll(taskStats.getBlockedReasons());
             }
 
-            if (!fragment.getPartitionedSources().isEmpty()) {
+            if (!fragment.getTableScanSchedulingOrder().isEmpty()) {
                 rawInputDataSize += taskStats.getRawInputDataSize().toBytes();
                 rawInputPositions += taskStats.getRawInputPositions();
             }

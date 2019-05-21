@@ -432,7 +432,7 @@ public class SqlQueryScheduler
             Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(plan.getFragment(), session);
             if (!splitSources.isEmpty()) {
                 // contains local source
-                List<PlanNodeId> schedulingOrder = plan.getFragment().getPartitionedSources();
+                List<PlanNodeId> schedulingOrder = plan.getFragment().getTableScanSchedulingOrder();
                 ConnectorId connectorId = partitioningHandle.getConnectorId().orElseThrow(IllegalStateException::new);
                 List<ConnectorPartitionHandle> connectorPartitionHandles;
                 boolean groupedExecutionForStage = plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution();

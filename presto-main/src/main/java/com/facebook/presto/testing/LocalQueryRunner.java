@@ -181,6 +181,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -742,7 +743,7 @@ public class LocalQueryRunner
                 subplan.getFragment().getRoot(),
                 subplan.getFragment().getPartitioningScheme().getOutputLayout(),
                 plan.getTypes(),
-                subplan.getFragment().getPartitionedSources(),
+                subplan.getFragment().getTableScanSchedulingOrder(),
                 outputFactory,
                 new TaskExchangeClientManager(ignored -> {
                     throw new UnsupportedOperationException();
@@ -784,11 +785,11 @@ public class LocalQueryRunner
         }
 
         // add sources to the drivers
-        ImmutableSet<PlanNodeId> partitionedSources = ImmutableSet.copyOf(subplan.getFragment().getPartitionedSources());
+        Set<PlanNodeId> tableScanPlanNodeIds = ImmutableSet.copyOf(subplan.getFragment().getTableScanSchedulingOrder());
         for (TaskSource source : sources) {
             DriverFactory driverFactory = driverFactoriesBySource.get(source.getPlanNodeId());
             checkState(driverFactory != null);
-            boolean partitioned = partitionedSources.contains(driverFactory.getSourceId().get());
+            boolean partitioned = tableScanPlanNodeIds.contains(driverFactory.getSourceId().get());
             for (ScheduledSplit split : source.getSplits()) {
                 DriverContext driverContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), partitioned).addDriverContext();
                 Driver driver = driverFactory.createDriver(driverContext);
