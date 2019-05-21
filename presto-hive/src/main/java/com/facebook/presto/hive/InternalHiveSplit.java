@@ -54,8 +54,11 @@ public class InternalHiveSplit
     private final long[] blockEndOffsets;
     private final List<List<HostAddress>> blockAddresses;
 
-    private final OptionalInt readBucketNumber;
-    private final OptionalInt tableBucketNumber;
+    // stored as ints rather than Optionals to save memory
+    // -1 indicates an absent value
+    private final int readBucketNumber;
+    private final int tableBucketNumber;
+
     private final boolean splittable;
     private final boolean forceLocalScheduling;
     private final boolean s3SelectPushdownEnabled;
@@ -89,8 +92,8 @@ public class InternalHiveSplit
         this.start = start;
         this.end = end;
         this.fileSize = fileSize;
-        this.readBucketNumber = readBucketNumber;
-        this.tableBucketNumber = tableBucketNumber;
+        this.readBucketNumber = readBucketNumber.orElse(-1);
+        this.tableBucketNumber = tableBucketNumber.orElse(-1);
         this.splittable = splittable;
         this.forceLocalScheduling = forceLocalScheduling;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
@@ -151,12 +154,12 @@ public class InternalHiveSplit
 
     public OptionalInt getReadBucketNumber()
     {
-        return readBucketNumber;
+        return readBucketNumber >= 0 ? OptionalInt.of(readBucketNumber) : OptionalInt.empty();
     }
 
     public OptionalInt getTableBucketNumber()
     {
-        return tableBucketNumber;
+        return tableBucketNumber >= 0 ? OptionalInt.of(tableBucketNumber) : OptionalInt.empty();
     }
 
     public boolean isSplittable()
