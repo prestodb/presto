@@ -591,7 +591,7 @@ public class BackgroundHiveSplitLoader
          * <ul>
          * <li>Filter on "$bucket" column. e.g. {@code "$bucket" between 0 and 100}
          * <li>Single-value equality filter on all bucket columns. e.g. for a table with two bucketing columns,
-         *     {@code bucketCol1 = 'a' AND bucketCol2 = 123}
+         * {@code bucketCol1 = 'a' AND bucketCol2 = 123}
          * </ul>
          */
         public boolean isTableBucketEnabled(int tableBucketNumber)
