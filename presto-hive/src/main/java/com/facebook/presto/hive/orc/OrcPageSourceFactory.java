@@ -19,6 +19,8 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.AbstractFilterFunction;
+import com.facebook.presto.orc.ErrorSet;
 import com.facebook.presto.orc.Filter;
 import com.facebook.presto.orc.Filters;
 import com.facebook.presto.orc.OrcDataSource;
@@ -33,8 +35,6 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageSourceOptions;
-import com.facebook.presto.spi.PageSourceOptions.AbstractFilterFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.predicate.Domain;
@@ -382,7 +382,7 @@ public class OrcPageSourceFactory
         }
 
         @Override
-        public int filter(Page page, int[] outputRows, PageSourceOptions.ErrorSet errorSet)
+        public int filter(Page page, int[] outputRows, ErrorSet errorSet)
         {
             int positionCount = page.getPositionCount();
             if (outputRows.length < positionCount) {

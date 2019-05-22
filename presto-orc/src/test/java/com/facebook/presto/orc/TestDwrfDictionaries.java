@@ -15,7 +15,6 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageSourceOptions;
-import com.facebook.presto.spi.PageSourceOptions.AbstractFilterFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -77,7 +76,6 @@ public class TestDwrfDictionaries
                         new int[] {0},
                         new int[] {0},
                         true,
-                        new AbstractFilterFunction[0],
                         512 * 1024);
             recordReader.pushdownFilterAndProjection(options, new int[] {0}, ImmutableList.of(type), new Block[1]);
 

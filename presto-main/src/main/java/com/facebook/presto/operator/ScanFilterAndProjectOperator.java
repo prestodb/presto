@@ -17,14 +17,10 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.CursorProcessorOutput;
-import com.facebook.presto.operator.project.DictionaryAwarePageFilter;
 import com.facebook.presto.operator.project.MergingPageOutput;
-import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.PageProcessor;
-import com.facebook.presto.operator.project.SelectedPositions;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PageSourceOptions;
@@ -33,7 +29,6 @@ import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.LazyBlock;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.EmptySplit;
@@ -47,7 +42,6 @@ import io.airlift.units.DataSize;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -86,7 +80,6 @@ public class ScanFilterAndProjectOperator
     private long completedBytes;
     private long readTimeNanos;
 
-    private boolean filterAndProjectPushedDown;
     private boolean reusePages;
 
     protected ScanFilterAndProjectOperator(
@@ -221,74 +214,6 @@ public class ScanFilterAndProjectOperator
         throw new UnsupportedOperationException();
     }
 
-    private static class FilterExpression
-            extends PageSourceOptions.AbstractFilterFunction
-    {
-        final ConnectorSession session;
-        final PageFilter filter;
-
-        FilterExpression(ConnectorSession session, PageFilter filter)
-        {
-            super(filter.getInputChannels().getInputChannels().stream().mapToInt(Integer::intValue).toArray(), 1);
-            this.session = session;
-            this.filter = filter;
-        }
-
-        @Override
-        public boolean isDeterministic()
-        {
-            return filter.isDeterministic();
-        }
-
-        @Override
-        public int filter(Page page, int[] outputRows, PageSourceOptions.ErrorSet errorSet)
-        {
-            int positionCount = page.getPositionCount();
-            if (outputRows.length < positionCount) {
-                throw new IllegalArgumentException("outputRows too small");
-            }
-            try {
-                SelectedPositions positions = filter.filter(session, page);
-                int offset = positions.getOffset();
-                int size = positions.size();
-                if (!positions.isList()) {
-                    for (int i = 0; i < size; i++) {
-                        outputRows[i] = i + offset;
-                    }
-                }
-                else {
-                    int[] positionsArray = positions.getPositions();
-                    for (int i = 0; i < size; i++) {
-                        outputRows[i] = positionsArray[i] + offset;
-                    }
-                }
-                return size;
-            }
-            catch (RuntimeException e) {
-                /* Ignore the errirm try next row by row and track errors */
-            }
-
-            PageFilter rowFilter = filter;
-            if (filter instanceof DictionaryAwarePageFilter) {
-                DictionaryAwarePageFilter dictionaryFilter = (DictionaryAwarePageFilter) filter;
-                rowFilter = dictionaryFilter.getFilter();
-            }
-            int numTrue = 0;
-            for (int i = 0; i < positionCount; i++) {
-                try {
-                    if (rowFilter.filter(session, page, i)) {
-                        outputRows[numTrue++] = i;
-                    }
-                }
-                catch (RuntimeException e) {
-                    outputRows[numTrue++] = i;
-                    errorSet.addError(i, positionCount, e);
-                }
-            }
-            return numTrue;
-        }
-    }
-
     @Override
     public Page getOutput()
     {
@@ -306,70 +231,13 @@ public class ScanFilterAndProjectOperator
                 setupAria();
             }
         }
+
         if (pageSource != null) {
             return processPageSource();
         }
         else {
             return processColumnSource();
         }
-    }
-
-    private void setupAria()
-    {
-        if (!isAriaScanEnabled(operatorContext.getSession())) {
-            return;
-        }
-
-        int[] projectionPushdownChannels = pageProcessor.getIdentityInputToOutputChannel();
-        boolean projectionPushedDown = projectionPushdownChannels != null;
-
-        int[] projectionInputChannels = pageProcessor.getOutputChannels();
-        int maxChannel = maxChannel(projectionInputChannels);
-
-        List<PageFilter> pageFilters = pageProcessor.getFilterWithoutTupleDomain();
-        FilterExpression[] filters = new FilterExpression[pageFilters.size()];
-        for (int i = 0; i < pageFilters.size(); i++) {
-            filters[i] = new FilterExpression(operatorContext.getSession().toConnectorSession(), pageFilters.get(i));
-            maxChannel = Math.max(maxChannel, maxChannel(filters[i].getInputChannels()));
-        }
-
-        int[] channels = new int[maxChannel + 1];
-        Arrays.fill(channels, -1);
-        populateChannels(channels, projectionInputChannels);
-        for (int i = 0; i < filters.length; i++) {
-            populateChannels(channels, filters[i].getInputChannels());
-        }
-
-        PageSourceOptions options = new PageSourceOptions(
-                channels,
-                projectionPushdownChannels == null ? channels : projectionPushdownChannels,
-                reusePages,
-                filters,
-                mergingOutput.getMinPageSizeInBytes());
-
-        boolean filterPushedDown = pageSource.pushdownFilterAndProjection(options);
-        if (filterPushedDown && projectionPushedDown) {
-            filterAndProjectPushedDown = true;
-        }
-        else if (filterPushedDown && !projectionPushedDown) {
-            pageProcessor.setFilterIsPushedDown();
-        }
-    }
-
-    private static void populateChannels(int[] allChannels, int[] selectedChannels)
-    {
-        for (int channel : selectedChannels) {
-            allChannels[channel] = channel;
-        }
-    }
-
-    private static int maxChannel(int[] channels)
-    {
-        int maxChannel = -1;
-        for (int channel : channels) {
-            maxChannel = Math.max(maxChannel, channel);
-        }
-        return maxChannel;
     }
 
     private Page processColumnSource()
@@ -412,19 +280,6 @@ public class ScanFilterAndProjectOperator
             pageSourceMemoryContext.setBytes(pageSource.getSystemMemoryUsage());
 
             if (page != null) {
-                if (!filterAndProjectPushedDown) {
-                    Block[] blocks = new Block[page.getChannelCount()];
-                    for (int i = 0; i < blocks.length; i++) {
-                        if (page.getBlock(i) != null) {
-                            blocks[i] = page.getBlock(i);
-                        }
-                        else {
-                            Block nullValueBlock = pageBuilder.getType(i).createBlockBuilder(null, 1) .appendNull() .build();
-                            blocks[i] = new RunLengthEncodedBlock(nullValueBlock, page.getPositionCount());
-                        }
-                    }
-                    page = new Page(page.getPositionCount(), blocks);
-                }
                 page = recordProcessedInput(page);
 
                 // update operator stats
@@ -433,9 +288,6 @@ public class ScanFilterAndProjectOperator
                 operatorContext.recordRawInputWithTiming(endCompletedBytes - completedBytes, endReadTimeNanos - readTimeNanos);
                 completedBytes = endCompletedBytes;
                 readTimeNanos = endReadTimeNanos;
-                if (filterAndProjectPushedDown) {
-                    return page;
-                }
 
                 Iterator<Optional<Page>> output = pageProcessor.process(operatorContext.getSession().toConnectorSession(), yieldSignal, pageProcessorMemoryContext, page);
                 mergingOutput.addInput(output);
@@ -540,6 +392,25 @@ public class ScanFilterAndProjectOperator
         {
             closed = true;
         }
+    }
+
+    private void setupAria()
+    {
+        if (!isAriaScanEnabled(operatorContext.getSession())) {
+            return;
+        }
+
+        int[] channels = new int[columns.size()];
+        for (int i = 0; i < channels.length; i++) {
+            channels[i] = i;
+        }
+
+        PageSourceOptions options = new PageSourceOptions(
+                channels,
+                channels,
+                reusePages,
+                mergingOutput.getMinPageSizeInBytes());
+        pageSource.pushdownFilterAndProjection(options);
     }
 
     @Override

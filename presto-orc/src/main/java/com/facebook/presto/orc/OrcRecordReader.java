@@ -30,8 +30,6 @@ import com.facebook.presto.orc.reader.StreamReaders;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageSourceOptions;
-import com.facebook.presto.spi.PageSourceOptions.AbstractFilterFunction;
-import com.facebook.presto.spi.PageSourceOptions.ErrorSet;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.Block;
@@ -857,7 +855,7 @@ public class OrcRecordReader
             inputs[i] = constantBlocks[channels[i]];
         }
         int[] filterResults = new int[qualifyingSet.getPositionCount()];
-        PageSourceOptions.ErrorSet errors = qualifyingSet.getOrCreateErrorSet();
+        ErrorSet errors = qualifyingSet.getOrCreateErrorSet();
         int numHits = filter.filter(new Page(qualifyingSet.getPositionCount(), inputs), filterResults, errors);
         qualifyingSet.compactPositionsAndErrors(filterResults, numHits);
     }
