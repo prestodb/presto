@@ -225,10 +225,4 @@ public class HiveColumnHandle
     {
         return column.getHiveColumnIndex() == BUCKET_COLUMN_INDEX;
     }
-
-    @Override
-    public ColumnHandle createSubfieldColumnHandle(Subfield path)
-    {
-        return new HiveColumnHandle(name, hiveType, typeName, hiveColumnIndex, columnType, comment, path, null);
-    }
 }
