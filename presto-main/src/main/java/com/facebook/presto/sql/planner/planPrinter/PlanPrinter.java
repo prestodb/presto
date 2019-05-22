@@ -411,8 +411,8 @@ public class PlanPrinter
             NodeRepresentation nodeOutput = addNode(node,
                     "SemiJoin",
                     format("[%s = %s]%s",
-                            node.getSourceJoinSymbol(),
-                            node.getFilteringSourceJoinSymbol(),
+                            node.getSourceJoinVariable(),
+                            node.getFilteringSourceJoinVariable(),
                             formatHash(node.getSourceHashVariable(), node.getFilteringSourceHashVariable())));
             node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetailsLine("Distribution: %s", distributionType));
             node.getSource().accept(this, context);

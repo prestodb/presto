@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -82,12 +81,12 @@ public class TestPruneSemiJoinColumns
 
     private static PlanNode buildProjectedSemiJoin(PlanBuilder p, Predicate<VariableReferenceExpression> projectionFilter)
     {
-        Symbol match = p.symbol("match");
-        Symbol leftKey = p.symbol("leftKey");
+        VariableReferenceExpression match = p.variable("match");
+        VariableReferenceExpression leftKey = p.variable("leftKey");
         VariableReferenceExpression leftKeyHash = p.variable("leftKeyHash");
         VariableReferenceExpression leftValue = p.variable("leftValue");
-        Symbol rightKey = p.symbol("rightKey");
-        List<VariableReferenceExpression> outputs = ImmutableList.of(p.variable(match), p.variable(leftKey), leftKeyHash, leftValue);
+        VariableReferenceExpression rightKey = p.variable("rightKey");
+        List<VariableReferenceExpression> outputs = ImmutableList.of(match, leftKey, leftKeyHash, leftValue);
         return p.project(
                 Assignments.identity(
                         outputs.stream()
@@ -99,7 +98,7 @@ public class TestPruneSemiJoinColumns
                         match,
                         Optional.of(leftKeyHash),
                         Optional.empty(),
-                        p.values(p.variable(leftKey), leftKeyHash, leftValue),
+                        p.values(leftKey, leftKeyHash, leftValue),
                         p.values(rightKey)));
     }
 }

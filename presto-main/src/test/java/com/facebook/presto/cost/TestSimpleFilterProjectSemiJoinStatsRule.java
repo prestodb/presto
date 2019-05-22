@@ -15,6 +15,7 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -108,10 +109,10 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
     public void testFilterPositiveNarrowingProjectSemiJoin(boolean toRowExpression)
     {
         tester().assertStatsFor(pb -> {
-            Symbol a = pb.symbol("a", BIGINT);
-            Symbol b = pb.symbol("b", BIGINT);
-            Symbol c = pb.symbol("c", BIGINT);
-            Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
+            VariableReferenceExpression a = pb.variable("a", BIGINT);
+            VariableReferenceExpression b = pb.variable("b", BIGINT);
+            VariableReferenceExpression c = pb.variable("c", BIGINT);
+            VariableReferenceExpression semiJoinOutput = pb.variable("sjo", BOOLEAN);
 
             PlanNode semiJoinNode = pb.semiJoin(
                     pb.values(LEFT_SOURCE_ID, a, b),
@@ -126,9 +127,9 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
             if (toRowExpression) {
                 return pb.filter(
                         TRANSLATOR.translateAndOptimize(expression("sjo"), pb.getTypes()),
-                        pb.project(Assignments.identity(pb.variable(semiJoinOutput), pb.variable(a)), semiJoinNode));
+                        pb.project(Assignments.identity(semiJoinOutput, a), semiJoinNode));
             }
-            return pb.filter(expression("sjo"), pb.project(Assignments.identity(pb.variable(semiJoinOutput), pb.variable(a)), semiJoinNode));
+            return pb.filter(expression("sjo"), pb.project(Assignments.identity(semiJoinOutput, a), semiJoinNode));
         })
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
@@ -189,10 +190,10 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
     private StatsCalculatorAssertion getStatsCalculatorAssertion(Expression expression, boolean toRowExpression)
     {
         return tester().assertStatsFor(pb -> {
-            Symbol a = pb.symbol("a", BIGINT);
-            Symbol b = pb.symbol("b", BIGINT);
-            Symbol c = pb.symbol("c", BIGINT);
-            Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
+            VariableReferenceExpression a = pb.variable("a", BIGINT);
+            VariableReferenceExpression b = pb.variable("b", BIGINT);
+            VariableReferenceExpression c = pb.variable("c", BIGINT);
+            VariableReferenceExpression semiJoinOutput = pb.variable("sjo", BOOLEAN);
 
             PlanNode semiJoinNode = pb.semiJoin(
                     pb.values(LEFT_SOURCE_ID, a, b),

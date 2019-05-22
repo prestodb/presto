@@ -242,14 +242,14 @@ public class PruneUnreferencedOutputs
         public PlanNode visitSemiJoin(SemiJoinNode node, RewriteContext<Set<Symbol>> context)
         {
             ImmutableSet.Builder<Symbol> sourceInputsBuilder = ImmutableSet.builder();
-            sourceInputsBuilder.addAll(context.get()).add(node.getSourceJoinSymbol());
+            sourceInputsBuilder.addAll(context.get()).add(new Symbol(node.getSourceJoinVariable().getName()));
             if (node.getSourceHashVariable().isPresent()) {
                 sourceInputsBuilder.add(new Symbol(node.getSourceHashVariable().get().getName()));
             }
             Set<Symbol> sourceInputs = sourceInputsBuilder.build();
 
             ImmutableSet.Builder<Symbol> filteringSourceInputBuilder = ImmutableSet.builder();
-            filteringSourceInputBuilder.add(node.getFilteringSourceJoinSymbol());
+            filteringSourceInputBuilder.add(new Symbol(node.getFilteringSourceJoinVariable().getName()));
             if (node.getFilteringSourceHashVariable().isPresent()) {
                 filteringSourceInputBuilder.add(new Symbol(node.getFilteringSourceHashVariable().get().getName()));
             }
@@ -261,8 +261,8 @@ public class PruneUnreferencedOutputs
             return new SemiJoinNode(node.getId(),
                     source,
                     filteringSource,
-                    node.getSourceJoinSymbol(),
-                    node.getFilteringSourceJoinSymbol(),
+                    node.getSourceJoinVariable(),
+                    node.getFilteringSourceJoinVariable(),
                     node.getSemiJoinOutput(),
                     node.getSourceHashVariable(),
                     node.getFilteringSourceHashVariable(),

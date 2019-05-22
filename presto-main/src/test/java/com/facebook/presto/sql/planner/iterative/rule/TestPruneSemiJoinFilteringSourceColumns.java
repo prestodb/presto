@@ -39,7 +39,7 @@ public class TestPruneSemiJoinFilteringSourceColumns
     public void testNotAllColumnsReferenced()
     {
         tester().assertThat(new PruneSemiJoinFilteringSourceColumns())
-                .on(p -> buildSemiJoin(p, symbol -> true))
+                .on(p -> buildSemiJoin(p, variable -> true))
                 .matches(
                         semiJoin("leftKey", "rightKey", "match",
                                 values("leftKey"),
@@ -54,30 +54,29 @@ public class TestPruneSemiJoinFilteringSourceColumns
     public void testAllColumnsNeeded()
     {
         tester().assertThat(new PruneSemiJoinFilteringSourceColumns())
-                .on(p -> buildSemiJoin(p, symbol -> !symbol.getName().equals("rightValue")))
+                .on(p -> buildSemiJoin(p, variable -> !variable.getName().equals("rightValue")))
                 .doesNotFire();
     }
 
-    private static PlanNode buildSemiJoin(PlanBuilder p, Predicate<Symbol> filteringSourceSymbolFilter)
+    private static PlanNode buildSemiJoin(PlanBuilder p, Predicate<VariableReferenceExpression> filteringSourceVariableFilter)
     {
-        Symbol match = p.symbol("match");
-        Symbol leftKey = p.symbol("leftKey");
-        Symbol rightKey = p.symbol("rightKey");
-        Symbol rightKeyHash = p.symbol("rightKeyHash");
-        Symbol rightValue = p.symbol("rightValue");
-        List<Symbol> filteringSourceSymbols = ImmutableList.of(rightKey, rightKeyHash, rightValue);
-        List<Symbol> filteredSourceSymbols = filteringSourceSymbols.stream().filter(filteringSourceSymbolFilter).collect(toImmutableList());
-        List<VariableReferenceExpression> filteredSourceVariables = filteredSourceSymbols.stream().map(symbol -> p.variable(symbol)).collect(toImmutableList());
+        VariableReferenceExpression match = p.variable("match");
+        VariableReferenceExpression leftKey = p.variable("leftKey");
+        VariableReferenceExpression rightKey = p.variable("rightKey");
+        VariableReferenceExpression rightKeyHash = p.variable("rightKeyHash");
+        VariableReferenceExpression rightValue = p.variable("rightValue");
+        List<VariableReferenceExpression> filteringSourceVariables = ImmutableList.of(rightKey, rightKeyHash, rightValue);
+        List<VariableReferenceExpression> filteredSourceVariables = filteringSourceVariables.stream().filter(filteringSourceVariableFilter).collect(toImmutableList());
 
         return p.semiJoin(
                 leftKey,
                 rightKey,
                 match,
                 Optional.empty(),
-                Optional.of(p.variable(rightKeyHash)),
+                Optional.of(rightKeyHash),
                 p.values(leftKey),
                 p.values(
-                        filteredSourceSymbols,
+                        filteredSourceVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()),
                         filteredSourceVariables,
                         ImmutableList.of()));
     }

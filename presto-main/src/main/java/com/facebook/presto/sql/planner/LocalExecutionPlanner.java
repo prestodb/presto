@@ -2133,8 +2133,8 @@ public class LocalExecutionPlanner
             checkState(buildSource.getPipelineExecutionStrategy() == probeSource.getPipelineExecutionStrategy(), "build and probe have different pipelineExecutionStrategy");
             checkArgument(buildContext.getDriverInstanceCount().orElse(1) == 1, "Expected local execution to not be parallel");
 
-            int probeChannel = probeSource.getLayout().get(node.getSourceJoinSymbol());
-            int buildChannel = buildSource.getLayout().get(node.getFilteringSourceJoinSymbol());
+            int probeChannel = probeSource.getLayout().get(new Symbol(node.getSourceJoinVariable().getName()));
+            int buildChannel = buildSource.getLayout().get(new Symbol(node.getFilteringSourceJoinVariable().getName()));
 
             Optional<Integer> buildHashChannel = node.getFilteringSourceHashVariable().map(variableChannelGetter(buildSource));
 
@@ -2160,7 +2160,7 @@ public class LocalExecutionPlanner
             // Source channels are always laid out first, followed by the boolean output symbol
             Map<Symbol, Integer> outputMappings = ImmutableMap.<Symbol, Integer>builder()
                     .putAll(probeSource.getLayout())
-                    .put(node.getSemiJoinOutput(), probeSource.getLayout().size())
+                    .put(new Symbol(node.getSemiJoinOutput().getName()), probeSource.getLayout().size())
                     .build();
 
             HashSemiJoinOperatorFactory operator = new HashSemiJoinOperatorFactory(context.getNextOperatorId(), node.getId(), setProvider, probeSource.getTypes(), probeChannel);

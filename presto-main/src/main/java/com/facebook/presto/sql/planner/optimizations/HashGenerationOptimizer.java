@@ -379,7 +379,7 @@ public class HashGenerationOptimizer
         @Override
         public PlanWithProperties visitSemiJoin(SemiJoinNode node, HashComputationSet parentPreference)
         {
-            Optional<HashComputation> sourceHashComputation = computeHash(ImmutableList.of(node.getSourceJoinSymbol()));
+            Optional<HashComputation> sourceHashComputation = computeHash(ImmutableList.of(new Symbol(node.getSourceJoinVariable().getName())));
             PlanWithProperties source = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(sourceHashComputation),
@@ -387,7 +387,7 @@ public class HashGenerationOptimizer
                     new HashComputationSet(sourceHashComputation));
             VariableReferenceExpression sourceHashVariable = source.getRequiredHashVariable(sourceHashComputation.get());
 
-            Optional<HashComputation> filterHashComputation = computeHash(ImmutableList.of(node.getFilteringSourceJoinSymbol()));
+            Optional<HashComputation> filterHashComputation = computeHash(ImmutableList.of(new Symbol(node.getFilteringSourceJoinVariable().getName())));
             HashComputationSet requiredHashes = new HashComputationSet(filterHashComputation);
             PlanWithProperties filteringSource = planAndEnforce(node.getFilteringSource(), requiredHashes, true, requiredHashes);
             VariableReferenceExpression filteringSourceHashVariable = filteringSource.getRequiredHashVariable(filterHashComputation.get());
@@ -397,8 +397,8 @@ public class HashGenerationOptimizer
                             node.getId(),
                             source.getNode(),
                             filteringSource.getNode(),
-                            node.getSourceJoinSymbol(),
-                            node.getFilteringSourceJoinSymbol(),
+                            node.getSourceJoinVariable(),
+                            node.getFilteringSourceJoinVariable(),
                             node.getSemiJoinOutput(),
                             Optional.of(sourceHashVariable),
                             Optional.of(filteringSourceHashVariable),

@@ -887,8 +887,8 @@ public class AddExchanges
 
             SemiJoinNode.DistributionType distributionType = node.getDistributionType().orElseThrow(() -> new IllegalArgumentException("distributionType not yet set"));
             if (distributionType == SemiJoinNode.DistributionType.PARTITIONED) {
-                List<VariableReferenceExpression> sourceVariables = ImmutableList.of(toVariableReference(node.getSourceJoinSymbol(), types));
-                List<VariableReferenceExpression> filteringSourceVariables = ImmutableList.of(toVariableReference(node.getFilteringSourceJoinSymbol(), types));
+                List<VariableReferenceExpression> sourceVariables = ImmutableList.of(node.getSourceJoinVariable());
+                List<VariableReferenceExpression> filteringSourceVariables = ImmutableList.of(node.getFilteringSourceJoinVariable());
 
                 SetMultimap<VariableReferenceExpression, VariableReferenceExpression> sourceToFiltering = createMapping(sourceVariables, filteringSourceVariables);
                 SetMultimap<VariableReferenceExpression, VariableReferenceExpression> filteringToSource = createMapping(filteringSourceVariables, sourceVariables);

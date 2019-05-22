@@ -64,16 +64,14 @@ public class TestSchedulingOrderVisitor
     public void testSemiJoinOrder()
     {
         PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), METADATA);
-        Symbol sourceJoin = planBuilder.symbol("sourceJoin");
-        VariableReferenceExpression sourceJoinVariable = planBuilder.variable(sourceJoin);
-        TableScanNode a = planBuilder.tableScan(ImmutableList.of(sourceJoin), ImmutableList.of(sourceJoinVariable), ImmutableMap.of(sourceJoinVariable, new TestingColumnHandle("sourceJoin")));
-        Symbol filteringSource = planBuilder.symbol("filteringSource");
-        VariableReferenceExpression filteringSourceVariable = planBuilder.variable(filteringSource);
-        TableScanNode b = planBuilder.tableScan(ImmutableList.of(filteringSource), ImmutableList.of(filteringSourceVariable), ImmutableMap.of(filteringSourceVariable, new TestingColumnHandle("filteringSource")));
+        VariableReferenceExpression sourceJoin = planBuilder.variable("sourceJoin");
+        TableScanNode a = planBuilder.tableScan(ImmutableList.of(new Symbol(sourceJoin.getName())), ImmutableList.of(sourceJoin), ImmutableMap.of(sourceJoin, new TestingColumnHandle("sourceJoin")));
+        VariableReferenceExpression filteringSource = planBuilder.variable("filteringSource");
+        TableScanNode b = planBuilder.tableScan(ImmutableList.of(new Symbol(filteringSource.getName())), ImmutableList.of(filteringSource), ImmutableMap.of(filteringSource, new TestingColumnHandle("filteringSource")));
         List<PlanNodeId> order = scheduleOrder(planBuilder.semiJoin(
                 sourceJoin,
                 filteringSource,
-                planBuilder.symbol("semiJoinOutput"),
+                planBuilder.variable("semiJoinOutput"),
                 Optional.empty(),
                 Optional.empty(),
                 a,

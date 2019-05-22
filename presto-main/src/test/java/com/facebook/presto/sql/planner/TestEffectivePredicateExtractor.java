@@ -705,7 +705,7 @@ public class TestEffectivePredicateExtractor
         PlanNode node = new SemiJoinNode(newId(),
                 filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100)))),
                 filter(baseTableScan, greaterThan(AE, bigintLiteral(5))),
-                A, B, C,
+                AV, BV, CV,
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());

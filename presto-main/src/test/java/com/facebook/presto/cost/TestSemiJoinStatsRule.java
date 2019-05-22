@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import org.testng.annotations.Test;
 
@@ -35,10 +36,10 @@ public class TestSemiJoinStatsRule
                 .build();
 
         tester().assertStatsFor(pb -> {
-            Symbol a = pb.symbol("a", BIGINT);
-            Symbol b = pb.symbol("b", BIGINT);
-            Symbol c = pb.symbol("c", BIGINT);
-            Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
+            VariableReferenceExpression a = pb.variable("a", BIGINT);
+            VariableReferenceExpression b = pb.variable("b", BIGINT);
+            VariableReferenceExpression c = pb.variable("c", BIGINT);
+            VariableReferenceExpression semiJoinOutput = pb.variable("sjo", BOOLEAN);
             return pb
                     .semiJoin(pb.values(a, b),
                             pb.values(c),

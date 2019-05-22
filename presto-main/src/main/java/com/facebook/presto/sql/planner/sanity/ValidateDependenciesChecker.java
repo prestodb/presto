@@ -382,12 +382,12 @@ public final class ValidateDependenciesChecker
             node.getSource().accept(this, boundSymbols);
             node.getFilteringSource().accept(this, boundSymbols);
 
-            checkArgument(node.getSource().getOutputSymbols().contains(node.getSourceJoinSymbol()), "Symbol from semi join clause (%s) not in source (%s)", node.getSourceJoinSymbol(), node.getSource().getOutputSymbols());
-            checkArgument(node.getFilteringSource().getOutputSymbols().contains(node.getFilteringSourceJoinSymbol()), "Symbol from semi join clause (%s) not in filtering source (%s)", node.getSourceJoinSymbol(), node.getFilteringSource().getOutputSymbols());
+            checkArgument(node.getSource().getOutputSymbols().contains(new Symbol(node.getSourceJoinVariable().getName())), "Symbol from semi join clause (%s) not in source (%s)", node.getSourceJoinVariable(), node.getSource().getOutputSymbols());
+            checkArgument(node.getFilteringSource().getOutputSymbols().contains(new Symbol(node.getFilteringSourceJoinVariable().getName())), "Symbol from semi join clause (%s) not in filtering source (%s)", node.getSourceJoinVariable(), node.getFilteringSource().getOutputSymbols());
 
             Set<Symbol> outputs = createInputs(node, boundSymbols);
             checkArgument(outputs.containsAll(node.getSource().getOutputSymbols()), "Semi join output symbols (%s) must contain all of the source symbols (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
-            checkArgument(outputs.contains(node.getSemiJoinOutput()),
+            checkArgument(outputs.contains(new Symbol(node.getSemiJoinOutput().getName())),
                     "Semi join output symbols (%s) must contain join result (%s)",
                     node.getOutputSymbols(),
                     node.getSemiJoinOutput());

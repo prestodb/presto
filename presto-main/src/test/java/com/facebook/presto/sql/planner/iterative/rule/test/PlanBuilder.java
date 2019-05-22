@@ -184,6 +184,11 @@ public class PlanBuilder
         return values(id, 0, columns);
     }
 
+    public ValuesNode values(PlanNodeId id, VariableReferenceExpression... columns)
+    {
+        return values(id, 0, columns);
+    }
+
     public ValuesNode values(int rows, Symbol... columns)
     {
         return values(idAllocator.getNextId(), rows, columns);
@@ -484,9 +489,9 @@ public class PlanBuilder
     }
 
     public SemiJoinNode semiJoin(
-            Symbol sourceJoinSymbol,
-            Symbol filteringSourceJoinSymbol,
-            Symbol semiJoinOutput,
+            VariableReferenceExpression sourceJoinVariable,
+            VariableReferenceExpression filteringSourceJoinVariable,
+            VariableReferenceExpression semiJoinOutput,
             Optional<VariableReferenceExpression> sourceHashVariable,
             Optional<VariableReferenceExpression> filteringSourceHashVariable,
             PlanNode source,
@@ -495,8 +500,8 @@ public class PlanBuilder
         return semiJoin(
                 source,
                 filteringSource,
-                sourceJoinSymbol,
-                filteringSourceJoinSymbol,
+                sourceJoinVariable,
+                filteringSourceJoinVariable,
                 semiJoinOutput,
                 sourceHashVariable,
                 filteringSourceHashVariable,
@@ -506,9 +511,9 @@ public class PlanBuilder
     public SemiJoinNode semiJoin(
             PlanNode source,
             PlanNode filteringSource,
-            Symbol sourceJoinSymbol,
-            Symbol filteringSourceJoinSymbol,
-            Symbol semiJoinOutput,
+            VariableReferenceExpression sourceJoinVariable,
+            VariableReferenceExpression filteringSourceJoinVariable,
+            VariableReferenceExpression semiJoinOutput,
             Optional<VariableReferenceExpression> sourceHashVariable,
             Optional<VariableReferenceExpression> filteringSourceHashVariable,
             Optional<SemiJoinNode.DistributionType> distributionType)
@@ -517,8 +522,8 @@ public class PlanBuilder
                 idAllocator.getNextId(),
                 source,
                 filteringSource,
-                sourceJoinSymbol,
-                filteringSourceJoinSymbol,
+                sourceJoinVariable,
+                filteringSourceJoinVariable,
                 semiJoinOutput,
                 sourceHashVariable,
                 filteringSourceHashVariable,

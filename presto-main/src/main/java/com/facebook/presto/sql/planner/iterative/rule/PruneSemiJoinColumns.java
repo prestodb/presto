@@ -41,14 +41,14 @@ public class PruneSemiJoinColumns
     @Override
     protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, SemiJoinNode semiJoinNode, Set<Symbol> referencedOutputs)
     {
-        if (!referencedOutputs.contains(semiJoinNode.getSemiJoinOutput())) {
+        if (!referencedOutputs.contains(new Symbol(semiJoinNode.getSemiJoinOutput().getName()))) {
             return Optional.of(semiJoinNode.getSource());
         }
 
         Set<Symbol> requiredSourceInputs = Streams.concat(
                 referencedOutputs.stream()
-                        .filter(symbol -> !symbol.equals(semiJoinNode.getSemiJoinOutput())),
-                Stream.of(semiJoinNode.getSourceJoinSymbol()),
+                        .filter(symbol -> !symbol.equals(new Symbol(semiJoinNode.getSemiJoinOutput().getName()))),
+                Stream.of(new Symbol(semiJoinNode.getSourceJoinVariable().getName())),
                 semiJoinNode.getSourceHashVariable().map(this::toSymbol).map(Stream::of).orElse(Stream.empty()))
                 .collect(toImmutableSet());
 

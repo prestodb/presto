@@ -488,7 +488,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitSemiJoin(SemiJoinNode node, Void context)
         {
-            printNode(node, "SemiJoin", format("%s = %s", node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol()), NODE_COLORS.get(NodeType.JOIN));
+            printNode(node, "SemiJoin", format("%s = %s", node.getSourceJoinVariable(), node.getFilteringSourceJoinVariable()), NODE_COLORS.get(NodeType.JOIN));
 
             node.getSource().accept(this, context);
             node.getFilteringSource().accept(this, context);

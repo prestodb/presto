@@ -1034,7 +1034,7 @@ public class PredicatePushDown
         public PlanNode visitSemiJoin(SemiJoinNode node, RewriteContext<Expression> context)
         {
             Expression inheritedPredicate = context.get();
-            if (!extractConjuncts(inheritedPredicate).contains(node.getSemiJoinOutput().toSymbolReference())) {
+            if (!extractConjuncts(inheritedPredicate).contains(new SymbolReference(node.getSemiJoinOutput().getName()))) {
                 return visitNonFilteringSemiJoin(node, context);
             }
             return visitFilteringSemiJoin(node, context);
@@ -1074,7 +1074,7 @@ public class PredicatePushDown
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource() || rewrittenFilteringSource != node.getFilteringSource()) {
-                output = new SemiJoinNode(node.getId(), rewrittenSource, rewrittenFilteringSource, node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput(), node.getSourceHashVariable(), node.getFilteringSourceHashVariable(), node.getDistributionType());
+                output = new SemiJoinNode(node.getId(), rewrittenSource, rewrittenFilteringSource, node.getSourceJoinVariable(), node.getFilteringSourceJoinVariable(), node.getSemiJoinOutput(), node.getSourceHashVariable(), node.getFilteringSourceHashVariable(), node.getDistributionType());
             }
             if (!postJoinConjuncts.isEmpty()) {
                 output = new FilterNode(idAllocator.getNextId(), output, castToRowExpression(combineConjuncts(postJoinConjuncts)));
@@ -1090,8 +1090,8 @@ public class PredicatePushDown
             Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicateExtractor.extract(node.getFilteringSource()));
             Expression joinExpression = new ComparisonExpression(
                     ComparisonExpression.Operator.EQUAL,
-                    node.getSourceJoinSymbol().toSymbolReference(),
-                    node.getFilteringSourceJoinSymbol().toSymbolReference());
+                    new SymbolReference(node.getSourceJoinVariable().getName()),
+                    new SymbolReference(node.getFilteringSourceJoinVariable().getName()));
 
             List<Symbol> sourceSymbols = node.getSource().getOutputSymbols();
             List<Symbol> filteringSourceSymbols = node.getFilteringSource().getOutputSymbols();
@@ -1157,8 +1157,8 @@ public class PredicatePushDown
                         node.getId(),
                         rewrittenSource,
                         rewrittenFilteringSource,
-                        node.getSourceJoinSymbol(),
-                        node.getFilteringSourceJoinSymbol(),
+                        node.getSourceJoinVariable(),
+                        node.getFilteringSourceJoinVariable(),
                         node.getSemiJoinOutput(),
                         node.getSourceHashVariable(),
                         node.getFilteringSourceHashVariable(),

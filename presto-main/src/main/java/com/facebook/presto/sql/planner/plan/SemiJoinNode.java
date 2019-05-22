@@ -34,9 +34,9 @@ public class SemiJoinNode
 {
     private final PlanNode source;
     private final PlanNode filteringSource;
-    private final Symbol sourceJoinSymbol;
-    private final Symbol filteringSourceJoinSymbol;
-    private final Symbol semiJoinOutput;
+    private final VariableReferenceExpression sourceJoinVariable;
+    private final VariableReferenceExpression filteringSourceJoinVariable;
+    private final VariableReferenceExpression semiJoinOutput;
     private final Optional<VariableReferenceExpression> sourceHashVariable;
     private final Optional<VariableReferenceExpression> filteringSourceHashVariable;
     private final Optional<DistributionType> distributionType;
@@ -45,9 +45,9 @@ public class SemiJoinNode
     public SemiJoinNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("filteringSource") PlanNode filteringSource,
-            @JsonProperty("sourceJoinSymbol") Symbol sourceJoinSymbol,
-            @JsonProperty("filteringSourceJoinSymbol") Symbol filteringSourceJoinSymbol,
-            @JsonProperty("semiJoinOutput") Symbol semiJoinOutput,
+            @JsonProperty("sourceJoinVariable") VariableReferenceExpression sourceJoinVariable,
+            @JsonProperty("filteringSourceJoinVariable") VariableReferenceExpression filteringSourceJoinVariable,
+            @JsonProperty("semiJoinOutput") VariableReferenceExpression semiJoinOutput,
             @JsonProperty("sourceHashVariable") Optional<VariableReferenceExpression> sourceHashVariable,
             @JsonProperty("filteringSourceHashVariable") Optional<VariableReferenceExpression> filteringSourceHashVariable,
             @JsonProperty("distributionType") Optional<DistributionType> distributionType)
@@ -55,15 +55,15 @@ public class SemiJoinNode
         super(id);
         this.source = requireNonNull(source, "source is null");
         this.filteringSource = requireNonNull(filteringSource, "filteringSource is null");
-        this.sourceJoinSymbol = requireNonNull(sourceJoinSymbol, "sourceJoinSymbol is null");
-        this.filteringSourceJoinSymbol = requireNonNull(filteringSourceJoinSymbol, "filteringSourceJoinSymbol is null");
+        this.sourceJoinVariable = requireNonNull(sourceJoinVariable, "sourceJoinVariable is null");
+        this.filteringSourceJoinVariable = requireNonNull(filteringSourceJoinVariable, "filteringSourceJoinVariable is null");
         this.semiJoinOutput = requireNonNull(semiJoinOutput, "semiJoinOutput is null");
         this.sourceHashVariable = requireNonNull(sourceHashVariable, "sourceHashVariable is null");
         this.filteringSourceHashVariable = requireNonNull(filteringSourceHashVariable, "filteringSourceHashVariable is null");
         this.distributionType = requireNonNull(distributionType, "distributionType is null");
 
-        checkArgument(source.getOutputSymbols().contains(sourceJoinSymbol), "Source does not contain join symbol");
-        checkArgument(filteringSource.getOutputSymbols().contains(filteringSourceJoinSymbol), "Filtering source does not contain filtering join symbol");
+        checkArgument(source.getOutputSymbols().contains(new Symbol(sourceJoinVariable.getName())), "Source does not contain join symbol");
+        checkArgument(filteringSource.getOutputSymbols().contains(new Symbol(filteringSourceJoinVariable.getName())), "Filtering source does not contain filtering join symbol");
     }
 
     public enum DistributionType
@@ -85,19 +85,19 @@ public class SemiJoinNode
     }
 
     @JsonProperty
-    public Symbol getSourceJoinSymbol()
+    public VariableReferenceExpression getSourceJoinVariable()
     {
-        return sourceJoinSymbol;
+        return sourceJoinVariable;
     }
 
     @JsonProperty
-    public Symbol getFilteringSourceJoinSymbol()
+    public VariableReferenceExpression getFilteringSourceJoinVariable()
     {
-        return filteringSourceJoinSymbol;
+        return filteringSourceJoinVariable;
     }
 
     @JsonProperty
-    public Symbol getSemiJoinOutput()
+    public VariableReferenceExpression getSemiJoinOutput()
     {
         return semiJoinOutput;
     }
@@ -131,7 +131,7 @@ public class SemiJoinNode
     {
         return ImmutableList.<Symbol>builder()
                 .addAll(source.getOutputSymbols())
-                .add(semiJoinOutput)
+                .add(new Symbol(semiJoinOutput.getName()))
                 .build();
     }
 
@@ -149,8 +149,8 @@ public class SemiJoinNode
                 getId(),
                 newChildren.get(0),
                 newChildren.get(1),
-                sourceJoinSymbol,
-                filteringSourceJoinSymbol,
+                sourceJoinVariable,
+                filteringSourceJoinVariable,
                 semiJoinOutput,
                 sourceHashVariable,
                 filteringSourceHashVariable,
@@ -163,8 +163,8 @@ public class SemiJoinNode
                 getId(),
                 source,
                 filteringSource,
-                sourceJoinSymbol,
-                filteringSourceJoinSymbol,
+                sourceJoinVariable,
+                filteringSourceJoinVariable,
                 semiJoinOutput,
                 sourceHashVariable,
                 filteringSourceHashVariable,

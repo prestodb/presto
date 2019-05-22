@@ -14,6 +14,7 @@
 
 package com.facebook.presto.cost;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -21,6 +22,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.cost.PlanNodeStatsAssertion.assertThat;
 import static com.facebook.presto.cost.SemiJoinStatsCalculator.computeAntiJoin;
 import static com.facebook.presto.cost.SemiJoinStatsCalculator.computeSemiJoin;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
@@ -50,6 +52,13 @@ public class TestSemiJoinStatsCalculator
     private Symbol emptyRange = new Symbol("emptyRange");
     private Symbol unknown = new Symbol("unknown");
     private Symbol fractionalNdv = new Symbol("fractionalNdv");
+
+    private VariableReferenceExpression uv = new VariableReferenceExpression("u", BIGINT);
+    private VariableReferenceExpression wv = new VariableReferenceExpression("w", BIGINT);
+    private VariableReferenceExpression xv = new VariableReferenceExpression("x", BIGINT);
+    private VariableReferenceExpression emptyRangeVariable = new VariableReferenceExpression("emptyRange", BIGINT);
+    private VariableReferenceExpression unknownVariable = new VariableReferenceExpression("unknown", BIGINT);
+    private VariableReferenceExpression fractionalNdvVariable = new VariableReferenceExpression("fractionalNdv", BIGINT);
 
     @BeforeMethod
     public void setUp()
@@ -143,7 +152,7 @@ public class TestSemiJoinStatsCalculator
     public void testSemiJoin()
     {
         // overlapping ranges
-        assertThat(computeSemiJoin(inputStatistics, inputStatistics, x, w))
+        assertThat(computeSemiJoin(inputStatistics, inputStatistics, xv, wv))
                 .symbolStats(x, stats -> stats
                         .lowValue(xStats.getLowValue())
                         .highValue(xStats.getHighValue())
@@ -154,7 +163,7 @@ public class TestSemiJoinStatsCalculator
                 .outputRowsCount(inputStatistics.getOutputRowCount() * xStats.getValuesFraction() * (wStats.getDistinctValuesCount() / xStats.getDistinctValuesCount()));
 
         // overlapping ranges, nothing filtered out
-        assertThat(computeSemiJoin(inputStatistics, inputStatistics, x, u))
+        assertThat(computeSemiJoin(inputStatistics, inputStatistics, xv, uv))
                 .symbolStats(x, stats -> stats
                         .lowValue(xStats.getLowValue())
                         .highValue(xStats.getHighValue())
@@ -165,7 +174,7 @@ public class TestSemiJoinStatsCalculator
                 .outputRowsCount(inputStatistics.getOutputRowCount() * xStats.getValuesFraction());
 
         // source stats are unknown
-        assertThat(computeSemiJoin(inputStatistics, inputStatistics, unknown, u))
+        assertThat(computeSemiJoin(inputStatistics, inputStatistics, unknownVariable, uv))
                 .symbolStats(unknown, stats -> stats
                         .nullsFraction(0)
                         .distinctValuesCountUnknown()
@@ -175,7 +184,7 @@ public class TestSemiJoinStatsCalculator
                 .outputRowsCountUnknown();
 
         // filtering stats are unknown
-        assertThat(computeSemiJoin(inputStatistics, inputStatistics, x, unknown))
+        assertThat(computeSemiJoin(inputStatistics, inputStatistics, xv, unknownVariable))
                 .symbolStats(x, stats -> stats
                         .nullsFraction(0)
                         .lowValue(xStats.getLowValue())
@@ -186,11 +195,11 @@ public class TestSemiJoinStatsCalculator
                 .outputRowsCountUnknown();
 
         // zero distinct values
-        assertThat(computeSemiJoin(inputStatistics, inputStatistics, emptyRange, emptyRange))
+        assertThat(computeSemiJoin(inputStatistics, inputStatistics, emptyRangeVariable, emptyRangeVariable))
                 .outputRowsCount(0);
 
         // fractional distinct values
-        assertThat(computeSemiJoin(inputStatistics, inputStatistics, fractionalNdv, fractionalNdv))
+        assertThat(computeSemiJoin(inputStatistics, inputStatistics, fractionalNdvVariable, fractionalNdvVariable))
                 .outputRowsCount(1000)
                 .symbolStats(fractionalNdv, stats -> stats
                         .nullsFraction(0)
@@ -201,7 +210,7 @@ public class TestSemiJoinStatsCalculator
     public void testAntiJoin()
     {
         // overlapping ranges
-        assertThat(computeAntiJoin(inputStatistics, inputStatistics, u, x))
+        assertThat(computeAntiJoin(inputStatistics, inputStatistics, uv, xv))
                 .symbolStats(u, stats -> stats
                         .lowValue(uStats.getLowValue())
                         .highValue(uStats.getHighValue())
@@ -212,7 +221,7 @@ public class TestSemiJoinStatsCalculator
                 .outputRowsCount(inputStatistics.getOutputRowCount() * uStats.getValuesFraction() * (1 - xStats.getDistinctValuesCount() / uStats.getDistinctValuesCount()));
 
         // overlapping ranges, everything filtered out (but we leave 0.5 due to safety coeeficient)
-        assertThat(computeAntiJoin(inputStatistics, inputStatistics, x, u))
+        assertThat(computeAntiJoin(inputStatistics, inputStatistics, xv, uv))
                 .symbolStats(x, stats -> stats
                         .lowValue(xStats.getLowValue())
                         .highValue(xStats.getHighValue())
@@ -223,7 +232,7 @@ public class TestSemiJoinStatsCalculator
                 .outputRowsCount(inputStatistics.getOutputRowCount() * xStats.getValuesFraction() * 0.5);
 
         // source stats are unknown
-        assertThat(computeAntiJoin(inputStatistics, inputStatistics, unknown, u))
+        assertThat(computeAntiJoin(inputStatistics, inputStatistics, unknownVariable, uv))
                 .symbolStats(unknown, stats -> stats
                         .nullsFraction(0)
                         .distinctValuesCountUnknown()
@@ -233,7 +242,7 @@ public class TestSemiJoinStatsCalculator
                 .outputRowsCountUnknown();
 
         // filtering stats are unknown
-        assertThat(computeAntiJoin(inputStatistics, inputStatistics, x, unknown))
+        assertThat(computeAntiJoin(inputStatistics, inputStatistics, xv, unknownVariable))
                 .symbolStats(x, stats -> stats
                         .nullsFraction(0)
                         .lowValue(xStats.getLowValue())
@@ -244,11 +253,11 @@ public class TestSemiJoinStatsCalculator
                 .outputRowsCountUnknown();
 
         // zero distinct values
-        assertThat(computeAntiJoin(inputStatistics, inputStatistics, emptyRange, emptyRange))
+        assertThat(computeAntiJoin(inputStatistics, inputStatistics, emptyRangeVariable, emptyRangeVariable))
                 .outputRowsCount(0);
 
         // fractional distinct values
-        assertThat(computeAntiJoin(inputStatistics, inputStatistics, fractionalNdv, fractionalNdv))
+        assertThat(computeAntiJoin(inputStatistics, inputStatistics, fractionalNdvVariable, fractionalNdvVariable))
                 .outputRowsCount(500)
                 .symbolStats(fractionalNdv, stats -> stats
                         .nullsFraction(0)
