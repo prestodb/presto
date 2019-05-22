@@ -440,51 +440,68 @@ class HiveSplitSource
 
         OptionalInt bucketNumber = toBucketNumber(partitionHandle);
         ListenableFuture<List<ConnectorSplit>> future = queues.borrowBatchAsync(bucketNumber, maxSize, internalSplits -> {
-            ImmutableList.Builder<InternalHiveSplit> splitsToInsertBuilder = ImmutableList.builder();
-            ImmutableList.Builder<ConnectorSplit> resultBuilder = ImmutableList.builder();
+            ImmutableList.Builder<InternalHiveSplit> internalSplitsToReturnBuilder = ImmutableList.builder();
+            ImmutableList.Builder<ConnectorSplit> resultSplitsBuilder = ImmutableList.builder();
+            int notReturnedInternalSplitCount = 0;
+            int resultSplitCount = 0;
+
             int removedEstimatedSizeInBytes = 0;
             for (InternalHiveSplit internalSplit : internalSplits) {
-                long maxSplitBytes = maxSplitSize.toBytes();
-                if (remainingInitialSplits.get() > 0) {
-                    if (remainingInitialSplits.getAndDecrement() > 0) {
-                        maxSplitBytes = maxInitialSplitSize.toBytes();
+                while (resultSplitCount < maxSize && !internalSplit.isDone()) {
+                    long maxSplitBytes = maxSplitSize.toBytes();
+                    if (remainingInitialSplits.get() > 0) {
+                        if (remainingInitialSplits.getAndDecrement() > 0) {
+                            maxSplitBytes = maxInitialSplitSize.toBytes();
+                        }
+                    }
+                    InternalHiveBlock block = internalSplit.currentBlock();
+                    long splitBytes;
+                    if (internalSplit.isSplittable()) {
+                        splitBytes = min(maxSplitBytes, block.getEnd() - internalSplit.getStart());
+                    }
+                    else {
+                        splitBytes = internalSplit.getEnd() - internalSplit.getStart();
+                    }
+
+                    resultSplitsBuilder.add(new HiveSplit(
+                            databaseName,
+                            tableName,
+                            internalSplit.getPartitionName(),
+                            internalSplit.getPath(),
+                            internalSplit.getStart(),
+                            splitBytes,
+                            internalSplit.getFileSize(),
+                            internalSplit.getSchema(),
+                            internalSplit.getPartitionKeys(),
+                            block.getAddresses(),
+                            internalSplit.getReadBucketNumber(),
+                            internalSplit.getTableBucketNumber(),
+                            internalSplit.isForceLocalScheduling(),
+                            (TupleDomain<HiveColumnHandle>) compactEffectivePredicate,
+                            transformValues(internalSplit.getColumnCoercions(), HiveTypeName::toHiveType),
+                            internalSplit.getBucketConversion(),
+                            internalSplit.isS3SelectPushdownEnabled()));
+
+                    resultSplitCount++;
+                    internalSplit.increaseStart(splitBytes);
+
+                    if (!bucketNumber.isPresent()) {
+                        // when split discovery is not done in a per-bucket basis, round robin over existing InternalHiveSplit to avoid potential scheduling deadlock
+                        // see https://github.com/prestodb/presto/wiki/HiveSplitSource-and-Grouped-Execution for details
+                        break;
                     }
                 }
-                InternalHiveBlock block = internalSplit.currentBlock();
-                long splitBytes;
-                if (internalSplit.isSplittable()) {
-                    splitBytes = min(maxSplitBytes, block.getEnd() - internalSplit.getStart());
-                }
-                else {
-                    splitBytes = internalSplit.getEnd() - internalSplit.getStart();
-                }
-
-                resultBuilder.add(new HiveSplit(
-                        databaseName,
-                        tableName,
-                        internalSplit.getPartitionName(),
-                        internalSplit.getPath(),
-                        internalSplit.getStart(),
-                        splitBytes,
-                        internalSplit.getFileSize(),
-                        internalSplit.getSchema(),
-                        internalSplit.getPartitionKeys(),
-                        block.getAddresses(),
-                        internalSplit.getReadBucketNumber(),
-                        internalSplit.getTableBucketNumber(),
-                        internalSplit.isForceLocalScheduling(),
-                        (TupleDomain<HiveColumnHandle>) compactEffectivePredicate,
-                        transformValues(internalSplit.getColumnCoercions(), HiveTypeName::toHiveType),
-                        internalSplit.getBucketConversion(),
-                        internalSplit.isS3SelectPushdownEnabled()));
-
-                internalSplit.increaseStart(splitBytes);
 
                 if (internalSplit.isDone()) {
                     removedEstimatedSizeInBytes += internalSplit.getEstimatedSizeInBytes();
+                    notReturnedInternalSplitCount++;
                 }
                 else {
-                    splitsToInsertBuilder.add(internalSplit);
+                    internalSplitsToReturnBuilder.add(internalSplit);
+                }
+
+                if (resultSplitCount == maxSize) {
+                    break;
                 }
             }
 
@@ -493,11 +510,12 @@ class HiveSplitSource
                 estimatedSplitSizeInBytes.addAndGet(-removedEstimatedSizeInBytes);
             }
 
-            List<InternalHiveSplit> splitsToInsert = splitsToInsertBuilder.build();
-            List<ConnectorSplit> result = resultBuilder.build();
-            bufferedInternalSplitCount.addAndGet(splitsToInsert.size() - result.size());
+            List<InternalHiveSplit> internalSplitsToReturn = internalSplitsToReturnBuilder.build();
+            List<ConnectorSplit> resultSplits = resultSplitsBuilder.build();
 
-            return new AsyncQueue.BorrowResult<>(splitsToInsert, result);
+            bufferedInternalSplitCount.addAndGet(-notReturnedInternalSplitCount);
+
+            return new AsyncQueue.BorrowResult<>(internalSplitsToReturn, resultSplits);
         });
 
         ListenableFuture<ConnectorSplitBatch> transform = Futures.transform(future, splits -> {
