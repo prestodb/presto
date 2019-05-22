@@ -15,16 +15,4 @@ package com.facebook.presto.spi;
 
 public interface ColumnHandle
 {
-    /* Returns a ColumnHandle that refers to the subfield at
-     * 'path'. Such a ColumnHandle may occur as a key in a TupleDomain
-     * for filtering non-top level columns */
-    default ColumnHandle createSubfieldColumnHandle(Subfield path)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    default Subfield getSubfieldPath()
-    {
-        return null;
-    }
 }
