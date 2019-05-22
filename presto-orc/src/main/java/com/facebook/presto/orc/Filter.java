@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.spi.PageSourceOptions;
-
 public class Filter
-        extends PageSourceOptions.FilterStats
+        extends FilterStats
 {
     boolean nullAllowed;
 

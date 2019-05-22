@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.spi.PageSourceOptions.ErrorSet;
 import com.facebook.presto.spi.PrestoException;
 
 import java.util.Arrays;

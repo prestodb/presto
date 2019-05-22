@@ -15,7 +15,6 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.reader.StreamReader;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageSourceOptions.AbstractFilterFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
