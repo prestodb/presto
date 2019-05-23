@@ -370,7 +370,7 @@ public class AggregationNode
                 @JsonProperty("arguments") List<Expression> arguments,
                 @JsonProperty("filter") Optional<Expression> filter,
                 @JsonProperty("orderBy") Optional<OrderingScheme> orderingScheme,
-                @JsonProperty("isDistinct") boolean isDistinct,
+                @JsonProperty("distinct") boolean isDistinct,
                 @JsonProperty("mask") Optional<Symbol> mask)
         {
             this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
