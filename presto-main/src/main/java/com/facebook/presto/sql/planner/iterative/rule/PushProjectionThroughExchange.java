@@ -37,7 +37,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineVariables;
+import static com.facebook.presto.sql.planner.ExpressionVariableInliner.inlineVariables;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
 import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReference;
 import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
@@ -126,7 +126,7 @@ public class PushProjectionThroughExchange
             }
 
             for (Map.Entry<VariableReferenceExpression, Expression> projection : project.getAssignments().entrySet()) {
-                Expression translatedExpression = inlineVariables(outputToInputMap, projection.getValue());
+                Expression translatedExpression = inlineVariables(outputToInputMap, projection.getValue(), types);
                 Type type = projection.getKey().getType();
                 VariableReferenceExpression variable = context.getSymbolAllocator().newVariable(translatedExpression, type);
                 projections.put(variable, translatedExpression);
