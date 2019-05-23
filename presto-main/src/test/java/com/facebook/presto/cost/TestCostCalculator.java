@@ -734,22 +734,22 @@ public class TestCostCalculator
 
     private static PlanNodeStatsEstimate statsEstimate(PlanNode node, double outputSizeInBytes)
     {
-        return statsEstimate(node.getOutputSymbols(), outputSizeInBytes);
+        return statsEstimate(node.getOutputVariables(), outputSizeInBytes);
     }
 
-    private static PlanNodeStatsEstimate statsEstimate(Collection<Symbol> symbols, double outputSizeInBytes)
+    private static PlanNodeStatsEstimate statsEstimate(Collection<VariableReferenceExpression> variables, double outputSizeInBytes)
     {
-        checkArgument(symbols.size() > 0, "No symbols");
-        checkArgument(ImmutableSet.copyOf(symbols).size() == symbols.size(), "Duplicate symbols");
+        checkArgument(variables.size() > 0, "No variables");
+        checkArgument(ImmutableSet.copyOf(variables).size() == variables.size(), "Duplicate variables");
 
-        double rowCount = outputSizeInBytes / symbols.size() / AVERAGE_ROW_SIZE;
+        double rowCount = outputSizeInBytes / variables.size() / AVERAGE_ROW_SIZE;
 
         PlanNodeStatsEstimate.Builder builder = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(rowCount);
-        for (Symbol symbol : symbols) {
-            builder.addSymbolStatistics(
-                    symbol,
-                    SymbolStatsEstimate.builder()
+        for (VariableReferenceExpression variable : variables) {
+            builder.addVariableStatistics(
+                    variable,
+                    VariableStatsEstimate.builder()
                             .setNullsFraction(0)
                             .setAverageRowSize(AVERAGE_ROW_SIZE)
                             .build());

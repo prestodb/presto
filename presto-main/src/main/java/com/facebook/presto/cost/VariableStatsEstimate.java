@@ -28,10 +28,10 @@ import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static java.lang.String.format;
 
-public class SymbolStatsEstimate
+public class VariableStatsEstimate
 {
-    private static final SymbolStatsEstimate UNKNOWN = new SymbolStatsEstimate(NEGATIVE_INFINITY, POSITIVE_INFINITY, NaN, NaN, NaN);
-    private static final SymbolStatsEstimate ZERO = new SymbolStatsEstimate(NaN, NaN, 1.0, 0.0, 0.0);
+    private static final VariableStatsEstimate UNKNOWN = new VariableStatsEstimate(NEGATIVE_INFINITY, POSITIVE_INFINITY, NaN, NaN, NaN);
+    private static final VariableStatsEstimate ZERO = new VariableStatsEstimate(NaN, NaN, 1.0, 0.0, 0.0);
 
     // for now we support only types which map to real domain naturally and keep low/high value as double in stats.
     private final double lowValue;
@@ -40,18 +40,18 @@ public class SymbolStatsEstimate
     private final double averageRowSize;
     private final double distinctValuesCount;
 
-    public static SymbolStatsEstimate unknown()
+    public static VariableStatsEstimate unknown()
     {
         return UNKNOWN;
     }
 
-    public static SymbolStatsEstimate zero()
+    public static VariableStatsEstimate zero()
     {
         return ZERO;
     }
 
     @JsonCreator
-    public SymbolStatsEstimate(
+    public VariableStatsEstimate(
             @JsonProperty("lowValue") double lowValue,
             @JsonProperty("highValue") double highValue,
             @JsonProperty("nullsFraction") double nullsFraction,
@@ -121,12 +121,12 @@ public class SymbolStatsEstimate
         return distinctValuesCount;
     }
 
-    public SymbolStatsEstimate mapNullsFraction(Function<Double, Double> mappingFunction)
+    public VariableStatsEstimate mapNullsFraction(Function<Double, Double> mappingFunction)
     {
         return buildFrom(this).setNullsFraction(mappingFunction.apply(nullsFraction)).build();
     }
 
-    public SymbolStatsEstimate mapDistinctValuesCount(Function<Double, Double> mappingFunction)
+    public VariableStatsEstimate mapDistinctValuesCount(Function<Double, Double> mappingFunction)
     {
         return buildFrom(this).setDistinctValuesCount(mappingFunction.apply(distinctValuesCount)).build();
     }
@@ -152,7 +152,7 @@ public class SymbolStatsEstimate
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        SymbolStatsEstimate that = (SymbolStatsEstimate) o;
+        VariableStatsEstimate that = (VariableStatsEstimate) o;
         return Double.compare(nullsFraction, that.nullsFraction) == 0 &&
                 Double.compare(averageRowSize, that.averageRowSize) == 0 &&
                 Double.compare(distinctValuesCount, that.distinctValuesCount) == 0 &&
@@ -182,7 +182,7 @@ public class SymbolStatsEstimate
         return new Builder();
     }
 
-    public static Builder buildFrom(SymbolStatsEstimate other)
+    public static Builder buildFrom(VariableStatsEstimate other)
     {
         return builder()
                 .setLowValue(other.getLowValue())
@@ -237,9 +237,9 @@ public class SymbolStatsEstimate
             return this;
         }
 
-        public SymbolStatsEstimate build()
+        public VariableStatsEstimate build()
         {
-            return new SymbolStatsEstimate(lowValue, highValue, nullsFraction, averageRowSize, distinctValuesCount);
+            return new VariableStatsEstimate(lowValue, highValue, nullsFraction, averageRowSize, distinctValuesCount);
         }
     }
 }

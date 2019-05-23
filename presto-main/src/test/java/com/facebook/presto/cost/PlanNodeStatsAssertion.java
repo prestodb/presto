@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.cost;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.function.Consumer;
 
 import static com.facebook.presto.cost.EstimateAssertion.assertEstimateEquals;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.collect.Sets.union;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -49,26 +50,21 @@ public class PlanNodeStatsAssertion
         return this;
     }
 
-    public PlanNodeStatsAssertion symbolStats(String symbolName, Consumer<SymbolStatsAssertion> symbolStatsAssertionConsumer)
+    public PlanNodeStatsAssertion variableStats(VariableReferenceExpression variable, Consumer<VariableStatsAssertion> columnAssertionConsumer)
     {
-        return symbolStats(new Symbol(symbolName), symbolStatsAssertionConsumer);
-    }
-
-    public PlanNodeStatsAssertion symbolStats(Symbol symbol, Consumer<SymbolStatsAssertion> columnAssertionConsumer)
-    {
-        SymbolStatsAssertion columnAssertion = SymbolStatsAssertion.assertThat(actual.getSymbolStatistics(symbol));
+        VariableStatsAssertion columnAssertion = VariableStatsAssertion.assertThat(actual.getVariableStatistics(variable));
         columnAssertionConsumer.accept(columnAssertion);
         return this;
     }
 
-    public PlanNodeStatsAssertion symbolStatsUnknown(String symbolName)
+    public PlanNodeStatsAssertion variableStatsUnknown(String symbolName)
     {
-        return symbolStatsUnknown(new Symbol(symbolName));
+        return variableStatsUnknown(new VariableReferenceExpression(symbolName, BIGINT));
     }
 
-    public PlanNodeStatsAssertion symbolStatsUnknown(Symbol symbol)
+    public PlanNodeStatsAssertion variableStatsUnknown(VariableReferenceExpression variable)
     {
-        return symbolStats(symbol,
+        return variableStats(variable,
                 columnStats -> columnStats
                         .lowValueUnknown()
                         .highValueUnknown()
@@ -76,9 +72,9 @@ public class PlanNodeStatsAssertion
                         .distinctValuesCountUnknown());
     }
 
-    public PlanNodeStatsAssertion symbolsWithKnownStats(Symbol... symbols)
+    public PlanNodeStatsAssertion variablesWithKnownStats(VariableReferenceExpression... variable)
     {
-        assertEquals(actual.getSymbolsWithKnownStatistics(), ImmutableSet.copyOf(symbols), "symbols with known stats");
+        assertEquals(actual.getVariablesWithKnownStatistics(), ImmutableSet.copyOf(variable), "variables with known stats");
         return this;
     }
 
@@ -86,18 +82,18 @@ public class PlanNodeStatsAssertion
     {
         assertEstimateEquals(actual.getOutputRowCount(), expected.getOutputRowCount(), "outputRowCount mismatch");
 
-        for (Symbol symbol : union(expected.getSymbolsWithKnownStatistics(), actual.getSymbolsWithKnownStatistics())) {
-            assertSymbolStatsEqual(symbol, actual.getSymbolStatistics(symbol), expected.getSymbolStatistics(symbol));
+        for (VariableReferenceExpression variable : union(expected.getVariablesWithKnownStatistics(), actual.getVariablesWithKnownStatistics())) {
+            assertVariableStatsEqual(variable, actual.getVariableStatistics(variable), expected.getVariableStatistics(variable));
         }
         return this;
     }
 
-    private void assertSymbolStatsEqual(Symbol symbol, SymbolStatsEstimate actual, SymbolStatsEstimate expected)
+    private void assertVariableStatsEqual(VariableReferenceExpression variable, VariableStatsEstimate actual, VariableStatsEstimate expected)
     {
-        assertEstimateEquals(actual.getNullsFraction(), expected.getNullsFraction(), "nullsFraction mismatch for %s", symbol.getName());
-        assertEstimateEquals(actual.getLowValue(), expected.getLowValue(), "lowValue mismatch for %s", symbol.getName());
-        assertEstimateEquals(actual.getHighValue(), expected.getHighValue(), "highValue mismatch for %s", symbol.getName());
-        assertEstimateEquals(actual.getDistinctValuesCount(), expected.getDistinctValuesCount(), "distinct values count mismatch for %s", symbol.getName());
-        assertEstimateEquals(actual.getAverageRowSize(), expected.getAverageRowSize(), "average row size mismatch for %s", symbol.getName());
+        assertEstimateEquals(actual.getNullsFraction(), expected.getNullsFraction(), "nullsFraction mismatch for %s", variable.getName());
+        assertEstimateEquals(actual.getLowValue(), expected.getLowValue(), "lowValue mismatch for %s", variable.getName());
+        assertEstimateEquals(actual.getHighValue(), expected.getHighValue(), "highValue mismatch for %s", variable.getName());
+        assertEstimateEquals(actual.getDistinctValuesCount(), expected.getDistinctValuesCount(), "distinct values count mismatch for %s", variable.getName());
+        assertEstimateEquals(actual.getAverageRowSize(), expected.getAverageRowSize(), "average row size mismatch for %s", variable.getName());
     }
 }

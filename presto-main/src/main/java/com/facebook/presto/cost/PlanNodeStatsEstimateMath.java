@@ -47,11 +47,11 @@ public class PlanNodeStatsEstimateMath
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
         result.setOutputRowCount(outputRowCount);
 
-        superset.getSymbolsWithKnownStatistics().forEach(symbol -> {
-            SymbolStatsEstimate supersetSymbolStats = superset.getSymbolStatistics(symbol);
-            SymbolStatsEstimate subsetSymbolStats = subset.getSymbolStatistics(symbol);
+        superset.getVariablesWithKnownStatistics().forEach(symbol -> {
+            VariableStatsEstimate supersetSymbolStats = superset.getVariableStatistics(symbol);
+            VariableStatsEstimate subsetSymbolStats = subset.getVariableStatistics(symbol);
 
-            SymbolStatsEstimate.Builder newSymbolStats = SymbolStatsEstimate.builder();
+            VariableStatsEstimate.Builder newSymbolStats = VariableStatsEstimate.builder();
 
             // for simplicity keep the average row size the same as in the input
             // in most cases the average row size doesn't change after applying filters
@@ -94,7 +94,7 @@ public class PlanNodeStatsEstimateMath
             newSymbolStats.setLowValue(supersetSymbolStats.getLowValue());
             newSymbolStats.setHighValue(supersetSymbolStats.getHighValue());
 
-            result.addSymbolStatistics(symbol, newSymbolStats.build());
+            result.addVariableStatistics(symbol, newSymbolStats.build());
         });
 
         return result.build();
@@ -110,11 +110,11 @@ public class PlanNodeStatsEstimateMath
         double cappedRowCount = min(stats.getOutputRowCount(), cap.getOutputRowCount());
         result.setOutputRowCount(cappedRowCount);
 
-        stats.getSymbolsWithKnownStatistics().forEach(symbol -> {
-            SymbolStatsEstimate symbolStats = stats.getSymbolStatistics(symbol);
-            SymbolStatsEstimate capSymbolStats = cap.getSymbolStatistics(symbol);
+        stats.getVariablesWithKnownStatistics().forEach(symbol -> {
+            VariableStatsEstimate symbolStats = stats.getVariableStatistics(symbol);
+            VariableStatsEstimate capSymbolStats = cap.getVariableStatistics(symbol);
 
-            SymbolStatsEstimate.Builder newSymbolStats = SymbolStatsEstimate.builder();
+            VariableStatsEstimate.Builder newSymbolStats = VariableStatsEstimate.builder();
 
             // for simplicity keep the average row size the same as in the input
             // in most cases the average row size doesn't change after applying filters
@@ -130,7 +130,7 @@ public class PlanNodeStatsEstimateMath
             double cappedNullsFraction = cappedRowCount == 0 ? 1 : cappedNumberOfNulls / cappedRowCount;
             newSymbolStats.setNullsFraction(cappedNullsFraction);
 
-            result.addSymbolStatistics(symbol, newSymbolStats.build());
+            result.addVariableStatistics(symbol, newSymbolStats.build());
         });
 
         return result.build();
@@ -140,7 +140,7 @@ public class PlanNodeStatsEstimateMath
     {
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
         result.setOutputRowCount(0);
-        stats.getSymbolsWithKnownStatistics().forEach(symbol -> result.addSymbolStatistics(symbol, SymbolStatsEstimate.zero()));
+        stats.getVariablesWithKnownStatistics().forEach(symbol -> result.addVariableStatistics(symbol, VariableStatsEstimate.zero()));
         return result.build();
     }
 
@@ -174,26 +174,26 @@ public class PlanNodeStatsEstimateMath
         PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
         double newRowCount = left.getOutputRowCount() + right.getOutputRowCount();
 
-        concat(left.getSymbolsWithKnownStatistics().stream(), right.getSymbolsWithKnownStatistics().stream())
+        concat(left.getVariablesWithKnownStatistics().stream(), right.getVariablesWithKnownStatistics().stream())
                 .distinct()
                 .forEach(symbol -> {
-                    SymbolStatsEstimate symbolStats = SymbolStatsEstimate.zero();
+                    VariableStatsEstimate symbolStats = VariableStatsEstimate.zero();
                     if (newRowCount > 0) {
                         symbolStats = addColumnStats(
-                                left.getSymbolStatistics(symbol),
+                                left.getVariableStatistics(symbol),
                                 left.getOutputRowCount(),
-                                right.getSymbolStatistics(symbol),
+                                right.getVariableStatistics(symbol),
                                 right.getOutputRowCount(),
                                 newRowCount,
                                 strategy);
                     }
-                    statsBuilder.addSymbolStatistics(symbol, symbolStats);
+                    statsBuilder.addVariableStatistics(symbol, symbolStats);
                 });
 
         return statsBuilder.setOutputRowCount(newRowCount).build();
     }
 
-    private static SymbolStatsEstimate addColumnStats(SymbolStatsEstimate leftStats, double leftRows, SymbolStatsEstimate rightStats, double rightRows, double newRowCount, RangeAdditionStrategy strategy)
+    private static VariableStatsEstimate addColumnStats(VariableStatsEstimate leftStats, double leftRows, VariableStatsEstimate rightStats, double rightRows, double newRowCount, RangeAdditionStrategy strategy)
     {
         checkArgument(newRowCount > 0, "newRowCount must be greater than zero");
 
@@ -211,7 +211,7 @@ public class PlanNodeStatsEstimateMath
         // FIXME, weights to average. left and right should be equal in most cases anyway
         double newAverageRowSize = newNonNullsRowCount == 0 ? 0 : ((totalSizeLeft + totalSizeRight) / newNonNullsRowCount);
 
-        return SymbolStatsEstimate.builder()
+        return VariableStatsEstimate.builder()
                 .setStatisticsRange(sum)
                 .setAverageRowSize(newAverageRowSize)
                 .setNullsFraction(newNullsFraction)

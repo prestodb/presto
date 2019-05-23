@@ -17,7 +17,6 @@ package com.facebook.presto.cost;
 import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -75,7 +74,7 @@ public class UnionStatsRule
                 .setOutputRowCount(estimate.getOutputRowCount());
 
         mapping.keySet().stream()
-                .forEach(variable -> mapped.addSymbolStatistics(new Symbol(variable.getName()), estimate.getSymbolStatistics(new Symbol(mapping.get(variable).get(index).getName()))));
+                .forEach(variable -> mapped.addVariableStatistics(variable, estimate.getVariableStatistics(mapping.get(variable).get(index))));
 
         return mapped.build();
     }

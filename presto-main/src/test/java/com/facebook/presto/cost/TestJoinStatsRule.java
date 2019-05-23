@@ -44,12 +44,12 @@ import static org.testng.Assert.assertEquals;
 public class TestJoinStatsRule
         extends BaseStatsCalculatorTest
 {
-    private static final String LEFT_JOIN_COLUMN = "left_join_column";
-    private static final String LEFT_JOIN_COLUMN_2 = "left_join_column_2";
-    private static final String RIGHT_JOIN_COLUMN = "right_join_column";
-    private static final String RIGHT_JOIN_COLUMN_2 = "right_join_column_2";
-    private static final String LEFT_OTHER_COLUMN = "left_column";
-    private static final String RIGHT_OTHER_COLUMN = "right_column";
+    private static final VariableReferenceExpression LEFT_JOIN_COLUMN = new VariableReferenceExpression("left_join_column", BIGINT);
+    private static final VariableReferenceExpression LEFT_JOIN_COLUMN_2 = new VariableReferenceExpression("left_join_column_2", BIGINT);
+    private static final VariableReferenceExpression RIGHT_JOIN_COLUMN = new VariableReferenceExpression("right_join_column", DOUBLE);
+    private static final VariableReferenceExpression RIGHT_JOIN_COLUMN_2 = new VariableReferenceExpression("right_join_column_2", DOUBLE);
+    private static final VariableReferenceExpression LEFT_OTHER_COLUMN = new VariableReferenceExpression("left_column", BIGINT);
+    private static final VariableReferenceExpression RIGHT_OTHER_COLUMN = new VariableReferenceExpression("right_column", DOUBLE);
 
     private static final double LEFT_ROWS_COUNT = 500.0;
     private static final double RIGHT_ROWS_COUNT = 1000.0;
@@ -67,18 +67,27 @@ public class TestJoinStatsRule
     private static final int RIGHT_JOIN_COLUMN_NDV = 15;
     private static final int RIGHT_JOIN_COLUMN_2_NDV = 15;
 
-    private static final SymbolStatistics LEFT_JOIN_COLUMN_STATS =
-            symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, LEFT_JOIN_COLUMN_NULLS, LEFT_JOIN_COLUMN_NDV);
-    private static final SymbolStatistics LEFT_JOIN_COLUMN_2_STATS =
-            symbolStatistics(LEFT_JOIN_COLUMN_2, 0.0, 200.0, LEFT_JOIN_COLUMN_2_NULLS, LEFT_JOIN_COLUMN_2_NDV);
-    private static final SymbolStatistics LEFT_OTHER_COLUMN_STATS =
-            symbolStatistics(LEFT_OTHER_COLUMN, 42, 42, 0.42, 1);
-    private static final SymbolStatistics RIGHT_JOIN_COLUMN_STATS =
-            symbolStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, RIGHT_JOIN_COLUMN_NULLS, RIGHT_JOIN_COLUMN_NDV);
-    private static final SymbolStatistics RIGHT_JOIN_COLUMN_2_STATS =
-            symbolStatistics(RIGHT_JOIN_COLUMN_2, 100.0, 200.0, RIGHT_JOIN_COLUMN_2_NULLS, RIGHT_JOIN_COLUMN_2_NDV);
-    private static final SymbolStatistics RIGHT_OTHER_COLUMN_STATS =
-            symbolStatistics(RIGHT_OTHER_COLUMN, 24, 24, 0.24, 1);
+    private static final TypeProvider TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
+            .put(new Symbol(LEFT_JOIN_COLUMN.getName()), LEFT_JOIN_COLUMN.getType())
+            .put(new Symbol(LEFT_JOIN_COLUMN_2.getName()), LEFT_JOIN_COLUMN_2.getType())
+            .put(new Symbol(RIGHT_JOIN_COLUMN.getName()), RIGHT_JOIN_COLUMN.getType())
+            .put(new Symbol(RIGHT_JOIN_COLUMN_2.getName()), RIGHT_JOIN_COLUMN_2.getType())
+            .put(new Symbol(LEFT_OTHER_COLUMN.getName()), LEFT_OTHER_COLUMN.getType())
+            .put(new Symbol(RIGHT_OTHER_COLUMN.getName()), RIGHT_OTHER_COLUMN.getType())
+            .build());
+
+    private static final VariableStatistics LEFT_JOIN_COLUMN_STATS =
+            variableStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, LEFT_JOIN_COLUMN_NULLS, LEFT_JOIN_COLUMN_NDV);
+    private static final VariableStatistics LEFT_JOIN_COLUMN_2_STATS =
+            variableStatistics(LEFT_JOIN_COLUMN_2, 0.0, 200.0, LEFT_JOIN_COLUMN_2_NULLS, LEFT_JOIN_COLUMN_2_NDV);
+    private static final VariableStatistics LEFT_OTHER_COLUMN_STATS =
+            variableStatistics(LEFT_OTHER_COLUMN, 42, 42, 0.42, 1);
+    private static final VariableStatistics RIGHT_JOIN_COLUMN_STATS =
+            variableStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, RIGHT_JOIN_COLUMN_NULLS, RIGHT_JOIN_COLUMN_NDV);
+    private static final VariableStatistics RIGHT_JOIN_COLUMN_2_STATS =
+            variableStatistics(RIGHT_JOIN_COLUMN_2, 100.0, 200.0, RIGHT_JOIN_COLUMN_2_NULLS, RIGHT_JOIN_COLUMN_2_NDV);
+    private static final VariableStatistics RIGHT_OTHER_COLUMN_STATS =
+            variableStatistics(RIGHT_OTHER_COLUMN, 24, 24, 0.24, 1);
     private static final PlanNodeStatsEstimate LEFT_STATS = planNodeStats(LEFT_ROWS_COUNT,
             LEFT_JOIN_COLUMN_STATS,
             LEFT_OTHER_COLUMN_STATS);
@@ -92,22 +101,14 @@ public class TestJoinStatsRule
             new FilterStatsCalculator(METADATA, new ScalarStatsCalculator(METADATA), NORMALIZER),
             NORMALIZER,
             1.0);
-    private static final TypeProvider TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
-            .put(new Symbol(LEFT_JOIN_COLUMN), BIGINT)
-            .put(new Symbol(LEFT_JOIN_COLUMN_2), DOUBLE)
-            .put(new Symbol(RIGHT_JOIN_COLUMN), BIGINT)
-            .put(new Symbol(RIGHT_JOIN_COLUMN_2), DOUBLE)
-            .put(new Symbol(LEFT_OTHER_COLUMN), DOUBLE)
-            .put(new Symbol(RIGHT_OTHER_COLUMN), BIGINT)
-            .build());
 
     @Test
     public void testStatsForInnerJoin()
     {
         double innerJoinRowCount = LEFT_ROWS_COUNT * RIGHT_ROWS_COUNT / LEFT_JOIN_COLUMN_NDV * LEFT_JOIN_COLUMN_NON_NULLS * RIGHT_JOIN_COLUMN_NON_NULLS;
         PlanNodeStatsEstimate innerJoinStats = planNodeStats(innerJoinRowCount,
-                symbolStatistics(LEFT_JOIN_COLUMN, 5.0, 20.0, 0.0, RIGHT_JOIN_COLUMN_NDV),
-                symbolStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, 0.0, RIGHT_JOIN_COLUMN_NDV),
+                variableStatistics(LEFT_JOIN_COLUMN, 5.0, 20.0, 0.0, RIGHT_JOIN_COLUMN_NDV),
+                variableStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, 0.0, RIGHT_JOIN_COLUMN_NDV),
                 LEFT_OTHER_COLUMN_STATS, RIGHT_OTHER_COLUMN_STATS);
 
         assertJoinStats(INNER, LEFT_STATS, RIGHT_STATS, innerJoinStats);
@@ -119,19 +120,19 @@ public class TestJoinStatsRule
         double innerJoinRowCount = LEFT_ROWS_COUNT * RIGHT_ROWS_COUNT / LEFT_JOIN_COLUMN_NDV * LEFT_JOIN_COLUMN_NON_NULLS * RIGHT_JOIN_COLUMN_NON_NULLS // driver join clause
                 * UNKNOWN_FILTER_COEFFICIENT; // auxiliary join clause
         PlanNodeStatsEstimate innerJoinStats = planNodeStats(innerJoinRowCount,
-                symbolStatistics(LEFT_JOIN_COLUMN, 5.0, 20.0, 0.0, RIGHT_JOIN_COLUMN_NDV),
-                symbolStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, 0.0, RIGHT_JOIN_COLUMN_NDV),
+                variableStatistics(LEFT_JOIN_COLUMN, 5.0, 20.0, 0.0, RIGHT_JOIN_COLUMN_NDV),
+                variableStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, 0.0, RIGHT_JOIN_COLUMN_NDV),
                 LEFT_OTHER_COLUMN_STATS, RIGHT_OTHER_COLUMN_STATS);
 
         tester().assertStatsFor(pb -> {
-            Symbol leftJoinColumnSymbol = pb.symbol(LEFT_JOIN_COLUMN, BIGINT);
-            Symbol rightJoinColumnSymbol = pb.symbol(RIGHT_JOIN_COLUMN, DOUBLE);
-            Symbol leftOtherColumnSymbol = pb.symbol(LEFT_OTHER_COLUMN, BIGINT);
-            Symbol rightOtherColumnSymbol = pb.symbol(RIGHT_OTHER_COLUMN, DOUBLE);
+            VariableReferenceExpression leftJoinColumnVariable = pb.variable(LEFT_JOIN_COLUMN);
+            VariableReferenceExpression rightJoinColumnVariable = pb.variable(RIGHT_JOIN_COLUMN);
+            VariableReferenceExpression leftOtherColumnVariable = pb.variable(LEFT_OTHER_COLUMN);
+            VariableReferenceExpression rightOtherColumnVariable = pb.variable(RIGHT_OTHER_COLUMN);
             return pb
-                    .join(INNER, pb.values(leftJoinColumnSymbol, leftOtherColumnSymbol),
-                            pb.values(rightJoinColumnSymbol, rightOtherColumnSymbol),
-                            new EquiJoinClause(pb.variable(leftJoinColumnSymbol), pb.variable(rightJoinColumnSymbol)), new EquiJoinClause(pb.variable(leftJoinColumnSymbol), pb.variable(rightJoinColumnSymbol)));
+                    .join(INNER, pb.values(leftJoinColumnVariable, leftOtherColumnVariable),
+                            pb.values(rightJoinColumnVariable, rightOtherColumnVariable),
+                            new EquiJoinClause(pb.variable(leftJoinColumnVariable), pb.variable(rightJoinColumnVariable)), new EquiJoinClause(pb.variable(leftJoinColumnVariable), pb.variable(rightJoinColumnVariable)));
         }).withSourceStats(0, LEFT_STATS)
                 .withSourceStats(1, RIGHT_STATS)
                 .check(stats -> stats.equalTo(innerJoinStats));
@@ -144,20 +145,20 @@ public class TestJoinStatsRule
                 LEFT_ROWS_COUNT * RIGHT_ROWS_COUNT / LEFT_JOIN_COLUMN_2_NDV * LEFT_JOIN_COLUMN_2_NON_NULLS * RIGHT_JOIN_COLUMN_2_NON_NULLS // driver join clause
                         * UNKNOWN_FILTER_COEFFICIENT; // auxiliary join clause
         PlanNodeStatsEstimate innerJoinStats = planNodeStats(innerJoinRowCount,
-                symbolStatistics(LEFT_JOIN_COLUMN, 5.0, 20.0, 0.0, RIGHT_JOIN_COLUMN_NDV),
-                symbolStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, 0.0, RIGHT_JOIN_COLUMN_NDV),
-                symbolStatistics(LEFT_JOIN_COLUMN_2, 100.0, 200.0, 0.0, RIGHT_JOIN_COLUMN_2_NDV),
-                symbolStatistics(RIGHT_JOIN_COLUMN_2, 100.0, 200.0, 0.0, RIGHT_JOIN_COLUMN_2_NDV));
+                variableStatistics(LEFT_JOIN_COLUMN, 5.0, 20.0, 0.0, RIGHT_JOIN_COLUMN_NDV),
+                variableStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, 0.0, RIGHT_JOIN_COLUMN_NDV),
+                variableStatistics(LEFT_JOIN_COLUMN_2, 100.0, 200.0, 0.0, RIGHT_JOIN_COLUMN_2_NDV),
+                variableStatistics(RIGHT_JOIN_COLUMN_2, 100.0, 200.0, 0.0, RIGHT_JOIN_COLUMN_2_NDV));
 
         tester().assertStatsFor(pb -> {
-            Symbol leftJoinColumnSymbol = pb.symbol(LEFT_JOIN_COLUMN, BIGINT);
-            Symbol rightJoinColumnSymbol = pb.symbol(RIGHT_JOIN_COLUMN, DOUBLE);
-            Symbol leftJoinColumnSymbol2 = pb.symbol(LEFT_JOIN_COLUMN_2, BIGINT);
-            Symbol rightJoinColumnSymbol2 = pb.symbol(RIGHT_JOIN_COLUMN_2, DOUBLE);
+            VariableReferenceExpression leftJoinColumnVariable = pb.variable(LEFT_JOIN_COLUMN);
+            VariableReferenceExpression rightJoinColumnVariable = pb.variable(RIGHT_JOIN_COLUMN);
+            VariableReferenceExpression leftJoinColumnVariable2 = pb.variable(LEFT_JOIN_COLUMN_2);
+            VariableReferenceExpression rightJoinColumnVariable2 = pb.variable(RIGHT_JOIN_COLUMN_2);
             return pb
-                    .join(INNER, pb.values(leftJoinColumnSymbol, leftJoinColumnSymbol2),
-                            pb.values(rightJoinColumnSymbol, rightJoinColumnSymbol2),
-                            new EquiJoinClause(pb.variable(leftJoinColumnSymbol2), pb.variable(rightJoinColumnSymbol2)), new EquiJoinClause(pb.variable(leftJoinColumnSymbol), pb.variable(rightJoinColumnSymbol)));
+                    .join(INNER, pb.values(leftJoinColumnVariable, leftJoinColumnVariable2),
+                            pb.values(rightJoinColumnVariable, rightJoinColumnVariable2),
+                            new EquiJoinClause(pb.variable(leftJoinColumnVariable2), pb.variable(rightJoinColumnVariable2)), new EquiJoinClause(pb.variable(leftJoinColumnVariable), pb.variable(rightJoinColumnVariable)));
         }).withSourceStats(0, planNodeStats(LEFT_ROWS_COUNT, LEFT_JOIN_COLUMN_STATS, LEFT_JOIN_COLUMN_2_STATS))
                 .withSourceStats(1, planNodeStats(RIGHT_ROWS_COUNT, RIGHT_JOIN_COLUMN_STATS, RIGHT_JOIN_COLUMN_2_STATS))
                 .check(stats -> stats.equalTo(innerJoinStats));
@@ -171,16 +172,16 @@ public class TestJoinStatsRule
                         * UNKNOWN_FILTER_COEFFICIENT // auxiliary join clause
                         * 0.3333333333; // LEFT_JOIN_COLUMN < 10 non equality filter
         PlanNodeStatsEstimate innerJoinStats = planNodeStats(innerJoinRowCount,
-                symbolStatistics(LEFT_JOIN_COLUMN, 5.0, 10.0, 0.0, RIGHT_JOIN_COLUMN_NDV * 0.3333333333),
-                symbolStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, 0.0, RIGHT_JOIN_COLUMN_NDV),
-                symbolStatistics(LEFT_JOIN_COLUMN_2, 100.0, 200.0, 0.0, RIGHT_JOIN_COLUMN_2_NDV),
-                symbolStatistics(RIGHT_JOIN_COLUMN_2, 100.0, 200.0, 0.0, RIGHT_JOIN_COLUMN_2_NDV));
+                variableStatistics(LEFT_JOIN_COLUMN, 5.0, 10.0, 0.0, RIGHT_JOIN_COLUMN_NDV * 0.3333333333),
+                variableStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, 0.0, RIGHT_JOIN_COLUMN_NDV),
+                variableStatistics(LEFT_JOIN_COLUMN_2, 100.0, 200.0, 0.0, RIGHT_JOIN_COLUMN_2_NDV),
+                variableStatistics(RIGHT_JOIN_COLUMN_2, 100.0, 200.0, 0.0, RIGHT_JOIN_COLUMN_2_NDV));
 
         tester().assertStatsFor(pb -> {
-            VariableReferenceExpression leftJoinColumn = pb.variable(LEFT_JOIN_COLUMN, BIGINT);
-            VariableReferenceExpression rightJoinColumn = pb.variable(RIGHT_JOIN_COLUMN, DOUBLE);
-            VariableReferenceExpression leftJoinColumn2 = pb.variable(LEFT_JOIN_COLUMN_2, BIGINT);
-            VariableReferenceExpression rightJoinColumn2 = pb.variable(RIGHT_JOIN_COLUMN_2, DOUBLE);
+            VariableReferenceExpression leftJoinColumn = pb.variable(LEFT_JOIN_COLUMN);
+            VariableReferenceExpression rightJoinColumn = pb.variable(RIGHT_JOIN_COLUMN);
+            VariableReferenceExpression leftJoinColumn2 = pb.variable(LEFT_JOIN_COLUMN_2);
+            VariableReferenceExpression rightJoinColumn2 = pb.variable(RIGHT_JOIN_COLUMN_2);
             ComparisonExpression leftJoinColumnLessThanTen = new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, new SymbolReference(leftJoinColumn.getName()), new LongLiteral("10"));
             return pb
                     .join(INNER, pb.values(leftJoinColumn, leftJoinColumn2),
@@ -197,11 +198,11 @@ public class TestJoinStatsRule
     public void testJoinComplementStats()
     {
         PlanNodeStatsEstimate expected = planNodeStats(LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4),
-                symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, LEFT_JOIN_COLUMN_NULLS / (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4), 5),
+                variableStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, LEFT_JOIN_COLUMN_NULLS / (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4), 5),
                 LEFT_OTHER_COLUMN_STATS);
         PlanNodeStatsEstimate actual = JOIN_STATS_RULE.calculateJoinComplementStats(
                 Optional.empty(),
-                ImmutableList.of(new EquiJoinClause(new VariableReferenceExpression(LEFT_JOIN_COLUMN, BIGINT), new VariableReferenceExpression(RIGHT_JOIN_COLUMN, BIGINT))),
+                ImmutableList.of(new EquiJoinClause(LEFT_JOIN_COLUMN, RIGHT_JOIN_COLUMN)),
                 LEFT_STATS,
                 RIGHT_STATS,
                 TYPES);
@@ -214,12 +215,11 @@ public class TestJoinStatsRule
         PlanNodeStatsEstimate expected = NORMALIZER.normalize(
                 planNodeStats(
                         RIGHT_ROWS_COUNT * RIGHT_JOIN_COLUMN_NULLS,
-                        symbolStatistics(RIGHT_JOIN_COLUMN, NaN, NaN, 1.0, 0),
-                        RIGHT_OTHER_COLUMN_STATS),
-                TYPES);
+                        variableStatistics(RIGHT_JOIN_COLUMN, NaN, NaN, 1.0, 0),
+                        RIGHT_OTHER_COLUMN_STATS));
         PlanNodeStatsEstimate actual = JOIN_STATS_RULE.calculateJoinComplementStats(
                 Optional.empty(),
-                ImmutableList.of(new EquiJoinClause(new VariableReferenceExpression(RIGHT_JOIN_COLUMN, BIGINT), new VariableReferenceExpression(LEFT_JOIN_COLUMN, BIGINT))),
+                ImmutableList.of(new EquiJoinClause(RIGHT_JOIN_COLUMN, LEFT_JOIN_COLUMN)),
                 RIGHT_STATS,
                 LEFT_STATS,
                 TYPES);
@@ -229,7 +229,7 @@ public class TestJoinStatsRule
     @Test
     public void testLeftJoinComplementStatsWithNoClauses()
     {
-        PlanNodeStatsEstimate expected = NORMALIZER.normalize(LEFT_STATS.mapOutputRowCount(rowCount -> 0.0), TYPES);
+        PlanNodeStatsEstimate expected = NORMALIZER.normalize(LEFT_STATS.mapOutputRowCount(rowCount -> 0.0));
         PlanNodeStatsEstimate actual = JOIN_STATS_RULE.calculateJoinComplementStats(
                 Optional.empty(),
                 ImmutableList.of(),
@@ -244,14 +244,14 @@ public class TestJoinStatsRule
     {
         PlanNodeStatsEstimate expected = planNodeStats(
                 LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4),
-                symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, LEFT_JOIN_COLUMN_NULLS / (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4), 5),
+                variableStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, LEFT_JOIN_COLUMN_NULLS / (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4), 5),
                 LEFT_OTHER_COLUMN_STATS)
                 .mapOutputRowCount(rowCount -> rowCount / UNKNOWN_FILTER_COEFFICIENT);
         PlanNodeStatsEstimate actual = JOIN_STATS_RULE.calculateJoinComplementStats(
                 Optional.empty(),
                 ImmutableList.of(
-                        new EquiJoinClause(new VariableReferenceExpression(LEFT_JOIN_COLUMN, BIGINT), new VariableReferenceExpression(RIGHT_JOIN_COLUMN, BIGINT)),
-                        new EquiJoinClause(new VariableReferenceExpression(LEFT_OTHER_COLUMN, BIGINT), new VariableReferenceExpression(RIGHT_OTHER_COLUMN, BIGINT))),
+                        new EquiJoinClause(LEFT_JOIN_COLUMN, RIGHT_JOIN_COLUMN),
+                        new EquiJoinClause(LEFT_OTHER_COLUMN, RIGHT_OTHER_COLUMN)),
                 LEFT_STATS,
                 RIGHT_STATS,
                 TYPES);
@@ -268,10 +268,10 @@ public class TestJoinStatsRule
 
         PlanNodeStatsEstimate leftJoinStats = planNodeStats(
                 totalRowCount,
-                symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, joinComplementColumnNulls * joinComplementRowCount / totalRowCount, LEFT_JOIN_COLUMN_NDV),
+                variableStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, joinComplementColumnNulls * joinComplementRowCount / totalRowCount, LEFT_JOIN_COLUMN_NDV),
                 LEFT_OTHER_COLUMN_STATS,
-                symbolStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, joinComplementRowCount / totalRowCount, RIGHT_JOIN_COLUMN_NDV),
-                symbolStatistics(RIGHT_OTHER_COLUMN, 24, 24, (0.24 * innerJoinRowCount + joinComplementRowCount) / totalRowCount, 1));
+                variableStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, joinComplementRowCount / totalRowCount, RIGHT_JOIN_COLUMN_NDV),
+                variableStatistics(RIGHT_OTHER_COLUMN, 24, 24, (0.24 * innerJoinRowCount + joinComplementRowCount) / totalRowCount, 1));
 
         assertJoinStats(LEFT, LEFT_STATS, RIGHT_STATS, leftJoinStats);
         assertJoinStats(RIGHT, RIGHT_JOIN_COLUMN, RIGHT_OTHER_COLUMN, LEFT_JOIN_COLUMN, LEFT_OTHER_COLUMN, RIGHT_STATS, LEFT_STATS, leftJoinStats);
@@ -282,12 +282,12 @@ public class TestJoinStatsRule
     {
         PlanNodeStatsEstimate leftStats = planNodeStats(
                 1,
-                new SymbolStatistics(LEFT_JOIN_COLUMN, SymbolStatsEstimate.unknown()),
-                new SymbolStatistics(LEFT_OTHER_COLUMN, SymbolStatsEstimate.unknown()));
+                new VariableStatistics(LEFT_JOIN_COLUMN, VariableStatsEstimate.unknown()),
+                new VariableStatistics(LEFT_OTHER_COLUMN, VariableStatsEstimate.unknown()));
         PlanNodeStatsEstimate rightStats = planNodeStats(
                 1,
-                new SymbolStatistics(RIGHT_JOIN_COLUMN, SymbolStatsEstimate.unknown()),
-                new SymbolStatistics(RIGHT_OTHER_COLUMN, SymbolStatsEstimate.unknown()));
+                new VariableStatistics(RIGHT_JOIN_COLUMN, VariableStatsEstimate.unknown()),
+                new VariableStatistics(RIGHT_OTHER_COLUMN, VariableStatsEstimate.unknown()));
         assertJoinStats(LEFT, leftStats, rightStats, PlanNodeStatsEstimate.unknown());
     }
 
@@ -303,10 +303,10 @@ public class TestJoinStatsRule
 
         PlanNodeStatsEstimate leftJoinStats = planNodeStats(
                 totalRowCount,
-                symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, (leftJoinComplementColumnNulls * leftJoinComplementRowCount + rightJoinComplementRowCount) / totalRowCount, LEFT_JOIN_COLUMN_NDV),
-                symbolStatistics(LEFT_OTHER_COLUMN, 42, 42, (0.42 * (innerJoinRowCount + leftJoinComplementRowCount) + rightJoinComplementRowCount) / totalRowCount, 1),
-                symbolStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, (rightJoinComplementColumnNulls * rightJoinComplementRowCount + leftJoinComplementRowCount) / totalRowCount, RIGHT_JOIN_COLUMN_NDV),
-                symbolStatistics(RIGHT_OTHER_COLUMN, 24, 24, (0.24 * (innerJoinRowCount + rightJoinComplementRowCount) + leftJoinComplementRowCount) / totalRowCount, 1));
+                variableStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, (leftJoinComplementColumnNulls * leftJoinComplementRowCount + rightJoinComplementRowCount) / totalRowCount, LEFT_JOIN_COLUMN_NDV),
+                variableStatistics(LEFT_OTHER_COLUMN, 42, 42, (0.42 * (innerJoinRowCount + leftJoinComplementRowCount) + rightJoinComplementRowCount) / totalRowCount, 1),
+                variableStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, (rightJoinComplementColumnNulls * rightJoinComplementRowCount + leftJoinComplementRowCount) / totalRowCount, RIGHT_JOIN_COLUMN_NDV),
+                variableStatistics(RIGHT_OTHER_COLUMN, 24, 24, (0.24 * (innerJoinRowCount + rightJoinComplementRowCount) + leftJoinComplementRowCount) / totalRowCount, 1));
 
         assertJoinStats(FULL, LEFT_STATS, RIGHT_STATS, leftJoinStats);
     }
@@ -316,11 +316,11 @@ public class TestJoinStatsRule
     {
         double statsToAddNdv = 5;
         PlanNodeStatsEstimate statsToAdd = planNodeStats(RIGHT_ROWS_COUNT,
-                symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 5.0, 0.2, statsToAddNdv));
+                variableStatistics(LEFT_JOIN_COLUMN, 0.0, 5.0, 0.2, statsToAddNdv));
 
         PlanNodeStatsEstimate addedStats = planNodeStats(TOTAL_ROWS_COUNT,
-                symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, (LEFT_ROWS_COUNT * LEFT_JOIN_COLUMN_NULLS + RIGHT_ROWS_COUNT * 0.2) / TOTAL_ROWS_COUNT, LEFT_JOIN_COLUMN_NDV),
-                symbolStatistics(LEFT_OTHER_COLUMN, 42, 42, (0.42 * LEFT_ROWS_COUNT + RIGHT_ROWS_COUNT) / TOTAL_ROWS_COUNT, 1));
+                variableStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, (LEFT_ROWS_COUNT * LEFT_JOIN_COLUMN_NULLS + RIGHT_ROWS_COUNT * 0.2) / TOTAL_ROWS_COUNT, LEFT_JOIN_COLUMN_NDV),
+                variableStatistics(LEFT_OTHER_COLUMN, 42, 42, (0.42 * LEFT_ROWS_COUNT + RIGHT_ROWS_COUNT) / TOTAL_ROWS_COUNT, 1));
 
         assertThat(JOIN_STATS_RULE.addJoinComplementStats(
                 LEFT_STATS,
@@ -334,37 +334,45 @@ public class TestJoinStatsRule
         assertJoinStats(joinType, LEFT_JOIN_COLUMN, LEFT_OTHER_COLUMN, RIGHT_JOIN_COLUMN, RIGHT_OTHER_COLUMN, leftStats, rightStats, resultStats);
     }
 
-    private void assertJoinStats(JoinNode.Type joinType, String leftJoinColumn, String leftOtherColumn, String rightJoinColumn, String rightOtherColumn, PlanNodeStatsEstimate leftStats, PlanNodeStatsEstimate rightStats, PlanNodeStatsEstimate resultStats)
+    private void assertJoinStats(
+            JoinNode.Type joinType,
+            VariableReferenceExpression leftJoinColumn,
+            VariableReferenceExpression leftOtherColumn,
+            VariableReferenceExpression rightJoinColumn,
+            VariableReferenceExpression rightOtherColumn,
+            PlanNodeStatsEstimate leftStats,
+            PlanNodeStatsEstimate rightStats,
+            PlanNodeStatsEstimate resultStats)
     {
         tester().assertStatsFor(pb -> {
-            Symbol leftJoinColumnSymbol = pb.symbol(leftJoinColumn, BIGINT);
-            Symbol rightJoinColumnSymbol = pb.symbol(rightJoinColumn, DOUBLE);
-            Symbol leftOtherColumnSymbol = pb.symbol(leftOtherColumn, BIGINT);
-            Symbol rightOtherColumnSymbol = pb.symbol(rightOtherColumn, DOUBLE);
+            VariableReferenceExpression leftJoinColumnVariable = pb.variable(leftJoinColumn);
+            VariableReferenceExpression rightJoinColumnVariable = pb.variable(rightJoinColumn);
+            VariableReferenceExpression leftOtherColumnVariable = pb.variable(leftOtherColumn);
+            VariableReferenceExpression rightOtherColumnVariable = pb.variable(rightOtherColumn);
             return pb
-                    .join(joinType, pb.values(leftJoinColumnSymbol, leftOtherColumnSymbol),
-                            pb.values(rightJoinColumnSymbol, rightOtherColumnSymbol),
-                            new EquiJoinClause(pb.variable(leftJoinColumnSymbol), pb.variable(rightJoinColumnSymbol)));
+                    .join(joinType, pb.values(leftJoinColumnVariable, leftOtherColumnVariable),
+                            pb.values(rightJoinColumnVariable, rightOtherColumnVariable),
+                            new EquiJoinClause(leftJoinColumnVariable, rightJoinColumnVariable));
         }).withSourceStats(0, leftStats)
                 .withSourceStats(1, rightStats)
                 .check(JOIN_STATS_RULE, stats -> stats.equalTo(resultStats));
     }
 
-    private static PlanNodeStatsEstimate planNodeStats(double rowCount, SymbolStatistics... symbolStatistics)
+    private static PlanNodeStatsEstimate planNodeStats(double rowCount, VariableStatistics... variableStatistics)
     {
         PlanNodeStatsEstimate.Builder builder = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(rowCount);
-        for (SymbolStatistics symbolStatistic : symbolStatistics) {
-            builder.addSymbolStatistics(symbolStatistic.symbol, symbolStatistic.estimate);
+        for (VariableStatistics symbolStatistic : variableStatistics) {
+            builder.addVariableStatistics(symbolStatistic.variable, symbolStatistic.estimate);
         }
         return builder.build();
     }
 
-    private static SymbolStatistics symbolStatistics(String symbolName, double low, double high, double nullsFraction, double ndv)
+    private static VariableStatistics variableStatistics(VariableReferenceExpression variable, double low, double high, double nullsFraction, double ndv)
     {
-        return new SymbolStatistics(
-                new Symbol(symbolName),
-                SymbolStatsEstimate.builder()
+        return new VariableStatistics(
+                variable,
+                VariableStatsEstimate.builder()
                         .setLowValue(low)
                         .setHighValue(high)
                         .setNullsFraction(nullsFraction)
@@ -372,19 +380,19 @@ public class TestJoinStatsRule
                         .build());
     }
 
-    private static class SymbolStatistics
+    private static class VariableStatistics
     {
-        final Symbol symbol;
-        final SymbolStatsEstimate estimate;
+        final VariableReferenceExpression variable;
+        final VariableStatsEstimate estimate;
 
-        SymbolStatistics(String symbolName, SymbolStatsEstimate estimate)
+        VariableStatistics(String variableName, VariableStatsEstimate estimate)
         {
-            this(new Symbol(symbolName), estimate);
+            this(new VariableReferenceExpression(variableName, BIGINT), estimate);
         }
 
-        SymbolStatistics(Symbol symbol, SymbolStatsEstimate estimate)
+        VariableStatistics(VariableReferenceExpression variable, VariableStatsEstimate estimate)
         {
-            this.symbol = symbol;
+            this.variable = variable;
             this.estimate = estimate;
         }
     }

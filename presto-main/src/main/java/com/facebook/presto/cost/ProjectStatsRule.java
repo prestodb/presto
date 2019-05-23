@@ -54,7 +54,7 @@ public class ProjectStatsRule
                 .setOutputRowCount(sourceStats.getOutputRowCount());
 
         for (Map.Entry<VariableReferenceExpression, Expression> entry : node.getAssignments().entrySet()) {
-            calculatedStats.addSymbolStatistics(entry.getKey(), scalarStatsCalculator.calculate(entry.getValue(), sourceStats, session, types));
+            calculatedStats.addVariableStatistics(entry.getKey(), scalarStatsCalculator.calculate(entry.getValue(), sourceStats, session, types));
         }
         return Optional.of(calculatedStats.build());
     }

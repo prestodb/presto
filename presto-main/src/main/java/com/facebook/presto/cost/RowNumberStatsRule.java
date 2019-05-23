@@ -16,7 +16,6 @@ package com.facebook.presto.cost;
 import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.Patterns;
@@ -55,10 +54,10 @@ public class RowNumberStatsRule
 
         double partitionCount = 1;
         for (VariableReferenceExpression groupByVariable : node.getPartitionBy()) {
-            SymbolStatsEstimate symbolStatistics = sourceStats.getSymbolStatistics(new Symbol(groupByVariable.getName()));
-            int nullRow = (symbolStatistics.getNullsFraction() == 0.0) ? 0 : 1;
+            VariableStatsEstimate variableStatistics = sourceStats.getVariableStatistics(groupByVariable);
+            int nullRow = (variableStatistics.getNullsFraction() == 0.0) ? 0 : 1;
             // assuming no correlation between grouping keys
-            partitionCount *= symbolStatistics.getDistinctValuesCount() + nullRow;
+            partitionCount *= variableStatistics.getDistinctValuesCount() + nullRow;
         }
         partitionCount = min(sourceRowsCount, partitionCount);
 
@@ -79,7 +78,7 @@ public class RowNumberStatsRule
 
         return Optional.of(PlanNodeStatsEstimate.buildFrom(sourceStats)
                 .setOutputRowCount(outputRowsCount)
-                .addSymbolStatistics(node.getRowNumberSymbol(), SymbolStatsEstimate.builder()
+                .addVariableStatistics(node.getRowNumberVariable(), VariableStatsEstimate.builder()
                         // Note: if we assume no skew, we could also estimate highValue
                         // (as rowsPerPartition), but underestimation of highValue may have
                         // more severe consequences than underestimation of distinctValuesCount

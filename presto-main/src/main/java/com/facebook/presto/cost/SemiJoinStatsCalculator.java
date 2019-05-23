@@ -14,7 +14,6 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 
 import java.util.function.BiFunction;
 
@@ -51,13 +50,13 @@ public final class SemiJoinStatsCalculator
             PlanNodeStatsEstimate filteringSourceStats,
             VariableReferenceExpression sourceJoinVariable,
             VariableReferenceExpression filteringSourceJoinVariable,
-            BiFunction<SymbolStatsEstimate, SymbolStatsEstimate, Double> retainedNdvProvider)
+            BiFunction<VariableStatsEstimate, VariableStatsEstimate, Double> retainedNdvProvider)
     {
-        SymbolStatsEstimate sourceJoinSymbolStats = sourceStats.getSymbolStatistics(new Symbol(sourceJoinVariable.getName()));
-        SymbolStatsEstimate filteringSourceJoinSymbolStats = filteringSourceStats.getSymbolStatistics(new Symbol(filteringSourceJoinVariable.getName()));
+        VariableStatsEstimate sourceJoinSymbolStats = sourceStats.getVariableStatistics(sourceJoinVariable);
+        VariableStatsEstimate filteringSourceJoinSymbolStats = filteringSourceStats.getVariableStatistics(filteringSourceJoinVariable);
 
         double retainedNdv = retainedNdvProvider.apply(sourceJoinSymbolStats, filteringSourceJoinSymbolStats);
-        SymbolStatsEstimate newSourceJoinSymbolStats = SymbolStatsEstimate.buildFrom(sourceJoinSymbolStats)
+        VariableStatsEstimate newSourceJoinSymbolStats = VariableStatsEstimate.buildFrom(sourceJoinSymbolStats)
                 .setNullsFraction(0)
                 .setDistinctValuesCount(retainedNdv)
                 .build();
@@ -65,7 +64,7 @@ public final class SemiJoinStatsCalculator
         double sourceDistinctValuesCount = sourceJoinSymbolStats.getDistinctValuesCount();
         if (sourceDistinctValuesCount == 0) {
             return PlanNodeStatsEstimate.buildFrom(sourceStats)
-                    .addSymbolStatistics(new Symbol(sourceJoinVariable.getName()), newSourceJoinSymbolStats)
+                    .addVariableStatistics(sourceJoinVariable, newSourceJoinSymbolStats)
                     .setOutputRowCount(0)
                     .build();
         }
@@ -73,7 +72,7 @@ public final class SemiJoinStatsCalculator
         double filterFactor = sourceJoinSymbolStats.getValuesFraction() * retainedNdv / sourceDistinctValuesCount;
         double outputRowCount = sourceStats.getOutputRowCount() * filterFactor;
         return PlanNodeStatsEstimate.buildFrom(sourceStats)
-                .addSymbolStatistics(new Symbol(sourceJoinVariable.getName()), newSourceJoinSymbolStats)
+                .addVariableStatistics(sourceJoinVariable, newSourceJoinSymbolStats)
                 .setOutputRowCount(outputRowCount)
                 .build();
     }

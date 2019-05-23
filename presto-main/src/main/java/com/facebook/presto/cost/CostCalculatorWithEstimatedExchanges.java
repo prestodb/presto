@@ -114,7 +114,7 @@ public class CostCalculatorWithEstimatedExchanges
         public LocalCostEstimate visitAggregation(AggregationNode node, Void context)
         {
             PlanNode source = node.getSource();
-            double inputSizeInBytes = getStats(source).getOutputSizeInBytes(source.getOutputSymbols(), types);
+            double inputSizeInBytes = getStats(source).getOutputSizeInBytes(source.getOutputVariables());
 
             LocalCostEstimate remoteRepartitionCost = calculateRemoteRepartitionCost(inputSizeInBytes);
             LocalCostEstimate localRepartitionCost = calculateLocalRepartitionCost(inputSizeInBytes);
@@ -166,7 +166,7 @@ public class CostCalculatorWithEstimatedExchanges
             // that is not aways true
             // but this estimate is better that returning UNKNOWN, as it sets
             // cumulative cost to unknown
-            double inputSizeInBytes = getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types);
+            double inputSizeInBytes = getStats(node).getOutputSizeInBytes(node.getOutputVariables());
             return calculateRemoteGatherCost(inputSizeInBytes);
         }
 
@@ -229,8 +229,8 @@ public class CostCalculatorWithEstimatedExchanges
             boolean replicated,
             int estimatedSourceDistributedTaskCount)
     {
-        double probeSizeInBytes = stats.getStats(probe).getOutputSizeInBytes(probe.getOutputSymbols(), types);
-        double buildSizeInBytes = stats.getStats(build).getOutputSizeInBytes(build.getOutputSymbols(), types);
+        double probeSizeInBytes = stats.getStats(probe).getOutputSizeInBytes(probe.getOutputVariables());
+        double buildSizeInBytes = stats.getStats(build).getOutputSizeInBytes(build.getOutputVariables());
         if (replicated) {
             // assuming the probe side of a replicated join is always source distributed
             LocalCostEstimate replicateCost = calculateRemoteReplicateCost(buildSizeInBytes, estimatedSourceDistributedTaskCount);
@@ -259,8 +259,8 @@ public class CostCalculatorWithEstimatedExchanges
         PlanNodeStatsEstimate probeStats = stats.getStats(probe);
         PlanNodeStatsEstimate buildStats = stats.getStats(build);
 
-        double buildSideSize = buildStats.getOutputSizeInBytes(build.getOutputSymbols(), types);
-        double probeSideSize = probeStats.getOutputSizeInBytes(probe.getOutputSymbols(), types);
+        double buildSideSize = buildStats.getOutputSizeInBytes(build.getOutputVariables());
+        double probeSideSize = probeStats.getOutputSizeInBytes(probe.getOutputVariables());
 
         double cpuCost = probeSideSize + buildSideSize * buildSizeMultiplier;
 

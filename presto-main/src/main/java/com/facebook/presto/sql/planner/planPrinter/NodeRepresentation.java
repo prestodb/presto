@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.planPrinter;
 import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 
@@ -32,7 +33,7 @@ public class NodeRepresentation
     private final String name;
     private final String type;
     private final String identifier;
-    private final List<OutputSymbol> outputs;
+    private final List<VariableReferenceExpression> outputs;
     private final List<PlanNodeId> children;
     private final List<PlanFragmentId> remoteSources;
     private final Optional<PlanNodeStats> stats;
@@ -46,7 +47,7 @@ public class NodeRepresentation
             String name,
             String type,
             String identifier,
-            List<OutputSymbol> outputs,
+            List<VariableReferenceExpression> outputs,
             Optional<PlanNodeStats> stats,
             List<PlanNodeStatsEstimate> estimatedStats,
             List<PlanCostEstimate> estimatedCost,
@@ -103,7 +104,7 @@ public class NodeRepresentation
         return identifier;
     }
 
-    public List<OutputSymbol> getOutputs()
+    public List<VariableReferenceExpression> getOutputs()
     {
         return outputs;
     }

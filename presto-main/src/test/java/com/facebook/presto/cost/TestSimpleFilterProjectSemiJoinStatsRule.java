@@ -33,42 +33,42 @@ import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.ex
 public class TestSimpleFilterProjectSemiJoinStatsRule
         extends BaseStatsCalculatorTest
 {
-    private SymbolStatsEstimate aStats = SymbolStatsEstimate.builder()
+    private VariableStatsEstimate aStats = VariableStatsEstimate.builder()
             .setLowValue(0)
             .setHighValue(10)
             .setDistinctValuesCount(10)
             .setNullsFraction(0.1)
             .build();
 
-    private SymbolStatsEstimate bStats = SymbolStatsEstimate.builder()
+    private VariableStatsEstimate bStats = VariableStatsEstimate.builder()
             .setLowValue(0)
             .setHighValue(100)
             .setDistinctValuesCount(10)
             .setNullsFraction(0)
             .build();
 
-    private SymbolStatsEstimate cStats = SymbolStatsEstimate.builder()
+    private VariableStatsEstimate cStats = VariableStatsEstimate.builder()
             .setLowValue(5)
             .setHighValue(30)
             .setDistinctValuesCount(2)
             .setNullsFraction(0.5)
             .build();
 
-    private SymbolStatsEstimate expectedAInC = SymbolStatsEstimate.builder()
+    private VariableStatsEstimate expectedAInC = VariableStatsEstimate.builder()
             .setDistinctValuesCount(2)
             .setLowValue(0)
             .setHighValue(10)
             .setNullsFraction(0)
             .build();
 
-    private SymbolStatsEstimate expectedANotInC = SymbolStatsEstimate.builder()
+    private VariableStatsEstimate expectedANotInC = VariableStatsEstimate.builder()
             .setDistinctValuesCount(1.6)
             .setLowValue(0)
             .setHighValue(8)
             .setNullsFraction(0)
             .build();
 
-    private SymbolStatsEstimate expectedANotInCWithExtraFilter = SymbolStatsEstimate.builder()
+    private VariableStatsEstimate expectedANotInCWithExtraFilter = VariableStatsEstimate.builder()
             .setDistinctValuesCount(8)
             .setLowValue(0)
             .setHighValue(10)
@@ -91,18 +91,18 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
         getStatsCalculatorAssertion(new Symbol("sjo").toSymbolReference(), toRowExpression)
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
-                        .addSymbolStatistics(new Symbol("a"), aStats)
-                        .addSymbolStatistics(new Symbol("b"), bStats)
+                        .addVariableStatistics(new VariableReferenceExpression("a", BIGINT), aStats)
+                        .addVariableStatistics(new VariableReferenceExpression("b", BIGINT), bStats)
                         .build())
                 .withSourceStats(RIGHT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(2000)
-                        .addSymbolStatistics(new Symbol("c"), cStats)
+                        .addVariableStatistics(new VariableReferenceExpression("c", BIGINT), cStats)
                         .build())
                 .check(check -> check.outputRowsCount(180)
-                            .symbolStats("a", assertion -> assertion.isEqualTo(expectedAInC))
-                            .symbolStats("b", assertion -> assertion.isEqualTo(bStats))
-                            .symbolStatsUnknown("c")
-                            .symbolStatsUnknown("sjo"));
+                            .variableStats(new VariableReferenceExpression("a", BIGINT), assertion -> assertion.isEqualTo(expectedAInC))
+                            .variableStats(new VariableReferenceExpression("b", BIGINT), assertion -> assertion.isEqualTo(bStats))
+                            .variableStatsUnknown("c")
+                            .variableStatsUnknown("sjo"));
     }
 
     @Test(dataProvider = "toRowExpression")
@@ -133,18 +133,18 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
         })
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
-                        .addSymbolStatistics(new Symbol("a"), aStats)
-                        .addSymbolStatistics(new Symbol("b"), bStats)
+                        .addVariableStatistics(new VariableReferenceExpression("a", BIGINT), aStats)
+                        .addVariableStatistics(new VariableReferenceExpression("b", BIGINT), bStats)
                         .build())
                 .withSourceStats(RIGHT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(2000)
-                        .addSymbolStatistics(new Symbol("c"), cStats)
+                        .addVariableStatistics(new VariableReferenceExpression("c", BIGINT), cStats)
                         .build())
                 .check(check -> check.outputRowsCount(180)
-                            .symbolStats("a", assertion -> assertion.isEqualTo(expectedAInC))
-                            .symbolStatsUnknown("b")
-                            .symbolStatsUnknown("c")
-                            .symbolStatsUnknown("sjo"));
+                            .variableStats(new VariableReferenceExpression("a", BIGINT), assertion -> assertion.isEqualTo(expectedAInC))
+                            .variableStatsUnknown("b")
+                            .variableStatsUnknown("c")
+                            .variableStatsUnknown("sjo"));
     }
 
     @Test(dataProvider = "toRowExpression")
@@ -153,18 +153,18 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
         getStatsCalculatorAssertion(expression("sjo AND a < 8"), toRowExpression)
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
-                        .addSymbolStatistics(new Symbol("a"), aStats)
-                        .addSymbolStatistics(new Symbol("b"), bStats)
+                        .addVariableStatistics(new VariableReferenceExpression("a", BIGINT), aStats)
+                        .addVariableStatistics(new VariableReferenceExpression("b", BIGINT), bStats)
                         .build())
                 .withSourceStats(RIGHT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(2000)
-                        .addSymbolStatistics(new Symbol("c"), cStats)
+                        .addVariableStatistics(new VariableReferenceExpression("c", BIGINT), cStats)
                         .build())
                 .check(check -> check.outputRowsCount(144)
-                            .symbolStats("a", assertion -> assertion.isEqualTo(expectedANotInC))
-                            .symbolStats("b", assertion -> assertion.isEqualTo(bStats))
-                            .symbolStatsUnknown("c")
-                            .symbolStatsUnknown("sjo"));
+                            .variableStats(new VariableReferenceExpression("a", BIGINT), assertion -> assertion.isEqualTo(expectedANotInC))
+                            .variableStats(new VariableReferenceExpression("b", BIGINT), assertion -> assertion.isEqualTo(bStats))
+                            .variableStatsUnknown("c")
+                            .variableStatsUnknown("sjo"));
     }
 
     @Test(dataProvider = "toRowExpression")
@@ -173,18 +173,18 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
         getStatsCalculatorAssertion(expression("NOT sjo"), toRowExpression)
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
-                        .addSymbolStatistics(new Symbol("a"), aStats)
-                        .addSymbolStatistics(new Symbol("b"), bStats)
+                        .addVariableStatistics(new VariableReferenceExpression("a", BIGINT), aStats)
+                        .addVariableStatistics(new VariableReferenceExpression("b", BIGINT), bStats)
                         .build())
                 .withSourceStats(RIGHT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(2000)
-                        .addSymbolStatistics(new Symbol("c"), cStats)
+                        .addVariableStatistics(new VariableReferenceExpression("c", BIGINT), cStats)
                         .build())
                 .check(check -> check.outputRowsCount(720)
-                            .symbolStats("a", assertion -> assertion.isEqualTo(expectedANotInCWithExtraFilter))
-                            .symbolStats("b", assertion -> assertion.isEqualTo(bStats))
-                            .symbolStatsUnknown("c")
-                            .symbolStatsUnknown("sjo"));
+                            .variableStats(new VariableReferenceExpression("a", BIGINT), assertion -> assertion.isEqualTo(expectedANotInCWithExtraFilter))
+                            .variableStats(new VariableReferenceExpression("b", BIGINT), assertion -> assertion.isEqualTo(bStats))
+                            .variableStatsUnknown("c")
+                            .variableStatsUnknown("sjo"));
     }
 
     private StatsCalculatorAssertion getStatsCalculatorAssertion(Expression expression, boolean toRowExpression)

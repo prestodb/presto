@@ -14,7 +14,6 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -28,7 +27,7 @@ public class TestSemiJoinStatsRule
     @Test
     public void testSemiJoinPropagatesSourceStats()
     {
-        SymbolStatsEstimate stats = SymbolStatsEstimate.builder()
+        VariableStatsEstimate stats = VariableStatsEstimate.builder()
                 .setLowValue(1)
                 .setHighValue(10)
                 .setDistinctValuesCount(5)
@@ -52,18 +51,18 @@ public class TestSemiJoinStatsRule
         })
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
-                        .addSymbolStatistics(new Symbol("a"), stats)
-                        .addSymbolStatistics(new Symbol("b"), stats)
+                        .addVariableStatistics(new VariableReferenceExpression("a", BIGINT), stats)
+                        .addVariableStatistics(new VariableReferenceExpression("b", BIGINT), stats)
                         .build())
                 .withSourceStats(1, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(20)
-                        .addSymbolStatistics(new Symbol("c"), stats)
+                        .addVariableStatistics(new VariableReferenceExpression("c", BIGINT), stats)
                         .build())
                 .check(check -> check
                         .outputRowsCount(10)
-                        .symbolStats("a", assertion -> assertion.isEqualTo(stats))
-                        .symbolStats("b", assertion -> assertion.isEqualTo(stats))
-                        .symbolStatsUnknown("c")
-                        .symbolStatsUnknown("sjo"));
+                        .variableStats(new VariableReferenceExpression("a", BIGINT), assertion -> assertion.isEqualTo(stats))
+                        .variableStats(new VariableReferenceExpression("b", BIGINT), assertion -> assertion.isEqualTo(stats))
+                        .variableStatsUnknown("c")
+                        .variableStatsUnknown("sjo"));
     }
 }

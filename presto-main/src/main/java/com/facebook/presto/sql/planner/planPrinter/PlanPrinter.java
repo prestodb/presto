@@ -89,7 +89,6 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.planner.planPrinter.NodeRepresentation.OutputSymbol;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -1162,9 +1161,7 @@ public class PlanPrinter
                     name,
                     rootNode.getClass().getSimpleName(),
                     identifier,
-                    rootNode.getOutputSymbols().stream()
-                            .map(s -> new OutputSymbol(s, types.get(s).getDisplayName()))
-                            .collect(toImmutableList()),
+                    rootNode.getOutputVariables(),
                     stats.map(s -> s.get(rootNode.getId())),
                     estimatedStats,
                     estimatedCosts,

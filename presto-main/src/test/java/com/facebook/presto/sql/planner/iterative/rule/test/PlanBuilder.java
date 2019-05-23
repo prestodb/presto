@@ -735,6 +735,11 @@ public class PlanBuilder
         return new VariableReferenceExpression(symbol.getName(), symbols.get(symbol));
     }
 
+    public VariableReferenceExpression variable(VariableReferenceExpression variable)
+    {
+        return variable(variable.getName(), variable.getType());
+    }
+
     public VariableReferenceExpression variable(String name, Type type)
     {
         Symbol s = symbol(name, type);

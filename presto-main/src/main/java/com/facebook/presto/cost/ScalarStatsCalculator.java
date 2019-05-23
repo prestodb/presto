@@ -83,18 +83,18 @@ public class ScalarStatsCalculator
     }
 
     @Deprecated
-    public SymbolStatsEstimate calculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics, Session session, TypeProvider types)
+    public VariableStatsEstimate calculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics, Session session, TypeProvider types)
     {
         return new ExpressionStatsVisitor(inputStatistics, session, types).process(scalarExpression);
     }
 
-    public SymbolStatsEstimate calculate(RowExpression scalarExpression, PlanNodeStatsEstimate inputStatistics, Session session)
+    public VariableStatsEstimate calculate(RowExpression scalarExpression, PlanNodeStatsEstimate inputStatistics, Session session)
     {
         return scalarExpression.accept(new RowExpressionStatsVisitor(inputStatistics, session), null);
     }
 
     private class RowExpressionStatsVisitor
-            implements RowExpressionVisitor<SymbolStatsEstimate, Void>
+            implements RowExpressionVisitor<VariableStatsEstimate, Void>
     {
         private final PlanNodeStatsEstimate input;
         private final Session session;
@@ -107,7 +107,7 @@ public class ScalarStatsCalculator
         }
 
         @Override
-        public SymbolStatsEstimate visitCall(CallExpression call, Void context)
+        public VariableStatsEstimate visitCall(CallExpression call, Void context)
         {
             if (resolution.isCastFunction(call.getFunctionHandle())) {
                 return computeCastStatistics(call, context);
@@ -130,31 +130,31 @@ public class ScalarStatsCalculator
 
             if (value instanceof RowExpression) {
                 // value is not a constant
-                return SymbolStatsEstimate.unknown();
+                return VariableStatsEstimate.unknown();
             }
 
             // value is a constant
-            return SymbolStatsEstimate.builder()
+            return VariableStatsEstimate.builder()
                     .setNullsFraction(0)
                     .setDistinctValuesCount(1)
                     .build();
         }
 
         @Override
-        public SymbolStatsEstimate visitInputReference(InputReferenceExpression reference, Void context)
+        public VariableStatsEstimate visitInputReference(InputReferenceExpression reference, Void context)
         {
             throw new UnsupportedOperationException("symbol stats estimation should not reach channel mapping");
         }
 
         @Override
-        public SymbolStatsEstimate visitConstant(ConstantExpression literal, Void context)
+        public VariableStatsEstimate visitConstant(ConstantExpression literal, Void context)
         {
             if (literal.getValue() == null) {
                 return nullStatsEstimate();
             }
 
             OptionalDouble doubleValue = toStatsRepresentation(metadata, session, literal.getType(), literal.getValue());
-            SymbolStatsEstimate.Builder estimate = SymbolStatsEstimate.builder()
+            VariableStatsEstimate.Builder estimate = VariableStatsEstimate.builder()
                     .setNullsFraction(0)
                     .setDistinctValuesCount(1);
 
@@ -166,24 +166,24 @@ public class ScalarStatsCalculator
         }
 
         @Override
-        public SymbolStatsEstimate visitLambda(LambdaDefinitionExpression lambda, Void context)
+        public VariableStatsEstimate visitLambda(LambdaDefinitionExpression lambda, Void context)
         {
-            return SymbolStatsEstimate.unknown();
+            return VariableStatsEstimate.unknown();
         }
 
         @Override
-        public SymbolStatsEstimate visitVariableReference(VariableReferenceExpression reference, Void context)
+        public VariableStatsEstimate visitVariableReference(VariableReferenceExpression reference, Void context)
         {
-            return input.getSymbolStatistics(new Symbol(reference.getName()));
+            return input.getVariableStatistics(reference);
         }
 
         @Override
-        public SymbolStatsEstimate visitSpecialForm(SpecialFormExpression specialForm, Void context)
+        public VariableStatsEstimate visitSpecialForm(SpecialFormExpression specialForm, Void context)
         {
             if (specialForm.getForm().equals(COALESCE)) {
-                SymbolStatsEstimate result = null;
+                VariableStatsEstimate result = null;
                 for (RowExpression operand : specialForm.getArguments()) {
-                    SymbolStatsEstimate operandEstimates = operand.accept(this, context);
+                    VariableStatsEstimate operandEstimates = operand.accept(this, context);
                     if (result != null) {
                         result = estimateCoalesce(input, result, operandEstimates);
                     }
@@ -193,13 +193,13 @@ public class ScalarStatsCalculator
                 }
                 return requireNonNull(result, "result is null");
             }
-            return SymbolStatsEstimate.unknown();
+            return VariableStatsEstimate.unknown();
         }
 
-        private SymbolStatsEstimate computeCastStatistics(CallExpression call, Void context)
+        private VariableStatsEstimate computeCastStatistics(CallExpression call, Void context)
         {
             requireNonNull(call, "call is null");
-            SymbolStatsEstimate sourceStats = call.getArguments().get(0).accept(this, context);
+            VariableStatsEstimate sourceStats = call.getArguments().get(0).accept(this, context);
 
             // todo - make this general postprocessing rule.
             double distinctValuesCount = sourceStats.getDistinctValuesCount();
@@ -222,7 +222,7 @@ public class ScalarStatsCalculator
                 }
             }
 
-            return SymbolStatsEstimate.builder()
+            return VariableStatsEstimate.builder()
                     .setNullsFraction(sourceStats.getNullsFraction())
                     .setLowValue(lowValue)
                     .setHighValue(highValue)
@@ -230,12 +230,12 @@ public class ScalarStatsCalculator
                     .build();
         }
 
-        private SymbolStatsEstimate computeNegationStatistics(CallExpression call, Void context)
+        private VariableStatsEstimate computeNegationStatistics(CallExpression call, Void context)
         {
             requireNonNull(call, "call is null");
-            SymbolStatsEstimate stats = call.getArguments().get(0).accept(this, context);
+            VariableStatsEstimate stats = call.getArguments().get(0).accept(this, context);
             if (resolution.isNegateFunction(call.getFunctionHandle())) {
-                return SymbolStatsEstimate.buildFrom(stats)
+                return VariableStatsEstimate.buildFrom(stats)
                         .setLowValue(-stats.getHighValue())
                         .setHighValue(-stats.getLowValue())
                         .build();
@@ -243,13 +243,13 @@ public class ScalarStatsCalculator
             throw new IllegalStateException(format("Unexpected sign: %s(%s)" + call.getDisplayName(), call.getFunctionHandle()));
         }
 
-        private SymbolStatsEstimate computeArithmeticBinaryStatistics(CallExpression call, Void context)
+        private VariableStatsEstimate computeArithmeticBinaryStatistics(CallExpression call, Void context)
         {
             requireNonNull(call, "call is null");
-            SymbolStatsEstimate left = call.getArguments().get(0).accept(this, context);
-            SymbolStatsEstimate right = call.getArguments().get(1).accept(this, context);
+            VariableStatsEstimate left = call.getArguments().get(0).accept(this, context);
+            VariableStatsEstimate right = call.getArguments().get(1).accept(this, context);
 
-            SymbolStatsEstimate.Builder result = SymbolStatsEstimate.builder()
+            VariableStatsEstimate.Builder result = VariableStatsEstimate.builder()
                     .setAverageRowSize(Math.max(left.getAverageRowSize(), right.getAverageRowSize()))
                     .setNullsFraction(left.getNullsFraction() + right.getNullsFraction() - left.getNullsFraction() * right.getNullsFraction())
                     .setDistinctValuesCount(min(left.getDistinctValuesCount() * right.getDistinctValuesCount(), input.getOutputRowCount()));
@@ -318,7 +318,7 @@ public class ScalarStatsCalculator
     }
 
     private class ExpressionStatsVisitor
-            extends AstVisitor<SymbolStatsEstimate, Void>
+            extends AstVisitor<VariableStatsEstimate, Void>
     {
         private final PlanNodeStatsEstimate input;
         private final Session session;
@@ -332,30 +332,31 @@ public class ScalarStatsCalculator
         }
 
         @Override
-        protected SymbolStatsEstimate visitNode(Node node, Void context)
+        protected VariableStatsEstimate visitNode(Node node, Void context)
         {
-            return SymbolStatsEstimate.unknown();
+            return VariableStatsEstimate.unknown();
         }
 
         @Override
-        protected SymbolStatsEstimate visitSymbolReference(SymbolReference node, Void context)
+        protected VariableStatsEstimate visitSymbolReference(SymbolReference node, Void context)
         {
-            return input.getSymbolStatistics(Symbol.from(node));
+            Symbol symbol = Symbol.from(node);
+            return input.getVariableStatistics(new VariableReferenceExpression(symbol.getName(), types.get(symbol)));
         }
 
         @Override
-        protected SymbolStatsEstimate visitNullLiteral(NullLiteral node, Void context)
+        protected VariableStatsEstimate visitNullLiteral(NullLiteral node, Void context)
         {
             return nullStatsEstimate();
         }
 
         @Override
-        protected SymbolStatsEstimate visitLiteral(Literal node, Void context)
+        protected VariableStatsEstimate visitLiteral(Literal node, Void context)
         {
             Object value = evaluate(metadata, session.toConnectorSession(), node);
             Type type = ExpressionAnalyzer.createConstantAnalyzer(metadata, session, ImmutableList.of(), WarningCollector.NOOP).analyze(node, Scope.create());
             OptionalDouble doubleValue = toStatsRepresentation(metadata, session, type, value);
-            SymbolStatsEstimate.Builder estimate = SymbolStatsEstimate.builder()
+            VariableStatsEstimate.Builder estimate = VariableStatsEstimate.builder()
                     .setNullsFraction(0)
                     .setDistinctValuesCount(1);
 
@@ -367,7 +368,7 @@ public class ScalarStatsCalculator
         }
 
         @Override
-        protected SymbolStatsEstimate visitFunctionCall(FunctionCall node, Void context)
+        protected VariableStatsEstimate visitFunctionCall(FunctionCall node, Void context)
         {
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, node, types);
             ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(node, metadata, session, expressionTypes);
@@ -379,11 +380,11 @@ public class ScalarStatsCalculator
 
             if (value instanceof Expression && !(value instanceof Literal)) {
                 // value is not a constant
-                return SymbolStatsEstimate.unknown();
+                return VariableStatsEstimate.unknown();
             }
 
             // value is a constant
-            return SymbolStatsEstimate.builder()
+            return VariableStatsEstimate.builder()
                     .setNullsFraction(0)
                     .setDistinctValuesCount(1)
                     .build();
@@ -405,9 +406,9 @@ public class ScalarStatsCalculator
         }
 
         @Override
-        protected SymbolStatsEstimate visitCast(Cast node, Void context)
+        protected VariableStatsEstimate visitCast(Cast node, Void context)
         {
-            SymbolStatsEstimate sourceStats = process(node.getExpression());
+            VariableStatsEstimate sourceStats = process(node.getExpression());
             TypeSignature targetType = TypeSignature.parseTypeSignature(node.getType());
 
             // todo - make this general postprocessing rule.
@@ -431,7 +432,7 @@ public class ScalarStatsCalculator
                 }
             }
 
-            return SymbolStatsEstimate.builder()
+            return VariableStatsEstimate.builder()
                     .setNullsFraction(sourceStats.getNullsFraction())
                     .setLowValue(lowValue)
                     .setHighValue(highValue)
@@ -440,14 +441,14 @@ public class ScalarStatsCalculator
         }
 
         @Override
-        protected SymbolStatsEstimate visitArithmeticUnary(ArithmeticUnaryExpression node, Void context)
+        protected VariableStatsEstimate visitArithmeticUnary(ArithmeticUnaryExpression node, Void context)
         {
-            SymbolStatsEstimate stats = process(node.getValue());
+            VariableStatsEstimate stats = process(node.getValue());
             switch (node.getSign()) {
                 case PLUS:
                     return stats;
                 case MINUS:
-                    return SymbolStatsEstimate.buildFrom(stats)
+                    return VariableStatsEstimate.buildFrom(stats)
                             .setLowValue(-stats.getHighValue())
                             .setHighValue(-stats.getLowValue())
                             .build();
@@ -457,13 +458,13 @@ public class ScalarStatsCalculator
         }
 
         @Override
-        protected SymbolStatsEstimate visitArithmeticBinary(ArithmeticBinaryExpression node, Void context)
+        protected VariableStatsEstimate visitArithmeticBinary(ArithmeticBinaryExpression node, Void context)
         {
             requireNonNull(node, "node is null");
-            SymbolStatsEstimate left = process(node.getLeft());
-            SymbolStatsEstimate right = process(node.getRight());
+            VariableStatsEstimate left = process(node.getLeft());
+            VariableStatsEstimate right = process(node.getRight());
 
-            SymbolStatsEstimate.Builder result = SymbolStatsEstimate.builder()
+            VariableStatsEstimate.Builder result = VariableStatsEstimate.builder()
                     .setAverageRowSize(Math.max(left.getAverageRowSize(), right.getAverageRowSize()))
                     .setNullsFraction(left.getNullsFraction() + right.getNullsFraction() - left.getNullsFraction() * right.getNullsFraction())
                     .setDistinctValuesCount(min(left.getDistinctValuesCount() * right.getDistinctValuesCount(), input.getOutputRowCount()));
@@ -529,12 +530,12 @@ public class ScalarStatsCalculator
         }
 
         @Override
-        protected SymbolStatsEstimate visitCoalesceExpression(CoalesceExpression node, Void context)
+        protected VariableStatsEstimate visitCoalesceExpression(CoalesceExpression node, Void context)
         {
             requireNonNull(node, "node is null");
-            SymbolStatsEstimate result = null;
+            VariableStatsEstimate result = null;
             for (Expression operand : node.getOperands()) {
-                SymbolStatsEstimate operandEstimates = process(operand);
+                VariableStatsEstimate operandEstimates = process(operand);
                 if (result != null) {
                     result = estimateCoalesce(input, result, operandEstimates);
                 }
@@ -546,7 +547,7 @@ public class ScalarStatsCalculator
         }
     }
 
-    private static SymbolStatsEstimate estimateCoalesce(PlanNodeStatsEstimate input, SymbolStatsEstimate left, SymbolStatsEstimate right)
+    private static VariableStatsEstimate estimateCoalesce(PlanNodeStatsEstimate input, VariableStatsEstimate left, VariableStatsEstimate right)
     {
         // Question to reviewer: do you have a method to check if fraction is empty or saturated?
         if (left.getNullsFraction() == 0) {
@@ -556,7 +557,7 @@ public class ScalarStatsCalculator
             return right;
         }
         else {
-            return SymbolStatsEstimate.builder()
+            return VariableStatsEstimate.builder()
                     .setLowValue(min(left.getLowValue(), right.getLowValue()))
                     .setHighValue(max(left.getHighValue(), right.getHighValue()))
                     .setDistinctValuesCount(left.getDistinctValuesCount() +
@@ -568,9 +569,9 @@ public class ScalarStatsCalculator
         }
     }
 
-    private static SymbolStatsEstimate nullStatsEstimate()
+    private static VariableStatsEstimate nullStatsEstimate()
     {
-        return SymbolStatsEstimate.builder()
+        return VariableStatsEstimate.builder()
                 .setDistinctValuesCount(0)
                 .setNullsFraction(1)
                 .build();
