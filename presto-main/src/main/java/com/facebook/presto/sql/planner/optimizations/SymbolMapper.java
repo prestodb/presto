@@ -192,7 +192,7 @@ public class SymbolMapper
     public TableWriterNode map(TableWriterNode node, PlanNode source, PlanNodeId newNodeId)
     {
         // Intentionally does not use canonicalizeAndDistinct as that would remove columns
-        ImmutableList<Symbol> columns = node.getColumns().stream()
+        ImmutableList<VariableReferenceExpression> columns = node.getColumns().stream()
                 .map(this::map)
                 .collect(toImmutableList());
 

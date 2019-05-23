@@ -239,9 +239,9 @@ public class UnaliasSymbolReferences
             return new WindowNode.Frame(
                     frame.getType(),
                     frame.getStartType(),
-                    canonicalizeOptionalSymbol(frame.getStartValue()),
+                    canonicalize(frame.getStartValue()),
                     frame.getEndType(),
-                    canonicalizeOptionalSymbol(frame.getEndValue()),
+                    canonicalize(frame.getEndValue()),
                     frame.getOriginalStartValue(),
                     frame.getOriginalEndValue());
         }
@@ -665,14 +665,6 @@ public class UnaliasSymbolReferences
                 assignments.put(canonical, expression);
             }
             return assignments.build();
-        }
-
-        private Optional<Symbol> canonicalizeOptionalSymbol(Optional<Symbol> symbol)
-        {
-            if (symbol.isPresent()) {
-                return Optional.of(canonicalize(symbol.get()));
-            }
-            return Optional.empty();
         }
 
         private Symbol canonicalize(Symbol symbol)

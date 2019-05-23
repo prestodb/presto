@@ -17,6 +17,7 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -60,7 +61,7 @@ public class TableWriterMatcher
         if (!columns.stream()
                 .map(s -> Symbol.from(symbolAliases.get(s)))
                 .collect(toImmutableList())
-                .equals(tableWriterNode.getColumns())) {
+                .equals(tableWriterNode.getColumns().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()))) {
             return NO_MATCH;
         }
 

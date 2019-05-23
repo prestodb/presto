@@ -910,10 +910,10 @@ public class LocalExecutionPlanner
 
                 Frame frame = entry.getValue().getFrame();
                 if (frame.getStartValue().isPresent()) {
-                    frameStartChannel = Optional.of(source.getLayout().get(frame.getStartValue().get()));
+                    frameStartChannel = Optional.of(source.getLayout().get(new Symbol(frame.getStartValue().get().getName())));
                 }
                 if (frame.getEndValue().isPresent()) {
-                    frameEndChannel = Optional.of(source.getLayout().get(frame.getEndValue().get()));
+                    frameEndChannel = Optional.of(source.getLayout().get(new Symbol(frame.getEndValue().get().getName())));
                 }
 
                 FrameInfo frameInfo = new FrameInfo(frame.getType(), frame.getStartType(), frameStartChannel, frame.getEndType(), frameEndChannel);
@@ -2226,7 +2226,7 @@ public class LocalExecutionPlanner
             }).orElse(new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()));
 
             List<Integer> inputChannels = node.getColumns().stream()
-                    .map(source::symbolToChannel)
+                    .map(source::variableToChannel)
                     .collect(toImmutableList());
 
             OperatorFactory operatorFactory = new TableWriterOperatorFactory(
@@ -2942,10 +2942,11 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
         }
 
-        public int symbolToChannel(Symbol input)
+        private int variableToChannel(VariableReferenceExpression input)
         {
-            checkArgument(layout.containsKey(input));
-            return layout.get(input);
+            Symbol symbol = new Symbol(input.getName());
+            checkArgument(layout.containsKey(symbol));
+            return layout.get(symbol);
         }
 
         public List<Type> getTypes()

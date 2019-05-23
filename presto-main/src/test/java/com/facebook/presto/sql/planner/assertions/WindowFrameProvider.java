@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.assertions;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType;
 import com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType;
@@ -20,6 +21,7 @@ import com.facebook.presto.sql.tree.Expression;
 
 import java.util.Optional;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -57,9 +59,9 @@ public class WindowFrameProvider
         return new WindowNode.Frame(
                 type,
                 startType,
-                startValue.map(alias -> alias.toSymbol(aliases)),
+                startValue.map(alias -> new VariableReferenceExpression(alias.toSymbol(aliases).getName(), BIGINT)),
                 endType,
-                endValue.map(alias -> alias.toSymbol(aliases)),
+                endValue.map(alias -> new VariableReferenceExpression(alias.toSymbol(aliases).getName(), BIGINT)),
                 originalStartValue.map(Expression::toString),
                 originalEndValue.map(Expression::toString));
     }

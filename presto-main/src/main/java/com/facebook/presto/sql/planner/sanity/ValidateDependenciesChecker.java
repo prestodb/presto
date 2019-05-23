@@ -182,10 +182,10 @@ public final class ValidateDependenciesChecker
             ImmutableList.Builder<Symbol> bounds = ImmutableList.builder();
             for (WindowNode.Frame frame : node.getFrames()) {
                 if (frame.getStartValue().isPresent()) {
-                    bounds.add(frame.getStartValue().get());
+                    bounds.add(new Symbol(frame.getStartValue().get().getName()));
                 }
                 if (frame.getEndValue().isPresent()) {
-                    bounds.add(frame.getEndValue().get());
+                    bounds.add(new Symbol(frame.getEndValue().get().getName()));
                 }
             }
             checkDependencies(inputs, bounds.build(), "Invalid node. Frame bounds (%s) not in source plan output (%s)", bounds.build(), node.getSource().getOutputSymbols());

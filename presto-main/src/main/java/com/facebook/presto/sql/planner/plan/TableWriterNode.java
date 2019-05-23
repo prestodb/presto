@@ -48,7 +48,7 @@ public class TableWriterNode
     private final VariableReferenceExpression rowCountVariable;
     private final VariableReferenceExpression fragmentVariable;
     private final VariableReferenceExpression tableCommitContextVariable;
-    private final List<Symbol> columns;
+    private final List<VariableReferenceExpression> columns;
     private final List<String> columnNames;
     private final Optional<PartitioningScheme> partitioningScheme;
     private final Optional<StatisticAggregations> statisticsAggregation;
@@ -63,7 +63,7 @@ public class TableWriterNode
             @JsonProperty("rowCountVariable") VariableReferenceExpression rowCountVariable,
             @JsonProperty("fragmentVariable") VariableReferenceExpression fragmentVariable,
             @JsonProperty("tableCommitContextVariable") VariableReferenceExpression tableCommitContextVariable,
-            @JsonProperty("columns") List<Symbol> columns,
+            @JsonProperty("columns") List<VariableReferenceExpression> columns,
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("partitioningScheme") Optional<PartitioningScheme> partitioningScheme,
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation,
@@ -129,7 +129,7 @@ public class TableWriterNode
     }
 
     @JsonProperty
-    public List<Symbol> getColumns()
+    public List<VariableReferenceExpression> getColumns()
     {
         return columns;
     }

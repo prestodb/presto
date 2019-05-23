@@ -715,7 +715,7 @@ public class PlanBuilder
         return new UnionNode(idAllocator.getNextId(), sources, outputsToInputs);
     }
 
-    public TableWriterNode tableWriter(List<Symbol> columns, List<String> columnNames, PlanNode source)
+    public TableWriterNode tableWriter(List<VariableReferenceExpression> columns, List<String> columnNames, PlanNode source)
     {
         return new TableWriterNode(
                 idAllocator.getNextId(),

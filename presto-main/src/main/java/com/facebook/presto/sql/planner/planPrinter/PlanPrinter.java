@@ -916,8 +916,8 @@ public class PlanPrinter
             NodeRepresentation nodeOutput = addNode(node, "TableWriter");
             for (int i = 0; i < node.getColumnNames().size(); i++) {
                 String name = node.getColumnNames().get(i);
-                Symbol symbol = node.getColumns().get(i);
-                nodeOutput.appendDetailsLine("%s := %s", name, symbol);
+                VariableReferenceExpression variable = node.getColumns().get(i);
+                nodeOutput.appendDetailsLine("%s := %s", name, variable);
             }
 
             int statisticsCollected = node.getStatisticsAggregation()

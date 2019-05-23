@@ -457,7 +457,7 @@ public class LogicalPlanner
                     symbolAllocator.newVariable("partialrows", BIGINT),
                     symbolAllocator.newVariable("fragment", VARBINARY),
                     symbolAllocator.newVariable("tablecommitcontext", VARBINARY),
-                    plan.getFieldSymbolMappings(),
+                    plan.getFieldMappings(),
                     columnNames,
                     partitioningScheme,
                     Optional.of(partialAggregation),
@@ -483,7 +483,7 @@ public class LogicalPlanner
                         symbolAllocator.newVariable("partialrows", BIGINT),
                         symbolAllocator.newVariable("fragment", VARBINARY),
                         symbolAllocator.newVariable("tablecommitcontext", VARBINARY),
-                        plan.getFieldSymbolMappings(),
+                        plan.getFieldMappings(),
                         columnNames,
                         partitioningScheme,
                         Optional.empty(),
@@ -497,7 +497,7 @@ public class LogicalPlanner
 
     private RelationPlan createDeletePlan(Analysis analysis, Delete node)
     {
-        DeleteNode deleteNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, session)
+        DeleteNode deleteNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToVariableMap(analysis, symbolAllocator), metadata, session)
                 .plan(node);
 
         TableFinishNode commitNode = new TableFinishNode(
@@ -536,7 +536,7 @@ public class LogicalPlanner
 
     private RelationPlan createRelationPlan(Analysis analysis, Query query)
     {
-        return new RelationPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, session)
+        return new RelationPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToVariableMap(analysis, symbolAllocator), metadata, session)
                 .process(query, null);
     }
 
@@ -568,9 +568,9 @@ public class LogicalPlanner
         return columns.build();
     }
 
-    private static Map<NodeRef<LambdaArgumentDeclaration>, Symbol> buildLambdaDeclarationToSymbolMap(Analysis analysis, SymbolAllocator symbolAllocator)
+    private static Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> buildLambdaDeclarationToVariableMap(Analysis analysis, SymbolAllocator symbolAllocator)
     {
-        Map<NodeRef<LambdaArgumentDeclaration>, Symbol> resultMap = new LinkedHashMap<>();
+        Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> resultMap = new LinkedHashMap<>();
         for (Entry<NodeRef<Expression>, Type> entry : analysis.getTypes().entrySet()) {
             if (!(entry.getKey().getNode() instanceof LambdaArgumentDeclaration)) {
                 continue;
@@ -579,7 +579,7 @@ public class LogicalPlanner
             if (resultMap.containsKey(lambdaArgumentDeclaration)) {
                 continue;
             }
-            resultMap.put(lambdaArgumentDeclaration, symbolAllocator.newSymbol(lambdaArgumentDeclaration.getNode(), entry.getValue()));
+            resultMap.put(lambdaArgumentDeclaration, symbolAllocator.newVariable(lambdaArgumentDeclaration.getNode(), entry.getValue()));
         }
         return resultMap;
     }

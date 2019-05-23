@@ -389,10 +389,10 @@ public class PruneUnreferencedOutputs
 
             for (WindowNode.Frame frame : node.getFrames()) {
                 if (frame.getStartValue().isPresent()) {
-                    expectedInputs.add(frame.getStartValue().get());
+                    expectedInputs.add(new Symbol(frame.getStartValue().get().getName()));
                 }
                 if (frame.getEndValue().isPresent()) {
-                    expectedInputs.add(frame.getEndValue().get());
+                    expectedInputs.add(new Symbol(frame.getEndValue().get().getName()));
                 }
             }
 
@@ -650,7 +650,7 @@ public class PruneUnreferencedOutputs
         public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<Set<Symbol>> context)
         {
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
-                    .addAll(node.getColumns());
+                    .addAll(node.getColumns().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
             if (node.getPartitioningScheme().isPresent()) {
                 PartitioningScheme partitioningScheme = node.getPartitioningScheme().get();
                 partitioningScheme.getPartitioning().getColumns().forEach(expectedInputs::add);

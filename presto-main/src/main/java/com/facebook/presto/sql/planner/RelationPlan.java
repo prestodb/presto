@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -66,6 +65,12 @@ class RelationPlan
         return new Symbol(fieldMappings.get(fieldIndex).getName());
     }
 
+    public VariableReferenceExpression getVariable(int fieldIndex)
+    {
+        checkArgument(fieldIndex >= 0 && fieldIndex < fieldMappings.size(), "No field->symbol mapping for field %s", fieldIndex);
+        return fieldMappings.get(fieldIndex);
+    }
+
     public PlanNode getRoot()
     {
         return root;
@@ -74,14 +79,6 @@ class RelationPlan
     public List<VariableReferenceExpression> getFieldMappings()
     {
         return fieldMappings;
-    }
-
-    public List<Symbol> getFieldSymbolMappings()
-    {
-        return fieldMappings.stream()
-                .map(VariableReferenceExpression::getName)
-                .map(Symbol::new)
-                .collect(toImmutableList());
     }
 
     public RelationType getDescriptor()

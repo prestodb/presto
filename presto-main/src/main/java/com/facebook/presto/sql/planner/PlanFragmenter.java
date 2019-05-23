@@ -724,7 +724,7 @@ public class PlanFragmenter
                                             symbolAllocator.newVariable("partialrows", BIGINT),
                                             symbolAllocator.newVariable("fragment", VARBINARY),
                                             symbolAllocator.newVariable("tablecommitcontext", VARBINARY),
-                                            outputs.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()),
+                                            outputs,
                                             outputColumnNames,
                                             Optional.of(new PartitioningScheme(
                                                     Partitioning.create(partitioningHandle, partitioningVariables),

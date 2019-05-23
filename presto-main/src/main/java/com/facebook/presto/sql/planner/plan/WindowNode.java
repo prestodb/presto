@@ -237,9 +237,9 @@ public class WindowNode
     {
         private final WindowType type;
         private final BoundType startType;
-        private final Optional<Symbol> startValue;
+        private final Optional<VariableReferenceExpression> startValue;
         private final BoundType endType;
-        private final Optional<Symbol> endValue;
+        private final Optional<VariableReferenceExpression> endValue;
 
         // This information is only used for printing the plan.
         private final Optional<String> originalStartValue;
@@ -249,9 +249,9 @@ public class WindowNode
         public Frame(
                 @JsonProperty("type") WindowType type,
                 @JsonProperty("startType") BoundType startType,
-                @JsonProperty("startValue") Optional<Symbol> startValue,
+                @JsonProperty("startValue") Optional<VariableReferenceExpression> startValue,
                 @JsonProperty("endType") BoundType endType,
-                @JsonProperty("endValue") Optional<Symbol> endValue,
+                @JsonProperty("endValue") Optional<VariableReferenceExpression> endValue,
                 @JsonProperty("originalStartValue") Optional<String> originalStartValue,
                 @JsonProperty("originalEndValue") Optional<String> originalEndValue)
         {
@@ -285,7 +285,7 @@ public class WindowNode
         }
 
         @JsonProperty
-        public Optional<Symbol> getStartValue()
+        public Optional<VariableReferenceExpression> getStartValue()
         {
             return startValue;
         }
@@ -297,7 +297,7 @@ public class WindowNode
         }
 
         @JsonProperty
-        public Optional<Symbol> getEndValue()
+        public Optional<VariableReferenceExpression> getEndValue()
         {
             return endValue;
         }

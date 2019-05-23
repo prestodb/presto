@@ -46,7 +46,7 @@ class PlanBuilder
 
     public TranslationMap copyTranslations()
     {
-        TranslationMap translations = new TranslationMap(getRelationPlan(), getAnalysis(), getTranslations().getLambdaDeclarationToSymbolMap());
+        TranslationMap translations = new TranslationMap(getRelationPlan(), getAnalysis(), getTranslations().getLambdaDeclarationToVariableMap());
         translations.copyMappingsFrom(getTranslations());
         return translations;
     }
@@ -76,14 +76,14 @@ class PlanBuilder
         return translations.containsSymbol(expression);
     }
 
-    public Symbol translate(Expression expression)
+    public VariableReferenceExpression translate(Expression expression)
     {
         return translations.get(expression);
     }
 
     public VariableReferenceExpression translateToVariable(Expression expression)
     {
-        return translations.getVariable(expression);
+        return translations.get(expression);
     }
 
     public Expression rewrite(Expression expression)
@@ -107,14 +107,14 @@ class PlanBuilder
             projections.put(symbolAllocator.toVariableReference(symbol), symbol.toSymbolReference());
         }
 
-        ImmutableMap.Builder<Symbol, Expression> newTranslations = ImmutableMap.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, Expression> newTranslations = ImmutableMap.builder();
         for (Expression expression : expressions) {
             VariableReferenceExpression variable = symbolAllocator.newVariable(expression, getAnalysis().getTypeWithCoercions(expression));
             projections.put(variable, translations.rewrite(expression));
-            newTranslations.put(new Symbol(variable.getName()), expression);
+            newTranslations.put(variable, expression);
         }
         // Now append the new translations into the TranslationMap
-        for (Map.Entry<Symbol, Expression> entry : newTranslations.build().entrySet()) {
+        for (Map.Entry<VariableReferenceExpression, Expression> entry : newTranslations.build().entrySet()) {
             translations.put(entry.getValue(), entry.getKey());
         }
 
