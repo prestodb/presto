@@ -21,6 +21,7 @@ import com.facebook.presto.orc.metadata.statistics.DecimalStatistics;
 import com.facebook.presto.orc.metadata.statistics.DoubleStatistics;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
 import com.facebook.presto.orc.metadata.statistics.StringStatistics;
+import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
@@ -31,9 +32,7 @@ import java.math.BigDecimal;
 
 import static com.facebook.presto.orc.TupleDomainOrcPredicate.getDomain;
 import static com.facebook.presto.orc.metadata.statistics.ShortDecimalStatisticsBuilder.SHORT_DECIMAL_VALUE_BYTES;
-import static com.facebook.presto.spi.predicate.Domain.all;
 import static com.facebook.presto.spi.predicate.Domain.create;
-import static com.facebook.presto.spi.predicate.Domain.none;
 import static com.facebook.presto.spi.predicate.Domain.notNull;
 import static com.facebook.presto.spi.predicate.Domain.onlyNull;
 import static com.facebook.presto.spi.predicate.Domain.singleValue;
@@ -63,12 +62,12 @@ public class TestTupleDomainOrcPredicate
     @Test
     public void testBoolean()
     {
-        assertEquals(getDomain(BOOLEAN, 0, null), none(BOOLEAN));
-        assertEquals(getDomain(BOOLEAN, 10, null), all(BOOLEAN));
+        assertEquals(getDomain(BOOLEAN, 0, null), Domain.none(BOOLEAN));
+        assertEquals(getDomain(BOOLEAN, 10, null), Domain.all(BOOLEAN));
 
-        assertEquals(getDomain(BOOLEAN, 0, booleanColumnStats(null, null)), none(BOOLEAN));
-        assertEquals(getDomain(BOOLEAN, 0, booleanColumnStats(0L, null)), none(BOOLEAN));
-        assertEquals(getDomain(BOOLEAN, 0, booleanColumnStats(0L, 0L)), none(BOOLEAN));
+        assertEquals(getDomain(BOOLEAN, 0, booleanColumnStats(null, null)), Domain.none(BOOLEAN));
+        assertEquals(getDomain(BOOLEAN, 0, booleanColumnStats(0L, null)), Domain.none(BOOLEAN));
+        assertEquals(getDomain(BOOLEAN, 0, booleanColumnStats(0L, 0L)), Domain.none(BOOLEAN));
 
         assertEquals(getDomain(BOOLEAN, 10, booleanColumnStats(0L, 0L)), onlyNull(BOOLEAN));
         assertEquals(getDomain(BOOLEAN, 10, booleanColumnStats(10L, null)), notNull(BOOLEAN));
@@ -76,7 +75,7 @@ public class TestTupleDomainOrcPredicate
         assertEquals(getDomain(BOOLEAN, 10, booleanColumnStats(10L, 10L)), singleValue(BOOLEAN, true));
         assertEquals(getDomain(BOOLEAN, 10, booleanColumnStats(10L, 0L)), singleValue(BOOLEAN, false));
 
-        assertEquals(getDomain(BOOLEAN, 20, booleanColumnStats(10L, 5L)), all(BOOLEAN));
+        assertEquals(getDomain(BOOLEAN, 20, booleanColumnStats(10L, 5L)), Domain.all(BOOLEAN));
 
         assertEquals(getDomain(BOOLEAN, 20, booleanColumnStats(10L, 10L)), create(ValueSet.ofRanges(Range.equal(BOOLEAN, true)), true));
         assertEquals(getDomain(BOOLEAN, 20, booleanColumnStats(10L, 0L)), create(ValueSet.ofRanges(Range.equal(BOOLEAN, false)), true));
@@ -94,12 +93,12 @@ public class TestTupleDomainOrcPredicate
     @Test
     public void testBigint()
     {
-        assertEquals(getDomain(BIGINT, 0, null), none(BIGINT));
-        assertEquals(getDomain(BIGINT, 10, null), all(BIGINT));
+        assertEquals(getDomain(BIGINT, 0, null), Domain.none(BIGINT));
+        assertEquals(getDomain(BIGINT, 10, null), Domain.all(BIGINT));
 
-        assertEquals(getDomain(BIGINT, 0, integerColumnStats(null, null, null)), none(BIGINT));
-        assertEquals(getDomain(BIGINT, 0, integerColumnStats(0L, null, null)), none(BIGINT));
-        assertEquals(getDomain(BIGINT, 0, integerColumnStats(0L, 100L, 100L)), none(BIGINT));
+        assertEquals(getDomain(BIGINT, 0, integerColumnStats(null, null, null)), Domain.none(BIGINT));
+        assertEquals(getDomain(BIGINT, 0, integerColumnStats(0L, null, null)), Domain.none(BIGINT));
+        assertEquals(getDomain(BIGINT, 0, integerColumnStats(0L, 100L, 100L)), Domain.none(BIGINT));
 
         assertEquals(getDomain(BIGINT, 10, integerColumnStats(0L, null, null)), onlyNull(BIGINT));
         assertEquals(getDomain(BIGINT, 10, integerColumnStats(10L, null, null)), notNull(BIGINT));
@@ -123,12 +122,12 @@ public class TestTupleDomainOrcPredicate
     @Test
     public void testDouble()
     {
-        assertEquals(getDomain(DOUBLE, 0, null), none(DOUBLE));
-        assertEquals(getDomain(DOUBLE, 10, null), all(DOUBLE));
+        assertEquals(getDomain(DOUBLE, 0, null), Domain.none(DOUBLE));
+        assertEquals(getDomain(DOUBLE, 10, null), Domain.all(DOUBLE));
 
-        assertEquals(getDomain(DOUBLE, 0, doubleColumnStats(null, null, null)), none(DOUBLE));
-        assertEquals(getDomain(DOUBLE, 0, doubleColumnStats(0L, null, null)), none(DOUBLE));
-        assertEquals(getDomain(DOUBLE, 0, doubleColumnStats(0L, 42.24, 42.24)), none(DOUBLE));
+        assertEquals(getDomain(DOUBLE, 0, doubleColumnStats(null, null, null)), Domain.none(DOUBLE));
+        assertEquals(getDomain(DOUBLE, 0, doubleColumnStats(0L, null, null)), Domain.none(DOUBLE));
+        assertEquals(getDomain(DOUBLE, 0, doubleColumnStats(0L, 42.24, 42.24)), Domain.none(DOUBLE));
 
         assertEquals(getDomain(DOUBLE, 10, doubleColumnStats(0L, null, null)), onlyNull(DOUBLE));
         assertEquals(getDomain(DOUBLE, 10, doubleColumnStats(10L, null, null)), notNull(DOUBLE));
@@ -152,12 +151,12 @@ public class TestTupleDomainOrcPredicate
     @Test
     public void testFloat()
     {
-        assertEquals(getDomain(REAL, 0, null), none(REAL));
-        assertEquals(getDomain(REAL, 10, null), all(REAL));
+        assertEquals(getDomain(REAL, 0, null), Domain.none(REAL));
+        assertEquals(getDomain(REAL, 10, null), Domain.all(REAL));
 
-        assertEquals(getDomain(REAL, 0, doubleColumnStats(null, null, null)), none(REAL));
-        assertEquals(getDomain(REAL, 0, doubleColumnStats(0L, null, null)), none(REAL));
-        assertEquals(getDomain(REAL, 0, doubleColumnStats(0L, (double) 42.24f, (double) 42.24f)), none(REAL));
+        assertEquals(getDomain(REAL, 0, doubleColumnStats(null, null, null)), Domain.none(REAL));
+        assertEquals(getDomain(REAL, 0, doubleColumnStats(0L, null, null)), Domain.none(REAL));
+        assertEquals(getDomain(REAL, 0, doubleColumnStats(0L, (double) 42.24f, (double) 42.24f)), Domain.none(REAL));
 
         assertEquals(getDomain(REAL, 10, doubleColumnStats(0L, null, null)), onlyNull(REAL));
         assertEquals(getDomain(REAL, 10, doubleColumnStats(10L, null, null)), notNull(REAL));
@@ -176,12 +175,12 @@ public class TestTupleDomainOrcPredicate
     @Test
     public void testString()
     {
-        assertEquals(getDomain(VARCHAR, 0, null), none(VARCHAR));
-        assertEquals(getDomain(VARCHAR, 10, null), all(VARCHAR));
+        assertEquals(getDomain(VARCHAR, 0, null), Domain.none(VARCHAR));
+        assertEquals(getDomain(VARCHAR, 10, null), Domain.all(VARCHAR));
 
-        assertEquals(getDomain(VARCHAR, 0, stringColumnStats(null, null, null)), none(VARCHAR));
-        assertEquals(getDomain(VARCHAR, 0, stringColumnStats(0L, null, null)), none(VARCHAR));
-        assertEquals(getDomain(VARCHAR, 0, stringColumnStats(0L, "taco", "taco")), none(VARCHAR));
+        assertEquals(getDomain(VARCHAR, 0, stringColumnStats(null, null, null)), Domain.none(VARCHAR));
+        assertEquals(getDomain(VARCHAR, 0, stringColumnStats(0L, null, null)), Domain.none(VARCHAR));
+        assertEquals(getDomain(VARCHAR, 0, stringColumnStats(0L, "taco", "taco")), Domain.none(VARCHAR));
 
         assertEquals(getDomain(VARCHAR, 10, stringColumnStats(0L, null, null)), onlyNull(VARCHAR));
         assertEquals(getDomain(VARCHAR, 10, stringColumnStats(10L, null, null)), notNull(VARCHAR));
@@ -200,13 +199,13 @@ public class TestTupleDomainOrcPredicate
     @Test
     public void testChar()
     {
-        assertEquals(getDomain(CHAR, 0, null), none(CHAR));
-        assertEquals(getDomain(CHAR, 10, null), all(CHAR));
+        assertEquals(getDomain(CHAR, 0, null), Domain.none(CHAR));
+        assertEquals(getDomain(CHAR, 10, null), Domain.all(CHAR));
 
-        assertEquals(getDomain(CHAR, 0, stringColumnStats(null, null, null)), none(CHAR));
-        assertEquals(getDomain(CHAR, 0, stringColumnStats(0L, null, null)), none(CHAR));
-        assertEquals(getDomain(CHAR, 0, stringColumnStats(0L, "taco      ", "taco      ")), none(CHAR));
-        assertEquals(getDomain(CHAR, 0, stringColumnStats(0L, "taco", "taco      ")), none(CHAR));
+        assertEquals(getDomain(CHAR, 0, stringColumnStats(null, null, null)), Domain.none(CHAR));
+        assertEquals(getDomain(CHAR, 0, stringColumnStats(0L, null, null)), Domain.none(CHAR));
+        assertEquals(getDomain(CHAR, 0, stringColumnStats(0L, "taco      ", "taco      ")), Domain.none(CHAR));
+        assertEquals(getDomain(CHAR, 0, stringColumnStats(0L, "taco", "taco      ")), Domain.none(CHAR));
 
         assertEquals(getDomain(CHAR, 10, stringColumnStats(0L, null, null)), onlyNull(CHAR));
         assertEquals(getDomain(CHAR, 10, stringColumnStats(10L, null, null)), notNull(CHAR));
@@ -242,12 +241,12 @@ public class TestTupleDomainOrcPredicate
     @Test
     public void testDate()
     {
-        assertEquals(getDomain(DATE, 0, null), none(DATE));
-        assertEquals(getDomain(DATE, 10, null), all(DATE));
+        assertEquals(getDomain(DATE, 0, null), Domain.none(DATE));
+        assertEquals(getDomain(DATE, 10, null), Domain.all(DATE));
 
-        assertEquals(getDomain(DATE, 0, dateColumnStats(null, null, null)), none(DATE));
-        assertEquals(getDomain(DATE, 0, dateColumnStats(0L, null, null)), none(DATE));
-        assertEquals(getDomain(DATE, 0, dateColumnStats(0L, 100, 100)), none(DATE));
+        assertEquals(getDomain(DATE, 0, dateColumnStats(null, null, null)), Domain.none(DATE));
+        assertEquals(getDomain(DATE, 0, dateColumnStats(0L, null, null)), Domain.none(DATE));
+        assertEquals(getDomain(DATE, 0, dateColumnStats(0L, 100, 100)), Domain.none(DATE));
 
         assertEquals(getDomain(DATE, 10, dateColumnStats(0L, null, null)), onlyNull(DATE));
         assertEquals(getDomain(DATE, 10, dateColumnStats(10L, null, null)), notNull(DATE));
@@ -271,12 +270,12 @@ public class TestTupleDomainOrcPredicate
     @Test
     public void testDecimal()
     {
-        assertEquals(getDomain(SHORT_DECIMAL, 0, null), none(SHORT_DECIMAL));
-        assertEquals(getDomain(LONG_DECIMAL, 10, null), all(LONG_DECIMAL));
+        assertEquals(getDomain(SHORT_DECIMAL, 0, null), Domain.none(SHORT_DECIMAL));
+        assertEquals(getDomain(LONG_DECIMAL, 10, null), Domain.all(LONG_DECIMAL));
 
-        assertEquals(getDomain(SHORT_DECIMAL, 0, decimalColumnStats(null, null, null)), none(SHORT_DECIMAL));
-        assertEquals(getDomain(LONG_DECIMAL, 0, decimalColumnStats(0L, null, null)), none(LONG_DECIMAL));
-        assertEquals(getDomain(SHORT_DECIMAL, 0, decimalColumnStats(0L, "-999.99", "999.99")), none(SHORT_DECIMAL));
+        assertEquals(getDomain(SHORT_DECIMAL, 0, decimalColumnStats(null, null, null)), Domain.none(SHORT_DECIMAL));
+        assertEquals(getDomain(LONG_DECIMAL, 0, decimalColumnStats(0L, null, null)), Domain.none(LONG_DECIMAL));
+        assertEquals(getDomain(SHORT_DECIMAL, 0, decimalColumnStats(0L, "-999.99", "999.99")), Domain.none(SHORT_DECIMAL));
 
         assertEquals(getDomain(LONG_DECIMAL, 10, decimalColumnStats(0L, null, null)), onlyNull(LONG_DECIMAL));
         assertEquals(getDomain(SHORT_DECIMAL, 10, decimalColumnStats(10L, null, null)), notNull(SHORT_DECIMAL));
@@ -327,17 +326,17 @@ public class TestTupleDomainOrcPredicate
     @Test
     public void testBinary()
     {
-        assertEquals(getDomain(VARBINARY, 0, null), none(VARBINARY));
-        assertEquals(getDomain(VARBINARY, 10, null), all(VARBINARY));
+        assertEquals(getDomain(VARBINARY, 0, null), Domain.none(VARBINARY));
+        assertEquals(getDomain(VARBINARY, 10, null), Domain.all(VARBINARY));
 
-        assertEquals(getDomain(VARBINARY, 0, binaryColumnStats(null)), none(VARBINARY));
-        assertEquals(getDomain(VARBINARY, 0, binaryColumnStats(0L)), none(VARBINARY));
-        assertEquals(getDomain(VARBINARY, 0, binaryColumnStats(0L)), none(VARBINARY));
+        assertEquals(getDomain(VARBINARY, 0, binaryColumnStats(null)), Domain.none(VARBINARY));
+        assertEquals(getDomain(VARBINARY, 0, binaryColumnStats(0L)), Domain.none(VARBINARY));
+        assertEquals(getDomain(VARBINARY, 0, binaryColumnStats(0L)), Domain.none(VARBINARY));
 
         assertEquals(getDomain(VARBINARY, 10, binaryColumnStats(0L)), onlyNull(VARBINARY));
         assertEquals(getDomain(VARBINARY, 10, binaryColumnStats(10L)), notNull(VARBINARY));
 
-        assertEquals(getDomain(VARBINARY, 20, binaryColumnStats(10L)), all(VARBINARY));
+        assertEquals(getDomain(VARBINARY, 20, binaryColumnStats(10L)), Domain.all(VARBINARY));
     }
 
     private static ColumnStatistics binaryColumnStats(Long numberOfValues)
