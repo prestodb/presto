@@ -363,17 +363,17 @@ public final class HiveSessionProperties
                 booleanProperty(
                         ARIA_SCAN_ENABLED,
                         "Aria scan enabled",
-                        true,
+                        false,
                         false),
                 booleanProperty(
                         FILTER_REORDERING_ENABLED,
                         "Should reorder filters to apply most efficient first",
-                        true,
+                        false,
                         false),
                 booleanProperty(
                         READER_BUDGET_ENFORCEMENT_ENABLED,
                         "Should enforce memory budget for ORC readers",
-                        true,
+                        false,
                         false));
     }
 
