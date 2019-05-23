@@ -409,9 +409,9 @@ public final class StreamPropertyDerivations
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
 
             // We can describe properties in terms of inputs that are projected unmodified (i.e., not the unnested symbols)
-            Set<Symbol> passThroughInputs = ImmutableSet.copyOf(node.getReplicateSymbols());
+            Set<VariableReferenceExpression> passThroughInputs = ImmutableSet.copyOf(node.getReplicateVariables());
             return properties.translate(column -> {
-                if (passThroughInputs.contains(new Symbol(column.getName()))) {
+                if (passThroughInputs.contains(column)) {
                     return Optional.of(column);
                 }
                 return Optional.empty();

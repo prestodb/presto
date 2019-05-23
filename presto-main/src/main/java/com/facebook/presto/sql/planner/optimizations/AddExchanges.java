@@ -874,7 +874,7 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitUnnest(UnnestNode node, PreferredProperties preferredProperties)
         {
-            PreferredProperties translatedPreferred = preferredProperties.translate(variable -> node.getReplicateSymbols().contains(new Symbol(variable.getName())) ? Optional.of(variable) : Optional.empty());
+            PreferredProperties translatedPreferred = preferredProperties.translate(variable -> node.getReplicateVariables().contains(new Symbol(variable.getName())) ? Optional.of(variable) : Optional.empty());
 
             return rebaseAndDeriveProperties(node, planChild(node, translatedPreferred));
         }

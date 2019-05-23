@@ -614,8 +614,8 @@ public class ExtractSpatialJoins
         return new UnnestNode(
                 context.getIdAllocator().getNextId(),
                 new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build()),
-                node.getOutputSymbols(),
-                ImmutableMap.of(new Symbol(partitionsVariable.getName()), ImmutableList.of(new Symbol(partitionVariable.getName()))),
+                context.getSymbolAllocator().toVariableReferences(node.getOutputSymbols()),
+                ImmutableMap.of(partitionsVariable, ImmutableList.of(partitionVariable)),
                 Optional.empty());
     }
 

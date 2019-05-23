@@ -509,8 +509,8 @@ public final class ValidateDependenciesChecker
             source.accept(this, boundSymbols);
 
             Set<Symbol> required = ImmutableSet.<Symbol>builder()
-                    .addAll(node.getReplicateSymbols())
-                    .addAll(node.getUnnestSymbols().keySet())
+                    .addAll(node.getReplicateVariables().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()))
+                    .addAll(node.getUnnestVariables().keySet().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()))
                     .build();
 
             checkDependencies(source.getOutputSymbols(), required, "Invalid node. Dependencies (%s) not in source plan output (%s)", required, source.getOutputSymbols());

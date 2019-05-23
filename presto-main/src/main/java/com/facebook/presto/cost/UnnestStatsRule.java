@@ -16,6 +16,7 @@ package com.facebook.presto.cost;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.ComposableStatsCalculator.Rule;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
@@ -52,27 +53,28 @@ public class UnnestStatsRule
         // Thus we'd still populate the inaccurate numbers just so stats are populated to enable optimization
         // potential.
         calculatedStats.setOutputRowCount(sourceStats.getOutputRowCount());
-        for (Symbol symbol : node.getReplicateSymbols()) {
+        for (VariableReferenceExpression variable : node.getReplicateVariables()) {
+            Symbol symbol = new Symbol(variable.getName());
             calculatedStats.addSymbolStatistics(symbol, sourceStats.getSymbolStatistics(symbol));
         }
-        for (Map.Entry<Symbol, List<Symbol>> entry : node.getUnnestSymbols().entrySet()) {
-            List<Symbol> unnestToSymbols = entry.getValue();
+        for (Map.Entry<VariableReferenceExpression, List<VariableReferenceExpression>> entry : node.getUnnestVariables().entrySet()) {
+            List<VariableReferenceExpression> unnestToVariables = entry.getValue();
             SymbolStatsEstimate stats = sourceStats.getSymbolStatistics(entry.getKey());
-            for (Symbol symbol : unnestToSymbols) {
+            for (VariableReferenceExpression variable : unnestToVariables) {
                 // This is a very conservative way on estimating stats after unnest. We assume each symbol
                 // after unnest would have as much data as the symbol before unnest. This would over
                 // estimate, which are more likely to mean we'd loose an optimization opportunity, but at
                 // least it won't cause false optimizations.
                 calculatedStats.addSymbolStatistics(
-                        symbol,
+                        new Symbol(variable.getName()),
                         SymbolStatsEstimate.builder()
                                 .setAverageRowSize(stats.getAverageRowSize())
                                 .build());
             }
         }
-        if (node.getOrdinalitySymbol().isPresent()) {
+        if (node.getOrdinalityVariable().isPresent()) {
             calculatedStats.addSymbolStatistics(
-                    node.getOrdinalitySymbol().get(),
+                    node.getOrdinalityVariable().get(),
                     SymbolStatsEstimate.builder()
                         .setLowValue(0)
                         .setNullsFraction(0)

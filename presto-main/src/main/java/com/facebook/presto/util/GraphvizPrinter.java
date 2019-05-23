@@ -408,11 +408,11 @@ public final class GraphvizPrinter
         @Override
         public Void visitUnnest(UnnestNode node, Void context)
         {
-            if (!node.getOrdinalitySymbol().isPresent()) {
-                printNode(node, format("Unnest[%s]", node.getUnnestSymbols().keySet()), NODE_COLORS.get(NodeType.UNNEST));
+            if (!node.getOrdinalityVariable().isPresent()) {
+                printNode(node, format("Unnest[%s]", node.getUnnestVariables().keySet()), NODE_COLORS.get(NodeType.UNNEST));
             }
             else {
-                printNode(node, format("Unnest[%s (ordinality)]", node.getUnnestSymbols().keySet()), NODE_COLORS.get(NodeType.UNNEST));
+                printNode(node, format("Unnest[%s (ordinality)]", node.getUnnestVariables().keySet()), NODE_COLORS.get(NodeType.UNNEST));
             }
             return node.getSource().accept(this, context);
         }

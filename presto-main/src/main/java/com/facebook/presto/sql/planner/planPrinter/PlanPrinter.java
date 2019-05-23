@@ -828,7 +828,7 @@ public class PlanPrinter
         {
             addNode(node,
                     "Unnest",
-                    format("[replicate=%s, unnest=%s]", formatOutputs(types, node.getReplicateSymbols()), formatOutputs(types, node.getUnnestSymbols().keySet())));
+                    format("[replicate=%s, unnest=%s]", formatOutputs(node.getReplicateVariables()), formatOutputs(node.getUnnestVariables().keySet())));
             return processChildren(node, context);
         }
 
@@ -1223,13 +1223,6 @@ public class PlanPrinter
     {
         return Streams.stream(outputs)
                 .map(input -> input + ":" + input.getType().getDisplayName())
-                .collect(Collectors.joining(", "));
-    }
-
-    private static String formatOutputs(TypeProvider types, Iterable<Symbol> outputs)
-    {
-        return Streams.stream(outputs)
-                .map(input -> input + ":" + types.get(input).getDisplayName())
                 .collect(Collectors.joining(", "));
     }
 }

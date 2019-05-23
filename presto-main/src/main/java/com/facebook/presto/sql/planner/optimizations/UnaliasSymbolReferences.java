@@ -183,11 +183,11 @@ public class UnaliasSymbolReferences
         public PlanNode visitUnnest(UnnestNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            ImmutableMap.Builder<Symbol, List<Symbol>> builder = ImmutableMap.builder();
-            for (Map.Entry<Symbol, List<Symbol>> entry : node.getUnnestSymbols().entrySet()) {
+            ImmutableMap.Builder<VariableReferenceExpression, List<VariableReferenceExpression>> builder = ImmutableMap.builder();
+            for (Map.Entry<VariableReferenceExpression, List<VariableReferenceExpression>> entry : node.getUnnestVariables().entrySet()) {
                 builder.put(canonicalize(entry.getKey()), entry.getValue());
             }
-            return new UnnestNode(node.getId(), source, canonicalizeAndDistinct(node.getReplicateSymbols()), builder.build(), node.getOrdinalitySymbol());
+            return new UnnestNode(node.getId(), source, canonicalizeAndDistinctVariable(node.getReplicateVariables()), builder.build(), node.getOrdinalityVariable());
         }
 
         @Override

@@ -518,21 +518,22 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitUnnest(UnnestNode node, RewriteContext<Set<Symbol>> context)
         {
-            List<Symbol> replicateSymbols = node.getReplicateSymbols().stream()
-                    .filter(context.get()::contains)
+            Set<String> contextSymbolNames = context.get().stream().map(Symbol::getName).collect(toImmutableSet());
+            List<VariableReferenceExpression> replicateVariables = node.getReplicateVariables().stream()
+                    .filter(variable -> contextSymbolNames.contains(variable.getName()))
                     .collect(toImmutableList());
 
-            Optional<Symbol> ordinalitySymbol = node.getOrdinalitySymbol();
-            if (ordinalitySymbol.isPresent() && !context.get().contains(ordinalitySymbol.get())) {
-                ordinalitySymbol = Optional.empty();
+            Optional<VariableReferenceExpression> ordinalityVariable = node.getOrdinalityVariable();
+            if (ordinalityVariable.isPresent() && !context.get().contains(new Symbol(ordinalityVariable.get().getName()))) {
+                ordinalityVariable = Optional.empty();
             }
-            Map<Symbol, List<Symbol>> unnestSymbols = node.getUnnestSymbols();
+            Map<VariableReferenceExpression, List<VariableReferenceExpression>> unnestVariables = node.getUnnestVariables();
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
-                    .addAll(replicateSymbols)
-                    .addAll(unnestSymbols.keySet());
+                    .addAll(replicateVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()))
+                    .addAll(unnestVariables.keySet().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
-            return new UnnestNode(node.getId(), source, replicateSymbols, unnestSymbols, ordinalitySymbol);
+            return new UnnestNode(node.getId(), source, replicateVariables, unnestVariables, ordinalityVariable);
         }
 
         @Override

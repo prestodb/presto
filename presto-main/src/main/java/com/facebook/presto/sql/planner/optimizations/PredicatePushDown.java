@@ -1256,7 +1256,10 @@ public class PredicatePushDown
 
             // Sort non-equality predicates by those that can be pushed down and those that cannot
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(inheritedPredicate)) {
-                Expression rewrittenConjunct = equalityInference.rewriteExpression(conjunct, in(node.getReplicateSymbols()));
+                Expression rewrittenConjunct = equalityInference.rewriteExpression(conjunct, in(node.getReplicateVariables().stream()
+                        .map(VariableReferenceExpression::getName)
+                        .map(Symbol::new)
+                        .collect(toImmutableList())));
                 if (rewrittenConjunct != null) {
                     pushdownConjuncts.add(rewrittenConjunct);
                 }
@@ -1266,7 +1269,10 @@ public class PredicatePushDown
             }
 
             // Add the equality predicates back in
-            EqualityInference.EqualityPartition equalityPartition = equalityInference.generateEqualitiesPartitionedBy(in(node.getReplicateSymbols())::apply);
+            EqualityInference.EqualityPartition equalityPartition = equalityInference.generateEqualitiesPartitionedBy(in(node.getReplicateVariables().stream()
+                    .map(VariableReferenceExpression::getName)
+                    .map(Symbol::new)
+                    .collect(toImmutableList()))::apply);
             pushdownConjuncts.addAll(equalityPartition.getScopeEqualities());
             postUnnestConjuncts.addAll(equalityPartition.getScopeComplementEqualities());
             postUnnestConjuncts.addAll(equalityPartition.getScopeStraddlingEqualities());
@@ -1275,7 +1281,7 @@ public class PredicatePushDown
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource()) {
-                output = new UnnestNode(node.getId(), rewrittenSource, node.getReplicateSymbols(), node.getUnnestSymbols(), node.getOrdinalitySymbol());
+                output = new UnnestNode(node.getId(), rewrittenSource, node.getReplicateVariables(), node.getUnnestVariables(), node.getOrdinalityVariable());
             }
             if (!postUnnestConjuncts.isEmpty()) {
                 output = new FilterNode(idAllocator.getNextId(), output, castToRowExpression(combineConjuncts(postUnnestConjuncts)));

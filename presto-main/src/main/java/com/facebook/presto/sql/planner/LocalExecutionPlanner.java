@@ -1342,36 +1342,36 @@ public class LocalExecutionPlanner
             PhysicalOperation source = node.getSource().accept(this, context);
 
             ImmutableList.Builder<Type> replicateTypes = ImmutableList.builder();
-            for (Symbol symbol : node.getReplicateSymbols()) {
-                replicateTypes.add(context.getTypes().get(symbol));
+            for (VariableReferenceExpression variable : node.getReplicateVariables()) {
+                replicateTypes.add(variable.getType());
             }
-            List<Symbol> unnestSymbols = ImmutableList.copyOf(node.getUnnestSymbols().keySet());
+            List<VariableReferenceExpression> unnestVariables = ImmutableList.copyOf(node.getUnnestVariables().keySet());
             ImmutableList.Builder<Type> unnestTypes = ImmutableList.builder();
-            for (Symbol symbol : unnestSymbols) {
-                unnestTypes.add(context.getTypes().get(symbol));
+            for (VariableReferenceExpression variable : unnestVariables) {
+                unnestTypes.add(variable.getType());
             }
-            Optional<Symbol> ordinalitySymbol = node.getOrdinalitySymbol();
-            Optional<Type> ordinalityType = ordinalitySymbol.map(context.getTypes()::get);
-            ordinalityType.ifPresent(type -> checkState(type.equals(BIGINT), "Type of ordinalitySymbol must always be BIGINT."));
+            Optional<VariableReferenceExpression> ordinalityVariable = node.getOrdinalityVariable();
+            Optional<Type> ordinalityType = ordinalityVariable.map(VariableReferenceExpression::getType);
+            ordinalityType.ifPresent(type -> checkState(type.equals(BIGINT), "Type of ordinalityVariable must always be BIGINT."));
 
-            List<Integer> replicateChannels = getChannelsForSymbols(node.getReplicateSymbols(), source.getLayout());
-            List<Integer> unnestChannels = getChannelsForSymbols(unnestSymbols, source.getLayout());
+            List<Integer> replicateChannels = getChannelsForVariables(node.getReplicateVariables(), source.getLayout());
+            List<Integer> unnestChannels = getChannelsForVariables(unnestVariables, source.getLayout());
 
             // Source channels are always laid out first, followed by the unnested symbols
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
             int channel = 0;
-            for (Symbol symbol : node.getReplicateSymbols()) {
-                outputMappings.put(symbol, channel);
+            for (VariableReferenceExpression variable : node.getReplicateVariables()) {
+                outputMappings.put(new Symbol(variable.getName()), channel);
                 channel++;
             }
-            for (Symbol symbol : unnestSymbols) {
-                for (Symbol unnestedSymbol : node.getUnnestSymbols().get(symbol)) {
-                    outputMappings.put(unnestedSymbol, channel);
+            for (VariableReferenceExpression variable : unnestVariables) {
+                for (VariableReferenceExpression unnestedVariable : node.getUnnestVariables().get(variable)) {
+                    outputMappings.put(new Symbol(unnestedVariable.getName()), channel);
                     channel++;
                 }
             }
-            if (ordinalitySymbol.isPresent()) {
-                outputMappings.put(ordinalitySymbol.get(), channel);
+            if (ordinalityVariable.isPresent()) {
+                outputMappings.put(new Symbol(ordinalityVariable.get().getName()), channel);
                 channel++;
             }
             OperatorFactory operatorFactory = new UnnestOperatorFactory(

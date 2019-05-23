@@ -652,12 +652,12 @@ public class HashGenerationOptimizer
                     new UnnestNode(
                             node.getId(),
                             child.getNode(),
-                            ImmutableList.<Symbol>builder()
-                                    .addAll(node.getReplicateSymbols())
-                                    .addAll(hashVariables.values().stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableList()))
+                            ImmutableList.<VariableReferenceExpression>builder()
+                                    .addAll(node.getReplicateVariables())
+                                    .addAll(hashVariables.values())
                                     .build(),
-                            node.getUnnestSymbols(),
-                            node.getOrdinalitySymbol()),
+                            node.getUnnestVariables(),
+                            node.getOrdinalityVariable()),
                     hashVariables);
         }
 

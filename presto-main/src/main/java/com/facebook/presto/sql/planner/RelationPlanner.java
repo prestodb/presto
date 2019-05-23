@@ -562,12 +562,12 @@ class RelationPlanner
     {
         RelationType unnestOutputDescriptor = analysis.getOutputDescriptor(node);
         // Create symbols for the result of unnesting
-        ImmutableList.Builder<Symbol> unnestedSymbolsBuilder = ImmutableList.builder();
+        ImmutableList.Builder<VariableReferenceExpression> unnestedVariablesBuilder = ImmutableList.builder();
         for (Field field : unnestOutputDescriptor.getVisibleFields()) {
-            Symbol symbol = symbolAllocator.newSymbol(field);
-            unnestedSymbolsBuilder.add(symbol);
+            VariableReferenceExpression variable = symbolAllocator.newVariable(field);
+            unnestedVariablesBuilder.add(variable);
         }
-        ImmutableList<Symbol> unnestedSymbols = unnestedSymbolsBuilder.build();
+        ImmutableList<VariableReferenceExpression> unnestedVariables = unnestedVariablesBuilder.build();
 
         // Add a projection for all the unnest arguments
         PlanBuilder planBuilder = initializePlanBuilder(leftPlan);
@@ -575,35 +575,35 @@ class RelationPlanner
         TranslationMap translations = planBuilder.getTranslations();
         ProjectNode projectNode = (ProjectNode) planBuilder.getRoot();
 
-        ImmutableMap.Builder<Symbol, List<Symbol>> unnestSymbols = ImmutableMap.builder();
-        UnmodifiableIterator<Symbol> unnestedSymbolsIterator = unnestedSymbols.iterator();
+        ImmutableMap.Builder<VariableReferenceExpression, List<VariableReferenceExpression>> unnestVariables = ImmutableMap.builder();
+        UnmodifiableIterator<VariableReferenceExpression> unnestedVariablesIterator = unnestedVariables.iterator();
         for (Expression expression : node.getExpressions()) {
             Type type = analysis.getType(expression);
-            Symbol inputSymbol = translations.get(expression);
+            VariableReferenceExpression inputVariable = new VariableReferenceExpression(translations.get(expression).getName(), type);
             if (type instanceof ArrayType) {
                 Type elementType = ((ArrayType) type).getElementType();
                 if (!SystemSessionProperties.isLegacyUnnest(session) && elementType instanceof RowType) {
-                    ImmutableList.Builder<Symbol> unnestSymbolBuilder = ImmutableList.builder();
+                    ImmutableList.Builder<VariableReferenceExpression> unnestVariableBuilder = ImmutableList.builder();
                     for (int i = 0; i < ((RowType) elementType).getFields().size(); i++) {
-                        unnestSymbolBuilder.add(unnestedSymbolsIterator.next());
+                        unnestVariableBuilder.add(unnestedVariablesIterator.next());
                     }
-                    unnestSymbols.put(inputSymbol, unnestSymbolBuilder.build());
+                    unnestVariables.put(inputVariable, unnestVariableBuilder.build());
                 }
                 else {
-                    unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next()));
+                    unnestVariables.put(inputVariable, ImmutableList.of(unnestedVariablesIterator.next()));
                 }
             }
             else if (type instanceof MapType) {
-                unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next(), unnestedSymbolsIterator.next()));
+                unnestVariables.put(inputVariable, ImmutableList.of(unnestedVariablesIterator.next(), unnestedVariablesIterator.next()));
             }
             else {
                 throw new IllegalArgumentException("Unsupported type for UNNEST: " + type);
             }
         }
-        Optional<Symbol> ordinalitySymbol = node.isWithOrdinality() ? Optional.of(unnestedSymbolsIterator.next()) : Optional.empty();
-        checkState(!unnestedSymbolsIterator.hasNext(), "Not all output symbols were matched with input symbols");
+        Optional<VariableReferenceExpression> ordinalityVariable = node.isWithOrdinality() ? Optional.of(unnestedVariablesIterator.next()) : Optional.empty();
+        checkState(!unnestedVariablesIterator.hasNext(), "Not all output symbols were matched with input symbols");
 
-        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), projectNode, leftPlan.getFieldSymbolMappings(), unnestSymbols.build(), ordinalitySymbol);
+        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), projectNode, leftPlan.getFieldMappings(), unnestVariables.build(), ordinalityVariable);
         return new RelationPlan(unnestNode, analysis.getScope(joinNode), symbolAllocator.toVariableReferences(unnestNode.getOutputSymbols()));
     }
 
@@ -664,53 +664,54 @@ class RelationPlanner
     protected RelationPlan visitUnnest(Unnest node, Void context)
     {
         Scope scope = analysis.getScope(node);
-        ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
+        ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
         for (Field field : scope.getRelationType().getVisibleFields()) {
-            Symbol symbol = symbolAllocator.newSymbol(field);
-            outputSymbolsBuilder.add(symbol);
+            VariableReferenceExpression variable = symbolAllocator.newVariable(field);
+            outputVariablesBuilder.add(variable);
         }
-        List<Symbol> unnestedSymbols = outputSymbolsBuilder.build();
+        List<VariableReferenceExpression> unnestedVariables = outputVariablesBuilder.build();
 
         // If we got here, then we must be unnesting a constant, and not be in a join (where there could be column references)
-        ImmutableList.Builder<Symbol> argumentSymbols = ImmutableList.builder();
         ImmutableList.Builder<VariableReferenceExpression> argumentVariables = ImmutableList.builder();
         ImmutableList.Builder<RowExpression> values = ImmutableList.builder();
-        ImmutableMap.Builder<Symbol, List<Symbol>> unnestSymbols = ImmutableMap.builder();
-        Iterator<Symbol> unnestedSymbolsIterator = unnestedSymbols.iterator();
+        ImmutableMap.Builder<VariableReferenceExpression, List<VariableReferenceExpression>> unnestVariables = ImmutableMap.builder();
+        Iterator<VariableReferenceExpression> unnestedVariablesIterator = unnestedVariables.iterator();
         for (Expression expression : node.getExpressions()) {
             Type type = analysis.getType(expression);
             Expression rewritten = Coercer.addCoercions(expression, analysis);
             rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), rewritten);
             values.add(castToRowExpression(rewritten));
-            Symbol inputSymbol = symbolAllocator.newSymbol(rewritten, type);
-            argumentSymbols.add(inputSymbol);
-            argumentVariables.add(new VariableReferenceExpression(inputSymbol.getName(), type));
+            VariableReferenceExpression input = symbolAllocator.newVariable(rewritten, type);
+            argumentVariables.add(new VariableReferenceExpression(input.getName(), type));
             if (type instanceof ArrayType) {
                 Type elementType = ((ArrayType) type).getElementType();
                 if (!SystemSessionProperties.isLegacyUnnest(session) && elementType instanceof RowType) {
-                    ImmutableList.Builder<Symbol> unnestSymbolBuilder = ImmutableList.builder();
+                    ImmutableList.Builder<VariableReferenceExpression> unnestVariableBuilder = ImmutableList.builder();
                     for (int i = 0; i < ((RowType) elementType).getFields().size(); i++) {
-                        unnestSymbolBuilder.add(unnestedSymbolsIterator.next());
+                        unnestVariableBuilder.add(unnestedVariablesIterator.next());
                     }
-                    unnestSymbols.put(inputSymbol, unnestSymbolBuilder.build());
+                    unnestVariables.put(input, unnestVariableBuilder.build());
                 }
                 else {
-                    unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next()));
+                    unnestVariables.put(input, ImmutableList.of(unnestedVariablesIterator.next()));
                 }
             }
             else if (type instanceof MapType) {
-                unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next(), unnestedSymbolsIterator.next()));
+                unnestVariables.put(input, ImmutableList.of(unnestedVariablesIterator.next(), unnestedVariablesIterator.next()));
             }
             else {
                 throw new IllegalArgumentException("Unsupported type for UNNEST: " + type);
             }
         }
-        Optional<Symbol> ordinalitySymbol = node.isWithOrdinality() ? Optional.of(unnestedSymbolsIterator.next()) : Optional.empty();
-        checkState(!unnestedSymbolsIterator.hasNext(), "Not all output symbols were matched with input symbols");
-        ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), argumentSymbols.build(), argumentVariables.build(), ImmutableList.of(values.build()));
+        Optional<VariableReferenceExpression> ordinalityVariable = node.isWithOrdinality() ? Optional.of(unnestedVariablesIterator.next()) : Optional.empty();
+        checkState(!unnestedVariablesIterator.hasNext(), "Not all output symbols were matched with input symbols");
+        ValuesNode valuesNode = new ValuesNode(
+                idAllocator.getNextId(),
+                argumentVariables.build().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()),
+                argumentVariables.build(), ImmutableList.of(values.build()));
 
-        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), valuesNode, ImmutableList.of(), unnestSymbols.build(), ordinalitySymbol);
-        return new RelationPlan(unnestNode, scope, symbolAllocator.toVariableReferences(unnestedSymbols));
+        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), valuesNode, ImmutableList.of(), unnestVariables.build(), ordinalityVariable);
+        return new RelationPlan(unnestNode, scope, unnestedVariables);
     }
 
     private RelationPlan processAndCoerceIfNecessary(Relation node, Void context)

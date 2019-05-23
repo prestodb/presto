@@ -28,9 +28,9 @@ public class TestUnnestStatsRule
     {
         tester().assertStatsFor(
                 pb -> pb.unnest(
-                        pb.values(pb.symbol("some_map")),
-                        ImmutableList.of(pb.symbol("some_map")),
-                        ImmutableMap.of(pb.symbol("some_map"), ImmutableList.of(pb.symbol("key"), pb.symbol("value"))),
+                        pb.values(pb.variable("some_map")),
+                        ImmutableList.of(pb.variable("some_map")),
+                        ImmutableMap.of(pb.variable("some_map"), ImmutableList.of(pb.variable("key"), pb.variable("value"))),
                         Optional.empty()))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(2)
@@ -44,9 +44,9 @@ public class TestUnnestStatsRule
     {
         tester().assertStatsFor(
                 pb -> pb.unnest(
-                        pb.values(pb.symbol("some_map")),
-                        ImmutableList.of(pb.symbol("some_map")),
-                        ImmutableMap.of(pb.symbol("some_map"), ImmutableList.of(pb.symbol("key"), pb.symbol("value"))),
+                        pb.values(pb.variable("some_map")),
+                        ImmutableList.of(pb.variable("some_map")),
+                        ImmutableMap.of(pb.variable("some_map"), ImmutableList.of(pb.variable("key"), pb.variable("value"))),
                         Optional.empty()))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1)

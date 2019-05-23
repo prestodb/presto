@@ -803,14 +803,14 @@ public class PlanBuilder
                 Optional.empty());
     }
 
-    public UnnestNode unnest(PlanNode source, List<Symbol> replicateSymbols, Map<Symbol, List<Symbol>> unnestSymbols, Optional<Symbol> ordinalitySymbol)
+    public UnnestNode unnest(PlanNode source, List<VariableReferenceExpression> replicateVariables, Map<VariableReferenceExpression, List<VariableReferenceExpression>> unnestVariables, Optional<VariableReferenceExpression> ordinalityVariable)
     {
         return new UnnestNode(
                 idAllocator.getNextId(),
                 source,
-                replicateSymbols,
-                unnestSymbols,
-                ordinalitySymbol);
+                replicateVariables,
+                unnestVariables,
+                ordinalityVariable);
     }
 
     public static Expression expression(String sql)
