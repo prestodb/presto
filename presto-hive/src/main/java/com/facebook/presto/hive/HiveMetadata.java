@@ -84,7 +84,6 @@ import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Suppliers;
@@ -111,6 +110,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -222,6 +222,7 @@ import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Verify.verify;
@@ -230,6 +231,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Maps.filterKeys;
+import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.collect.Streams.stream;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -1786,11 +1788,26 @@ public class HiveMetadata
                         .orElse(ImmutableMap.of()))
                 .build());
 
-        Map<String, HiveColumnHandle> filterColumns = extractAll(filter).stream()
+        Set<String> predicateColumnNames = new HashSet<>();
+        domainPredicate.getDomains().get().keySet().stream()
+                .map(Subfield::getRootName)
+                .forEach(predicateColumnNames::add);
+        extractAll(decomposedFilter.getRemainingExpression()).stream()
                 .map(VariableReferenceExpression::getName)
+                .forEach(predicateColumnNames::add);
+
+        List<HiveColumnHandle> predicateColumnHandles = predicateColumnNames.stream()
                 .map(columnHandles::get)
                 .map(HiveColumnHandle.class::cast)
-                .collect(toImmutableMap(HiveColumnHandle::getName, Functions.identity()));
+                .collect(toImmutableList());
+
+        checkState(
+                predicateColumnHandles.stream()
+                    .filter(column -> column.getColumnType() != REGULAR)
+                    .count() == 0,
+                "Complex predicate pushdown for partition and synthetic columns is not supported");
+
+        Map<String, HiveColumnHandle> filterColumns = uniqueIndex(predicateColumnHandles, HiveColumnHandle::getName);
 
         return new ConnectorPushdownFilterResult(
                 getTableLayout(
