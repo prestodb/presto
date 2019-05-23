@@ -37,6 +37,7 @@ public interface HivePageSourceFactory
             long fileSize,
             Properties schema,
             List<HiveColumnHandle> columns,
+            List<HiveColumnHandle> outputColumns,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone);

@@ -13,34 +13,16 @@
  */
 package com.facebook.presto.spi;
 
-import static java.util.Objects.requireNonNull;
-
 public class PageSourceOptions
 {
     private final boolean reusePages;
-    private final int[] internalChannels;
-    private final int[] outputChannels;
     private final int targetBytes;
 
-    public PageSourceOptions(int[] internalChannels,
-                             int[] outputChannels,
-                             boolean reusePages,
+    public PageSourceOptions(boolean reusePages,
                              int targetBytes)
     {
-        this.internalChannels = requireNonNull(internalChannels, "internalChannels is null");
-        this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
         this.reusePages = reusePages;
         this.targetBytes = targetBytes;
-    }
-
-    public int[] getInternalChannels()
-    {
-        return internalChannels;
-    }
-
-    public int[] getOutputChannels()
-    {
-        return outputChannels;
     }
 
     public boolean getReusePages()

@@ -165,6 +165,7 @@ public class OrcPageSourceFactory
             long length,
             long fileSize,
             Properties schema,
+            List<HiveColumnHandle> outputColumns,
             List<HiveColumnHandle> columns,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
@@ -189,6 +190,7 @@ public class OrcPageSourceFactory
                 start,
                 length,
                 fileSize,
+                outputColumns,
                 columns,
                 useOrcColumnNames,
                 domainCompactionThreshold,
@@ -219,6 +221,7 @@ public class OrcPageSourceFactory
             long start,
             long length,
             long fileSize,
+            List<HiveColumnHandle> outputColumns,
             List<HiveColumnHandle> columns,
             boolean useOrcColumnNames,
             int domainCompactionThreshold,
@@ -298,6 +301,9 @@ public class OrcPageSourceFactory
             List<AbstractFilterFunction> filterFunctions = toFilterFunctions(optimizedPredicate, session, determinismEvaluator, predicateCompiler);
 
             OrcRecordReader recordReader = reader.createRecordReader(
+                    outputColumns.stream()
+                            .map(column -> column.getColumnType() == REGULAR ? column.getHiveColumnIndex() : -1)
+                            .collect(toImmutableList()),
                     includedColumns.build(),
                     includedSubfields.build(),
                     predicate,

@@ -226,15 +226,16 @@ public class OrcReader
 
     public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryUsage, int initialBatchSize)
     {
-        return createRecordReader(includedColumns, ImmutableMap.of(), predicate, ImmutableMap.of(), ImmutableList.of(), 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize, false, false);
+        return createRecordReader(ImmutableList.of(), includedColumns, ImmutableMap.of(), predicate, ImmutableMap.of(), ImmutableList.of(), 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize, false, false);
     }
 
     public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, Map<Integer, List<Subfield>> includedSubfields, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryUsage, int initialBatchSize)
     {
-        return createRecordReader(includedColumns, includedSubfields, predicate, ImmutableMap.of(), ImmutableList.of(), 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize, false, false);
+        return createRecordReader(ImmutableList.of(), includedColumns, includedSubfields, predicate, ImmutableMap.of(), ImmutableList.of(), 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize, false, false);
     }
 
     public OrcRecordReader createRecordReader(
+            List<Integer> outputColumns,
             Map<Integer, Type> includedColumns,
             Map<Integer, List<Subfield>> includedSubfields,
             OrcPredicate predicate,
@@ -249,6 +250,7 @@ public class OrcReader
             boolean enforceMemoryBudget)
     {
         return new OrcRecordReader(
+                requireNonNull(outputColumns, "outputColumns is null"),
                 requireNonNull(includedColumns, "includedColumns is null"),
                 requireNonNull(includedSubfields, "includedSubfields is null"),
                 requireNonNull(predicate, "predicate is null"),

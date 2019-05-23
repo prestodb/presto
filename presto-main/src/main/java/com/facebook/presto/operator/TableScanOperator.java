@@ -271,14 +271,7 @@ public class TableScanOperator
             return;
         }
 
-        int[] channels = new int[columns.size()];
-        for (int i = 0; i < channels.length; i++) {
-            channels[i] = i;
-        }
-
         PageSourceOptions options = new PageSourceOptions(
-                channels,
-                channels,
                 reusePages,
                 toIntExact(getFilterAndProjectMinOutputPageSize(operatorContext.getSession()).toBytes()));
         source.pushdownFilterAndProjection(options);

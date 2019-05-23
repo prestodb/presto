@@ -400,14 +400,7 @@ public class ScanFilterAndProjectOperator
             return;
         }
 
-        int[] channels = new int[columns.size()];
-        for (int i = 0; i < channels.length; i++) {
-            channels[i] = i;
-        }
-
         PageSourceOptions options = new PageSourceOptions(
-                channels,
-                channels,
                 reusePages,
                 mergingOutput.getMinPageSizeInBytes());
         pageSource.pushdownFilterAndProjection(options);

@@ -541,8 +541,6 @@ public class OrcTester
         if (ariaEnabled) {
             try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, orcEncoding, createOrcPredicate(type, expectedValues, format, isHiveWriter), type, MAX_BATCH_SIZE)) {
                 PageSourceOptions options = new PageSourceOptions(
-                        new int[] {0},
-                        new int[] {0},
                         true,
                         512 * 1024);
                 recordReader.pushdownFilterAndProjection(options, new int[] {0}, ImmutableList.of(type), new Block[1]);
@@ -699,7 +697,7 @@ public class OrcTester
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
 
-        return orcReader.createRecordReader(ImmutableMap.of(0, type), predicate, HIVE_STORAGE_TIME_ZONE, newSimpleAggregatedMemoryContext(), initialBatchSize);
+        return orcReader.createRecordReader(ImmutableList.of(0), ImmutableMap.of(0, type), ImmutableMap.of(), predicate, ImmutableMap.of(), ImmutableList.of(), 0, orcDataSource.getSize(), HIVE_STORAGE_TIME_ZONE, newSimpleAggregatedMemoryContext(), initialBatchSize, false, false);
     }
 
     private static void writeOrcColumnPresto(File outputFile, Format format, CompressionKind compression, Type type, Iterator<?> values, OrcWriterStats stats)
