@@ -30,6 +30,7 @@ import java.util.Properties;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -38,10 +39,7 @@ import static java.util.Objects.requireNonNull;
 public class InternalHiveSplit
 {
     // Overhead of ImmutableList and ImmutableMap is not accounted because of its complexity.
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(InternalHiveSplit.class).instanceSize() +
-            ClassLayout.parseClass(String.class).instanceSize() +
-            ClassLayout.parseClass(String.class).instanceSize() +
-            ClassLayout.parseClass(OptionalInt.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(InternalHiveSplit.class).instanceSize();
 
     private static final int HOST_ADDRESS_INSTANCE_SIZE = ClassLayout.parseClass(HostAddress.class).instanceSize() +
             ClassLayout.parseClass(String.class).instanceSize();
@@ -223,13 +221,15 @@ public class InternalHiveSplit
     public int getEstimatedSizeInBytes()
     {
         int result = INSTANCE_SIZE;
-        result += relativeUri.length;
-        result += blockEndOffsets.length * Long.BYTES;
-        result += sizeOfObjectArray(blockAddresses.size());
-        for (List<HostAddress> addresses : blockAddresses) {
-            result += sizeOfObjectArray(addresses.size());
-            for (HostAddress address : addresses) {
-                result += HOST_ADDRESS_INSTANCE_SIZE + address.getHostText().length() * Character.BYTES;
+        result += sizeOf(relativeUri);
+        result += sizeOf(blockEndOffsets);
+        if (!blockAddresses.isEmpty()) {
+            result += sizeOfObjectArray(blockAddresses.size());
+            for (List<HostAddress> addresses : blockAddresses) {
+                result += sizeOfObjectArray(addresses.size());
+                for (HostAddress address : addresses) {
+                    result += HOST_ADDRESS_INSTANCE_SIZE + address.getHostText().length() * Character.BYTES;
+                }
             }
         }
         return result;
