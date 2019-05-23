@@ -577,11 +577,11 @@ public final class SystemSessionProperties
                         false),
                 booleanProperty(ARIA_SCAN,
                                 "Enable Aria Presto! scan operator",
-                                true,
+                                false,
                                 false),
                 booleanProperty(ARIA_REUSE_PAGES,
                         "Enable Aria Presto! reuse of Pages",
-                        true,
+                        false,
                         false),
                 new PropertyMetadata<>(
                         MAX_DRIVERS_PER_TASK,
