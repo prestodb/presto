@@ -76,6 +76,7 @@ import static com.facebook.presto.parquet.predicate.PredicateUtils.predicateMatc
 import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -113,7 +114,6 @@ public class ParquetPageSourceFactory
             List<HiveColumnHandle> columns,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
-            Map<String, HiveColumnHandle> predicateColumns,
             DateTimeZone hiveStorageTimeZone)
     {
         if (!PARQUET_SERDE_CLASS_NAMES.contains(getDeserializerClassName(schema))) {
@@ -125,6 +125,8 @@ public class ParquetPageSourceFactory
             checkArgument(domainPredicate.transform(subfield -> !isEntireColumn(subfield) ? subfield : null).isAll(),
                     "Parquet reader doesn't support predicates on subfields");
         }
+
+        Map<String, HiveColumnHandle> columnsByName = uniqueIndex(columns, HiveColumnHandle::getName);
 
         return Optional.of(createParquetPageSource(
                 hdfsEnvironment,
@@ -139,7 +141,7 @@ public class ParquetPageSourceFactory
                 isUseParquetColumnNames(session),
                 isFailOnCorruptedParquetStatistics(session),
                 typeManager,
-                domainPredicate.transform(subfield -> predicateColumns.get(subfield.getRootName())),
+                domainPredicate.transform(subfield -> columnsByName.get(subfield.getRootName())),
                 stats));
     }
 

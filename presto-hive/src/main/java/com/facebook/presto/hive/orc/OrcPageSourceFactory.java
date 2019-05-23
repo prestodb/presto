@@ -107,6 +107,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -167,7 +168,6 @@ public class OrcPageSourceFactory
             List<HiveColumnHandle> columns,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
-            Map<String, HiveColumnHandle> predicateColumns,
             DateTimeZone hiveStorageTimeZone)
     {
         if (!isDeserializerClass(schema, OrcSerde.class)) {
@@ -194,7 +194,6 @@ public class OrcPageSourceFactory
                 domainCompactionThreshold,
                 domainPredicate,
                 remainingPredicate,
-                predicateColumns,
                 hiveStorageTimeZone,
                 typeManager,
                 determinismEvaluator,
@@ -225,7 +224,6 @@ public class OrcPageSourceFactory
             int domainCompactionThreshold,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
-            Map<String, HiveColumnHandle> predicateColumns,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             DeterminismEvaluator determinismEvaluator,
@@ -286,13 +284,15 @@ public class OrcPageSourceFactory
                 columnIndices.put(physicalColumns.get(i).getName(), i);
             }
 
+            Map<String, HiveColumnHandle> columnsByName = uniqueIndex(columns, HiveColumnHandle::getName);
+
             TupleDomain<HiveColumnHandle> compactDomainPredicate = toCompactTupleDomain(
                     domainPredicate
                             .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
-                            .transform(predicateColumns::get),
+                            .transform(columnsByName::get),
                     domainCompactionThreshold);
             OrcPredicate predicate = new TupleDomainOrcPredicate<>(compactDomainPredicate, columnReferences.build(), orcBloomFiltersEnabled);
-            Map<Integer, Filter> columnFilters = toFilters(domainPredicate, predicateColumns);
+            Map<Integer, Filter> columnFilters = toFilters(domainPredicate, columnsByName);
             RowExpression optimizedPredicate = expressionOptimizer.optimize(remainingPredicate, MOST_OPTIMIZED, session)
                     .accept(new ColumnNameToIndexTranslator(), columnIndices.build());
             List<AbstractFilterFunction> filterFunctions = toFilterFunctions(optimizedPredicate, session, determinismEvaluator, predicateCompiler);

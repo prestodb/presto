@@ -37,7 +37,6 @@ import org.joda.time.DateTimeZone;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -104,7 +103,6 @@ public class DwrfPageSourceFactory
             List<HiveColumnHandle> columns,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
-            Map<String, HiveColumnHandle> predicateColumns,
             DateTimeZone hiveStorageTimeZone)
     {
         if (!isDeserializerClass(schema, OrcSerde.class)) {
@@ -130,7 +128,6 @@ public class DwrfPageSourceFactory
                 domainCompactionThreshold,
                 domainPredicate,
                 remainingPredicate,
-                predicateColumns,
                 hiveStorageTimeZone,
                 typeManager,
                 determinismEvaluator,

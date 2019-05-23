@@ -23,7 +23,6 @@ import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -40,6 +39,5 @@ public interface HivePageSourceFactory
             List<HiveColumnHandle> columns,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
-            Map<String, HiveColumnHandle> predicateColumns,
             DateTimeZone hiveStorageTimeZone);
 }
