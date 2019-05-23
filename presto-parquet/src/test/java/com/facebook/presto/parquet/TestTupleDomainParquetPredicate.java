@@ -39,7 +39,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static com.facebook.presto.parquet.predicate.TupleDomainParquetPredicate.getDomain;
-import static com.facebook.presto.spi.predicate.Domain.all;
 import static com.facebook.presto.spi.predicate.Domain.create;
 import static com.facebook.presto.spi.predicate.Domain.notNull;
 import static com.facebook.presto.spi.predicate.Domain.singleValue;
@@ -80,12 +79,12 @@ public class TestTupleDomainParquetPredicate
             throws ParquetCorruptionException
     {
         String column = "BooleanColumn";
-        assertEquals(getDomain(BOOLEAN, 0, null, ID, column, true), all(BOOLEAN));
+        assertEquals(getDomain(BOOLEAN, 0, null, ID, column, true), Domain.all(BOOLEAN));
 
         assertEquals(getDomain(BOOLEAN, 10, booleanColumnStats(true, true), ID, column, true), singleValue(BOOLEAN, true));
         assertEquals(getDomain(BOOLEAN, 10, booleanColumnStats(false, false), ID, column, true), singleValue(BOOLEAN, false));
 
-        assertEquals(getDomain(BOOLEAN, 20, booleanColumnStats(false, true), ID, column, true), all(BOOLEAN));
+        assertEquals(getDomain(BOOLEAN, 20, booleanColumnStats(false, true), ID, column, true), Domain.all(BOOLEAN));
     }
 
     private static BooleanStatistics booleanColumnStats(boolean minimum, boolean maximum)
@@ -100,7 +99,7 @@ public class TestTupleDomainParquetPredicate
             throws ParquetCorruptionException
     {
         String column = "BigintColumn";
-        assertEquals(getDomain(BIGINT, 0, null, ID, column, true), all(BIGINT));
+        assertEquals(getDomain(BIGINT, 0, null, ID, column, true), Domain.all(BIGINT));
 
         assertEquals(getDomain(BIGINT, 10, longColumnStats(100L, 100L), ID, column, true), singleValue(BIGINT, 100L));
 
@@ -118,7 +117,7 @@ public class TestTupleDomainParquetPredicate
             throws ParquetCorruptionException
     {
         String column = "IntegerColumn";
-        assertEquals(getDomain(INTEGER, 0, null, ID, column, true), all(INTEGER));
+        assertEquals(getDomain(INTEGER, 0, null, ID, column, true), Domain.all(INTEGER));
 
         assertEquals(getDomain(INTEGER, 10, longColumnStats(100, 100), ID, column, true), singleValue(INTEGER, 100L));
 
@@ -138,7 +137,7 @@ public class TestTupleDomainParquetPredicate
             throws ParquetCorruptionException
     {
         String column = "SmallintColumn";
-        assertEquals(getDomain(SMALLINT, 0, null, ID, column, true), all(SMALLINT));
+        assertEquals(getDomain(SMALLINT, 0, null, ID, column, true), Domain.all(SMALLINT));
 
         assertEquals(getDomain(SMALLINT, 10, longColumnStats(100, 100), ID, column, true), singleValue(SMALLINT, 100L));
 
@@ -158,7 +157,7 @@ public class TestTupleDomainParquetPredicate
             throws ParquetCorruptionException
     {
         String column = "TinyintColumn";
-        assertEquals(getDomain(TINYINT, 0, null, ID, column, true), all(TINYINT));
+        assertEquals(getDomain(TINYINT, 0, null, ID, column, true), Domain.all(TINYINT));
 
         assertEquals(getDomain(TINYINT, 10, longColumnStats(100, 100), ID, column, true), singleValue(TINYINT, 100L));
 
@@ -179,7 +178,7 @@ public class TestTupleDomainParquetPredicate
             throws ParquetCorruptionException
     {
         String column = "DoubleColumn";
-        assertEquals(getDomain(DOUBLE, 0, null, ID, column, true), all(DOUBLE));
+        assertEquals(getDomain(DOUBLE, 0, null, ID, column, true), Domain.all(DOUBLE));
 
         assertEquals(getDomain(DOUBLE, 10, doubleColumnStats(42.24, 42.24), ID, column, true), singleValue(DOUBLE, 42.24));
 
@@ -205,7 +204,7 @@ public class TestTupleDomainParquetPredicate
             throws ParquetCorruptionException
     {
         String column = "StringColumn";
-        assertEquals(getDomain(createUnboundedVarcharType(), 0, null, ID, column, true), all(createUnboundedVarcharType()));
+        assertEquals(getDomain(createUnboundedVarcharType(), 0, null, ID, column, true), Domain.all(createUnboundedVarcharType()));
 
         assertEquals(getDomain(createUnboundedVarcharType(), 10, stringColumnStats("taco", "taco"), ID, column, true), singleValue(createUnboundedVarcharType(), utf8Slice("taco")));
 
@@ -235,7 +234,7 @@ public class TestTupleDomainParquetPredicate
             throws ParquetCorruptionException
     {
         String column = "FloatColumn";
-        assertEquals(getDomain(REAL, 0, null, ID, column, true), all(REAL));
+        assertEquals(getDomain(REAL, 0, null, ID, column, true), Domain.all(REAL));
 
         float minimum = 4.3f;
         float maximum = 40.3f;
@@ -259,7 +258,7 @@ public class TestTupleDomainParquetPredicate
             throws ParquetCorruptionException
     {
         String column = "DateColumn";
-        assertEquals(getDomain(DATE, 0, null, ID, column, true), all(DATE));
+        assertEquals(getDomain(DATE, 0, null, ID, column, true), Domain.all(DATE));
         assertEquals(getDomain(DATE, 10, intColumnStats(100, 100), ID, column, true), singleValue(DATE, 100L));
         assertEquals(getDomain(DATE, 10, intColumnStats(0, 100), ID, column, true), create(ValueSet.ofRanges(range(DATE, 0L, true, 100L, true)), false));
 
