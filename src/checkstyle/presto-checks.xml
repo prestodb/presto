@@ -50,6 +50,10 @@
         <property name="message" value="The following methods may not be statically imported: of, copyOf, valueOf" />
     </module>
     <module name="RegexpSingleline">
+        <property name="format" value="^import static .*\.(all|none);$" />
+        <property name="message" value="The following methods may not be statically imported: all, none" />
+    </module>
+    <module name="RegexpSingleline">
         <property name="format" value="^import static (?!java\.lang\.String\.format;).*\.format;" />
         <property name="message" value="Only 'format' from java.lang.String may be statically imported" />
     </module>
