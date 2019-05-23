@@ -73,8 +73,6 @@ public class TestDwrfDictionaries
         File file = new File(getResource(testOrcFileName).getFile());
         try (OrcRecordReader recordReader = createCustomOrcRecordReader(file, encoding, type, MAX_BATCH_SIZE)) {
             PageSourceOptions options = new PageSourceOptions(
-                        new int[] {0},
-                        new int[] {0},
                         true,
                         512 * 1024);
             recordReader.pushdownFilterAndProjection(options, new int[] {0}, ImmutableList.of(type), new Block[1]);
@@ -103,6 +101,6 @@ public class TestDwrfDictionaries
         OrcDataSource orcDataSource = new FileOrcDataSource(file, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
         OrcReader orcReader = new OrcReader(orcDataSource, orcEncoding, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
 
-        return orcReader.createRecordReader(ImmutableMap.of(0, type), OrcPredicate.TRUE, HIVE_STORAGE_TIME_ZONE, newSimpleAggregatedMemoryContext(), initialBatchSize);
+        return orcReader.createRecordReader(ImmutableList.of(0), ImmutableMap.of(0, type), ImmutableMap.of(), OrcPredicate.TRUE, ImmutableMap.of(), ImmutableList.of(), 0, orcDataSource.getSize(), HIVE_STORAGE_TIME_ZONE, newSimpleAggregatedMemoryContext(), initialBatchSize, false, false);
     }
 }

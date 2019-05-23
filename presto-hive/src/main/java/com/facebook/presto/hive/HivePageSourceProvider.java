@@ -169,6 +169,7 @@ public class HivePageSourceProvider
         });
 
         for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
+            List<HiveColumnHandle> outputColumns = applyCoercion(hiveColumns, columnCoercions);
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
                     configuration,
                     session,
@@ -177,6 +178,7 @@ public class HivePageSourceProvider
                     length,
                     fileSize,
                     schema,
+                    outputColumns,
                     toColumnHandles(regularAndInterimColumnMappings, true),
                     domainPredicate,
                     remainingPredicate,
@@ -185,6 +187,7 @@ public class HivePageSourceProvider
                 return Optional.of(
                         new HivePageSource(
                                 columnMappings,
+                                outputColumns,
                                 bucketAdaptation,
                                 hiveStorageTimeZone,
                                 typeManager,
@@ -249,6 +252,26 @@ public class HivePageSourceProvider
         }
 
         return Optional.empty();
+    }
+
+    private static List<HiveColumnHandle> applyCoercion(List<HiveColumnHandle> columns, Map<Integer, HiveType> coercions)
+    {
+        return columns.stream()
+                .map(column -> {
+                    HiveType coercionFrom = coercions.get(column.getHiveColumnIndex());
+                    if (coercionFrom != null) {
+                        return new HiveColumnHandle(
+                                column.getName(),
+                                coercionFrom,
+                                coercionFrom.getTypeSignature(),
+                                column.getHiveColumnIndex(),
+                                column.getColumnType(),
+                                Optional.empty());
+                    }
+
+                    return column;
+                })
+                .collect(toImmutableList());
     }
 
     private static boolean isEntireColumn(Subfield subfield)

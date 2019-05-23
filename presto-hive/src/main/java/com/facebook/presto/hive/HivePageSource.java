@@ -45,7 +45,6 @@ import org.joda.time.DateTimeZone;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -53,7 +52,6 @@ import java.util.function.Function;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
-import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMappingKind.INTERIM;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMappingKind.REGULAR;
 import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
@@ -116,17 +114,19 @@ public class HivePageSource
 
     private final ConnectorPageSource delegate;
     private boolean filterAndProjectPushedDown;
-    private int[] outputChannels;
+    private final int[] outputChannels;
     private final boolean needsColumnMapping;
 
     public HivePageSource(
             List<ColumnMapping> columnMappings,
+            List<HiveColumnHandle> outputColumns,
             Optional<BucketAdaptation> bucketAdaptation,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             ConnectorPageSource delegate)
     {
         requireNonNull(columnMappings, "columnMappings is null");
+        requireNonNull(outputColumns, "outputColumns is null");
         requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         requireNonNull(typeManager, "typeManager is null");
 
@@ -139,6 +139,11 @@ public class HivePageSource
         prefilledValues = new Object[size];
         types = new Type[size];
         coercers = new Function[size];
+
+        outputChannels = new int[outputColumns.size()];
+        for (int i = 0; i < outputChannels.length; i++) {
+            outputChannels[i] = i;
+        }
 
         boolean hasMapping = false;
         for (int columnIndex = 0; columnIndex < size; columnIndex++) {
@@ -767,31 +772,7 @@ public class HivePageSource
     @Override
     public boolean pushdownFilterAndProjection(PageSourceOptions options)
     {
-        this.outputChannels = Arrays.copyOf(options.getOutputChannels(), options.getOutputChannels().length);
-
-        filterAndProjectPushedDown = delegate.pushdownFilterAndProjection(createPageSourceOptionsForDelegate(options));
+        filterAndProjectPushedDown = delegate.pushdownFilterAndProjection(options);
         return filterAndProjectPushedDown;
-    }
-
-    private PageSourceOptions createPageSourceOptionsForDelegate(PageSourceOptions options)
-    {
-        // Remove non-regular and non-interim columns from internal and output channels
-        int[] internalChannels = Arrays.copyOf(options.getInternalChannels(), options.getInternalChannels().length);
-        int[] outputChannels = Arrays.copyOf(options.getOutputChannels(), options.getOutputChannels().length);
-        for (int i = 0; i < internalChannels.length; i++) {
-            ColumnMapping columnMapping = columnMappings.get(i);
-            if (columnMapping.getKind() != REGULAR && columnMapping.getKind() != INTERIM) {
-                internalChannels[i] = -1;
-                if (i < outputChannels.length) {
-                    outputChannels[i] = -1;
-                }
-            }
-        }
-
-        return new PageSourceOptions(
-                internalChannels,
-                outputChannels,
-                options.getReusePages(),
-                options.getTargetBytes());
     }
 }

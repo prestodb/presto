@@ -131,6 +131,7 @@ public class OrcRecordReader
     private final boolean reorderFilters;
     private final boolean enforceMemoryBudget;
 
+    private final List<Integer> outputColumns;
     private final OrcPredicate predicate;
     private final Map<Integer, Filter> columnFilters;
     private final List<AbstractFilterFunction> filterFunctions;
@@ -150,6 +151,7 @@ public class OrcRecordReader
     private List<AbstractFilterFunction> nonDeterministicConstantFilters;
 
     public OrcRecordReader(
+            List<Integer> outputColumns,
             Map<Integer, Type> includedColumns,
             Map<Integer, List<Subfield>> includedSubfields,
             OrcPredicate predicate,
@@ -190,6 +192,7 @@ public class OrcRecordReader
         requireNonNull(userMetadata, "userMetadata is null");
         requireNonNull(systemMemoryUsage, "systemMemoryUsage is null");
 
+        this.outputColumns = requireNonNull(outputColumns, "outputColumns is null");
         this.includedColumns = requireNonNull(includedColumns, "includedColumns is null");
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
         this.writeChecksumBuilder = writeValidation.map(validation -> createWriteChecksumBuilder(includedColumns));
@@ -827,13 +830,18 @@ public class OrcRecordReader
             nonConstantFilterFunctions = this.filterFunctions.toArray(new AbstractFilterFunction[0]);
         }
 
+        int[] channels = new int[outputColumns.size()];
+        for (int i = 0; i < outputColumns.size(); i++) {
+            channels[i] = outputColumns.get(i) == -1 ? -1 : i;
+        }
+
         reader = new ColumnGroupReader(
                 streamReaders,
                 presentColumns,
                 channelColumns,
                 types,
-                options.getInternalChannels(),
-                options.getOutputChannels(),
+                channels,
+                channels,
                 columnFilters,
                 nonConstantFilterFunctions,
                 enforceMemoryBudget,

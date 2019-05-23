@@ -111,6 +111,7 @@ public class ParquetPageSourceFactory
             long length,
             long fileSize,
             Properties schema,
+            List<HiveColumnHandle> outputColumns,
             List<HiveColumnHandle> columns,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
