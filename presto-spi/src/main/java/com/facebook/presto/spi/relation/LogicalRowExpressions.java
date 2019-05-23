@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.relation;
 
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 
 import java.util.ArrayDeque;
@@ -30,6 +31,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -39,10 +41,12 @@ public final class LogicalRowExpressions
     public static final ConstantExpression FALSE = new ConstantExpression(false, BOOLEAN);
 
     private final DeterminismEvaluator determinismEvaluator;
+    private final StandardFunctionResolution functionResolution;
 
-    public LogicalRowExpressions(DeterminismEvaluator determinismEvaluator)
+    public LogicalRowExpressions(DeterminismEvaluator determinismEvaluator, StandardFunctionResolution functionResolution)
     {
         this.determinismEvaluator = requireNonNull(determinismEvaluator, "determinismEvaluator is null");
+        this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
     }
 
     public static List<RowExpression> extractConjuncts(RowExpression expression)
@@ -63,7 +67,7 @@ public final class LogicalRowExpressions
                 return extractPredicates(form, expression);
             }
         }
-        return Collections.singletonList(expression);
+        return singletonList(expression);
     }
 
     public static List<RowExpression> extractPredicates(Form form, RowExpression expression)
@@ -80,7 +84,7 @@ public final class LogicalRowExpressions
             return Collections.unmodifiableList(predicates);
         }
 
-        return Collections.singletonList(expression);
+        return singletonList(expression);
     }
 
     public static RowExpression and(RowExpression... expressions)
@@ -235,6 +239,28 @@ public final class LogicalRowExpressions
         return disjuncts.isEmpty() ? emptyDefault : or(disjuncts);
     }
 
+    /**
+     * Given a logical expression, the goal is to push negation to the leaf nodes.
+     * This only applies to propositional logic. this utility cannot be applied to high-order logic.
+     * Examples of non-applicable cases could be f(a AND b) > 5
+     *
+     * An applicable example:
+     *
+     *        NOT
+     *         |
+     *      ___OR_                          AND
+     *     /      \                      /      \
+     *    NOT     OR        ==>        AND      AND
+     *     |     /  \                 /  \     /   \
+     *    AND   c   NOT              a    b   NOT  d
+     *   /  \        |                         |
+     *  a    b       d                         c
+     */
+    public RowExpression pushNegationToLeaves(RowExpression expression)
+    {
+        return expression.accept(new PushNegationVisitor(), null);
+    }
+
     public RowExpression filterDeterministicConjuncts(RowExpression expression)
     {
         return filterConjuncts(expression, this.determinismEvaluator::isDeterministic);
@@ -274,5 +300,98 @@ public final class LogicalRowExpressions
         }
 
         return Collections.unmodifiableList(result);
+    }
+
+    private final class PushNegationVisitor
+            implements RowExpressionVisitor<RowExpression, Void>
+    {
+        @Override
+        public RowExpression visitCall(CallExpression call, Void context)
+        {
+            if (!isNegationExpression(call)) {
+                return call;
+            }
+
+            RowExpression argument = call.getArguments().get(0);
+
+            // eliminate two consecutive negations
+            if (isNegationExpression(argument)) {
+                return ((CallExpression) argument).getArguments().get(0).accept(new PushNegationVisitor(), null);
+            }
+
+            if (!isConjunctionOrDisjunction(argument)) {
+                return call;
+            }
+
+            // push negation through conjunction or disjunction
+            SpecialFormExpression specialForm = ((SpecialFormExpression) argument);
+            RowExpression left = specialForm.getArguments().get(0);
+            RowExpression right = specialForm.getArguments().get(1);
+            if (specialForm.getForm() == AND) {
+                // !(a AND b) ==> !a OR !b
+                return or(notCallExpression(left).accept(new PushNegationVisitor(), null), notCallExpression(right).accept(new PushNegationVisitor(), null));
+            }
+            // !(a OR b) ==> !a AND !b
+            return and(notCallExpression(left).accept(new PushNegationVisitor(), null), notCallExpression(right).accept(new PushNegationVisitor(), null));
+        }
+
+        @Override
+        public RowExpression visitSpecialForm(SpecialFormExpression specialForm, Void context)
+        {
+            if (!isConjunctionOrDisjunction(specialForm)) {
+                return specialForm;
+            }
+
+            RowExpression left = specialForm.getArguments().get(0);
+            RowExpression right = specialForm.getArguments().get(1);
+
+            if (specialForm.getForm() == AND) {
+                return and(left.accept(new PushNegationVisitor(), null), right.accept(new PushNegationVisitor(), null));
+            }
+            return or(left.accept(new PushNegationVisitor(), null), right.accept(new PushNegationVisitor(), null));
+        }
+
+        @Override
+        public RowExpression visitInputReference(InputReferenceExpression reference, Void context)
+        {
+            return reference;
+        }
+
+        @Override
+        public RowExpression visitConstant(ConstantExpression literal, Void context)
+        {
+            return literal;
+        }
+
+        @Override
+        public RowExpression visitLambda(LambdaDefinitionExpression lambda, Void context)
+        {
+            return lambda;
+        }
+
+        @Override
+        public RowExpression visitVariableReference(VariableReferenceExpression reference, Void context)
+        {
+            return reference;
+        }
+
+        private boolean isNegationExpression(RowExpression expression)
+        {
+            return expression instanceof CallExpression && ((CallExpression) expression).getFunctionHandle().equals(functionResolution.notFunction());
+        }
+
+        private RowExpression notCallExpression(RowExpression argument)
+        {
+            return new CallExpression("not", functionResolution.notFunction(), BOOLEAN, singletonList(argument));
+        }
+
+        private boolean isConjunctionOrDisjunction(RowExpression expression)
+        {
+            if (expression instanceof SpecialFormExpression) {
+                Form form = ((SpecialFormExpression) expression).getForm();
+                return form == AND || form == OR;
+            }
+            return false;
+        }
     }
 }
