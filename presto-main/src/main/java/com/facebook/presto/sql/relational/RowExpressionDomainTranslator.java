@@ -104,7 +104,7 @@ public final class RowExpressionDomainTranslator
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.functionManager = metadata.getFunctionManager();
-        this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionManager));
+        this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionManager), new FunctionResolution(functionManager));
         this.functionResolution = new FunctionResolution(functionManager);
     }
 
@@ -310,7 +310,7 @@ public final class RowExpressionDomainTranslator
             this.metadata = metadata;
             this.session = session;
             this.functionManager = metadata.getFunctionManager();
-            this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionManager));
+            this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionManager), new FunctionResolution(functionManager));
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionManager);
             this.resolution = new FunctionResolution(functionManager);
             this.columnExtractor = requireNonNull(columnExtractor, "columnExtractor is null");
