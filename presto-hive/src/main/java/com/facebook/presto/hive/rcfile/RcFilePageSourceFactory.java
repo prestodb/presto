@@ -51,7 +51,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -106,7 +105,6 @@ public class RcFilePageSourceFactory
             List<HiveColumnHandle> columns,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
-            Map<String, HiveColumnHandle> predicateColumns,
             DateTimeZone hiveStorageTimeZone)
     {
         RcFileEncoding rcFileEncoding;

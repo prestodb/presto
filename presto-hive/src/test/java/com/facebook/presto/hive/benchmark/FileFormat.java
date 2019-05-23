@@ -407,7 +407,6 @@ public enum FileFormat
                         columnHandles,
                         TupleDomain.all(),
                         TRUE,
-                        ImmutableMap.of(),
                         DateTimeZone.forID(session.getTimeZoneKey().getId()))
                 .get();
     }

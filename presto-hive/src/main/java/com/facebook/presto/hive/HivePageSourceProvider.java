@@ -180,7 +180,6 @@ public class HivePageSourceProvider
                     toColumnHandles(regularAndInterimColumnMappings, true),
                     domainPredicate,
                     remainingPredicate,
-                    predicateColumns,
                     hiveStorageTimeZone);
             if (pageSource.isPresent()) {
                 return Optional.of(
