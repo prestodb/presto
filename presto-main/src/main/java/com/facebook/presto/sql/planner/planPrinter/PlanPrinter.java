@@ -499,8 +499,20 @@ public class PlanPrinter
         private String formatAggregation(AggregationNode.Aggregation aggregation)
         {
             StringBuilder builder = new StringBuilder();
+            builder.append("\"");
             builder.append(functionManager.getFunctionMetadata(aggregation.getFunctionHandle()).getName());
-            builder.append("(" + Joiner.on(",").join(aggregation.getArguments().stream().map(Object::toString).collect(toImmutableList())) + ")");
+            builder.append("\"");
+            builder.append("(");
+            if (aggregation.isDistinct()) {
+                builder.append("DISTINCT ");
+            }
+            if (aggregation.getArguments().isEmpty()) {
+                builder.append("*");
+            }
+            else {
+                builder.append(Joiner.on(",").join(aggregation.getArguments().stream().map(Object::toString).collect(toImmutableList())));
+            }
+            builder.append(")");
             aggregation.getFilter().ifPresent(filter -> builder.append(" WHERE " + filter));
             aggregation.getOrderBy().ifPresent(orderingScheme -> builder.append(" ORDER BY " + orderingScheme.toString()));
             aggregation.getMask().ifPresent(mask -> builder.append(" (mask = " + mask + ")"));
