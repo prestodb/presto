@@ -145,9 +145,7 @@ public class HivePageSourceProvider
             boolean s3SelectPushdownEnabled)
     {
         ImmutableSet.Builder<HiveColumnHandle> requiredInterimColumns = ImmutableSet.builder();
-        requiredInterimColumns.addAll(predicateColumns.values().stream()
-                .filter(c -> c.getColumnType() == REGULAR)
-                .collect(toImmutableList()));
+        requiredInterimColumns.addAll(predicateColumns.values());
         requiredInterimColumns.addAll(bucketConversion.map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()));
 
         List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(
