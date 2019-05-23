@@ -19,7 +19,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -74,15 +73,15 @@ public class TestPruneIndexSourceColumns
 
     private static PlanNode buildProjectedIndexSource(PlanBuilder p, Predicate<VariableReferenceExpression> projectionFilter)
     {
-        Symbol orderkey = p.symbol("orderkey", INTEGER);
-        Symbol custkey = p.symbol("custkey", INTEGER);
-        Symbol totalprice = p.symbol("totalprice", DOUBLE);
+        VariableReferenceExpression orderkey = p.variable("orderkey", INTEGER);
+        VariableReferenceExpression custkey = p.variable("custkey", INTEGER);
+        VariableReferenceExpression totalprice = p.variable("totalprice", DOUBLE);
         ColumnHandle orderkeyHandle = new TpchColumnHandle(orderkey.getName(), INTEGER);
         ColumnHandle custkeyHandle = new TpchColumnHandle(custkey.getName(), INTEGER);
         ColumnHandle totalpriceHandle = new TpchColumnHandle(totalprice.getName(), DOUBLE);
         return p.project(
                 Assignments.identity(
-                        ImmutableList.of(p.variable(orderkey), p.variable(custkey), p.variable(totalprice)).stream()
+                        ImmutableList.of(orderkey, custkey, totalprice).stream()
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),
                 p.indexSource(
@@ -91,12 +90,12 @@ public class TestPruneIndexSourceColumns
                                 new TpchTableHandle("orders", TINY_SCALE_FACTOR),
                                 TestingTransactionHandle.create(),
                                 Optional.empty()),
-                        ImmutableSet.of(p.variable(orderkey), p.variable(custkey)),
+                        ImmutableSet.of(orderkey, custkey),
                         ImmutableList.of(orderkey, custkey, totalprice),
                         ImmutableMap.of(
-                                p.variable(orderkey), orderkeyHandle,
-                                p.variable(custkey), custkeyHandle,
-                                p.variable(totalprice), totalpriceHandle),
+                                orderkey, orderkeyHandle,
+                                custkey, custkeyHandle,
+                                totalprice, totalpriceHandle),
                         TupleDomain.fromFixedValues(ImmutableMap.of(totalpriceHandle, asNull(DOUBLE)))));
     }
 }

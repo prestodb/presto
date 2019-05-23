@@ -101,7 +101,7 @@ public class TestDetermineJoinDistributionType
                                         ImmutableList.of(p.variable(p.symbol("B1"))),
                                         ImmutableList.of(constantExpressions(BIGINT, 50), constantExpressions(BIGINT, 11))),
                                 ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(p.symbol("A1", BIGINT)), p.variable(p.symbol("B1", BIGINT)))),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, sessionDistributedJoin.name())
                 .matches(join(
@@ -139,7 +139,7 @@ public class TestDetermineJoinDistributionType
                                         ImmutableList.of(p.variable(p.symbol("B1"))),
                                         ImmutableList.of(constantExpressions(BIGINT, 50), constantExpressions(BIGINT, 11))),
                                 ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(p.symbol("A1", BIGINT)), p.variable(p.symbol("B1", BIGINT)))),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, sessionDistributedJoin.name())
                 .matches(join(
@@ -168,7 +168,7 @@ public class TestDetermineJoinDistributionType
                                                 ImmutableList.of(p.variable(p.symbol("B1"))),
                                                 ImmutableList.of(constantExpressions(BIGINT, 50), constantExpressions(BIGINT, 11)))),
                                 ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(p.symbol("A1", BIGINT)), p.variable(p.symbol("B1", BIGINT)))),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .matches(join(
@@ -202,7 +202,7 @@ public class TestDetermineJoinDistributionType
                                         ImmutableList.of(p.variable(p.symbol("B1"))),
                                         ImmutableList.of(constantExpressions(BIGINT, 50), constantExpressions(BIGINT, 11))),
                                 ImmutableList.of(),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.of(expression("A1 * B1 > 100"))))
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .matches(join(
@@ -230,7 +230,7 @@ public class TestDetermineJoinDistributionType
                                         ImmutableList.of(p.variable(p.symbol("B1"))),
                                         ImmutableList.of(constantExpressions(BIGINT, 50), constantExpressions(BIGINT, 11))),
                                 ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(p.symbol("A1", BIGINT)), p.variable(p.symbol("B1", BIGINT)))),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
@@ -256,10 +256,10 @@ public class TestDetermineJoinDistributionType
                 .on(p ->
                         p.join(
                                 INNER,
-                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(p.symbol("A1", BIGINT)), p.variable(p.symbol("B1", BIGINT)))),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
                 .matches(join(
                         INNER,
@@ -290,10 +290,10 @@ public class TestDetermineJoinDistributionType
                 .on(p ->
                         p.join(
                                 INNER,
-                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(p.symbol("A1", BIGINT)), p.variable(p.symbol("B1", BIGINT)))),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
                 .matches(join(
                         INNER,
@@ -322,10 +322,10 @@ public class TestDetermineJoinDistributionType
                 .on(p ->
                         p.join(
                                 INNER,
-                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(p.symbol("A1", BIGINT)), p.variable(p.symbol("B1", BIGINT)))),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .matches(join(
@@ -355,10 +355,10 @@ public class TestDetermineJoinDistributionType
                 .on(p ->
                         p.join(
                                 INNER,
-                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(p.symbol("A1", BIGINT)), p.variable(p.symbol("B1", BIGINT)))),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
                 .matches(join(
                         INNER,
@@ -387,10 +387,10 @@ public class TestDetermineJoinDistributionType
                 .on(p ->
                         p.join(
                                 INNER,
-                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(p.symbol("A1", BIGINT)), p.variable(p.symbol("B1", BIGINT)))),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
                 .matches(join(
@@ -420,10 +420,10 @@ public class TestDetermineJoinDistributionType
                 .on(p ->
                         p.join(
                                 FULL,
-                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(p.symbol("A1", BIGINT)), p.variable(p.symbol("B1", BIGINT)))),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
                 .matches(join(
                         FULL,
@@ -452,10 +452,10 @@ public class TestDetermineJoinDistributionType
                 .on(p ->
                         p.join(
                                 RIGHT,
-                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(p.symbol("A1", BIGINT)), p.variable(p.symbol("B1", BIGINT)))),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
                 .matches(join(
                         RIGHT,
@@ -484,10 +484,10 @@ public class TestDetermineJoinDistributionType
                 .on(p ->
                         p.join(
                                 LEFT,
-                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(p.symbol("A1", BIGINT)), p.variable(p.symbol("B1", BIGINT)))),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
                 .matches(join(
                         LEFT,
@@ -516,10 +516,10 @@ public class TestDetermineJoinDistributionType
                 .on(p ->
                         p.join(
                                 RIGHT,
-                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(p.symbol("A1", BIGINT)), p.variable(p.symbol("B1", BIGINT)))),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
                 .matches(join(
                         LEFT,
@@ -550,10 +550,10 @@ public class TestDetermineJoinDistributionType
                 .on(p ->
                         p.join(
                                 RIGHT,
-                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(p.symbol("A1", BIGINT)), p.variable(p.symbol("B1", BIGINT)))),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
                 .matches(join(
                         LEFT,
@@ -588,10 +588,10 @@ public class TestDetermineJoinDistributionType
                 .on(p ->
                         p.join(
                                 INNER,
-                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(p.symbol("A1", BIGINT)), p.variable(p.symbol("B1", BIGINT)))),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
                 .matches(join(
                         INNER,
@@ -619,10 +619,10 @@ public class TestDetermineJoinDistributionType
                 .on(p ->
                         p.join(
                                 INNER,
-                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(p.symbol("A1", BIGINT)), p.variable(p.symbol("B1", BIGINT)))),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
                 .matches(join(
                         INNER,
@@ -651,10 +651,10 @@ public class TestDetermineJoinDistributionType
                 .on(p ->
                         p.join(
                                 RIGHT,
-                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
                                 ImmutableList.of(),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
                 .matches(join(
                         LEFT,
@@ -684,10 +684,10 @@ public class TestDetermineJoinDistributionType
                 .on(p ->
                         p.join(
                                 RIGHT,
-                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
                                 ImmutableList.of(),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
                 .matches(join(
                         RIGHT,

@@ -219,23 +219,23 @@ public class PruneUnreferencedOutputs
             PlanNode left = context.rewrite(node.getLeft(), leftInputs);
             PlanNode right = context.rewrite(node.getRight(), rightInputs);
 
-            List<Symbol> outputSymbols;
+            List<VariableReferenceExpression> outputVariables;
             if (node.isCrossJoin()) {
                 // do not prune nested joins output since it is not supported
                 // TODO: remove this "if" branch when output symbols selection is supported by nested loop join
-                outputSymbols = ImmutableList.<Symbol>builder()
-                        .addAll(left.getOutputSymbols())
-                        .addAll(right.getOutputSymbols())
+                outputVariables = ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(left.getOutputVariables())
+                        .addAll(right.getOutputVariables())
                         .build();
             }
             else {
-                outputSymbols = node.getOutputSymbols().stream()
-                        .filter(context.get()::contains)
+                outputVariables = node.getOutputVariables().stream()
+                        .filter(variable -> context.get().contains(new Symbol(variable.getName())))
                         .distinct()
                         .collect(toImmutableList());
             }
 
-            return new JoinNode(node.getId(), node.getType(), left, right, node.getCriteria(), outputSymbols, node.getFilter(), node.getLeftHashVariable(), node.getRightHashVariable(), node.getDistributionType());
+            return new JoinNode(node.getId(), node.getType(), left, right, node.getCriteria(), outputVariables, node.getFilter(), node.getLeftHashVariable(), node.getRightHashVariable(), node.getDistributionType());
         }
 
         @Override
@@ -293,12 +293,12 @@ public class PruneUnreferencedOutputs
             PlanNode left = context.rewrite(node.getLeft(), leftInputs.addAll(requiredInputs).build());
             PlanNode right = context.rewrite(node.getRight(), rightInputs.addAll(requiredInputs).build());
 
-            List<Symbol> outputSymbols = node.getOutputSymbols().stream()
-                    .filter(context.get()::contains)
+            List<VariableReferenceExpression> outputVariables = node.getOutputVariables().stream()
+                    .filter(variable -> context.get().contains(new Symbol(variable.getName())))
                     .distinct()
                     .collect(toImmutableList());
 
-            return new SpatialJoinNode(node.getId(), node.getType(), left, right, outputSymbols, node.getFilter(), node.getLeftPartitionVariable(), node.getRightPartitionVariable(), node.getKdbTree());
+            return new SpatialJoinNode(node.getId(), node.getType(), left, right, outputVariables, node.getFilter(), node.getLeftPartitionVariable(), node.getRightPartitionVariable(), node.getKdbTree());
         }
 
         @Override
@@ -329,18 +329,18 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitIndexSource(IndexSourceNode node, RewriteContext<Set<Symbol>> context)
         {
-            List<Symbol> newOutputSymbols = node.getOutputSymbols().stream()
-                    .filter(context.get()::contains)
+            List<VariableReferenceExpression> newOutputVariables = node.getOutputVariables().stream()
+                    .filter(variable -> context.get().contains(new Symbol(variable.getName())))
                     .collect(toImmutableList());
 
             Set<VariableReferenceExpression> newLookupVariables = node.getLookupVariables().stream()
                     .filter(variable -> context.get().contains(new Symbol(variable.getName())))
                     .collect(toImmutableSet());
 
-            Map<VariableReferenceExpression, ColumnHandle> newAssignments = newOutputSymbols.stream()
-                    .collect(toImmutableMap(symbolAllocator::toVariableReference, symbol -> node.getAssignments().get(symbolAllocator.toVariableReference(symbol))));
+            Map<VariableReferenceExpression, ColumnHandle> newAssignments = newOutputVariables.stream()
+                    .collect(toImmutableMap(identity(), node.getAssignments()::get));
 
-            return new IndexSourceNode(node.getId(), node.getIndexHandle(), node.getTableHandle(), newLookupVariables, newOutputSymbols, newAssignments, node.getCurrentConstraint());
+            return new IndexSourceNode(node.getId(), node.getIndexHandle(), node.getTableHandle(), newLookupVariables, newOutputVariables, newAssignments, node.getCurrentConstraint());
         }
 
         @Override

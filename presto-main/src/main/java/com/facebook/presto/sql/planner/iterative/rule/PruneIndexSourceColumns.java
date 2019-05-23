@@ -52,9 +52,9 @@ public class PruneIndexSourceColumns
                 entry -> referencedOutputs.contains(new Symbol(entry.getKey().getName())) ||
                         tupleDomainReferencesColumnHandle(indexSourceNode.getCurrentConstraint(), entry.getValue()));
 
-        List<Symbol> prunedOutputList =
-                indexSourceNode.getOutputSymbols().stream()
-                        .filter(referencedOutputs::contains)
+        List<VariableReferenceExpression> prunedOutputList =
+                indexSourceNode.getOutputVariables().stream()
+                        .filter(variable -> referencedOutputs.contains(new Symbol(variable.getName())))
                         .collect(toImmutableList());
 
         return Optional.of(

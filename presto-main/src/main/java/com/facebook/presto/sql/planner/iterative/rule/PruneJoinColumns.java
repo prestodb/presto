@@ -47,7 +47,7 @@ public class PruneJoinColumns
                         joinNode.getLeft(),
                         joinNode.getRight(),
                         joinNode.getCriteria(),
-                        filteredCopy(joinNode.getOutputSymbols(), referencedOutputs::contains),
+                        filteredCopy(joinNode.getOutputVariables(), variable -> referencedOutputs.contains(new Symbol(variable.getName()))),
                         joinNode.getFilter(),
                         joinNode.getLeftHashVariable(),
                         joinNode.getRightHashVariable(),

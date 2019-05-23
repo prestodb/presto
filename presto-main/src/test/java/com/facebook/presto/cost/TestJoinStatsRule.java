@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -176,16 +177,16 @@ public class TestJoinStatsRule
                 symbolStatistics(RIGHT_JOIN_COLUMN_2, 100.0, 200.0, 0.0, RIGHT_JOIN_COLUMN_2_NDV));
 
         tester().assertStatsFor(pb -> {
-            Symbol leftJoinColumnSymbol = pb.symbol(LEFT_JOIN_COLUMN, BIGINT);
-            Symbol rightJoinColumnSymbol = pb.symbol(RIGHT_JOIN_COLUMN, DOUBLE);
-            Symbol leftJoinColumnSymbol2 = pb.symbol(LEFT_JOIN_COLUMN_2, BIGINT);
-            Symbol rightJoinColumnSymbol2 = pb.symbol(RIGHT_JOIN_COLUMN_2, DOUBLE);
-            ComparisonExpression leftJoinColumnLessThanTen = new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, leftJoinColumnSymbol.toSymbolReference(), new LongLiteral("10"));
+            VariableReferenceExpression leftJoinColumn = pb.variable(LEFT_JOIN_COLUMN, BIGINT);
+            VariableReferenceExpression rightJoinColumn = pb.variable(RIGHT_JOIN_COLUMN, DOUBLE);
+            VariableReferenceExpression leftJoinColumn2 = pb.variable(LEFT_JOIN_COLUMN_2, BIGINT);
+            VariableReferenceExpression rightJoinColumn2 = pb.variable(RIGHT_JOIN_COLUMN_2, DOUBLE);
+            ComparisonExpression leftJoinColumnLessThanTen = new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, new SymbolReference(leftJoinColumn.getName()), new LongLiteral("10"));
             return pb
-                    .join(INNER, pb.values(leftJoinColumnSymbol, leftJoinColumnSymbol2),
-                            pb.values(rightJoinColumnSymbol, rightJoinColumnSymbol2),
-                            ImmutableList.of(new EquiJoinClause(pb.variable(leftJoinColumnSymbol2), pb.variable(rightJoinColumnSymbol2)), new EquiJoinClause(pb.variable(leftJoinColumnSymbol), pb.variable(rightJoinColumnSymbol))),
-                            ImmutableList.of(leftJoinColumnSymbol, leftJoinColumnSymbol2, rightJoinColumnSymbol, rightJoinColumnSymbol2),
+                    .join(INNER, pb.values(leftJoinColumn, leftJoinColumn2),
+                            pb.values(rightJoinColumn, rightJoinColumn2),
+                            ImmutableList.of(new EquiJoinClause(leftJoinColumn2, rightJoinColumn2), new EquiJoinClause(leftJoinColumn, rightJoinColumn)),
+                            ImmutableList.of(leftJoinColumn, leftJoinColumn2, rightJoinColumn, rightJoinColumn2),
                             Optional.of(leftJoinColumnLessThanTen));
         }).withSourceStats(0, planNodeStats(LEFT_ROWS_COUNT, LEFT_JOIN_COLUMN_STATS, LEFT_JOIN_COLUMN_2_STATS))
                 .withSourceStats(1, planNodeStats(RIGHT_ROWS_COUNT, RIGHT_JOIN_COLUMN_STATS, RIGHT_JOIN_COLUMN_2_STATS))

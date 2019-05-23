@@ -105,6 +105,14 @@ public class DistinctLimitNode
     }
 
     @Override
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        ImmutableList.Builder<VariableReferenceExpression> outputVariables = ImmutableList.builder();
+        outputVariables.addAll(distinctVariables);
+        hashVariable.ifPresent(outputVariables::add);
+        return outputVariables.build();
+    }
+    @Override
     public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitDistinctLimit(this, context);

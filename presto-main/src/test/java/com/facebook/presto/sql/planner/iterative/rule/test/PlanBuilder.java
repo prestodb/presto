@@ -171,17 +171,12 @@ public class PlanBuilder
 
     public ValuesNode values(Symbol... columns)
     {
-        return values(idAllocator.getNextId(), columns);
+        return values(idAllocator.getNextId(), 0, columns);
     }
 
     public ValuesNode values(VariableReferenceExpression... columns)
     {
         return values(idAllocator.getNextId(), 0, columns);
-    }
-
-    public ValuesNode values(PlanNodeId id, Symbol... columns)
-    {
-        return values(id, 0, columns);
     }
 
     public ValuesNode values(PlanNodeId id, VariableReferenceExpression... columns)
@@ -222,10 +217,9 @@ public class PlanBuilder
         return values(idAllocator.getNextId(), columns, variables, rows);
     }
 
-    public ValuesNode values(PlanNodeId id, List<Symbol> columns, List<List<RowExpression>> rows)
+    public ValuesNode values(PlanNodeId id, List<VariableReferenceExpression> variables, List<List<RowExpression>> rows)
     {
-        List<VariableReferenceExpression> variables = columns.stream().map(symbol -> new VariableReferenceExpression(symbol.getName(), UNKNOWN)).collect(toImmutableList());
-        return new ValuesNode(id, columns, variables, rows);
+        return new ValuesNode(id, variables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()), variables, rows);
     }
 
     public ValuesNode values(PlanNodeId id, List<Symbol> columns, List<VariableReferenceExpression> variables, List<List<RowExpression>> rows)
@@ -533,7 +527,7 @@ public class PlanBuilder
     public IndexSourceNode indexSource(
             TableHandle tableHandle,
             Set<VariableReferenceExpression> lookupVariables,
-            List<Symbol> outputSymbols,
+            List<VariableReferenceExpression> outputVariables,
             Map<VariableReferenceExpression, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> effectiveTupleDomain)
     {
@@ -545,7 +539,7 @@ public class PlanBuilder
                         TestingConnectorIndexHandle.INSTANCE),
                 tableHandle,
                 lookupVariables,
-                outputSymbols,
+                outputVariables,
                 assignments,
                 effectiveTupleDomain);
     }
@@ -657,18 +651,18 @@ public class PlanBuilder
                 left,
                 right,
                 ImmutableList.copyOf(criteria),
-                ImmutableList.<Symbol>builder()
-                        .addAll(left.getOutputSymbols())
-                        .addAll(right.getOutputSymbols())
+                ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(left.getOutputVariables())
+                        .addAll(right.getOutputVariables())
                         .build(),
                 filter,
                 Optional.empty(),
                 Optional.empty());
     }
 
-    public JoinNode join(JoinNode.Type type, PlanNode left, PlanNode right, List<JoinNode.EquiJoinClause> criteria, List<Symbol> outputSymbols, Optional<Expression> filter)
+    public JoinNode join(JoinNode.Type type, PlanNode left, PlanNode right, List<JoinNode.EquiJoinClause> criteria, List<VariableReferenceExpression> outputVariables, Optional<Expression> filter)
     {
-        return join(type, left, right, criteria, outputSymbols, filter, Optional.empty(), Optional.empty());
+        return join(type, left, right, criteria, outputVariables, filter, Optional.empty(), Optional.empty());
     }
 
     public JoinNode join(
@@ -676,12 +670,12 @@ public class PlanBuilder
             PlanNode left,
             PlanNode right,
             List<JoinNode.EquiJoinClause> criteria,
-            List<Symbol> outputSymbols,
+            List<VariableReferenceExpression> outputVariables,
             Optional<Expression> filter,
             Optional<VariableReferenceExpression> leftHashVariable,
             Optional<VariableReferenceExpression> rightHashVariable)
     {
-        return join(type, left, right, criteria, outputSymbols, filter, leftHashVariable, rightHashVariable, Optional.empty());
+        return join(type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, Optional.empty());
     }
 
     public JoinNode join(
@@ -689,13 +683,13 @@ public class PlanBuilder
             PlanNode left,
             PlanNode right,
             List<JoinNode.EquiJoinClause> criteria,
-            List<Symbol> outputSymbols,
+            List<VariableReferenceExpression> outputVariables,
             Optional<Expression> filter,
             Optional<VariableReferenceExpression> leftHashVariable,
             Optional<VariableReferenceExpression> rightHashVariable,
             Optional<JoinNode.DistributionType> distributionType)
     {
-        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputSymbols, filter.map(OriginalExpressionUtils::castToRowExpression), leftHashVariable, rightHashVariable, distributionType);
+        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputVariables, filter.map(OriginalExpressionUtils::castToRowExpression), leftHashVariable, rightHashVariable, distributionType);
     }
 
     public PlanNode indexJoin(IndexJoinNode.Type type, TableScanNode probe, TableScanNode index)

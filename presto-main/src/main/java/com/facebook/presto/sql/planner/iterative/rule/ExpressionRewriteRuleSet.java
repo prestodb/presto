@@ -242,7 +242,7 @@ public class ExpressionRewriteRuleSet
                         joinNode.getLeft(),
                         joinNode.getRight(),
                         joinNode.getCriteria(),
-                        joinNode.getOutputSymbols(),
+                        joinNode.getOutputVariables(),
                         filter.map(OriginalExpressionUtils::castToRowExpression),
                         joinNode.getLeftHashVariable(),
                         joinNode.getRightHashVariable(),

@@ -47,14 +47,14 @@ public class TestPushPartialAggregationThroughJoin
                         .source(
                                 p.join(
                                         INNER,
-                                        p.values(p.symbol("LEFT_EQUI"), p.symbol("LEFT_NON_EQUI"), p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_AGGR"), p.symbol("LEFT_HASH")),
-                                        p.values(p.symbol("RIGHT_EQUI"), p.symbol("RIGHT_NON_EQUI"), p.symbol("RIGHT_GROUP_BY"), p.symbol("RIGHT_HASH")),
-                                        ImmutableList.of(new EquiJoinClause(p.variable(p.symbol("LEFT_EQUI")), p.variable(p.symbol("RIGHT_EQUI")))),
-                                        ImmutableList.of(p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_AGGR"), p.symbol("RIGHT_GROUP_BY")),
+                                        p.values(p.variable("LEFT_EQUI"), p.variable("LEFT_NON_EQUI"), p.variable("LEFT_GROUP_BY"), p.variable("LEFT_AGGR"), p.variable("LEFT_HASH")),
+                                        p.values(p.variable("RIGHT_EQUI"), p.variable("RIGHT_NON_EQUI"), p.variable("RIGHT_GROUP_BY"), p.variable("RIGHT_HASH")),
+                                        ImmutableList.of(new EquiJoinClause(p.variable("LEFT_EQUI"), p.variable("RIGHT_EQUI"))),
+                                        ImmutableList.of(p.variable("LEFT_GROUP_BY"), p.variable("LEFT_AGGR"), p.variable("RIGHT_GROUP_BY")),
                                         Optional.of(expression("LEFT_NON_EQUI <= RIGHT_NON_EQUI")),
-                                        Optional.of(p.variable(p.symbol("LEFT_HASH"))),
-                                        Optional.of(p.variable(p.symbol("RIGHT_HASH")))))
-                        .addAggregation(p.variable(p.symbol("AVG", DOUBLE)), expression("AVG(LEFT_AGGR)"), ImmutableList.of(DOUBLE))
+                                        Optional.of(p.variable("LEFT_HASH")),
+                                        Optional.of(p.variable("RIGHT_HASH"))))
+                        .addAggregation(p.variable("AVG", DOUBLE), expression("AVG(LEFT_AGGR)"), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.variable("LEFT_GROUP_BY"), p.variable("RIGHT_GROUP_BY"))
                         .step(PARTIAL)))
                 .matches(project(ImmutableMap.of(

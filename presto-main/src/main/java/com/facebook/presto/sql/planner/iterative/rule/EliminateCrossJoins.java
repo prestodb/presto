@@ -18,6 +18,7 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -181,9 +182,9 @@ public class EliminateCrossJoins
                     result,
                     rightNode,
                     criteria.build(),
-                    ImmutableList.<Symbol>builder()
-                            .addAll(result.getOutputSymbols())
-                            .addAll(rightNode.getOutputSymbols())
+                    ImmutableList.<VariableReferenceExpression>builder()
+                            .addAll(result.getOutputVariables())
+                            .addAll(rightNode.getOutputVariables())
                             .build(),
                     Optional.empty(),
                     Optional.empty(),

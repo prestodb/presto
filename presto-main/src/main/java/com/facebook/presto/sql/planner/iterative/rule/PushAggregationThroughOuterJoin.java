@@ -149,10 +149,6 @@ public class PushAggregationThroughOuterJoin
                 aggregation.getHashVariable(),
                 aggregation.getGroupIdVariable());
 
-        List<Symbol> rewrittenAggregationSymbols = rewrittenAggregation.getAggregations().keySet().stream()
-                .map(VariableReferenceExpression::getName)
-                .map(Symbol::new)
-                .collect(toImmutableList());
         JoinNode rewrittenJoin;
         if (join.getType() == JoinNode.Type.LEFT) {
             rewrittenJoin = new JoinNode(
@@ -161,9 +157,9 @@ public class PushAggregationThroughOuterJoin
                     join.getLeft(),
                     rewrittenAggregation,
                     join.getCriteria(),
-                    ImmutableList.<Symbol>builder()
-                            .addAll(join.getLeft().getOutputSymbols())
-                            .addAll(rewrittenAggregationSymbols)
+                    ImmutableList.<VariableReferenceExpression>builder()
+                            .addAll(join.getLeft().getOutputVariables())
+                            .addAll(rewrittenAggregation.getAggregations().keySet())
                             .build(),
                     join.getFilter(),
                     join.getLeftHashVariable(),
@@ -177,9 +173,9 @@ public class PushAggregationThroughOuterJoin
                     rewrittenAggregation,
                     join.getRight(),
                     join.getCriteria(),
-                    ImmutableList.<Symbol>builder()
-                            .addAll(rewrittenAggregationSymbols)
-                            .addAll(join.getRight().getOutputSymbols())
+                    ImmutableList.<VariableReferenceExpression>builder()
+                            .addAll(rewrittenAggregation.getAggregations().keySet())
+                            .addAll(join.getRight().getOutputVariables())
                             .build(),
                     join.getFilter(),
                     join.getLeftHashVariable(),
@@ -256,9 +252,9 @@ public class PushAggregationThroughOuterJoin
                 outerJoin,
                 aggregationOverNull,
                 ImmutableList.of(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(outerJoin.getOutputSymbols())
-                        .addAll(aggregationOverNull.getOutputSymbols())
+                ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(outerJoin.getOutputVariables())
+                        .addAll(aggregationOverNull.getOutputVariables())
                         .build(),
                 Optional.empty(),
                 Optional.empty(),

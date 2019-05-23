@@ -208,9 +208,9 @@ public class TestPhasedExecutionSchedule
                 tableScan,
                 remote,
                 ImmutableList.of(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(tableScan.getOutputSymbols())
-                        .addAll(remote.getOutputSymbols())
+                ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(tableScan.getOutputVariables())
+                        .addAll(remote.getOutputVariables())
                         .build(),
                 Optional.empty(),
                 Optional.empty(),
@@ -230,9 +230,9 @@ public class TestPhasedExecutionSchedule
                 probe,
                 build,
                 ImmutableList.of(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(probe.getOutputSymbols())
-                        .addAll(build.getOutputSymbols())
+                ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(probe.getOutputVariables())
+                        .addAll(build.getOutputVariables())
                         .build(),
                 Optional.empty(),
                 Optional.empty(),

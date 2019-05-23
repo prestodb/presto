@@ -18,7 +18,6 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelator.DecorrelatedNode;
@@ -114,9 +113,9 @@ public class ScalarAggregationToJoinRewriter
                 inputWithUniqueColumns,
                 scalarAggregationSource,
                 ImmutableList.of(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(inputWithUniqueColumns.getOutputSymbols())
-                        .addAll(scalarAggregationSource.getOutputSymbols())
+                ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(inputWithUniqueColumns.getOutputVariables())
+                        .addAll(scalarAggregationSource.getOutputVariables())
                         .build(),
                 joinExpression.map(OriginalExpressionUtils::castToRowExpression),
                 Optional.empty(),

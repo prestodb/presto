@@ -131,7 +131,7 @@ public class ReorderJoins
                 costComparator,
                 multiJoinNode.getFilter(),
                 context);
-        JoinEnumerationResult result = joinEnumerator.chooseJoinOrder(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols());
+        JoinEnumerationResult result = joinEnumerator.chooseJoinOrder(multiJoinNode.getSources(), multiJoinNode.getOutputVariables());
         if (!result.getPlanNode().isPresent()) {
             return Result.empty();
         }
@@ -166,7 +166,7 @@ public class ReorderJoins
             this.lookup = requireNonNull(context.getLookup(), "lookup is null");
         }
 
-        private JoinEnumerationResult chooseJoinOrder(LinkedHashSet<PlanNode> sources, List<Symbol> outputSymbols)
+        private JoinEnumerationResult chooseJoinOrder(LinkedHashSet<PlanNode> sources, List<VariableReferenceExpression> outputVariables)
         {
             context.checkTimeoutNotExhausted();
 
@@ -177,7 +177,7 @@ public class ReorderJoins
                 ImmutableList.Builder<JoinEnumerationResult> resultBuilder = ImmutableList.builder();
                 Set<Set<Integer>> partitions = generatePartitions(sources.size());
                 for (Set<Integer> partition : partitions) {
-                    JoinEnumerationResult result = createJoinAccordingToPartitioning(sources, outputSymbols, partition);
+                    JoinEnumerationResult result = createJoinAccordingToPartitioning(sources, outputVariables, partition);
                     if (result.equals(UNKNOWN_COST_RESULT)) {
                         memo.put(multiJoinKey, result);
                         return result;
@@ -224,7 +224,7 @@ public class ReorderJoins
         }
 
         @VisibleForTesting
-        JoinEnumerationResult createJoinAccordingToPartitioning(LinkedHashSet<PlanNode> sources, List<Symbol> outputSymbols, Set<Integer> partitioning)
+        JoinEnumerationResult createJoinAccordingToPartitioning(LinkedHashSet<PlanNode> sources, List<VariableReferenceExpression> outputVariables, Set<Integer> partitioning)
         {
             List<PlanNode> sourceList = ImmutableList.copyOf(sources);
             LinkedHashSet<PlanNode> leftSources = partitioning.stream()
@@ -233,22 +233,22 @@ public class ReorderJoins
             LinkedHashSet<PlanNode> rightSources = sources.stream()
                     .filter(source -> !leftSources.contains(source))
                     .collect(toCollection(LinkedHashSet::new));
-            return createJoin(leftSources, rightSources, outputSymbols);
+            return createJoin(leftSources, rightSources, outputVariables);
         }
 
-        private JoinEnumerationResult createJoin(LinkedHashSet<PlanNode> leftSources, LinkedHashSet<PlanNode> rightSources, List<Symbol> outputSymbols)
+        private JoinEnumerationResult createJoin(LinkedHashSet<PlanNode> leftSources, LinkedHashSet<PlanNode> rightSources, List<VariableReferenceExpression> outputVariables)
         {
-            Set<Symbol> leftSymbols = leftSources.stream()
-                    .flatMap(node -> node.getOutputSymbols().stream())
+            Set<VariableReferenceExpression> leftVariables = leftSources.stream()
+                    .flatMap(node -> node.getOutputVariables().stream())
                     .collect(toImmutableSet());
-            Set<Symbol> rightSymbols = rightSources.stream()
-                    .flatMap(node -> node.getOutputSymbols().stream())
+            Set<VariableReferenceExpression> rightVariables = rightSources.stream()
+                    .flatMap(node -> node.getOutputVariables().stream())
                     .collect(toImmutableSet());
 
-            List<Expression> joinPredicates = getJoinPredicates(leftSymbols, rightSymbols);
+            List<Expression> joinPredicates = getJoinPredicates(leftVariables, rightVariables);
             List<EquiJoinClause> joinConditions = joinPredicates.stream()
                     .filter(JoinEnumerator::isJoinEqualityCondition)
-                    .map(predicate -> toEquiJoinClause((ComparisonExpression) predicate, leftSymbols, context.getSymbolAllocator()))
+                    .map(predicate -> toEquiJoinClause((ComparisonExpression) predicate, leftVariables, context.getSymbolAllocator()))
                     .collect(toImmutableList());
             if (joinConditions.isEmpty()) {
                 return INFINITE_COST_RESULT;
@@ -257,15 +257,15 @@ public class ReorderJoins
                     .filter(predicate -> !isJoinEqualityCondition(predicate))
                     .collect(toImmutableList());
 
-            Set<Symbol> requiredJoinSymbols = ImmutableSet.<Symbol>builder()
-                    .addAll(outputSymbols)
-                    .addAll(SymbolsExtractor.extractUnique(joinPredicates))
+            Set<VariableReferenceExpression> requiredJoinVariables = ImmutableSet.<VariableReferenceExpression>builder()
+                    .addAll(outputVariables)
+                    .addAll(SymbolsExtractor.extractUniqueVariable(joinPredicates, context.getSymbolAllocator().getTypes()))
                     .build();
 
             JoinEnumerationResult leftResult = getJoinSource(
                     leftSources,
-                    requiredJoinSymbols.stream()
-                            .filter(leftSymbols::contains)
+                    requiredJoinVariables.stream()
+                            .filter(leftVariables::contains)
                             .collect(toImmutableList()));
             if (leftResult.equals(UNKNOWN_COST_RESULT)) {
                 return UNKNOWN_COST_RESULT;
@@ -278,8 +278,8 @@ public class ReorderJoins
 
             JoinEnumerationResult rightResult = getJoinSource(
                     rightSources,
-                    requiredJoinSymbols.stream()
-                            .filter(rightSymbols::contains)
+                    requiredJoinVariables.stream()
+                            .filter(rightVariables::contains)
                             .collect(toImmutableList()));
             if (rightResult.equals(UNKNOWN_COST_RESULT)) {
                 return UNKNOWN_COST_RESULT;
@@ -291,8 +291,8 @@ public class ReorderJoins
             PlanNode right = rightResult.planNode.orElseThrow(() -> new VerifyException("Plan node is not present"));
 
             // sort output symbols so that the left input symbols are first
-            List<Symbol> sortedOutputSymbols = Stream.concat(left.getOutputSymbols().stream(), right.getOutputSymbols().stream())
-                    .filter(outputSymbols::contains)
+            List<VariableReferenceExpression> sortedOutputVariables = Stream.concat(left.getOutputVariables().stream(), right.getOutputVariables().stream())
+                    .filter(outputVariables::contains)
                     .collect(toImmutableList());
 
             return setJoinNodeProperties(new JoinNode(
@@ -301,17 +301,18 @@ public class ReorderJoins
                     left,
                     right,
                     joinConditions,
-                    sortedOutputSymbols,
+                    sortedOutputVariables,
                     joinFilters.isEmpty() ? Optional.empty() : Optional.of(castToRowExpression(and(joinFilters))),
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty()));
         }
 
-        private List<Expression> getJoinPredicates(Set<Symbol> leftSymbols, Set<Symbol> rightSymbols)
+        private List<Expression> getJoinPredicates(Set<VariableReferenceExpression> leftVariables, Set<VariableReferenceExpression> rightVariables)
         {
             ImmutableList.Builder<Expression> joinPredicatesBuilder = ImmutableList.builder();
-
+            List<Symbol> leftSymbols = leftVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
+            List<Symbol> rightSymbols = rightVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
             // This takes all conjuncts that were part of allFilters that
             // could not be used for equality inference.
             // If they use both the left and right symbols, we add them to the list of joinPredicates
@@ -332,8 +333,9 @@ public class ReorderJoins
             return joinPredicatesBuilder.build();
         }
 
-        private JoinEnumerationResult getJoinSource(LinkedHashSet<PlanNode> nodes, List<Symbol> outputSymbols)
+        private JoinEnumerationResult getJoinSource(LinkedHashSet<PlanNode> nodes, List<VariableReferenceExpression> outputVariables)
         {
+            List<Symbol> outputSymbols = outputVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
             if (nodes.size() == 1) {
                 PlanNode planNode = getOnlyElement(nodes);
                 ImmutableList.Builder<Expression> predicates = ImmutableList.builder();
@@ -348,7 +350,7 @@ public class ReorderJoins
                 }
                 return createJoinEnumerationResult(planNode);
             }
-            return chooseJoinOrder(nodes, outputSymbols);
+            return chooseJoinOrder(nodes, outputVariables);
         }
 
         private static boolean isJoinEqualityCondition(Expression expression)
@@ -359,13 +361,12 @@ public class ReorderJoins
                     && ((ComparisonExpression) expression).getRight() instanceof SymbolReference;
         }
 
-        private static EquiJoinClause toEquiJoinClause(ComparisonExpression equality, Set<Symbol> leftSymbols, SymbolAllocator symbolAllocator)
+        private static EquiJoinClause toEquiJoinClause(ComparisonExpression equality, Set<VariableReferenceExpression> leftVariables, SymbolAllocator symbolAllocator)
         {
-            Symbol leftSymbol = Symbol.from(equality.getLeft());
-            VariableReferenceExpression leftVariable = symbolAllocator.toVariableReference(leftSymbol);
+            VariableReferenceExpression leftVariable = symbolAllocator.toVariableReference(Symbol.from(equality.getLeft()));
             VariableReferenceExpression rightVariable = symbolAllocator.toVariableReference(Symbol.from(equality.getRight()));
             EquiJoinClause equiJoinClause = new EquiJoinClause(leftVariable, rightVariable);
-            return leftSymbols.contains(leftSymbol) ? equiJoinClause : equiJoinClause.flip();
+            return leftVariables.contains(leftVariable) ? equiJoinClause : equiJoinClause.flip();
         }
 
         private JoinEnumerationResult setJoinNodeProperties(JoinNode joinNode)
@@ -432,21 +433,21 @@ public class ReorderJoins
         // Use a linked hash set to ensure optimizer is deterministic
         private final LinkedHashSet<PlanNode> sources;
         private final Expression filter;
-        private final List<Symbol> outputSymbols;
+        private final List<VariableReferenceExpression> outputVariables;
 
-        public MultiJoinNode(LinkedHashSet<PlanNode> sources, Expression filter, List<Symbol> outputSymbols)
+        public MultiJoinNode(LinkedHashSet<PlanNode> sources, Expression filter, List<VariableReferenceExpression> outputVariables)
         {
             requireNonNull(sources, "sources is null");
             checkArgument(sources.size() > 1, "sources size is <= 1");
             requireNonNull(filter, "filter is null");
-            requireNonNull(outputSymbols, "outputSymbols is null");
+            requireNonNull(outputVariables, "outputVariables is null");
 
             this.sources = sources;
             this.filter = filter;
-            this.outputSymbols = ImmutableList.copyOf(outputSymbols);
+            this.outputVariables = ImmutableList.copyOf(outputVariables);
 
-            List<Symbol> inputSymbols = sources.stream().flatMap(source -> source.getOutputSymbols().stream()).collect(toImmutableList());
-            checkArgument(inputSymbols.containsAll(outputSymbols), "inputs do not contain all output symbols");
+            List<VariableReferenceExpression> inputVariables = sources.stream().flatMap(source -> source.getOutputVariables().stream()).collect(toImmutableList());
+            checkArgument(inputVariables.containsAll(outputVariables), "inputs do not contain all output variables");
         }
 
         public Expression getFilter()
@@ -459,9 +460,9 @@ public class ReorderJoins
             return sources;
         }
 
-        public List<Symbol> getOutputSymbols()
+        public List<VariableReferenceExpression> getOutputVariables()
         {
-            return outputSymbols;
+            return outputVariables;
         }
 
         public static Builder builder()
@@ -472,7 +473,7 @@ public class ReorderJoins
         @Override
         public int hashCode()
         {
-            return Objects.hash(sources, ImmutableSet.copyOf(extractConjuncts(filter)), outputSymbols);
+            return Objects.hash(sources, ImmutableSet.copyOf(extractConjuncts(filter)), outputVariables);
         }
 
         @Override
@@ -485,7 +486,7 @@ public class ReorderJoins
             MultiJoinNode other = (MultiJoinNode) obj;
             return this.sources.equals(other.sources)
                     && ImmutableSet.copyOf(extractConjuncts(this.filter)).equals(ImmutableSet.copyOf(extractConjuncts(other.filter)))
-                    && this.outputSymbols.equals(other.outputSymbols);
+                    && this.outputVariables.equals(other.outputVariables);
         }
 
         static MultiJoinNode toMultiJoinNode(JoinNode joinNode, Lookup lookup, int joinLimit)
@@ -498,14 +499,14 @@ public class ReorderJoins
         {
             private final LinkedHashSet<PlanNode> sources = new LinkedHashSet<>();
             private final List<Expression> filters = new ArrayList<>();
-            private final List<Symbol> outputSymbols;
+            private final List<VariableReferenceExpression> outputVariables;
             private final Lookup lookup;
 
             JoinNodeFlattener(JoinNode node, Lookup lookup, int sourceLimit)
             {
                 requireNonNull(node, "node is null");
                 checkState(node.getType() == INNER, "join type must be INNER");
-                this.outputSymbols = node.getOutputSymbols();
+                this.outputVariables = node.getOutputVariables();
                 this.lookup = requireNonNull(lookup, "lookup is null");
                 flattenNode(node, sourceLimit);
             }
@@ -537,7 +538,7 @@ public class ReorderJoins
 
             MultiJoinNode toMultiJoinNode()
             {
-                return new MultiJoinNode(sources, and(filters), outputSymbols);
+                return new MultiJoinNode(sources, and(filters), outputVariables);
             }
         }
 
@@ -545,7 +546,7 @@ public class ReorderJoins
         {
             private List<PlanNode> sources;
             private Expression filter;
-            private List<Symbol> outputSymbols;
+            private List<VariableReferenceExpression> outputVariables;
 
             public Builder setSources(PlanNode... sources)
             {
@@ -559,15 +560,15 @@ public class ReorderJoins
                 return this;
             }
 
-            public Builder setOutputSymbols(Symbol... outputSymbols)
+            public Builder setOutputVariables(VariableReferenceExpression... outputVariables)
             {
-                this.outputSymbols = ImmutableList.copyOf(outputSymbols);
+                this.outputVariables = ImmutableList.copyOf(outputVariables);
                 return this;
             }
 
             public MultiJoinNode build()
             {
-                return new MultiJoinNode(new LinkedHashSet<>(sources), filter, outputSymbols);
+                return new MultiJoinNode(new LinkedHashSet<>(sources), filter, outputVariables);
             }
         }
     }

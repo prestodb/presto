@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -47,9 +48,9 @@ public class PruneCrossJoinColumns
             return Optional.empty();
         }
 
-        ImmutableList.Builder<Symbol> outputSymbolBuilder = ImmutableList.builder();
-        outputSymbolBuilder.addAll(newLeft.orElse(joinNode.getLeft()).getOutputSymbols());
-        outputSymbolBuilder.addAll(newRight.orElse(joinNode.getRight()).getOutputSymbols());
+        ImmutableList.Builder<VariableReferenceExpression> outputVariableBuilder = ImmutableList.builder();
+        outputVariableBuilder.addAll(newLeft.orElse(joinNode.getLeft()).getOutputVariables());
+        outputVariableBuilder.addAll(newRight.orElse(joinNode.getRight()).getOutputVariables());
 
         return Optional.of(new JoinNode(
                 idAllocator.getNextId(),
@@ -57,7 +58,7 @@ public class PruneCrossJoinColumns
                 newLeft.orElse(joinNode.getLeft()),
                 newRight.orElse(joinNode.getRight()),
                 joinNode.getCriteria(),
-                outputSymbolBuilder.build(),
+                outputVariableBuilder.build(),
                 joinNode.getFilter(),
                 joinNode.getLeftHashVariable(),
                 joinNode.getRightHashVariable(),

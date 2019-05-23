@@ -36,7 +36,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -53,7 +53,7 @@ public class TableWriterNode
     private final Optional<PartitioningScheme> partitioningScheme;
     private final Optional<StatisticAggregations> statisticsAggregation;
     private final Optional<StatisticAggregationsDescriptor<VariableReferenceExpression>> statisticsAggregationDescriptor;
-    private final List<Symbol> outputs;
+    private final List<VariableReferenceExpression> outputs;
 
     @JsonCreator
     public TableWriterNode(
@@ -87,13 +87,13 @@ public class TableWriterNode
         this.statisticsAggregationDescriptor = requireNonNull(statisticsAggregationDescriptor, "statisticsAggregationDescriptor is null");
         checkArgument(statisticsAggregation.isPresent() == statisticsAggregationDescriptor.isPresent(), "statisticsAggregation and statisticsAggregationDescriptor must be either present or absent");
 
-        ImmutableList.Builder<Symbol> outputs = ImmutableList.<Symbol>builder()
-                .add(new Symbol(rowCountVariable.getName()))
-                .add(new Symbol(fragmentVariable.getName()))
-                .add(new Symbol(tableCommitContextVariable.getName()));
+        ImmutableList.Builder<VariableReferenceExpression> outputs = ImmutableList.<VariableReferenceExpression>builder()
+                .add(rowCountVariable)
+                .add(fragmentVariable)
+                .add(tableCommitContextVariable);
         statisticsAggregation.ifPresent(aggregation -> {
-            outputs.addAll(aggregation.getGroupingSymbols());
-            outputs.addAll(aggregation.getAggregations().keySet().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
+            outputs.addAll(aggregation.getGroupingVariables());
+            outputs.addAll(aggregation.getAggregations().keySet());
         });
         this.outputs = outputs.build();
     }
@@ -166,6 +166,11 @@ public class TableWriterNode
 
     @Override
     public List<Symbol> getOutputSymbols()
+    {
+        return getOutputVariables().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
+    }
+    @Override
+    public List<VariableReferenceExpression> getOutputVariables()
     {
         return outputs;
     }

@@ -440,9 +440,9 @@ public class TestEffectivePredicateExtractor
                 left,
                 right,
                 criteria,
-                ImmutableList.<Symbol>builder()
-                        .addAll(left.getOutputSymbols())
-                        .addAll(right.getOutputSymbols())
+                ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(left.getOutputVariables())
+                        .addAll(right.getOutputVariables())
                         .build(),
                 Optional.of(castToRowExpression(lessThanOrEqual(BE, EE))),
                 Optional.empty(),
@@ -479,8 +479,8 @@ public class TestEffectivePredicateExtractor
                 left,
                 rightScan,
                 ImmutableList.of(new JoinNode.EquiJoinClause(AV, DV)),
-                ImmutableList.<Symbol>builder()
-                        .addAll(rightScan.getOutputSymbols())
+                ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(rightScan.getOutputVariables())
                         .build(),
                 Optional.empty(),
                 Optional.empty(),
@@ -508,9 +508,9 @@ public class TestEffectivePredicateExtractor
                 leftScan,
                 rightScan,
                 ImmutableList.of(new JoinNode.EquiJoinClause(AV, DV)),
-                ImmutableList.<Symbol>builder()
-                        .addAll(leftScan.getOutputSymbols())
-                        .addAll(rightScan.getOutputSymbols())
+                ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(leftScan.getOutputVariables())
+                        .addAll(rightScan.getOutputVariables())
                         .build(),
                 Optional.of(castToRowExpression(FALSE_LITERAL)),
                 Optional.empty(),
@@ -550,9 +550,9 @@ public class TestEffectivePredicateExtractor
                 left,
                 right,
                 criteria,
-                ImmutableList.<Symbol>builder()
-                        .addAll(left.getOutputSymbols())
-                        .addAll(right.getOutputSymbols())
+                ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(left.getOutputVariables())
+                        .addAll(right.getOutputVariables())
                         .build(),
                 Optional.empty(),
                 Optional.empty(),
@@ -593,9 +593,9 @@ public class TestEffectivePredicateExtractor
                 left,
                 right,
                 criteria,
-                ImmutableList.<Symbol>builder()
-                        .addAll(left.getOutputSymbols())
-                        .addAll(right.getOutputSymbols())
+                ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(left.getOutputVariables())
+                        .addAll(right.getOutputVariables())
                         .build(),
                 Optional.empty(),
                 Optional.empty(),
@@ -639,9 +639,9 @@ public class TestEffectivePredicateExtractor
                 left,
                 right,
                 criteria,
-                ImmutableList.<Symbol>builder()
-                        .addAll(left.getOutputSymbols())
-                        .addAll(right.getOutputSymbols())
+                ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(left.getOutputVariables())
+                        .addAll(right.getOutputVariables())
                         .build(),
                 Optional.empty(),
                 Optional.empty(),
@@ -681,9 +681,9 @@ public class TestEffectivePredicateExtractor
                 left,
                 right,
                 criteria,
-                ImmutableList.<Symbol>builder()
-                        .addAll(left.getOutputSymbols())
-                        .addAll(right.getOutputSymbols())
+                ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(left.getOutputVariables())
+                        .addAll(right.getOutputVariables())
                         .build(),
                 Optional.empty(),
                 Optional.empty(),

@@ -46,7 +46,7 @@ public class TestExtractSpatialLeftJoin
                 .on(p ->
                         p.join(LEFT,
                                 p.values(),
-                                p.values(p.symbol("b")),
+                                p.values(p.variable("b")),
                                 expression("ST_Contains(ST_GeometryFromText('POLYGON ...'), b)")))
                 .doesNotFire();
 
@@ -54,8 +54,8 @@ public class TestExtractSpatialLeftJoin
         assertRuleApplication()
                 .on(p ->
                         p.join(LEFT,
-                                p.values(p.symbol("wkt", VARCHAR), p.symbol("name_1")),
-                                p.values(p.symbol("point", GEOMETRY), p.symbol("name_2")),
+                                p.values(p.variable("wkt", VARCHAR), p.variable("name_1")),
+                                p.values(p.variable("point", GEOMETRY), p.variable("name_2")),
                                 expression("ST_Contains(ST_GeometryFromText(wkt), point) OR name_1 != name_2")))
                 .doesNotFire();
 
@@ -63,8 +63,8 @@ public class TestExtractSpatialLeftJoin
         assertRuleApplication()
                 .on(p ->
                         p.join(LEFT,
-                                p.values(p.symbol("wkt", VARCHAR), p.symbol("name_1")),
-                                p.values(p.symbol("point", GEOMETRY), p.symbol("name_2")),
+                                p.values(p.variable("wkt", VARCHAR), p.variable("name_1")),
+                                p.values(p.variable("point", GEOMETRY), p.variable("name_2")),
                                 expression("NOT ST_Contains(ST_GeometryFromText(wkt), point)")))
                 .doesNotFire();
 
@@ -72,8 +72,8 @@ public class TestExtractSpatialLeftJoin
         assertRuleApplication()
                 .on(p ->
                         p.join(LEFT,
-                                p.values(p.symbol("a", GEOMETRY)),
-                                p.values(p.symbol("b", GEOMETRY)),
+                                p.values(p.variable("a", GEOMETRY)),
+                                p.values(p.variable("b", GEOMETRY)),
                                 expression("ST_Distance(a, b) > 5")))
                 .doesNotFire();
 
@@ -81,16 +81,16 @@ public class TestExtractSpatialLeftJoin
         assertRuleApplication()
                 .on(p ->
                         p.join(LEFT,
-                                p.values(p.symbol("a", SPHERICAL_GEOGRAPHY)),
-                                p.values(p.symbol("b", SPHERICAL_GEOGRAPHY)),
+                                p.values(p.variable("a", SPHERICAL_GEOGRAPHY)),
+                                p.values(p.variable("b", SPHERICAL_GEOGRAPHY)),
                                 expression("ST_Distance(a, b) < 5")))
                 .doesNotFire();
 
         assertRuleApplication()
                 .on(p ->
                         p.join(LEFT,
-                                p.values(p.symbol("polygon", SPHERICAL_GEOGRAPHY)),
-                                p.values(p.symbol("point", SPHERICAL_GEOGRAPHY)),
+                                p.values(p.variable("polygon", SPHERICAL_GEOGRAPHY)),
+                                p.values(p.variable("point", SPHERICAL_GEOGRAPHY)),
                                 expression("ST_Contains(polygon, point)")))
                 .doesNotFire();
 
@@ -98,16 +98,16 @@ public class TestExtractSpatialLeftJoin
         assertRuleApplication()
                 .on(p ->
                         p.join(LEFT,
-                                p.values(p.symbol("wkt", VARCHAR)),
-                                p.values(p.symbol("point", SPHERICAL_GEOGRAPHY)),
+                                p.values(p.variable("wkt", VARCHAR)),
+                                p.values(p.variable("point", SPHERICAL_GEOGRAPHY)),
                                 expression("ST_Distance(to_spherical_geography(ST_GeometryFromText(wkt)), point) < 5")))
                 .doesNotFire();
 
         assertRuleApplication()
                 .on(p ->
                         p.join(LEFT,
-                                p.values(p.symbol("wkt", VARCHAR)),
-                                p.values(p.symbol("point", SPHERICAL_GEOGRAPHY)),
+                                p.values(p.variable("wkt", VARCHAR)),
+                                p.values(p.variable("point", SPHERICAL_GEOGRAPHY)),
                                 expression("ST_Contains(to_spherical_geography(ST_GeometryFromText(wkt)), point)")))
                 .doesNotFire();
     }
@@ -119,8 +119,8 @@ public class TestExtractSpatialLeftJoin
         assertRuleApplication()
                 .on(p ->
                         p.join(LEFT,
-                                p.values(p.symbol("a")),
-                                p.values(p.symbol("b")),
+                                p.values(p.variable("a")),
+                                p.values(p.variable("b")),
                                 p.expression("ST_Contains(a, b)")))
                 .matches(
                         spatialLeftJoin("ST_Contains(a, b)",
@@ -131,8 +131,8 @@ public class TestExtractSpatialLeftJoin
         assertRuleApplication()
                 .on(p ->
                         p.join(LEFT,
-                                p.values(p.symbol("a"), p.symbol("name_1")),
-                                p.values(p.symbol("b"), p.symbol("name_2")),
+                                p.values(p.variable("a"), p.variable("name_1")),
+                                p.values(p.variable("b"), p.variable("name_2")),
                                 p.expression("name_1 != name_2 AND ST_Contains(a, b)")))
                 .matches(
                         spatialLeftJoin("name_1 != name_2 AND ST_Contains(a, b)",
@@ -143,8 +143,8 @@ public class TestExtractSpatialLeftJoin
         assertRuleApplication()
                 .on(p ->
                         p.join(LEFT,
-                                p.values(p.symbol("a1"), p.symbol("a2")),
-                                p.values(p.symbol("b1"), p.symbol("b2")),
+                                p.values(p.variable("a1"), p.variable("a2")),
+                                p.values(p.variable("b1"), p.variable("b2")),
                                 p.expression("ST_Contains(a1, b1) AND ST_Contains(a2, b2)")))
                 .matches(
                         spatialLeftJoin("ST_Contains(a1, b1) AND ST_Contains(a2, b2)",
@@ -158,8 +158,8 @@ public class TestExtractSpatialLeftJoin
         assertRuleApplication()
                 .on(p ->
                         p.join(LEFT,
-                                p.values(p.symbol("wkt", VARCHAR)),
-                                p.values(p.symbol("point", GEOMETRY)),
+                                p.values(p.variable("wkt", VARCHAR)),
+                                p.values(p.variable("point", GEOMETRY)),
                                 expression("ST_Contains(ST_GeometryFromText(wkt), point)")))
                 .matches(
                         spatialLeftJoin("ST_Contains(st_geometryfromtext, point)",
@@ -169,7 +169,7 @@ public class TestExtractSpatialLeftJoin
         assertRuleApplication()
                 .on(p ->
                         p.join(LEFT,
-                                p.values(p.symbol("wkt", VARCHAR)),
+                                p.values(p.variable("wkt", VARCHAR)),
                                 p.values(),
                                 expression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(0, 0))")))
                 .doesNotFire();
@@ -181,8 +181,8 @@ public class TestExtractSpatialLeftJoin
         assertRuleApplication()
                 .on(p ->
                         p.join(LEFT,
-                                p.values(p.symbol("polygon", GEOMETRY)),
-                                p.values(p.symbol("lat"), p.symbol("lng")),
+                                p.values(p.variable("polygon", GEOMETRY)),
+                                p.values(p.variable("lat"), p.variable("lng")),
                                 expression("ST_Contains(polygon, ST_Point(lng, lat))")))
                 .matches(
                         spatialLeftJoin("ST_Contains(polygon, st_point)",
@@ -193,7 +193,7 @@ public class TestExtractSpatialLeftJoin
                 .on(p ->
                         p.join(LEFT,
                                 p.values(),
-                                p.values(p.symbol("lat"), p.symbol("lng")),
+                                p.values(p.variable("lat"), p.variable("lng")),
                                 expression("ST_Contains(ST_GeometryFromText('POLYGON ...'), ST_Point(lng, lat))")))
                 .doesNotFire();
     }
@@ -204,8 +204,8 @@ public class TestExtractSpatialLeftJoin
         assertRuleApplication()
                 .on(p ->
                         p.join(LEFT,
-                                p.values(p.symbol("wkt", VARCHAR)),
-                                p.values(p.symbol("lat"), p.symbol("lng")),
+                                p.values(p.variable("wkt", VARCHAR)),
+                                p.values(p.variable("lat"), p.variable("lng")),
                                 expression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))")))
                 .matches(
                         spatialLeftJoin("ST_Contains(st_geometryfromtext, st_point)",
@@ -219,8 +219,8 @@ public class TestExtractSpatialLeftJoin
         assertRuleApplication()
                 .on(p ->
                         p.join(LEFT,
-                                p.values(p.symbol("lat"), p.symbol("lng")),
-                                p.values(p.symbol("wkt", VARCHAR)),
+                                p.values(p.variable("lat"), p.variable("lng")),
+                                p.values(p.variable("wkt", VARCHAR)),
                                 expression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))")))
                 .matches(
                         spatialLeftJoin("ST_Contains(st_geometryfromtext, st_point)",
@@ -234,8 +234,8 @@ public class TestExtractSpatialLeftJoin
         assertRuleApplication()
                 .on(p ->
                         p.join(LEFT,
-                                p.values(p.symbol("wkt", VARCHAR), p.symbol("name_1")),
-                                p.values(p.symbol("lat"), p.symbol("lng"), p.symbol("name_2")),
+                                p.values(p.variable("wkt", VARCHAR), p.variable("name_1")),
+                                p.values(p.variable("lat"), p.variable("lng"), p.variable("name_2")),
                                 expression("name_1 != name_2 AND ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))")))
                 .matches(
                         spatialLeftJoin("name_1 != name_2 AND ST_Contains(st_geometryfromtext, st_point)",
@@ -246,8 +246,8 @@ public class TestExtractSpatialLeftJoin
         assertRuleApplication()
                 .on(p ->
                         p.join(LEFT,
-                                p.values(p.symbol("wkt1", VARCHAR), p.symbol("wkt2", VARCHAR)),
-                                p.values(p.symbol("geometry1"), p.symbol("geometry2")),
+                                p.values(p.variable("wkt1", VARCHAR), p.variable("wkt2", VARCHAR)),
+                                p.values(p.variable("geometry1"), p.variable("geometry2")),
                                 expression("ST_Contains(ST_GeometryFromText(wkt1), geometry1) AND ST_Contains(ST_GeometryFromText(wkt2), geometry2)")))
                 .matches(
                         spatialLeftJoin("ST_Contains(st_geometryfromtext, geometry1) AND ST_Contains(ST_GeometryFromText(wkt2), geometry2)",

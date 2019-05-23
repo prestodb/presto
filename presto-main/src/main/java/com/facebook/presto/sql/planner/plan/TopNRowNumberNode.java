@@ -87,6 +87,17 @@ public final class TopNRowNumberNode
         return builder.build();
     }
 
+    @Override
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        ImmutableList.Builder<VariableReferenceExpression> builder = ImmutableList.<VariableReferenceExpression>builder().addAll(source.getOutputVariables());
+
+        if (!partial) {
+            builder.add(rowNumberVariable);
+        }
+        return builder.build();
+    }
+
     @JsonProperty
     public PlanNode getSource()
     {

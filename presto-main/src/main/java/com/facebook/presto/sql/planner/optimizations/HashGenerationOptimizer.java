@@ -348,17 +348,15 @@ public class HashGenerationOptimizer
                 Optional<VariableReferenceExpression> rightHashVariable)
         {
             // retain only hash symbols preferred by parent nodes
-            Map<HashComputation, VariableReferenceExpression> hashSymbolsWithParentPreferences =
+            Map<HashComputation, VariableReferenceExpression> hashVariablesWithParentPreferences =
                     allHashVariables.entrySet()
                             .stream()
                             .filter(entry -> parentPreference.getHashes().contains(entry.getKey()))
                             .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
-            List<Symbol> outputSymbols = concat(left.getNode().getOutputSymbols().stream(), right.getNode().getOutputSymbols().stream())
-                    .filter(symbol -> node.getOutputSymbols().contains(symbol) ||
-                            hashSymbolsWithParentPreferences.values().stream()
-                                    .map(variable -> new Symbol(variable.getName()))
-                                    .collect(toImmutableList()).contains(symbol))
+            List<VariableReferenceExpression> outputVariables = concat(left.getNode().getOutputVariables().stream(), right.getNode().getOutputVariables().stream())
+                    .filter(variable -> node.getOutputVariables().contains(variable) ||
+                            hashVariablesWithParentPreferences.values().contains(variable))
                     .collect(toImmutableList());
 
             return new PlanWithProperties(
@@ -368,12 +366,12 @@ public class HashGenerationOptimizer
                             left.getNode(),
                             right.getNode(),
                             node.getCriteria(),
-                            outputSymbols,
+                            outputVariables,
                             node.getFilter(),
                             leftHashVariable,
                             rightHashVariable,
                             node.getDistributionType()),
-                    hashSymbolsWithParentPreferences);
+                    hashVariablesWithParentPreferences);
         }
 
         @Override

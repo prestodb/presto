@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
@@ -69,8 +68,8 @@ public class TestPruneJoinColumns
     {
         tester().assertThat(new PruneJoinColumns())
                 .on(p -> {
-                    Symbol leftValue = p.symbol("leftValue");
-                    Symbol rightValue = p.symbol("rightValue");
+                    VariableReferenceExpression leftValue = p.variable("leftValue");
+                    VariableReferenceExpression rightValue = p.variable("rightValue");
                     return p.project(
                             Assignments.of(),
                             p.join(
@@ -103,7 +102,7 @@ public class TestPruneJoinColumns
                         p.values(leftKey, leftValue),
                         p.values(rightKey, rightValue),
                         ImmutableList.of(new JoinNode.EquiJoinClause(leftKey, rightKey)),
-                        outputs.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()),
+                        outputs,
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()));

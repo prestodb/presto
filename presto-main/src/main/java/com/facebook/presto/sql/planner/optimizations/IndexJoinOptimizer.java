@@ -192,7 +192,7 @@ public class IndexJoinOptimizer
             }
 
             if (leftRewritten != node.getLeft() || rightRewritten != node.getRight()) {
-                return new JoinNode(node.getId(), node.getType(), leftRewritten, rightRewritten, node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashVariable(), node.getRightHashVariable(), node.getDistributionType());
+                return new JoinNode(node.getId(), node.getType(), leftRewritten, rightRewritten, node.getCriteria(), node.getOutputVariables(), node.getFilter(), node.getLeftHashVariable(), node.getRightHashVariable(), node.getDistributionType());
             }
             return node;
         }
@@ -313,7 +313,7 @@ public class IndexJoinOptimizer
                     resolvedIndex.getIndexHandle(),
                     node.getTable(),
                     context.getLookupVariables(),
-                    node.getOutputSymbols(),
+                    node.getOutputVariables(),
                     node.getAssignments(),
                     simplifiedConstraint);
 

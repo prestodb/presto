@@ -18,7 +18,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
@@ -58,10 +57,11 @@ public abstract class PlanNode
      */
     public abstract List<Symbol> getOutputSymbols();
 
-    public List<VariableReferenceExpression> getOutputVariables()
-    {
-        return ImmutableList.of();
-    }
+    /**
+     * The output from the upstream PlanNodes.
+     * It should serve as the input for the current PlanNode.
+     */
+    public abstract List<VariableReferenceExpression> getOutputVariables();
 
     /**
      * Alter the upstream PlanNodes of the current PlanNode.

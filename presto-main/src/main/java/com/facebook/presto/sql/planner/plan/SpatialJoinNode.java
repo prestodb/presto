@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -68,7 +69,7 @@ public class SpatialJoinNode
     private final Type type;
     private final PlanNode left;
     private final PlanNode right;
-    private final List<Symbol> outputSymbols;
+    private final List<VariableReferenceExpression> outputVariables;
     private final RowExpression filter;
     private final Optional<VariableReferenceExpression> leftPartitionVariable;
     private final Optional<VariableReferenceExpression> rightPartitionVariable;
@@ -87,7 +88,7 @@ public class SpatialJoinNode
             @JsonProperty("type") Type type,
             @JsonProperty("left") PlanNode left,
             @JsonProperty("right") PlanNode right,
-            @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
+            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("filter") RowExpression filter,
             @JsonProperty("leftPartitionVariable") Optional<VariableReferenceExpression> leftPartitionVariable,
             @JsonProperty("rightPartitionVariable") Optional<VariableReferenceExpression> rightPartitionVariable,
@@ -98,23 +99,23 @@ public class SpatialJoinNode
         this.type = requireNonNull(type, "type is null");
         this.left = requireNonNull(left, "left is null");
         this.right = requireNonNull(right, "right is null");
-        this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputSymbols, "outputSymbols is null"));
+        this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
         this.filter = requireNonNull(filter, "filter is null");
         this.leftPartitionVariable = requireNonNull(leftPartitionVariable, "leftPartitionVariable is null");
         this.rightPartitionVariable = requireNonNull(rightPartitionVariable, "rightPartitionVariable is null");
         this.kdbTree = requireNonNull(kdbTree, "kdbTree is null");
 
-        Set<Symbol> inputSymbols = ImmutableSet.<Symbol>builder()
-                .addAll(left.getOutputSymbols())
-                .addAll(right.getOutputSymbols())
+        Set<VariableReferenceExpression> inputSymbols = ImmutableSet.<VariableReferenceExpression>builder()
+                .addAll(left.getOutputVariables())
+                .addAll(right.getOutputVariables())
                 .build();
 
-        checkArgument(inputSymbols.containsAll(outputSymbols), "Left and right join inputs do not contain all output symbols");
+        checkArgument(inputSymbols.containsAll(outputVariables), "Left and right join inputs do not contain all output variables");
         if (kdbTree.isPresent()) {
-            checkArgument(leftPartitionVariable.isPresent(), "Left partition symbol is missing");
-            checkArgument(rightPartitionVariable.isPresent(), "Right partition symbol is missing");
-            checkArgument(left.getOutputSymbols().contains(new Symbol(leftPartitionVariable.get().getName())), "Left join input does not contain left partition symbol");
-            checkArgument(right.getOutputSymbols().contains(new Symbol(rightPartitionVariable.get().getName())), "Right join input does not contain right partition symbol");
+            checkArgument(leftPartitionVariable.isPresent(), "Left partition variable is missing");
+            checkArgument(rightPartitionVariable.isPresent(), "Right partition variable is missing");
+            checkArgument(left.getOutputVariables().contains(leftPartitionVariable.get()), "Left join input does not contain left partition variable");
+            checkArgument(right.getOutputVariables().contains(rightPartitionVariable.get()), "Right join input does not contain right partition variable");
             this.distributionType = DistributionType.PARTITIONED;
         }
         else {
@@ -167,10 +168,16 @@ public class SpatialJoinNode
     }
 
     @Override
-    @JsonProperty
     public List<Symbol> getOutputSymbols()
     {
-        return outputSymbols;
+        return getOutputVariables().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
+    }
+
+    @Override
+    @JsonProperty
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        return outputVariables;
     }
 
     @JsonProperty
@@ -195,6 +202,6 @@ public class SpatialJoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new SpatialJoinNode(getId(), type, newChildren.get(0), newChildren.get(1), outputSymbols, filter, leftPartitionVariable, rightPartitionVariable, kdbTree);
+        return new SpatialJoinNode(getId(), type, newChildren.get(0), newChildren.get(1), outputVariables, filter, leftPartitionVariable, rightPartitionVariable, kdbTree);
     }
 }

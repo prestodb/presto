@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
@@ -99,7 +98,7 @@ public class TestPruneCrossJoinColumns
                         p.values(leftValue),
                         p.values(rightValue),
                         ImmutableList.of(),
-                        outputs.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()),
+                        outputs,
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()));

@@ -333,9 +333,9 @@ class RelationPlanner
                 leftPlanBuilder.getRoot(),
                 rightPlanBuilder.getRoot(),
                 equiClauses.build(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(leftPlanBuilder.getRoot().getOutputSymbols())
-                        .addAll(rightPlanBuilder.getRoot().getOutputSymbols())
+                ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(leftPlanBuilder.getRoot().getOutputVariables())
+                        .addAll(rightPlanBuilder.getRoot().getOutputVariables())
                         .build(),
                 Optional.empty(),
                 Optional.empty(),
@@ -369,9 +369,9 @@ class RelationPlanner
                     leftPlanBuilder.getRoot(),
                     rightPlanBuilder.getRoot(),
                     equiClauses.build(),
-                    ImmutableList.<Symbol>builder()
-                            .addAll(leftPlanBuilder.getRoot().getOutputSymbols())
-                            .addAll(rightPlanBuilder.getRoot().getOutputSymbols())
+                    ImmutableList.<VariableReferenceExpression>builder()
+                            .addAll(leftPlanBuilder.getRoot().getOutputVariables())
+                            .addAll(rightPlanBuilder.getRoot().getOutputVariables())
                             .build(),
                     Optional.of(castToRowExpression(rewrittenFilterCondition)),
                     Optional.empty(),
@@ -476,9 +476,9 @@ class RelationPlanner
                 leftCoercion,
                 rightCoercion,
                 clauses.build(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(leftCoercion.getOutputSymbols())
-                        .addAll(rightCoercion.getOutputSymbols())
+                ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(leftCoercion.getOutputVariables())
+                        .addAll(rightCoercion.getOutputVariables())
                         .build(),
                 Optional.empty(),
                 Optional.empty(),

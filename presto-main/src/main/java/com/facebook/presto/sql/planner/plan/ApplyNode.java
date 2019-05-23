@@ -151,6 +151,15 @@ public class ApplyNode
     }
 
     @Override
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        return ImmutableList.<VariableReferenceExpression>builder()
+                .addAll(input.getOutputVariables())
+                .addAll(subqueryAssignments.getOutputs())
+                .build();
+    }
+
+    @Override
     public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitApply(this, context);

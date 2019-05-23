@@ -539,9 +539,9 @@ public class PredicatePushDown
                         leftSource,
                         rightSource,
                         equiJoinClauses,
-                        ImmutableList.<Symbol>builder()
-                                .addAll(leftSource.getOutputSymbols())
-                                .addAll(rightSource.getOutputSymbols())
+                        ImmutableList.<VariableReferenceExpression>builder()
+                                .addAll(leftSource.getOutputVariables())
+                                .addAll(rightSource.getOutputVariables())
                                 .build(),
                         newJoinFilter.map(OriginalExpressionUtils::castToRowExpression),
                         node.getLeftHashVariable(),
@@ -572,7 +572,7 @@ public class PredicatePushDown
                         SpatialJoinNode.Type.INNER,
                         node.getLeft(),
                         node.getRight(),
-                        node.getOutputSymbols(),
+                        node.getOutputVariables(),
                         node.getFilter(),
                         node.getLeftPartitionVariable(),
                         node.getRightPartitionVariable(),
@@ -646,7 +646,7 @@ public class PredicatePushDown
                         node.getType(),
                         leftSource,
                         rightSource,
-                        node.getOutputSymbols(),
+                        node.getOutputVariables(),
                         castToRowExpression(newJoinPredicate),
                         node.getLeftPartitionVariable(),
                         node.getRightPartitionVariable(),
@@ -940,11 +940,11 @@ public class PredicatePushDown
                     return node;
                 }
                 if (canConvertToLeftJoin && canConvertToRightJoin) {
-                    return new JoinNode(node.getId(), INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashVariable(), node.getRightHashVariable(), node.getDistributionType());
+                    return new JoinNode(node.getId(), INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputVariables(), node.getFilter(), node.getLeftHashVariable(), node.getRightHashVariable(), node.getDistributionType());
                 }
                 else {
                     return new JoinNode(node.getId(), canConvertToLeftJoin ? LEFT : RIGHT,
-                            node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashVariable(), node.getRightHashVariable(), node.getDistributionType());
+                            node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputVariables(), node.getFilter(), node.getLeftHashVariable(), node.getRightHashVariable(), node.getDistributionType());
                 }
             }
 
@@ -952,7 +952,7 @@ public class PredicatePushDown
                     node.getType() == JoinNode.Type.RIGHT && !canConvertOuterToInner(node.getLeft().getOutputSymbols(), inheritedPredicate)) {
                 return node;
             }
-            return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashVariable(), node.getRightHashVariable(), node.getDistributionType());
+            return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputVariables(), node.getFilter(), node.getLeftHashVariable(), node.getRightHashVariable(), node.getDistributionType());
         }
 
         private boolean canConvertOuterToInner(List<Symbol> innerSymbolsForOuterJoin, Expression inheritedPredicate)

@@ -215,7 +215,7 @@ public class Memo
                         .map(child -> new GroupReference(
                                 idAllocator.getNextId(),
                                 insertRecursive(child),
-                                child.getOutputSymbols()))
+                                child.getOutputVariables()))
                         .collect(Collectors.toList()));
     }
 

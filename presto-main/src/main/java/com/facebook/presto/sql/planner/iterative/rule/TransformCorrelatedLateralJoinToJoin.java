@@ -61,7 +61,7 @@ public class TransformCorrelatedLateralJoinToJoin
                         lateralJoinNode.getInput(),
                         decorrelatedNode.getNode(),
                         ImmutableList.of(),
-                        lateralJoinNode.getOutputSymbols(),
+                        lateralJoinNode.getOutputVariables(),
                         decorrelatedNode.getCorrelatedPredicates().map(OriginalExpressionUtils::castToRowExpression),
                         Optional.empty(),
                         Optional.empty(),

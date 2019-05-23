@@ -827,7 +827,7 @@ public class AddExchanges
                     newLeft.getNode(),
                     newRight.getNode(),
                     node.getCriteria(),
-                    node.getOutputSymbols(),
+                    node.getOutputVariables(),
                     node.getFilter(),
                     node.getLeftHashVariable(),
                     node.getRightHashVariable(),

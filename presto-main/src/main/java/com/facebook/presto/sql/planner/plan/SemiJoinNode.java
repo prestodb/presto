@@ -136,6 +136,15 @@ public class SemiJoinNode
     }
 
     @Override
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        return ImmutableList.<VariableReferenceExpression>builder()
+                .addAll(source.getOutputVariables())
+                .add(semiJoinOutput)
+                .build();
+    }
+
+    @Override
     public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitSemiJoin(this, context);

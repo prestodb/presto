@@ -14,8 +14,6 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -54,14 +52,14 @@ public class TestPushAggregationThroughOuterJoin
                         .source(
                                 p.join(
                                         JoinNode.Type.LEFT,
-                                        p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(p.variable(p.symbol("COL1"))), ImmutableList.of(constantExpressions(BIGINT, 10))),
-                                        p.values(p.symbol("COL2")),
-                                        ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(p.symbol("COL1")), p.variable(p.symbol("COL2")))),
-                                        ImmutableList.of(p.symbol("COL1"), p.symbol("COL2")),
+                                        p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(p.variable("COL1")), ImmutableList.of(constantExpressions(BIGINT, 10))),
+                                        p.values(p.variable("COL2")),
+                                        ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("COL1"), p.variable("COL2"))),
+                                        ImmutableList.of(p.variable("COL1"), p.variable("COL2")),
                                         Optional.empty(),
                                         Optional.empty(),
                                         Optional.empty()))
-                        .addAggregation(p.variable(p.symbol("AVG", DOUBLE)), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.variable("AVG", DOUBLE), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.variable("COL1"))))
                 .matches(
                         project(ImmutableMap.of(
@@ -95,15 +93,15 @@ public class TestPushAggregationThroughOuterJoin
                                 p.join(
                                         JoinNode.Type.LEFT,
                                         p.values(ImmutableList.of(p.symbol("COL1"), p.symbol("COL3")),
-                                                ImmutableList.of(p.variable(p.symbol("COL1")), p.variable(p.symbol("COL3"))),
+                                                ImmutableList.of(p.variable("COL1"), p.variable("COL3")),
                                                 ImmutableList.of(constantExpressions(BIGINT, 10, 20))),
-                                        p.values(p.symbol("COL2"), p.symbol("COL4")),
-                                        ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(p.symbol("COL1")), p.variable(p.symbol("COL2")))),
-                                        ImmutableList.of(p.symbol("COL1"), p.symbol("COL2")),
+                                        p.values(p.variable("COL2"), p.variable("COL4")),
+                                        ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("COL1"), p.variable("COL2"))),
+                                        ImmutableList.of(p.variable("COL1"), p.variable("COL2")),
                                         Optional.empty(),
                                         Optional.empty(),
                                         Optional.empty()))
-                        .addAggregation(p.variable(p.symbol("AVG", DOUBLE)), PlanBuilder.expression("avg(COL2 ORDER BY COL4)"), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.variable("AVG", DOUBLE), PlanBuilder.expression("avg(COL2 ORDER BY COL4)"), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.variable("COL1"), p.variable("COL3"))))
                 .matches(
                         project(ImmutableMap.of(
@@ -144,14 +142,14 @@ public class TestPushAggregationThroughOuterJoin
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(
                                 JoinNode.Type.RIGHT,
-                                p.values(p.symbol("COL2")),
-                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(p.variable(p.symbol("COL1"))), ImmutableList.of(constantExpressions(BIGINT, 10))),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(p.symbol("COL2")), p.variable(p.symbol("COL1")))),
-                                ImmutableList.of(p.symbol("COL2"), p.symbol("COL1")),
+                                p.values(p.variable("COL2")),
+                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(p.variable("COL1")), ImmutableList.of(constantExpressions(BIGINT, 10))),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("COL2"), p.variable("COL1"))),
+                                ImmutableList.of(p.variable("COL2"), p.variable("COL1")),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()))
-                        .addAggregation(p.variable(p.symbol("AVG", DOUBLE)), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.variable("AVG", DOUBLE), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.variable("COL1"))))
                 .matches(
                         project(ImmutableMap.of(
@@ -186,11 +184,11 @@ public class TestPushAggregationThroughOuterJoin
                                 JoinNode.Type.LEFT,
                                 p.values(
                                         ImmutableList.of(p.symbol("COL1")),
-                                        ImmutableList.of(p.variable(p.symbol("COL1"))),
+                                        ImmutableList.of(p.variable("COL1")),
                                         ImmutableList.of(constantExpressions(BIGINT, 10), constantExpressions(BIGINT, 11))),
-                                p.values(new Symbol("COL2")),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(p.symbol("COL1")), p.variable(p.symbol("COL2")))),
-                                ImmutableList.of(new Symbol("COL1"), new Symbol("COL2")),
+                                p.values(p.variable("COL2")),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("COL1"), p.variable("COL2"))),
+                                ImmutableList.of(p.variable("COL1"), p.variable("COL2")),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()))
@@ -212,15 +210,15 @@ public class TestPushAggregationThroughOuterJoin
                                                                 .source(
                                                                         p.values(
                                                                                 ImmutableList.of(p.symbol("COL1"), p.symbol("unused")),
-                                                                                ImmutableList.of(p.variable(p.symbol("COL1")), p.variable(p.symbol("unused"))),
+                                                                                ImmutableList.of(p.variable("COL1"), p.variable("unused")),
                                                                                 ImmutableList.of(constantExpressions(BIGINT, 10, 1), constantExpressions(BIGINT, 10, 2)))))),
-                                        p.values(p.symbol("COL2")),
-                                        ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(p.symbol("COL1")), p.variable(p.symbol("COL2")))),
-                                        ImmutableList.of(p.symbol("COL1"), p.symbol("COL2")),
+                                        p.values(p.variable("COL2")),
+                                        ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("COL1"), p.variable("COL2"))),
+                                        ImmutableList.of(p.variable("COL1"), p.variable("COL2")),
                                         Optional.empty(),
                                         Optional.empty(),
                                         Optional.empty()))
-                        .addAggregation(p.variable(p.symbol("AVG", DOUBLE)), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.variable("AVG", DOUBLE), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.variable("COL1"))))
                 .doesNotFire();
     }
@@ -231,14 +229,14 @@ public class TestPushAggregationThroughOuterJoin
         tester().assertThat(new PushAggregationThroughOuterJoin(getFunctionManager()))
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(JoinNode.Type.LEFT,
-                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(p.variable(p.symbol("COL1"))), ImmutableList.of(constantExpressions(BIGINT, 10))),
-                                p.values(new Symbol("COL2"), new Symbol("COL3")),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(p.symbol("COL1")), p.variable(p.symbol("COL2")))),
-                                ImmutableList.of(new Symbol("COL1"), new Symbol("COL2")),
+                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(p.variable("COL1")), ImmutableList.of(constantExpressions(BIGINT, 10))),
+                                p.values(p.variable("COL2"), p.variable("COL3")),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("COL1"), p.variable("COL2"))),
+                                ImmutableList.of(p.variable("COL1"), p.variable("COL2")),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()))
-                        .addAggregation(new VariableReferenceExpression("AVG", DOUBLE), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.variable("AVG", DOUBLE), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.variable("COL1"), p.variable("COL3"))))
                 .doesNotFire();
     }
@@ -250,14 +248,14 @@ public class TestPushAggregationThroughOuterJoin
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(
                                 JoinNode.Type.LEFT,
-                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(p.variable(p.symbol("COL1"))), ImmutableList.of(constantExpressions(BIGINT, 10))),
-                                p.values(ImmutableList.of(p.symbol("COL2")), ImmutableList.of(p.variable(p.symbol("COL2"))), ImmutableList.of(constantExpressions(BIGINT, 20))),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable(p.symbol("COL1")), p.variable(p.symbol("COL2")))),
-                                ImmutableList.of(new Symbol("COL1"), new Symbol("COL2")),
+                                p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(p.variable("COL1")), ImmutableList.of(constantExpressions(BIGINT, 10))),
+                                p.values(ImmutableList.of(p.symbol("COL2")), ImmutableList.of(p.variable("COL2")), ImmutableList.of(constantExpressions(BIGINT, 20))),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("COL1"), p.variable("COL2"))),
+                                ImmutableList.of(p.variable("COL1"), p.variable("COL2")),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()))
-                        .addAggregation(new VariableReferenceExpression("SUM", DOUBLE), PlanBuilder.expression("sum(COL1)"), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.variable("SUM", DOUBLE), PlanBuilder.expression("sum(COL1)"), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.variable("COL1"))))
                 .doesNotFire();
     }

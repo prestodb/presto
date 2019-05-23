@@ -220,7 +220,7 @@ public class ExtractSpatialJoins
             Expression filter = OriginalExpressionUtils.castToExpression(node.getPredicate());
             List<FunctionCall> spatialFunctions = extractSupportedSpatialFunctions(filter);
             for (FunctionCall spatialFunction : spatialFunctions) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputSymbols(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager, sqlParser);
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputVariables(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager, sqlParser);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -228,7 +228,7 @@ public class ExtractSpatialJoins
 
             List<ComparisonExpression> spatialComparisons = extractSupportedSpatialComparisons(filter);
             for (ComparisonExpression spatialComparison : spatialComparisons) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputSymbols(), spatialComparison, metadata, splitManager, pageSourceManager, sqlParser);
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputVariables(), spatialComparison, metadata, splitManager, pageSourceManager, sqlParser);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -275,7 +275,7 @@ public class ExtractSpatialJoins
             Expression filter = OriginalExpressionUtils.castToExpression(joinNode.getFilter().get());
             List<FunctionCall> spatialFunctions = extractSupportedSpatialFunctions(filter);
             for (FunctionCall spatialFunction : spatialFunctions) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputSymbols(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager, sqlParser);
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputVariables(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager, sqlParser);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -283,7 +283,7 @@ public class ExtractSpatialJoins
 
             List<ComparisonExpression> spatialComparisons = extractSupportedSpatialComparisons(filter);
             for (ComparisonExpression spatialComparison : spatialComparisons) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputSymbols(), spatialComparison, metadata, splitManager, pageSourceManager, sqlParser);
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputVariables(), spatialComparison, metadata, splitManager, pageSourceManager, sqlParser);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -298,7 +298,7 @@ public class ExtractSpatialJoins
             JoinNode joinNode,
             Expression filter,
             PlanNodeId nodeId,
-            List<Symbol> outputSymbols,
+            List<VariableReferenceExpression> outputVariables,
             ComparisonExpression spatialComparison,
             Metadata metadata,
             SplitManager splitManager,
@@ -348,13 +348,13 @@ public class ExtractSpatialJoins
                 leftNode,
                 newRightNode,
                 joinNode.getCriteria(),
-                joinNode.getOutputSymbols(),
+                joinNode.getOutputVariables(),
                 Optional.of(castToRowExpression(newFilter)),
                 joinNode.getLeftHashVariable(),
                 joinNode.getRightHashVariable(),
                 joinNode.getDistributionType());
 
-        return tryCreateSpatialJoin(context, newJoinNode, newFilter, nodeId, outputSymbols, (FunctionCall) newComparison.getLeft(), Optional.of(newComparison.getRight()), metadata, splitManager, pageSourceManager, sqlParser);
+        return tryCreateSpatialJoin(context, newJoinNode, newFilter, nodeId, outputVariables, (FunctionCall) newComparison.getLeft(), Optional.of(newComparison.getRight()), metadata, splitManager, pageSourceManager, sqlParser);
     }
 
     private static Result tryCreateSpatialJoin(
@@ -362,7 +362,7 @@ public class ExtractSpatialJoins
             JoinNode joinNode,
             Expression filter,
             PlanNodeId nodeId,
-            List<Symbol> outputSymbols,
+            List<VariableReferenceExpression> outputVariables,
             FunctionCall spatialFunction,
             Optional<Expression> radius,
             Metadata metadata,
@@ -443,7 +443,7 @@ public class ExtractSpatialJoins
                 SpatialJoinNode.Type.fromJoinNodeType(joinNode.getType()),
                 newLeftNode,
                 newRightNode,
-                outputSymbols,
+                outputVariables,
                 castToRowExpression(newFilter),
                 leftPartitionVariable,
                 rightPartitionVariable,

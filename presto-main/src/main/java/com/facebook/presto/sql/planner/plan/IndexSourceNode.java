@@ -40,7 +40,7 @@ public class IndexSourceNode
     private final IndexHandle indexHandle;
     private final TableHandle tableHandle;
     private final Set<VariableReferenceExpression> lookupVariables;
-    private final List<Symbol> outputSymbols;
+    private final List<VariableReferenceExpression> outputVariables;
     private final Map<VariableReferenceExpression, ColumnHandle> assignments; // symbol -> column
     private final TupleDomain<ColumnHandle> currentConstraint; // constraint over the input data the operator will guarantee
 
@@ -50,7 +50,7 @@ public class IndexSourceNode
             @JsonProperty("indexHandle") IndexHandle indexHandle,
             @JsonProperty("tableHandle") TableHandle tableHandle,
             @JsonProperty("lookupVariables") Set<VariableReferenceExpression> lookupVariables,
-            @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
+            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("assignments") Map<VariableReferenceExpression, ColumnHandle> assignments,
             @JsonProperty("currentConstraint") TupleDomain<ColumnHandle> currentConstraint)
     {
@@ -58,14 +58,13 @@ public class IndexSourceNode
         this.indexHandle = requireNonNull(indexHandle, "indexHandle is null");
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.lookupVariables = ImmutableSet.copyOf(requireNonNull(lookupVariables, "lookupVariables is null"));
-        this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputSymbols, "outputSymbols is null"));
+        this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
         this.currentConstraint = requireNonNull(currentConstraint, "effectiveTupleDomain is null");
         checkArgument(!lookupVariables.isEmpty(), "lookupVariables is empty");
-        checkArgument(!outputSymbols.isEmpty(), "outputSymbols is empty");
+        checkArgument(!outputVariables.isEmpty(), "outputVariables is empty");
         checkArgument(assignments.keySet().containsAll(lookupVariables), "Assignments do not include all lookup variables");
-        List<Symbol> lookupSymbols = lookupVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
-        checkArgument(outputSymbols.containsAll(lookupSymbols), "Lookup variables need to be part of the output symbols");
+        checkArgument(outputVariables.containsAll(lookupVariables), "Lookup variables need to be part of the output variables");
     }
 
     @JsonProperty
@@ -87,10 +86,16 @@ public class IndexSourceNode
     }
 
     @Override
-    @JsonProperty
     public List<Symbol> getOutputSymbols()
     {
-        return outputSymbols;
+        return getOutputVariables().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
+    }
+
+    @Override
+    @JsonProperty
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        return outputVariables;
     }
 
     @JsonProperty

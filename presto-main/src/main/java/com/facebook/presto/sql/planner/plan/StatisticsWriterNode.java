@@ -98,6 +98,12 @@ public class StatisticsWriterNode
     }
 
     @Override
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        return ImmutableList.of(rowCountVariable);
+    }
+
+    @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         return new StatisticsWriterNode(

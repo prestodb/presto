@@ -53,7 +53,7 @@ public class JoinNode
     private final PlanNode left;
     private final PlanNode right;
     private final List<EquiJoinClause> criteria;
-    private final List<Symbol> outputSymbols;
+    private final List<VariableReferenceExpression> outputVariables;
     private final Optional<RowExpression> filter;
     private final Optional<VariableReferenceExpression> leftHashVariable;
     private final Optional<VariableReferenceExpression> rightHashVariable;
@@ -65,7 +65,7 @@ public class JoinNode
             @JsonProperty("left") PlanNode left,
             @JsonProperty("right") PlanNode right,
             @JsonProperty("criteria") List<EquiJoinClause> criteria,
-            @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
+            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("filter") Optional<RowExpression> filter,
             @JsonProperty("leftHashVariable") Optional<VariableReferenceExpression> leftHashVariable,
             @JsonProperty("rightHashVariable") Optional<VariableReferenceExpression> rightHashVariable,
@@ -76,7 +76,7 @@ public class JoinNode
         requireNonNull(left, "left is null");
         requireNonNull(right, "right is null");
         requireNonNull(criteria, "criteria is null");
-        requireNonNull(outputSymbols, "outputSymbols is null");
+        requireNonNull(outputVariables, "outputVariables is null");
         requireNonNull(filter, "filter is null");
         requireNonNull(leftHashVariable, "leftHashVariable is null");
         requireNonNull(rightHashVariable, "rightHashVariable is null");
@@ -86,18 +86,18 @@ public class JoinNode
         this.left = left;
         this.right = right;
         this.criteria = ImmutableList.copyOf(criteria);
-        this.outputSymbols = ImmutableList.copyOf(outputSymbols);
+        this.outputVariables = ImmutableList.copyOf(outputVariables);
         this.filter = filter;
         this.leftHashVariable = leftHashVariable;
         this.rightHashVariable = rightHashVariable;
         this.distributionType = distributionType;
 
-        Set<Symbol> inputSymbols = ImmutableSet.<Symbol>builder()
-                .addAll(left.getOutputSymbols())
-                .addAll(right.getOutputSymbols())
+        Set<VariableReferenceExpression> inputVariables = ImmutableSet.<VariableReferenceExpression>builder()
+                .addAll(left.getOutputVariables())
+                .addAll(right.getOutputVariables())
                 .build();
-        checkArgument(new HashSet<>(inputSymbols).containsAll(outputSymbols), "Left and right join inputs do not contain all output symbols");
-        checkArgument(!isCrossJoin() || inputSymbols.size() == outputSymbols.size(), "Cross join does not support output symbols pruning or reordering");
+        checkArgument(new HashSet<>(inputVariables).containsAll(outputVariables), "Left and right join inputs do not contain all output variables");
+        checkArgument(!isCrossJoin() || inputVariables.size() == outputVariables.size(), "Cross join does not support output variables pruning or reordering");
 
         checkArgument(!(criteria.isEmpty() && leftHashVariable.isPresent()), "Left hash variable is only valid in an equijoin");
         checkArgument(!(criteria.isEmpty() && rightHashVariable.isPresent()), "Right hash variable is only valid in an equijoin");
@@ -126,7 +126,7 @@ public class JoinNode
                 right,
                 left,
                 flipJoinCriteria(criteria),
-                flipOutputSymbols(getOutputSymbols(), left, right),
+                flipOutputVariables(getOutputVariables(), left, right),
                 filter,
                 rightHashVariable,
                 leftHashVariable,
@@ -156,17 +156,17 @@ public class JoinNode
                 .collect(toImmutableList());
     }
 
-    private static List<Symbol> flipOutputSymbols(List<Symbol> outputSymbols, PlanNode left, PlanNode right)
+    private static List<VariableReferenceExpression> flipOutputVariables(List<VariableReferenceExpression> outputVariables, PlanNode left, PlanNode right)
     {
-        List<Symbol> leftSymbols = outputSymbols.stream()
-                .filter(symbol -> left.getOutputSymbols().contains(symbol))
+        List<VariableReferenceExpression> leftVariables = outputVariables.stream()
+                .filter(variable -> left.getOutputVariables().contains(variable))
                 .collect(Collectors.toList());
-        List<Symbol> rightSymbols = outputSymbols.stream()
-                .filter(symbol -> right.getOutputSymbols().contains(symbol))
+        List<VariableReferenceExpression> rightVariables = outputVariables.stream()
+                .filter(variable -> right.getOutputVariables().contains(variable))
                 .collect(Collectors.toList());
-        return ImmutableList.<Symbol>builder()
-                .addAll(rightSymbols)
-                .addAll(leftSymbols)
+        return ImmutableList.<VariableReferenceExpression>builder()
+                .addAll(rightVariables)
+                .addAll(leftVariables)
                 .build();
     }
 
@@ -232,7 +232,7 @@ public class JoinNode
         return criteria;
     }
 
-    @JsonProperty("filter")
+    @JsonProperty
     public Optional<RowExpression> getFilter()
     {
         return filter;
@@ -263,10 +263,16 @@ public class JoinNode
     }
 
     @Override
-    @JsonProperty
     public List<Symbol> getOutputSymbols()
     {
-        return outputSymbols;
+        return getOutputVariables().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
+    }
+
+    @Override
+    @JsonProperty
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        return outputVariables;
     }
 
     @JsonProperty
@@ -285,12 +291,12 @@ public class JoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new JoinNode(getId(), type, newChildren.get(0), newChildren.get(1), criteria, outputSymbols, filter, leftHashVariable, rightHashVariable, distributionType);
+        return new JoinNode(getId(), type, newChildren.get(0), newChildren.get(1), criteria, outputVariables, filter, leftHashVariable, rightHashVariable, distributionType);
     }
 
     public JoinNode withDistributionType(DistributionType distributionType)
     {
-        return new JoinNode(getId(), type, left, right, criteria, outputSymbols, filter, leftHashVariable, rightHashVariable, Optional.of(distributionType));
+        return new JoinNode(getId(), type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, Optional.of(distributionType));
     }
 
     public boolean isCrossJoin()
@@ -310,13 +316,13 @@ public class JoinNode
             this.right = requireNonNull(right, "right is null");
         }
 
-        @JsonProperty("left")
+        @JsonProperty
         public VariableReferenceExpression getLeft()
         {
             return left;
         }
 
-        @JsonProperty("right")
+        @JsonProperty
         public VariableReferenceExpression getRight()
         {
             return right;
