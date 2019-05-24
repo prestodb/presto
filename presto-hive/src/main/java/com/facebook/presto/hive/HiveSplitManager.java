@@ -18,13 +18,13 @@ import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -210,7 +210,7 @@ public class HiveSplitManager
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
                 table,
                 hivePartitions,
-                getPathDomain(layout.getCompactEffectivePredicate()),
+                getPathDomain(layout.getDomainPredicate(), layout.getPredicateColumns()),
                 createBucketSplitInfo(bucketHandle, bucketFilter),
                 session,
                 hdfsEnvironment,
@@ -228,7 +228,9 @@ public class HiveSplitManager
                         session,
                         table.getDatabaseName(),
                         table.getTableName(),
-                        layout.getCompactEffectivePredicate(),
+                        layout.getDomainPredicate(),
+                        layout.getRemainingPredicate(),
+                        layout.getPredicateColumns(),
                         maxInitialSplits,
                         maxOutstandingSplits,
                         maxOutstandingSplitsSize,
@@ -241,7 +243,9 @@ public class HiveSplitManager
                         session,
                         table.getDatabaseName(),
                         table.getTableName(),
-                        layout.getCompactEffectivePredicate(),
+                        layout.getDomainPredicate(),
+                        layout.getRemainingPredicate(),
+                        layout.getPredicateColumns(),
                         maxInitialSplits,
                         maxOutstandingSplits,
                         maxOutstandingSplitsSize,
@@ -257,12 +261,12 @@ public class HiveSplitManager
         return splitSource;
     }
 
-    private static Optional<Domain> getPathDomain(TupleDomain<? extends ColumnHandle> domainPredicate)
+    private static Optional<Domain> getPathDomain(TupleDomain<Subfield> domainPredicate, Map<String, HiveColumnHandle> predicateColumns)
     {
         checkArgument(!domainPredicate.isNone(), "Unexpected domain predicate: none");
 
-        return domainPredicate.transform(HiveColumnHandle.class::cast).getDomains().get().entrySet().stream()
-                .filter(entry -> isPathColumnHandle(entry.getKey()))
+        return domainPredicate.getDomains().get().entrySet().stream()
+                .filter(entry -> isPathColumnHandle(predicateColumns.get(entry.getKey().getRootName())))
                 .findFirst()
                 .map(Map.Entry::getValue);
     }
