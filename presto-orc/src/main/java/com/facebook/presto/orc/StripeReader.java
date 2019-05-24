@@ -139,7 +139,7 @@ public class StripeReader
 
         // handle stripes with more than one row group or a dictionary
         boolean invalidCheckPoint = false;
-        if ((stripe.getNumberOfRows() > rowsInRowGroup) || alwaysUseCheckpoints || hasRowGroupDictionary) {
+        if ((stripe.getNumberOfRows() > rowsInRowGroup) || hasRowGroupDictionary) {
             // determine ranges of the stripe to read
             Map<StreamId, DiskRange> diskRanges = getDiskRanges(stripeFooter.getStreams());
             diskRanges = Maps.filterKeys(diskRanges, Predicates.in(streams.keySet()));
