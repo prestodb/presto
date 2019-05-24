@@ -24,11 +24,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
@@ -39,7 +39,6 @@ public class TableScanNode
         extends PlanNode
 {
     private final TableHandle table;
-    private final List<Symbol> outputSymbols;
     private final Map<VariableReferenceExpression, ColumnHandle> assignments;
     private final List<VariableReferenceExpression> outputVariables;
 
@@ -57,7 +56,6 @@ public class TableScanNode
     public TableScanNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("table") TableHandle table,
-            @JsonProperty("outputSymbols") List<Symbol> outputs,
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("assignments") Map<VariableReferenceExpression, ColumnHandle> assignments,
             @JsonProperty("temporaryTable") boolean temporaryTable)
@@ -65,7 +63,6 @@ public class TableScanNode
         // This constructor is for JSON deserialization only. Do not use.
         super(id);
         this.table = requireNonNull(table, "table is null");
-        this.outputSymbols = unmodifiableList(new ArrayList<>(requireNonNull(outputs, "outputs is null")));
         this.outputVariables = unmodifiableList(requireNonNull(outputVariables, "outputVariables is null"));
         this.assignments = unmodifiableMap(new HashMap<>(requireNonNull(assignments, "assignments is null")));
         checkArgument(assignments.keySet().containsAll(outputVariables), "assignments does not cover all of outputs");
@@ -77,29 +74,26 @@ public class TableScanNode
     public TableScanNode(
             PlanNodeId id,
             TableHandle table,
-            List<Symbol> outputs,
             List<VariableReferenceExpression> outputVariables,
             Map<VariableReferenceExpression, ColumnHandle> assignments)
     {
-        this(id, table, outputs, outputVariables, assignments, TupleDomain.all(), TupleDomain.all(), false);
+        this(id, table, outputVariables, assignments, TupleDomain.all(), TupleDomain.all(), false);
     }
 
     public TableScanNode(
             PlanNodeId id,
             TableHandle table,
-            List<Symbol> outputs,
             List<VariableReferenceExpression> outputVariables,
             Map<VariableReferenceExpression, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> currentConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint)
     {
-        this(id, table, outputs, outputVariables, assignments, currentConstraint, enforcedConstraint, false);
+        this(id, table, outputVariables, assignments, currentConstraint, enforcedConstraint, false);
     }
 
     public TableScanNode(
             PlanNodeId id,
             TableHandle table,
-            List<Symbol> outputs,
             List<VariableReferenceExpression> outputVariables,
             Map<VariableReferenceExpression, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> currentConstraint,
@@ -108,7 +102,6 @@ public class TableScanNode
     {
         super(id);
         this.table = requireNonNull(table, "table is null");
-        this.outputSymbols = unmodifiableList(new ArrayList<>(requireNonNull(outputs, "outputs is null")));
         this.outputVariables = unmodifiableList(requireNonNull(outputVariables, "outputVariables is null"));
         this.assignments = unmodifiableMap(new HashMap<>(requireNonNull(assignments, "assignments is null")));
         checkArgument(assignments.keySet().containsAll(outputVariables), "assignments does not cover all of outputs");
@@ -133,7 +126,7 @@ public class TableScanNode
     /**
      * Get the mapping from symbols to columns
      */
-    @JsonProperty("assignments")
+    @JsonProperty
     public Map<VariableReferenceExpression, ColumnHandle> getAssignments()
     {
         return assignments;
@@ -182,14 +175,13 @@ public class TableScanNode
     }
 
     @Override
-    @JsonProperty("outputSymbols")
     public List<Symbol> getOutputSymbols()
     {
-        return outputSymbols;
+        return outputVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
     }
 
     @Override
-    @JsonProperty("outputVariables")
+    @JsonProperty
     public List<VariableReferenceExpression> getOutputVariables()
     {
         return outputVariables;
@@ -207,7 +199,7 @@ public class TableScanNode
         StringBuilder stringBuilder = new StringBuilder(this.getClass().getSimpleName());
         stringBuilder.append(" {");
         stringBuilder.append("table='").append(table).append('\'');
-        stringBuilder.append(", outputSymbols='").append(outputSymbols).append('\'');
+        stringBuilder.append(", outputVariables='").append(outputVariables).append('\'');
         stringBuilder.append(", assignments='").append(assignments).append('\'');
         stringBuilder.append(", currentConstraint='").append(currentConstraint).append('\'');
         stringBuilder.append(", enforcedConstraint='").append(enforcedConstraint).append('\'');

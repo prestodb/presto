@@ -240,7 +240,6 @@ public class PickTableLayout
                 return Result.ofPlanNode(new TableScanNode(
                         tableScanNode.getId(),
                         pushdownFilterResult.getLayout().getNewTableHandle(),
-                        tableScanNode.getOutputSymbols(),
                         tableScanNode.getOutputVariables(),
                         tableScanNode.getAssignments(),
                         pushdownFilterResult.getLayout().getPredicate(),
@@ -262,7 +261,6 @@ public class PickTableLayout
             return Result.ofPlanNode(new TableScanNode(
                     tableScanNode.getId(),
                     layout.getLayout().getNewTableHandle(),
-                    tableScanNode.getOutputSymbols(),
                     tableScanNode.getOutputVariables(),
                     tableScanNode.getAssignments(),
                     layout.getLayout().getPredicate(),
@@ -308,7 +306,6 @@ public class PickTableLayout
             TableScanNode tableScan = new TableScanNode(
                     node.getId(),
                     layout.getNewTableHandle(),
-                    node.getOutputSymbols(),
                     node.getOutputVariables(),
                     node.getAssignments(),
                     layout.getPredicate(),
@@ -376,7 +373,6 @@ public class PickTableLayout
         TableScanNode tableScan = new TableScanNode(
                 node.getId(),
                 layout.getLayout().getNewTableHandle(),
-                node.getOutputSymbols(),
                 node.getOutputVariables(),
                 node.getAssignments(),
                 layout.getLayout().getPredicate(),

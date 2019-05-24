@@ -414,7 +414,6 @@ public class PlanBuilder
         return new TableScanNode(
                 idAllocator.getNextId(),
                 tableHandle,
-                symbols,
                 variables,
                 assignments,
                 currentConstraint,

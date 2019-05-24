@@ -197,7 +197,6 @@ public class TestPhasedExecutionSchedule
                         new TestingTableHandle(),
                         TestingTransactionHandle.create(),
                         Optional.empty()),
-                ImmutableList.of(symbol),
                 ImmutableList.of(variable),
                 ImmutableMap.of(variable, new TestingColumnHandle("column")));
 
@@ -253,7 +252,6 @@ public class TestPhasedExecutionSchedule
                         new TestingTableHandle(),
                         TestingTransactionHandle.create(),
                         Optional.empty()),
-                ImmutableList.of(symbol),
                 ImmutableList.of(variable),
                 ImmutableMap.of(variable, new TestingColumnHandle("column")));
 

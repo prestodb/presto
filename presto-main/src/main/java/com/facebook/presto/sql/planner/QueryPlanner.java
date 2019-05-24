@@ -221,7 +221,7 @@ class QueryPlanner
         // create table scan
         List<VariableReferenceExpression> outputVariables = outputVariablesBuilder.build();
         List<Symbol> outputSymbols = outputVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
-        PlanNode tableScan = new TableScanNode(idAllocator.getNextId(), handle, outputSymbols, outputVariables, columns.build());
+        PlanNode tableScan = new TableScanNode(idAllocator.getNextId(), handle, outputVariables, columns.build());
         Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields.build())).build();
         RelationPlan relationPlan = new RelationPlan(tableScan, scope, outputVariables);
 

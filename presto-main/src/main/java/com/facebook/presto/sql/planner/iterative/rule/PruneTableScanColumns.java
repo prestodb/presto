@@ -41,7 +41,6 @@ public class PruneTableScanColumns
                 new TableScanNode(
                         tableScanNode.getId(),
                         tableScanNode.getTable(),
-                        filteredCopy(tableScanNode.getOutputSymbols(), referencedOutputs::contains),
                         filteredCopy(
                                 tableScanNode.getOutputVariables(),
                                 variable -> referencedOutputs.contains(new Symbol(variable.getName()))),

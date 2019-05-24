@@ -459,7 +459,6 @@ public class TestSourcePartitionedScheduler
         TableScanNode tableScan = new TableScanNode(
                 TABLE_SCAN_NODE_ID,
                 new TableHandle(CONNECTOR_ID, new TestingTableHandle(), TestingTransactionHandle.create(), Optional.empty()),
-                ImmutableList.of(symbol),
                 ImmutableList.of(variable),
                 ImmutableMap.of(variable, new TestingColumnHandle("column")),
                 false);

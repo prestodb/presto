@@ -65,7 +65,6 @@ import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UN
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
 import static com.facebook.presto.sql.relational.Expressions.call;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 @Test(singleThreaded = true)
 public class TestTypeValidator
@@ -119,7 +118,6 @@ public class TestTypeValidator
         baseTableScan = new TableScanNode(
                 newId(),
                 TEST_TABLE_HANDLE,
-                assignments.keySet().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 TupleDomain.all(),

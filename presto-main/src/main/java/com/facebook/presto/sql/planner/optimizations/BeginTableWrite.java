@@ -206,7 +206,6 @@ public class BeginTableWrite
                 return new TableScanNode(
                         scan.getId(),
                         layoutResult.getLayout().getNewTableHandle(),
-                        scan.getOutputSymbols(),
                         scan.getOutputVariables(),
                         scan.getAssignments(),
                         layoutResult.getLayout().getPredicate(),

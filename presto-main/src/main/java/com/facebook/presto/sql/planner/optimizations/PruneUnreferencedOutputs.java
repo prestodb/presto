@@ -444,7 +444,6 @@ public class PruneUnreferencedOutputs
             return new TableScanNode(
                     node.getId(),
                     node.getTable(),
-                    newOutputs.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()),
                     newOutputs,
                     newAssignments,
                     node.getCurrentConstraint(),

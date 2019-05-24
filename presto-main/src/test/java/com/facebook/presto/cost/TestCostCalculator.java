@@ -777,7 +777,6 @@ public class TestCostCalculator
                         tableHandle,
                         TpchTransactionHandle.INSTANCE,
                         Optional.of(new TpchTableLayoutHandle(tableHandle, TupleDomain.all()))),
-                symbolsList,
                 variables,
                 assignments.build(),
                 TupleDomain.all(),

@@ -167,7 +167,7 @@ class RelationPlanner
                 .map(VariableReferenceExpression::getName)
                 .map(Symbol::new)
                 .collect(toImmutableList());
-        PlanNode root = new TableScanNode(idAllocator.getNextId(), handle, outputSymbols, outputVariables, columns.build());
+        PlanNode root = new TableScanNode(idAllocator.getNextId(), handle, outputVariables, columns.build());
         return new RelationPlan(root, scope, symbolAllocator.toVariableReferences(outputSymbols));
     }
 

@@ -81,7 +81,6 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupin
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -144,7 +143,6 @@ public class TestEffectivePredicateExtractor
         baseTableScan = new TableScanNode(
                 newId(),
                 DUAL_TABLE_HANDLE,
-                ImmutableList.of(A, B, C, D, E, F),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments);
 
@@ -340,7 +338,6 @@ public class TestEffectivePredicateExtractor
         PlanNode node = new TableScanNode(
                 newId(),
                 DUAL_TABLE_HANDLE,
-                ImmutableList.of(A, B, C, D),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments);
         Expression effectivePredicate = effectivePredicateExtractor.extract(node);
@@ -349,7 +346,6 @@ public class TestEffectivePredicateExtractor
         node = new TableScanNode(
                 newId(),
                 DUAL_TABLE_HANDLE_WITH_LAYOUT,
-                ImmutableList.of(A, B, C, D),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 TupleDomain.none(),
@@ -360,7 +356,6 @@ public class TestEffectivePredicateExtractor
         node = new TableScanNode(
                 newId(),
                 DUAL_TABLE_HANDLE_WITH_LAYOUT,
-                ImmutableList.of(A, B, C, D),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 TupleDomain.withColumnDomains(ImmutableMap.of(scanAssignments.get(AV), Domain.singleValue(BIGINT, 1L))),
@@ -371,7 +366,6 @@ public class TestEffectivePredicateExtractor
         node = new TableScanNode(
                 newId(),
                 DUAL_TABLE_HANDLE_WITH_LAYOUT,
-                ImmutableList.of(A, B, C, D),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -384,7 +378,6 @@ public class TestEffectivePredicateExtractor
         node = new TableScanNode(
                 newId(),
                 DUAL_TABLE_HANDLE,
-                ImmutableList.of(A, B, C, D),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 TupleDomain.all(),
@@ -722,7 +715,6 @@ public class TestEffectivePredicateExtractor
         return new TableScanNode(
                 newId(),
                 DUAL_TABLE_HANDLE,
-                scanAssignments.keySet().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()),
                 ImmutableList.copyOf(scanAssignments.keySet()),
                 scanAssignments,
                 TupleDomain.all(),

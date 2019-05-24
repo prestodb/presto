@@ -624,7 +624,6 @@ public class PlanFragmenter
             return new TableScanNode(
                     idAllocator.getNextId(),
                     selectedLayout.getLayout().getNewTableHandle(),
-                    outputSymbols,
                     outputVariables,
                     assignments,
                     TupleDomain.all(),
@@ -1213,7 +1212,6 @@ public class PlanFragmenter
             return new TableScanNode(
                     node.getId(),
                     newTableHandle,
-                    node.getOutputSymbols(),
                     node.getOutputVariables(),
                     node.getAssignments(),
                     node.getCurrentConstraint(),
