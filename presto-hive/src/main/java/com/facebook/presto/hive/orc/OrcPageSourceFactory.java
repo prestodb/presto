@@ -90,6 +90,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDista
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
+import static com.facebook.presto.hive.HiveSessionProperties.isAriaScanEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isFilterReorderingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isReaderBudgetEnforcementEnabled;
@@ -295,10 +296,16 @@ public class OrcPageSourceFactory
                             .transform(columnsByName::get),
                     domainCompactionThreshold);
             OrcPredicate predicate = new TupleDomainOrcPredicate<>(compactDomainPredicate, columnReferences.build(), orcBloomFiltersEnabled);
-            Map<Integer, Filter> columnFilters = toFilters(domainPredicate, columnsByName);
-            RowExpression optimizedPredicate = expressionOptimizer.optimize(remainingPredicate, MOST_OPTIMIZED, session)
-                    .accept(new ColumnNameToIndexTranslator(), columnIndices.build());
-            List<AbstractFilterFunction> filterFunctions = toFilterFunctions(optimizedPredicate, session, determinismEvaluator, predicateCompiler);
+
+            Map<Integer, Filter> columnFilters = ImmutableMap.of();
+            List<AbstractFilterFunction> filterFunctions = ImmutableList.of();
+            if (isAriaScanEnabled(session)) {
+                columnFilters = toFilters(domainPredicate, columnsByName);
+
+                RowExpression optimizedPredicate = expressionOptimizer.optimize(remainingPredicate, MOST_OPTIMIZED, session)
+                        .accept(new ColumnNameToIndexTranslator(), columnIndices.build());
+                filterFunctions = toFilterFunctions(optimizedPredicate, session, determinismEvaluator, predicateCompiler);
+            }
 
             OrcRecordReader recordReader = reader.createRecordReader(
                     outputColumns.stream()
