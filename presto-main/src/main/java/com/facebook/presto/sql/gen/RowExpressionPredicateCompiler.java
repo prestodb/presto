@@ -13,6 +13,13 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.MethodDefinition;
+import com.facebook.presto.bytecode.Parameter;
+import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.project.PageFieldsToInputParametersRewriter;
@@ -33,13 +40,6 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.bytecode.BytecodeBlock;
-import io.airlift.bytecode.BytecodeNode;
-import io.airlift.bytecode.ClassDefinition;
-import io.airlift.bytecode.MethodDefinition;
-import io.airlift.bytecode.Parameter;
-import io.airlift.bytecode.Scope;
-import io.airlift.bytecode.Variable;
 
 import javax.inject.Inject;
 
@@ -50,21 +50,21 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.bytecode.Access.FINAL;
+import static com.facebook.presto.bytecode.Access.PUBLIC;
+import static com.facebook.presto.bytecode.Access.a;
+import static com.facebook.presto.bytecode.Parameter.arg;
+import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.and;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.not;
 import static com.facebook.presto.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
 import static com.facebook.presto.util.CompilerUtils.makeClassName;
-import static io.airlift.bytecode.Access.FINAL;
-import static io.airlift.bytecode.Access.PUBLIC;
-import static io.airlift.bytecode.Access.a;
-import static io.airlift.bytecode.Parameter.arg;
-import static io.airlift.bytecode.ParameterizedType.type;
-import static io.airlift.bytecode.expression.BytecodeExpressions.and;
-import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
-import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
-import static io.airlift.bytecode.expression.BytecodeExpressions.not;
 import static java.util.Objects.requireNonNull;
 
 public class RowExpressionPredicateCompiler

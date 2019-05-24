@@ -14,12 +14,12 @@
 
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
-import io.airlift.bytecode.BytecodeNode;
-import io.airlift.bytecode.Variable;
 
 import java.util.List;
 import java.util.Map;
