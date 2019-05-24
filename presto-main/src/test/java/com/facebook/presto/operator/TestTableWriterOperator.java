@@ -22,7 +22,6 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.DevNullOperator.DevNullOperatorFactory;
-import com.facebook.presto.operator.TableCommitContext.CommitGranularity;
 import com.facebook.presto.operator.TableWriterOperator.TableWriterInfo;
 import com.facebook.presto.operator.TableWriterOperator.TableWriterOperatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
@@ -256,7 +255,7 @@ public class TestTableWriterOperator
 
     private static Slice getTableCommitContext(boolean lastPage)
     {
-        return wrappedBuffer(TABLE_COMMIT_CONTEXT_CODEC.toJsonBytes(new TableCommitContext(Lifespan.taskWide(), 0, 0, CommitGranularity.TABLE, lastPage)));
+        return wrappedBuffer(TABLE_COMMIT_CONTEXT_CODEC.toJsonBytes(new TableCommitContext(Lifespan.taskWide(), 0, 0, false, lastPage)));
     }
 
     private void assertMemoryIsReleased(TableWriterOperator tableWriterOperator)

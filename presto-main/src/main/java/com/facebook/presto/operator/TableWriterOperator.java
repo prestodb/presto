@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
-import com.facebook.presto.operator.TableCommitContext.CommitGranularity;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageSinkProperties;
@@ -363,7 +362,7 @@ public class TableWriterOperator
                         operatorContext.getDriverContext().getLifespan(),
                         taskId.getStageId().getId(),
                         taskId.getId(),
-                        CommitGranularity.TABLE,
+                        false,
                         lastPage)));
     }
 
