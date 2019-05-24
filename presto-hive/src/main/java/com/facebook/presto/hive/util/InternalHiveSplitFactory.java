@@ -13,14 +13,12 @@
  */
 package com.facebook.presto.hive.util;
 
-import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveSplitPartitionInfo;
 import com.facebook.presto.hive.InternalHiveSplit;
 import com.facebook.presto.hive.InternalHiveSplit.InternalHiveBlock;
 import com.facebook.presto.hive.S3SelectPushdown;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileStatus;
@@ -35,11 +33,9 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
 import static com.facebook.presto.hive.HiveUtil.isSplittable;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -59,7 +55,7 @@ public class InternalHiveSplitFactory
     public InternalHiveSplitFactory(
             FileSystem fileSystem,
             InputFormat<?, ?> inputFormat,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
+            Optional<Domain> pathDomain,
             boolean forceLocalScheduling,
             boolean s3SelectPushdownEnabled,
             HiveSplitPartitionInfo partitionInfo,
@@ -67,7 +63,7 @@ public class InternalHiveSplitFactory
     {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.inputFormat = requireNonNull(inputFormat, "inputFormat is null");
-        pathDomain = getPathDomain(requireNonNull(effectivePredicate, "effectivePredicate is null"));
+        this.pathDomain = requireNonNull(pathDomain, "pathDomain is null");
         this.forceLocalScheduling = forceLocalScheduling;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.partitionInfo = partitionInfo;
@@ -223,18 +219,6 @@ public class InternalHiveSplitFactory
         return Arrays.stream(hosts)
                 .map(HostAddress::fromString)
                 .collect(toImmutableList());
-    }
-
-    private static Optional<Domain> getPathDomain(TupleDomain<HiveColumnHandle> effectivePredicate)
-    {
-        if (!effectivePredicate.getDomains().isPresent()) {
-            return Optional.empty();
-        }
-
-        return effectivePredicate.getDomains().get().entrySet().stream()
-                .filter(entry -> isPathColumnHandle(entry.getKey()))
-                .findFirst()
-                .map(Map.Entry::getValue);
     }
 
     private static boolean pathMatchesPredicate(Optional<Domain> pathDomain, String path)

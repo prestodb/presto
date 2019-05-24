@@ -82,10 +82,9 @@ public class TestBackgroundHiveSplitLoader
 
     private static final Executor EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-%s"));
 
-    private static final TupleDomain<HiveColumnHandle> RETURNED_PATH_DOMAIN = withColumnDomains(
-            ImmutableMap.of(
-                    pathColumnHandle(),
-                    Domain.singleValue(VARCHAR, utf8Slice(RETURNED_PATH.toString()))));
+    private static final Domain RETURNED_PATH_DOMAIN = Domain.singleValue(VARCHAR, utf8Slice(RETURNED_PATH.toString()));
+
+    private static final TupleDomain<HiveColumnHandle> RETURNED_PATH_TUPLE_DOMAIN = withColumnDomains(ImmutableMap.of(pathColumnHandle(), RETURNED_PATH_DOMAIN));
 
     private static final List<LocatedFileStatus> TEST_FILES = ImmutableList.of(
             locatedFileStatus(RETURNED_PATH),
@@ -108,9 +107,9 @@ public class TestBackgroundHiveSplitLoader
     {
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 TEST_FILES,
-                TupleDomain.none());
+                Optional.empty());
 
-        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, TupleDomain.none());
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, TupleDomain.all());
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
         assertEquals(drain(hiveSplitSource).size(), 2);
@@ -122,9 +121,9 @@ public class TestBackgroundHiveSplitLoader
     {
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 TEST_FILES,
-                RETURNED_PATH_DOMAIN);
+                Optional.of(RETURNED_PATH_DOMAIN));
 
-        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, RETURNED_PATH_DOMAIN);
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, RETURNED_PATH_TUPLE_DOMAIN);
         backgroundHiveSplitLoader.start(hiveSplitSource);
         List<String> paths = drain(hiveSplitSource);
         assertEquals(paths.size(), 1);
@@ -137,12 +136,12 @@ public class TestBackgroundHiveSplitLoader
     {
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 TEST_FILES,
-                RETURNED_PATH_DOMAIN,
+                Optional.of(RETURNED_PATH_DOMAIN),
                 Optional.of(new HiveBucketFilter(ImmutableSet.of(0, 1))),
                 PARTITIONED_TABLE,
                 Optional.of(new HiveBucketHandle(BUCKET_COLUMN_HANDLES, BUCKET_COUNT, BUCKET_COUNT)));
 
-        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, RETURNED_PATH_DOMAIN);
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, RETURNED_PATH_TUPLE_DOMAIN);
         backgroundHiveSplitLoader.start(hiveSplitSource);
         List<String> paths = drain(hiveSplitSource);
         assertEquals(paths.size(), 1);
@@ -155,7 +154,7 @@ public class TestBackgroundHiveSplitLoader
     {
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 TEST_FILES,
-                RETURNED_PATH_DOMAIN,
+                Optional.of(RETURNED_PATH_DOMAIN),
                 Optional.empty(),
                 PARTITIONED_TABLE,
                 Optional.of(
@@ -164,7 +163,7 @@ public class TestBackgroundHiveSplitLoader
                                 BUCKET_COUNT,
                                 BUCKET_COUNT)));
 
-        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, RETURNED_PATH_DOMAIN);
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, RETURNED_PATH_TUPLE_DOMAIN);
         backgroundHiveSplitLoader.start(hiveSplitSource);
         List<String> paths = drain(hiveSplitSource);
         assertEquals(paths.size(), 1);
@@ -177,7 +176,7 @@ public class TestBackgroundHiveSplitLoader
     {
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 ImmutableList.of(locatedFileStatusWithNoBlocks(RETURNED_PATH)),
-                TupleDomain.none());
+                Optional.empty());
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, TupleDomain.none());
         backgroundHiveSplitLoader.start(hiveSplitSource);
@@ -223,11 +222,11 @@ public class TestBackgroundHiveSplitLoader
 
     private static BackgroundHiveSplitLoader backgroundHiveSplitLoader(
             List<LocatedFileStatus> files,
-            TupleDomain<HiveColumnHandle> tupleDomain)
+            Optional<Domain> pathDomain)
     {
         return backgroundHiveSplitLoader(
                 files,
-                tupleDomain,
+                pathDomain,
                 Optional.empty(),
                 SIMPLE_TABLE,
                 Optional.empty());
@@ -235,7 +234,7 @@ public class TestBackgroundHiveSplitLoader
 
     private static BackgroundHiveSplitLoader backgroundHiveSplitLoader(
             List<LocatedFileStatus> files,
-            TupleDomain<HiveColumnHandle> compactEffectivePredicate,
+            Optional<Domain> pathDomain,
             Optional<HiveBucketFilter> hiveBucketFilter,
             Table table,
             Optional<HiveBucketHandle> bucketHandle)
@@ -253,7 +252,7 @@ public class TestBackgroundHiveSplitLoader
         return new BackgroundHiveSplitLoader(
                 table,
                 hivePartitionMetadatas,
-                compactEffectivePredicate,
+                pathDomain,
                 createBucketSplitInfo(bucketHandle, hiveBucketFilter),
                 connectorSession,
                 new TestingHdfsEnvironment(),
@@ -273,7 +272,7 @@ public class TestBackgroundHiveSplitLoader
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
                 createPartitionMetadataWithOfflinePartitions(),
-                TupleDomain.all(),
+                Optional.empty(),
                 createBucketSplitInfo(Optional.empty(), Optional.empty()),
                 connectorSession,
                 new TestingHdfsEnvironment(),

@@ -18,6 +18,7 @@ import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -27,6 +28,8 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -51,6 +54,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Function;
 
 import static com.facebook.presto.hive.BackgroundHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
+import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
@@ -206,7 +210,7 @@ public class HiveSplitManager
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
                 table,
                 hivePartitions,
-                layout.getCompactEffectivePredicate(),
+                getPathDomain(layout.getCompactEffectivePredicate()),
                 createBucketSplitInfo(bucketHandle, bucketFilter),
                 session,
                 hdfsEnvironment,
@@ -251,6 +255,16 @@ public class HiveSplitManager
         hiveSplitLoader.start(splitSource);
 
         return splitSource;
+    }
+
+    private static Optional<Domain> getPathDomain(TupleDomain<? extends ColumnHandle> domainPredicate)
+    {
+        checkArgument(!domainPredicate.isNone(), "Unexpected domain predicate: none");
+
+        return domainPredicate.transform(HiveColumnHandle.class::cast).getDomains().get().entrySet().stream()
+                .filter(entry -> isPathColumnHandle(entry.getKey()))
+                .findFirst()
+                .map(Map.Entry::getValue);
     }
 
     @Managed
