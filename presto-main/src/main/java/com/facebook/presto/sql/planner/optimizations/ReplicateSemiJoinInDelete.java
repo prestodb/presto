@@ -77,7 +77,6 @@ public class ReplicateSemiJoinInDelete
                     rewrittenSource,
                     node.getTarget(),
                     node.getRowId(),
-                    node.getOutputSymbols(),
                     node.getOutputVariables());
         }
     }

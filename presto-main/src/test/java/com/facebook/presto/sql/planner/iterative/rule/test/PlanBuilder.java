@@ -438,7 +438,6 @@ public class PlanBuilder
                                 deleteSource,
                                 deleteHandle,
                                 deleteRowId,
-                                ImmutableList.of(deleteRowIdSymbol),
                                 ImmutableList.of(deleteRowId)))
                         .addInputsSet(deleteRowId)
                         .singleDistributionPartitioningScheme(deleteRowId)),

@@ -241,7 +241,7 @@ class QueryPlanner
                 symbolAllocator.newVariable("fragment", VARBINARY));
 
         List<Symbol> deleteNodeOutputSymbols = deleteNodeOutputVariables.stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableList());
-        return new DeleteNode(idAllocator.getNextId(), builder.getRoot(), new DeleteHandle(handle, metadata.getTableMetadata(session, handle).getTable()), rowId, deleteNodeOutputSymbols, deleteNodeOutputVariables);
+        return new DeleteNode(idAllocator.getNextId(), builder.getRoot(), new DeleteHandle(handle, metadata.getTableMetadata(session, handle).getTable()), rowId, deleteNodeOutputVariables);
     }
 
     private static List<VariableReferenceExpression> computeOutputs(PlanBuilder builder, List<Expression> outputExpressions)

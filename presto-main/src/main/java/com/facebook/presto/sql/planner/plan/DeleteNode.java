@@ -26,6 +26,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -35,7 +36,6 @@ public class DeleteNode
     private final PlanNode source;
     private final DeleteHandle target;
     private final VariableReferenceExpression rowId;
-    private final List<Symbol> outputs;
     private final List<VariableReferenceExpression> outputVariables;
 
     @JsonCreator
@@ -44,7 +44,6 @@ public class DeleteNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("target") DeleteHandle target,
             @JsonProperty("rowId") VariableReferenceExpression rowId,
-            @JsonProperty("outputs") List<Symbol> outputs,
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables)
     {
         super(id);
@@ -52,7 +51,6 @@ public class DeleteNode
         this.source = requireNonNull(source, "source is null");
         this.target = requireNonNull(target, "target is null");
         this.rowId = requireNonNull(rowId, "rowId is null");
-        this.outputs = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
         this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
         validateOutputVariables();
     }
@@ -80,11 +78,10 @@ public class DeleteNode
         return new Symbol(rowId.getName());
     }
 
-    @JsonProperty("outputs")
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return outputs;
+        return outputVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
     }
 
     @JsonProperty
@@ -109,6 +106,6 @@ public class DeleteNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new DeleteNode(getId(), Iterables.getOnlyElement(newChildren), target, rowId, outputs, outputVariables);
+        return new DeleteNode(getId(), Iterables.getOnlyElement(newChildren), target, rowId, outputVariables);
     }
 }
