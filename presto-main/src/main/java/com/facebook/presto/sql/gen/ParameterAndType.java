@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import io.airlift.bytecode.Parameter;
+import com.facebook.presto.bytecode.Parameter;
 
 import static java.util.Objects.requireNonNull;
 
