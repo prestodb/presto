@@ -100,6 +100,8 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
                     Memory: {stats.userMemoryReservation}
                     <br/>
                     Splits: {"Q:" + stats.queuedDrivers + ", R:" + stats.runningDrivers + ", F:" + stats.completedDrivers}
+                    <br/>
+                    Lifespans: {stats.completedLifespans + " / " + stats.totalLifespans}
                     <hr/>
                     Input: {stats.rawInputDataSize + " / " + formatRows(stats.rawInputPositions)}
                 </div>

@@ -66,6 +66,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -90,6 +91,10 @@ public final class SqlStageExecution
     private final Set<TaskId> finishedTasks = newConcurrentHashSet();
     @GuardedBy("this")
     private final Set<TaskId> tasksWithFinalInfo = newConcurrentHashSet();
+
+    private final Set<Lifespan> finishedLifespans = ConcurrentHashMap.newKeySet();
+    private final int totalLifespans;
+
     @GuardedBy("this")
     private final AtomicBoolean splitsScheduled = new AtomicBoolean();
 
@@ -153,12 +158,14 @@ public final class SqlStageExecution
             }
         }
         this.exchangeSources = fragmentToExchangeSource.build();
+        this.totalLifespans = stateMachine.getFragment().getStageExecutionDescriptor().getTotalLifespans();
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction
     private void initialize()
     {
         stateMachine.addStateChangeListener(newState -> checkAllTaskFinal());
+        completedLifespansChangeListeners.addListener(lifespans -> finishedLifespans.addAll(lifespans));
     }
 
     public StageId getStageId()
@@ -279,7 +286,7 @@ public final class SqlStageExecution
 
     public StageInfo getStageInfo()
     {
-        return stateMachine.getStageInfo(this::getAllTaskInfo);
+        return stateMachine.getStageInfo(this::getAllTaskInfo, finishedLifespans.size(), totalLifespans);
     }
 
     private Iterable<TaskInfo> getAllTaskInfo()
@@ -522,10 +529,19 @@ public final class SqlStageExecution
     private synchronized void checkAllTaskFinal()
     {
         if (stateMachine.getState().isDone() && tasksWithFinalInfo.containsAll(allTasks)) {
+            if (getFragment().getStageExecutionDescriptor().isStageGroupedExecution()) {
+                // in case stage is CANCELLED/ABORTED/FAILED, number of finished lifespans can be less than total lifespans
+                checkState(finishedLifespans.size() <= totalLifespans, format("Number of finished lifespans (%s) exceeds number of total lifespans (%s)", finishedLifespans.size(), totalLifespans));
+            }
+            else {
+                // ungrouped execution will not update finished lifespans
+                checkState(finishedLifespans.isEmpty());
+            }
+
             List<TaskInfo> finalTaskInfos = getAllTasks().stream()
                     .map(RemoteTask::getTaskInfo)
                     .collect(toImmutableList());
-            stateMachine.setAllTasksFinal(finalTaskInfos);
+            stateMachine.setAllTasksFinal(finalTaskInfos, totalLifespans);
         }
     }
 
