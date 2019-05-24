@@ -45,7 +45,6 @@ import static com.facebook.presto.execution.scheduler.StageScheduleResult.Blocke
 import static com.facebook.presto.execution.scheduler.StageScheduleResult.BlockedReason.NO_ACTIVE_DRIVER_GROUP;
 import static com.facebook.presto.execution.scheduler.StageScheduleResult.BlockedReason.SPLIT_QUEUES_FULL;
 import static com.facebook.presto.execution.scheduler.StageScheduleResult.BlockedReason.WAITING_FOR_SOURCE;
-import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -117,40 +116,6 @@ public class LegacyBehemothSourcePartitionedScheduler
     public PlanNodeId getPlanNodeId()
     {
         return partitionedNode;
-    }
-
-    /**
-     * Obtains an instance of {@code LegacyBehemothSourcePartitionedScheduler} suitable for use as a
-     * stage scheduler.
-     * <p>
-     * This returns an ungrouped {@code LegacyBehemothSourcePartitionedScheduler} that requires
-     * minimal management from the caller, which is ideal for use as a stage scheduler.
-     */
-    public static StageScheduler newSourcePartitionedSchedulerAsStageScheduler(
-            SqlStageExecution stage,
-            PlanNodeId partitionedNode,
-            SplitSource splitSource,
-            SplitPlacementPolicy splitPlacementPolicy,
-            int splitBatchSize)
-    {
-        LegacyBehemothSourcePartitionedScheduler sourcePartitionedScheduler = new LegacyBehemothSourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, false);
-        sourcePartitionedScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
-
-        return new StageScheduler() {
-            @Override
-            public StageScheduleResult schedule()
-            {
-                StageScheduleResult stageScheduleResult = sourcePartitionedScheduler.schedule();
-                sourcePartitionedScheduler.drainCompletelyScheduledLifespans();
-                return stageScheduleResult;
-            }
-
-            @Override
-            public void close()
-            {
-                sourcePartitionedScheduler.close();
-            }
-        };
     }
 
     /**

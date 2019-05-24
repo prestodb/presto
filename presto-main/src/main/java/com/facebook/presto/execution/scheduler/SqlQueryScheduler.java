@@ -86,7 +86,6 @@ import static com.facebook.presto.execution.StageState.PLANNED;
 import static com.facebook.presto.execution.StageState.RUNNING;
 import static com.facebook.presto.execution.StageState.SCHEDULED;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createDiscardingOutputBuffers;
-import static com.facebook.presto.execution.scheduler.LegacyBehemothSourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -421,7 +420,7 @@ public class SqlQueryScheduler
             SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stage::getAllTasks);
 
             checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution());
-            stageSchedulers.put(stageId, newSourcePartitionedSchedulerAsStageScheduler(stage, planNodeId, splitSource, placementPolicy, splitBatchSize));
+            stageSchedulers.put(stageId, new UnpartitionedStageScheduler(stage, planNodeId, splitSource, placementPolicy, splitBatchSize));
             bucketToPartition = Optional.of(new int[1]);
         }
         else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {

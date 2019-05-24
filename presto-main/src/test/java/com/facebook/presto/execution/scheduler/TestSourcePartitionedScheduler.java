@@ -73,7 +73,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
-import static com.facebook.presto.execution.scheduler.LegacyBehemothSourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -313,7 +312,7 @@ public class TestSourcePartitionedScheduler
             SubPlan plan = createPlan();
             SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
 
-            StageScheduler scheduler = newSourcePartitionedSchedulerAsStageScheduler(
+            StageScheduler scheduler = new UnpartitionedStageScheduler(
                     stage,
                     TABLE_SCAN_NODE_ID,
                     new ConnectorAwareSplitSource(CONNECTOR_ID, TestingTransactionHandle.create(), createFixedSplitSource(20, TestingSplit::createRemoteSplit)),
@@ -445,7 +444,7 @@ public class TestSourcePartitionedScheduler
         NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
         SplitSource splitSource = new ConnectorAwareSplitSource(CONNECTOR_ID, TestingTransactionHandle.create(), connectorSplitSource);
         SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(splitSource.getConnectorId()), stage::getAllTasks);
-        return newSourcePartitionedSchedulerAsStageScheduler(stage, TABLE_SCAN_NODE_ID, splitSource, placementPolicy, splitBatchSize);
+        return new UnpartitionedStageScheduler(stage, TABLE_SCAN_NODE_ID, splitSource, placementPolicy, splitBatchSize);
     }
 
     private static SubPlan createPlan()
