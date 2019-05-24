@@ -449,7 +449,7 @@ public class UnaliasSymbolReferences
 
             List<Symbol> canonical = Lists.transform(node.getOutputSymbols(), this::canonicalize);
             List<VariableReferenceExpression> canonicalVariables = Lists.transform(node.getOutputVariables(), this::canonicalize);
-            return new OutputNode(node.getId(), source, node.getColumnNames(), canonical, canonicalVariables);
+            return new OutputNode(node.getId(), source, node.getColumnNames(), canonicalVariables);
         }
 
         @Override

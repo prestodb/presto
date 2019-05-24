@@ -558,7 +558,7 @@ public class PruneUnreferencedOutputs
         {
             Set<Symbol> expectedInputs = ImmutableSet.copyOf(node.getOutputSymbols());
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
-            return new OutputNode(node.getId(), source, node.getColumnNames(), node.getOutputSymbols(), node.getOutputVariables());
+            return new OutputNode(node.getId(), source, node.getColumnNames(), node.getOutputVariables());
         }
 
         @Override

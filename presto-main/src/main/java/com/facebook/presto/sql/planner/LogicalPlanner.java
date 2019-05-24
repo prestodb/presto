@@ -215,7 +215,7 @@ public class LogicalPlanner
                     idAllocator.getNextId(),
                     ImmutableList.of(variable),
                     ImmutableList.of(ImmutableList.of(constant(0L, BIGINT))));
-            return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of("rows"), ImmutableList.of(symbol), ImmutableList.of(variable));
+            return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of("rows"), ImmutableList.of(variable));
         }
         return createOutputPlan(planStatementWithoutOutput(analysis, statement), analysis);
     }
@@ -530,7 +530,7 @@ public class LogicalPlanner
             columnNumber++;
         }
 
-        return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names.build(), outputs.build(), outputVariables.build());
+        return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names.build(), outputVariables.build());
     }
 
     private RelationPlan createRelationPlan(Analysis analysis, Query query)

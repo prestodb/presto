@@ -128,7 +128,6 @@ public class PlanBuilder
                 idAllocator.getNextId(),
                 source,
                 columnNames,
-                outputs,
                 variables);
     }
 
@@ -160,7 +159,7 @@ public class PlanBuilder
 
         protected OutputNode build()
         {
-            return new OutputNode(idAllocator.getNextId(), source, columnNames, outputVariables.stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableList()), outputVariables);
+            return new OutputNode(idAllocator.getNextId(), source, columnNames, outputVariables);
         }
     }
 
