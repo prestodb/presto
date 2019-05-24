@@ -59,6 +59,7 @@
         <dep.logback.version>1.2.3</dep.logback.version>
         <dep.parquet.version>1.10.0</dep.parquet.version>
         <dep.nexus-staging-plugin.version>1.6.8</dep.nexus-staging-plugin.version>
+        <dep.asm.version>6.2.1</dep.asm.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -104,6 +105,7 @@
         <module>presto-redshift</module>
         <module>presto-sqlserver</module>
         <module>presto-mongodb</module>
+        <module>presto-bytecode</module>
         <module>presto-client</module>
         <module>presto-parser</module>
         <module>presto-main</module>
@@ -307,6 +309,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-cli</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-bytecode</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -677,7 +685,25 @@
             <dependency>
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm</artifactId>
-                <version>6.2.1</version>
+                <version>${dep.asm.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.ow2.asm</groupId>
+                <artifactId>asm-tree</artifactId>
+                <version>${dep.asm.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.ow2.asm</groupId>
+                <artifactId>asm-util</artifactId>
+                <version>${dep.asm.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.ow2.asm</groupId>
+                <artifactId>asm-analysis</artifactId>
+                <version>${dep.asm.version}</version>
             </dependency>
 
             <dependency>
