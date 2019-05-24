@@ -222,7 +222,7 @@ A table definition file describes a table in JSON format.
     {
         "tableName": ...,
         "schemaName": ...,
-        "hostAddress": ...,
+        "host": ...,
         "port": ...,
         "clusterName": ...,
         "index": ...,
