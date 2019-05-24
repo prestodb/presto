@@ -81,6 +81,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxStageCount;
@@ -197,10 +198,10 @@ public class PlanFragmenter
                     && isDynamicScheduleForGroupedExecution(session);
             BucketNodeMap bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, fragment.getPartitioning(), preferDynamic);
             if (bucketNodeMap.isDynamic()) {
-                fragment = fragment.withDynamicLifespanScheduleGroupedExecution(properties.getCapableTableScanNodes());
+                fragment = fragment.withDynamicLifespanScheduleGroupedExecution(properties.getCapableTableScanNodes(), properties.totalLifespans);
             }
             else {
-                fragment = fragment.withFixedLifespanScheduleGroupedExecution(properties.getCapableTableScanNodes());
+                fragment = fragment.withFixedLifespanScheduleGroupedExecution(properties.getCapableTableScanNodes(), properties.totalLifespans);
             }
         }
         ImmutableList.Builder<SubPlan> result = ImmutableList.builder();
@@ -906,13 +907,15 @@ public class PlanFragmenter
                     return left;
                 case PARTITIONED:
                     if (left.currentNodeCapable && right.currentNodeCapable) {
+                        checkState(left.totalLifespans == right.totalLifespans, format("Mismatched number of lifespans on left(%s) and right(%s) side of join", left.totalLifespans, right.totalLifespans));
                         return new GroupedExecutionProperties(
                                 true,
                                 true,
                                 ImmutableList.<PlanNodeId>builder()
                                         .addAll(left.capableTableScanNodes)
                                         .addAll(right.capableTableScanNodes)
-                                        .build());
+                                        .build(),
+                                left.totalLifespans);
                     }
                     // right.subTreeUseful && !left.currentNodeCapable:
                     //   It's not particularly helpful to do grouped execution on the right side
@@ -937,7 +940,7 @@ public class PlanFragmenter
                 switch (node.getStep()) {
                     case SINGLE:
                     case FINAL:
-                        return new GroupedExecutionProperties(true, true, properties.capableTableScanNodes);
+                        return new GroupedExecutionProperties(true, true, properties.capableTableScanNodes, properties.totalLifespans);
                     case PARTIAL:
                     case INTERMEDIATE:
                         return properties;
@@ -968,7 +971,7 @@ public class PlanFragmenter
         {
             GroupedExecutionProperties properties = getOnlyElement(node.getSources()).accept(this, null);
             if (groupedExecutionForAggregation && properties.isCurrentNodeCapable()) {
-                return new GroupedExecutionProperties(true, true, properties.capableTableScanNodes);
+                return new GroupedExecutionProperties(true, true, properties.capableTableScanNodes, properties.totalLifespans);
             }
             return GroupedExecutionProperties.notCapable();
         }
@@ -978,7 +981,7 @@ public class PlanFragmenter
         {
             GroupedExecutionProperties properties = getOnlyElement(node.getSources()).accept(this, null);
             if (groupedExecutionForAggregation && properties.isCurrentNodeCapable()) {
-                return new GroupedExecutionProperties(true, true, properties.capableTableScanNodes);
+                return new GroupedExecutionProperties(true, true, properties.capableTableScanNodes, properties.totalLifespans);
             }
             return GroupedExecutionProperties.notCapable();
         }
@@ -992,10 +995,10 @@ public class PlanFragmenter
             }
             List<ConnectorPartitionHandle> partitionHandles = nodePartitioningManager.listPartitionHandles(session, tablePartitioning.get().getPartitioningHandle());
             if (ImmutableList.of(NOT_PARTITIONED).equals(partitionHandles)) {
-                return new GroupedExecutionProperties(false, false, ImmutableList.of());
+                return new GroupedExecutionProperties(false, false, ImmutableList.of(), 1);
             }
             else {
-                return new GroupedExecutionProperties(true, false, ImmutableList.of(node.getId()));
+                return new GroupedExecutionProperties(true, false, ImmutableList.of(node.getId()), partitionHandles.size());
             }
         }
 
@@ -1012,6 +1015,7 @@ public class PlanFragmenter
             //   * if any child is "capable and useful", return "capable and useful"
             //   * if no children is "capable and useful", return "capable but not useful"
             boolean anyUseful = false;
+            OptionalInt totalLifespans = OptionalInt.empty();
             ImmutableList.Builder<PlanNodeId> capableTableScanNodes = ImmutableList.builder();
             for (PlanNode source : node.getSources()) {
                 GroupedExecutionProperties properties = source.accept(this, null);
@@ -1019,9 +1023,16 @@ public class PlanFragmenter
                     return GroupedExecutionProperties.notCapable();
                 }
                 anyUseful |= properties.isSubTreeUseful();
+                if (!totalLifespans.isPresent()) {
+                    totalLifespans = OptionalInt.of(properties.totalLifespans);
+                }
+                else {
+                    checkState(totalLifespans.getAsInt() == properties.totalLifespans, format("Mismatched number of lifespans among children nodes. Expected: %s, actual: %s", totalLifespans.getAsInt(), properties.totalLifespans));
+                }
+
                 capableTableScanNodes.addAll(properties.capableTableScanNodes);
             }
-            return new GroupedExecutionProperties(true, anyUseful, capableTableScanNodes.build());
+            return new GroupedExecutionProperties(true, anyUseful, capableTableScanNodes.build(), totalLifespans.getAsInt());
         }
     }
 
@@ -1042,12 +1053,14 @@ public class PlanFragmenter
         private final boolean currentNodeCapable;
         private final boolean subTreeUseful;
         private final List<PlanNodeId> capableTableScanNodes;
+        private final int totalLifespans;
 
-        public GroupedExecutionProperties(boolean currentNodeCapable, boolean subTreeUseful, List<PlanNodeId> capableTableScanNodes)
+        public GroupedExecutionProperties(boolean currentNodeCapable, boolean subTreeUseful, List<PlanNodeId> capableTableScanNodes, int totalLifespans)
         {
             this.currentNodeCapable = currentNodeCapable;
             this.subTreeUseful = subTreeUseful;
             this.capableTableScanNodes = ImmutableList.copyOf(requireNonNull(capableTableScanNodes, "capableTableScanNodes is null"));
+            this.totalLifespans = totalLifespans;
             // Verify that `subTreeUseful` implies `currentNodeCapable`
             checkArgument(!subTreeUseful || currentNodeCapable);
             checkArgument(currentNodeCapable == !capableTableScanNodes.isEmpty());
@@ -1055,7 +1068,7 @@ public class PlanFragmenter
 
         public static GroupedExecutionProperties notCapable()
         {
-            return new GroupedExecutionProperties(false, false, ImmutableList.of());
+            return new GroupedExecutionProperties(false, false, ImmutableList.of(), 1);
         }
 
         public boolean isCurrentNodeCapable()
@@ -1071,6 +1084,11 @@ public class PlanFragmenter
         public List<PlanNodeId> getCapableTableScanNodes()
         {
             return capableTableScanNodes;
+        }
+
+        public int getTotalLifespans()
+        {
+            return totalLifespans;
         }
     }
 
