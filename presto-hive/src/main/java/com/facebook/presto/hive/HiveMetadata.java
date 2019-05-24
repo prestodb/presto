@@ -1707,11 +1707,13 @@ public class HiveMetadata
             throw new TableNotFoundException(handle.getSchemaTableName());
         }
 
-        List<ColumnHandle> partitionColumns = layoutHandle.getPartitionColumns();
-        if (!layoutHandle.getDomainPredicate().getDomains()
-                .map(domains -> filterKeys(domains, not(in(partitionColumns))))
-                .orElse(ImmutableMap.of()).isEmpty()) {
-            throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely");
+        if (isAriaScanEnabled(session, handle)) {
+            List<ColumnHandle> partitionColumns = layoutHandle.getPartitionColumns();
+            if (!layoutHandle.getDomainPredicate().getDomains()
+                    .map(domains -> filterKeys(domains, not(in(partitionColumns))))
+                    .orElse(ImmutableMap.of()).isEmpty()) {
+                throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely");
+            }
         }
 
         if (table.get().getPartitionColumns().isEmpty()) {
