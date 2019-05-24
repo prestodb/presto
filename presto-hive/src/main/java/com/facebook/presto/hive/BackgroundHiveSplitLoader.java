@@ -143,17 +143,17 @@ public class BackgroundHiveSplitLoader
             boolean recursiveDirWalkerEnabled,
             boolean schedulerUsesHostAddresses)
     {
-        this.table = table;
-        this.pathDomain = pathDomain;
-        this.tableBucketInfo = tableBucketInfo;
-        this.loaderConcurrency = loaderConcurrency;
-        this.session = session;
-        this.hdfsEnvironment = hdfsEnvironment;
-        this.namenodeStats = namenodeStats;
-        this.directoryLister = directoryLister;
+        this.table = requireNonNull(table, "table is null");
+        this.pathDomain = requireNonNull(pathDomain, "pathDomain is null");
+        this.tableBucketInfo = requireNonNull(tableBucketInfo, "tableBucketInfo is null");
+        this.loaderConcurrency = requireNonNull(loaderConcurrency, "loaderConcurrency is null");
+        this.session = requireNonNull(session, "session is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
+        this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
-        this.executor = executor;
-        this.partitions = new ConcurrentLazyQueue<>(partitions);
+        this.executor = requireNonNull(executor, "executor is null");
+        this.partitions = new ConcurrentLazyQueue<>(requireNonNull(partitions, "partitions is null"));
         this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
         this.schedulerUsesHostAddresses = schedulerUsesHostAddresses;
     }
