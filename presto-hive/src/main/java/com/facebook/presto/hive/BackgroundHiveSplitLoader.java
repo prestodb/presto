@@ -24,11 +24,10 @@ import com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryNotAllowedE
 import com.facebook.presto.hive.util.InternalHiveSplitFactory;
 import com.facebook.presto.hive.util.ResumableTask;
 import com.facebook.presto.hive.util.ResumableTasks;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.Domain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Streams;
@@ -96,7 +95,7 @@ public class BackgroundHiveSplitLoader
     private static final ListenableFuture<?> COMPLETED_FUTURE = immediateFuture(null);
 
     private final Table table;
-    private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
+    private final Optional<Domain> pathDomain;
     private final Optional<BucketSplitInfo> tableBucketInfo;
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
@@ -133,7 +132,7 @@ public class BackgroundHiveSplitLoader
     public BackgroundHiveSplitLoader(
             Table table,
             Iterable<HivePartitionMetadata> partitions,
-            TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
+            Optional<Domain> pathDomain,
             Optional<BucketSplitInfo> tableBucketInfo,
             ConnectorSession session,
             HdfsEnvironment hdfsEnvironment,
@@ -145,7 +144,7 @@ public class BackgroundHiveSplitLoader
             boolean schedulerUsesHostAddresses)
     {
         this.table = table;
-        this.compactEffectivePredicate = compactEffectivePredicate;
+        this.pathDomain = pathDomain;
         this.tableBucketInfo = tableBucketInfo;
         this.loaderConcurrency = loaderConcurrency;
         this.session = session;
@@ -279,7 +278,6 @@ public class BackgroundHiveSplitLoader
         String partitionName = partition.getHivePartition().getPartitionId();
         Properties schema = getPartitionSchema(table, partition.getPartition());
         List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition());
-        TupleDomain<HiveColumnHandle> effectivePredicate = (TupleDomain<HiveColumnHandle>) compactEffectivePredicate;
 
         Path path = new Path(getPartitionLocation(table, partition.getPartition()));
         Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
@@ -309,7 +307,7 @@ public class BackgroundHiveSplitLoader
                 InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
                         targetFilesystem,
                         inputFormat,
-                        effectivePredicate,
+                        pathDomain,
                         isForceLocalScheduling(session),
                         s3SelectPushdownEnabled,
                         new HiveSplitPartitionInfo(schema, path.toUri(), partitionKeys, partitionName, partition.getColumnCoercions(), Optional.empty()),
@@ -342,7 +340,7 @@ public class BackgroundHiveSplitLoader
         InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
                 fs,
                 inputFormat,
-                effectivePredicate,
+                pathDomain,
                 isForceLocalScheduling(session),
                 s3SelectPushdownEnabled,
                 new HiveSplitPartitionInfo(
