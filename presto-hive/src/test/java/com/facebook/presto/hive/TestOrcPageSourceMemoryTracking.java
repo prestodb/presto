@@ -268,7 +268,7 @@ public class TestOrcPageSourceMemoryTracking
                 .add(new TestColumn("p_empty_string", javaStringObjectInspector, () -> "", true));
         GrowingTestColumn[] dataColumns = new GrowingTestColumn[numColumns];
         for (int i = 0; i < numColumns; i++) {
-            dataColumns[i] = new GrowingTestColumn("p_string", javaStringObjectInspector, () -> Long.toHexString(random.nextLong()), false, step * (i + 1));
+            dataColumns[i] = new GrowingTestColumn("p_string_" + i, javaStringObjectInspector, () -> Long.toHexString(random.nextLong()), false, step * (i + 1));
             columnBuilder.add(dataColumns[i]);
         }
         List<TestColumn> testColumns = columnBuilder.build();
@@ -345,7 +345,7 @@ public class TestOrcPageSourceMemoryTracking
             page.getBlock(0);
             if (memoryUsage == -1) {
                 memoryUsage = driverContext.getSystemMemoryUsage();
-                assertBetweenInclusive(memoryUsage, 360000L, 369999L);
+                assertBetweenInclusive(memoryUsage, 460000L, 469999L);
             }
             else {
                 assertEquals(driverContext.getSystemMemoryUsage(), memoryUsage);
