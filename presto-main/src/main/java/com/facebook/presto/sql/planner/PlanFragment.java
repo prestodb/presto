@@ -199,17 +199,47 @@ public class PlanFragment
 
     public PlanFragment withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PlanFragment(id, root, symbols, partitioning, tableScanSchedulingOrder, partitioningScheme.withBucketToPartition(bucketToPartition), stageExecutionDescriptor, outputTableWriterFragment, statsAndCosts, jsonRepresentation);
+        return new PlanFragment(
+                id,
+                root,
+                symbols,
+                partitioning,
+                tableScanSchedulingOrder,
+                partitioningScheme.withBucketToPartition(bucketToPartition),
+                stageExecutionDescriptor,
+                outputTableWriterFragment,
+                statsAndCosts,
+                jsonRepresentation);
     }
 
-    public PlanFragment withFixedLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes)
+    public PlanFragment withFixedLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans)
     {
-        return new PlanFragment(id, root, symbols, partitioning, tableScanSchedulingOrder, partitioningScheme, StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(capableTableScanNodes), outputTableWriterFragment, statsAndCosts, jsonRepresentation);
+        return new PlanFragment(
+                id,
+                root,
+                symbols,
+                partitioning,
+                tableScanSchedulingOrder,
+                partitioningScheme,
+                StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(capableTableScanNodes, totalLifespans),
+                outputTableWriterFragment,
+                statsAndCosts,
+                jsonRepresentation);
     }
 
-    public PlanFragment withDynamicLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes)
+    public PlanFragment withDynamicLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans)
     {
-        return new PlanFragment(id, root, symbols, partitioning, tableScanSchedulingOrder, partitioningScheme, StageExecutionDescriptor.dynamicLifespanScheduleGroupedExecution(capableTableScanNodes), outputTableWriterFragment, statsAndCosts, jsonRepresentation);
+        return new PlanFragment(
+                id,
+                root,
+                symbols,
+                partitioning,
+                tableScanSchedulingOrder,
+                partitioningScheme,
+                StageExecutionDescriptor.dynamicLifespanScheduleGroupedExecution(capableTableScanNodes, totalLifespans),
+                outputTableWriterFragment,
+                statsAndCosts,
+                jsonRepresentation);
     }
 
     @Override
