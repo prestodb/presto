@@ -115,11 +115,5 @@
             <artifactId>joni</artifactId>
             <scope>test</scope>
         </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>bytecode</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 </project>
