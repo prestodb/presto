@@ -43,6 +43,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.split.SplitSource;
@@ -215,16 +216,18 @@ public abstract class AbstractOperatorBenchmark
     protected final OperatorFactory createHashProjectOperator(int operatorId, PlanNodeId planNodeId, List<Type> types)
     {
         ImmutableMap.Builder<Symbol, Type> symbolTypes = ImmutableMap.builder();
+        ImmutableList.Builder<VariableReferenceExpression> variables = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, Integer> symbolToInputMapping = ImmutableMap.builder();
         ImmutableList.Builder<PageProjection> projections = ImmutableList.builder();
         for (int channel = 0; channel < types.size(); channel++) {
             Symbol symbol = new Symbol("h" + channel);
             symbolTypes.put(symbol, types.get(channel));
+            variables.add(new VariableReferenceExpression(symbol.getName(), types.get(channel)));
             symbolToInputMapping.put(symbol, channel);
             projections.add(new InputPageProjection(channel, types.get(channel)));
         }
 
-        Optional<Expression> hashExpression = HashGenerationOptimizer.getHashExpression(ImmutableList.copyOf(symbolTypes.build().keySet()));
+        Optional<Expression> hashExpression = HashGenerationOptimizer.getHashExpression(variables.build());
         verify(hashExpression.isPresent());
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
                 session,
