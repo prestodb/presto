@@ -213,11 +213,11 @@ public class StageStateMachine
         finalStageInfo.addStateChangeListener(fireOnceStateChangeListener);
     }
 
-    public void setAllTasksFinal(Iterable<TaskInfo> finalTaskInfos)
+    public void setAllTasksFinal(Iterable<TaskInfo> finalTaskInfos, int totalLifespans)
     {
         requireNonNull(finalTaskInfos, "finalTaskInfos is null");
         checkState(stageState.get().isDone());
-        StageInfo stageInfo = getStageInfo(() -> finalTaskInfos);
+        StageInfo stageInfo = getStageInfo(() -> finalTaskInfos, totalLifespans, totalLifespans);
         checkArgument(stageInfo.isFinalStageInfo(), "finalTaskInfos are not all done");
         finalStageInfo.compareAndSet(Optional.empty(), Optional.of(stageInfo));
     }
@@ -333,7 +333,7 @@ public class StageStateMachine
                 progressPercentage);
     }
 
-    public StageInfo getStageInfo(Supplier<Iterable<TaskInfo>> taskInfosSupplier)
+    public StageInfo getStageInfo(Supplier<Iterable<TaskInfo>> taskInfosSupplier, int finishedLifespans, int totalLifespans)
     {
         Optional<StageInfo> finalStageInfo = this.finalStageInfo.get();
         if (finalStageInfo.isPresent()) {
@@ -456,6 +456,9 @@ public class StageStateMachine
                 totalTasks,
                 runningTasks,
                 completedTasks,
+
+                totalLifespans,
+                finishedLifespans,
 
                 totalDrivers,
                 queuedDrivers,

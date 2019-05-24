@@ -39,6 +39,9 @@ public class TestStageStats
             5,
             6,
 
+            69,
+            31,
+
             7,
             8,
             10,
@@ -99,6 +102,9 @@ public class TestStageStats
         assertEquals(actual.getTotalTasks(), 4);
         assertEquals(actual.getRunningTasks(), 5);
         assertEquals(actual.getCompletedTasks(), 6);
+
+        assertEquals(actual.getTotalLifespans(), 69);
+        assertEquals(actual.getCompletedLifespans(), 31);
 
         assertEquals(actual.getTotalDrivers(), 7);
         assertEquals(actual.getQueuedDrivers(), 8);
