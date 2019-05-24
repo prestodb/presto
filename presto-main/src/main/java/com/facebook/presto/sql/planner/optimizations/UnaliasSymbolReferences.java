@@ -382,7 +382,6 @@ public class UnaliasSymbolReferences
             checkState(node.getOutputSymbols().size() == canonicalizedOutputSymbols.size(), "Values output symbols were pruned");
             return new ValuesNode(
                     node.getId(),
-                    canonicalizedOutputSymbols,
                     canonicalizeAndDistinctVariable(node.getOutputVariables()),
                     canonicalizedRows);
         }

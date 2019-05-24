@@ -63,6 +63,6 @@ public class PruneValuesColumns
                     .collect(Collectors.toList()));
         }
 
-        return Optional.of(new ValuesNode(valuesNode.getId(), newOutputs, newOutputVariables, rowsBuilder.build()));
+        return Optional.of(new ValuesNode(valuesNode.getId(), newOutputVariables, rowsBuilder.build()));
     }
 }

@@ -66,7 +66,7 @@ public class TestAddIntermediateAggregations
                                                     .step(AggregationNode.Step.PARTIAL)
                                                     .addAggregation(p.variable(p.symbol("b")), expression("count(a)"), ImmutableList.of(BIGINT))
                                                     .source(
-                                                            p.values(p.symbol("a"))))));
+                                                            p.values(p.variable("a"))))));
                 }))
                 .matches(
                         aggregation(
@@ -121,7 +121,7 @@ public class TestAddIntermediateAggregations
                                                     .step(AggregationNode.Step.PARTIAL)
                                                     .addAggregation(p.variable(p.symbol("b")), expression("count(*)"), ImmutableList.of(BIGINT))
                                                     .source(
-                                                            p.values(p.symbol("a"))))));
+                                                            p.values(p.variable("a"))))));
                 }))
                 .matches(
                         aggregation(
@@ -176,7 +176,7 @@ public class TestAddIntermediateAggregations
                                                             .step(AggregationNode.Step.PARTIAL)
                                                             .addAggregation(p.variable(p.symbol("b")), expression("count(a)"), ImmutableList.of(BIGINT))
                                                             .source(
-                                                                    p.values(p.symbol("a")))))));
+                                                                    p.values(p.variable("a")))))));
                 }))
                 .matches(
                         aggregation(
@@ -228,7 +228,7 @@ public class TestAddIntermediateAggregations
                                                     .step(AggregationNode.Step.PARTIAL)
                                                     .addAggregation(p.variable(p.symbol("b")), expression("count(a)"), ImmutableList.of(BIGINT))
                                                     .source(
-                                                            p.values(p.symbol("a"))))));
+                                                            p.values(p.variable("a"))))));
                 }))
                 .doesNotFire();
     }
@@ -252,7 +252,7 @@ public class TestAddIntermediateAggregations
                                                     .step(AggregationNode.Step.PARTIAL)
                                                     .addAggregation(p.variable(p.symbol("b")), expression("count(a)"), ImmutableList.of(BIGINT))
                                                     .source(
-                                                            p.values(p.symbol("a"))))));
+                                                            p.values(p.variable("a"))))));
                 }))
                 .matches(
                         aggregation(
@@ -295,7 +295,7 @@ public class TestAddIntermediateAggregations
                                                     .step(AggregationNode.Step.PARTIAL)
                                                     .addAggregation(p.variable(p.symbol("b")), expression("count(a)"), ImmutableList.of(BIGINT))
                                                     .source(
-                                                            p.values(p.symbol("a"))))));
+                                                            p.values(p.variable("a"))))));
                 }))
                 .doesNotFire();
     }
@@ -321,7 +321,7 @@ public class TestAddIntermediateAggregations
                                                             .step(AggregationNode.Step.PARTIAL)
                                                             .addAggregation(p.variable(p.symbol("b")), expression("count(a)"), ImmutableList.of(BIGINT))
                                                             .source(
-                                                                    p.values(p.symbol("a")))))));
+                                                                    p.values(p.variable("a")))))));
                 }))
                 .matches(
                         aggregation(

@@ -64,8 +64,8 @@ public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
                                         new SymbolReference("y"),
                                         new SymbolReference("z"))),
                         emptyList(),
-                        p.values(p.symbol("y")),
-                        p.values(p.symbol("z"))))
+                        p.values(p.variable("y")),
+                        p.values(p.variable("z"))))
                 .matches(node(SemiJoinNode.class, values("y"), values("z")));
     }
 }

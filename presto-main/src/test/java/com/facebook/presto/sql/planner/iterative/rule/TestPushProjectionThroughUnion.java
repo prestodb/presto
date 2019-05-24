@@ -14,11 +14,11 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -39,7 +39,7 @@ public class TestPushProjectionThroughUnion
                 .on(p ->
                         p.project(
                                 Assignments.of(p.variable("x"), new LongLiteral("3")),
-                                p.values(p.symbol("a"))))
+                                p.values(p.variable("a"))))
                 .doesNotFire();
     }
 
@@ -48,15 +48,15 @@ public class TestPushProjectionThroughUnion
     {
         tester().assertThat(new PushProjectionThroughUnion())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    Symbol c = p.symbol("c");
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression b = p.variable("b");
+                    VariableReferenceExpression c = p.variable("c");
                     return p.project(
-                            Assignments.of(p.variable("c_times_3"), new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, c.toSymbolReference(), new LongLiteral("3"))),
+                            Assignments.of(p.variable("c_times_3"), new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, new SymbolReference(c.getName()), new LongLiteral("3"))),
                             p.union(
                                     ImmutableListMultimap.<VariableReferenceExpression, VariableReferenceExpression>builder()
-                                            .put(p.variable(c), p.variable(a))
-                                            .put(p.variable(c), p.variable(b))
+                                            .put(c, a)
+                                            .put(c, b)
                                             .build(),
                                     ImmutableList.of(
                                             p.values(a),

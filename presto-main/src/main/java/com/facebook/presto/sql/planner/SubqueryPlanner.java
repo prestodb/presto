@@ -596,7 +596,6 @@ class SubqueryPlanner
                     .collect(toImmutableList());
             return new ValuesNode(
                     idAllocator.getNextId(),
-                    rewrittenNode.getOutputSymbols(),
                     rewrittenNode.getOutputVariables(),
                     rewrittenRows);
         }

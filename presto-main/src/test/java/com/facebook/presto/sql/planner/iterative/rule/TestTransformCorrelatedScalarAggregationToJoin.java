@@ -37,7 +37,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     public void doesNotFireOnPlanWithoutApplyNode()
     {
         tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionManager()))
-                .on(p -> p.values(p.symbol("a")))
+                .on(p -> p.values(p.variable("a")))
                 .doesNotFire();
     }
 
@@ -47,8 +47,8 @@ public class TestTransformCorrelatedScalarAggregationToJoin
         tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionManager()))
                 .on(p -> p.lateral(
                         ImmutableList.of(p.variable(p.symbol("corr"))),
-                        p.values(p.symbol("corr")),
-                        p.values(p.symbol("a"))))
+                        p.values(p.variable("corr")),
+                        p.values(p.variable("a"))))
                 .doesNotFire();
     }
 
@@ -58,8 +58,8 @@ public class TestTransformCorrelatedScalarAggregationToJoin
         tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionManager()))
                 .on(p -> p.lateral(
                         ImmutableList.of(),
-                        p.values(p.symbol("a")),
-                        p.values(p.symbol("b"))))
+                        p.values(p.variable("a")),
+                        p.values(p.variable("b"))))
                 .doesNotFire();
     }
 
@@ -69,9 +69,9 @@ public class TestTransformCorrelatedScalarAggregationToJoin
         tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionManager()))
                 .on(p -> p.lateral(
                         ImmutableList.of(p.variable(p.symbol("corr"))),
-                        p.values(p.symbol("corr")),
+                        p.values(p.variable("corr")),
                         p.aggregation(ab -> ab
-                                .source(p.values(p.symbol("a"), p.symbol("b")))
+                                .source(p.values(p.variable("a"), p.variable("b")))
                                 .addAggregation(p.variable(p.symbol("sum")), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
                                 .singleGroupingSet(p.variable("b")))))
                 .doesNotFire();
@@ -83,9 +83,9 @@ public class TestTransformCorrelatedScalarAggregationToJoin
         tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionManager()))
                 .on(p -> p.lateral(
                         ImmutableList.of(p.variable(p.symbol("corr"))),
-                        p.values(p.symbol("corr")),
+                        p.values(p.variable("corr")),
                         p.aggregation(ab -> ab
-                                .source(p.values(p.symbol("a"), p.symbol("b")))
+                                .source(p.values(p.variable("a"), p.variable("b")))
                                 .addAggregation(p.variable(p.symbol("sum")), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
                                 .globalGrouping())))
                 .matches(
@@ -105,10 +105,10 @@ public class TestTransformCorrelatedScalarAggregationToJoin
         tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionManager()))
                 .on(p -> p.lateral(
                         ImmutableList.of(p.variable(p.symbol("corr"))),
-                        p.values(p.symbol("corr")),
+                        p.values(p.variable("corr")),
                         p.project(Assignments.of(p.variable("expr"), p.expression("sum + 1")),
                                 p.aggregation(ab -> ab
-                                        .source(p.values(p.symbol("a"), p.symbol("b")))
+                                        .source(p.values(p.variable("a"), p.variable("b")))
                                         .addAggregation(p.variable(p.symbol("sum")), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
                                         .globalGrouping()))))
                 .matches(

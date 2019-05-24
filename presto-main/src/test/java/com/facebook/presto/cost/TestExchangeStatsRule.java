@@ -40,8 +40,8 @@ public class TestExchangeStatsRule
                         .fixedHashDistributionParitioningScheme(
                                 ImmutableList.of(pb.variable("o1", BIGINT), pb.variable("o2", BIGINT), pb.variable("o3", BIGINT), pb.variable("o4", BIGINT)),
                                 emptyList())
-                        .addSource(pb.values(pb.symbol("i11", BIGINT), pb.symbol("i12", BIGINT), pb.symbol("i13", BIGINT), pb.symbol("i14", BIGINT)))
-                        .addSource(pb.values(pb.symbol("i21", BIGINT), pb.symbol("i22", BIGINT), pb.symbol("i23", BIGINT), pb.symbol("i24", BIGINT)))))
+                        .addSource(pb.values(pb.variable("i11", BIGINT), pb.variable("i12", BIGINT), pb.variable("i13", BIGINT), pb.variable("i14", BIGINT)))
+                        .addSource(pb.values(pb.variable("i21", BIGINT), pb.variable("i22", BIGINT), pb.variable("i23", BIGINT), pb.variable("i24", BIGINT)))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
                         .addVariableStatistics(new VariableReferenceExpression("i11", BIGINT), VariableStatsEstimate.builder()

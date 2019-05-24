@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
@@ -46,7 +45,7 @@ public class TestPushProjectionThroughExchange
                 .on(p ->
                         p.project(
                                 Assignments.of(p.variable("x"), new LongLiteral("3")),
-                                p.values(p.symbol("a"))))
+                                p.values(p.variable("a"))))
                 .doesNotFire();
     }
 
@@ -77,9 +76,9 @@ public class TestPushProjectionThroughExchange
     {
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    Symbol c = p.symbol("c");
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression b = p.variable("b");
+                    VariableReferenceExpression c = p.variable("c");
                     VariableReferenceExpression c2 = p.variable("c2");
                     VariableReferenceExpression x = p.variable("x");
                     return p.project(
@@ -91,9 +90,9 @@ public class TestPushProjectionThroughExchange
                                             p.values(a))
                                     .addSource(
                                             p.values(b))
-                                    .addInputsSet(p.variable(a))
-                                    .addInputsSet(p.variable(b))
-                                    .singleDistributionPartitioningScheme(p.variable(c))));
+                                    .addInputsSet(a)
+                                    .addInputsSet(b)
+                                    .singleDistributionPartitioningScheme(c)));
                 })
                 .matches(
                         exchange(
@@ -113,9 +112,9 @@ public class TestPushProjectionThroughExchange
     {
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    Symbol h = p.symbol("h");
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression b = p.variable("b");
+                    VariableReferenceExpression h = p.variable("h");
                     VariableReferenceExpression aTimes5 = p.variable("a_times_5");
                     VariableReferenceExpression bTimes5 = p.variable("b_times_5");
                     VariableReferenceExpression hTimes5 = p.variable("h_times_5");
@@ -128,11 +127,11 @@ public class TestPushProjectionThroughExchange
                             p.exchange(e -> e
                                     .addSource(
                                             p.values(a, b, h))
-                                    .addInputsSet(p.variable(a), p.variable(b), p.variable(h))
+                                    .addInputsSet(a, b, h)
                                     .fixedHashDistributionParitioningScheme(
-                                            ImmutableList.of(p.variable(a), p.variable(b), p.variable(h)),
-                                            ImmutableList.of(p.variable(b)),
-                                            p.variable(h))));
+                                            ImmutableList.of(a, b, h),
+                                            ImmutableList.of(b),
+                                            h)));
                 })
                 .matches(
                         project(
@@ -155,14 +154,13 @@ public class TestPushProjectionThroughExchange
     {
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    Symbol h = p.symbol("h");
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression b = p.variable("b");
+                    VariableReferenceExpression h = p.variable("h");
                     VariableReferenceExpression aTimes5 = p.variable("a_times_5");
                     VariableReferenceExpression bTimes5 = p.variable("b_times_5");
                     VariableReferenceExpression hTimes5 = p.variable("h_times_5");
-                    Symbol sortSymbol = p.symbol("sortSymbol");
-                    VariableReferenceExpression sortVariable = p.variable(sortSymbol);
+                    VariableReferenceExpression sortVariable = p.variable("sortVariable");
                     OrderingScheme orderingScheme = new OrderingScheme(ImmutableList.of(sortVariable), ImmutableMap.of(sortVariable, SortOrder.ASC_NULLS_FIRST));
                     return p.project(
                             Assignments.builder()
@@ -172,10 +170,10 @@ public class TestPushProjectionThroughExchange
                                     .build(),
                             p.exchange(e -> e
                                     .addSource(
-                                            p.values(a, b, h, sortSymbol))
-                                    .addInputsSet(p.variable(a), p.variable(b), p.variable(h), p.variable(sortSymbol))
+                                            p.values(a, b, h, sortVariable))
+                                    .addInputsSet(a, b, h, sortVariable)
                                     .singleDistributionPartitioningScheme(
-                                            ImmutableList.of(p.variable(a), p.variable(b), p.variable(h), p.variable(sortSymbol)))
+                                            ImmutableList.of(a, b, h, sortVariable))
                                     .orderingScheme(orderingScheme)));
                 })
                 .matches(

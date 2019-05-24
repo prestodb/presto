@@ -14,9 +14,9 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.Assignments;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -35,13 +35,13 @@ public class TestPruneMarkDistinctColumns
         tester().assertThat(new PruneMarkDistinctColumns())
                 .on(p ->
                 {
-                    Symbol key = p.symbol("key");
+                    VariableReferenceExpression key = p.variable("key");
                     VariableReferenceExpression key2 = p.variable("key2");
-                    Symbol mark = p.symbol("mark");
-                    Symbol unused = p.symbol("unused");
+                    VariableReferenceExpression mark = p.variable("mark");
+                    VariableReferenceExpression unused = p.variable("unused");
                     return p.project(
-                            Assignments.of(key2, key.toSymbolReference()),
-                            p.markDistinct(p.variable(mark), ImmutableList.of(p.variable(key)), p.values(key, unused)));
+                            Assignments.of(key2, new SymbolReference(key.getName())),
+                            p.markDistinct(mark, ImmutableList.of(key), p.values(key, unused)));
                 })
                 .matches(
                         strictProject(
@@ -55,16 +55,16 @@ public class TestPruneMarkDistinctColumns
         tester().assertThat(new PruneMarkDistinctColumns())
                 .on(p ->
                 {
-                    Symbol key = p.symbol("key");
+                    VariableReferenceExpression key = p.variable("key");
                     VariableReferenceExpression mark = p.variable("mark");
-                    Symbol hash = p.symbol("hash");
-                    Symbol unused = p.symbol("unused");
+                    VariableReferenceExpression hash = p.variable("hash");
+                    VariableReferenceExpression unused = p.variable("unused");
                     return p.project(
                             Assignments.identity(mark),
                             p.markDistinct(
                                     mark,
-                                    ImmutableList.of(p.variable(key)),
-                                    p.variable(hash),
+                                    ImmutableList.of(key),
+                                    hash,
                                     p.values(key, hash, unused)));
                 })
                 .matches(

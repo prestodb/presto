@@ -47,7 +47,6 @@ public class TestRemoveTrivialFilters
                 .on(p -> p.filter(
                         p.expression("FALSE"),
                         p.values(
-                                ImmutableList.of(p.symbol("a")),
                                 ImmutableList.of(p.variable(p.symbol("a"))),
                                 ImmutableList.of(constantExpressions(BIGINT, 1)))))
                 .matches(values("a"));

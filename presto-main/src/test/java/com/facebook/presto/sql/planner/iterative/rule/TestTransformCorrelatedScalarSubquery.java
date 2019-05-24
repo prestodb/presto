@@ -60,7 +60,7 @@ public class TestTransformCorrelatedScalarSubquery
     public void doesNotFireOnPlanWithoutLateralNode()
     {
         tester().assertThat(rule)
-                .on(p -> p.values(p.symbol("a")))
+                .on(p -> p.values(p.variable("a")))
                 .doesNotFire();
     }
 
@@ -69,9 +69,9 @@ public class TestTransformCorrelatedScalarSubquery
     {
         tester().assertThat(rule)
                 .on(p -> p.lateral(
-                        ImmutableList.of(p.variable(p.symbol("corr"))),
-                        p.values(p.symbol("corr")),
-                        p.values(p.symbol("a"))))
+                        ImmutableList.of(p.variable("corr")),
+                        p.values(p.variable("corr")),
+                        p.values(p.variable("a"))))
                 .doesNotFire();
     }
 
@@ -81,8 +81,8 @@ public class TestTransformCorrelatedScalarSubquery
         tester().assertThat(rule)
                 .on(p -> p.lateral(
                         ImmutableList.of(),
-                        p.values(p.symbol("a")),
-                        p.values(ImmutableList.of(p.symbol("b")), ImmutableList.of(p.variable(p.symbol("b"))), ImmutableList.of(constantExpressions(BIGINT, 1)))))
+                        p.values(p.variable("a")),
+                        p.values(ImmutableList.of(p.variable("b")), ImmutableList.of(constantExpressions(BIGINT, 1)))))
                 .doesNotFire();
     }
 
@@ -91,12 +91,12 @@ public class TestTransformCorrelatedScalarSubquery
     {
         tester().assertThat(rule)
                 .on(p -> p.lateral(
-                        ImmutableList.of(p.variable(p.symbol("corr"))),
-                        p.values(p.symbol("corr")),
+                        ImmutableList.of(p.variable("corr")),
+                        p.values(p.variable("corr")),
                         p.enforceSingleRow(
                                 p.filter(
                                         p.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
-                                        p.values(ImmutableList.of(p.symbol("a")), ImmutableList.of(p.variable(p.symbol("a"))), TWO_ROWS)))))
+                                        p.values(ImmutableList.of(p.variable("a")), TWO_ROWS)))))
                 .matches(
                         project(
                                 filter(
@@ -119,14 +119,14 @@ public class TestTransformCorrelatedScalarSubquery
     {
         tester().assertThat(rule)
                 .on(p -> p.lateral(
-                        ImmutableList.of(p.variable(p.symbol("corr"))),
-                        p.values(p.symbol("corr")),
+                        ImmutableList.of(p.variable("corr")),
+                        p.values(p.variable("corr")),
                         p.enforceSingleRow(
                                 p.project(
                                         Assignments.of(p.variable("a2"), p.expression("a * 2")),
                                         p.filter(
                                                 p.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
-                                                p.values(ImmutableList.of(p.symbol("a")), ImmutableList.of(p.variable(p.symbol("a"))), TWO_ROWS))))))
+                                                p.values(ImmutableList.of(p.variable("a")), TWO_ROWS))))))
                 .matches(
                         project(
                                 filter(
@@ -149,8 +149,8 @@ public class TestTransformCorrelatedScalarSubquery
     {
         tester().assertThat(rule)
                 .on(p -> p.lateral(
-                        ImmutableList.of(p.variable(p.symbol("corr"))),
-                        p.values(p.symbol("corr")),
+                        ImmutableList.of(p.variable("corr")),
+                        p.values(p.variable("corr")),
                         p.project(
                                 Assignments.of(p.variable("a3"), p.expression("a2 + 1")),
                                 p.enforceSingleRow(
@@ -158,7 +158,7 @@ public class TestTransformCorrelatedScalarSubquery
                                                 Assignments.of(p.variable("a2"), p.expression("a * 2")),
                                                 p.filter(
                                                         p.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
-                                                        p.values(ImmutableList.of(p.symbol("a")), ImmutableList.of(p.variable(p.symbol("a"))), TWO_ROWS)))))))
+                                                        p.values(ImmutableList.of(p.variable("a")), TWO_ROWS)))))))
                 .matches(
                         project(
                                 filter(
@@ -185,12 +185,12 @@ public class TestTransformCorrelatedScalarSubquery
     {
         tester().assertThat(rule)
                 .on(p -> p.lateral(
-                        ImmutableList.of(p.variable(p.symbol("corr"))),
-                        p.values(p.symbol("corr")),
+                        ImmutableList.of(p.variable("corr")),
+                        p.values(p.variable("corr")),
                         p.enforceSingleRow(
                                 p.filter(
                                         p.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
-                                        p.values(ImmutableList.of(p.symbol("a")), ImmutableList.of(p.variable(p.symbol("a"))), ONE_ROW)))))
+                                        p.values(ImmutableList.of(p.variable("a")), ONE_ROW)))))
                 .matches(
                         lateral(
                                 ImmutableList.of("corr"),

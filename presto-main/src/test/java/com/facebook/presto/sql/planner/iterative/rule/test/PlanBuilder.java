@@ -169,11 +169,6 @@ public class PlanBuilder
         return values(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of());
     }
 
-    public ValuesNode values(Symbol... columns)
-    {
-        return values(idAllocator.getNextId(), 0, columns);
-    }
-
     public ValuesNode values(VariableReferenceExpression... columns)
     {
         return values(idAllocator.getNextId(), 0, columns);
@@ -184,22 +179,9 @@ public class PlanBuilder
         return values(id, 0, columns);
     }
 
-    public ValuesNode values(int rows, Symbol... columns)
+    public ValuesNode values(int rows, VariableReferenceExpression... columns)
     {
         return values(idAllocator.getNextId(), rows, columns);
-    }
-
-    public ValuesNode values(PlanNodeId id, int rows, Symbol... columns)
-    {
-        List<Symbol> symbols = ImmutableList.copyOf(columns);
-        List<VariableReferenceExpression> variables = symbols.stream()
-                .map(symbol -> new VariableReferenceExpression(symbol.getName(), UNKNOWN))
-                .collect(toImmutableList());
-        return values(
-                id,
-                ImmutableList.copyOf(columns),
-                variables,
-                nElements(rows, row -> nElements(columns.length, cell -> constantNull(UNKNOWN))));
     }
 
     public ValuesNode values(PlanNodeId id, int rows, VariableReferenceExpression... columns)
@@ -207,24 +189,18 @@ public class PlanBuilder
         List<VariableReferenceExpression> variables = ImmutableList.copyOf(columns);
         return values(
                 id,
-                variables.stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableList()),
                 variables,
                 nElements(rows, row -> nElements(columns.length, cell -> constantNull(UNKNOWN))));
     }
 
-    public ValuesNode values(List<Symbol> columns, List<VariableReferenceExpression> variables, List<List<RowExpression>> rows)
+    public ValuesNode values(List<VariableReferenceExpression> variables, List<List<RowExpression>> rows)
     {
-        return values(idAllocator.getNextId(), columns, variables, rows);
+        return values(idAllocator.getNextId(), variables, rows);
     }
 
     public ValuesNode values(PlanNodeId id, List<VariableReferenceExpression> variables, List<List<RowExpression>> rows)
     {
-        return new ValuesNode(id, variables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()), variables, rows);
-    }
-
-    public ValuesNode values(PlanNodeId id, List<Symbol> columns, List<VariableReferenceExpression> variables, List<List<RowExpression>> rows)
-    {
-        return new ValuesNode(id, columns, variables, rows);
+        return new ValuesNode(id, variables, rows);
     }
 
     public EnforceSingleRowNode enforceSingleRow(PlanNode source)

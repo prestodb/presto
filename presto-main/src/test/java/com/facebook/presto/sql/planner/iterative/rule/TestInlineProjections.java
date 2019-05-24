@@ -48,7 +48,7 @@ public class TestInlineProjections
                                                 .put(p.variable("literal"), expression("1"))
                                                 .put(p.variable("complex_2"), expression("x - 1"))
                                                 .build(),
-                                        p.values(p.symbol("x")))))
+                                        p.values(p.variable("x")))))
                 .matches(
                         project(
                                 ImmutableMap.<String, ExpressionMatcher>builder()
@@ -76,7 +76,7 @@ public class TestInlineProjections
                                 Assignments.of(p.variable("output"), expression("value")),
                                 p.project(
                                         Assignments.identity(p.variable("value")),
-                                        p.values(p.symbol("value")))))
+                                        p.values(p.variable("value")))))
                 .doesNotFire();
     }
 
@@ -89,7 +89,7 @@ public class TestInlineProjections
                                 Assignments.identity(p.variable("fromOuterScope"), p.variable("value")),
                                 p.project(
                                         Assignments.identity(p.variable("value")),
-                                        p.values(p.symbol("value")))))
+                                        p.values(p.variable("value")))))
                 .doesNotFire();
     }
 }

@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -47,7 +46,6 @@ import static com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -67,9 +65,9 @@ public class TestEliminateCrossJoins
                 .on(crossJoinAndJoin(INNER))
                 .matches(
                         join(INNER,
-                                ImmutableList.of(aliases -> new EquiJoinClause(variable("cySymbol"), variable("bySymbol"))),
+                                ImmutableList.of(aliases -> new EquiJoinClause(variable("cyVariable"), variable("byVariable"))),
                                 join(INNER,
-                                        ImmutableList.of(aliases -> new EquiJoinClause(variable("axSymbol"), variable("cxSymbol"))),
+                                        ImmutableList.of(aliases -> new EquiJoinClause(variable("axVariable"), variable("cxVariable"))),
                                         any(),
                                         any()),
                                 any()));
@@ -232,19 +230,19 @@ public class TestEliminateCrossJoins
     private Function<PlanBuilder, PlanNode> crossJoinAndJoin(JoinNode.Type secondJoinType)
     {
         return p -> {
-            Symbol axSymbol = p.symbol("axSymbol");
-            Symbol bySymbol = p.symbol("bySymbol");
-            Symbol cxSymbol = p.symbol("cxSymbol");
-            Symbol cySymbol = p.symbol("cySymbol");
+            VariableReferenceExpression axVariable = p.variable("axVariable");
+            VariableReferenceExpression byVariable = p.variable("byVariable");
+            VariableReferenceExpression cxVariable = p.variable("cxVariable");
+            VariableReferenceExpression cyVariable = p.variable("cyVariable");
 
             // (a inner join b) inner join c on c.x = a.x and c.y = b.y
             return p.join(INNER,
                     p.join(secondJoinType,
-                            p.values(axSymbol),
-                            p.values(bySymbol)),
-                    p.values(cxSymbol, cySymbol),
-                    new EquiJoinClause(p.variable(cxSymbol), p.variable(axSymbol)),
-                    new EquiJoinClause(p.variable(cySymbol), p.variable(bySymbol)));
+                            p.values(axVariable),
+                            p.values(byVariable)),
+                    p.values(cxVariable, cyVariable),
+                    new EquiJoinClause(p.variable(cxVariable), p.variable(axVariable)),
+                    new EquiJoinClause(p.variable(cyVariable), p.variable(byVariable)));
         };
     }
 
@@ -254,11 +252,6 @@ public class TestEliminateCrossJoins
                 idAllocator.getNextId(),
                 source,
                 Assignments.of(variable, expression));
-    }
-
-    private Symbol symbol(String name)
-    {
-        return new Symbol(name);
     }
 
     private VariableReferenceExpression variable(String name)
@@ -295,7 +288,6 @@ public class TestEliminateCrossJoins
     {
         return new ValuesNode(
                 idAllocator.getNextId(),
-                Arrays.stream(variables).map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()),
                 Arrays.asList(variables),
                 ImmutableList.of());
     }

@@ -59,7 +59,7 @@ public class TestExpressionRewriteRuleSet
         tester().assertThat(zeroRewriter.projectExpressionRewrite())
                 .on(p -> p.project(
                         Assignments.of(p.variable("y"), PlanBuilder.expression("x IS NOT NULL")),
-                        p.values(p.symbol("x"))))
+                        p.values(p.variable("x"))))
                 .matches(
                         project(ImmutableMap.of("y", expression("0")), values("x")));
     }
@@ -70,7 +70,7 @@ public class TestExpressionRewriteRuleSet
         tester().assertThat(zeroRewriter.projectExpressionRewrite())
                 .on(p -> p.project(
                         Assignments.of(p.variable("y"), PlanBuilder.expression("0")),
-                        p.values(p.symbol("x"))))
+                        p.values(p.variable("x"))))
                 .doesNotFire();
     }
 
@@ -85,7 +85,7 @@ public class TestExpressionRewriteRuleSet
                                 new FunctionCall(QualifiedName.of("count"), ImmutableList.of(p.symbol("y", BIGINT).toSymbolReference())),
                                 ImmutableList.of(BIGINT))
                         .source(
-                                p.values(p.symbol("x", BIGINT)))))
+                                p.values(p.variable("x", BIGINT)))))
                 .matches(
                         PlanMatchPattern.aggregation(
                                 ImmutableMap.of("count_1", functionCall("count", ImmutableList.of("x"))),
@@ -141,7 +141,6 @@ public class TestExpressionRewriteRuleSet
     {
         tester().assertThat(zeroRewriter.valuesExpressionRewrite())
                 .on(p -> p.values(
-                        ImmutableList.of(p.symbol("a")),
                         ImmutableList.of(p.variable(p.symbol("a"))),
                         ImmutableList.of((ImmutableList.of(castToRowExpression(PlanBuilder.expression("1")))))))
                 .matches(
@@ -153,7 +152,6 @@ public class TestExpressionRewriteRuleSet
     {
         tester().assertThat(zeroRewriter.valuesExpressionRewrite())
                 .on(p -> p.values(
-                        ImmutableList.of(p.symbol("a")),
                         ImmutableList.of(p.variable(p.symbol("a"))),
                         ImmutableList.of((ImmutableList.of(castToRowExpression(PlanBuilder.expression("0")))))))
                 .doesNotFire();

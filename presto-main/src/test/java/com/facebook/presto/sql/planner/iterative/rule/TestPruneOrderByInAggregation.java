@@ -80,6 +80,6 @@ public class TestPruneOrderByInAggregation
                 .addAggregation(avg, planBuilder.expression("avg(input order by input)"), ImmutableList.of(BIGINT), planBuilder.variable(mask))
                 .addAggregation(arrayAgg, planBuilder.expression("array_agg(input order by input)"), ImmutableList.of(BIGINT), planBuilder.variable(mask))
                 .hashVariable(planBuilder.variable(keyHash))
-                .source(planBuilder.values(sourceSymbols, sourceVariables, ImmutableList.of())));
+                .source(planBuilder.values(sourceVariables, ImmutableList.of())));
     }
 }

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.google.common.collect.ImmutableList;
@@ -34,14 +34,14 @@ public class TestPushLimitThroughOuterJoin
     {
         tester().assertThat(new PushLimitThroughOuterJoin())
                 .on(p -> {
-                    Symbol leftKey = p.symbol("leftKey");
-                    Symbol rightKey = p.symbol("rightKey");
+                    VariableReferenceExpression leftKey = p.variable("leftKey");
+                    VariableReferenceExpression rightKey = p.variable("rightKey");
                     return p.limit(1,
                             p.join(
                                     LEFT,
                                     p.values(5, leftKey),
                                     p.values(5, rightKey),
-                                    new EquiJoinClause(p.variable(leftKey), p.variable(rightKey))));
+                                    new EquiJoinClause(leftKey, rightKey)));
                 })
                 .matches(
                         limit(1,
@@ -57,14 +57,14 @@ public class TestPushLimitThroughOuterJoin
     {
         tester().assertThat(new PushLimitThroughOuterJoin())
                 .on(p -> {
-                    Symbol leftKey = p.symbol("leftKey");
-                    Symbol rightKey = p.symbol("rightKey");
+                    VariableReferenceExpression leftKey = p.variable("leftKey");
+                    VariableReferenceExpression rightKey = p.variable("rightKey");
                     return p.limit(1,
                             p.join(
                                     FULL,
                                     p.values(5, leftKey),
                                     p.values(5, rightKey),
-                                    new EquiJoinClause(p.variable(leftKey), p.variable(rightKey))));
+                                    new EquiJoinClause(leftKey, rightKey)));
                 })
                 .doesNotFire();
     }
@@ -74,14 +74,14 @@ public class TestPushLimitThroughOuterJoin
     {
         tester().assertThat(new PushLimitThroughOuterJoin())
                 .on(p -> {
-                    Symbol leftKey = p.symbol("leftKey");
-                    Symbol rightKey = p.symbol("rightKey");
+                    VariableReferenceExpression leftKey = p.variable("leftKey");
+                    VariableReferenceExpression rightKey = p.variable("rightKey");
                     return p.limit(1,
                             p.join(
                                     LEFT,
                                     p.limit(1, p.values(5, leftKey)),
                                     p.values(5, rightKey),
-                                    new EquiJoinClause(p.variable(leftKey), p.variable(rightKey))));
+                                    new EquiJoinClause(leftKey, rightKey)));
                 })
                 .doesNotFire();
     }

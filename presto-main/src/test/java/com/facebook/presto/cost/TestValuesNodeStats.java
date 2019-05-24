@@ -37,7 +37,7 @@ public class TestValuesNodeStats
     {
         FunctionResolution resolution = new FunctionResolution(tester().getMetadata().getFunctionManager());
         tester().assertStatsFor(pb -> pb
-                .values(ImmutableList.of(pb.symbol("a", BIGINT), pb.symbol("b", DOUBLE)),
+                .values(
                         ImmutableList.of(pb.variable("a", BIGINT), pb.variable("b", DOUBLE)),
                         ImmutableList.of(
                                 ImmutableList.of(call(ADD.name(), resolution.arithmeticFunction(ADD, BIGINT, BIGINT), BIGINT, constantExpressions(BIGINT, 3L, 3L)), constant(13.5, DOUBLE)),
@@ -65,7 +65,7 @@ public class TestValuesNodeStats
                                 .build()));
 
         tester().assertStatsFor(pb -> pb
-                .values(ImmutableList.of(pb.symbol("v", createVarcharType(30))),
+                .values(
                         ImmutableList.of(pb.variable("v", createVarcharType(30))),
                         ImmutableList.of(
                                 constantExpressions(VARCHAR, "Alice"),
@@ -95,14 +95,14 @@ public class TestValuesNodeStats
                 .build();
 
         tester().assertStatsFor(pb -> pb
-                .values(ImmutableList.of(pb.symbol("a", BIGINT)),
+                .values(
                         ImmutableList.of(pb.variable("a", BIGINT)),
                         ImmutableList.of(
                                 ImmutableList.of(call(ADD.name(), resolution.arithmeticFunction(ADD, BIGINT, BIGINT), BIGINT, constant(3, BIGINT), constantNull(BIGINT))))))
                 .check(outputStats -> outputStats.equalTo(bigintNullAStats));
 
         tester().assertStatsFor(pb -> pb
-                .values(ImmutableList.of(pb.symbol("a", BIGINT)),
+                .values(
                         ImmutableList.of(pb.variable("a", BIGINT)),
                         ImmutableList.of(ImmutableList.of(constantNull(BIGINT)))))
                 .check(outputStats -> outputStats.equalTo(bigintNullAStats));
@@ -113,7 +113,7 @@ public class TestValuesNodeStats
                 .build();
 
         tester().assertStatsFor(pb -> pb
-                .values(ImmutableList.of(pb.symbol("a", UNKNOWN)),
+                .values(
                         ImmutableList.of(pb.variable("a", UNKNOWN)),
                         ImmutableList.of(ImmutableList.of(constantNull(UNKNOWN)))))
                 .check(outputStats -> outputStats.equalTo(unknownNullAStats));
@@ -123,7 +123,7 @@ public class TestValuesNodeStats
     public void testStatsForEmptyValues()
     {
         tester().assertStatsFor(pb -> pb
-                .values(ImmutableList.of(pb.symbol("a", BIGINT)),
+                .values(
                         ImmutableList.of(pb.variable("a", BIGINT)),
                         ImmutableList.of()))
                 .check(outputStats -> outputStats.equalTo(

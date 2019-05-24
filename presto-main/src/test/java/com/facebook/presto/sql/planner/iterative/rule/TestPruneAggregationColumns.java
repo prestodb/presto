@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -70,12 +69,12 @@ public class TestPruneAggregationColumns
     {
         VariableReferenceExpression a = planBuilder.variable("a");
         VariableReferenceExpression b = planBuilder.variable("b");
-        Symbol key = planBuilder.symbol("key");
+        VariableReferenceExpression key = planBuilder.variable("key");
         return planBuilder.project(
                 Assignments.identity(ImmutableList.of(a, b).stream().filter(projectionFilter).collect(toImmutableSet())),
                 planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
                         .source(planBuilder.values(key))
-                        .singleGroupingSet(planBuilder.variable(key))
+                        .singleGroupingSet(key)
                         .addAggregation(a, planBuilder.expression("count()"), ImmutableList.of())
                         .addAggregation(b, planBuilder.expression("count()"), ImmutableList.of())));
     }

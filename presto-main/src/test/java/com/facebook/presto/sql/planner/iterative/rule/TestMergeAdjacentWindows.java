@@ -67,7 +67,7 @@ public class TestMergeAdjacentWindows
     public void testPlanWithoutWindowNode()
     {
         tester().assertThat(new GatherAndMergeWindows.MergeAdjacentWindowsOverProjects(0))
-                .on(p -> p.values(p.symbol("a")))
+                .on(p -> p.values(p.variable("a")))
                 .doesNotFire();
     }
 
@@ -79,7 +79,7 @@ public class TestMergeAdjacentWindows
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
                                 ImmutableMap.of(p.variable(p.symbol("avg_1")), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
-                                p.values(p.symbol("a"))))
+                                p.values(p.variable("a"))))
                 .doesNotFire();
     }
 
@@ -94,7 +94,7 @@ public class TestMergeAdjacentWindows
                                 p.window(
                                         newWindowNodeSpecification(p, "b"),
                                         ImmutableMap.of(p.variable(p.symbol("sum_1")), newWindowNodeFunction("sum", SUM_FUNCTION_HANDLE, "b")),
-                                        p.values(p.symbol("b")))))
+                                        p.values(p.variable("b")))))
                 .doesNotFire();
     }
 
@@ -111,7 +111,7 @@ public class TestMergeAdjacentWindows
                                         p.window(
                                                 newWindowNodeSpecification(p, "a"),
                                                 ImmutableMap.of(p.variable(p.symbol("avg_1")), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
-                                                p.values(p.symbol("a"))))))
+                                                p.values(p.variable("a"))))))
                 .doesNotFire();
     }
 
@@ -126,7 +126,7 @@ public class TestMergeAdjacentWindows
                                 p.window(
                                         newWindowNodeSpecification(p, "a"),
                                         ImmutableMap.of(p.variable(p.symbol("avg_2")), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
-                                        p.values(p.symbol("a")))))
+                                        p.values(p.variable("a")))))
                 .doesNotFire();
     }
 
@@ -141,7 +141,7 @@ public class TestMergeAdjacentWindows
                                 p.window(
                                         newWindowNodeSpecification(p, "b"),
                                         ImmutableMap.of(p.variable(p.symbol("avg_2")), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
-                                        p.values(p.symbol("a"), p.symbol("b")))))
+                                        p.values(p.variable("a"), p.variable("b")))))
                 .doesNotFire();
     }
 
@@ -156,7 +156,7 @@ public class TestMergeAdjacentWindows
                                 p.window(
                                         newWindowNodeSpecification(p, "a"),
                                         ImmutableMap.of(p.variable(p.symbol("sum_1")), newWindowNodeFunction("sum", SUM_FUNCTION_HANDLE, "a")),
-                                        p.values(p.symbol("a")))))
+                                        p.values(p.variable("a")))))
                 .matches(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationA)
@@ -188,7 +188,7 @@ public class TestMergeAdjacentWindows
                                                 p.window(
                                                         newWindowNodeSpecification(p, "a"),
                                                         ImmutableMap.of(p.variable(p.symbol("avgOutput")), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
-                                                        p.values(p.symbol("a"), p.symbol("unused")))))))
+                                                        p.values(p.variable("a"), p.variable("unused")))))))
                 .matches(
                         strictProject(
                                 ImmutableMap.of(

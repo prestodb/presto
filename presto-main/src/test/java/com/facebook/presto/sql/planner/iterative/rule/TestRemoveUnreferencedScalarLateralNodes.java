@@ -30,8 +30,8 @@ public class TestRemoveUnreferencedScalarLateralNodes
         tester().assertThat(new RemoveUnreferencedScalarLateralNodes())
                 .on(p -> p.lateral(
                         emptyList(),
-                        p.values(p.symbol("x", BigintType.BIGINT)),
-                        p.values(emptyList(), emptyList(), ImmutableList.of(emptyList()))))
+                        p.values(p.variable("x", BigintType.BIGINT)),
+                        p.values(emptyList(), ImmutableList.of(emptyList()))))
                 .matches(values("x"));
     }
 
@@ -41,8 +41,8 @@ public class TestRemoveUnreferencedScalarLateralNodes
         tester().assertThat(new RemoveUnreferencedScalarLateralNodes())
                 .on(p -> p.lateral(
                         emptyList(),
-                        p.values(emptyList(), emptyList(), ImmutableList.of(emptyList())),
-                        p.values(p.symbol("x", BigintType.BIGINT))))
+                        p.values(emptyList(), ImmutableList.of(emptyList())),
+                        p.values(p.variable("x", BigintType.BIGINT))))
                 .matches(values("x"));
     }
 

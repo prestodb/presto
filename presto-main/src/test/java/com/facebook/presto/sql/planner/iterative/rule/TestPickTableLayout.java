@@ -78,7 +78,7 @@ public class TestPickTableLayout
     {
         for (Rule<?> rule : pickTableLayout.rules()) {
             tester().assertThat(rule)
-                    .on(p -> p.values(p.symbol("a", BIGINT)))
+                    .on(p -> p.values(p.variable("a", BIGINT)))
                     .doesNotFire();
         }
     }

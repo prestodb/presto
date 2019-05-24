@@ -294,7 +294,6 @@ public class PushAggregationThroughOuterJoin
         }
         ValuesNode nullRow = new ValuesNode(
                 idAllocator.getNextId(),
-                nullSymbols.build(),
                 nullVariables.build(),
                 ImmutableList.of(nullLiterals.build()));
         Map<Symbol, SymbolReference> sourcesSymbolMapping = sourcesSymbolMappingBuilder.build();

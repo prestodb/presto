@@ -17,7 +17,6 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -241,7 +240,6 @@ public class TestPruneWindowColumns
                                                 Optional.of(new SymbolReference(endValue2.getName())).map(Expression::toString)))),
                         hash,
                         p.values(
-                                filteredInputs.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()),
                                 filteredInputs,
                                 ImmutableList.of())));
     }

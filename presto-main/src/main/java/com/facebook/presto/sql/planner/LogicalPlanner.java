@@ -213,7 +213,6 @@ public class LogicalPlanner
             VariableReferenceExpression variable = new VariableReferenceExpression(symbol.getName(), BIGINT);
             PlanNode source = new ValuesNode(
                     idAllocator.getNextId(),
-                    ImmutableList.of(symbol),
                     ImmutableList.of(variable),
                     ImmutableList.of(ImmutableList.of(constant(0L, BIGINT))));
             return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of("rows"), ImmutableList.of(symbol), ImmutableList.of(variable));

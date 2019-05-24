@@ -234,7 +234,7 @@ public class PickTableLayout
             if (metadata.isPushdownFilterSupported(session, tableHandle)) {
                 PushdownFilterResult pushdownFilterResult = metadata.pushdownFilter(session, tableHandle, TRUE);
                 if (pushdownFilterResult.getLayout().getPredicate().isNone()) {
-                    return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), tableScanNode.getOutputSymbols(), tableScanNode.getOutputVariables(), ImmutableList.of()));
+                    return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), tableScanNode.getOutputVariables(), ImmutableList.of()));
                 }
 
                 return Result.ofPlanNode(new TableScanNode(
@@ -256,7 +256,7 @@ public class PickTableLayout
                             .collect(toImmutableSet())));
 
             if (layout.getLayout().getPredicate().isNone()) {
-                return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), tableScanNode.getOutputSymbols(), tableScanNode.getOutputVariables(), ImmutableList.of()));
+                return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), tableScanNode.getOutputVariables(), ImmutableList.of()));
             }
 
             return Result.ofPlanNode(new TableScanNode(
@@ -302,7 +302,7 @@ public class PickTableLayout
 
             TableLayout layout = pushdownFilterResult.getLayout();
             if (layout.getPredicate().isNone()) {
-                return new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), node.getOutputVariables(), ImmutableList.of());
+                return new ValuesNode(idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of());
             }
 
             TableScanNode tableScan = new TableScanNode(
@@ -357,7 +357,7 @@ public class PickTableLayout
             constraint = new Constraint<>(newDomain);
         }
         if (constraint.getSummary().isNone()) {
-            return new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), node.getOutputVariables(), ImmutableList.of());
+            return new ValuesNode(idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of());
         }
 
         // Layouts will be returned in order of the connector's preference
@@ -370,7 +370,7 @@ public class PickTableLayout
                         .collect(toImmutableSet())));
 
         if (layout.getLayout().getPredicate().isNone()) {
-            return new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), node.getOutputVariables(), ImmutableList.of());
+            return new ValuesNode(idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of());
         }
 
         TableScanNode tableScan = new TableScanNode(

@@ -97,7 +97,6 @@ public class TestWindowNode
 
         sourceNode = new ValuesNode(
                 newId(),
-                ImmutableList.of(columnA, columnB, columnC),
                 ImmutableList.of(variableA, variableB, variableC),
                 ImmutableList.of());
     }

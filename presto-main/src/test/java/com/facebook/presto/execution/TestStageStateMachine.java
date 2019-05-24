@@ -328,7 +328,6 @@ public class TestStageStateMachine
         PlanFragment planFragment = new PlanFragment(
                 new PlanFragmentId(0),
                 new ValuesNode(valuesNodeId,
-                        ImmutableList.of(symbol),
                         ImmutableList.of(variable),
                         ImmutableList.of(ImmutableList.of(constant("foo", VARCHAR)))),
                 ImmutableMap.of(symbol, VARCHAR),

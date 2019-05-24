@@ -92,7 +92,6 @@ public class TestPruneAggregationSourceColumns
                 .hashVariable(planBuilder.variable(keyHash))
                 .source(
                         planBuilder.values(
-                                filteredSourceSymboles,
                                 filteredSourceVariables,
                                 ImmutableList.of())));
     }

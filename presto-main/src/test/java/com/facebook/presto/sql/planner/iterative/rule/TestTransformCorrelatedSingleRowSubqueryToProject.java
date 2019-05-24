@@ -40,7 +40,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
     public void testDoesNotFire()
     {
         tester().assertThat(new TransformCorrelatedSingleRowSubqueryToProject())
-                .on(p -> p.values(p.symbol("a")))
+                .on(p -> p.values(p.variable("a")))
                 .doesNotFire();
     }
 
@@ -64,7 +64,6 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                                         Assignments.of(p.variable("l_expr2"), expression("l_nationkey + 1")),
                                         p.values(
                                                 ImmutableList.of(),
-                                                ImmutableList.of(),
                                                 ImmutableList.of(ImmutableList.of())))))
                 .matches(project(
                         ImmutableMap.of(
@@ -80,8 +79,8 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                 .on(p ->
                         p.lateral(
                                 ImmutableList.of(p.variable(p.symbol("a"))),
-                                p.values(p.symbol("a")),
-                                p.values(p.symbol("a"))))
+                                p.values(p.variable("a")),
+                                p.values(p.variable("a"))))
                 .doesNotFire();
     }
 }

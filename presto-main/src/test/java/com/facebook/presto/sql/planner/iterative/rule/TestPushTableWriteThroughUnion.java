@@ -41,8 +41,8 @@ public class TestPushTableWriteThroughUnion
                                                 .putAll(p.variable("B", BIGINT), p.variable("B1", BIGINT), p.variable("A2", BIGINT))
                                                 .build(),
                                         ImmutableList.of(
-                                                p.values(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
-                                                p.values(p.symbol("A2", BIGINT), p.symbol("B2", BIGINT))))))
+                                                p.values(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                                p.values(p.variable("A2", BIGINT), p.variable("B2", BIGINT))))))
                 .matches(union(
                         tableWriter(ImmutableList.of("A1", "B1"), ImmutableList.of("a", "b"), values(ImmutableMap.of("A1", 0, "B1", 1))),
                         tableWriter(ImmutableList.of("B2", "A2"), ImmutableList.of("a", "b"), values(ImmutableMap.of("A2", 0, "B2", 1)))));

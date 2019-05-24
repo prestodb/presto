@@ -38,15 +38,15 @@ public class TestTransformExistsApplyToLateralJoin
     public void testDoesNotFire()
     {
         tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata().getFunctionManager()))
-                .on(p -> p.values(p.symbol("a")))
+                .on(p -> p.values(p.variable("a")))
                 .doesNotFire();
 
         tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata().getFunctionManager()))
                 .on(p ->
                         p.lateral(
                                 ImmutableList.of(p.variable(p.symbol("a"))),
-                                p.values(p.symbol("a")),
-                                p.values(p.symbol("a"))))
+                                p.values(p.variable("a")),
+                                p.values(p.variable("a"))))
                 .doesNotFire();
     }
 
@@ -77,11 +77,11 @@ public class TestTransformExistsApplyToLateralJoin
                         p.apply(
                                 Assignments.of(p.variable("b", BOOLEAN), expression("EXISTS(SELECT TRUE)")),
                                 ImmutableList.of(p.variable(p.symbol("corr"))),
-                                p.values(p.symbol("corr")),
+                                p.values(p.variable("corr")),
                                 p.project(Assignments.of(),
                                         p.filter(
                                                 expression("corr = column"),
-                                                p.values(p.symbol("column"))))))
+                                                p.values(p.variable("column"))))))
                 .matches(
                         project(ImmutableMap.of("b", PlanMatchPattern.expression("COALESCE(subquerytrue, false)")),
                                 lateral(

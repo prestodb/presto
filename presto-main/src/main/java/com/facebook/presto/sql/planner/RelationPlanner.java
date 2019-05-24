@@ -656,7 +656,7 @@ class RelationPlanner
             rowsBuilder.add(values.build());
         }
 
-        ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), outputSymbolsBuilder.build(), outputVariablesBuilder.build(), rowsBuilder.build());
+        ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), outputVariablesBuilder.build(), rowsBuilder.build());
         return new RelationPlan(valuesNode, scope, outputVariablesBuilder.build());
     }
 
@@ -707,7 +707,6 @@ class RelationPlanner
         checkState(!unnestedVariablesIterator.hasNext(), "Not all output symbols were matched with input symbols");
         ValuesNode valuesNode = new ValuesNode(
                 idAllocator.getNextId(),
-                argumentVariables.build().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()),
                 argumentVariables.build(), ImmutableList.of(values.build()));
 
         UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), valuesNode, ImmutableList.of(), unnestVariables.build(), ordinalityVariable);

@@ -81,11 +81,9 @@ public class TestDetermineSemiJoinDistributionType
                 .on(p ->
                         p.semiJoin(
                                 p.values(
-                                        ImmutableList.of(p.symbol("A1")),
                                         ImmutableList.of(p.variable(p.symbol("A1"))),
                                         ImmutableList.of(constantExpressions(BIGINT, 10), constantExpressions(BIGINT, 11))),
                                 p.values(
-                                        ImmutableList.of(p.symbol("B1")),
                                         ImmutableList.of(p.variable(p.symbol("B1"))),
                                         ImmutableList.of(constantExpressions(BIGINT, 50), constantExpressions(BIGINT, 11))),
                                 p.variable("A1"),
@@ -114,8 +112,8 @@ public class TestDetermineSemiJoinDistributionType
                         .build())
                 .on(p ->
                         p.semiJoin(
-                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
                                 p.variable("A1"),
                                 p.variable("B1"),
                                 p.variable("output"),
@@ -149,8 +147,8 @@ public class TestDetermineSemiJoinDistributionType
                         .build())
                 .on(p ->
                         p.semiJoin(
-                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
                                 p.variable("A1"),
                                 p.variable("B1"),
                                 p.variable("output"),
@@ -183,8 +181,8 @@ public class TestDetermineSemiJoinDistributionType
                         .build())
                 .on(p ->
                         p.semiJoin(
-                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
                                 p.variable("A1"),
                                 p.variable("B1"),
                                 p.variable("output"),
@@ -217,8 +215,8 @@ public class TestDetermineSemiJoinDistributionType
                         .build())
                 .on(p ->
                         p.semiJoin(
-                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
                                 p.variable("A1"),
                                 p.variable("B1"),
                                 p.variable("output"),

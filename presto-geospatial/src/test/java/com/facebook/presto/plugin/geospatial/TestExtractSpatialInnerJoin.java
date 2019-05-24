@@ -325,7 +325,7 @@ public class TestExtractSpatialInnerJoin
                         p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText('POLYGON ...'), ST_Point(lng, lat))"),
                                 p.join(INNER,
                                         p.values(),
-                                        p.values(p.symbol("lat"), p.symbol("lng")))))
+                                        p.values(p.variable("lat"), p.variable("lng")))))
                 .doesNotFire();
     }
 

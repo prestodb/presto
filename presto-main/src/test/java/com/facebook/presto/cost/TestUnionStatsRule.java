@@ -46,8 +46,8 @@ public class TestUnionStatsRule
                                 .putAll(pb.variable("o5"), pb.variable("i15"), pb.variable("i25"))
                                 .build(),
                         ImmutableList.of(
-                                pb.values(pb.symbol("i11"), pb.symbol("i12"), pb.symbol("i13"), pb.symbol("i14"), pb.symbol("i15")),
-                                pb.values(pb.symbol("i21"), pb.symbol("i22"), pb.symbol("i23"), pb.symbol("i24"), pb.symbol("i25")))))
+                                pb.values(pb.variable("i11"), pb.variable("i12"), pb.variable("i13"), pb.variable("i14"), pb.variable("i15")),
+                                pb.values(pb.variable("i21"), pb.variable("i22"), pb.variable("i23"), pb.variable("i24"), pb.variable("i25")))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
                         .addVariableStatistics(variable("i11"), VariableStatsEstimate.builder()
