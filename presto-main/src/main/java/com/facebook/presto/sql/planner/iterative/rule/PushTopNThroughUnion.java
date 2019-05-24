@@ -17,7 +17,6 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.SymbolMapper;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -34,8 +33,8 @@ import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.topN;
 import static com.facebook.presto.sql.planner.plan.Patterns.union;
 import static com.facebook.presto.sql.planner.plan.TopNNode.Step.PARTIAL;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
+import static com.google.common.collect.Sets.intersection;
 
 public class PushTopNThroughUnion
         implements Rule<TopNNode>
@@ -61,11 +60,12 @@ public class PushTopNThroughUnion
 
         for (PlanNode source : unionNode.getSources()) {
             SymbolMapper.Builder symbolMapper = SymbolMapper.builder();
-            Set<Symbol> sourceOutputSymbols = ImmutableSet.copyOf(source.getOutputSymbols());
+
+            Set<VariableReferenceExpression> sourceOutputVariables = ImmutableSet.copyOf(source.getOutputVariables());
 
             for (VariableReferenceExpression unionOutput : unionNode.getOutputVariables()) {
                 Set<VariableReferenceExpression> inputVariables = ImmutableSet.copyOf(unionNode.getVariableMapping().get(unionOutput));
-                VariableReferenceExpression unionInput = getLast(intersectVariableWithSymbol(inputVariables, sourceOutputSymbols));
+                VariableReferenceExpression unionInput = getLast(intersection(inputVariables, sourceOutputVariables));
                 symbolMapper.put(unionOutput, unionInput);
             }
             sources.add(symbolMapper.build().map(topNNode, source, context.getIdAllocator().getNextId()));
@@ -75,12 +75,5 @@ public class PushTopNThroughUnion
                 unionNode.getId(),
                 sources.build(),
                 unionNode.getVariableMapping()));
-    }
-
-    private static Set<VariableReferenceExpression> intersectVariableWithSymbol(Set<VariableReferenceExpression> variables, Set<Symbol> symbols)
-    {
-        Set<String> symbolNames = symbols.stream().map(Symbol::getName).collect(toImmutableSet());
-        return variables.stream().filter(variable -> symbolNames.contains(variable.getName()))
-                .collect(toImmutableSet());
     }
 }

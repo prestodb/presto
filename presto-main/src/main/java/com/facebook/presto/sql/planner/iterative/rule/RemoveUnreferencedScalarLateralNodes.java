@@ -53,6 +53,6 @@ public class RemoveUnreferencedScalarLateralNodes
 
     private boolean isUnreferencedScalar(PlanNode planNode, Lookup lookup)
     {
-        return planNode.getOutputSymbols().isEmpty() && isScalar(planNode, lookup);
+        return planNode.getOutputVariables().isEmpty() && isScalar(planNode, lookup);
     }
 }

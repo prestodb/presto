@@ -62,8 +62,8 @@ public class SemiJoinNode
         this.filteringSourceHashVariable = requireNonNull(filteringSourceHashVariable, "filteringSourceHashVariable is null");
         this.distributionType = requireNonNull(distributionType, "distributionType is null");
 
-        checkArgument(source.getOutputSymbols().contains(new Symbol(sourceJoinVariable.getName())), "Source does not contain join symbol");
-        checkArgument(filteringSource.getOutputSymbols().contains(new Symbol(filteringSourceJoinVariable.getName())), "Filtering source does not contain filtering join symbol");
+        checkArgument(source.getOutputVariables().contains(sourceJoinVariable), "Source does not contain join symbol");
+        checkArgument(filteringSource.getOutputVariables().contains(filteringSourceJoinVariable), "Filtering source does not contain filtering join symbol");
     }
 
     public enum DistributionType

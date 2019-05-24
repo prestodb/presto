@@ -51,7 +51,6 @@ import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToR
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class PlanNodeDecorrelator
@@ -168,7 +167,7 @@ public class PlanNodeDecorrelator
             PlanNode decorrelatedChildNode = childDecorrelationResult.node;
 
             if (constantVariables.isEmpty() ||
-                    !constantVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()).containsAll(decorrelatedChildNode.getOutputSymbols())) {
+                    !constantVariables.containsAll(decorrelatedChildNode.getOutputVariables())) {
                 return Optional.empty();
             }
 
@@ -177,7 +176,7 @@ public class PlanNodeDecorrelator
                     idAllocator.getNextId(),
                     decorrelatedChildNode,
                     ImmutableMap.of(),
-                    singleGroupingSet(symbolAllocator.toVariableReferences(decorrelatedChildNode.getOutputSymbols())),
+                    singleGroupingSet(decorrelatedChildNode.getOutputVariables()),
                     ImmutableList.of(),
                     AggregationNode.Step.SINGLE,
                     Optional.empty(),
@@ -258,7 +257,7 @@ public class PlanNodeDecorrelator
             }
 
             DecorrelationResult childDecorrelationResult = childDecorrelationResultOptional.get();
-            Set<VariableReferenceExpression> nodeOutputVariables = ImmutableSet.copyOf(symbolAllocator.toVariableReferences(node.getOutputSymbols()));
+            Set<VariableReferenceExpression> nodeOutputVariables = ImmutableSet.copyOf(node.getOutputVariables());
             List<VariableReferenceExpression> variablesToAdd = childDecorrelationResult.variablesToPropagate.stream()
                     .filter(variable -> !nodeOutputVariables.contains(variable))
                     .collect(toImmutableList());

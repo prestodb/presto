@@ -179,7 +179,7 @@ public class TransformCorrelatedInPredicateToJoin
                 idAllocator.getNextId(),
                 decorrelatedBuildSource,
                 Assignments.builder()
-                        .putIdentities(symbolAllocator.toVariableReferences(decorrelatedBuildSource.getOutputSymbols()))
+                        .putIdentities(decorrelatedBuildSource.getOutputVariables())
                         .put(buildSideKnownNonNull, bigint(0))
                         .build());
 
@@ -213,7 +213,7 @@ public class TransformCorrelatedInPredicateToJoin
                         .put(countMatchesVariable, countWithFilter(matchCondition))
                         .put(countNullMatchesVariable, countWithFilter(nullMatchCondition))
                         .build(),
-                singleGroupingSet(symbolAllocator.toVariableReferences(probeSide.getOutputSymbols())),
+                singleGroupingSet(probeSide.getOutputVariables()),
                 ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
@@ -229,7 +229,7 @@ public class TransformCorrelatedInPredicateToJoin
                 idAllocator.getNextId(),
                 aggregation,
                 Assignments.builder()
-                        .putIdentities(symbolAllocator.toVariableReferences(apply.getInput().getOutputSymbols()))
+                        .putIdentities(apply.getInput().getOutputVariables())
                         .put(inPredicateOutputVariable, inPredicateEquivalent)
                         .build());
     }

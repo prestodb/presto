@@ -19,8 +19,6 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.matching.PropertyPattern;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -41,6 +39,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUniqueVariable;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.transpose;
 import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.dependsOn;
@@ -130,13 +129,13 @@ public class GatherAndMergeWindows
 
             PlanNode targetChild = target.getSource();
 
-            Set<VariableReferenceExpression> targetInputs = ImmutableSet.copyOf(context.getSymbolAllocator().toVariableReferences(targetChild.getOutputSymbols()));
-            Set<VariableReferenceExpression> targetOutputs = ImmutableSet.copyOf(context.getSymbolAllocator().toVariableReferences(target.getOutputSymbols()));
+            Set<VariableReferenceExpression> targetInputs = ImmutableSet.copyOf(targetChild.getOutputVariables());
+            Set<VariableReferenceExpression> targetOutputs = ImmutableSet.copyOf(target.getOutputVariables());
 
             PlanNode newTargetChild = targetChild;
 
             for (ProjectNode project : projects) {
-                Set<Symbol> newTargetChildOutputs = ImmutableSet.copyOf(newTargetChild.getOutputSymbols());
+                Set<VariableReferenceExpression> newTargetChildOutputs = ImmutableSet.copyOf(newTargetChild.getOutputVariables());
 
                 // The only kind of use of the output of the target that we can safely ignore is a simple identity propagation.
                 // The target node, when hoisted above the projections, will provide the symbols directly.
@@ -154,7 +153,7 @@ public class GatherAndMergeWindows
                         .putIdentities(targetInputs)
                         .build();
 
-                if (!newTargetChildOutputs.containsAll(SymbolsExtractor.extractUnique(newAssignments.getExpressions()))) {
+                if (!newTargetChildOutputs.containsAll(extractUniqueVariable(newAssignments.getExpressions(), context.getSymbolAllocator().getTypes()))) {
                     // Projection uses an output of the target -- can't move the target above this projection.
                     return Optional.empty();
                 }
@@ -163,8 +162,8 @@ public class GatherAndMergeWindows
             }
 
             WindowNode newTarget = (WindowNode) target.replaceChildren(ImmutableList.of(newTargetChild));
-            Set<Symbol> newTargetOutputs = ImmutableSet.copyOf(newTarget.getOutputSymbols());
-            if (!newTargetOutputs.containsAll(projects.get(projects.size() - 1).getOutputSymbols())) {
+            Set<VariableReferenceExpression> newTargetOutputs = ImmutableSet.copyOf(newTarget.getOutputVariables());
+            if (!newTargetOutputs.containsAll(projects.get(projects.size() - 1).getOutputVariables())) {
                 // The new target node is hiding some of the projections, which makes this rewrite incorrect.
                 return Optional.empty();
             }

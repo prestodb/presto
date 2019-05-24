@@ -430,9 +430,9 @@ public class TestPredicatePushdown
                 .on(p ->
                         p.join(INNER,
                                 p.filter(new ComparisonExpression(EQUAL, p.symbol("a1").toSymbolReference(), new LongLiteral("1")),
-                                        p.values(p.symbol("a1"))),
-                                p.values(p.symbol("b1")),
-                                ImmutableList.of(new EquiJoinClause(p.symbol("a1"), p.symbol("b1"))),
+                                        p.values(p.variable("a1"))),
+                                p.values(p.variable("b1")),
+                                ImmutableList.of(new EquiJoinClause(p.variable("a1"), p.variable("b1"))),
                                 ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),

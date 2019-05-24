@@ -41,7 +41,6 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.split.SplitSource.SplitBatch;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.Rule.Context;
 import com.facebook.presto.sql.planner.iterative.Rule.Result;
@@ -88,7 +87,7 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;
-import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUnique;
+import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUniqueVariable;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
@@ -308,8 +307,8 @@ public class ExtractSpatialJoins
         PlanNode leftNode = joinNode.getLeft();
         PlanNode rightNode = joinNode.getRight();
 
-        List<Symbol> leftSymbols = leftNode.getOutputSymbols();
-        List<Symbol> rightSymbols = rightNode.getOutputSymbols();
+        List<VariableReferenceExpression> leftVariables = leftNode.getOutputVariables();
+        List<VariableReferenceExpression> rightVariables = rightNode.getOutputVariables();
 
         Expression radius;
         Optional<VariableReferenceExpression> newRadiusVariable;
@@ -317,8 +316,8 @@ public class ExtractSpatialJoins
         if (spatialComparison.getOperator() == LESS_THAN || spatialComparison.getOperator() == LESS_THAN_OR_EQUAL) {
             // ST_Distance(a, b) <= r
             radius = spatialComparison.getRight();
-            Set<Symbol> radiusSymbols = extractUnique(radius);
-            if (radiusSymbols.isEmpty() || (rightSymbols.containsAll(radiusSymbols) && containsNone(leftSymbols, radiusSymbols))) {
+            Set<VariableReferenceExpression> radiusVariables = extractUniqueVariable(radius, context.getSymbolAllocator().getTypes());
+            if (radiusVariables.isEmpty() || (rightVariables.containsAll(radiusVariables) && containsNone(leftVariables, radiusVariables))) {
                 newRadiusVariable = newRadiusVariable(context, radius);
                 newComparison = new ComparisonExpression(spatialComparison.getOperator(), spatialComparison.getLeft(), toExpression(newRadiusVariable, radius));
             }
@@ -329,8 +328,8 @@ public class ExtractSpatialJoins
         else {
             // r >= ST_Distance(a, b)
             radius = spatialComparison.getLeft();
-            Set<Symbol> radiusSymbols = extractUnique(radius);
-            if (radiusSymbols.isEmpty() || (rightSymbols.containsAll(radiusSymbols) && containsNone(leftSymbols, radiusSymbols))) {
+            Set<VariableReferenceExpression> radiusVariables = extractUniqueVariable(radius, context.getSymbolAllocator().getTypes());
+            if (radiusVariables.isEmpty() || (rightVariables.containsAll(radiusVariables) && containsNone(leftVariables, radiusVariables))) {
                 newRadiusVariable = newRadiusVariable(context, radius);
                 newComparison = new ComparisonExpression(spatialComparison.getOperator().flip(), spatialComparison.getRight(), toExpression(newRadiusVariable, radius));
             }
@@ -386,10 +385,10 @@ public class ExtractSpatialJoins
             return Result.empty();
         }
 
-        Set<Symbol> firstSymbols = extractUnique(firstArgument);
-        Set<Symbol> secondSymbols = extractUnique(secondArgument);
+        Set<VariableReferenceExpression> firstVariables = extractUniqueVariable(firstArgument, context.getSymbolAllocator().getTypes());
+        Set<VariableReferenceExpression> secondVariables = extractUniqueVariable(secondArgument, context.getSymbolAllocator().getTypes());
 
-        if (firstSymbols.isEmpty() || secondSymbols.isEmpty()) {
+        if (firstVariables.isEmpty() || secondVariables.isEmpty()) {
             return Result.empty();
         }
 
@@ -403,7 +402,7 @@ public class ExtractSpatialJoins
         PlanNode newRightNode;
 
         // Check if the order of arguments of the spatial function matches the order of join sides
-        int alignment = checkAlignment(joinNode, firstSymbols, secondSymbols);
+        int alignment = checkAlignment(joinNode, firstVariables, secondVariables);
         if (alignment > 0) {
             newLeftNode = newFirstVariable.map(variable -> addProjection(context, leftNode, variable, firstArgument)).orElse(leftNode);
             newRightNode = newSecondVariable.map(variable -> addProjection(context, rightNode, variable, secondArgument)).orElse(rightNode);
@@ -539,22 +538,22 @@ public class ExtractSpatialJoins
         throw new PrestoException(INVALID_SPATIAL_PARTITIONING, format("Invalid name: %s", name));
     }
 
-    private static int checkAlignment(JoinNode joinNode, Set<Symbol> maybeLeftSymbols, Set<Symbol> maybeRightSymbols)
+    private static int checkAlignment(JoinNode joinNode, Set<VariableReferenceExpression> maybeLeftVariables, Set<VariableReferenceExpression> maybeRightVariables)
     {
-        List<Symbol> leftSymbols = joinNode.getLeft().getOutputSymbols();
-        List<Symbol> rightSymbols = joinNode.getRight().getOutputSymbols();
+        List<VariableReferenceExpression> leftVariables = joinNode.getLeft().getOutputVariables();
+        List<VariableReferenceExpression> rightVariables = joinNode.getRight().getOutputVariables();
 
-        if (leftSymbols.containsAll(maybeLeftSymbols)
-                && containsNone(leftSymbols, maybeRightSymbols)
-                && rightSymbols.containsAll(maybeRightSymbols)
-                && containsNone(rightSymbols, maybeLeftSymbols)) {
+        if (leftVariables.containsAll(maybeLeftVariables)
+                && containsNone(leftVariables, maybeRightVariables)
+                && rightVariables.containsAll(maybeRightVariables)
+                && containsNone(rightVariables, maybeLeftVariables)) {
             return 1;
         }
 
-        if (leftSymbols.containsAll(maybeRightSymbols)
-                && containsNone(leftSymbols, maybeLeftSymbols)
-                && rightSymbols.containsAll(maybeLeftSymbols)
-                && containsNone(rightSymbols, maybeRightSymbols)) {
+        if (leftVariables.containsAll(maybeRightVariables)
+                && containsNone(leftVariables, maybeLeftVariables)
+                && rightVariables.containsAll(maybeLeftVariables)
+                && containsNone(rightVariables, maybeRightVariables)) {
             return -1;
         }
 
@@ -587,8 +586,8 @@ public class ExtractSpatialJoins
     private static PlanNode addProjection(Context context, PlanNode node, VariableReferenceExpression variable, Expression expression)
     {
         Assignments.Builder projections = Assignments.builder();
-        for (Symbol outputSymbol : node.getOutputSymbols()) {
-            projections.putIdentity(context.getSymbolAllocator().toVariableReference(outputSymbol));
+        for (VariableReferenceExpression outputVariable : node.getOutputVariables()) {
+            projections.putIdentity(outputVariable);
         }
 
         projections.put(variable, expression);
@@ -598,8 +597,8 @@ public class ExtractSpatialJoins
     private static PlanNode addPartitioningNodes(Context context, PlanNode node, VariableReferenceExpression partitionVariable, KdbTree kdbTree, Expression geometry, Optional<Expression> radius)
     {
         Assignments.Builder projections = Assignments.builder();
-        for (Symbol outputSymbol : node.getOutputSymbols()) {
-            projections.putIdentity(context.getSymbolAllocator().toVariableReference(outputSymbol));
+        for (VariableReferenceExpression outputVariable : node.getOutputVariables()) {
+            projections.putIdentity(outputVariable);
         }
 
         ImmutableList.Builder<Expression> partitioningArguments = ImmutableList.<Expression>builder()
@@ -614,12 +613,12 @@ public class ExtractSpatialJoins
         return new UnnestNode(
                 context.getIdAllocator().getNextId(),
                 new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build()),
-                context.getSymbolAllocator().toVariableReferences(node.getOutputSymbols()),
+                node.getOutputVariables(),
                 ImmutableMap.of(partitionsVariable, ImmutableList.of(partitionVariable)),
                 Optional.empty());
     }
 
-    private static boolean containsNone(Collection<Symbol> values, Collection<Symbol> testValues)
+    private static boolean containsNone(Collection<VariableReferenceExpression> values, Collection<VariableReferenceExpression> testValues)
     {
         return values.stream().noneMatch(ImmutableSet.copyOf(testValues)::contains);
     }

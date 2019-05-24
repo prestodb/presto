@@ -21,7 +21,6 @@ import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -79,7 +78,6 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValuesToConstantExpressions;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.AddExchanges.computeIdentityTranslations;
-import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReferences;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.MULTIPLE;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
@@ -134,15 +132,13 @@ public final class StreamPropertyDerivations
                 .withOtherActualProperties(otherProperties);
 
         result.getPartitioningColumns().ifPresent(columns ->
-                verify(node.getOutputSymbols().containsAll(columns.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet())), "Stream-level partitioning properties contain columns not present in node's output"));
+                verify(node.getOutputVariables().containsAll(columns), "Stream-level partitioning properties contain columns not present in node's output"));
 
-        Set<Symbol> localPropertyColumns = result.getLocalProperties().stream()
+        Set<VariableReferenceExpression> localPropertyColumns = result.getLocalProperties().stream()
                 .flatMap(property -> property.getColumns().stream())
-                .map(VariableReferenceExpression::getName)
-                .map(Symbol::new)
                 .collect(Collectors.toSet());
 
-        verify(node.getOutputSymbols().containsAll(localPropertyColumns), "Stream-level local properties contain columns not present in node's output");
+        verify(node.getOutputVariables().containsAll(localPropertyColumns), "Stream-level local properties contain columns not present in node's output");
 
         return result;
     }
@@ -175,17 +171,17 @@ public final class StreamPropertyDerivations
         public StreamProperties visitJoin(JoinNode node, List<StreamProperties> inputProperties)
         {
             StreamProperties leftProperties = inputProperties.get(0);
-            List<VariableReferenceExpression> outputVariableReferences = toVariableReferences(node.getOutputSymbols(), types);
+            List<VariableReferenceExpression> outputs = node.getOutputVariables();
             boolean unordered = PropertyDerivations.spillPossible(session, node.getType());
 
             switch (node.getType()) {
                 case INNER:
                     return leftProperties
-                            .translate(column -> PropertyDerivations.filterOrRewrite(outputVariableReferences, node.getCriteria(), column))
+                            .translate(column -> PropertyDerivations.filterOrRewrite(outputs, node.getCriteria(), column))
                             .unordered(unordered);
                 case LEFT:
                     return leftProperties
-                            .translate(column -> PropertyDerivations.filterIfMissing(outputVariableReferences, column))
+                            .translate(column -> PropertyDerivations.filterIfMissing(outputs, column))
                             .unordered(unordered);
                 case RIGHT:
                     // since this is a right join, none of the matched output rows will contain nulls
@@ -216,7 +212,7 @@ public final class StreamPropertyDerivations
             switch (node.getType()) {
                 case INNER:
                 case LEFT:
-                    return leftProperties.translate(column -> PropertyDerivations.filterIfMissing(toVariableReferences(node.getOutputSymbols(), types), column));
+                    return leftProperties.translate(column -> PropertyDerivations.filterIfMissing(node.getOutputVariables(), column));
                 default:
                     throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
             }
@@ -471,7 +467,7 @@ public final class StreamPropertyDerivations
         public StreamProperties visitOutput(OutputNode node, List<StreamProperties> inputProperties)
         {
             return Iterables.getOnlyElement(inputProperties)
-                    .translate(column -> PropertyDerivations.filterIfMissing(toVariableReferences(node.getOutputSymbols(), types), column));
+                    .translate(column -> PropertyDerivations.filterIfMissing(node.getOutputVariables(), column));
         }
 
         @Override

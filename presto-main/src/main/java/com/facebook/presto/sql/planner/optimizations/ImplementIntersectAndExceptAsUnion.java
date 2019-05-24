@@ -233,8 +233,8 @@ public class ImplementIntersectAndExceptAsUnion
         {
             ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs = ImmutableListMultimap.builder();
             for (PlanNode source : nodes) {
-                for (int i = 0; i < source.getOutputSymbols().size(); i++) {
-                    outputsToInputs.put(outputs.get(i), new VariableReferenceExpression(source.getOutputSymbols().get(i).getName(), outputs.get(i).getType()));
+                for (int i = 0; i < source.getOutputVariables().size(); i++) {
+                    outputsToInputs.put(outputs.get(i), source.getOutputVariables().get(i));
                 }
             }
 

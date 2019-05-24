@@ -140,14 +140,14 @@ public class RuleAssert
                     formatPlan(plan, types)));
         }
 
-        if (!ImmutableSet.copyOf(plan.getOutputSymbols()).equals(ImmutableSet.copyOf(actual.getOutputSymbols()))) {
+        if (!ImmutableSet.copyOf(plan.getOutputVariables()).equals(ImmutableSet.copyOf(actual.getOutputVariables()))) {
             fail(String.format(
                     "%s: output schema of transformed and original plans are not equivalent\n" +
                             "\texpected: %s\n" +
                             "\tactual:   %s",
                     rule.getClass().getName(),
-                    plan.getOutputSymbols(),
-                    actual.getOutputSymbols()));
+                    plan.getOutputVariables(),
+                    actual.getOutputVariables()));
         }
 
         inTransaction(session -> {

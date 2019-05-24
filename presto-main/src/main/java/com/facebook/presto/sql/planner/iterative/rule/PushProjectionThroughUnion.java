@@ -60,7 +60,7 @@ public class PushProjectionThroughUnion
         UnionNode source = captures.get(CHILD);
 
         // OutputLayout of the resultant Union, will be same as the layout of the Project
-        List<Symbol> outputLayout = parent.getOutputSymbols();
+        List<VariableReferenceExpression> outputLayout = parent.getOutputVariables();
 
         // Mapping from the output symbol to ordered list of symbols from each of the sources
         ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> mappings = ImmutableListMultimap.builder();
@@ -84,10 +84,7 @@ public class PushProjectionThroughUnion
                 projectVariableMapping.put(new VariableReferenceExpression(entry.getKey().getName(), type), variable);
             }
             outputSources.add(new ProjectNode(context.getIdAllocator().getNextId(), source.getSources().get(i), assignments.build()));
-            outputLayout.forEach(symbol -> {
-                VariableReferenceExpression variable = getWithMatchingSymbol(projectVariableMapping, symbol);
-                mappings.put(new VariableReferenceExpression(symbol.getName(), variable.getType()), variable);
-            });
+            outputLayout.forEach(variable -> mappings.put(variable, projectVariableMapping.get(variable)));
         }
 
         return Result.ofPlanNode(new UnionNode(parent.getId(), outputSources.build(), mappings.build()));

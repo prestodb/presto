@@ -75,7 +75,7 @@ class Util
                 .filter(permittedOutputs::contains)
                 .collect(toImmutableList());
 
-        if (restrictedOutputs.size() == node.getOutputSymbols().size()) {
+        if (restrictedOutputs.size() == node.getOutputVariables().size()) {
             return Optional.empty();
         }
 

@@ -43,7 +43,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.preferPartialAggregation;
-import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReferences;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
@@ -173,11 +172,11 @@ public class PushPartialAggregationThroughExchange
         }
 
         for (PlanNode node : partials) {
-            verify(aggregation.getOutputSymbols().equals(node.getOutputSymbols()));
+            verify(aggregation.getOutputVariables().equals(node.getOutputVariables()));
         }
         // Since this exchange source is now guaranteed to have the same symbols as the inputs to the the partial
         // aggregation, we don't need to rewrite symbols in the partitioning function
-        List<VariableReferenceExpression> aggregationOutputs = toVariableReferences(aggregation.getOutputSymbols(), context.getSymbolAllocator().getTypes());
+        List<VariableReferenceExpression> aggregationOutputs = aggregation.getOutputVariables();
         PartitioningScheme partitioning = new PartitioningScheme(
                 exchange.getPartitioningScheme().getPartitioning(),
                 aggregationOutputs,

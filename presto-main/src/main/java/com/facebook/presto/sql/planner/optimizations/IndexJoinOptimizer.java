@@ -158,11 +158,11 @@ public class IndexJoinOptimizer
                                 indexJoinNode = new FilterNode(idAllocator.getNextId(), indexJoinNode, node.getFilter().get());
                             }
 
-                            if (!indexJoinNode.getOutputSymbols().equals(node.getOutputSymbols())) {
+                            if (!indexJoinNode.getOutputVariables().equals(node.getOutputVariables())) {
                                 indexJoinNode = new ProjectNode(
                                         idAllocator.getNextId(),
                                         indexJoinNode,
-                                        Assignments.identity(symbolAllocator.toVariableReferences(node.getOutputSymbols())));
+                                        Assignments.identity(node.getOutputVariables()));
                             }
 
                             return indexJoinNode;
@@ -172,14 +172,14 @@ public class IndexJoinOptimizer
                     case LEFT:
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (!node.getFilter().isPresent() && rightIndexCandidate.isPresent()) {
-                            return createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinVariables, rightJoinVariables), idAllocator, symbolAllocator);
+                            return createIndexJoinWithExpectedOutputs(node.getOutputVariables(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinVariables, rightJoinVariables), idAllocator, symbolAllocator);
                         }
                         break;
 
                     case RIGHT:
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (!node.getFilter().isPresent() && leftIndexCandidate.isPresent()) {
-                            return createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinVariables, leftJoinVariables), idAllocator, symbolAllocator);
+                            return createIndexJoinWithExpectedOutputs(node.getOutputVariables(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinVariables, leftJoinVariables), idAllocator, symbolAllocator);
                         }
                         break;
 
@@ -198,7 +198,7 @@ public class IndexJoinOptimizer
         }
 
         private static PlanNode createIndexJoinWithExpectedOutputs(
-                List<Symbol> expectedOutputs,
+                List<VariableReferenceExpression> expectedOutputs,
                 IndexJoinNode.Type type,
                 PlanNode probe,
                 PlanNode index,
@@ -207,11 +207,11 @@ public class IndexJoinOptimizer
                 SymbolAllocator symbolAllocator)
         {
             PlanNode result = new IndexJoinNode(idAllocator.getNextId(), type, probe, index, equiJoinClause, Optional.empty(), Optional.empty());
-            if (!result.getOutputSymbols().equals(expectedOutputs)) {
+            if (!result.getOutputVariables().equals(expectedOutputs)) {
                 result = new ProjectNode(
                         idAllocator.getNextId(),
                         result,
-                        Assignments.identity(symbolAllocator.toVariableReferences(expectedOutputs)));
+                        Assignments.identity(expectedOutputs));
             }
             return result;
         }
@@ -402,7 +402,7 @@ public class IndexJoinOptimizer
         {
             // Lookup variables can only be passed through the probe side of an index join
             Set<VariableReferenceExpression> probeLookupVariables = context.get().getLookupVariables().stream()
-                    .filter(variable -> node.getProbeSource().getOutputSymbols().contains(new Symbol(variable.getName())))
+                    .filter(node.getProbeSource().getOutputVariables()::contains)
                     .collect(toImmutableSet());
 
             if (probeLookupVariables.isEmpty()) {
@@ -424,7 +424,7 @@ public class IndexJoinOptimizer
         {
             // Lookup variables can only be passed through if they are part of the group by columns
             Set<VariableReferenceExpression> groupByLookupVariables = context.get().getLookupVariables().stream()
-                    .filter(variable -> node.getGroupingKeys().contains(new Symbol(variable.getName())))
+                    .filter(node.getGroupingKeys()::contains)
                     .collect(toImmutableSet());
 
             if (groupByLookupVariables.isEmpty()) {
@@ -532,7 +532,7 @@ public class IndexJoinOptimizer
             public Map<VariableReferenceExpression, VariableReferenceExpression> visitIndexJoin(IndexJoinNode node, Set<VariableReferenceExpression> lookupVariables)
             {
                 Set<VariableReferenceExpression> probeLookupVariables = lookupVariables.stream()
-                        .filter(variable -> node.getProbeSource().getOutputSymbols().contains(new Symbol(variable.getName())))
+                        .filter(node.getProbeSource().getOutputVariables()::contains)
                         .collect(toImmutableSet());
                 checkState(!probeLookupVariables.isEmpty(), "No lookup variables were able to pass through the index join probe source");
                 return node.getProbeSource().accept(this, probeLookupVariables);
@@ -542,7 +542,7 @@ public class IndexJoinOptimizer
             public Map<VariableReferenceExpression, VariableReferenceExpression> visitAggregation(AggregationNode node, Set<VariableReferenceExpression> lookupVariables)
             {
                 Set<VariableReferenceExpression> groupByLookupVariables = lookupVariables.stream()
-                        .filter(variable -> node.getGroupingKeys().contains(new Symbol(variable.getName())))
+                        .filter(node.getGroupingKeys()::contains)
                         .collect(toImmutableSet());
                 checkState(!groupByLookupVariables.isEmpty(), "No lookup variables were able to pass through the aggregation group by");
                 return node.getSource().accept(this, groupByLookupVariables);

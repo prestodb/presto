@@ -251,7 +251,6 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARB
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReferences;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
@@ -1142,7 +1141,7 @@ public class LocalExecutionPlanner
             PlanNode sourceNode = node.getSource();
 
             RowExpression filterExpression = node.getPredicate();
-            List<VariableReferenceExpression> outputVariables = toVariableReferences(node.getOutputSymbols(), context.getTypes());
+            List<VariableReferenceExpression> outputVariables = node.getOutputVariables();
 
             return visitScanFilterAndProject(context, node.getId(), sourceNode, Optional.of(filterExpression), Assignments.identity(outputVariables), outputVariables);
         }
@@ -1317,7 +1316,7 @@ public class LocalExecutionPlanner
                 return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
             }
 
-            List<Type> outputTypes = getSymbolTypes(node.getOutputSymbols(), context.getTypes());
+            List<Type> outputTypes = node.getOutputVariables().stream().map(VariableReferenceExpression::getType).collect(toImmutableList());
             PageBuilder pageBuilder = new PageBuilder(node.getRows().size(), outputTypes);
             for (List<RowExpression> row : node.getRows()) {
                 pageBuilder.declarePosition();
@@ -1407,7 +1406,7 @@ public class LocalExecutionPlanner
             checkState(indexLookupToProbeInput.keySet().equals(node.getLookupVariables()));
 
             // Finalize the symbol lookup layout for the index source
-            List<VariableReferenceExpression> lookupSymbolSchema = ImmutableList.copyOf(node.getLookupVariables());
+            List<VariableReferenceExpression> lookupVariableSchema = ImmutableList.copyOf(node.getLookupVariables());
 
             // Identify how to remap the probe key Input to match the source index lookup layout
             ImmutableList.Builder<Integer> remappedProbeKeyChannelsBuilder = ImmutableList.builder();
@@ -1432,9 +1431,9 @@ public class LocalExecutionPlanner
             };
 
             // Declare the input and output schemas for the index and acquire the actual Index
-            List<ColumnHandle> lookupSchema = lookupSymbolSchema.stream().map(node.getAssignments()::get).collect(toImmutableList());
+            List<ColumnHandle> lookupSchema = lookupVariableSchema.stream().map(node.getAssignments()::get).collect(toImmutableList());
             List<ColumnHandle> outputSchema = node.getAssignments().entrySet().stream()
-                    .filter(entry -> node.getOutputSymbols().contains(new Symbol(entry.getKey().getName())))
+                    .filter(entry -> node.getOutputVariables().contains(entry.getKey()))
                     .map(Map.Entry::getValue)
                     .collect(toImmutableList());
 
@@ -1633,7 +1632,7 @@ public class LocalExecutionPlanner
                 if (functionMetadata.getOperatorType().get() == OperatorType.LESS_THAN || functionMetadata.getOperatorType().get() == OperatorType.LESS_THAN_OR_EQUAL) {
                     // ST_Distance(a, b) <= r
                     RowExpression radius = spatialComparison.getArguments().get(1);
-                    if (radius instanceof VariableReferenceExpression && node.getRight().getOutputSymbols().contains(new Symbol(((VariableReferenceExpression) radius).getName()))) {
+                    if (radius instanceof VariableReferenceExpression && node.getRight().getOutputVariables().contains(radius)) {
                         CallExpression spatialFunction = (CallExpression) spatialComparison.getArguments().get(0);
                         Optional<PhysicalOperation> operation = tryCreateSpatialJoin(
                                 context,
@@ -1671,10 +1670,10 @@ public class LocalExecutionPlanner
             VariableReferenceExpression secondVariable = (VariableReferenceExpression) arguments.get(1);
 
             PlanNode probeNode = node.getLeft();
-            Set<SymbolReference> probeSymbols = getSymbolReferences(probeNode.getOutputSymbols());
+            Set<SymbolReference> probeSymbols = getSymbolReferences(probeNode.getOutputVariables());
 
             PlanNode buildNode = node.getRight();
-            Set<SymbolReference> buildSymbols = getSymbolReferences(buildNode.getOutputSymbols());
+            Set<SymbolReference> buildSymbols = getSymbolReferences(buildNode.getOutputVariables());
 
             if (probeSymbols.contains(new SymbolReference(firstVariable.getName())) && buildSymbols.contains(new SymbolReference(secondVariable.getName()))) {
                 return Optional.of(createSpatialLookupJoin(
@@ -1744,9 +1743,9 @@ public class LocalExecutionPlanner
             }
         }
 
-        private Set<SymbolReference> getSymbolReferences(Collection<Symbol> symbols)
+        private Set<SymbolReference> getSymbolReferences(Collection<VariableReferenceExpression> variables)
         {
-            return symbols.stream().map(Symbol::toSymbolReference).collect(toImmutableSet());
+            return variables.stream().map(VariableReferenceExpression::getName).map(SymbolReference::new).collect(toImmutableSet());
         }
 
         private PhysicalOperation createNestedLoopJoin(JoinNode node, LocalExecutionPlanContext context)
@@ -2229,7 +2228,7 @@ public class LocalExecutionPlanner
                     inputChannels,
                     session,
                     statisticsAggregation,
-                    getSymbolTypes(node.getOutputSymbols(), context.getTypes()),
+                    getVariableTypes(node.getOutputVariables()),
                     tableCommitContextCodec,
                     stageExecutionDescriptor.isRecoverableGroupedExecution());
 
@@ -2442,10 +2441,10 @@ public class LocalExecutionPlanner
 
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
             List<Integer> channels = node.getPartitioningScheme().getPartitioning().getArguments().stream()
-                    .map(argument -> node.getOutputSymbols().indexOf(argument.getColumn()))
+                    .map(argument -> node.getOutputVariables().indexOf(argument.getVariableReference()))
                     .collect(toImmutableList());
             Optional<Integer> hashChannel = node.getPartitioningScheme().getHashColumn()
-                    .map(variable -> node.getOutputSymbols().indexOf(new Symbol(variable.getName())));
+                    .map(variable -> node.getOutputVariables().indexOf(variable));
 
             PipelineExecutionStrategy exchangeSourcePipelineExecutionStrategy = GROUPED_EXECUTION;
             List<DriverFactoryParameters> driverFactoryParametersList = new ArrayList<>();
@@ -2510,13 +2509,13 @@ public class LocalExecutionPlanner
 
         private List<Type> getSourceOperatorTypes(PlanNode node, TypeProvider types)
         {
-            return getSymbolTypes(node.getOutputSymbols(), types);
+            return getVariableTypes(node.getOutputVariables());
         }
 
-        private List<Type> getSymbolTypes(List<Symbol> symbols, TypeProvider types)
+        private List<Type> getVariableTypes(List<VariableReferenceExpression> variables)
         {
-            return symbols.stream()
-                    .map(types::get)
+            return variables.stream()
+                    .map(VariableReferenceExpression::getType)
                     .collect(toImmutableList());
         }
 

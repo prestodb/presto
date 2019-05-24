@@ -117,7 +117,6 @@ import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReferences;
 import static com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarizer.aggregateStageStats;
 import static com.facebook.presto.sql.planner.planPrinter.TextRenderer.formatDouble;
 import static com.facebook.presto.sql.planner.planPrinter.TextRenderer.formatPositions;
@@ -322,7 +321,7 @@ public class PlanPrinter
                 types.allVariables(),
                 SINGLE_DISTRIBUTION,
                 ImmutableList.of(plan.getId()),
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), toVariableReferences(plan.getOutputSymbols(), types)),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputVariables()),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
                 StatsAndCosts.empty(),
@@ -427,7 +426,7 @@ public class PlanPrinter
                     format("[%s, lookup = %s]", node.getIndexHandle(), node.getLookupVariables()));
 
             for (Map.Entry<VariableReferenceExpression, ColumnHandle> entry : node.getAssignments().entrySet()) {
-                if (node.getOutputSymbols().contains(new Symbol(entry.getKey().getName()))) {
+                if (node.getOutputVariables().contains(entry.getKey())) {
                     nodeOutput.appendDetailsLine("%s := %s", entry.getKey(), entry.getValue());
                 }
             }
@@ -836,9 +835,9 @@ public class PlanPrinter
             NodeRepresentation nodeOutput = addNode(node, "Output", format("[%s]", Joiner.on(", ").join(node.getColumnNames())));
             for (int i = 0; i < node.getColumnNames().size(); i++) {
                 String name = node.getColumnNames().get(i);
-                Symbol symbol = node.getOutputSymbols().get(i);
-                if (!name.equals(symbol.toString())) {
-                    nodeOutput.appendDetailsLine("%s := %s", name, symbol);
+                VariableReferenceExpression variable = node.getOutputVariables().get(i);
+                if (!name.equals(variable.toString())) {
+                    nodeOutput.appendDetailsLine("%s := %s", name, variable);
                 }
             }
             return processChildren(node, context);

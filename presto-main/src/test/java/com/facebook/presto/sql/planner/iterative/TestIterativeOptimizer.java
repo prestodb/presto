@@ -113,7 +113,7 @@ public class TestIterativeOptimizer
 
         private static boolean isIdentityProjection(ProjectNode project)
         {
-            return ImmutableSet.copyOf(project.getOutputSymbols()).equals(ImmutableSet.copyOf(project.getSource().getOutputSymbols()));
+            return ImmutableSet.copyOf(project.getOutputVariables()).equals(ImmutableSet.copyOf(project.getSource().getOutputVariables()));
         }
     }
 }

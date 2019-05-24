@@ -163,12 +163,8 @@ class RelationPlanner
         }
 
         List<VariableReferenceExpression> outputVariables = outputVariablesBuilder.build();
-        List<Symbol> outputSymbols = outputVariables.stream()
-                .map(VariableReferenceExpression::getName)
-                .map(Symbol::new)
-                .collect(toImmutableList());
         PlanNode root = new TableScanNode(idAllocator.getNextId(), handle, outputVariables, columns.build());
-        return new RelationPlan(root, scope, symbolAllocator.toVariableReferences(outputSymbols));
+        return new RelationPlan(root, scope, outputVariables);
     }
 
     @Override
@@ -438,8 +434,8 @@ class RelationPlanner
         Assignments.Builder leftCoercions = Assignments.builder();
         Assignments.Builder rightCoercions = Assignments.builder();
 
-        leftCoercions.putIdentities(symbolAllocator.toVariableReferences(left.getRoot().getOutputSymbols()));
-        rightCoercions.putIdentities(symbolAllocator.toVariableReferences(right.getRoot().getOutputSymbols()));
+        leftCoercions.putIdentities(left.getRoot().getOutputVariables());
+        rightCoercions.putIdentities(right.getRoot().getOutputVariables());
         for (int i = 0; i < joinColumns.size(); i++) {
             Identifier identifier = joinColumns.get(i);
             Type type = analysis.getType(identifier);
@@ -546,11 +542,11 @@ class RelationPlanner
 
         PlanBuilder planBuilder = subqueryPlanner.appendLateralJoin(leftPlanBuilder, rightPlanBuilder, lateral.getQuery(), true, LateralJoinNode.Type.INNER);
 
-        List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
-                .addAll(leftPlan.getRoot().getOutputSymbols())
-                .addAll(rightPlan.getRoot().getOutputSymbols())
+        List<VariableReferenceExpression> outputVariables = ImmutableList.<VariableReferenceExpression>builder()
+                .addAll(leftPlan.getRoot().getOutputVariables())
+                .addAll(rightPlan.getRoot().getOutputVariables())
                 .build();
-        return new RelationPlan(planBuilder.getRoot(), analysis.getScope(join), symbolAllocator.toVariableReferences(outputSymbols));
+        return new RelationPlan(planBuilder.getRoot(), analysis.getScope(join), outputVariables);
     }
 
     private static boolean isEqualComparisonExpression(Expression conjunct)
@@ -604,7 +600,7 @@ class RelationPlanner
         checkState(!unnestedVariablesIterator.hasNext(), "Not all output symbols were matched with input symbols");
 
         UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), projectNode, leftPlan.getFieldMappings(), unnestVariables.build(), ordinalityVariable);
-        return new RelationPlan(unnestNode, analysis.getScope(joinNode), symbolAllocator.toVariableReferences(unnestNode.getOutputSymbols()));
+        return new RelationPlan(unnestNode, analysis.getScope(joinNode), unnestNode.getOutputVariables());
     }
 
     @Override
@@ -775,7 +771,7 @@ class RelationPlanner
         if (node.isDistinct()) {
             planNode = distinct(planNode);
         }
-        return new RelationPlan(planNode, analysis.getScope(node), symbolAllocator.toVariableReferences(planNode.getOutputSymbols()));
+        return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputVariables());
     }
 
     @Override
@@ -859,7 +855,7 @@ class RelationPlanner
         return new AggregationNode(idAllocator.getNextId(),
                 node,
                 ImmutableMap.of(),
-                singleGroupingSet(symbolAllocator.toVariableReferences(node.getOutputSymbols())),
+                singleGroupingSet(node.getOutputVariables()),
                 ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),

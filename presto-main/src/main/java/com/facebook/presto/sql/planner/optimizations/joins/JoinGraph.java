@@ -15,8 +15,6 @@ package com.facebook.presto.sql.planner.optimizations.joins;
 
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -60,23 +58,23 @@ public class JoinGraph
     /**
      * Builds all (distinct) {@link JoinGraph}-es whole plan tree.
      */
-    public static List<JoinGraph> buildFrom(PlanNode plan, TypeProvider types)
+    public static List<JoinGraph> buildFrom(PlanNode plan)
     {
-        return buildFrom(plan, Lookup.noLookup(), types);
+        return buildFrom(plan, Lookup.noLookup());
     }
 
     /**
      * Builds {@link JoinGraph} containing {@code plan} node.
      */
-    public static JoinGraph buildShallowFrom(PlanNode plan, Lookup lookup, TypeProvider types)
+    public static JoinGraph buildShallowFrom(PlanNode plan, Lookup lookup)
     {
-        JoinGraph graph = plan.accept(new Builder(true, lookup), new Context(types));
+        JoinGraph graph = plan.accept(new Builder(true, lookup), new Context());
         return graph;
     }
 
-    private static List<JoinGraph> buildFrom(PlanNode plan, Lookup lookup, TypeProvider types)
+    private static List<JoinGraph> buildFrom(PlanNode plan, Lookup lookup)
     {
-        Context context = new Context(types);
+        Context context = new Context();
         JoinGraph graph = plan.accept(new Builder(false, lookup), context);
         if (graph.size() > 1) {
             context.addSubGraph(graph);
@@ -211,8 +209,8 @@ public class JoinGraph
             checkState(context.containsVariable(leftVariable));
             checkState(context.containsVariable(rightVariable));
 
-            PlanNode left = context.getSymbolSource(leftVariable);
-            PlanNode right = context.getSymbolSource(rightVariable);
+            PlanNode left = context.getVariableSource(leftVariable);
+            PlanNode right = context.getVariableSource(rightVariable);
             edges.put(left.getId(), new Edge(right, leftVariable, rightVariable));
             edges.put(right.getId(), new Edge(left, rightVariable, leftVariable));
         }
@@ -246,8 +244,8 @@ public class JoinGraph
                 }
             }
 
-            for (Symbol symbol : node.getOutputSymbols()) {
-                context.setSymbolSource(symbol, node);
+            for (VariableReferenceExpression variable : node.getOutputVariables()) {
+                context.setVariableSource(variable, node);
             }
             return new JoinGraph(node);
         }
@@ -349,19 +347,13 @@ public class JoinGraph
     private static class Context
     {
         private final Map<VariableReferenceExpression, PlanNode> variableSources = new HashMap<>();
-        private final TypeProvider types;
 
         // TODO When com.facebook.presto.sql.planner.optimizations.EliminateCrossJoins is removed, remove 'joinGraphs'
         private final List<JoinGraph> joinGraphs = new ArrayList<>();
 
-        public Context(TypeProvider types)
+        public void setVariableSource(VariableReferenceExpression variable, PlanNode node)
         {
-            this.types = requireNonNull(types, "types is null");
-        }
-
-        public void setSymbolSource(Symbol symbol, PlanNode node)
-        {
-            variableSources.put(new VariableReferenceExpression(symbol.getName(), types.get(symbol)), node);
+            variableSources.put(variable, node);
         }
 
         public void addSubGraph(JoinGraph graph)
@@ -374,7 +366,7 @@ public class JoinGraph
             return variableSources.containsKey(variable);
         }
 
-        public PlanNode getSymbolSource(VariableReferenceExpression variable)
+        public PlanNode getVariableSource(VariableReferenceExpression variable)
         {
             checkState(containsVariable(variable));
             return variableSources.get(variable);

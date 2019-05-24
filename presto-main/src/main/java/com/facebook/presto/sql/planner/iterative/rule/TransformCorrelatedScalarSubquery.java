@@ -134,7 +134,7 @@ public class TransformCorrelatedScalarSubquery
                 context.getIdAllocator().getNextId(),
                 rewrittenLateralJoinNode,
                 isDistinct,
-                context.getSymbolAllocator().toVariableReferences(rewrittenLateralJoinNode.getInput().getOutputSymbols()),
+                rewrittenLateralJoinNode.getInput().getOutputVariables(),
                 Optional.empty());
 
         FilterNode filterNode = new FilterNode(
@@ -155,6 +155,6 @@ public class TransformCorrelatedScalarSubquery
         return Result.ofPlanNode(new ProjectNode(
                 context.getIdAllocator().getNextId(),
                 filterNode,
-                Assignments.identity(context.getSymbolAllocator().toVariableReferences(lateralJoinNode.getOutputSymbols()))));
+                Assignments.identity(lateralJoinNode.getOutputVariables())));
     }
 }

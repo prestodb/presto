@@ -29,7 +29,6 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -86,7 +85,7 @@ public class ApplyNode
         requireNonNull(correlation, "correlation is null");
         requireNonNull(originSubqueryError, "originSubqueryError is null");
 
-        checkArgument(input.getOutputSymbols().containsAll(correlation.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList())), "Input does not contain symbols from correlation");
+        checkArgument(input.getOutputVariables().containsAll(correlation), "Input does not contain symbols from correlation");
         checkArgument(
                 subqueryAssignments.getExpressions().stream().allMatch(ApplyNode::isSupportedSubqueryExpression),
                 "Unexpected expression used for subquery expression");

@@ -114,11 +114,11 @@ public class Memo
     {
         PlanNode old = getGroup(group).membership;
 
-        checkArgument(new HashSet<>(old.getOutputSymbols()).equals(new HashSet<>(node.getOutputSymbols())),
+        checkArgument(new HashSet<>(old.getOutputVariables()).equals(new HashSet<>(node.getOutputVariables())),
                 "%s: transformed expression doesn't produce same outputs: %s vs %s",
                 reason,
-                old.getOutputSymbols(),
-                node.getOutputSymbols());
+                old.getOutputVariables(),
+                node.getOutputVariables());
 
         if (node instanceof GroupReference) {
             node = getNode(((GroupReference) node).getGroupId());

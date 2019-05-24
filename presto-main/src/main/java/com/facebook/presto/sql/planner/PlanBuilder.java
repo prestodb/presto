@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
@@ -103,8 +104,8 @@ class PlanBuilder
         Assignments.Builder projections = Assignments.builder();
 
         // add an identity projection for underlying plan
-        for (Symbol symbol : getRoot().getOutputSymbols()) {
-            projections.put(symbolAllocator.toVariableReference(symbol), symbol.toSymbolReference());
+        for (VariableReferenceExpression variable : getRoot().getOutputVariables()) {
+            projections.put(variable, new SymbolReference(variable.getName()));
         }
 
         ImmutableMap.Builder<VariableReferenceExpression, Expression> newTranslations = ImmutableMap.builder();

@@ -101,7 +101,6 @@ import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Glo
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.streamPartitionedOn;
 import static com.facebook.presto.sql.planner.optimizations.AddExchanges.computeIdentityTranslations;
 import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReference;
-import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReferences;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -131,17 +130,15 @@ public class PropertyDerivations
         ActualProperties output = node.accept(new Visitor(metadata, session, types, parser), inputProperties);
 
         output.getNodePartitioning().ifPresent(partitioning ->
-                verify(node.getOutputSymbols().containsAll(partitioning.getColumns()), "Node-level partitioning properties contain columns not present in node's output"));
+                verify(node.getOutputVariables().containsAll(partitioning.getVariableReferences()), "Node-level partitioning properties contain columns not present in node's output"));
 
-        verify(node.getOutputSymbols().containsAll(output.getConstants().keySet().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet())), "Node-level constant properties contain columns not present in node's output");
+        verify(node.getOutputVariables().containsAll(output.getConstants().keySet()), "Node-level constant properties contain columns not present in node's output");
 
-        Set<Symbol> localPropertyColumns = output.getLocalProperties().stream()
+        Set<VariableReferenceExpression> localPropertyColumns = output.getLocalProperties().stream()
                 .flatMap(property -> property.getColumns().stream())
-                .map(VariableReferenceExpression::getName)
-                .map(Symbol::new)
                 .collect(Collectors.toSet());
 
-        verify(node.getOutputSymbols().containsAll(localPropertyColumns), "Node-level local properties contain columns not present in node's output");
+        verify(node.getOutputVariables().containsAll(localPropertyColumns), "Node-level local properties contain columns not present in node's output");
         return output;
     }
 
@@ -184,7 +181,7 @@ public class PropertyDerivations
         public ActualProperties visitOutput(OutputNode node, List<ActualProperties> inputProperties)
         {
             return Iterables.getOnlyElement(inputProperties)
-                    .translate(column -> PropertyDerivations.filterIfMissing(toVariableReferences(node.getOutputSymbols(), types), column));
+                    .translate(column -> PropertyDerivations.filterIfMissing(node.getOutputVariables(), column));
         }
 
         @Override
@@ -201,8 +198,8 @@ public class PropertyDerivations
             ImmutableList.Builder<LocalProperty<VariableReferenceExpression>> newLocalProperties = ImmutableList.builder();
             newLocalProperties.addAll(properties.getLocalProperties());
             newLocalProperties.add(new GroupingProperty<>(ImmutableList.of(node.getIdVariable())));
-            node.getSource().getOutputSymbols().stream()
-                    .forEach(column -> newLocalProperties.add(new ConstantProperty<>(toVariableReference(column, types))));
+            node.getSource().getOutputVariables().stream()
+                    .forEach(column -> newLocalProperties.add(new ConstantProperty<>(column)));
 
             if (properties.getNodePartitioning().isPresent()) {
                 // preserve input (possibly preferred) partitioning
@@ -403,7 +400,7 @@ public class PropertyDerivations
         {
             ActualProperties probeProperties = inputProperties.get(0);
             ActualProperties buildProperties = inputProperties.get(1);
-            List<VariableReferenceExpression> outputVariableReferences = toVariableReferences(node.getOutputSymbols(), types);
+            List<VariableReferenceExpression> outputVariableReferences = node.getOutputVariables();
 
             boolean unordered = spillPossible(session, node.getType());
 
@@ -435,7 +432,7 @@ public class PropertyDerivations
                             .unordered(unordered)
                             .build();
                 case RIGHT:
-                    buildProperties = buildProperties.translate(column -> filterIfMissing(toVariableReferences(node.getOutputSymbols(), types), column));
+                    buildProperties = buildProperties.translate(column -> filterIfMissing(node.getOutputVariables(), column));
 
                     return ActualProperties.builderFrom(buildProperties.translate(column -> filterIfMissing(outputVariableReferences, column)))
                             .local(ImmutableList.of())
@@ -463,12 +460,12 @@ public class PropertyDerivations
         {
             ActualProperties probeProperties = inputProperties.get(0);
             ActualProperties buildProperties = inputProperties.get(1);
-            List<VariableReferenceExpression> outputVariableReferences = toVariableReferences(node.getOutputSymbols(), types);
+            List<VariableReferenceExpression> outputs = node.getOutputVariables();
 
             switch (node.getType()) {
                 case INNER:
-                    probeProperties = probeProperties.translate(column -> filterIfMissing(outputVariableReferences, column));
-                    buildProperties = buildProperties.translate(column -> filterIfMissing(outputVariableReferences, column));
+                    probeProperties = probeProperties.translate(column -> filterIfMissing(outputs, column));
+                    buildProperties = buildProperties.translate(column -> filterIfMissing(outputs, column));
 
                     Map<VariableReferenceExpression, ConstantExpression> constants = new HashMap<>();
                     constants.putAll(probeProperties.getConstants());
@@ -478,7 +475,7 @@ public class PropertyDerivations
                             .constants(constants)
                             .build();
                 case LEFT:
-                    return ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(outputVariableReferences, column)))
+                    return ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(outputs, column)))
                             .build();
                 default:
                     throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
@@ -526,11 +523,11 @@ public class PropertyDerivations
             for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
                 List<VariableReferenceExpression> inputVariables = node.getInputs().get(sourceIndex);
                 Map<VariableReferenceExpression, VariableReferenceExpression> inputToOutput = new HashMap<>();
-                for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-                    inputToOutput.put(inputVariables.get(i), toVariableReference(node.getOutputSymbols().get(i), types));
+                for (int i = 0; i < node.getOutputVariables().size(); i++) {
+                    inputToOutput.put(inputVariables.get(i), node.getOutputVariables().get(i));
                 }
 
-                ActualProperties translated = inputProperties.get(sourceIndex).translate(symbol -> Optional.ofNullable(inputToOutput.get(symbol)));
+                ActualProperties translated = inputProperties.get(sourceIndex).translate(variable -> Optional.ofNullable(inputToOutput.get(variable)));
 
                 entries = (entries == null) ? translated.getConstants().entrySet() : Sets.intersection(entries, translated.getConstants().entrySet());
             }

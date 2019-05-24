@@ -301,9 +301,9 @@ public class UnaliasSymbolReferences
             // All symbols are canonical.
             Map<List<VariableReferenceExpression>, VariableReferenceExpression> inputsToOutputs = new HashMap<>();
             // Map each same list of input symbols [I1, I2, ..., In] to the same output symbol O
-            for (int symbolIndex = 0; symbolIndex < node.getOutputSymbols().size(); symbolIndex++) {
-                VariableReferenceExpression canonicalOutput = canonicalize(node.getOutputVariables().get(symbolIndex));
-                List<VariableReferenceExpression> canonicalInputs = canonicalizeExchangeNodeInputs(node, symbolIndex);
+            for (int variableIndex = 0; variableIndex < node.getOutputVariables().size(); variableIndex++) {
+                VariableReferenceExpression canonicalOutput = canonicalize(node.getOutputVariables().get(variableIndex));
+                List<VariableReferenceExpression> canonicalInputs = canonicalizeExchangeNodeInputs(node, variableIndex);
                 VariableReferenceExpression output = inputsToOutputs.get(canonicalInputs);
 
                 if (output == null || canonicalOutput.equals(output)) {
@@ -378,11 +378,11 @@ public class UnaliasSymbolReferences
                             })
                             .collect(toImmutableList()))
                     .collect(toImmutableList());
-            List<Symbol> canonicalizedOutputSymbols = canonicalizeAndDistinct(node.getOutputSymbols());
-            checkState(node.getOutputSymbols().size() == canonicalizedOutputSymbols.size(), "Values output symbols were pruned");
+            List<VariableReferenceExpression> canonicalizedOutputVariables = canonicalizeAndDistinctVariable(node.getOutputVariables());
+            checkState(node.getOutputVariables().size() == canonicalizedOutputVariables.size(), "Values output symbols were pruned");
             return new ValuesNode(
                     node.getId(),
-                    canonicalizeAndDistinctVariable(node.getOutputVariables()),
+                    canonicalizedOutputVariables,
                     canonicalizedRows);
         }
 
@@ -447,9 +447,8 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            List<Symbol> canonical = Lists.transform(node.getOutputSymbols(), this::canonicalize);
-            List<VariableReferenceExpression> canonicalVariables = Lists.transform(node.getOutputVariables(), this::canonicalize);
-            return new OutputNode(node.getId(), source, node.getColumnNames(), canonicalVariables);
+            List<VariableReferenceExpression> canonical = Lists.transform(node.getOutputVariables(), this::canonicalize);
+            return new OutputNode(node.getId(), source, node.getColumnNames(), canonical);
         }
 
         @Override
@@ -519,7 +518,7 @@ public class UnaliasSymbolReferences
             if (node.getType().equals(INNER)) {
                 canonicalCriteria.stream()
                         .filter(clause -> clause.getLeft().getType().equals(clause.getRight().getType()))
-                        .filter(clause -> node.getOutputSymbols().contains(new Symbol(clause.getLeft().getName())))
+                        .filter(clause -> node.getOutputVariables().contains(clause.getLeft()))
                         .forEach(clause -> map(clause.getRight(), clause.getLeft()));
             }
 

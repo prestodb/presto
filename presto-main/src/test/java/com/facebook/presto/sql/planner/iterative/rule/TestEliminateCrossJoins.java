@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
@@ -115,7 +114,7 @@ public class TestEliminateCrossJoins
                         variable("a"), variable("c"),
                         variable("c"), variable("b"));
 
-        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan, TypeProvider.fromVariables(variable("a"), variable("b"), variable("c"))));
+        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -145,7 +144,7 @@ public class TestEliminateCrossJoins
 
         PlanNode plan = joinNode(leftPlan, rightPlan);
 
-        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan, TypeProvider.fromVariables(variable("a"), variable("b"), variable("c"), variable("x"), variable("y"), variable("z"))));
+        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -165,7 +164,7 @@ public class TestEliminateCrossJoins
                         variable("c1"), variable("b1"),
                         variable("c2"), variable("b2"));
 
-        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan, TypeProvider.fromVariables(variable("a"), variable("b1"), variable("b2"), variable("c1"), variable("c2"))));
+        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -184,7 +183,7 @@ public class TestEliminateCrossJoins
                         values(variable("c")),
                         variable("c"), variable("b"));
 
-        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan, TypeProvider.fromVariables(variable("a"), variable("b"), variable("c"))));
+        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -202,7 +201,7 @@ public class TestEliminateCrossJoins
                         values(variable("c")),
                         variable("c"), variable("b"));
 
-        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan, TypeProvider.fromVariables(variable("a"), variable("b"), variable("c"))));
+        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -224,7 +223,7 @@ public class TestEliminateCrossJoins
                         variable("a2"), variable("c"),
                         variable("c"), variable("b"));
 
-        assertEquals(JoinGraph.buildFrom(plan, TypeProvider.fromVariables(variable("a1"), variable("a2"), variable("b"), variable("c"))).size(), 2);
+        assertEquals(JoinGraph.buildFrom(plan).size(), 2);
     }
 
     private Function<PlanBuilder, PlanNode> crossJoinAndJoin(JoinNode.Type secondJoinType)

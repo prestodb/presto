@@ -18,7 +18,6 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.SymbolMapper;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -29,19 +28,15 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isPushTableWriteThroughUnion;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableWriterNode;
 import static com.facebook.presto.sql.planner.plan.Patterns.union;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Iterables.getOnlyElement;
 
 public class PushTableWriteThroughUnion
         implements Rule<TableWriterNode>
@@ -100,16 +95,14 @@ public class PushTableWriteThroughUnion
         ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> mappings = ImmutableMap.builder();
         mappings.putAll(inputMappings);
         ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> outputMappings = ImmutableMap.builder();
-        for (Symbol outputSymbol : writerNode.getOutputSymbols()) {
-            Optional<VariableReferenceExpression> outputVariable = mapSymbolToVariable(inputMappings.keySet(), outputSymbol);
-            if (outputVariable.isPresent()) {
-                outputMappings.put(outputVariable.get(), inputMappings.get(outputVariable.get()));
+        for (VariableReferenceExpression outputVariable : writerNode.getOutputVariables()) {
+            if (inputMappings.containsKey(outputVariable)) {
+                outputMappings.put(outputVariable, inputMappings.get(outputVariable));
             }
             else {
-                VariableReferenceExpression newVariable = context.getSymbolAllocator().newVariable(outputSymbol);
-                VariableReferenceExpression output = new VariableReferenceExpression(outputSymbol.getName(), newVariable.getType());
-                outputMappings.put(output, newVariable);
-                mappings.put(output, newVariable);
+                VariableReferenceExpression newVariable = context.getSymbolAllocator().newVariable(outputVariable);
+                outputMappings.put(outputVariable, newVariable);
+                mappings.put(outputVariable, newVariable);
             }
         }
         sourceMappings.add(outputMappings.build());
@@ -123,16 +116,5 @@ public class PushTableWriteThroughUnion
                 .keySet()
                 .stream()
                 .collect(toImmutableMap(key -> key, key -> node.getVariableMapping().get(key).get(source)));
-    }
-
-    private static Optional<VariableReferenceExpression> mapSymbolToVariable(Collection<VariableReferenceExpression> variables, Symbol symbol)
-    {
-        List<VariableReferenceExpression> equivalence = variables.stream()
-                .filter(variable -> variable.getName().equals(symbol.getName()))
-                .collect(toImmutableList());
-        if (equivalence.isEmpty()) {
-            return Optional.empty();
-        }
-        return Optional.of(getOnlyElement(equivalence));
     }
 }

@@ -79,7 +79,7 @@ public class ScalarAggregationToJoinRewriter
 
         VariableReferenceExpression nonNull = symbolAllocator.newVariable("non_null", BooleanType.BOOLEAN);
         Assignments scalarAggregationSourceAssignments = Assignments.builder()
-                .putIdentities(symbolAllocator.toVariableReferences(source.get().getNode().getOutputSymbols()))
+                .putIdentities(source.get().getNode().getOutputVariables())
                 .put(nonNull, TRUE_LITERAL)
                 .build();
         ProjectNode scalarAggregationSourceWithNonNullableVariable = new ProjectNode(
@@ -159,7 +159,7 @@ public class ScalarAggregationToJoinRewriter
 
     private List<VariableReferenceExpression> getTruncatedAggregationVariables(LateralJoinNode lateralJoinNode, AggregationNode aggregationNode)
     {
-        Set<VariableReferenceExpression> applyVariables = new HashSet<>(symbolAllocator.toVariableReferences(lateralJoinNode.getOutputSymbols()));
+        Set<VariableReferenceExpression> applyVariables = new HashSet<>(lateralJoinNode.getOutputVariables());
         return aggregationNode.getOutputVariables().stream()
                 .filter(applyVariables::contains)
                 .collect(toImmutableList());
@@ -192,7 +192,7 @@ public class ScalarAggregationToJoinRewriter
                 idAllocator.getNextId(),
                 leftOuterJoin,
                 aggregations.build(),
-                singleGroupingSet(symbolAllocator.toVariableReferences(leftOuterJoin.getLeft().getOutputSymbols())),
+                singleGroupingSet(leftOuterJoin.getLeft().getOutputVariables()),
                 ImmutableList.of(),
                 scalarAggregation.getStep(),
                 scalarAggregation.getHashVariable(),

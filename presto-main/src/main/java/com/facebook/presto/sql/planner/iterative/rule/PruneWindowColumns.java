@@ -74,7 +74,7 @@ public class PruneWindowColumns
                 windowNode.getPrePartitionedInputs(),
                 windowNode.getPreSortedOrderPrefix());
 
-        if (prunedWindowNode.getOutputSymbols().size() == windowNode.getOutputSymbols().size()) {
+        if (prunedWindowNode.getOutputVariables().size() == windowNode.getOutputVariables().size()) {
             // Neither function pruning nor input pruning was successful.
             return Optional.empty();
         }

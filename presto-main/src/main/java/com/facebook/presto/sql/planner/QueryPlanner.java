@@ -287,7 +287,7 @@ class QueryPlanner
 
     private PlanBuilder planBuilderFor(PlanBuilder builder, Scope scope)
     {
-        return planBuilderFor(new RelationPlan(builder.getRoot(), scope, symbolAllocator.toVariableReferences(builder.getRoot().getOutputSymbols())));
+        return planBuilderFor(new RelationPlan(builder.getRoot(), scope, builder.getRoot().getOutputVariables()));
     }
 
     private PlanBuilder planBuilderFor(RelationPlan relationPlan)
@@ -406,13 +406,13 @@ class QueryPlanner
                 analysis.getParameters());
     }
 
-    private PlanBuilder explicitCoercionSymbols(PlanBuilder subPlan, List<Symbol> alreadyCoerced, Iterable<? extends Expression> uncoerced)
+    private PlanBuilder explicitCoercionSymbols(PlanBuilder subPlan, List<VariableReferenceExpression> alreadyCoerced, Iterable<? extends Expression> uncoerced)
     {
         TranslationMap translations = subPlan.copyTranslations();
 
         Assignments assignments = Assignments.builder()
                 .putAll(coerce(uncoerced, subPlan, translations))
-                .putIdentities(symbolAllocator.toVariableReferences(alreadyCoerced))
+                .putIdentities(alreadyCoerced)
                 .build();
 
         return new PlanBuilder(translations, new ProjectNode(
@@ -671,7 +671,7 @@ class QueryPlanner
         TranslationMap newTranslations = subPlan.copyTranslations();
 
         Assignments.Builder projections = Assignments.builder();
-        projections.putIdentities(symbolAllocator.toVariableReferences(subPlan.getRoot().getOutputSymbols()));
+        projections.putIdentities(subPlan.getRoot().getOutputVariables());
 
         List<Set<Integer>> descriptor = groupingSets.stream()
                 .map(set -> set.stream()
@@ -798,7 +798,7 @@ class QueryPlanner
             // If refers to existing symbol, don't create another PlanNode
             if (rewritten instanceof SymbolReference) {
                 if (needCoercion) {
-                    subPlan = explicitCoercionSymbols(subPlan, subPlan.getRoot().getOutputSymbols(), ImmutableList.of(windowFunction));
+                    subPlan = explicitCoercionSymbols(subPlan, subPlan.getRoot().getOutputVariables(), ImmutableList.of(windowFunction));
                 }
 
                 continue;
@@ -821,7 +821,6 @@ class QueryPlanner
                             ((FunctionCall) rewritten).getArguments().stream().map(OriginalExpressionUtils::castToRowExpression).collect(toImmutableList())),
                     frame);
 
-            List<Symbol> sourceSymbols = subPlan.getRoot().getOutputSymbols();
             ImmutableList.Builder<VariableReferenceExpression> orderByVariables = ImmutableList.builder();
             orderByVariables.addAll(orderings.keySet());
             Optional<OrderingScheme> orderingScheme = Optional.empty();
@@ -844,7 +843,7 @@ class QueryPlanner
                     analysis.getParameters());
 
             if (needCoercion) {
-                subPlan = explicitCoercionSymbols(subPlan, sourceSymbols, ImmutableList.of(windowFunction));
+                subPlan = explicitCoercionSymbols(subPlan, subPlan.getRoot().getOutputVariables(), ImmutableList.of(windowFunction));
             }
         }
 
@@ -867,7 +866,7 @@ class QueryPlanner
                             idAllocator.getNextId(),
                             subPlan.getRoot(),
                             ImmutableMap.of(),
-                            singleGroupingSet(symbolAllocator.toVariableReferences(subPlan.getRoot().getOutputSymbols())),
+                            singleGroupingSet(subPlan.getRoot().getOutputVariables()),
                             ImmutableList.of(),
                             AggregationNode.Step.SINGLE,
                             Optional.empty(),

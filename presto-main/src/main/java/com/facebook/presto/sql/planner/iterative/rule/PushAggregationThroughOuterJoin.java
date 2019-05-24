@@ -23,7 +23,6 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -48,7 +47,7 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.shouldPushAggregationThroughJoin;
 import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineSymbols;
+import static com.facebook.presto.sql.planner.ExpressionVariableInliner.inlineVariables;
 import static com.facebook.presto.sql.planner.optimizations.DistinctOutputQueryUtil.isDistinct;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggregation;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -131,7 +130,7 @@ public class PushAggregationThroughOuterJoin
 
         if (join.getFilter().isPresent()
                 || !(join.getType() == JoinNode.Type.LEFT || join.getType() == JoinNode.Type.RIGHT)
-                || !groupsOnAllColumns(aggregation, context.getSymbolAllocator().toVariableReferences(getOuterTable(join).getOutputSymbols()))
+                || !groupsOnAllColumns(aggregation, getOuterTable(join).getOutputVariables())
                 || !isDistinct(context.getLookup().resolve(getOuterTable(join)), context.getLookup()::resolve)) {
             return Result.empty();
         }
@@ -243,7 +242,7 @@ public class PushAggregationThroughOuterJoin
         MappedAggregationInfo aggregationOverNullInfo = aggregationOverNullInfoResultNode.get();
 
         AggregationNode aggregationOverNull = aggregationOverNullInfo.getAggregation();
-        Map<Symbol, Symbol> sourceAggregationToOverNullMapping = aggregationOverNullInfo.getSymbolMapping();
+        Map<VariableReferenceExpression, VariableReferenceExpression> sourceAggregationToOverNullMapping = aggregationOverNullInfo.getVariableMapping();
 
         // Do a cross join with the aggregation over null
         JoinNode crossJoin = new JoinNode(
@@ -263,12 +262,12 @@ public class PushAggregationThroughOuterJoin
 
         // Add coalesce expressions for all aggregation functions
         Assignments.Builder assignmentsBuilder = Assignments.builder();
-        for (Symbol symbol : outerJoin.getOutputSymbols()) {
-            if (aggregationNode.getAggregations().keySet().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()).contains(symbol)) {
-                assignmentsBuilder.put(symbolAllocator.toVariableReference(symbol), new CoalesceExpression(symbol.toSymbolReference(), sourceAggregationToOverNullMapping.get(symbol).toSymbolReference()));
+        for (VariableReferenceExpression variable : outerJoin.getOutputVariables()) {
+            if (aggregationNode.getAggregations().keySet().contains(variable)) {
+                assignmentsBuilder.put(variable, new CoalesceExpression(new SymbolReference(variable.getName()), new SymbolReference(sourceAggregationToOverNullMapping.get(variable).getName())));
             }
             else {
-                assignmentsBuilder.put(symbolAllocator.toVariableReference(symbol), symbol.toSymbolReference());
+                assignmentsBuilder.put(variable, new SymbolReference(variable.getName()));
             }
         }
         return Optional.of(new ProjectNode(idAllocator.getNextId(), crossJoin, assignmentsBuilder.build()));
@@ -280,50 +279,48 @@ public class PushAggregationThroughOuterJoin
         // Map the output symbols from the referenceAggregation's source
         // to symbol references for the new values node.
         NullLiteral nullLiteral = new NullLiteral();
-        ImmutableList.Builder<Symbol> nullSymbols = ImmutableList.builder();
         ImmutableList.Builder<VariableReferenceExpression> nullVariables = ImmutableList.builder();
         ImmutableList.Builder<RowExpression> nullLiterals = ImmutableList.builder();
-        ImmutableMap.Builder<Symbol, SymbolReference> sourcesSymbolMappingBuilder = ImmutableMap.builder();
-        for (Symbol sourceSymbol : referenceAggregation.getSource().getOutputSymbols()) {
+        ImmutableMap.Builder<VariableReferenceExpression, SymbolReference> sourcesVariableMappingBuilder = ImmutableMap.builder();
+        for (VariableReferenceExpression sourceVariable : referenceAggregation.getSource().getOutputVariables()) {
             nullLiterals.add(castToRowExpression(nullLiteral));
-            Symbol nullSymbol = symbolAllocator.newSymbol(nullLiteral, symbolAllocator.getTypes().get(sourceSymbol));
-            nullSymbols.add(nullSymbol);
+            VariableReferenceExpression nullVariable = symbolAllocator.newVariable(nullLiteral, sourceVariable.getType());
+            nullVariables.add(nullVariable);
             // TODO The type should be from sourceVariable.getType
-            nullVariables.add(new VariableReferenceExpression(nullSymbol.getName(), symbolAllocator.getTypes().get(sourceSymbol)));
-            sourcesSymbolMappingBuilder.put(sourceSymbol, nullSymbol.toSymbolReference());
+            sourcesVariableMappingBuilder.put(sourceVariable, new SymbolReference(nullVariable.getName()));
         }
         ValuesNode nullRow = new ValuesNode(
                 idAllocator.getNextId(),
                 nullVariables.build(),
                 ImmutableList.of(nullLiterals.build()));
-        Map<Symbol, SymbolReference> sourcesSymbolMapping = sourcesSymbolMappingBuilder.build();
+        Map<VariableReferenceExpression, SymbolReference> sourcesVariableMapping = sourcesVariableMappingBuilder.build();
 
         // For each aggregation function in the reference node, create a corresponding aggregation function
         // that points to the nullRow. Map the symbols from the aggregations in referenceAggregation to the
         // symbols in these new aggregations.
-        ImmutableMap.Builder<Symbol, Symbol> aggregationsSymbolMappingBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> aggregationsVariableMappingBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<VariableReferenceExpression, AggregationNode.Aggregation> aggregationsOverNullBuilder = ImmutableMap.builder();
         for (Map.Entry<VariableReferenceExpression, AggregationNode.Aggregation> entry : referenceAggregation.getAggregations().entrySet()) {
             VariableReferenceExpression aggregationVariable = entry.getKey();
             AggregationNode.Aggregation aggregation = entry.getValue();
 
-            if (!isUsingSymbols(aggregation, sourcesSymbolMapping.keySet())) {
+            if (!isUsingVariables(aggregation, sourcesVariableMapping.keySet())) {
                 return Optional.empty();
             }
 
             AggregationNode.Aggregation overNullAggregation = new AggregationNode.Aggregation(
                     aggregation.getFunctionHandle(),
-                    aggregation.getArguments().stream().map(argument -> inlineSymbols(sourcesSymbolMapping, argument)).collect(toImmutableList()),
-                    aggregation.getFilter().map(filter -> inlineSymbols(sourcesSymbolMapping, filter)),
-                    aggregation.getOrderBy().map(orderBy -> inlineOrderBySymbols(sourcesSymbolMapping, orderBy)),
+                    aggregation.getArguments().stream().map(argument -> inlineVariables(sourcesVariableMapping, argument, symbolAllocator.getTypes())).collect(toImmutableList()),
+                    aggregation.getFilter().map(filter -> inlineVariables(sourcesVariableMapping, filter, symbolAllocator.getTypes())),
+                    aggregation.getOrderBy().map(orderBy -> inlineOrderByVariables(sourcesVariableMapping, orderBy)),
                     aggregation.isDistinct(),
-                    aggregation.getMask().map(x -> new VariableReferenceExpression(sourcesSymbolMapping.get(new Symbol(x.getName())).getName(), x.getType())));
+                    aggregation.getMask().map(x -> new VariableReferenceExpression(sourcesVariableMapping.get(x).getName(), x.getType())));
             String functionName = functionManager.getFunctionMetadata(overNullAggregation.getFunctionHandle()).getName();
             VariableReferenceExpression overNull = symbolAllocator.newVariable(functionName, aggregationVariable.getType());
             aggregationsOverNullBuilder.put(overNull, overNullAggregation);
-            aggregationsSymbolMappingBuilder.put(new Symbol(aggregationVariable.getName()), new Symbol(overNull.getName()));
+            aggregationsVariableMappingBuilder.put(aggregationVariable, overNull);
         }
-        Map<Symbol, Symbol> aggregationsSymbolMapping = aggregationsSymbolMappingBuilder.build();
+        Map<VariableReferenceExpression, VariableReferenceExpression> aggregationsSymbolMapping = aggregationsVariableMappingBuilder.build();
 
         // create an aggregation node whose source is the null row.
         AggregationNode aggregationOverNullRow = new AggregationNode(
@@ -339,41 +336,42 @@ public class PushAggregationThroughOuterJoin
         return Optional.of(new MappedAggregationInfo(aggregationOverNullRow, aggregationsSymbolMapping));
     }
 
-    private static OrderingScheme inlineOrderBySymbols(Map<Symbol, SymbolReference> symbolMapping, OrderingScheme orderingScheme)
+    private static OrderingScheme inlineOrderByVariables(Map<VariableReferenceExpression, SymbolReference> variableMapping, OrderingScheme orderingScheme)
     {
         // This is a logic expanded from ExpressionTreeRewriter::rewriteSortItems
         ImmutableList.Builder<VariableReferenceExpression> orderBy = ImmutableList.builder();
         ImmutableMap.Builder<VariableReferenceExpression, SortOrder> ordering = new ImmutableMap.Builder<>();
         for (VariableReferenceExpression variable : orderingScheme.getOrderBy()) {
-            VariableReferenceExpression translated = new VariableReferenceExpression(symbolMapping.get(new Symbol(variable.getName())).getName(), variable.getType());
+            VariableReferenceExpression translated = new VariableReferenceExpression(variableMapping.get(variable).getName(), variable.getType());
             orderBy.add(translated);
             ordering.put(translated, orderingScheme.getOrdering(variable));
         }
         return new OrderingScheme(orderBy.build(), ordering.build());
     }
 
-    private static boolean isUsingSymbols(AggregationNode.Aggregation aggregation, Set<Symbol> sourceSymbols)
+    private static boolean isUsingVariables(AggregationNode.Aggregation aggregation, Set<VariableReferenceExpression> sourceVariables)
     {
         List<Expression> functionArguments = aggregation.getArguments();
-        return sourceSymbols.stream()
-                .map(Symbol::toSymbolReference)
+        return sourceVariables.stream()
+                .map(VariableReferenceExpression::getName)
+                .map(SymbolReference::new)
                 .anyMatch(functionArguments::contains);
     }
 
     private static class MappedAggregationInfo
     {
         private final AggregationNode aggregationNode;
-        private final Map<Symbol, Symbol> symbolMapping;
+        private final Map<VariableReferenceExpression, VariableReferenceExpression> variableMapping;
 
-        public MappedAggregationInfo(AggregationNode aggregationNode, Map<Symbol, Symbol> symbolMapping)
+        public MappedAggregationInfo(AggregationNode aggregationNode, Map<VariableReferenceExpression, VariableReferenceExpression> variableMapping)
         {
             this.aggregationNode = aggregationNode;
-            this.symbolMapping = symbolMapping;
+            this.variableMapping = variableMapping;
         }
 
-        public Map<Symbol, Symbol> getSymbolMapping()
+        public Map<VariableReferenceExpression, VariableReferenceExpression> getVariableMapping()
         {
-            return symbolMapping;
+            return variableMapping;
         }
 
         public AggregationNode getAggregation()

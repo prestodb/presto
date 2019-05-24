@@ -113,13 +113,13 @@ public class TransformExistsApplyToLateralNode
 
     private Optional<PlanNode> rewriteToNonDefaultAggregation(ApplyNode applyNode, Context context)
     {
-        checkState(applyNode.getSubquery().getOutputSymbols().isEmpty(), "Expected subquery output symbols to be pruned");
+        checkState(applyNode.getSubquery().getOutputVariables().isEmpty(), "Expected subquery output variables to be pruned");
 
         VariableReferenceExpression exists = getOnlyElement(applyNode.getSubqueryAssignments().getVariables());
         VariableReferenceExpression subqueryTrue = context.getSymbolAllocator().newVariable("subqueryTrue", BOOLEAN);
 
         Assignments.Builder assignments = Assignments.builder();
-        assignments.putIdentities(context.getSymbolAllocator().toVariableReferences(applyNode.getInput().getOutputSymbols()));
+        assignments.putIdentities(applyNode.getInput().getOutputVariables());
         assignments.put(exists, new CoalesceExpression(ImmutableList.of(new SymbolReference(subqueryTrue.getName()), BooleanLiteral.FALSE_LITERAL)));
 
         PlanNode subquery = new ProjectNode(

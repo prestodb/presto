@@ -424,22 +424,19 @@ public class TestCostCalculator
                 REMOTE_STREAMING,
                 ts1,
                 ImmutableList.of(new VariableReferenceExpression("orderkey", BIGINT)),
-                Optional.empty(),
-                TypeProvider.viewOf(ImmutableMap.of(new Symbol("orderkey"), BIGINT)));
+                Optional.empty());
         ExchangeNode remoteExchange2 = systemPartitionedExchange(
                 new PlanNodeId("re2"),
                 REMOTE_STREAMING,
                 ts2,
                 ImmutableList.of(new VariableReferenceExpression("orderkey_0", BIGINT)),
-                Optional.empty(),
-                TypeProvider.viewOf(ImmutableMap.of(new Symbol("orderkey_0"), BIGINT)));
+                Optional.empty());
         ExchangeNode localExchange = systemPartitionedExchange(
                 new PlanNodeId("le"),
                 LOCAL,
                 remoteExchange2,
                 ImmutableList.of(new VariableReferenceExpression("orderkey_0", BIGINT)),
-                Optional.empty(),
-                TypeProvider.viewOf(ImmutableMap.of(new Symbol("orderkey_0"), BIGINT)));
+                Optional.empty());
 
         JoinNode join = join("join",
                 remoteExchange1,
@@ -468,14 +465,13 @@ public class TestCostCalculator
     {
         TableScanNode ts1 = tableScan("ts1", ImmutableList.of(new VariableReferenceExpression("orderkey", BIGINT)));
         TableScanNode ts2 = tableScan("ts2", ImmutableList.of(new VariableReferenceExpression("orderkey_0", BIGINT)));
-        ExchangeNode remoteExchange2 = replicatedExchange(new PlanNodeId("re2"), REMOTE_STREAMING, ts2, TypeProvider.viewOf(ImmutableMap.of(new Symbol("orderkey_0"), BIGINT)));
+        ExchangeNode remoteExchange2 = replicatedExchange(new PlanNodeId("re2"), REMOTE_STREAMING, ts2);
         ExchangeNode localExchange = systemPartitionedExchange(
                 new PlanNodeId("le"),
                 LOCAL,
                 remoteExchange2,
                 ImmutableList.of(new VariableReferenceExpression("orderkey_0", BIGINT)),
-                Optional.empty(),
-                TypeProvider.viewOf(ImmutableMap.of(new Symbol("orderkey_0"), BIGINT)));
+                Optional.empty());
 
         JoinNode join = join("join",
                 ts1,
@@ -803,7 +799,7 @@ public class TestCostCalculator
                 new PlanNodeId(id),
                 source,
                 ImmutableMap.of(new VariableReferenceExpression("count", BIGINT), aggregation),
-                singleGroupingSet(source.getOutputSymbols().stream().map(symbol -> new VariableReferenceExpression(symbol.getName(), BIGINT)).collect(toImmutableList())),
+                singleGroupingSet(source.getOutputVariables()),
                 ImmutableList.of(),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),

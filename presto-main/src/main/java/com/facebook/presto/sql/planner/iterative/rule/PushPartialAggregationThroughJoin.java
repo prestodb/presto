@@ -92,29 +92,30 @@ public class PushPartialAggregationThroughJoin
         }
 
         // TODO: leave partial aggregation above Join?
-        if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getLeft().getOutputSymbols())) {
+        if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getLeft().getOutputVariables())) {
             return Result.ofPlanNode(pushPartialToLeftChild(aggregationNode, joinNode, context));
         }
-        else if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getRight().getOutputSymbols())) {
+        else if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getRight().getOutputVariables())) {
             return Result.ofPlanNode(pushPartialToRightChild(aggregationNode, joinNode, context));
         }
 
         return Result.empty();
     }
 
-    private boolean allAggregationsOn(Map<VariableReferenceExpression, AggregationNode.Aggregation> aggregations, List<Symbol> symbols)
+    private boolean allAggregationsOn(Map<VariableReferenceExpression, AggregationNode.Aggregation> aggregations, List<VariableReferenceExpression> variables)
     {
-        Set<Symbol> inputs = aggregations.values()
+        Set<String> inputNames = aggregations.values()
                 .stream()
                 .map(AggregationNodeUtils::extractUnique)
                 .flatMap(Set::stream)
+                .map(Symbol::getName)
                 .collect(toImmutableSet());
-        return symbols.containsAll(inputs);
+        return variables.stream().map(VariableReferenceExpression::getName).collect(toImmutableSet()).containsAll(inputNames);
     }
 
     private PlanNode pushPartialToLeftChild(AggregationNode node, JoinNode child, Context context)
     {
-        Set<VariableReferenceExpression> joinLeftChildVariables = ImmutableSet.copyOf(context.getSymbolAllocator().toVariableReferences(child.getLeft().getOutputSymbols()));
+        Set<VariableReferenceExpression> joinLeftChildVariables = ImmutableSet.copyOf(child.getLeft().getOutputVariables());
         List<VariableReferenceExpression> groupingSet = getPushedDownGroupingSet(node, joinLeftChildVariables, intersection(getJoinRequiredVariables(child, context.getSymbolAllocator().getTypes()), joinLeftChildVariables));
         AggregationNode pushedAggregation = replaceAggregationSource(node, child.getLeft(), groupingSet);
         return pushPartialToJoin(node, child, pushedAggregation, child.getRight(), context);
@@ -122,7 +123,7 @@ public class PushPartialAggregationThroughJoin
 
     private PlanNode pushPartialToRightChild(AggregationNode node, JoinNode child, Context context)
     {
-        Set<VariableReferenceExpression> joinRightChildVariables = ImmutableSet.copyOf(context.getSymbolAllocator().toVariableReferences(child.getRight().getOutputSymbols()));
+        Set<VariableReferenceExpression> joinRightChildVariables = ImmutableSet.copyOf(child.getRight().getOutputVariables());
         List<VariableReferenceExpression> groupingSet = getPushedDownGroupingSet(node, joinRightChildVariables, intersection(getJoinRequiredVariables(child, context.getSymbolAllocator().getTypes()), joinRightChildVariables));
         AggregationNode pushedAggregation = replaceAggregationSource(node, child.getRight(), groupingSet);
         return pushPartialToJoin(node, child, child.getLeft(), pushedAggregation, context);

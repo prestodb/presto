@@ -57,7 +57,7 @@ public class PruneCountAggregationOverScalar
     @Override
     public Result apply(AggregationNode parent, Captures captures, Context context)
     {
-        if (!parent.hasDefaultOutput() || parent.getOutputSymbols().size() != 1) {
+        if (!parent.hasDefaultOutput() || parent.getOutputVariables().size() != 1) {
             return Result.empty();
         }
         Map<VariableReferenceExpression, AggregationNode.Aggregation> assignments = parent.getAggregations();

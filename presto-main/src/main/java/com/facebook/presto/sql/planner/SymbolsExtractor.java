@@ -171,8 +171,7 @@ public final class SymbolsExtractor
         return searchFrom(planNode, lookup)
                 .findAll()
                 .stream()
-                .flatMap(node -> node.getOutputSymbols().stream())
-                .map(symbol -> new VariableReferenceExpression(symbol.getName(), types.get(symbol)))
+                .flatMap(node -> node.getOutputVariables().stream())
                 .collect(toImmutableSet());
     }
     /**

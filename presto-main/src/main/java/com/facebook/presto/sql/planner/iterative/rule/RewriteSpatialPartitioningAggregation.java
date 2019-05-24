@@ -125,7 +125,7 @@ public class RewriteSpatialPartitioningAggregation
                                 context.getIdAllocator().getNextId(),
                                 node.getSource(),
                                 Assignments.builder()
-                                        .putIdentities(context.getSymbolAllocator().toVariableReferences(node.getSource().getOutputSymbols()))
+                                        .putIdentities(node.getSource().getOutputVariables())
                                         .put(partitionCountVariable, new LongLiteral(Integer.toString(getHashPartitionCount(context.getSession()))))
                                         .putAll(envelopeAssignments.build())
                                         .build()),

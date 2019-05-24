@@ -113,7 +113,7 @@ public class AddIntermediateAggregations
         PlanNode source = rewrittenSource.get();
 
         if (getTaskConcurrency(session) > 1) {
-            source = roundRobinExchange(idAllocator.getNextId(), LOCAL, source, types);
+            source = roundRobinExchange(idAllocator.getNextId(), LOCAL, source);
             source = new AggregationNode(
                     idAllocator.getNextId(),
                     source,
@@ -123,7 +123,7 @@ public class AddIntermediateAggregations
                     INTERMEDIATE,
                     aggregation.getHashVariable(),
                     aggregation.getGroupIdVariable());
-            source = gatheringExchange(idAllocator.getNextId(), LOCAL, source, types);
+            source = gatheringExchange(idAllocator.getNextId(), LOCAL, source);
         }
 
         return Result.ofPlanNode(aggregation.replaceChildren(ImmutableList.of(source)));
@@ -156,7 +156,7 @@ public class AddIntermediateAggregations
     private PlanNode addGatheringIntermediate(AggregationNode aggregation, PlanNodeIdAllocator idAllocator, TypeProvider types)
     {
         verify(aggregation.getGroupingKeys().isEmpty(), "Should be an un-grouped aggregation");
-        ExchangeNode gatheringExchange = gatheringExchange(idAllocator.getNextId(), LOCAL, aggregation, types);
+        ExchangeNode gatheringExchange = gatheringExchange(idAllocator.getNextId(), LOCAL, aggregation);
         return new AggregationNode(
                 idAllocator.getNextId(),
                 gatheringExchange,

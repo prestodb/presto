@@ -36,7 +36,7 @@ public class RemoveRedundantIdentityProjections
 
     private static boolean outputsSameAsSource(ProjectNode node)
     {
-        return ImmutableSet.copyOf(node.getOutputSymbols()).equals(ImmutableSet.copyOf(node.getSource().getOutputSymbols()));
+        return ImmutableSet.copyOf(node.getOutputVariables()).equals(ImmutableSet.copyOf(node.getSource().getOutputVariables()));
     }
 
     @Override
