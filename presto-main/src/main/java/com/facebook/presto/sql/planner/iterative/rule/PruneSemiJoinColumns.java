@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
@@ -39,27 +38,22 @@ public class PruneSemiJoinColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, SemiJoinNode semiJoinNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, SemiJoinNode semiJoinNode, Set<VariableReferenceExpression> referencedOutputs)
     {
-        if (!referencedOutputs.contains(new Symbol(semiJoinNode.getSemiJoinOutput().getName()))) {
+        if (!referencedOutputs.contains(semiJoinNode.getSemiJoinOutput())) {
             return Optional.of(semiJoinNode.getSource());
         }
 
-        Set<Symbol> requiredSourceInputs = Streams.concat(
+        Set<VariableReferenceExpression> requiredSourceInputs = Streams.concat(
                 referencedOutputs.stream()
-                        .filter(symbol -> !symbol.equals(new Symbol(semiJoinNode.getSemiJoinOutput().getName()))),
-                Stream.of(new Symbol(semiJoinNode.getSourceJoinVariable().getName())),
-                semiJoinNode.getSourceHashVariable().map(this::toSymbol).map(Stream::of).orElse(Stream.empty()))
+                        .filter(variable -> !variable.equals(semiJoinNode.getSemiJoinOutput())),
+                Stream.of(semiJoinNode.getSourceJoinVariable()),
+                semiJoinNode.getSourceHashVariable().map(Stream::of).orElse(Stream.empty()))
                 .collect(toImmutableSet());
 
-        return restrictOutputs(idAllocator, symbolAllocator, semiJoinNode.getSource(), requiredSourceInputs)
+        return restrictOutputs(idAllocator, semiJoinNode.getSource(), requiredSourceInputs)
                 .map(newSource ->
                         semiJoinNode.replaceChildren(ImmutableList.of(
                                 newSource, semiJoinNode.getFilteringSource())));
-    }
-
-    private Symbol toSymbol(VariableReferenceExpression variable)
-    {
-        return new Symbol(variable.getName());
     }
 }

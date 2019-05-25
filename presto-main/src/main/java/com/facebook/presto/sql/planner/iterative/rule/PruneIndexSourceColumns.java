@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -41,20 +40,20 @@ public class PruneIndexSourceColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, IndexSourceNode indexSourceNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, IndexSourceNode indexSourceNode, Set<VariableReferenceExpression> referencedOutputs)
     {
         Set<VariableReferenceExpression> prunedLookupSymbols = indexSourceNode.getLookupVariables().stream()
-                .filter(variable -> referencedOutputs.contains(new Symbol(variable.getName())))
+                .filter(referencedOutputs::contains)
                 .collect(toImmutableSet());
 
         Map<VariableReferenceExpression, ColumnHandle> prunedAssignments = Maps.filterEntries(
                 indexSourceNode.getAssignments(),
-                entry -> referencedOutputs.contains(new Symbol(entry.getKey().getName())) ||
+                entry -> referencedOutputs.contains(entry.getKey()) ||
                         tupleDomainReferencesColumnHandle(indexSourceNode.getCurrentConstraint(), entry.getValue()));
 
         List<VariableReferenceExpression> prunedOutputList =
                 indexSourceNode.getOutputVariables().stream()
-                        .filter(variable -> referencedOutputs.contains(new Symbol(variable.getName())))
+                        .filter(referencedOutputs::contains)
                         .collect(toImmutableList());
 
         return Optional.of(

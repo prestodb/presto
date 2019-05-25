@@ -14,9 +14,9 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -44,10 +44,10 @@ class Util
      * <p>
      * If all inputs are used, return Optional.empty() to indicate that no pruning is necessary.
      */
-    public static Optional<Set<Symbol>> pruneInputs(Collection<Symbol> availableInputs, Collection<Expression> expressions)
+    public static Optional<Set<VariableReferenceExpression>> pruneInputs(Collection<VariableReferenceExpression> availableInputs, Collection<Expression> expressions, TypeProvider types)
     {
-        Set<Symbol> availableInputsSet = ImmutableSet.copyOf(availableInputs);
-        Set<Symbol> prunedInputs = Sets.filter(availableInputsSet, SymbolsExtractor.extractUnique(expressions)::contains);
+        Set<VariableReferenceExpression> availableInputsSet = ImmutableSet.copyOf(availableInputs);
+        Set<VariableReferenceExpression> prunedInputs = Sets.filter(availableInputsSet, SymbolsExtractor.extractUniqueVariable(expressions, types)::contains);
 
         if (prunedInputs.size() == availableInputsSet.size()) {
             return Optional.empty();
@@ -69,9 +69,9 @@ class Util
     /**
      * @return If the node has outputs not in permittedOutputs, returns an identity projection containing only those node outputs also in permittedOutputs.
      */
-    public static Optional<PlanNode> restrictOutputs(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, PlanNode node, Set<Symbol> permittedOutputs)
+    public static Optional<PlanNode> restrictOutputs(PlanNodeIdAllocator idAllocator, PlanNode node, Set<VariableReferenceExpression> permittedOutputs)
     {
-        List<Symbol> restrictedOutputs = node.getOutputSymbols().stream()
+        List<VariableReferenceExpression> restrictedOutputs = node.getOutputVariables().stream()
                 .filter(permittedOutputs::contains)
                 .collect(toImmutableList());
 
@@ -83,7 +83,7 @@ class Util
                 new ProjectNode(
                         idAllocator.getNextId(),
                         node,
-                        Assignments.identity(symbolAllocator.toVariableReferences(restrictedOutputs))));
+                        Assignments.identity(restrictedOutputs)));
     }
 
     /**
@@ -91,9 +91,9 @@ class Util
      * Returns a present Optional iff at least one child was rewritten.
      */
     @SafeVarargs
-    public static Optional<PlanNode> restrictChildOutputs(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, PlanNode node, Set<Symbol>... permittedChildOutputsArgs)
+    public static Optional<PlanNode> restrictChildOutputs(PlanNodeIdAllocator idAllocator, PlanNode node, Set<VariableReferenceExpression>... permittedChildOutputsArgs)
     {
-        List<Set<Symbol>> permittedChildOutputs = ImmutableList.copyOf(permittedChildOutputsArgs);
+        List<Set<VariableReferenceExpression>> permittedChildOutputs = ImmutableList.copyOf(permittedChildOutputsArgs);
 
         checkArgument(
                 (node.getSources().size() == permittedChildOutputs.size()),
@@ -106,7 +106,7 @@ class Util
 
         for (int i = 0; i < node.getSources().size(); ++i) {
             PlanNode oldChild = node.getSources().get(i);
-            Optional<PlanNode> newChild = restrictOutputs(idAllocator, symbolAllocator, oldChild, permittedChildOutputs.get(i));
+            Optional<PlanNode> newChild = restrictOutputs(idAllocator, oldChild, permittedChildOutputs.get(i));
             rewroteChildren |= newChild.isPresent();
             newChildrenBuilder.add(newChild.orElse(oldChild));
         }

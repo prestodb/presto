@@ -20,8 +20,6 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.joins.JoinGraph;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -85,7 +83,7 @@ public class EliminateCrossJoins
             return Result.empty();
         }
 
-        PlanNode replacement = buildJoinTree(node.getOutputSymbols(), joinGraph, joinOrder, context.getIdAllocator(), context.getSymbolAllocator());
+        PlanNode replacement = buildJoinTree(node.getOutputVariables(), joinGraph, joinOrder, context.getIdAllocator());
         return Result.ofPlanNode(replacement);
     }
 
@@ -149,9 +147,9 @@ public class EliminateCrossJoins
                 .collect(toImmutableList());
     }
 
-    public static PlanNode buildJoinTree(List<Symbol> expectedOutputSymbols, JoinGraph graph, List<Integer> joinOrder, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
+    public static PlanNode buildJoinTree(List<VariableReferenceExpression> expectedOutputVariables, JoinGraph graph, List<Integer> joinOrder, PlanNodeIdAllocator idAllocator)
     {
-        requireNonNull(expectedOutputSymbols, "expectedOutputSymbols is null");
+        requireNonNull(expectedOutputVariables, "expectedOutputVariables is null");
         requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(graph, "graph is null");
         joinOrder = ImmutableList.copyOf(requireNonNull(joinOrder, "joinOrder is null"));
@@ -210,6 +208,6 @@ public class EliminateCrossJoins
 
         // If needed, introduce a projection to constrain the outputs to what was originally expected
         // Some nodes are sensitive to what's produced (e.g., DistinctLimit node)
-        return restrictOutputs(idAllocator, symbolAllocator, result, ImmutableSet.copyOf(expectedOutputSymbols)).orElse(result);
+        return restrictOutputs(idAllocator, result, ImmutableSet.copyOf(expectedOutputVariables)).orElse(result);
     }
 }

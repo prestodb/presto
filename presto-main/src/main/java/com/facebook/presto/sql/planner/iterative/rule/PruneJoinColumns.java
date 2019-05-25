@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -38,7 +38,7 @@ public class PruneJoinColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, JoinNode joinNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, JoinNode joinNode, Set<VariableReferenceExpression> referencedOutputs)
     {
         return Optional.of(
                 new JoinNode(
@@ -47,7 +47,7 @@ public class PruneJoinColumns
                         joinNode.getLeft(),
                         joinNode.getRight(),
                         joinNode.getCriteria(),
-                        filteredCopy(joinNode.getOutputVariables(), variable -> referencedOutputs.contains(new Symbol(variable.getName()))),
+                        filteredCopy(joinNode.getOutputVariables(), referencedOutputs::contains),
                         joinNode.getFilter(),
                         joinNode.getLeftHashVariable(),
                         joinNode.getRightHashVariable(),

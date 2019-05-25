@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
@@ -30,7 +29,6 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.plan.Patterns.values;
 import static com.facebook.presto.util.MoreLists.filteredCopy;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class PruneValuesColumns
         extends ProjectOffPushDownRule<ValuesNode>
@@ -41,19 +39,16 @@ public class PruneValuesColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, ValuesNode valuesNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, ValuesNode valuesNode, Set<VariableReferenceExpression> referencedOutputs)
     {
-        List<Symbol> newOutputs = filteredCopy(valuesNode.getOutputSymbols(), referencedOutputs::contains);
+        List<VariableReferenceExpression> newOutputs = filteredCopy(valuesNode.getOutputVariables(), referencedOutputs::contains);
 
-        List<String> referencedOutputNames = referencedOutputs.stream().map(Symbol::getName).collect(toImmutableList());
-        List<VariableReferenceExpression> newOutputVariables = filteredCopy(
-                valuesNode.getOutputVariables(),
-                variable -> referencedOutputNames.contains(variable.getName()));
+        List<VariableReferenceExpression> newOutputVariables = filteredCopy(valuesNode.getOutputVariables(), referencedOutputs::contains);
 
         // for each output of project, the corresponding column in the values node
         int[] mapping = new int[newOutputs.size()];
         for (int i = 0; i < mapping.length; i++) {
-            mapping[i] = valuesNode.getOutputSymbols().indexOf(newOutputs.get(i));
+            mapping[i] = valuesNode.getOutputVariables().indexOf(newOutputs.get(i));
         }
 
         ImmutableList.Builder<List<RowExpression>> rowsBuilder = ImmutableList.builder();
