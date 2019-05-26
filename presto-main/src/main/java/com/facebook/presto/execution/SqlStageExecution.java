@@ -377,6 +377,8 @@ public final class SqlStageExecution
         return Optional.of(scheduleTask(node, new TaskId(stateMachine.getStageId(), partition), ImmutableMultimap.of(), totalPartitions));
     }
 
+    // Splits can be assigned to tasks not yet created.
+    // In this case, such tasks will be created on-demand and returned by this method.
     public synchronized Set<RemoteTask> scheduleSplits(InternalNode node, Multimap<PlanNodeId, Split> splits, Multimap<PlanNodeId, Lifespan> noMoreSplitsNotification)
     {
         requireNonNull(node, "node is null");

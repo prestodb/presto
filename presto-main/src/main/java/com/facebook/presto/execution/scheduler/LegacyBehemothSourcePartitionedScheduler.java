@@ -48,7 +48,6 @@ import static com.facebook.presto.execution.scheduler.StageScheduleResult.Blocke
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -155,7 +154,6 @@ public class LegacyBehemothSourcePartitionedScheduler
         dropListenersFromWhenFinishedOrNewLifespansAdded();
 
         int overallSplitAssignmentCount = 0;
-        ImmutableSet.Builder<RemoteTask> overallNewTasks = ImmutableSet.builder();
         List<ListenableFuture<?>> overallBlockedFutures = new ArrayList<>();
         boolean anyBlockedOnPlacements = false;
         boolean anyBlockedOnNextSplitBatch = false;
@@ -246,7 +244,7 @@ public class LegacyBehemothSourcePartitionedScheduler
             }
 
             // assign the splits with successful placements
-            overallNewTasks.addAll(assignSplits(splitAssignment, noMoreSplitsNotification));
+            assignSplits(splitAssignment, noMoreSplitsNotification);
 
             // Assert that "placement future is not done" implies "pendingSplits is not empty".
             // The other way around is not true. One obvious reason is (un)lucky timing, where the placement is unblocked between `computeAssignments` and this line.
@@ -289,7 +287,7 @@ public class LegacyBehemothSourcePartitionedScheduler
                 case FINISHED:
                     return StageScheduleResult.nonBlocked(
                             true,
-                            overallNewTasks.build(),
+                            ImmutableList.of(),
                             overallSplitAssignmentCount);
                 default:
                     throw new IllegalStateException("Unknown state");
@@ -297,24 +295,7 @@ public class LegacyBehemothSourcePartitionedScheduler
         }
 
         if (anyNotBlocked) {
-            return StageScheduleResult.nonBlocked(false, overallNewTasks.build(), overallSplitAssignmentCount);
-        }
-
-        if (anyBlockedOnPlacements) {
-            // In a broadcast join, output buffers of the tasks in build source stage have to
-            // hold onto all data produced before probe side task scheduling finishes,
-            // even if the data is acknowledged by all known consumers. This is because
-            // new consumers may be added until the probe side task scheduling finishes.
-            //
-            // As a result, the following line is necessary to prevent deadlock
-            // due to neither build nor probe can make any progress.
-            // The build side blocks due to a full output buffer.
-            // In the meantime the probe side split cannot be consumed since
-            // builder side hash table construction has not finished.
-            //
-            // TODO: When SourcePartitionedScheduler is used as a SourceScheduler, it shouldn't need to worry about
-            //  task scheduling and creation -- these are done by the StageScheduler.
-            overallNewTasks.addAll(finalizeTaskCreationIfNecessary());
+            return StageScheduleResult.nonBlocked(false, ImmutableList.of(), overallSplitAssignmentCount);
         }
 
         StageScheduleResult.BlockedReason blockedReason;
@@ -328,7 +309,7 @@ public class LegacyBehemothSourcePartitionedScheduler
         overallBlockedFutures.add(whenFinishedOrNewLifespanAdded);
         return StageScheduleResult.blocked(
                 false,
-                overallNewTasks.build(),
+                ImmutableList.of(),
                 nonCancellationPropagating(whenAnyComplete(overallBlockedFutures)),
                 blockedReason,
                 overallSplitAssignmentCount);
@@ -396,10 +377,8 @@ public class LegacyBehemothSourcePartitionedScheduler
         whenFinishedOrNewLifespanAdded.set(null);
     }
 
-    private Set<RemoteTask> assignSplits(Multimap<InternalNode, Split> splitAssignment, Multimap<InternalNode, Lifespan> noMoreSplitsNotification)
+    private void assignSplits(Multimap<InternalNode, Split> splitAssignment, Multimap<InternalNode, Lifespan> noMoreSplitsNotification)
     {
-        ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
-
         ImmutableSet<InternalNode> nodes = ImmutableSet.<InternalNode>builder()
                 .addAll(splitAssignment.keySet())
                 .addAll(noMoreSplitsNotification.keySet())
@@ -414,33 +393,9 @@ public class LegacyBehemothSourcePartitionedScheduler
                 noMoreSplits.putAll(partitionedNode, noMoreSplitsNotification.get(node));
             }
 
-            newTasks.addAll(stage.scheduleSplits(
-                    node,
-                    splits,
-                    noMoreSplits.build()));
+            Set<RemoteTask> newTasks = stage.scheduleSplits(node, splits, noMoreSplits.build());
+            checkState(newTasks.isEmpty());
         }
-        return newTasks.build();
-    }
-
-    private Set<RemoteTask> finalizeTaskCreationIfNecessary()
-    {
-        // only lock down tasks if there is a sub stage that could block waiting for this stage to create all tasks
-        if (stage.getFragment().isLeaf()) {
-            return ImmutableSet.of();
-        }
-
-        splitPlacementPolicy.lockDownNodes();
-
-        Set<InternalNode> scheduledNodes = stage.getScheduledNodes();
-        Set<RemoteTask> newTasks = splitPlacementPolicy.allNodes().stream()
-                .filter(node -> !scheduledNodes.contains(node))
-                .flatMap(node -> stage.scheduleSplits(node, ImmutableMultimap.of(), ImmutableMultimap.of()).stream())
-                .collect(toImmutableSet());
-
-        // notify listeners that we have scheduled all tasks so they can set no more buffers or exchange splits
-        stage.transitionToSchedulingSplits();
-
-        return newTasks;
     }
 
     private static class ScheduleGroup
