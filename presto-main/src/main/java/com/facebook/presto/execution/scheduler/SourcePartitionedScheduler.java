@@ -199,15 +199,14 @@ public class SourcePartitionedScheduler
         for (Entry<Lifespan, ScheduleGroup> entry : scheduleGroups.entrySet()) {
             Lifespan lifespan = entry.getKey();
             ScheduleGroup scheduleGroup = entry.getValue();
-            Set<Split> pendingSplits = scheduleGroup.pendingSplits;
 
             if (scheduleGroup.state == ScheduleGroupState.NO_MORE_SPLITS || scheduleGroup.state == ScheduleGroupState.DONE) {
                 verify(scheduleGroup.nextSplitBatchFuture == null);
             }
-            else if (pendingSplits.isEmpty()) {
+            else if (scheduleGroup.pendingSplits.isEmpty()) {
                 // try to get the next batch
                 if (scheduleGroup.nextSplitBatchFuture == null) {
-                    scheduleGroup.nextSplitBatchFuture = splitSource.getNextBatch(scheduleGroup.partitionHandle, lifespan, splitBatchSize - pendingSplits.size());
+                    scheduleGroup.nextSplitBatchFuture = splitSource.getNextBatch(scheduleGroup.partitionHandle, lifespan, splitBatchSize);
 
                     long start = System.nanoTime();
                     addSuccessCallback(scheduleGroup.nextSplitBatchFuture, () -> stage.recordGetSplitTime(start));
@@ -216,16 +215,16 @@ public class SourcePartitionedScheduler
                 if (scheduleGroup.nextSplitBatchFuture.isDone()) {
                     SplitBatch nextSplits = getFutureValue(scheduleGroup.nextSplitBatchFuture);
                     scheduleGroup.nextSplitBatchFuture = null;
-                    pendingSplits.addAll(nextSplits.getSplits());
+                    scheduleGroup.pendingSplits = new HashSet<>(nextSplits.getSplits());
                     if (nextSplits.isLastBatch()) {
-                        if (scheduleGroup.state == ScheduleGroupState.INITIALIZED && pendingSplits.isEmpty()) {
+                        if (scheduleGroup.state == ScheduleGroupState.INITIALIZED && scheduleGroup.pendingSplits.isEmpty()) {
                             // Add an empty split in case no splits have been produced for the source.
                             // For source operators, they never take input, but they may produce output.
                             // This is well handled by Presto execution engine.
                             // However, there are certain non-source operators that may produce output without any input,
                             // for example, 1) an AggregationOperator, 2) a HashAggregationOperator where one of the grouping sets is ().
                             // Scheduling an empty split kicks off necessary driver instantiation to make this work.
-                            pendingSplits.add(new Split(
+                            scheduleGroup.pendingSplits.add(new Split(
                                     splitSource.getConnectorId(),
                                     splitSource.getTransactionHandle(),
                                     new EmptySplit(splitSource.getConnectorId()),
@@ -242,7 +241,7 @@ public class SourcePartitionedScheduler
             }
 
             Multimap<InternalNode, Split> splitAssignment = ImmutableMultimap.of();
-            if (!pendingSplits.isEmpty()) {
+            if (!scheduleGroup.pendingSplits.isEmpty()) {
                 if (!scheduleGroup.placementFuture.isDone()) {
                     anyBlockedOnPlacements = true;
                     continue;
@@ -256,15 +255,15 @@ public class SourcePartitionedScheduler
                 }
 
                 // calculate placements for splits
-                SplitPlacementResult splitPlacementResult = splitPlacementPolicy.computeAssignments(pendingSplits);
+                SplitPlacementResult splitPlacementResult = splitPlacementPolicy.computeAssignments(scheduleGroup.pendingSplits);
                 splitAssignment = splitPlacementResult.getAssignments();
 
                 // remove splits with successful placements
-                splitAssignment.values().forEach(pendingSplits::remove); // AbstractSet.removeAll performs terribly here.
+                splitAssignment.values().forEach(scheduleGroup.pendingSplits::remove); // AbstractSet.removeAll performs terribly here.
                 overallSplitAssignmentCount += splitAssignment.size();
 
                 // if not completed placed, mark scheduleGroup as blocked on placement
-                if (!pendingSplits.isEmpty()) {
+                if (!scheduleGroup.pendingSplits.isEmpty()) {
                     scheduleGroup.placementFuture = splitPlacementResult.getBlocked();
                     overallBlockedFutures.add(scheduleGroup.placementFuture);
                     anyBlockedOnPlacements = true;
@@ -273,7 +272,7 @@ public class SourcePartitionedScheduler
 
             // if no new splits will be assigned, update state and attach completion event
             Multimap<InternalNode, Lifespan> noMoreSplitsNotification = ImmutableMultimap.of();
-            if (pendingSplits.isEmpty() && scheduleGroup.state == ScheduleGroupState.NO_MORE_SPLITS) {
+            if (scheduleGroup.pendingSplits.isEmpty() && scheduleGroup.state == ScheduleGroupState.NO_MORE_SPLITS) {
                 scheduleGroup.state = ScheduleGroupState.DONE;
                 if (!lifespan.isTaskWide()) {
                     InternalNode node = ((BucketedSplitPlacementPolicy) splitPlacementPolicy).getNodeForBucket(lifespan.getId());
@@ -442,10 +441,12 @@ public class SourcePartitionedScheduler
             ImmutableMultimap<PlanNodeId, Split> splits = ImmutableMultimap.<PlanNodeId, Split>builder()
                     .putAll(partitionedNode, splitAssignment.get(node))
                     .build();
+
             ImmutableMultimap.Builder<PlanNodeId, Lifespan> noMoreSplits = ImmutableMultimap.builder();
             if (noMoreSplitsNotification.containsKey(node)) {
                 noMoreSplits.putAll(partitionedNode, noMoreSplitsNotification.get(node));
             }
+
             newTasks.addAll(stage.scheduleSplits(
                     node,
                     splits,
@@ -480,7 +481,7 @@ public class SourcePartitionedScheduler
         public final ConnectorPartitionHandle partitionHandle;
         public ListenableFuture<SplitBatch> nextSplitBatchFuture;
         public ListenableFuture<?> placementFuture = Futures.immediateFuture(null);
-        public final Set<Split> pendingSplits = new HashSet<>();
+        public Set<Split> pendingSplits = new HashSet<>();
         public ScheduleGroupState state = ScheduleGroupState.INITIALIZED;
 
         public ScheduleGroup(ConnectorPartitionHandle partitionHandle)
