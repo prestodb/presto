@@ -52,6 +52,9 @@ public class PageSourceManager
         requireNonNull(split, "split is null");
         requireNonNull(columns, "columns is null");
 
+        if (split.getConnectorSplit() instanceof EmptySplit) {
+            return new EmptySplitPageSource();
+        }
         ConnectorSession connectorSession = session.toConnectorSession(split.getConnectorId());
         return getPageSourceProvider(split).createPageSource(split.getTransactionHandle(), connectorSession, split.getConnectorSplit(), columns);
     }

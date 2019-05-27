@@ -67,6 +67,9 @@ public class SplitManager
         splitManagers.remove(connectorId);
     }
 
+    /**
+     * SplitSource returned by this method is guaranteed to have at least one split (can be EmptySplit) in each partition.
+     */
     public SplitSource getSplits(Session session, TableHandle table, SplitSchedulingStrategy splitSchedulingStrategy)
     {
         ConnectorId connectorId = table.getConnectorId();

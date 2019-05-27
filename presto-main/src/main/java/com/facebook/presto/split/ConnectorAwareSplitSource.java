@@ -67,6 +67,20 @@ public class ConnectorAwareSplitSource
             for (ConnectorSplit connectorSplit : splitBatch.getSplits()) {
                 result.add(new Split(connectorId, transactionHandle, connectorSplit, lifespan));
             }
+
+            if (splitBatch.isNoMoreSplits() && splitBatch.getSplits().isEmpty()) {
+                // Add an empty split in case no splits have been produced for the source.
+                // For source operators, they never take input, but they may produce output.
+                // This is well handled by Presto execution engine.
+                // However, there are certain non-source operators that may produce output without any input,
+                // for example, 1) an AggregationOperator, 2) a HashAggregationOperator where one of the grouping sets is ().
+                // Scheduling an empty split kicks off necessary driver instantiation to make this work.
+
+                // TODO: if the splits are returned in multiple batches and the last batch is empty,
+                //  this will add EmptySplit unnecessarily.
+                result.add(new Split(connectorId, transactionHandle, new EmptySplit(connectorId), lifespan));
+            }
+
             return new SplitBatch(result.build(), splitBatch.isNoMoreSplits());
         }, directExecutor());
     }

@@ -21,7 +21,6 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.split.EmptySplit;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.split.SplitSource.SplitBatch;
 import com.google.common.collect.ImmutableList;
@@ -180,19 +179,6 @@ public class LegacyBehemothSourcePartitionedScheduler
                     scheduleGroup.nextSplitBatchFuture = null;
                     scheduleGroup.pendingSplits = new HashSet<>(nextSplits.getSplits());
                     if (nextSplits.isLastBatch()) {
-                        if (scheduleGroup.state == ScheduleGroupState.INITIALIZED && scheduleGroup.pendingSplits.isEmpty()) {
-                            // Add an empty split in case no splits have been produced for the source.
-                            // For source operators, they never take input, but they may produce output.
-                            // This is well handled by Presto execution engine.
-                            // However, there are certain non-source operators that may produce output without any input,
-                            // for example, 1) an AggregationOperator, 2) a HashAggregationOperator where one of the grouping sets is ().
-                            // Scheduling an empty split kicks off necessary driver instantiation to make this work.
-                            scheduleGroup.pendingSplits.add(new Split(
-                                    splitSource.getConnectorId(),
-                                    splitSource.getTransactionHandle(),
-                                    new EmptySplit(splitSource.getConnectorId()),
-                                    lifespan));
-                        }
                         scheduleGroup.state = ScheduleGroupState.NO_MORE_SPLITS;
                     }
                 }

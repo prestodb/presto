@@ -90,6 +90,7 @@ public class UnpartitionedStageScheduler
         if (pendingSplits.isEmpty()) {
             if (batchFuture == null) {
                 if (splitSource.isFinished()) {
+                    // TODO: deprecate this
                     return handleNoMoreSplits();
                 }
                 batchFuture = splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), splitBatchSize);
