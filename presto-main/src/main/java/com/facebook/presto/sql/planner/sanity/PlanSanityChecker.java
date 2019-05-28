@@ -60,7 +60,8 @@ public final class PlanSanityChecker
                         new VerifyOnlyOneOutputNode(),
                         new VerifyNoFilteredAggregations(),
                         new ValidateAggregationsWithDefaultValues(forceSingleNode),
-                        new ValidateStreamingAggregations())
+                        new ValidateStreamingAggregations(),
+                        new ValidateNoLeftOverOriginalExpression())
                 .build();
     }
 
