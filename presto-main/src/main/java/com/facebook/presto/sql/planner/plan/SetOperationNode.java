@@ -165,10 +165,10 @@ public abstract class SetOperationNode
      * Returns the input to output symbol mapping for the given source channel.
      * A single input symbol can map to multiple output symbols, thus requiring a Multimap.
      */
-    public Multimap<Symbol, Symbol> outputSymbolMap(int sourceIndex)
+    public Multimap<VariableReferenceExpression, VariableReferenceExpression> outputMap(int sourceIndex)
     {
-        return FluentIterable.from(getOutputSymbols())
-                .toMap(outputSymbol -> outputToInputSymbols.get(outputSymbol).get(sourceIndex))
+        return FluentIterable.from(getOutputVariables())
+                .toMap(output -> outputToInputs.get(output).get(sourceIndex))
                 .asMultimap()
                 .inverse();
     }

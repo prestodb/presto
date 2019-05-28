@@ -317,18 +317,23 @@ public class ReorderJoins
             // could not be used for equality inference.
             // If they use both the left and right symbols, we add them to the list of joinPredicates
             stream(nonInferrableConjuncts(allFilter))
-                    .map(conjunct -> allFilterInference.rewriteExpression(conjunct, symbol -> leftSymbols.contains(symbol) || rightSymbols.contains(symbol)))
+                    .map(conjunct -> allFilterInference.rewriteExpression(
+                            conjunct,
+                            variable -> leftVariables.contains(variable) || rightVariables.contains(variable),
+                            context.getSymbolAllocator().getTypes()))
                     .filter(Objects::nonNull)
                     // filter expressions that contain only left or right symbols
-                    .filter(conjunct -> allFilterInference.rewriteExpression(conjunct, leftSymbols::contains) == null)
-                    .filter(conjunct -> allFilterInference.rewriteExpression(conjunct, rightSymbols::contains) == null)
+                    .filter(conjunct -> allFilterInference.rewriteExpression(conjunct, leftVariables::contains, context.getSymbolAllocator().getTypes()) == null)
+                    .filter(conjunct -> allFilterInference.rewriteExpression(conjunct, rightVariables::contains, context.getSymbolAllocator().getTypes()) == null)
                     .forEach(joinPredicatesBuilder::add);
 
             // create equality inference on available symbols
             // TODO: make generateEqualitiesPartitionedBy take left and right scope
-            List<Expression> joinEqualities = allFilterInference.generateEqualitiesPartitionedBy(symbol -> leftSymbols.contains(symbol) || rightSymbols.contains(symbol)).getScopeEqualities();
+            List<Expression> joinEqualities = allFilterInference.generateEqualitiesPartitionedBy(
+                    variable -> leftVariables.contains(variable) || rightVariables.contains(variable),
+                    context.getSymbolAllocator().getTypes()).getScopeEqualities();
             EqualityInference joinInference = createEqualityInference(joinEqualities.toArray(new Expression[0]));
-            joinPredicatesBuilder.addAll(joinInference.generateEqualitiesPartitionedBy(in(leftSymbols)).getScopeStraddlingEqualities());
+            joinPredicatesBuilder.addAll(joinInference.generateEqualitiesPartitionedBy(in(leftVariables), context.getSymbolAllocator().getTypes()).getScopeStraddlingEqualities());
 
             return joinPredicatesBuilder.build();
         }
@@ -339,9 +344,9 @@ public class ReorderJoins
             if (nodes.size() == 1) {
                 PlanNode planNode = getOnlyElement(nodes);
                 ImmutableList.Builder<Expression> predicates = ImmutableList.builder();
-                predicates.addAll(allFilterInference.generateEqualitiesPartitionedBy(outputSymbols::contains).getScopeEqualities());
+                predicates.addAll(allFilterInference.generateEqualitiesPartitionedBy(outputVariables::contains, context.getSymbolAllocator().getTypes()).getScopeEqualities());
                 stream(nonInferrableConjuncts(allFilter))
-                        .map(conjunct -> allFilterInference.rewriteExpression(conjunct, outputSymbols::contains))
+                        .map(conjunct -> allFilterInference.rewriteExpression(conjunct, outputVariables::contains, context.getSymbolAllocator().getTypes()))
                         .filter(Objects::nonNull)
                         .forEach(predicates::add);
                 Expression filter = combineConjuncts(predicates.build());
