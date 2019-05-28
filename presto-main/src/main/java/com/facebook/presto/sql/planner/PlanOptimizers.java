@@ -506,9 +506,6 @@ public class PlanOptimizers
                         new RemoveRedundantIdentityProjections())));
         // DO NOT add optimizers that change the plan shape (computations) after this point
 
-        // Precomputed hashes - this assumes that partitioning will not change
-        builder.add(new HashGenerationOptimizer());
-
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
         builder.add(new IterativeOptimizer(
@@ -517,6 +514,9 @@ public class PlanOptimizers
                 costCalculator,
                 new TranslateExpressions(metadata, sqlParser).rules()));
         // After this point, all planNodes should not contain OriginalExpression
+
+        // Precomputed hashes - this assumes that partitioning will not change
+        builder.add(new HashGenerationOptimizer(metadata.getFunctionManager()));
 
         builder.add(new MetadataDeleteOptimizer(metadata));
         builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite
