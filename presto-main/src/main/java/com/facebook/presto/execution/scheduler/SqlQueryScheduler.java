@@ -58,7 +58,6 @@ import io.airlift.units.Duration;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -68,7 +67,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -323,7 +321,6 @@ public class SqlQueryScheduler
         ImmutableList.Builder<SqlStageExecution> stages = ImmutableList.builder();
 
         // Only fetch a distribution once per section to ensure all stages see the same machine assignments
-        Map<PartitioningHandle, NodePartitionMap> partitioningCache = new HashMap<>();
         List<SqlStageExecution> sectionStages = createStreamingLinkedStages(
                 locationsConsumer,
                 locationFactory,
@@ -333,7 +330,6 @@ public class SqlQueryScheduler
                 splitSourceFactory,
                 session,
                 splitBatchSize,
-                partitioningHandle -> partitioningCache.computeIfAbsent(partitioningHandle, handle -> nodePartitioningManager.getNodePartitioningMap(session, handle)),
                 nodePartitioningManager,
                 queryExecutor,
                 schedulerExecutor,
@@ -377,7 +373,6 @@ public class SqlQueryScheduler
             SplitSourceFactory splitSourceFactory,
             Session session,
             int splitBatchSize,
-            Function<PartitioningHandle, NodePartitionMap> partitioningCache,
             NodePartitioningManager nodePartitioningManager,
             ExecutorService queryExecutor,
             ScheduledExecutorService schedulerExecutor,
@@ -469,7 +464,7 @@ public class SqlQueryScheduler
                     verify(!plan.getFragment().getStageExecutionDescriptor().isDynamicLifespanSchedule());
 
                     // remote source requires nodePartitionMap
-                    NodePartitionMap nodePartitionMap = partitioningCache.apply(plan.getFragment().getPartitioning());
+                    NodePartitionMap nodePartitionMap = nodePartitioningManager.getNodePartitioningMap(session, plan.getFragment().getPartitioning());
                     if (groupedExecutionForStage) {
                         checkState(connectorPartitionHandles.size() == nodePartitionMap.getBucketToPartition().length);
                     }
@@ -492,7 +487,7 @@ public class SqlQueryScheduler
             }
             else {
                 // all sources are remote
-                NodePartitionMap nodePartitionMap = partitioningCache.apply(plan.getFragment().getPartitioning());
+                NodePartitionMap nodePartitionMap = nodePartitioningManager.getNodePartitioningMap(session, plan.getFragment().getPartitioning());
                 List<InternalNode> partitionToNode = nodePartitionMap.getPartitionToNode();
                 // todo this should asynchronously wait a standard timeout period before failing
                 checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
@@ -512,7 +507,6 @@ public class SqlQueryScheduler
                     splitSourceFactory,
                     session,
                     splitBatchSize,
-                    partitioningCache,
                     nodePartitioningManager,
                     queryExecutor,
                     schedulerExecutor,
