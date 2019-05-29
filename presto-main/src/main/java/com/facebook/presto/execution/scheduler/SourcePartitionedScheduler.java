@@ -437,7 +437,6 @@ public class SourcePartitionedScheduler
                 .addAll(noMoreSplitsNotification.keySet())
                 .build();
         for (InternalNode node : nodes) {
-            // source partitioned tasks can only receive broadcast data; otherwise it would have a different distribution
             ImmutableMultimap<PlanNodeId, Split> splits = ImmutableMultimap.<PlanNodeId, Split>builder()
                     .putAll(partitionedNode, splitAssignment.get(node))
                     .build();
