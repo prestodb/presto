@@ -481,7 +481,7 @@ public class QueryStateMachine
                 }
 
                 if (plan.isMaterializedExchangeSource()) {
-                    writtenOutputPhysicalDataSize += stageStats.getPhysicalWrittenDataSize().toBytes();
+                    writtenIntermediatePhysicalDataSize += stageStats.getPhysicalWrittenDataSize().toBytes();
                 }
                 else {
                     writtenOutputPositions += stageInfo.getStageStats().getOperatorSummaries().stream()
