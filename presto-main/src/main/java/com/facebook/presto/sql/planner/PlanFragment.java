@@ -30,7 +30,6 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -44,7 +43,7 @@ public class PlanFragment
 {
     private final PlanFragmentId id;
     private final PlanNode root;
-    private final Map<Symbol, Type> symbols;
+    private final Set<VariableReferenceExpression> variables;
     private final PartitioningHandle partitioning;
     private final List<PlanNodeId> tableScanSchedulingOrder;
     private final List<Type> types;
@@ -59,7 +58,7 @@ public class PlanFragment
     public PlanFragment(
             @JsonProperty("id") PlanFragmentId id,
             @JsonProperty("root") PlanNode root,
-            @JsonProperty("symbols") Map<Symbol, Type> symbols,
+            @JsonProperty("variables") Set<VariableReferenceExpression> variables,
             @JsonProperty("partitioning") PartitioningHandle partitioning,
             @JsonProperty("tableScanSchedulingOrder") List<PlanNodeId> tableScanSchedulingOrder,
             @JsonProperty("partitioningScheme") PartitioningScheme partitioningScheme,
@@ -70,7 +69,7 @@ public class PlanFragment
     {
         this.id = requireNonNull(id, "id is null");
         this.root = requireNonNull(root, "root is null");
-        this.symbols = requireNonNull(symbols, "symbols is null");
+        this.variables = requireNonNull(variables, "variables is null");
         this.partitioning = requireNonNull(partitioning, "partitioning is null");
         this.tableScanSchedulingOrder = ImmutableList.copyOf(requireNonNull(tableScanSchedulingOrder, "tableScanSchedulingOrder is null"));
         this.stageExecutionDescriptor = requireNonNull(stageExecutionDescriptor, "stageExecutionDescriptor is null");
@@ -78,13 +77,8 @@ public class PlanFragment
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
         this.jsonRepresentation = requireNonNull(jsonRepresentation, "jsonRepresentation is null");
 
-        checkArgument(root.getOutputSymbols().stream()
-                        .map(Symbol::getName)
-                        .collect(toImmutableList())
-                        .containsAll(partitioningScheme.getOutputLayout().stream()
-                                .map(VariableReferenceExpression::getName)
-                                .collect(toImmutableList())),
-                "Root node outputs (%s) does not include all fragment outputs (%s)", root.getOutputSymbols(), partitioningScheme.getOutputLayout());
+        checkArgument(root.getOutputVariables().containsAll(partitioningScheme.getOutputLayout()),
+                "Root node outputs (%s) does not include all fragment outputs (%s)", root.getOutputVariables(), partitioningScheme.getOutputLayout());
 
         types = partitioningScheme.getOutputLayout().stream()
                 .map(VariableReferenceExpression::getType)
@@ -110,9 +104,9 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public Map<Symbol, Type> getSymbols()
+    public Set<VariableReferenceExpression> getVariables()
     {
-        return symbols;
+        return variables;
     }
 
     @JsonProperty
@@ -208,7 +202,7 @@ public class PlanFragment
         return new PlanFragment(
                 id,
                 root,
-                symbols,
+                variables,
                 partitioning,
                 tableScanSchedulingOrder,
                 partitioningScheme.withBucketToPartition(bucketToPartition),
@@ -223,7 +217,7 @@ public class PlanFragment
         return new PlanFragment(
                 id,
                 root,
-                symbols,
+                variables,
                 partitioning,
                 tableScanSchedulingOrder,
                 partitioningScheme,
@@ -238,7 +232,7 @@ public class PlanFragment
         return new PlanFragment(
                 id,
                 root,
-                symbols,
+                variables,
                 partitioning,
                 tableScanSchedulingOrder,
                 partitioningScheme,
@@ -253,7 +247,7 @@ public class PlanFragment
         return new PlanFragment(
                 id,
                 root,
-                symbols,
+                variables,
                 partitioning,
                 tableScanSchedulingOrder,
                 partitioningScheme,

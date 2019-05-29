@@ -42,7 +42,6 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -98,11 +97,10 @@ import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NO
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
-import static com.facebook.presto.sql.planner.SymbolsExtractor.extractOutputSymbols;
+import static com.facebook.presto.sql.planner.SymbolsExtractor.extractOutputVariables;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReferences;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
@@ -112,14 +110,12 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchang
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonFragmentPlan;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Maps.filterKeys;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.graph.Traverser.forTree;
 import static java.lang.String.format;
@@ -164,7 +160,7 @@ public class PlanFragmenter
 
         FragmentProperties properties = new FragmentProperties(new PartitioningScheme(
                 Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
-                toVariableReferences(plan.getRoot().getOutputSymbols(), symbolAllocator.getTypes())));
+                plan.getRoot().getOutputVariables()));
         if (forceSingleNode || isForceSingleNodeOutput(session)) {
             properties = properties.setSingleNodeDistribution();
         }
@@ -278,7 +274,7 @@ public class PlanFragmenter
         PlanFragment newFragment = new PlanFragment(
                 fragment.getId(),
                 newRoot,
-                fragment.getSymbols(),
+                fragment.getVariables(),
                 fragment.getPartitioning(),
                 fragment.getTableScanSchedulingOrder(),
                 new PartitioningScheme(
@@ -366,8 +362,8 @@ public class PlanFragmenter
                     schedulingOrder,
                     properties.getPartitionedSources());
 
-            Map<Symbol, Type> fragmentSymbolTypes = filterKeys(symbolAllocator.getTypes().allTypes(), in(extractOutputSymbols(root)));
-            planSanityChecker.validatePlanFragment(root, session, metadata, sqlParser, TypeProvider.viewOf(fragmentSymbolTypes), warningCollector);
+            Set<VariableReferenceExpression> fragmentVariableTypes = extractOutputVariables(root);
+            planSanityChecker.validatePlanFragment(root, session, metadata, sqlParser, TypeProvider.fromVariables(fragmentVariableTypes), warningCollector);
 
             Set<PlanNodeId> tableWriterNodeIds = getTableWriterNodeIds(root);
             boolean outputTableWriterFragment = tableWriterNodeIds.stream().anyMatch(outputTableWriterNodeIds::contains);
@@ -382,14 +378,14 @@ public class PlanFragmenter
             PlanFragment fragment = new PlanFragment(
                     fragmentId,
                     root,
-                    fragmentSymbolTypes,
+                    fragmentVariableTypes,
                     properties.getPartitioningHandle(),
                     schedulingOrder,
                     properties.getPartitioningScheme(),
                     StageExecutionDescriptor.ungroupedExecution(),
                     outputTableWriterFragment,
                     statsAndCosts.getForSubplan(root),
-                    Optional.of(jsonFragmentPlan(root, fragmentSymbolTypes, metadata.getFunctionManager(), session)));
+                    Optional.of(jsonFragmentPlan(root, fragmentVariableTypes, metadata.getFunctionManager(), session)));
 
             return new SubPlan(fragment, properties.getChildren());
         }
@@ -533,7 +529,6 @@ public class PlanFragmenter
 
             TableScanNode scan = createTemporaryTableScan(
                     temporaryTableHandle,
-                    exchange.getOutputSymbols(),
                     exchange.getOutputVariables(),
                     variableToColumnMap,
                     partitioningMetadata);
@@ -552,7 +547,7 @@ public class PlanFragmenter
 
             FragmentProperties writeProperties = new FragmentProperties(new PartitioningScheme(
                     Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
-                    toVariableReferences(write.getOutputSymbols(), symbolAllocator.getTypes())));
+                    write.getOutputVariables()));
             writeProperties.setCoordinatorOnlyDistribution();
 
             List<SubPlan> children = ImmutableList.of(buildSubPlan(write, writeProperties, context));
@@ -595,7 +590,6 @@ public class PlanFragmenter
 
         private TableScanNode createTemporaryTableScan(
                 TableHandle tableHandle,
-                List<Symbol> outputSymbols,
                 List<VariableReferenceExpression> outputVariables,
                 Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap,
                 PartitioningMetadata expectedPartitioningMetadata)

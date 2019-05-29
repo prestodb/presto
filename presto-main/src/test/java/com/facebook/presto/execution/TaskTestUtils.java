@@ -61,6 +61,7 @@ import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
 
 import java.util.List;
@@ -69,7 +70,6 @@ import java.util.OptionalInt;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -101,7 +101,7 @@ public final class TaskTestUtils
                     new TableHandle(CONNECTOR_ID, new TestingTableHandle(), TRANSACTION_HANDLE, Optional.empty()),
                     ImmutableList.of(VARIABLE),
                     ImmutableMap.of(VARIABLE, new TestingColumnHandle("column", 0, BIGINT))),
-            ImmutableMap.of(SYMBOL, VARCHAR),
+            ImmutableSet.of(VARIABLE),
             SOURCE_DISTRIBUTION,
             ImmutableList.of(TABLE_SCAN_NODE_ID),
             new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(VARIABLE))

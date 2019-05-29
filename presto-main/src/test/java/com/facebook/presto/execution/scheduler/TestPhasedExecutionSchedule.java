@@ -19,7 +19,6 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -46,7 +45,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
@@ -260,14 +258,10 @@ public class TestPhasedExecutionSchedule
 
     private static PlanFragment createFragment(PlanNode planNode)
     {
-        ImmutableMap.Builder<Symbol, Type> types = ImmutableMap.builder();
-        for (Symbol symbol : planNode.getOutputSymbols()) {
-            types.put(symbol, VARCHAR);
-        }
         return new PlanFragment(
                 new PlanFragmentId(nextPlanFragmentId.incrementAndGet()),
                 planNode,
-                types.build(),
+                ImmutableSet.copyOf(planNode.getOutputVariables()),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(planNode.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputVariables()),

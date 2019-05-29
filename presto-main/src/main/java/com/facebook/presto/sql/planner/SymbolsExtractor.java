@@ -152,17 +152,17 @@ public final class SymbolsExtractor
         return builder.build();
     }
 
-    public static Set<Symbol> extractOutputSymbols(PlanNode planNode)
+    public static Set<VariableReferenceExpression> extractOutputVariables(PlanNode planNode)
     {
-        return extractOutputSymbols(planNode, noLookup());
+        return extractOutputVariables(planNode, noLookup());
     }
 
-    public static Set<Symbol> extractOutputSymbols(PlanNode planNode, Lookup lookup)
+    public static Set<VariableReferenceExpression> extractOutputVariables(PlanNode planNode, Lookup lookup)
     {
         return searchFrom(planNode, lookup)
                 .findAll()
                 .stream()
-                .flatMap(node -> node.getOutputSymbols().stream())
+                .flatMap(node -> node.getOutputVariables().stream())
                 .collect(toImmutableSet());
     }
 

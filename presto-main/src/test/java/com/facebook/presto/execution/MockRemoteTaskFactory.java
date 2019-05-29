@@ -36,7 +36,6 @@ import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -80,7 +79,6 @@ import static com.facebook.presto.execution.StateMachine.StateChangeListener;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.BROADCAST;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -107,8 +105,7 @@ public class MockRemoteTaskFactory
 
     public MockRemoteTask createTableScanTask(TaskId taskId, InternalNode newNode, List<Split> splits, PartitionedSplitCountTracker partitionedSplitCountTracker)
     {
-        Symbol symbol = new Symbol("column");
-        VariableReferenceExpression variable = new VariableReferenceExpression("column", BIGINT);
+        VariableReferenceExpression variable = new VariableReferenceExpression("column", VARCHAR);
         PlanNodeId sourceId = new PlanNodeId("sourceId");
         PlanFragment testFragment = new PlanFragment(
                 new PlanFragmentId(0),
@@ -117,7 +114,7 @@ public class MockRemoteTaskFactory
                         new TableHandle(new ConnectorId("test"), new TestingTableHandle(), TestingTransactionHandle.create(), Optional.of(TestingHandle.INSTANCE)),
                         ImmutableList.of(variable),
                         ImmutableMap.of(variable, new TestingColumnHandle("column"))),
-                ImmutableMap.of(symbol, VARCHAR),
+                ImmutableSet.of(variable),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(sourceId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(variable)),

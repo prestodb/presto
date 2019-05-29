@@ -18,11 +18,14 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class TypeProvider
@@ -46,7 +49,12 @@ public class TypeProvider
 
     public static TypeProvider fromVariables(VariableReferenceExpression... variables)
     {
-        return new TypeProvider(Arrays.asList(variables).stream().collect(toImmutableMap(variable -> new Symbol(variable.getName()), VariableReferenceExpression::getType)));
+        return fromVariables(Arrays.asList(variables));
+    }
+
+    public static TypeProvider fromVariables(Collection<VariableReferenceExpression> variables)
+    {
+        return new TypeProvider(variables.stream().collect(toImmutableMap(variable -> new Symbol(variable.getName()), VariableReferenceExpression::getType)));
     }
 
     private TypeProvider(Map<Symbol, Type> types)
@@ -68,5 +76,12 @@ public class TypeProvider
     {
         // types may be a HashMap, so creating an ImmutableMap here would add extra cost when allTypes gets called frequently
         return Collections.unmodifiableMap(types);
+    }
+
+    public Set<VariableReferenceExpression> allVariables()
+    {
+        return types.entrySet().stream()
+                .map(entry -> new VariableReferenceExpression(entry.getKey().getName(), entry.getValue()))
+                .collect(toImmutableSet());
     }
 }

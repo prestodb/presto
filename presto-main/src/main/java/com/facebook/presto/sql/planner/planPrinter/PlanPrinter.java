@@ -181,11 +181,10 @@ public class PlanPrinter
         return new JsonRenderer().render(representation);
     }
 
-    public static String jsonFragmentPlan(PlanNode root, Map<Symbol, Type> symbols, FunctionManager functionManager, Session session)
+    public static String jsonFragmentPlan(PlanNode root, Set<VariableReferenceExpression> variables, FunctionManager functionManager, Session session)
     {
-        TypeProvider typeProvider = TypeProvider.copyOf(symbols.entrySet().stream()
-                .distinct()
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
+        TypeProvider typeProvider = TypeProvider.copyOf(variables.stream()
+                .collect(toImmutableMap(variable -> new Symbol(variable.getName()), VariableReferenceExpression::getType)));
 
         return new PlanPrinter(root, typeProvider, Optional.empty(), functionManager, StatsAndCosts.empty(), session, Optional.empty()).toJson();
     }
@@ -305,9 +304,9 @@ public class PlanPrinter
         builder.append(indentString(1)).append(format("Stage Execution Strategy: %s\n", fragment.getStageExecutionDescriptor().getStageExecutionStrategy()));
 
         TypeProvider typeProvider = TypeProvider.copyOf(allFragments.stream()
-                .flatMap(f -> f.getSymbols().entrySet().stream())
+                .flatMap(f -> f.getVariables().stream())
                 .distinct()
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
+                .collect(toImmutableMap(variable -> new Symbol(variable.getName()), VariableReferenceExpression::getType)));
         builder.append(textLogicalPlan(fragment.getRoot(), typeProvider, Optional.of(fragment.getStageExecutionDescriptor()), functionManager, fragment.getStatsAndCosts(), session, planNodeStats, 1, verbose))
                 .append("\n");
 
@@ -320,7 +319,7 @@ public class PlanPrinter
         PlanFragment fragment = new PlanFragment(
                 new PlanFragmentId(0),
                 plan,
-                types.allTypes(),
+                types.allVariables(),
                 SINGLE_DISTRIBUTION,
                 ImmutableList.of(plan.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), toVariableReferences(plan.getOutputSymbols(), types)),

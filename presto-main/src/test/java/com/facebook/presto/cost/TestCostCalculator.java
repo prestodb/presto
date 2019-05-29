@@ -417,8 +417,8 @@ public class TestCostCalculator
     @Test
     public void testRepartitionedJoinWithExchange()
     {
-        TableScanNode ts1 = tableScan("ts1", "orderkey");
-        TableScanNode ts2 = tableScan("ts2", "orderkey_0");
+        TableScanNode ts1 = tableScan("ts1", ImmutableList.of(new VariableReferenceExpression("orderkey", BIGINT)));
+        TableScanNode ts2 = tableScan("ts2", ImmutableList.of(new VariableReferenceExpression("orderkey_0", BIGINT)));
         ExchangeNode remoteExchange1 = systemPartitionedExchange(
                 new PlanNodeId("re1"),
                 REMOTE_STREAMING,
@@ -466,8 +466,8 @@ public class TestCostCalculator
     @Test
     public void testReplicatedJoinWithExchange()
     {
-        TableScanNode ts1 = tableScan("ts1", "orderkey");
-        TableScanNode ts2 = tableScan("ts2", "orderkey_0");
+        TableScanNode ts1 = tableScan("ts1", ImmutableList.of(new VariableReferenceExpression("orderkey", BIGINT)));
+        TableScanNode ts2 = tableScan("ts2", ImmutableList.of(new VariableReferenceExpression("orderkey_0", BIGINT)));
         ExchangeNode remoteExchange2 = replicatedExchange(new PlanNodeId("re2"), REMOTE_STREAMING, ts2, TypeProvider.viewOf(ImmutableMap.of(new Symbol("orderkey_0"), BIGINT)));
         ExchangeNode localExchange = systemPartitionedExchange(
                 new PlanNodeId("le"),
@@ -759,10 +759,14 @@ public class TestCostCalculator
 
     private TableScanNode tableScan(String id, String... symbols)
     {
-        List<Symbol> symbolsList = Arrays.stream(symbols).map(Symbol::new).collect(toImmutableList());
         List<VariableReferenceExpression> variables = Arrays.stream(symbols)
                 .map(symbol -> new VariableReferenceExpression(symbol, BIGINT))
                 .collect(toImmutableList());
+        return tableScan(id, variables);
+    }
+
+    private TableScanNode tableScan(String id, List<VariableReferenceExpression> variables)
+    {
         ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> assignments = ImmutableMap.builder();
 
         for (VariableReferenceExpression variable : variables) {
