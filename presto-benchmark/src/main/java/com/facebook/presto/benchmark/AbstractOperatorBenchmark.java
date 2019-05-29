@@ -217,13 +217,13 @@ public abstract class AbstractOperatorBenchmark
     {
         ImmutableMap.Builder<Symbol, Type> symbolTypes = ImmutableMap.builder();
         ImmutableList.Builder<VariableReferenceExpression> variables = ImmutableList.builder();
-        ImmutableMap.Builder<Symbol, Integer> symbolToInputMapping = ImmutableMap.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, Integer> variableToInputMapping = ImmutableMap.builder();
         ImmutableList.Builder<PageProjection> projections = ImmutableList.builder();
         for (int channel = 0; channel < types.size(); channel++) {
-            Symbol symbol = new Symbol("h" + channel);
-            symbolTypes.put(symbol, types.get(channel));
-            variables.add(new VariableReferenceExpression(symbol.getName(), types.get(channel)));
-            symbolToInputMapping.put(symbol, channel);
+            VariableReferenceExpression variable = new VariableReferenceExpression("h" + channel, types.get(channel));
+            symbolTypes.put(new Symbol(variable.getName()), types.get(channel));
+            variables.add(variable);
+            variableToInputMapping.put(variable, channel);
             projections.add(new InputPageProjection(channel, types.get(channel)));
         }
 
@@ -237,7 +237,7 @@ public abstract class AbstractOperatorBenchmark
                 hashExpression.get(),
                 ImmutableList.of(),
                 WarningCollector.NOOP);
-        RowExpression translated = translate(hashExpression.get(), expressionTypes, symbolToInputMapping.build(), localQueryRunner.getMetadata().getFunctionManager(), localQueryRunner.getTypeManager(), session, false);
+        RowExpression translated = translate(hashExpression.get(), expressionTypes, variableToInputMapping.build(), localQueryRunner.getMetadata().getFunctionManager(), localQueryRunner.getTypeManager(), session, false);
 
         PageFunctionCompiler functionCompiler = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0);
         projections.add(functionCompiler.compileProjection(translated, Optional.empty()).get());

@@ -156,7 +156,7 @@ public class PushPartialAggregationThroughExchange
                 VariableReferenceExpression output = exchange.getOutputVariables().get(outputIndex);
                 VariableReferenceExpression input = exchange.getInputs().get(i).get(outputIndex);
                 if (!output.equals(input)) {
-                    mappingsBuilder.put(output.getName(), input.getName());
+                    mappingsBuilder.put(output, input);
                 }
             }
 

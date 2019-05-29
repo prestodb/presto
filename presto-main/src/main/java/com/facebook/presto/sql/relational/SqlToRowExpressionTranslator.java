@@ -33,7 +33,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
@@ -149,7 +148,7 @@ public final class SqlToRowExpressionTranslator
     public static RowExpression translate(
             Expression expression,
             Map<NodeRef<Expression>, Type> types,
-            Map<Symbol, Integer> layout,
+            Map<VariableReferenceExpression, Integer> layout,
             FunctionManager functionManager,
             TypeManager typeManager,
             Session session,
@@ -177,7 +176,7 @@ public final class SqlToRowExpressionTranslator
             extends AstVisitor<RowExpression, Void>
     {
         private final Map<NodeRef<Expression>, Type> types;
-        private final Map<Symbol, Integer> layout;
+        private final Map<VariableReferenceExpression, Integer> layout;
         private final TypeManager typeManager;
         private final FunctionManager functionManager;
         private final Session session;
@@ -185,7 +184,7 @@ public final class SqlToRowExpressionTranslator
 
         private Visitor(
                 Map<NodeRef<Expression>, Type> types,
-                Map<Symbol, Integer> layout,
+                Map<VariableReferenceExpression, Integer> layout,
                 TypeManager typeManager,
                 FunctionManager functionManager,
                 Session session)
@@ -390,12 +389,13 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitSymbolReference(SymbolReference node, Void context)
         {
-            Integer channel = layout.get(Symbol.from(node));
+            VariableReferenceExpression variable = new VariableReferenceExpression(node.getName(), getType(node));
+            Integer channel = layout.get(variable);
             if (channel != null) {
-                return field(channel, getType(node));
+                return field(channel, variable.getType());
             }
 
-            return new VariableReferenceExpression(node.getName(), getType(node));
+            return variable;
         }
 
         @Override

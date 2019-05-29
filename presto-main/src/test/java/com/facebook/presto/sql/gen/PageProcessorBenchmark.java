@@ -26,6 +26,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
@@ -86,7 +87,7 @@ public class PageProcessorBenchmark
 
     private final DriverYieldSignal yieldSignal = new DriverYieldSignal();
     private final Map<Symbol, Type> symbolTypes = new HashMap<>();
-    private final Map<Symbol, Integer> sourceLayout = new HashMap<>();
+    private final Map<VariableReferenceExpression, Integer> sourceLayout = new HashMap<>();
 
     private CursorProcessor cursorProcessor;
     private PageProcessor pageProcessor;
@@ -109,9 +110,9 @@ public class PageProcessorBenchmark
         Type type = TYPE_MAP.get(this.type);
 
         for (int i = 0; i < columnCount; i++) {
-            Symbol symbol = new Symbol(type.getDisplayName().toLowerCase(ENGLISH) + i);
-            symbolTypes.put(symbol, type);
-            sourceLayout.put(symbol, i);
+            VariableReferenceExpression variable = new VariableReferenceExpression(type.getDisplayName().toLowerCase(ENGLISH) + i, type);
+            symbolTypes.put(new Symbol(variable.getName()), type);
+            sourceLayout.put(variable, i);
         }
 
         List<RowExpression> projections = getProjections(type);

@@ -19,9 +19,9 @@ import com.facebook.presto.operator.OuterPositionIterator;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.StaticLookupSourceProvider;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
-import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
@@ -44,7 +44,7 @@ public class IndexLookupSourceFactory
         implements LookupSourceFactory
 {
     private final List<Type> outputTypes;
-    private final Map<Symbol, Integer> layout;
+    private final Map<VariableReferenceExpression, Integer> layout;
     private final Supplier<IndexLoader> indexLoaderSupplier;
     private TaskContext taskContext;
     private final SettableFuture<?> whenTaskContextSet = SettableFuture.create();
@@ -54,7 +54,7 @@ public class IndexLookupSourceFactory
             List<Integer> keyOutputChannels,
             OptionalInt keyOutputHashChannel,
             List<Type> outputTypes,
-            Map<Symbol, Integer> layout,
+            Map<VariableReferenceExpression, Integer> layout,
             IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider,
             DataSize maxIndexMemorySize,
             IndexJoinLookupStats stats,
@@ -87,7 +87,7 @@ public class IndexLookupSourceFactory
     }
 
     @Override
-    public Map<Symbol, Integer> getLayout()
+    public Map<VariableReferenceExpression, Integer> getLayout()
     {
         return layout;
     }

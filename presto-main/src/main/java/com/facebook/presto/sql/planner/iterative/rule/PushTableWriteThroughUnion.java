@@ -97,9 +97,8 @@ public class PushTableWriteThroughUnion
             Context context)
     {
         Map<VariableReferenceExpression, VariableReferenceExpression> inputMappings = getInputVariableMapping(unionNode, source);
-        ImmutableMap.Builder<String, String> mappings = ImmutableMap.builder();
-        mappings.putAll(inputMappings.entrySet().stream()
-                .collect(toImmutableMap(entry -> entry.getKey().getName(), entry -> entry.getValue().getName())));
+        ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> mappings = ImmutableMap.builder();
+        mappings.putAll(inputMappings);
         ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> outputMappings = ImmutableMap.builder();
         for (Symbol outputSymbol : writerNode.getOutputSymbols()) {
             Optional<VariableReferenceExpression> outputVariable = mapSymbolToVariable(inputMappings.keySet(), outputSymbol);
@@ -110,7 +109,7 @@ public class PushTableWriteThroughUnion
                 VariableReferenceExpression newVariable = context.getSymbolAllocator().newVariable(outputSymbol);
                 VariableReferenceExpression output = new VariableReferenceExpression(outputSymbol.getName(), newVariable.getType());
                 outputMappings.put(output, newVariable);
-                mappings.put(output.getName(), newVariable.getName());
+                mappings.put(output, newVariable);
             }
         }
         sourceMappings.add(outputMappings.build());

@@ -16,8 +16,8 @@ package com.facebook.presto.operator;
 import com.facebook.presto.operator.LookupSourceProvider.LookupSourceLease;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -58,7 +58,7 @@ public final class PartitionedLookupSourceFactory
 {
     private final List<Type> types;
     private final List<Type> outputTypes;
-    private final Map<Symbol, Integer> layout;
+    private final Map<VariableReferenceExpression, Integer> layout;
     private final List<Type> hashChannelTypes;
     private final boolean outer;
     private final SpilledLookupSource spilledLookupSource;
@@ -106,7 +106,7 @@ public final class PartitionedLookupSourceFactory
      */
     private final ConcurrentHashMap<SpillAwareLookupSourceProvider, LookupSource> suppliedLookupSources = new ConcurrentHashMap<>();
 
-    public PartitionedLookupSourceFactory(List<Type> types, List<Type> outputTypes, List<Type> hashChannelTypes, int partitionCount, Map<Symbol, Integer> layout, boolean outer)
+    public PartitionedLookupSourceFactory(List<Type> types, List<Type> outputTypes, List<Type> hashChannelTypes, int partitionCount, Map<VariableReferenceExpression, Integer> layout, boolean outer)
     {
         checkArgument(Integer.bitCount(partitionCount) == 1, "partitionCount must be a power of 2");
 
@@ -133,7 +133,7 @@ public final class PartitionedLookupSourceFactory
     }
 
     @Override
-    public Map<Symbol, Integer> getLayout()
+    public Map<VariableReferenceExpression, Integer> getLayout()
     {
         return layout;
     }

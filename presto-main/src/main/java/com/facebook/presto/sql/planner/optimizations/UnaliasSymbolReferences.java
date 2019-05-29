@@ -141,7 +141,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
             //TODO: use mapper in other methods
-            SymbolMapper mapper = new SymbolMapper(mapping);
+            SymbolMapper mapper = new SymbolMapper(mapping, types);
             return mapper.map(node, source);
         }
 
@@ -396,7 +396,7 @@ public class UnaliasSymbolReferences
         public PlanNode visitStatisticsWriterNode(StatisticsWriterNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            SymbolMapper mapper = new SymbolMapper(mapping);
+            SymbolMapper mapper = new SymbolMapper(mapping, types);
             return mapper.map(node, source);
         }
 
@@ -404,7 +404,7 @@ public class UnaliasSymbolReferences
         public PlanNode visitTableFinish(TableFinishNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            SymbolMapper mapper = new SymbolMapper(mapping);
+            SymbolMapper mapper = new SymbolMapper(mapping, types);
             return mapper.map(node, source);
         }
 
@@ -493,7 +493,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            SymbolMapper mapper = new SymbolMapper(mapping);
+            SymbolMapper mapper = new SymbolMapper(mapping, types);
             return mapper.map(node, source, node.getId());
         }
 

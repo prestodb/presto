@@ -66,7 +66,7 @@ public class PushTopNThroughUnion
             for (VariableReferenceExpression unionOutput : unionNode.getOutputVariables()) {
                 Set<VariableReferenceExpression> inputVariables = ImmutableSet.copyOf(unionNode.getVariableMapping().get(unionOutput));
                 VariableReferenceExpression unionInput = getLast(intersectVariableWithSymbol(inputVariables, sourceOutputSymbols));
-                symbolMapper.put(unionOutput.getName(), unionInput.getName());
+                symbolMapper.put(unionOutput, unionInput);
             }
             sources.add(symbolMapper.build().map(topNNode, source, context.getIdAllocator().getNextId()));
         }

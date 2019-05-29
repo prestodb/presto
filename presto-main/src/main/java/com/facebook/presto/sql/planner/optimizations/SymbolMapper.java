@@ -17,7 +17,6 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
@@ -39,18 +38,17 @@ import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReferences;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.groupingSets;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
@@ -59,20 +57,25 @@ import static java.util.stream.Collectors.toMap;
 public class SymbolMapper
 {
     private final Map<String, String> mapping;
-    private final Optional<TypeProvider> types;
+    private final TypeProvider types;
 
-    public SymbolMapper(Map<String, String> mapping)
+    public SymbolMapper(Map<VariableReferenceExpression, VariableReferenceExpression> mapping)
     {
         requireNonNull(mapping, "mapping is null");
-        this.mapping = ImmutableMap.copyOf(mapping);
-        this.types = Optional.empty();
+        this.mapping = mapping.entrySet().stream().collect(toImmutableMap(entry -> entry.getKey().getName(), entry -> entry.getValue().getName()));
+        ImmutableSet.Builder<VariableReferenceExpression> variables = ImmutableSet.builder();
+        mapping.entrySet().forEach(entry -> {
+            variables.add(entry.getKey());
+            variables.add(entry.getValue());
+        });
+        this.types = TypeProvider.fromVariables(variables.build());
     }
 
     public SymbolMapper(Map<String, String> mapping, TypeProvider types)
     {
         requireNonNull(mapping, "mapping is null");
         this.mapping = ImmutableMap.copyOf(mapping);
-        this.types = Optional.of(requireNonNull(types, "types is null"));
+        this.types = requireNonNull(types, "types is null");
     }
 
     public Symbol map(Symbol symbol)
@@ -90,8 +93,10 @@ public class SymbolMapper
         while (mapping.containsKey(canonical) && !mapping.get(canonical).equals(canonical)) {
             canonical = mapping.get(canonical);
         }
-        String name = canonical;
-        return new VariableReferenceExpression(canonical, types.map(t -> t.get(new Symbol(name))).orElse(variable.getType()));
+        if (canonical.equals(variable.getName())) {
+            return variable;
+        }
+        return new VariableReferenceExpression(canonical, types.get(new Symbol(canonical)));
     }
 
     public Expression map(Expression value)
@@ -234,10 +239,9 @@ public class SymbolMapper
 
     private PartitioningScheme canonicalize(PartitioningScheme scheme, PlanNode source)
     {
-        checkState(types.isPresent(), "Need types to convert symbols to variables");
         return new PartitioningScheme(
                 scheme.getPartitioning().translate(this::map),
-                toVariableReferences(mapAndDistinctSymbol(source.getOutputSymbols()), types.get()),
+                toVariableReferences(mapAndDistinctSymbol(source.getOutputSymbols()), types),
                 scheme.getHashColumn().map(this::map),
                 scheme.isReplicateNullsAndAny(),
                 scheme.getBucketToPartition());
@@ -288,29 +292,16 @@ public class SymbolMapper
 
     public static class Builder
     {
-        private final ImmutableMap.Builder<String, String> mappingsBuilder = ImmutableMap.builder();
-        private final ImmutableMap.Builder<Symbol, Type> typesBuilder = ImmutableMap.builder();
+        private final ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> mappingsBuilder = ImmutableMap.builder();
 
         public SymbolMapper build()
         {
-            Map<String, String> mappings = mappingsBuilder.build();
-            Map<Symbol, Type> types = typesBuilder.build();
-            if (types.isEmpty()) {
-                return new SymbolMapper(mappings);
-            }
-            return new SymbolMapper(mappings, TypeProvider.viewOf(types));
-        }
-
-        public void put(String from, String to)
-        {
-            mappingsBuilder.put(from, to);
+            return new SymbolMapper(mappingsBuilder.build());
         }
 
         public void put(VariableReferenceExpression from, VariableReferenceExpression to)
         {
-            mappingsBuilder.put(from.getName(), to.getName());
-            typesBuilder.put(new Symbol(from.getName()), from.getType());
-            typesBuilder.put(new Symbol(to.getName()), to.getType());
+            mappingsBuilder.put(from, to);
         }
     }
 }

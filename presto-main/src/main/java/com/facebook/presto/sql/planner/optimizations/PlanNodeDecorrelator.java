@@ -36,7 +36,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 
@@ -52,7 +51,6 @@ import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToR
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
@@ -343,8 +341,9 @@ public class PlanNodeDecorrelator
 
         SymbolMapper getCorrelatedSymbolMapper()
         {
-            return new SymbolMapper(correlatedVariablesMapping.asMap().entrySet().stream()
-                    .collect(toImmutableMap(entry -> entry.getKey().getName(), symbols -> Iterables.getLast(symbols.getValue()).getName())));
+            SymbolMapper.Builder builder = SymbolMapper.builder();
+            correlatedVariablesMapping.forEach(builder::put);
+            return builder.build();
         }
 
         /**
