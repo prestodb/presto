@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.airlift.units.Duration.succinctNanos;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -234,7 +235,7 @@ class QueryStateTimer
 
     private static Duration nanosSince(long start, long now)
     {
-        return succinctNanos(now - start);
+        return succinctNanos(max(0, now - start));
     }
 
     private Duration getDuration(AtomicReference<Duration> finalDuration, AtomicReference<Long> start)
