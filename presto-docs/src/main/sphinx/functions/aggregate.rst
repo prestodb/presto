@@ -327,6 +327,79 @@ Statistical Aggregate Functions
     Returns linear regression slope of input values. ``y`` is the dependent
     value. ``x`` is the independent value.
 
+.. function:: sample_adjusted_mutual_information_score(bucketCount, min, max, outcome, sample, weight, 'histogram_mle') -> double
+
+    Returns the [adjusted mutual information score](https://en.wikipedia.org/wiki/Mutual_information#Adjusted_mutual_information) between samples of
+   `outcome`, a categorical `int` column, and `sample`, a `double` column. The samples have weight
+   `weight`, a non-negative weight column. The mutual information is non-negative.
+
+    The mutual information is calculated by estimating the reduction in entropy by outcome.
+    See :func:`differential_entropy` for the meaning of `bucketCount`, `weight`, and `'histogram_mle`.
+
+.. function:: sample_adjusted_mutual_information_score(bucketCount, min, max, outcome, sample, weight) -> double
+
+    Same as :func:`sample_adjusted_mutual_information_score(bucketCount, min, max, outcome, sample, weight, 'histogram_mle')``
+
+.. function:: sample_adjusted_mutual_information_score(bucketCount, min, max, outcome, sample) -> double
+
+    Same as :func:`sample_adjusted_mutual_information_score(bucketCount, min, max, outcome, sample, 1.0, 'histogram_mle')``
+
+.. function:: sample_adjusted_mutual_information_score(bucketCount, min, max, outcome, sample, weight, 'fixed_histogram_mle', min, max) -> double
+
+    Returns the [adjusted mutual information score](https://en.wikipedia.org/wiki/Mutual_information#Adjusted_mutual_information) between samples of
+   `outcome`, a categorical `int` column, and `sample`, a `double` column. The samples have weight
+   `weight`, a non-negative weight column. The mutual information is non-negative.
+
+    The mutual information is calculated by estimating the reduction in entropy by outcome.
+    See :func:`differential_entropy` for the meaning of `bucketCount`, `weight`, `'fixed_histogram_mle`, `min`
+    and `max`.
+
+.. function:: sample_adjusted_mutual_information_score(bucketCount, min, max, outcome, sample, weight, 'fixed_histogram_jacknife', min, max) -> double
+
+    Returns the [adjusted mutual information score](https://en.wikipedia.org/wiki/Mutual_information#Adjusted_mutual_information) between samples of
+   `outcome`, a categorical `int` column, and `sample`, a `double` column. The samples have weight
+   `weight`, a non-negative weight column. The mutual information is non-negative.
+
+    The mutual information is calculated by estimating the reduction in entropy by outcome.
+    See :func:`differential_entropy` for the meaning of `bucketCount`, `weight`, `'fixed_histogram_jacknife`, `min`
+    and `max`.
+
+.. function :: differential_entropy(bucketCount, sample, weight, 'histogram_mle') -> double
+
+    Returns the approximate log-2 entropy from a random variable's sample outcomes based on the
+    maximal-likelihood estimation of a histogram of the data using `bucketCount`
+    buckets (see :func:`numeric_histogram` for a description of the histogram used). The `histogram_mle`
+    variant of sample entropy estimation is convenient for use, but might be inexact for small numbers of
+    samples.
+
+.. function :: differential_entropy(bucketCount, sample, weight) -> double
+
+    Same as :func:`differential_entropy(bucketCount, sample, weight, 'histogram_mle').
+
+.. function :: differential_entropy(bucketCount, sample) -> double
+
+    Same as :func:`differential_entropy(bucketCount, sample, 1.0, 'histogram_mle').
+
+.. function :: differential_entropy(bucketCount, sample, weight, 'fixed_histogram_mle', min, max) -> double
+
+    Returns the approximate log-2 entropy from a random variable's sample outcomes based on the
+    maximal-likelihood estimation of a fixed-bin histogram of the data using `bucketCount`
+    buckets between `min` and `max`. The `fixed_histogram_mle`
+    variant of sample entropy estimation is convenient for use, but might be less exact for small numbers of
+    samples.
+
+.. function :: differential_entropy(bucketCount, sample, weight, 'fixed_histogram_jacknife', min, max) -> double
+
+    Returns the approximate log-2 entropy from a random variable's sample outcomes based on the
+    maximal-likelihood estimation of a fixed-bin histogram of the data using `bucketCount`
+    buckets between `min` and `max`. The `fixed_histogram_jacknife`
+    variant of sample entropy estimation, is more exact than maximum likelihood estimates. See
+
+    .. code-block:: none
+
+        Beirlant, Dudewicz, Gyorfi, and van der Meulen,
+       "Nonparametric entropy estimation: an overview", (2001)
+
 .. function:: skewness(x) -> double
 
     Returns the skewness of all input values.
