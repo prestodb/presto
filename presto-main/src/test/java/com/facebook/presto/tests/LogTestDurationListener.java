@@ -24,6 +24,8 @@ import org.testng.ITestResult;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 
 public class LogTestDurationListener
@@ -39,14 +41,14 @@ public class LogTestDurationListener
     @Override
     public void onBeforeClass(ITestClass testClass)
     {
-        started.put(getName(testClass), System.nanoTime());
+        beginTest(getName(testClass));
     }
 
     @Override
     public void onAfterClass(ITestClass testClass)
     {
         String name = getName(testClass);
-        Duration duration = Duration.nanosSince(started.remove(name));
+        Duration duration = endTest(name);
         if (duration.compareTo(CLASS_LOGGING_THRESHOLD) > 0) {
             LOG.warn("Tests from %s took %s", name, duration);
         }
@@ -55,17 +57,32 @@ public class LogTestDurationListener
     @Override
     public void beforeInvocation(IInvokedMethod method, ITestResult testResult)
     {
-        started.put(getName(method), System.nanoTime());
+        beginTest(getName(method));
     }
 
     @Override
     public void afterInvocation(IInvokedMethod method, ITestResult testResult)
     {
         String name = getName(method);
-        Duration duration = Duration.nanosSince(started.remove(name));
+        Duration duration = endTest(name);
         if (duration.compareTo(SINGLE_TEST_LOGGING_THRESHOLD) > 0) {
             LOG.info("Test %s took %s", name, duration);
         }
+    }
+
+    private void beginTest(String name)
+    {
+        Long existingEntry = started.putIfAbsent(name, System.nanoTime());
+        // You can get concurrent tests with the same name when using @Factory.  Instead of adding complex support for
+        // having multiple running tests with the same name, we simply don't use @Factory.
+        checkState(existingEntry == null, "There already is a start record for test: %s", name);
+    }
+
+    private Duration endTest(String name)
+    {
+        Long startTime = started.remove(name);
+        checkState(startTime != null, "There is no start record for test: %s", name);
+        return nanosSince(startTime);
     }
 
     private static String getName(ITestClass testClass)
