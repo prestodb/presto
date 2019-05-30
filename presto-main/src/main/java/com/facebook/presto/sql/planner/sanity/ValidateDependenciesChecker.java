@@ -18,7 +18,6 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.WindowNodeUtil;
@@ -75,14 +74,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.extractUnique;
+import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.extractUniqueVariables;
 import static com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer.IndexKeyTracer;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Ensures that all dependencies (i.e., symbols in expressions) for a plan node are provided by its source nodes
@@ -93,46 +92,53 @@ public final class ValidateDependenciesChecker
     @Override
     public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
     {
-        validate(plan);
+        validate(plan, types);
     }
 
-    public static void validate(PlanNode plan)
+    public static void validate(PlanNode plan, TypeProvider types)
     {
-        plan.accept(new Visitor(), ImmutableSet.of());
+        plan.accept(new Visitor(types), ImmutableSet.of());
     }
 
     private static class Visitor
-            extends InternalPlanVisitor<Void, Set<Symbol>>
+            extends InternalPlanVisitor<Void, Set<VariableReferenceExpression>>
     {
+        private final TypeProvider types;
+
+        public Visitor(TypeProvider types)
+        {
+            this.types = requireNonNull(types, "types is null");
+        }
+
         @Override
-        protected Void visitPlan(PlanNode node, Set<Symbol> boundSymbols)
+        protected Void visitPlan(PlanNode node, Set<VariableReferenceExpression> boundVariables)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
 
         @Override
-        public Void visitExplainAnalyze(ExplainAnalyzeNode node, Set<Symbol> boundSymbols)
+        public Void visitExplainAnalyze(ExplainAnalyzeNode node, Set<VariableReferenceExpression> boundVariables)
         {
             PlanNode source = node.getSource();
-            source.accept(this, boundSymbols); // visit child
+            source.accept(this, boundVariables); // visit child
 
             return null;
         }
 
         @Override
-        public Void visitAggregation(AggregationNode node, Set<Symbol> boundSymbols)
+        public Void visitAggregation(AggregationNode node, Set<VariableReferenceExpression> boundVariables)
         {
             PlanNode source = node.getSource();
-            source.accept(this, boundSymbols); // visit child
+            source.accept(this, boundVariables); // visit child
 
-            Set<Symbol> inputs = createInputs(source, boundSymbols);
-            checkDependencies(inputs, node.getGroupingKeys().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()), "Invalid node. Grouping key symbols (%s) not in source plan output (%s)", node.getGroupingKeys(), node.getSource().getOutputSymbols());
+            Set<VariableReferenceExpression> inputs = createInputs(source, boundVariables);
+            checkDependencies(inputs, node.getGroupingKeys(), "Invalid node. Grouping key variables (%s) not in source plan output (%s)", node.getGroupingKeys(), node.getSource().getOutputVariables());
 
             for (Aggregation aggregation : node.getAggregations().values()) {
-                Set<Symbol> dependencies = extractUnique(aggregation);
-                checkDependencies(inputs, dependencies, "Invalid node. Aggregation dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
+                Set<VariableReferenceExpression> dependencies = extractUniqueVariables(aggregation, types);
+                checkDependencies(inputs, dependencies, "Invalid node. Aggregation dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputVariables());
                 aggregation.getMask().ifPresent(mask -> {
-                    checkDependencies(inputs, ImmutableSet.of(new Symbol(mask.getName())), "Invalid node. Aggregation mask symbol (%s) not in source plan output (%s)", mask, node.getSource().getOutputSymbols());
+                    checkDependencies(inputs, ImmutableSet.of(mask), "Invalid node. Aggregation mask symbol (%s) not in source plan output (%s)", mask, node.getSource().getOutputVariables());
                 });
             }
 
@@ -140,133 +146,137 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitGroupId(GroupIdNode node, Set<Symbol> boundSymbols)
+        public Void visitGroupId(GroupIdNode node, Set<VariableReferenceExpression> boundVariables)
         {
             PlanNode source = node.getSource();
-            source.accept(this, boundSymbols); // visit child
+            source.accept(this, boundVariables); // visit child
 
-            checkDependencies(source.getOutputSymbols(), node.getInputSymbols(), "Invalid node. Grouping symbols (%s) not in source plan output (%s)", node.getInputSymbols(), source.getOutputSymbols());
+            checkDependencies(source.getOutputVariables(), node.getInputVariables(), "Invalid node. Grouping symbols (%s) not in source plan output (%s)", node.getInputVariables(), source.getOutputVariables());
 
             return null;
         }
 
         @Override
-        public Void visitMarkDistinct(MarkDistinctNode node, Set<Symbol> boundSymbols)
+        public Void visitMarkDistinct(MarkDistinctNode node, Set<VariableReferenceExpression> boundVariables)
         {
             PlanNode source = node.getSource();
-            source.accept(this, boundSymbols); // visit child
+            source.accept(this, boundVariables); // visit child
 
-            checkDependencies(source.getOutputSymbols(), node.getDistinctVariables().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()), "Invalid node. Mark distinct symbols (%s) not in source plan output (%s)", node.getDistinctVariables(), source.getOutputSymbols());
+            checkDependencies(source.getOutputVariables(), node.getDistinctVariables(), "Invalid node. Mark distinct symbols (%s) not in source plan output (%s)", node.getDistinctVariables(), source.getOutputVariables());
 
             return null;
         }
 
         @Override
-        public Void visitWindow(WindowNode node, Set<Symbol> boundSymbols)
+        public Void visitWindow(WindowNode node, Set<VariableReferenceExpression> boundVariables)
         {
             PlanNode source = node.getSource();
-            source.accept(this, boundSymbols); // visit child
+            source.accept(this, boundVariables); // visit child
 
-            Set<Symbol> inputs = createInputs(source, boundSymbols);
+            Set<VariableReferenceExpression> inputs = createInputs(source, boundVariables);
 
-            List<Symbol> partitionBySymbols = node.getPartitionBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
-            checkDependencies(inputs, partitionBySymbols, "Invalid node. Partition by symbols (%s) not in source plan output (%s)", partitionBySymbols, node.getSource().getOutputSymbols());
+            checkDependencies(inputs, node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().getOutputVariables());
             if (node.getOrderingScheme().isPresent()) {
                 checkDependencies(
                         inputs,
-                        node.getOrderingScheme().get().getOrderBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()),
+                        node.getOrderingScheme().get().getOrderBy(),
                         "Invalid node. Order by symbols (%s) not in source plan output (%s)",
-                        node.getOrderingScheme().get().getOrderBy(), node.getSource().getOutputSymbols());
+                        node.getOrderingScheme().get().getOrderBy(), node.getSource().getOutputVariables());
             }
 
-            ImmutableList.Builder<Symbol> bounds = ImmutableList.builder();
+            ImmutableList.Builder<VariableReferenceExpression> bounds = ImmutableList.builder();
             for (WindowNode.Frame frame : node.getFrames()) {
                 if (frame.getStartValue().isPresent()) {
-                    bounds.add(new Symbol(frame.getStartValue().get().getName()));
+                    bounds.add(frame.getStartValue().get());
                 }
                 if (frame.getEndValue().isPresent()) {
-                    bounds.add(new Symbol(frame.getEndValue().get().getName()));
+                    bounds.add(frame.getEndValue().get());
                 }
             }
-            checkDependencies(inputs, bounds.build(), "Invalid node. Frame bounds (%s) not in source plan output (%s)", bounds.build(), node.getSource().getOutputSymbols());
+            checkDependencies(inputs, bounds.build(), "Invalid node. Frame bounds (%s) not in source plan output (%s)", bounds.build(), node.getSource().getOutputVariables());
 
             for (WindowNode.Function function : node.getWindowFunctions().values()) {
-                Set<Symbol> dependencies = WindowNodeUtil.extractWindowFunctionUnique(function);
-                checkDependencies(inputs, dependencies, "Invalid node. Window function dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
+                Set<VariableReferenceExpression> dependencies = WindowNodeUtil.extractWindowFunctionUniqueVariables(function, types);
+                checkDependencies(inputs, dependencies, "Invalid node. Window function dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputVariables());
             }
 
             return null;
         }
 
         @Override
-        public Void visitTopNRowNumber(TopNRowNumberNode node, Set<Symbol> boundSymbols)
+        public Void visitTopNRowNumber(TopNRowNumberNode node, Set<VariableReferenceExpression> boundVariables)
         {
             PlanNode source = node.getSource();
-            source.accept(this, boundSymbols); // visit child
+            source.accept(this, boundVariables); // visit child
 
-            Set<Symbol> inputs = createInputs(source, boundSymbols);
-            Set<Symbol> partitionBySymbols = node.getPartitionBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet());
-            checkDependencies(inputs, partitionBySymbols, "Invalid node. Partition by symbols (%s) not in source plan output (%s)", partitionBySymbols, node.getSource().getOutputSymbols());
+            Set<VariableReferenceExpression> inputs = createInputs(source, boundVariables);
+            checkDependencies(inputs, node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().getOutputVariables());
             checkDependencies(
                     inputs,
-                    node.getOrderingScheme().getOrderBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()),
+                    node.getOrderingScheme().getOrderBy(),
                     "Invalid node. Order by symbols (%s) not in source plan output (%s)",
-                    node.getOrderingScheme().getOrderBy(), node.getSource().getOutputSymbols());
+                    node.getOrderingScheme().getOrderBy(), node.getSource().getOutputVariables());
 
             return null;
         }
 
         @Override
-        public Void visitRowNumber(RowNumberNode node, Set<Symbol> boundSymbols)
+        public Void visitRowNumber(RowNumberNode node, Set<VariableReferenceExpression> boundVariables)
         {
             PlanNode source = node.getSource();
-            source.accept(this, boundSymbols); // visit child
+            source.accept(this, boundVariables); // visit child
 
-            Set<Symbol> partitionBySymbols = node.getPartitionBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet());
-            checkDependencies(source.getOutputSymbols(), partitionBySymbols, "Invalid node. Partition by symbols (%s) not in source plan output (%s)", partitionBySymbols, source.getOutputSymbols());
+            checkDependencies(source.getOutputVariables(), node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), source.getOutputVariables());
 
             return null;
         }
 
         @Override
-        public Void visitFilter(FilterNode node, Set<Symbol> boundSymbols)
+        public Void visitFilter(FilterNode node, Set<VariableReferenceExpression> boundVariables)
         {
             PlanNode source = node.getSource();
-            source.accept(this, boundSymbols); // visit child
+            source.accept(this, boundVariables); // visit child
 
-            Set<Symbol> inputs = createInputs(source, boundSymbols);
-            checkDependencies(inputs, node.getOutputSymbols(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
+            Set<VariableReferenceExpression> inputs = createInputs(source, boundVariables);
+            checkDependencies(inputs, node.getOutputVariables(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputVariables(), node.getSource().getOutputVariables());
 
-            Set<Symbol> dependencies;
+            // Only verify names here as filter expression would contain type cast, which will be translated to an non-existent variable in
+            // SqlToRowExpressionTranslator
+            // TODO https://github.com/prestodb/presto/issues/12892
+            Set<String> dependencies;
             if (isExpression(node.getPredicate())) {
-                dependencies = SymbolsExtractor.extractUnique(castToExpression(node.getPredicate()));
+                dependencies = SymbolsExtractor.extractUniqueVariable(castToExpression(node.getPredicate()), types).stream().map(VariableReferenceExpression::getName).collect(toImmutableSet());
             }
             else {
-                dependencies = SymbolsExtractor.extractUnique(node.getPredicate());
+                dependencies = SymbolsExtractor.extractUniqueVariable(node.getPredicate()).stream().map(VariableReferenceExpression::getName).collect(toImmutableSet());
             }
-            checkDependencies(inputs, dependencies, "Invalid node. Predicate dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
+            checkArgument(
+                    inputs.stream().map(VariableReferenceExpression::getName).collect(toImmutableSet()).containsAll(dependencies),
+                    "Symbol from filter (%s) not in sources (%s)",
+                    dependencies,
+                    inputs);
 
             return null;
         }
 
         @Override
-        public Void visitSample(SampleNode node, Set<Symbol> boundSymbols)
+        public Void visitSample(SampleNode node, Set<VariableReferenceExpression> boundVariables)
         {
             PlanNode source = node.getSource();
-            source.accept(this, boundSymbols); // visit child
+            source.accept(this, boundVariables); // visit child
 
             return null;
         }
 
         @Override
-        public Void visitProject(ProjectNode node, Set<Symbol> boundSymbols)
+        public Void visitProject(ProjectNode node, Set<VariableReferenceExpression> boundVariables)
         {
             PlanNode source = node.getSource();
-            source.accept(this, boundSymbols); // visit child
+            source.accept(this, boundVariables); // visit child
 
-            Set<Symbol> inputs = createInputs(source, boundSymbols);
+            Set<VariableReferenceExpression> inputs = createInputs(source, boundVariables);
             for (Expression expression : node.getAssignments().getExpressions()) {
-                Set<Symbol> dependencies = SymbolsExtractor.extractUnique(expression);
+                Set<VariableReferenceExpression> dependencies = SymbolsExtractor.extractUniqueVariable(expression, types);
                 checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
             }
 
@@ -274,146 +284,149 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitTopN(TopNNode node, Set<Symbol> boundSymbols)
+        public Void visitTopN(TopNNode node, Set<VariableReferenceExpression> boundVariables)
         {
             PlanNode source = node.getSource();
-            source.accept(this, boundSymbols); // visit child
+            source.accept(this, boundVariables); // visit child
 
-            Set<Symbol> inputs = createInputs(source, boundSymbols);
-            checkDependencies(inputs, node.getOutputSymbols(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
+            Set<VariableReferenceExpression> inputs = createInputs(source, boundVariables);
+            checkDependencies(inputs, node.getOutputVariables(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputVariables(), node.getSource().getOutputVariables());
             checkDependencies(
                     inputs,
-                    node.getOrderingScheme().getOrderBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()),
+                    node.getOrderingScheme().getOrderBy(),
                     "Invalid node. Order by dependencies (%s) not in source plan output (%s)",
                     node.getOrderingScheme().getOrderBy(),
-                    node.getSource().getOutputSymbols());
+                    node.getSource().getOutputVariables());
 
             return null;
         }
 
         @Override
-        public Void visitSort(SortNode node, Set<Symbol> boundSymbols)
+        public Void visitSort(SortNode node, Set<VariableReferenceExpression> boundVariables)
         {
             PlanNode source = node.getSource();
-            source.accept(this, boundSymbols); // visit child
+            source.accept(this, boundVariables); // visit child
 
-            Set<Symbol> inputs = createInputs(source, boundSymbols);
-            checkDependencies(inputs, node.getOutputSymbols(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
+            Set<VariableReferenceExpression> inputs = createInputs(source, boundVariables);
+            checkDependencies(inputs, node.getOutputVariables(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputVariables(), node.getSource().getOutputVariables());
             checkDependencies(
                     inputs,
-                    node.getOrderingScheme().getOrderBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()),
+                    node.getOrderingScheme().getOrderBy(),
                     "Invalid node. Order by dependencies (%s) not in source plan output (%s)",
-                    node.getOrderingScheme().getOrderBy(), node.getSource().getOutputSymbols());
+                    node.getOrderingScheme().getOrderBy(), node.getSource().getOutputVariables());
 
             return null;
         }
 
         @Override
-        public Void visitOutput(OutputNode node, Set<Symbol> boundSymbols)
+        public Void visitOutput(OutputNode node, Set<VariableReferenceExpression> boundVariables)
         {
             PlanNode source = node.getSource();
-            source.accept(this, boundSymbols); // visit child
+            source.accept(this, boundVariables); // visit child
 
-            checkDependencies(source.getOutputSymbols(), node.getOutputSymbols(), "Invalid node. Output column dependencies (%s) not in source plan output (%s)", node.getOutputSymbols(), source.getOutputSymbols());
+            checkDependencies(source.getOutputVariables(), node.getOutputVariables(), "Invalid node. Output column dependencies (%s) not in source plan output (%s)", node.getOutputVariables(), source.getOutputVariables());
 
             return null;
         }
 
         @Override
-        public Void visitLimit(LimitNode node, Set<Symbol> boundSymbols)
+        public Void visitLimit(LimitNode node, Set<VariableReferenceExpression> boundVariables)
         {
             PlanNode source = node.getSource();
-            source.accept(this, boundSymbols); // visit child
+            source.accept(this, boundVariables); // visit child
 
             return null;
         }
 
         @Override
-        public Void visitDistinctLimit(DistinctLimitNode node, Set<Symbol> boundSymbols)
+        public Void visitDistinctLimit(DistinctLimitNode node, Set<VariableReferenceExpression> boundVariables)
         {
             PlanNode source = node.getSource();
-            source.accept(this, boundSymbols); // visit child
+            source.accept(this, boundVariables); // visit child
 
-            checkDependencies(source.getOutputSymbols(), node.getOutputSymbols(), "Invalid node. Output column dependencies (%s) not in source plan output (%s)", node.getOutputSymbols(), source.getOutputSymbols());
+            checkDependencies(source.getOutputVariables(), node.getOutputVariables(), "Invalid node. Output column dependencies (%s) not in source plan output (%s)", node.getOutputVariables(), source.getOutputVariables());
 
             return null;
         }
 
         @Override
-        public Void visitJoin(JoinNode node, Set<Symbol> boundSymbols)
+        public Void visitJoin(JoinNode node, Set<VariableReferenceExpression> boundVariables)
         {
-            node.getLeft().accept(this, boundSymbols);
-            node.getRight().accept(this, boundSymbols);
+            node.getLeft().accept(this, boundVariables);
+            node.getRight().accept(this, boundVariables);
 
-            Set<Symbol> leftInputs = createInputs(node.getLeft(), boundSymbols);
-            Set<Symbol> rightInputs = createInputs(node.getRight(), boundSymbols);
-            Set<Symbol> allInputs = ImmutableSet.<Symbol>builder()
+            Set<VariableReferenceExpression> leftInputs = createInputs(node.getLeft(), boundVariables);
+            Set<VariableReferenceExpression> rightInputs = createInputs(node.getRight(), boundVariables);
+            Set<VariableReferenceExpression> allInputs = ImmutableSet.<VariableReferenceExpression>builder()
                     .addAll(leftInputs)
                     .addAll(rightInputs)
                     .build();
 
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
-                checkArgument(leftInputs.contains(new Symbol(clause.getLeft().getName())), "Symbol from join clause (%s) not in left source (%s)", clause.getLeft(), node.getLeft().getOutputSymbols());
-                checkArgument(rightInputs.contains(new Symbol(clause.getRight().getName())), "Symbol from join clause (%s) not in right source (%s)", clause.getRight(), node.getRight().getOutputSymbols());
+                checkArgument(leftInputs.contains(clause.getLeft()), "Symbol from join clause (%s) not in left source (%s)", clause.getLeft(), node.getLeft().getOutputVariables());
+                checkArgument(rightInputs.contains(clause.getRight()), "Symbol from join clause (%s) not in right source (%s)", clause.getRight(), node.getRight().getOutputVariables());
             }
 
             node.getFilter().ifPresent(predicate -> {
-                Set<Symbol> predicateSymbols;
+                // Only verify names here as filter expression would contain type cast, which will be translated to an non-existent variable in
+                // SqlToRowExpressionTranslator
+                // TODO https://github.com/prestodb/presto/issues/12892
+                Set<String> predicateVariables;
                 if (isExpression(predicate)) {
-                    predicateSymbols = SymbolsExtractor.extractUnique(castToExpression(predicate));
+                    predicateVariables = SymbolsExtractor.extractUniqueVariable(castToExpression(predicate), types).stream().map(VariableReferenceExpression::getName).collect(toImmutableSet());
                 }
                 else {
-                    predicateSymbols = SymbolsExtractor.extractUnique(predicate);
+                    predicateVariables = SymbolsExtractor.extractUniqueVariable(predicate).stream().map(VariableReferenceExpression::getName).collect(toImmutableSet());
                 }
                 checkArgument(
-                        allInputs.containsAll(predicateSymbols),
+                        allInputs.stream().map(VariableReferenceExpression::getName).collect(toImmutableSet()).containsAll(predicateVariables),
                         "Symbol from filter (%s) not in sources (%s)",
-                        predicateSymbols,
+                        predicateVariables,
                         allInputs);
             });
 
-            checkLeftOutputSymbolsBeforeRight(node.getLeft().getOutputSymbols(), node.getOutputSymbols());
+            checkLeftOutputVariablesBeforeRight(node.getLeft().getOutputVariables(), node.getOutputVariables());
             return null;
         }
 
         @Override
-        public Void visitSemiJoin(SemiJoinNode node, Set<Symbol> boundSymbols)
+        public Void visitSemiJoin(SemiJoinNode node, Set<VariableReferenceExpression> boundVariables)
         {
-            node.getSource().accept(this, boundSymbols);
-            node.getFilteringSource().accept(this, boundSymbols);
+            node.getSource().accept(this, boundVariables);
+            node.getFilteringSource().accept(this, boundVariables);
 
-            checkArgument(node.getSource().getOutputSymbols().contains(new Symbol(node.getSourceJoinVariable().getName())), "Symbol from semi join clause (%s) not in source (%s)", node.getSourceJoinVariable(), node.getSource().getOutputSymbols());
-            checkArgument(node.getFilteringSource().getOutputSymbols().contains(new Symbol(node.getFilteringSourceJoinVariable().getName())), "Symbol from semi join clause (%s) not in filtering source (%s)", node.getSourceJoinVariable(), node.getFilteringSource().getOutputSymbols());
+            checkArgument(node.getSource().getOutputVariables().contains(node.getSourceJoinVariable()), "Symbol from semi join clause (%s) not in source (%s)", node.getSourceJoinVariable(), node.getSource().getOutputVariables());
+            checkArgument(node.getFilteringSource().getOutputVariables().contains(node.getFilteringSourceJoinVariable()), "Symbol from semi join clause (%s) not in filtering source (%s)", node.getSourceJoinVariable(), node.getFilteringSource().getOutputVariables());
 
-            Set<Symbol> outputs = createInputs(node, boundSymbols);
-            checkArgument(outputs.containsAll(node.getSource().getOutputSymbols()), "Semi join output symbols (%s) must contain all of the source symbols (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
-            checkArgument(outputs.contains(new Symbol(node.getSemiJoinOutput().getName())),
+            Set<VariableReferenceExpression> outputs = createInputs(node, boundVariables);
+            checkArgument(outputs.containsAll(node.getSource().getOutputVariables()), "Semi join output symbols (%s) must contain all of the source symbols (%s)", node.getOutputVariables(), node.getSource().getOutputVariables());
+            checkArgument(outputs.contains(node.getSemiJoinOutput()),
                     "Semi join output symbols (%s) must contain join result (%s)",
-                    node.getOutputSymbols(),
+                    node.getOutputVariables(),
                     node.getSemiJoinOutput());
 
             return null;
         }
 
         @Override
-        public Void visitSpatialJoin(SpatialJoinNode node, Set<Symbol> boundSymbols)
+        public Void visitSpatialJoin(SpatialJoinNode node, Set<VariableReferenceExpression> boundVariables)
         {
-            node.getLeft().accept(this, boundSymbols);
-            node.getRight().accept(this, boundSymbols);
+            node.getLeft().accept(this, boundVariables);
+            node.getRight().accept(this, boundVariables);
 
-            Set<Symbol> leftInputs = createInputs(node.getLeft(), boundSymbols);
-            Set<Symbol> rightInputs = createInputs(node.getRight(), boundSymbols);
-            Set<Symbol> allInputs = ImmutableSet.<Symbol>builder()
+            Set<VariableReferenceExpression> leftInputs = createInputs(node.getLeft(), boundVariables);
+            Set<VariableReferenceExpression> rightInputs = createInputs(node.getRight(), boundVariables);
+            Set<VariableReferenceExpression> allInputs = ImmutableSet.<VariableReferenceExpression>builder()
                     .addAll(leftInputs)
                     .addAll(rightInputs)
                     .build();
 
-            Set<Symbol> predicateSymbols;
+            Set<VariableReferenceExpression> predicateSymbols;
             if (isExpression(node.getFilter())) {
-                predicateSymbols = SymbolsExtractor.extractUnique(castToExpression(node.getFilter()));
+                predicateSymbols = SymbolsExtractor.extractUniqueVariable(castToExpression(node.getFilter()), types);
             }
             else {
-                predicateSymbols = SymbolsExtractor.extractUnique(node.getFilter());
+                predicateSymbols = SymbolsExtractor.extractUniqueVariable(node.getFilter());
             }
 
             checkArgument(
@@ -422,249 +435,244 @@ public final class ValidateDependenciesChecker
                     predicateSymbols,
                     allInputs);
 
-            checkLeftOutputSymbolsBeforeRight(node.getLeft().getOutputSymbols(), node.getOutputSymbols());
+            checkLeftOutputVariablesBeforeRight(node.getLeft().getOutputVariables(), node.getOutputVariables());
             return null;
         }
 
-        private void checkLeftOutputSymbolsBeforeRight(List<Symbol> leftSymbols, List<Symbol> outputSymbols)
+        private void checkLeftOutputVariablesBeforeRight(List<VariableReferenceExpression> leftVariables, List<VariableReferenceExpression> outputVariables)
         {
             int leftMaxPosition = -1;
             Optional<Integer> rightMinPosition = Optional.empty();
-            Set<Symbol> leftSymbolsSet = new HashSet<>(leftSymbols);
-            for (int i = 0; i < outputSymbols.size(); i++) {
-                Symbol symbol = outputSymbols.get(i);
-                if (leftSymbolsSet.contains(symbol)) {
+            Set<VariableReferenceExpression> leftVariablesSet = new HashSet<>(leftVariables);
+            for (int i = 0; i < outputVariables.size(); i++) {
+                VariableReferenceExpression variable = outputVariables.get(i);
+                if (leftVariablesSet.contains(variable)) {
                     leftMaxPosition = i;
                 }
                 else if (!rightMinPosition.isPresent()) {
                     rightMinPosition = Optional.of(i);
                 }
             }
-            checkState(!rightMinPosition.isPresent() || rightMinPosition.get() > leftMaxPosition, "Not all left output symbols are before right output symbols");
+            checkState(!rightMinPosition.isPresent() || rightMinPosition.get() > leftMaxPosition, "Not all left output variables are before right output variables");
         }
 
         @Override
-        public Void visitIndexJoin(IndexJoinNode node, Set<Symbol> boundSymbols)
+        public Void visitIndexJoin(IndexJoinNode node, Set<VariableReferenceExpression> boundVariables)
         {
-            node.getProbeSource().accept(this, boundSymbols);
-            node.getIndexSource().accept(this, boundSymbols);
+            node.getProbeSource().accept(this, boundVariables);
+            node.getIndexSource().accept(this, boundVariables);
 
-            Set<Symbol> probeInputs = createInputs(node.getProbeSource(), boundSymbols);
-            Set<Symbol> indexSourceInputs = createInputs(node.getIndexSource(), boundSymbols);
+            Set<VariableReferenceExpression> probeInputs = createInputs(node.getProbeSource(), boundVariables);
+            Set<VariableReferenceExpression> indexSourceInputs = createInputs(node.getIndexSource(), boundVariables);
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
-                checkArgument(probeInputs.contains(new Symbol(clause.getProbe().getName())), "Probe symbol from index join clause (%s) not in probe source (%s)", clause.getProbe(), node.getProbeSource().getOutputSymbols());
-                checkArgument(indexSourceInputs.contains(new Symbol(clause.getIndex().getName())), "Index symbol from index join clause (%s) not in index source (%s)", clause.getIndex(), node.getIndexSource().getOutputSymbols());
+                checkArgument(probeInputs.contains(clause.getProbe()), "Probe variable from index join clause (%s) not in probe source (%s)", clause.getProbe(), node.getProbeSource().getOutputVariables());
+                checkArgument(indexSourceInputs.contains(clause.getIndex()), "Index variable from index join clause (%s) not in index source (%s)", clause.getIndex(), node.getIndexSource().getOutputVariables());
             }
 
-            Set<VariableReferenceExpression> lookupSymbols = node.getCriteria().stream()
+            Set<VariableReferenceExpression> lookupVariables = node.getCriteria().stream()
                     .map(IndexJoinNode.EquiJoinClause::getIndex)
                     .collect(toImmutableSet());
-            Map<VariableReferenceExpression, VariableReferenceExpression> trace = IndexKeyTracer.trace(node.getIndexSource(), lookupSymbols);
-            checkArgument(!trace.isEmpty() && lookupSymbols.containsAll(trace.keySet()),
+            Map<VariableReferenceExpression, VariableReferenceExpression> trace = IndexKeyTracer.trace(node.getIndexSource(), lookupVariables);
+            checkArgument(!trace.isEmpty() && lookupVariables.containsAll(trace.keySet()),
                     "Index lookup symbols are not traceable to index source: %s",
-                    lookupSymbols);
+                    lookupVariables);
 
             return null;
         }
 
         @Override
-        public Void visitIndexSource(IndexSourceNode node, Set<Symbol> boundSymbols)
+        public Void visitIndexSource(IndexSourceNode node, Set<VariableReferenceExpression> boundVariables)
         {
             checkDependencies(
-                    node.getOutputSymbols(),
-                    node.getLookupVariables().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()),
+                    node.getOutputVariables(),
+                    node.getLookupVariables(),
                     "Lookup variables must be part of output symbols");
             checkDependencies(
-                    node.getAssignments().keySet().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()),
-                    node.getOutputSymbols(),
+                    node.getAssignments().keySet(),
+                    node.getOutputVariables(),
                     "Assignments must contain mappings for output symbols");
 
             return null;
         }
 
         @Override
-        public Void visitTableScan(TableScanNode node, Set<Symbol> boundSymbols)
+        public Void visitTableScan(TableScanNode node, Set<VariableReferenceExpression> boundVariables)
         {
             //We don't have to do a check here as TableScanNode has no dependencies.
             return null;
         }
 
         @Override
-        public Void visitValues(ValuesNode node, Set<Symbol> boundSymbols)
+        public Void visitValues(ValuesNode node, Set<VariableReferenceExpression> boundVariables)
         {
-            Set<Symbol> correlatedDependencies = SymbolsExtractor.extractUnique(node);
+            Set<VariableReferenceExpression> correlatedDependencies = SymbolsExtractor.extractUniqueVariable(node, types);
             checkDependencies(
-                    boundSymbols,
+                    boundVariables,
                     correlatedDependencies,
                     "Invalid node. Expression correlated dependencies (%s) not satisfied by (%s)",
                     correlatedDependencies,
-                    boundSymbols);
+                    boundVariables);
             return null;
         }
 
         @Override
-        public Void visitUnnest(UnnestNode node, Set<Symbol> boundSymbols)
+        public Void visitUnnest(UnnestNode node, Set<VariableReferenceExpression> boundVariables)
         {
             PlanNode source = node.getSource();
-            source.accept(this, boundSymbols);
+            source.accept(this, boundVariables);
 
-            Set<Symbol> required = ImmutableSet.<Symbol>builder()
-                    .addAll(node.getReplicateVariables().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()))
-                    .addAll(node.getUnnestVariables().keySet().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()))
+            Set<VariableReferenceExpression> required = ImmutableSet.<VariableReferenceExpression>builder()
+                    .addAll(node.getReplicateVariables())
+                    .addAll(node.getUnnestVariables().keySet())
                     .build();
 
-            checkDependencies(source.getOutputSymbols(), required, "Invalid node. Dependencies (%s) not in source plan output (%s)", required, source.getOutputSymbols());
+            checkDependencies(source.getOutputVariables(), required, "Invalid node. Dependencies (%s) not in source plan output (%s)", required, source.getOutputVariables());
 
             return null;
         }
 
         @Override
-        public Void visitRemoteSource(RemoteSourceNode node, Set<Symbol> boundSymbols)
+        public Void visitRemoteSource(RemoteSourceNode node, Set<VariableReferenceExpression> boundVariables)
         {
             return null;
         }
 
         @Override
-        public Void visitExchange(ExchangeNode node, Set<Symbol> boundSymbols)
+        public Void visitExchange(ExchangeNode node, Set<VariableReferenceExpression> boundVariables)
         {
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanNode subplan = node.getSources().get(i);
                 checkDependencies(
-                        subplan.getOutputSymbols(),
-                        node.getInputs().get(i).stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableSet()),
+                        subplan.getOutputVariables(),
+                        node.getInputs().get(i),
                         "EXCHANGE subplan must provide all of the necessary symbols");
-                subplan.accept(this, boundSymbols); // visit child
+                subplan.accept(this, boundVariables); // visit child
             }
 
             checkDependencies(
-                    node.getOutputSymbols(),
-                    node.getPartitioningScheme().getOutputLayout().stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableSet()),
+                    node.getOutputVariables(),
+                    node.getPartitioningScheme().getOutputLayout(),
                     "EXCHANGE must provide all of the necessary symbols for partition function");
 
             return null;
         }
 
         @Override
-        public Void visitTableWriter(TableWriterNode node, Set<Symbol> boundSymbols)
+        public Void visitTableWriter(TableWriterNode node, Set<VariableReferenceExpression> boundVariables)
         {
             PlanNode source = node.getSource();
-            source.accept(this, boundSymbols); // visit child
+            source.accept(this, boundVariables); // visit child
 
             return null;
         }
 
         @Override
-        public Void visitDelete(DeleteNode node, Set<Symbol> boundSymbols)
+        public Void visitDelete(DeleteNode node, Set<VariableReferenceExpression> boundVariables)
         {
             PlanNode source = node.getSource();
-            source.accept(this, boundSymbols); // visit child
+            source.accept(this, boundVariables); // visit child
 
-            checkArgument(source.getOutputSymbols().contains(new Symbol(node.getRowId().getName())), "Invalid node. Row ID symbol (%s) is not in source plan output (%s)", node.getRowId(), node.getSource().getOutputSymbols());
+            checkArgument(source.getOutputVariables().contains(node.getRowId()), "Invalid node. Row ID symbol (%s) is not in source plan output (%s)", node.getRowId(), node.getSource().getOutputVariables());
 
             return null;
         }
 
         @Override
-        public Void visitMetadataDelete(MetadataDeleteNode node, Set<Symbol> boundSymbols)
+        public Void visitMetadataDelete(MetadataDeleteNode node, Set<VariableReferenceExpression> boundVariables)
         {
             return null;
         }
 
         @Override
-        public Void visitStatisticsWriterNode(StatisticsWriterNode node, Set<Symbol> boundSymbols)
+        public Void visitStatisticsWriterNode(StatisticsWriterNode node, Set<VariableReferenceExpression> boundVariables)
         {
-            node.getSource().accept(this, boundSymbols); // visit child
+            node.getSource().accept(this, boundVariables); // visit child
 
             StatisticAggregationsDescriptor<VariableReferenceExpression> descriptor = node.getDescriptor();
-            Set<Symbol> dependencies = ImmutableSet.<VariableReferenceExpression>builder()
+            Set<VariableReferenceExpression> dependencies = ImmutableSet.<VariableReferenceExpression>builder()
                     .addAll(descriptor.getGrouping().values())
                     .addAll(descriptor.getColumnStatistics().values())
                     .addAll(descriptor.getTableStatistics().values())
-                    .build()
-                    .stream()
-                    .map(VariableReferenceExpression::getName)
-                    .map(Symbol::new)
-                    .collect(toImmutableSet());
-            List<Symbol> outputSymbols = node.getSource().getOutputSymbols();
-            checkDependencies(dependencies, dependencies, "Invalid node. Dependencies (%s) not in source plan output (%s)", dependencies, outputSymbols);
+                    .build();
+            List<VariableReferenceExpression> outputVariables = node.getSource().getOutputVariables();
+            checkDependencies(dependencies, dependencies, "Invalid node. Dependencies (%s) not in source plan output (%s)", dependencies, outputVariables);
             return null;
         }
 
         @Override
-        public Void visitTableFinish(TableFinishNode node, Set<Symbol> boundSymbols)
+        public Void visitTableFinish(TableFinishNode node, Set<VariableReferenceExpression> boundVariables)
         {
-            node.getSource().accept(this, boundSymbols); // visit child
+            node.getSource().accept(this, boundVariables); // visit child
 
             return null;
         }
 
         @Override
-        public Void visitUnion(UnionNode node, Set<Symbol> boundSymbols)
+        public Void visitUnion(UnionNode node, Set<VariableReferenceExpression> boundVariables)
         {
-            return visitSetOperation(node, boundSymbols);
+            return visitSetOperation(node, boundVariables);
         }
 
-        private Void visitSetOperation(SetOperationNode node, Set<Symbol> boundSymbols)
+        private Void visitSetOperation(SetOperationNode node, Set<VariableReferenceExpression> boundVariables)
         {
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanNode subplan = node.getSources().get(i);
-                checkDependencies(subplan.getOutputSymbols(), node.sourceOutputSymbolLayout(i), "%s subplan must provide all of the necessary symbols", node.getClass().getSimpleName());
-                subplan.accept(this, boundSymbols); // visit child
+                checkDependencies(subplan.getOutputVariables(), node.sourceOutputLayout(i), "%s subplan must provide all of the necessary symbols", node.getClass().getSimpleName());
+                subplan.accept(this, boundVariables); // visit child
             }
 
             return null;
         }
 
         @Override
-        public Void visitIntersect(IntersectNode node, Set<Symbol> boundSymbols)
+        public Void visitIntersect(IntersectNode node, Set<VariableReferenceExpression> boundVariables)
         {
-            return visitSetOperation(node, boundSymbols);
+            return visitSetOperation(node, boundVariables);
         }
 
         @Override
-        public Void visitExcept(ExceptNode node, Set<Symbol> boundSymbols)
+        public Void visitExcept(ExceptNode node, Set<VariableReferenceExpression> boundVariables)
         {
-            return visitSetOperation(node, boundSymbols);
+            return visitSetOperation(node, boundVariables);
         }
 
         @Override
-        public Void visitEnforceSingleRow(EnforceSingleRowNode node, Set<Symbol> boundSymbols)
+        public Void visitEnforceSingleRow(EnforceSingleRowNode node, Set<VariableReferenceExpression> boundVariables)
         {
-            node.getSource().accept(this, boundSymbols); // visit child
+            node.getSource().accept(this, boundVariables); // visit child
 
             return null;
         }
 
         @Override
-        public Void visitAssignUniqueId(AssignUniqueId node, Set<Symbol> boundSymbols)
+        public Void visitAssignUniqueId(AssignUniqueId node, Set<VariableReferenceExpression> boundVariables)
         {
-            node.getSource().accept(this, boundSymbols); // visit child
+            node.getSource().accept(this, boundVariables); // visit child
 
             return null;
         }
 
         @Override
-        public Void visitApply(ApplyNode node, Set<Symbol> boundSymbols)
+        public Void visitApply(ApplyNode node, Set<VariableReferenceExpression> boundVariables)
         {
-            Set<Symbol> correlationSymbols = node.getCorrelation().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet());
-            Set<Symbol> subqueryCorrelation = ImmutableSet.<Symbol>builder()
-                    .addAll(boundSymbols)
-                    .addAll(correlationSymbols)
+            Set<VariableReferenceExpression> subqueryCorrelation = ImmutableSet.<VariableReferenceExpression>builder()
+                    .addAll(boundVariables)
+                    .addAll(node.getCorrelation())
                     .build();
 
-            node.getInput().accept(this, boundSymbols); // visit child
+            node.getInput().accept(this, boundVariables); // visit child
             node.getSubquery().accept(this, subqueryCorrelation); // visit child
 
-            checkDependencies(node.getInput().getOutputSymbols(), correlationSymbols, "APPLY input must provide all the necessary correlation symbols for subquery");
-            checkDependencies(SymbolsExtractor.extractUnique(node.getSubquery()), correlationSymbols, "not all APPLY correlation symbols are used in subquery");
+            checkDependencies(node.getInput().getOutputVariables(), node.getCorrelation(), "APPLY input must provide all the necessary correlation variables for subquery");
+            checkDependencies(SymbolsExtractor.extractUniqueVariable(node.getSubquery(), types), node.getCorrelation(), "not all APPLY correlation symbols are used in subquery");
 
-            ImmutableSet<Symbol> inputs = ImmutableSet.<Symbol>builder()
-                    .addAll(createInputs(node.getSubquery(), boundSymbols))
-                    .addAll(createInputs(node.getInput(), boundSymbols))
+            ImmutableSet<VariableReferenceExpression> inputs = ImmutableSet.<VariableReferenceExpression>builder()
+                    .addAll(createInputs(node.getSubquery(), boundVariables))
+                    .addAll(createInputs(node.getInput(), boundVariables))
                     .build();
 
             for (Expression expression : node.getSubqueryAssignments().getExpressions()) {
-                Set<Symbol> dependencies = SymbolsExtractor.extractUnique(expression);
+                Set<VariableReferenceExpression> dependencies = SymbolsExtractor.extractUniqueVariable(expression, types);
                 checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
             }
 
@@ -672,39 +680,38 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        public Void visitLateralJoin(LateralJoinNode node, Set<Symbol> boundSymbols)
+        public Void visitLateralJoin(LateralJoinNode node, Set<VariableReferenceExpression> boundVariables)
         {
-            Set<Symbol> correlationSymbols = node.getCorrelation().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet());
-            Set<Symbol> subqueryCorrelation = ImmutableSet.<Symbol>builder()
-                    .addAll(boundSymbols)
-                    .addAll(correlationSymbols)
+            Set<VariableReferenceExpression> subqueryCorrelation = ImmutableSet.<VariableReferenceExpression>builder()
+                    .addAll(boundVariables)
+                    .addAll(node.getCorrelation())
                     .build();
 
-            node.getInput().accept(this, boundSymbols); // visit child
+            node.getInput().accept(this, boundVariables); // visit child
             node.getSubquery().accept(this, subqueryCorrelation); // visit child
 
             checkDependencies(
-                    node.getInput().getOutputSymbols(),
-                    correlationSymbols,
+                    node.getInput().getOutputVariables(),
+                    node.getCorrelation(),
                     "LATERAL input must provide all the necessary correlation symbols for subquery");
             checkDependencies(
-                    SymbolsExtractor.extractUnique(node.getSubquery()),
-                    correlationSymbols,
+                    SymbolsExtractor.extractUniqueVariable(node.getSubquery(), types),
+                    node.getCorrelation(),
                     "not all LATERAL correlation symbols are used in subquery");
 
             return null;
         }
 
-        private static ImmutableSet<Symbol> createInputs(PlanNode source, Set<Symbol> boundSymbols)
+        private static ImmutableSet<VariableReferenceExpression> createInputs(PlanNode source, Set<VariableReferenceExpression> boundVariables)
         {
-            return ImmutableSet.<Symbol>builder()
-                    .addAll(source.getOutputSymbols())
-                    .addAll(boundSymbols)
+            return ImmutableSet.<VariableReferenceExpression>builder()
+                    .addAll(source.getOutputVariables())
+                    .addAll(boundVariables)
                     .build();
         }
     }
 
-    private static void checkDependencies(Collection<Symbol> inputs, Collection<Symbol> required, String message, Object... parameters)
+    private static void checkDependencies(Collection<VariableReferenceExpression> inputs, Collection<VariableReferenceExpression> required, String message, Object... parameters)
     {
         checkArgument(ImmutableSet.copyOf(inputs).containsAll(required), message, parameters);
     }

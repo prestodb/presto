@@ -36,7 +36,6 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
@@ -134,7 +133,7 @@ public class GroupIdNode
         return visitor.visitGroupId(this, context);
     }
 
-    public Set<Symbol> getInputSymbols()
+    public Set<VariableReferenceExpression> getInputVariables()
     {
         return ImmutableSet.<VariableReferenceExpression>builder()
                 .addAll(aggregationArguments)
@@ -143,11 +142,7 @@ public class GroupIdNode
                                 .map(groupingColumns::get).collect(Collectors.toList()))
                         .flatMap(Collection::stream)
                         .collect(toSet()))
-                .build()
-                .stream()
-                .map(VariableReferenceExpression::getName)
-                .map(Symbol::new)
-                .collect(toImmutableSet());
+                .build();
     }
 
     // returns the common grouping columns in terms of output symbols
