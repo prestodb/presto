@@ -18,12 +18,11 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.RegexLibrary;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Factory;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -33,34 +32,19 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
-import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
-import static com.facebook.presto.sql.analyzer.RegexLibrary.RE2J;
 
-public class TestRegexpFunctions
+public abstract class AbstractTestRegexpFunctions
         extends AbstractTestFunctions
 {
-    private static final FeaturesConfig JONI_FEATURES_CONFIG = new FeaturesConfig()
-            .setRegexLibrary(JONI);
-
-    private static final FeaturesConfig RE2J_FEATURES_CONFIG = new FeaturesConfig()
-            .setRegexLibrary(RE2J);
-
-    @Factory(dataProvider = "featuresConfig")
-    public TestRegexpFunctions(FeaturesConfig featuresConfig)
+    AbstractTestRegexpFunctions(RegexLibrary regexLibrary)
     {
-        super(featuresConfig);
+        super(new FeaturesConfig().setRegexLibrary(regexLibrary));
     }
 
     @BeforeClass
     public void setUp()
     {
-        registerScalar(TestRegexpFunctions.class);
-    }
-
-    @DataProvider(name = "featuresConfig")
-    public static Object[][] featuresConfigProvider()
-    {
-        return new Object[][] {new Object[] {JONI_FEATURES_CONFIG}, new Object[] {RE2J_FEATURES_CONFIG}};
+        registerScalar(AbstractTestRegexpFunctions.class);
     }
 
     @ScalarFunction(deterministic = false) // if not non-deterministic, constant folding code accidentally fix invalid characters
@@ -90,7 +74,9 @@ public class TestRegexpFunctions
         assertFunction("REGEXP_LIKE('Hello', '^[a-z]+$')", BOOLEAN, false);
         assertFunction("REGEXP_LIKE('Hello', '^(?i)[a-z]+$')", BOOLEAN, true);
         assertFunction("REGEXP_LIKE('Hello', '^[a-zA-Z]+$')", BOOLEAN, true);
-        assertFunction("REGEXP_LIKE('Hello', 'Hello\\b')", BOOLEAN, true);
+
+        // verify word boundaries at end of pattern (https://github.com/airlift/joni/pull/11)
+        assertFunction("REGEXP_LIKE('test', 'test\\b')", BOOLEAN, true);
     }
 
     @Test
