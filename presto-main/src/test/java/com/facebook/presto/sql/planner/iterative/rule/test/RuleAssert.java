@@ -281,13 +281,13 @@ public class RuleAssert
         }
     }
 
-    private static class TestingStatsCalculator
+    public static class TestingStatsCalculator
             implements StatsCalculator
     {
         private final StatsCalculator delegate;
         private final Map<PlanNodeId, PlanNodeStatsEstimate> stats = new HashMap<>();
 
-        TestingStatsCalculator(StatsCalculator delegate)
+        public TestingStatsCalculator(StatsCalculator delegate)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
         }
