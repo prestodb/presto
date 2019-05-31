@@ -68,7 +68,7 @@ public class SplitManager
     }
 
     /**
-     * SplitSource returned by this method is guaranteed to have at least one split (can be EmptySplit) in each partition.
+     * For the SplitSource returned, its getNextBatch call is guaranteed to return at least one split (can be EmptySplit if it is last batch)
      */
     public SplitSource getSplits(Session session, TableHandle table, SplitSchedulingStrategy splitSchedulingStrategy)
     {

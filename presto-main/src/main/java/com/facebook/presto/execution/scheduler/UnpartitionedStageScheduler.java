@@ -19,30 +19,28 @@ import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.split.EmptySplit;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.split.SplitSource.SplitBatch;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.Collection;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map.Entry;
 import java.util.Set;
 
 import static com.facebook.presto.execution.scheduler.StageScheduleResult.BlockedReason.SPLIT_QUEUES_FULL;
 import static com.facebook.presto.execution.scheduler.StageScheduleResult.BlockedReason.WAITING_FOR_SOURCE;
-import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
-import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
+import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.util.Objects.requireNonNull;
 
@@ -51,8 +49,30 @@ public class UnpartitionedStageScheduler
 {
     private enum State
     {
+        /**
+         * No splits have been added to pendingSplits set.
+         * TOOD: INITIALIZED and SPLITS_ADDED doesn't look useful... there are just 3 states:
+         * - WORKING
+         * - SPLITS_DISCOVERY_FINISHED (i.e. NO_MORE_SPLITS)
+         * - FINISHED (i.e. SPLITS_DISCOVERY_FINISHED and placement finished)
+         */
         INITIALIZED,
-        SPLITS_SCHEDULED,
+
+        /**
+         * At least one split has been added to pendingSplits set.
+         */
+        SPLITS_ADDED,
+
+        /**
+         * All splits from underlying SplitSource have been discovered.
+         * No more splits will be added to the pendingSplits set.
+         * However, some splits might be waiting to be assigned to tasks yet.
+         */
+        NO_MORE_SPLITS,
+
+        /**
+         * All splits have been assigned to tasks.
+         */
         FINISHED
     }
 
@@ -62,7 +82,7 @@ public class UnpartitionedStageScheduler
     private final int splitBatchSize;
     private final PlanNodeId partitionedNode;
 
-    private ListenableFuture<SplitBatch> batchFuture;
+    private ListenableFuture<SplitBatch> nextSplitBatchFuture;
     private Set<Split> pendingSplits = ImmutableSet.of();
     private State state = State.INITIALIZED;
 
@@ -86,46 +106,48 @@ public class UnpartitionedStageScheduler
     @Override
     public synchronized StageScheduleResult schedule()
     {
-        // try to get the next batch if necessary
-        if (pendingSplits.isEmpty()) {
-            if (batchFuture == null) {
-                if (splitSource.isFinished()) {
-                    // TODO: deprecate this
-                    return handleNoMoreSplits();
-                }
-                batchFuture = splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), splitBatchSize);
+        // Step 1: make sure there are some splits to be scheduled
+        //         try to fetch the next batch of splits if pendingSplits is empty.
+        if (pendingSplits.isEmpty() && state != State.NO_MORE_SPLITS && state != State.FINISHED) {
+            if (nextSplitBatchFuture == null) {
+                nextSplitBatchFuture = splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), splitBatchSize);
 
                 long start = System.nanoTime();
-                Futures.addCallback(batchFuture, new FutureCallback<SplitBatch>()
-                {
-                    @Override
-                    public void onSuccess(SplitBatch result)
-                    {
-                        stage.recordGetSplitTime(start);
-                    }
-
-                    @Override
-                    public void onFailure(Throwable t)
-                    {
-                    }
-                });
+                addSuccessCallback(nextSplitBatchFuture, () -> stage.recordGetSplitTime(start));
             }
 
-            if (!batchFuture.isDone()) {
-                // wrap batch future so cancellation is not propagated
-                ListenableFuture<SplitBatch> blocked = nonCancellationPropagating(batchFuture);
-                return StageScheduleResult.blocked(false, ImmutableSet.of(), blocked, WAITING_FOR_SOURCE, 0);
+            if (nextSplitBatchFuture.isDone()) {
+                SplitBatch nextSplits = getFutureValue(nextSplitBatchFuture);
+                verify(!nextSplits.getSplits().isEmpty());
+
+                nextSplitBatchFuture = null;
+                pendingSplits = new HashSet<>(nextSplits.getSplits());
+                if (nextSplits.isLastBatch()) {
+                    state = State.NO_MORE_SPLITS;
+                }
             }
-            SplitBatch nextSplits = getFutureValue(batchFuture);
-            pendingSplits = ImmutableSet.copyOf(nextSplits.getSplits());
-            batchFuture = null;
+            else {
+                // there are no splits for schedule, and we are blocked on fetching the next batch of splits
+                return StageScheduleResult.blocked(
+                        false,
+                        ImmutableSet.of(),
+                        nonCancellationPropagating(nextSplitBatchFuture), // cancellation is not propagated
+                        WAITING_FOR_SOURCE,
+                        0);
+            }
         }
 
-        if (!pendingSplits.isEmpty() && state == State.INITIALIZED) {
-            state = State.SPLITS_SCHEDULED;
+        // Step 2: calculate placements for splits, and assign splits to tasks
+        // TODO: Note the SplitPlacementPolicy here is always DynamicSplitPlacementPolicy
+
+        // TODO: should we check whether the previous future is finished before calling it again???
+
+        checkState(!pendingSplits.isEmpty());
+        if (state == State.INITIALIZED) {
+            state = State.SPLITS_ADDED;
         }
 
-        // assign the splits
+        // calculate placements for splits
         SplitPlacementResult splitPlacementResult = splitPlacementPolicy.computeAssignments(pendingSplits);
         Multimap<InternalNode, Split> splitAssignment = splitPlacementResult.getAssignments();
         Set<RemoteTask> newTasks = assignSplits(splitAssignment);
@@ -133,36 +155,31 @@ public class UnpartitionedStageScheduler
         // remove assigned splits
         pendingSplits = ImmutableSet.copyOf(Sets.difference(pendingSplits, ImmutableSet.copyOf(splitAssignment.values())));
 
-        // if not all splits were consumed, return a partial result
+        // there are splits not assigned, this means some workers' split queues are full
         if (!pendingSplits.isEmpty()) {
             newTasks = ImmutableSet.<RemoteTask>builder()
                     .addAll(newTasks)
+                    // In a broadcast join, output buffers of the tasks in build source stage have to
+                    // hold onto all data produced before probe side task scheduling finishes,
+                    // even if the data is acknowledged by all known consumers. This is because
+                    // new consumers may be added until the probe side task scheduling finishes.
+                    //
+                    // As a result, the following line is necessary to prevent deadlock
+                    // due to neither build nor probe can make any progress.
+                    // The build side blocks due to a full output buffer.
+                    // In the meantime the probe side split cannot be consumed since
+                    // builder side hash table construction has not finished.
                     .addAll(finalizeTaskCreationIfNecessary())
                     .build();
-
             return StageScheduleResult.blocked(false, newTasks, splitPlacementResult.getBlocked(), SPLIT_QUEUES_FULL, splitAssignment.values().size());
         }
 
-        // all splits assigned - check if the source is finished
-        boolean finished = splitSource.isFinished();
-        if (finished) {
+        // all discovered splits assigned
+        if (state == State.NO_MORE_SPLITS) {
+            state = State.FINISHED;
             splitSource.close();
         }
-        return StageScheduleResult.nonBlocked(finished, newTasks, splitAssignment.values().size());
-    }
-
-    private StageScheduleResult handleNoMoreSplits()
-    {
-        switch (state) {
-            case INITIALIZED:
-                // we have not scheduled a single split so far
-                return scheduleEmptySplit();
-            case SPLITS_SCHEDULED:
-                state = State.FINISHED;
-                splitSource.close();
-                return StageScheduleResult.nonBlocked(true, ImmutableSet.of(), 0);
-        }
-        throw new IllegalStateException("SourcePartitionedScheduler expected to be in INITIALIZED or SPLITS_SCHEDULED state but is in " + state);
+        return StageScheduleResult.nonBlocked(state == State.FINISHED, newTasks, splitAssignment.values().size());
     }
 
     @Override
@@ -171,34 +188,17 @@ public class UnpartitionedStageScheduler
         splitSource.close();
     }
 
-    private StageScheduleResult scheduleEmptySplit()
-    {
-        state = State.SPLITS_SCHEDULED;
-
-        List<InternalNode> nodes = splitPlacementPolicy.allNodes();
-        checkCondition(!nodes.isEmpty(), NO_NODES_AVAILABLE, "No nodes available to run query");
-        InternalNode node = nodes.iterator().next();
-
-        Split emptySplit = new Split(
-                splitSource.getConnectorId(),
-                splitSource.getTransactionHandle(),
-                new EmptySplit(splitSource.getConnectorId()));
-        Set<RemoteTask> emptyTask = assignSplits(ImmutableMultimap.of(node, emptySplit));
-        return StageScheduleResult.nonBlocked(false, emptyTask, 1);
-    }
-
     private Set<RemoteTask> assignSplits(Multimap<InternalNode, Split> splitAssignment)
     {
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
         for (Entry<InternalNode, Collection<Split>> taskSplits : splitAssignment.asMap().entrySet()) {
-            // source partitioned tasks can only receive broadcast data; otherwise it would have a different distribution
             newTasks.addAll(stage.scheduleSplits(
                     taskSplits.getKey(),
                     ImmutableMultimap.<PlanNodeId, Split>builder()
                             .putAll(partitionedNode, taskSplits.getValue())
                             .build(),
                     // unpartitioned stage will not send noMoreSplit signal at lifespan granularity,
-                    // it will send noMoreSplit signal for the whole stage once scheduling finished
+                    // it will send noMoreSplit signal for the whole stage once scheduling finished (in SqlStageExecution#schedulingComplete)
                     ImmutableMultimap.of()));
         }
         return newTasks.build();

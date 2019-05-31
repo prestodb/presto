@@ -24,6 +24,9 @@ import static java.util.Objects.requireNonNull;
 public interface ConnectorSplitSource
         extends Closeable
 {
+    /**
+     * ConnectorSplitBatch returned by this method should not be empty, unless there is not more split.
+     */
     CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize);
 
     default void rewind(ConnectorPartitionHandle partitionHandle)
