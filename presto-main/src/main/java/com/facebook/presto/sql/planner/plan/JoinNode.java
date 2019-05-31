@@ -241,7 +241,7 @@ public class JoinNode
     public Optional<SortExpressionContext> getSortExpressionContext(FunctionManager functionManager)
     {
         return filter
-                .flatMap(filter -> extractSortExpression(ImmutableSet.copyOf(right.getOutputSymbols()), filter, functionManager));
+                .flatMap(filter -> extractSortExpression(ImmutableSet.copyOf(right.getOutputVariables()), filter, functionManager));
     }
 
     @JsonProperty
