@@ -486,7 +486,6 @@ class StaticFunctionNamespace
                 .scalar(MathFunctions.Ceiling.class)
                 .scalar(MathFunctions.Floor.class)
                 .scalars(BitwiseFunctions.class)
-                .scalar(BitwiseFunctions.bitwiseDecimalSrl.class)
                 .scalars(DateTimeFunctions.class)
                 .scalars(JsonFunctions.class)
                 .scalars(ColorFunctions.class)
