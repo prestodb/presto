@@ -480,10 +480,7 @@ public class QueryStateMachine
                     processedInputPositions += stageStats.getProcessedInputPositions();
                 }
 
-                if (plan.isMaterializedExchangeSource()) {
-                    writtenIntermediatePhysicalDataSize += stageStats.getPhysicalWrittenDataSize().toBytes();
-                }
-                else {
+                if (plan.isOutputTableWriterFragment()) {
                     writtenOutputPositions += stageInfo.getStageStats().getOperatorSummaries().stream()
                             .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
                             .mapToLong(OperatorStats::getInputPositions)
@@ -493,6 +490,9 @@ public class QueryStateMachine
                             .mapToLong(stats -> stats.getInputDataSize().toBytes())
                             .sum();
                     writtenOutputPhysicalDataSize += stageStats.getPhysicalWrittenDataSize().toBytes();
+                }
+                else {
+                    writtenIntermediatePhysicalDataSize += stageStats.getPhysicalWrittenDataSize().toBytes();
                 }
             }
 
