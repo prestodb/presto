@@ -20,7 +20,6 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PartitioningScheme;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -82,7 +81,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.extractUnique;
+import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.extractUniqueVariables;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
@@ -121,7 +120,7 @@ public class PruneUnreferencedOutputs
     }
 
     private static class Rewriter
-            extends SimplePlanRewriter<Set<Symbol>>
+            extends SimplePlanRewriter<Set<VariableReferenceExpression>>
     {
         private final SymbolAllocator symbolAllocator;
 
@@ -131,19 +130,19 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitExplainAnalyze(ExplainAnalyzeNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitExplainAnalyze(ExplainAnalyzeNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            return context.defaultRewrite(node, ImmutableSet.copyOf(node.getSource().getOutputSymbols()));
+            return context.defaultRewrite(node, ImmutableSet.copyOf(node.getSource().getOutputVariables()));
         }
 
         @Override
-        public PlanNode visitExchange(ExchangeNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitExchange(ExchangeNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            Set<String> expectedOutputSymbolNames = Sets.newHashSet(context.get().stream().map(Symbol::getName).collect(toImmutableSet()));
-            node.getPartitioningScheme().getHashColumn().ifPresent(variable -> expectedOutputSymbolNames.add(variable.getName()));
+            Set<VariableReferenceExpression> expectedOutputVariables = Sets.newHashSet(context.get());
+            node.getPartitioningScheme().getHashColumn().ifPresent(expectedOutputVariables::add);
             node.getPartitioningScheme().getPartitioning().getVariableReferences()
-                    .forEach(column -> expectedOutputSymbolNames.add(column.getName()));
-            node.getOrderingScheme().ifPresent(orderingScheme -> expectedOutputSymbolNames.addAll(orderingScheme.getOrderBy().stream().map(VariableReferenceExpression::getName).collect(toImmutableSet())));
+                    .forEach(expectedOutputVariables::add);
+            node.getOrderingScheme().ifPresent(orderingScheme -> expectedOutputVariables.addAll(orderingScheme.getOrderBy()));
 
             List<List<VariableReferenceExpression>> inputsBySource = new ArrayList<>(node.getInputs().size());
             for (int i = 0; i < node.getInputs().size(); i++) {
@@ -153,7 +152,7 @@ public class PruneUnreferencedOutputs
             List<VariableReferenceExpression> newOutputVariables = new ArrayList<>(node.getOutputVariables().size());
             for (int i = 0; i < node.getOutputVariables().size(); i++) {
                 VariableReferenceExpression outputVariable = node.getOutputVariables().get(i);
-                if (expectedOutputSymbolNames.contains(outputVariable.getName())) {
+                if (expectedOutputVariables.contains(outputVariable)) {
                     newOutputVariables.add(outputVariable);
                     for (int source = 0; source < node.getInputs().size(); source++) {
                         inputsBySource.get(source).add(node.getInputs().get(source).get(i));
@@ -161,7 +160,7 @@ public class PruneUnreferencedOutputs
                 }
             }
 
-            // newOutputSymbols contains all partition, sort and hash symbols so simply swap the output layout
+            // newOutputVariables contains all partition, sort and hash variables so simply swap the output layout
             PartitioningScheme partitioningScheme = new PartitioningScheme(
                     node.getPartitioningScheme().getPartitioning(),
                     newOutputVariables,
@@ -171,8 +170,8 @@ public class PruneUnreferencedOutputs
 
             ImmutableList.Builder<PlanNode> rewrittenSources = ImmutableList.builder();
             for (int i = 0; i < node.getSources().size(); i++) {
-                ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
-                        .addAll(inputsBySource.get(i).stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
+                ImmutableSet.Builder<VariableReferenceExpression> expectedInputs = ImmutableSet.<VariableReferenceExpression>builder()
+                        .addAll(inputsBySource.get(i));
 
                 rewrittenSources.add(context.rewrite(
                         node.getSources().get(i),
@@ -190,31 +189,31 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitJoin(JoinNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitJoin(JoinNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            Set<Symbol> expectedFilterInputs = new HashSet<>();
+            Set<VariableReferenceExpression> expectedFilterInputs = new HashSet<>();
             if (node.getFilter().isPresent()) {
-                expectedFilterInputs = ImmutableSet.<Symbol>builder()
-                        .addAll(SymbolsExtractor.extractUnique(castToExpression(node.getFilter().get())))
+                expectedFilterInputs = ImmutableSet.<VariableReferenceExpression>builder()
+                        .addAll(SymbolsExtractor.extractUniqueVariable(castToExpression(node.getFilter().get()), symbolAllocator.getTypes()))
                         .addAll(context.get())
                         .build();
             }
 
-            ImmutableSet.Builder<Symbol> leftInputsBuilder = ImmutableSet.builder();
-            leftInputsBuilder.addAll(context.get()).addAll(node.getCriteria().stream().map(equiJoin -> new Symbol(equiJoin.getLeft().getName())).collect(toImmutableSet()));
+            ImmutableSet.Builder<VariableReferenceExpression> leftInputsBuilder = ImmutableSet.builder();
+            leftInputsBuilder.addAll(context.get()).addAll(Iterables.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft));
             if (node.getLeftHashVariable().isPresent()) {
-                leftInputsBuilder.add(new Symbol(node.getLeftHashVariable().get().getName()));
+                leftInputsBuilder.add(node.getLeftHashVariable().get());
             }
             leftInputsBuilder.addAll(expectedFilterInputs);
-            Set<Symbol> leftInputs = leftInputsBuilder.build();
+            Set<VariableReferenceExpression> leftInputs = leftInputsBuilder.build();
 
-            ImmutableSet.Builder<Symbol> rightInputsBuilder = ImmutableSet.builder();
-            rightInputsBuilder.addAll(context.get()).addAll(node.getCriteria().stream().map(equiJoin -> new Symbol(equiJoin.getRight().getName())).collect(toImmutableSet()));
+            ImmutableSet.Builder<VariableReferenceExpression> rightInputsBuilder = ImmutableSet.builder();
+            rightInputsBuilder.addAll(context.get()).addAll(Iterables.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight));
             if (node.getRightHashVariable().isPresent()) {
-                rightInputsBuilder.add(new Symbol(node.getRightHashVariable().get().getName()));
+                rightInputsBuilder.add(node.getRightHashVariable().get());
             }
             rightInputsBuilder.addAll(expectedFilterInputs);
-            Set<Symbol> rightInputs = rightInputsBuilder.build();
+            Set<VariableReferenceExpression> rightInputs = rightInputsBuilder.build();
 
             PlanNode left = context.rewrite(node.getLeft(), leftInputs);
             PlanNode right = context.rewrite(node.getRight(), rightInputs);
@@ -230,7 +229,7 @@ public class PruneUnreferencedOutputs
             }
             else {
                 outputVariables = node.getOutputVariables().stream()
-                        .filter(variable -> context.get().contains(new Symbol(variable.getName())))
+                        .filter(variable -> context.get().contains(variable))
                         .distinct()
                         .collect(toImmutableList());
             }
@@ -239,21 +238,21 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitSemiJoin(SemiJoinNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitSemiJoin(SemiJoinNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            ImmutableSet.Builder<Symbol> sourceInputsBuilder = ImmutableSet.builder();
-            sourceInputsBuilder.addAll(context.get()).add(new Symbol(node.getSourceJoinVariable().getName()));
+            ImmutableSet.Builder<VariableReferenceExpression> sourceInputsBuilder = ImmutableSet.builder();
+            sourceInputsBuilder.addAll(context.get()).add(node.getSourceJoinVariable());
             if (node.getSourceHashVariable().isPresent()) {
-                sourceInputsBuilder.add(new Symbol(node.getSourceHashVariable().get().getName()));
+                sourceInputsBuilder.add(node.getSourceHashVariable().get());
             }
-            Set<Symbol> sourceInputs = sourceInputsBuilder.build();
+            Set<VariableReferenceExpression> sourceInputs = sourceInputsBuilder.build();
 
-            ImmutableSet.Builder<Symbol> filteringSourceInputBuilder = ImmutableSet.builder();
-            filteringSourceInputBuilder.add(new Symbol(node.getFilteringSourceJoinVariable().getName()));
+            ImmutableSet.Builder<VariableReferenceExpression> filteringSourceInputBuilder = ImmutableSet.builder();
+            filteringSourceInputBuilder.add(node.getFilteringSourceJoinVariable());
             if (node.getFilteringSourceHashVariable().isPresent()) {
-                filteringSourceInputBuilder.add(new Symbol(node.getFilteringSourceHashVariable().get().getName()));
+                filteringSourceInputBuilder.add(node.getFilteringSourceHashVariable().get());
             }
-            Set<Symbol> filteringSourceInputs = filteringSourceInputBuilder.build();
+            Set<VariableReferenceExpression> filteringSourceInputs = filteringSourceInputBuilder.build();
 
             PlanNode source = context.rewrite(node.getSource(), sourceInputs);
             PlanNode filteringSource = context.rewrite(node.getFilteringSource(), filteringSourceInputs);
@@ -270,31 +269,31 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitSpatialJoin(SpatialJoinNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitSpatialJoin(SpatialJoinNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            Set<Symbol> filterSymbols;
+            Set<VariableReferenceExpression> filterSymbols;
             if (isExpression(node.getFilter())) {
-                filterSymbols = SymbolsExtractor.extractUnique(castToExpression(node.getFilter()));
+                filterSymbols = SymbolsExtractor.extractUniqueVariable(castToExpression(node.getFilter()), symbolAllocator.getTypes());
             }
             else {
-                filterSymbols = SymbolsExtractor.extractUnique(node.getFilter());
+                filterSymbols = SymbolsExtractor.extractUniqueVariable(node.getFilter());
             }
-            Set<Symbol> requiredInputs = ImmutableSet.<Symbol>builder()
+            Set<VariableReferenceExpression> requiredInputs = ImmutableSet.<VariableReferenceExpression>builder()
                     .addAll(filterSymbols)
                     .addAll(context.get())
                     .build();
 
-            ImmutableSet.Builder<Symbol> leftInputs = ImmutableSet.builder();
-            node.getLeftPartitionVariable().map(VariableReferenceExpression::getName).map(Symbol::new).map(leftInputs::add);
+            ImmutableSet.Builder<VariableReferenceExpression> leftInputs = ImmutableSet.builder();
+            node.getLeftPartitionVariable().map(leftInputs::add);
 
-            ImmutableSet.Builder<Symbol> rightInputs = ImmutableSet.builder();
-            node.getRightPartitionVariable().map(VariableReferenceExpression::getName).map(Symbol::new).map(rightInputs::add);
+            ImmutableSet.Builder<VariableReferenceExpression> rightInputs = ImmutableSet.builder();
+            node.getRightPartitionVariable().map(rightInputs::add);
 
             PlanNode left = context.rewrite(node.getLeft(), leftInputs.addAll(requiredInputs).build());
             PlanNode right = context.rewrite(node.getRight(), rightInputs.addAll(requiredInputs).build());
 
             List<VariableReferenceExpression> outputVariables = node.getOutputVariables().stream()
-                    .filter(variable -> context.get().contains(new Symbol(variable.getName())))
+                    .filter(context.get()::contains)
                     .distinct()
                     .collect(toImmutableList());
 
@@ -302,23 +301,23 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitIndexJoin(IndexJoinNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitIndexJoin(IndexJoinNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            ImmutableSet.Builder<Symbol> probeInputsBuilder = ImmutableSet.builder();
+            ImmutableSet.Builder<VariableReferenceExpression> probeInputsBuilder = ImmutableSet.builder();
             probeInputsBuilder.addAll(context.get())
-                    .addAll(node.getCriteria().stream().map(equiJoin -> new Symbol(equiJoin.getProbe().getName())).collect(toImmutableSet()));
+                    .addAll(Iterables.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause::getProbe));
             if (node.getProbeHashVariable().isPresent()) {
-                probeInputsBuilder.add(new Symbol(node.getProbeHashVariable().get().getName()));
+                probeInputsBuilder.add(node.getProbeHashVariable().get());
             }
-            Set<Symbol> probeInputs = probeInputsBuilder.build();
+            Set<VariableReferenceExpression> probeInputs = probeInputsBuilder.build();
 
-            ImmutableSet.Builder<Symbol> indexInputBuilder = ImmutableSet.builder();
+            ImmutableSet.Builder<VariableReferenceExpression> indexInputBuilder = ImmutableSet.builder();
             indexInputBuilder.addAll(context.get())
-                    .addAll(node.getCriteria().stream().map(equiJoin -> new Symbol(equiJoin.getIndex().getName())).collect(toImmutableSet()));
+                    .addAll(Iterables.transform(node.getCriteria(), IndexJoinNode.EquiJoinClause::getIndex));
             if (node.getIndexHashVariable().isPresent()) {
-                indexInputBuilder.add(new Symbol(node.getIndexHashVariable().get().getName()));
+                indexInputBuilder.add(node.getIndexHashVariable().get());
             }
-            Set<Symbol> indexInputs = indexInputBuilder.build();
+            Set<VariableReferenceExpression> indexInputs = indexInputBuilder.build();
 
             PlanNode probeSource = context.rewrite(node.getProbeSource(), probeInputs);
             PlanNode indexSource = context.rewrite(node.getIndexSource(), indexInputs);
@@ -327,14 +326,14 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitIndexSource(IndexSourceNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitIndexSource(IndexSourceNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
             List<VariableReferenceExpression> newOutputVariables = node.getOutputVariables().stream()
-                    .filter(variable -> context.get().contains(new Symbol(variable.getName())))
+                    .filter(context.get()::contains)
                     .collect(toImmutableList());
 
             Set<VariableReferenceExpression> newLookupVariables = node.getLookupVariables().stream()
-                    .filter(variable -> context.get().contains(new Symbol(variable.getName())))
+                    .filter(context.get()::contains)
                     .collect(toImmutableSet());
 
             Map<VariableReferenceExpression, ColumnHandle> newAssignments = newOutputVariables.stream()
@@ -344,22 +343,22 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitAggregation(AggregationNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitAggregation(AggregationNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
-                    .addAll(node.getGroupingKeys().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
+            ImmutableSet.Builder<VariableReferenceExpression> expectedInputs = ImmutableSet.<VariableReferenceExpression>builder()
+                    .addAll(node.getGroupingKeys());
             if (node.getHashVariable().isPresent()) {
-                expectedInputs.add(new Symbol(node.getHashVariable().get().getName()));
+                expectedInputs.add(node.getHashVariable().get());
             }
 
             ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregations = ImmutableMap.builder();
             for (Map.Entry<VariableReferenceExpression, Aggregation> entry : node.getAggregations().entrySet()) {
                 VariableReferenceExpression variable = entry.getKey();
 
-                if (context.get().stream().map(Symbol::getName).collect(toImmutableSet()).contains(variable.getName())) {
+                if (context.get().contains(variable)) {
                     Aggregation aggregation = entry.getValue();
-                    expectedInputs.addAll(extractUnique(aggregation));
-                    aggregation.getMask().ifPresent(mask -> expectedInputs.add(new Symbol(mask.getName())));
+                    expectedInputs.addAll(extractUniqueVariables(aggregation, symbolAllocator.getTypes()));
+                    aggregation.getMask().ifPresent(expectedInputs::add);
                     aggregations.put(variable, aggregation);
                 }
             }
@@ -377,35 +376,35 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitWindow(WindowNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitWindow(WindowNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+            ImmutableSet.Builder<VariableReferenceExpression> expectedInputs = ImmutableSet.<VariableReferenceExpression>builder()
                     .addAll(context.get())
-                    .addAll(node.getPartitionBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
+                    .addAll(node.getPartitionBy());
 
             node.getOrderingScheme().ifPresent(orderingScheme ->
                     orderingScheme.getOrderBy()
-                            .forEach(variable -> expectedInputs.add(new Symbol(variable.getName()))));
+                            .forEach(expectedInputs::add));
 
             for (WindowNode.Frame frame : node.getFrames()) {
                 if (frame.getStartValue().isPresent()) {
-                    expectedInputs.add(new Symbol(frame.getStartValue().get().getName()));
+                    expectedInputs.add(frame.getStartValue().get());
                 }
                 if (frame.getEndValue().isPresent()) {
-                    expectedInputs.add(new Symbol(frame.getEndValue().get().getName()));
+                    expectedInputs.add(frame.getEndValue().get());
                 }
             }
 
             if (node.getHashVariable().isPresent()) {
-                expectedInputs.add(new Symbol(node.getHashVariable().get().getName()));
+                expectedInputs.add(node.getHashVariable().get());
             }
 
             ImmutableMap.Builder<VariableReferenceExpression, WindowNode.Function> functionsBuilder = ImmutableMap.builder();
             for (Map.Entry<VariableReferenceExpression, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 VariableReferenceExpression variable = entry.getKey();
                 WindowNode.Function function = entry.getValue();
-                if (context.get().contains(new Symbol(variable.getName()))) {
-                    expectedInputs.addAll(WindowNodeUtil.extractWindowFunctionUnique(function));
+                if (context.get().contains(variable)) {
+                    expectedInputs.addAll(WindowNodeUtil.extractWindowFunctionUniqueVariables(function, symbolAllocator.getTypes()));
                     functionsBuilder.put(variable, entry.getValue());
                 }
             }
@@ -429,13 +428,10 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitTableScan(TableScanNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitTableScan(TableScanNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            Set<String> contextSymbols = context.get().stream()
-                    .map(Symbol::getName)
-                    .collect(toImmutableSet());
             List<VariableReferenceExpression> newOutputs = node.getOutputVariables().stream()
-                    .filter(variable -> contextSymbols.contains(variable.getName()))
+                    .filter(context.get()::contains)
                     .collect(toImmutableList());
 
             Map<VariableReferenceExpression, ColumnHandle> newAssignments = newOutputs.stream()
@@ -451,10 +447,10 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitFilter(FilterNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitFilter(FilterNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            Set<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
-                    .addAll(SymbolsExtractor.extractUnique(castToExpression(node.getPredicate())))
+            Set<VariableReferenceExpression> expectedInputs = ImmutableSet.<VariableReferenceExpression>builder()
+                    .addAll(SymbolsExtractor.extractUniqueVariable(castToExpression(node.getPredicate()), symbolAllocator.getTypes()))
                     .addAll(context.get())
                     .build();
 
@@ -464,12 +460,12 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitGroupId(GroupIdNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitGroupId(GroupIdNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
             ImmutableSet.Builder<VariableReferenceExpression> expectedInputs = ImmutableSet.builder();
 
             List<VariableReferenceExpression> newAggregationArguments = node.getAggregationArguments().stream()
-                    .filter(variable -> context.get().contains(new Symbol(variable.getName())))
+                    .filter(context.get()::contains)
                     .collect(Collectors.toList());
             expectedInputs.addAll(newAggregationArguments);
 
@@ -480,7 +476,7 @@ public class PruneUnreferencedOutputs
                 ImmutableList.Builder<VariableReferenceExpression> newGroupingSet = ImmutableList.builder();
 
                 for (VariableReferenceExpression output : groupingSet) {
-                    if (context.get().contains(new Symbol(output.getName()))) {
+                    if (context.get().contains(output)) {
                         newGroupingSet.add(output);
                         newGroupingMapping.putIfAbsent(output, node.getGroupingColumns().get(output));
                         expectedInputs.add(node.getGroupingColumns().get(output));
@@ -489,25 +485,25 @@ public class PruneUnreferencedOutputs
                 newGroupingSets.add(newGroupingSet.build());
             }
 
-            PlanNode source = context.rewrite(node.getSource(), expectedInputs.build().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
+            PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
             return new GroupIdNode(node.getId(), source, newGroupingSets.build(), newGroupingMapping, newAggregationArguments, node.getGroupIdVariable());
         }
 
         @Override
-        public PlanNode visitMarkDistinct(MarkDistinctNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitMarkDistinct(MarkDistinctNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            if (!context.get().contains(node.getMarkerSymbol())) {
+            if (!context.get().contains(node.getMarkerVariable())) {
                 return context.rewrite(node.getSource(), context.get());
             }
 
-            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
-                    .addAll(node.getDistinctVariables().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()))
+            ImmutableSet.Builder<VariableReferenceExpression> expectedInputs = ImmutableSet.<VariableReferenceExpression>builder()
+                    .addAll(node.getDistinctVariables())
                     .addAll(context.get().stream()
-                            .filter(symbol -> !symbol.equals(node.getMarkerSymbol()))
+                            .filter(variable -> !variable.equals(node.getMarkerVariable()))
                             .collect(toImmutableList()));
 
             if (node.getHashVariable().isPresent()) {
-                expectedInputs.add(new Symbol(node.getHashVariable().get().getName()));
+                expectedInputs.add(node.getHashVariable().get());
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
@@ -515,35 +511,34 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitUnnest(UnnestNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitUnnest(UnnestNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            Set<String> contextSymbolNames = context.get().stream().map(Symbol::getName).collect(toImmutableSet());
             List<VariableReferenceExpression> replicateVariables = node.getReplicateVariables().stream()
-                    .filter(variable -> contextSymbolNames.contains(variable.getName()))
+                    .filter(context.get()::contains)
                     .collect(toImmutableList());
 
             Optional<VariableReferenceExpression> ordinalityVariable = node.getOrdinalityVariable();
-            if (ordinalityVariable.isPresent() && !context.get().contains(new Symbol(ordinalityVariable.get().getName()))) {
+            if (ordinalityVariable.isPresent() && !context.get().contains(ordinalityVariable.get())) {
                 ordinalityVariable = Optional.empty();
             }
             Map<VariableReferenceExpression, List<VariableReferenceExpression>> unnestVariables = node.getUnnestVariables();
-            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
-                    .addAll(replicateVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()))
-                    .addAll(unnestVariables.keySet().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
+            ImmutableSet.Builder<VariableReferenceExpression> expectedInputs = ImmutableSet.<VariableReferenceExpression>builder()
+                    .addAll(replicateVariables)
+                    .addAll(unnestVariables.keySet());
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
             return new UnnestNode(node.getId(), source, replicateVariables, unnestVariables, ordinalityVariable);
         }
 
         @Override
-        public PlanNode visitProject(ProjectNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitProject(ProjectNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.builder();
+            ImmutableSet.Builder<VariableReferenceExpression> expectedInputs = ImmutableSet.builder();
 
             Assignments.Builder builder = Assignments.builder();
             node.getAssignments().forEach((variable, expression) -> {
-                if (context.get().contains(new Symbol(variable.getName()))) {
-                    expectedInputs.addAll(SymbolsExtractor.extractUnique(expression));
+                if (context.get().contains(variable)) {
+                    expectedInputs.addAll(SymbolsExtractor.extractUniqueVariable(expression, symbolAllocator.getTypes()));
                     builder.put(variable, expression);
                 }
             });
@@ -554,43 +549,42 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitOutput(OutputNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitOutput(OutputNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            Set<Symbol> expectedInputs = ImmutableSet.copyOf(node.getOutputSymbols());
+            Set<VariableReferenceExpression> expectedInputs = ImmutableSet.copyOf(node.getOutputVariables());
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
             return new OutputNode(node.getId(), source, node.getColumnNames(), node.getOutputVariables());
         }
 
         @Override
-        public PlanNode visitLimit(LimitNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitLimit(LimitNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+            ImmutableSet.Builder<VariableReferenceExpression> expectedInputs = ImmutableSet.<VariableReferenceExpression>builder()
                     .addAll(context.get());
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
             return new LimitNode(node.getId(), source, node.getCount(), node.isPartial());
         }
 
         @Override
-        public PlanNode visitDistinctLimit(DistinctLimitNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitDistinctLimit(DistinctLimitNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            Set<Symbol> expectedInputs;
-            Set<Symbol> distinctSymbols = node.getDistinctVariables().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet());
+            Set<VariableReferenceExpression> expectedInputs;
             if (node.getHashVariable().isPresent()) {
-                expectedInputs = ImmutableSet.copyOf(concat(distinctSymbols, ImmutableList.of(new Symbol(node.getHashVariable().get().getName()))));
+                expectedInputs = ImmutableSet.copyOf(concat(node.getDistinctVariables(), ImmutableList.of(node.getHashVariable().get())));
             }
             else {
-                expectedInputs = distinctSymbols;
+                expectedInputs = ImmutableSet.copyOf(node.getDistinctVariables());
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
             return new DistinctLimitNode(node.getId(), source, node.getLimit(), node.isPartial(), node.getDistinctVariables(), node.getHashVariable());
         }
 
         @Override
-        public PlanNode visitTopN(TopNNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitTopN(TopNNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+            ImmutableSet.Builder<VariableReferenceExpression> expectedInputs = ImmutableSet.<VariableReferenceExpression>builder()
                     .addAll(context.get())
-                    .addAll(node.getOrderingScheme().getOrderBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
+                    .addAll(node.getOrderingScheme().getOrderBy());
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
@@ -598,15 +592,15 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitRowNumber(RowNumberNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitRowNumber(RowNumberNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            ImmutableSet.Builder<Symbol> inputsBuilder = ImmutableSet.builder();
-            ImmutableSet.Builder<Symbol> expectedInputs = inputsBuilder
+            ImmutableSet.Builder<VariableReferenceExpression> inputsBuilder = ImmutableSet.builder();
+            ImmutableSet.Builder<VariableReferenceExpression> expectedInputs = inputsBuilder
                     .addAll(context.get())
-                    .addAll(node.getPartitionBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
+                    .addAll(node.getPartitionBy());
 
             if (node.getHashVariable().isPresent()) {
-                inputsBuilder.add(new Symbol(node.getHashVariable().get().getName()));
+                inputsBuilder.add(node.getHashVariable().get());
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
@@ -614,15 +608,15 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitTopNRowNumber(TopNRowNumberNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitTopNRowNumber(TopNRowNumberNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+            ImmutableSet.Builder<VariableReferenceExpression> expectedInputs = ImmutableSet.<VariableReferenceExpression>builder()
                     .addAll(context.get())
-                    .addAll(node.getPartitionBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()))
-                    .addAll(node.getOrderingScheme().getOrderBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
+                    .addAll(node.getPartitionBy())
+                    .addAll(node.getOrderingScheme().getOrderBy());
 
             if (node.getHashVariable().isPresent()) {
-                expectedInputs.add(new Symbol(node.getHashVariable().get().getName()));
+                expectedInputs.add(node.getHashVariable().get());
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
@@ -636,9 +630,9 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitSort(SortNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitSort(SortNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            Set<Symbol> expectedInputs = ImmutableSet.copyOf(concat(context.get(), node.getOrderingScheme().getOrderBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet())));
+            Set<VariableReferenceExpression> expectedInputs = ImmutableSet.copyOf(concat(context.get(), node.getOrderingScheme().getOrderBy()));
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
 
@@ -646,19 +640,19 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
-                    .addAll(node.getColumns().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()));
+            ImmutableSet.Builder<VariableReferenceExpression> expectedInputs = ImmutableSet.<VariableReferenceExpression>builder()
+                    .addAll(node.getColumns());
             if (node.getPartitioningScheme().isPresent()) {
                 PartitioningScheme partitioningScheme = node.getPartitioningScheme().get();
-                partitioningScheme.getPartitioning().getColumns().forEach(expectedInputs::add);
-                partitioningScheme.getHashColumn().ifPresent(variable -> expectedInputs.add(new Symbol(variable.getName())));
+                partitioningScheme.getPartitioning().getVariableReferences().forEach(expectedInputs::add);
+                partitioningScheme.getHashColumn().ifPresent(expectedInputs::add);
             }
             if (node.getStatisticsAggregation().isPresent()) {
                 StatisticAggregations aggregations = node.getStatisticsAggregation().get();
-                expectedInputs.addAll(aggregations.getGroupingSymbols());
-                aggregations.getAggregations().values().forEach(aggregation -> expectedInputs.addAll(extractUnique(aggregation)));
+                expectedInputs.addAll(aggregations.getGroupingVariables());
+                aggregations.getAggregations().values().forEach(aggregation -> expectedInputs.addAll(extractUniqueVariables(aggregation, symbolAllocator.getTypes())));
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
             return new TableWriterNode(
@@ -676,9 +670,9 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitStatisticsWriterNode(StatisticsWriterNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitStatisticsWriterNode(StatisticsWriterNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            PlanNode source = context.rewrite(node.getSource(), ImmutableSet.copyOf(node.getSource().getOutputSymbols()));
+            PlanNode source = context.rewrite(node.getSource(), ImmutableSet.copyOf(node.getSource().getOutputVariables()));
             return new StatisticsWriterNode(
                     node.getId(),
                     source,
@@ -689,9 +683,9 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitTableFinish(TableFinishNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitTableFinish(TableFinishNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            PlanNode source = context.rewrite(node.getSource(), ImmutableSet.copyOf(node.getSource().getOutputSymbols()));
+            PlanNode source = context.rewrite(node.getSource(), ImmutableSet.copyOf(node.getSource().getOutputVariables()));
             return new TableFinishNode(
                     node.getId(),
                     source,
@@ -702,14 +696,14 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitDelete(DeleteNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitDelete(DeleteNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            PlanNode source = context.rewrite(node.getSource(), ImmutableSet.of(node.getRowIdAsSymbol()));
+            PlanNode source = context.rewrite(node.getSource(), ImmutableSet.of(node.getRowId()));
             return new DeleteNode(node.getId(), source, node.getTarget(), node.getRowId(), node.getOutputVariables());
         }
 
         @Override
-        public PlanNode visitUnion(UnionNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitUnion(UnionNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
             ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMapping = rewriteSetOperationVariableMapping(node, context);
             ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenVariableMapping);
@@ -717,7 +711,7 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitIntersect(IntersectNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitIntersect(IntersectNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
             ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMapping = rewriteSetOperationVariableMapping(node, context);
             ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenVariableMapping);
@@ -725,20 +719,19 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitExcept(ExceptNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitExcept(ExceptNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
             ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMapping = rewriteSetOperationVariableMapping(node, context);
             ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenVariableMapping);
             return new ExceptNode(node.getId(), rewrittenSubPlans, rewrittenVariableMapping);
         }
 
-        private ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewriteSetOperationVariableMapping(SetOperationNode node, RewriteContext<Set<Symbol>> context)
+        private ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewriteSetOperationVariableMapping(SetOperationNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
             // Find out which output variables we need to keep
-            Set<String> contextSymbolName = context.get().stream().map(Symbol::getName).collect(toImmutableSet());
             ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMappingBuilder = ImmutableListMultimap.builder();
             for (VariableReferenceExpression variable : node.getOutputVariables()) {
-                if (contextSymbolName.contains(variable.getName())) {
+                if (context.get().contains(variable)) {
                     rewrittenVariableMappingBuilder.putAll(
                             variable,
                             node.getVariableMapping().get(variable));
@@ -747,14 +740,14 @@ public class PruneUnreferencedOutputs
             return rewrittenVariableMappingBuilder.build();
         }
 
-        private ImmutableList<PlanNode> rewriteSetOperationSubPlans(SetOperationNode node, RewriteContext<Set<Symbol>> context, ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMapping)
+        private ImmutableList<PlanNode> rewriteSetOperationSubPlans(SetOperationNode node, RewriteContext<Set<VariableReferenceExpression>> context, ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMapping)
         {
             // Find the corresponding input symbol to the remaining output symbols and prune the subplans
             ImmutableList.Builder<PlanNode> rewrittenSubPlans = ImmutableList.builder();
             for (int i = 0; i < node.getSources().size(); i++) {
-                ImmutableSet.Builder<Symbol> expectedInputSymbols = ImmutableSet.builder();
+                ImmutableSet.Builder<VariableReferenceExpression> expectedInputSymbols = ImmutableSet.builder();
                 for (Collection<VariableReferenceExpression> variables : rewrittenVariableMapping.asMap().values()) {
-                    expectedInputSymbols.add(new Symbol(Iterables.get(variables, i).getName()));
+                    expectedInputSymbols.add(Iterables.get(variables, i));
                 }
                 rewrittenSubPlans.add(context.rewrite(node.getSources().get(i), expectedInputSymbols.build()));
             }
@@ -762,33 +755,24 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitValues(ValuesNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitValues(ValuesNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            ImmutableList.Builder<Symbol> rewrittenOutputSymbolsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<VariableReferenceExpression> rewrittenOutputVariablesBuilder = ImmutableList.builder();
             ImmutableList.Builder<ImmutableList.Builder<RowExpression>> rowBuildersBuilder = ImmutableList.builder();
             // Initialize builder for each row
             for (int i = 0; i < node.getRows().size(); i++) {
                 rowBuildersBuilder.add(ImmutableList.builder());
             }
             ImmutableList<ImmutableList.Builder<RowExpression>> rowBuilders = rowBuildersBuilder.build();
-            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-                Symbol outputSymbol = node.getOutputSymbols().get(i);
+            for (int i = 0; i < node.getOutputVariables().size(); i++) {
+                VariableReferenceExpression outputVariable = node.getOutputVariables().get(i);
                 // If output symbol is used
-                if (context.get().contains(outputSymbol)) {
-                    rewrittenOutputSymbolsBuilder.add(outputSymbol);
+                if (context.get().contains(outputVariable)) {
+                    rewrittenOutputVariablesBuilder.add(outputVariable);
                     // Add the value of the output symbol for each row
                     for (int j = 0; j < node.getRows().size(); j++) {
                         rowBuilders.get(j).add(node.getRows().get(j).get(i));
                     }
-                }
-            }
-            ImmutableList.Builder<VariableReferenceExpression> rewrittenOutputVariablesBuilder = ImmutableList.builder();
-            Set<String> nameContext = context.get().stream().map(Symbol::getName).collect(toImmutableSet());
-            for (int i = 0; i < node.getOutputVariables().size(); i++) {
-                VariableReferenceExpression outputVariable = node.getOutputVariables().get(i);
-                // If output symbol is used
-                if (nameContext.contains(outputVariable.getName())) {
-                    rewrittenOutputVariablesBuilder.add(outputVariable);
                 }
             }
             List<List<RowExpression>> rewrittenRows = rowBuilders.stream()
@@ -798,27 +782,27 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitApply(ApplyNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitApply(ApplyNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
             // remove unused apply nodes
-            if (intersection(node.getSubqueryAssignments().getSymbols(), context.get()).isEmpty()) {
+            if (intersection(node.getSubqueryAssignments().getVariables(), context.get()).isEmpty()) {
                 return context.rewrite(node.getInput(), context.get());
             }
 
             // extract symbols required subquery plan
-            ImmutableSet.Builder<Symbol> subqueryAssignmentsSymbolsBuilder = ImmutableSet.builder();
+            ImmutableSet.Builder<VariableReferenceExpression> subqueryAssignmentsVariablesBuilder = ImmutableSet.builder();
             Assignments.Builder subqueryAssignments = Assignments.builder();
             for (Map.Entry<VariableReferenceExpression, Expression> entry : node.getSubqueryAssignments().getMap().entrySet()) {
                 VariableReferenceExpression output = entry.getKey();
                 Expression expression = entry.getValue();
-                if (context.get().contains(new Symbol(output.getName()))) {
-                    subqueryAssignmentsSymbolsBuilder.addAll(SymbolsExtractor.extractUnique(expression));
+                if (context.get().contains(output)) {
+                    subqueryAssignmentsVariablesBuilder.addAll(SymbolsExtractor.extractUniqueVariable(expression, symbolAllocator.getTypes()));
                     subqueryAssignments.put(output, expression);
                 }
             }
 
-            Set<Symbol> subqueryAssignmentsSymbols = subqueryAssignmentsSymbolsBuilder.build();
-            PlanNode subquery = context.rewrite(node.getSubquery(), subqueryAssignmentsSymbols);
+            Set<VariableReferenceExpression> subqueryAssignmentsVariables = subqueryAssignmentsVariablesBuilder.build();
+            PlanNode subquery = context.rewrite(node.getSubquery(), subqueryAssignmentsVariables);
 
             // prune not used correlation symbols
             Set<VariableReferenceExpression> subquerySymbols = SymbolsExtractor.extractUniqueVariable(subquery, symbolAllocator.getTypes());
@@ -826,31 +810,31 @@ public class PruneUnreferencedOutputs
                     .filter(subquerySymbols::contains)
                     .collect(toImmutableList());
 
-            Set<Symbol> inputContext = ImmutableSet.<Symbol>builder()
+            Set<VariableReferenceExpression> inputContext = ImmutableSet.<VariableReferenceExpression>builder()
                     .addAll(context.get())
-                    .addAll(newCorrelation.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()))
-                    .addAll(subqueryAssignmentsSymbols) // need to include those: e.g: "expr" from "expr IN (SELECT 1)"
+                    .addAll(newCorrelation)
+                    .addAll(subqueryAssignmentsVariables) // need to include those: e.g: "expr" from "expr IN (SELECT 1)"
                     .build();
             PlanNode input = context.rewrite(node.getInput(), inputContext);
             return new ApplyNode(node.getId(), input, subquery, subqueryAssignments.build(), newCorrelation, node.getOriginSubqueryError());
         }
 
         @Override
-        public PlanNode visitAssignUniqueId(AssignUniqueId node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitAssignUniqueId(AssignUniqueId node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            if (!context.get().contains(node.getIdVariableAsSymbol())) {
+            if (!context.get().contains(node.getIdVariable())) {
                 return context.rewrite(node.getSource(), context.get());
             }
             return context.defaultRewrite(node, context.get());
         }
 
         @Override
-        public PlanNode visitLateralJoin(LateralJoinNode node, RewriteContext<Set<Symbol>> context)
+        public PlanNode visitLateralJoin(LateralJoinNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
             PlanNode subquery = context.rewrite(node.getSubquery(), context.get());
 
             // remove unused lateral nodes
-            if (intersection(ImmutableSet.copyOf(subquery.getOutputSymbols()), context.get()).isEmpty() && isScalar(subquery)) {
+            if (intersection(ImmutableSet.copyOf(subquery.getOutputVariables()), context.get()).isEmpty() && isScalar(subquery)) {
                 return context.rewrite(node.getInput(), context.get());
             }
 
@@ -860,14 +844,14 @@ public class PruneUnreferencedOutputs
                     .filter(subqueryVariables::contains)
                     .collect(toImmutableList());
 
-            Set<Symbol> inputContext = ImmutableSet.<Symbol>builder()
+            Set<VariableReferenceExpression> inputContext = ImmutableSet.<VariableReferenceExpression>builder()
                     .addAll(context.get())
-                    .addAll(newCorrelation.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet()))
+                    .addAll(newCorrelation)
                     .build();
             PlanNode input = context.rewrite(node.getInput(), inputContext);
 
             // remove unused lateral nodes
-            if (intersection(ImmutableSet.copyOf(input.getOutputSymbols()), inputContext).isEmpty() && isScalar(input)) {
+            if (intersection(ImmutableSet.copyOf(input.getOutputVariables()), inputContext).isEmpty() && isScalar(input)) {
                 return subquery;
             }
 
