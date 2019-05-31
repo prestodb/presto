@@ -101,7 +101,7 @@ public class ElasticsearchLoader
                     }
                     dataBuilder.endObject();
                     client.prepareIndex(tableName, "doc")
-                            .setSource(dataBuilder.string(), JSON)
+                            .setSource(dataBuilder.toString(), JSON) // FIXME?
                             .get();
                 }
                 catch (IOException e) {

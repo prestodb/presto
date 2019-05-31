@@ -21,13 +21,13 @@ import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
-import org.elasticsearch.action.admin.cluster.shards.ClusterSearchShardsGroup;
-import org.elasticsearch.action.admin.cluster.shards.ClusterSearchShardsResponse;
-import org.elasticsearch.cluster.node.DiscoveryNode;
+import io.airlift.log.Logger;
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
@@ -36,6 +36,7 @@ public class ElasticsearchSplitManager
         implements ConnectorSplitManager
 {
     private final ElasticsearchClient client;
+    private static final Logger LOG = Logger.get(ElasticsearchSplitManager.class);
 
     @Inject
     public ElasticsearchSplitManager(ElasticsearchClient client)
@@ -58,19 +59,19 @@ public class ElasticsearchSplitManager
         List<String> indices = client.getIndices(table);
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         for (String index : indices) {
-            ClusterSearchShardsResponse response = client.getSearchShards(index, table);
-            DiscoveryNode[] nodes = response.getNodes();
-            for (ClusterSearchShardsGroup group : response.getGroups()) {
-                int nodeIndex = group.getShardId().getId() % nodes.length;
+            ClusterHealthResponse healthResponse = client.getHealthResponse(index, table);
+            int activeShards = healthResponse.getActiveShards();
+            IntStream.range(0, activeShards).forEachOrdered(nodeIndex -> {
                 ElasticsearchSplit split = new ElasticsearchSplit(
                         index,
                         table.getType(),
-                        group.getShardId().getId(),
-                        nodes[nodeIndex].getHostName(),
-                        nodes[nodeIndex].getAddress().getPort(),
+                        nodeIndex,
+                        activeShards,
+                        table.getHost(),
+                        table.getPort(),
                         layoutHandle.getTupleDomain());
                 splits.add(split);
-            }
+            });
         }
         return new FixedSplitSource(splits.build());
     }

@@ -22,10 +22,12 @@ import com.facebook.presto.spi.type.Type;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
-import org.elasticsearch.action.search.SearchRequestBuilder;
-import org.elasticsearch.action.search.SearchScrollRequestBuilder;
-import org.elasticsearch.client.transport.TransportClient;
-import org.elasticsearch.common.transport.TransportAddress;
+import org.apache.http.HttpHost;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.search.SearchScrollRequest;
+import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.ExistsQueryBuilder;
@@ -33,17 +35,18 @@ import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.slice.SliceBuilder;
 
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.elasticsearch.ElasticsearchClient.createTransportClient;
+import static com.facebook.presto.elasticsearch.ElasticsearchClient.createClient;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_CONNECTION_ERROR;
-import static com.facebook.presto.spi.predicate.Marker.Bound.ABOVE;
-import static com.facebook.presto.spi.predicate.Marker.Bound.BELOW;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -55,7 +58,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static org.elasticsearch.action.search.SearchType.QUERY_THEN_FETCH;
 
 public class ElasticsearchQueryBuilder
 {
@@ -63,8 +65,9 @@ public class ElasticsearchQueryBuilder
 
     private final Duration scrollTimeout;
     private final int scrollSize;
-    private final TransportClient client;
+    private final RestHighLevelClient client;
     private final int shard;
+    private final int activeShards;
     private final TupleDomain<ColumnHandle> tupleDomain;
     private final List<ElasticsearchColumnHandle> columns;
     private final String index;
@@ -80,6 +83,7 @@ public class ElasticsearchQueryBuilder
         tupleDomain = split.getTupleDomain();
         index = split.getIndex();
         shard = split.getShard();
+        activeShards = split.getActiveShards();
         type = split.getType();
         InetAddress address;
         try {
@@ -88,38 +92,63 @@ public class ElasticsearchQueryBuilder
         catch (UnknownHostException e) {
             throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, format("Error connecting to search node (%s:%d)", split.getSearchNode(), split.getPort()), e);
         }
-        client = createTransportClient(config, new TransportAddress(address, split.getPort()));
+        client = createClient(config, new HttpHost(address, split.getPort()));
         scrollTimeout = config.getScrollTimeout();
         scrollSize = config.getScrollSize();
     }
 
     public void close()
     {
-        client.close();
+        try {
+            client.close();
+        }
+        catch (IOException e) {
+            // TODO: Re-throw?
+        }
     }
 
-    public SearchRequestBuilder buildScrollSearchRequest()
+    public SearchRequest buildScrollSearchRequest()
     {
         String indices = index != null && !index.isEmpty() ? index : "_all";
+        SliceBuilder sliceBuilder = new SliceBuilder(shard, activeShards);
         List<String> fields = columns.stream()
                 .map(ElasticsearchColumnHandle::getColumnName)
                 .collect(toList());
-        SearchRequestBuilder searchRequestBuilder = client.prepareSearch(indices)
-                .setTypes(type)
-                .setSearchType(QUERY_THEN_FETCH)
-                .setScroll(new TimeValue(scrollTimeout.toMillis()))
-                .setFetchSource(fields.toArray(new String[0]), null)
-                .setQuery(buildSearchQuery())
-                .setPreference("_shards:" + shard)
-                .setSize(scrollSize);
-        LOG.debug("Elasticsearch Request: %s", searchRequestBuilder);
-        return searchRequestBuilder;
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
+                .size(scrollSize)
+                .slice(sliceBuilder)
+                .fetchSource(fields.toArray(new String[0]), new String[0])
+                .query(buildSearchQuery());
+        SearchRequest scrollRequest = new SearchRequest(indices)
+                .source(searchSourceBuilder)
+                .scroll(new TimeValue(scrollTimeout.toMillis()));
+        LOG.debug("Elasticsearch Request: %s", scrollRequest);
+        return scrollRequest;
     }
 
-    public SearchScrollRequestBuilder prepareSearchScroll(String scrollId)
+    public SearchResponse executeSearchRequest(SearchRequest searchRequest)
     {
-        return client.prepareSearchScroll(scrollId)
-                .setScroll(new TimeValue(scrollTimeout.toMillis()));
+        try {
+            return client.search(searchRequest, RequestOptions.DEFAULT);
+        }
+        catch (IOException e) {
+            return null;
+        }
+    }
+
+    public SearchResponse executeSearchScrollRequest(SearchScrollRequest searchScrollRequest)
+    {
+        try {
+            return client.scroll(searchScrollRequest, RequestOptions.DEFAULT);
+        }
+        catch (IOException e) {
+            return null;
+        }
+    }
+
+    public SearchScrollRequest prepareSearchScroll(String scrollId)
+    {
+        return new SearchScrollRequest(scrollId).scroll(new TimeValue(scrollTimeout.toMillis()));
     }
 
     private QueryBuilder buildSearchQuery()

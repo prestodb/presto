@@ -20,7 +20,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-
+import io.airlift.log.Logger;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -29,6 +29,7 @@ import static java.util.Objects.requireNonNull;
 public class ElasticsearchSplit
         implements ConnectorSplit
 {
+    private final int activeShards;
     private final String index;
     private final String type;
     private final int shard;
@@ -41,10 +42,12 @@ public class ElasticsearchSplit
             @JsonProperty("index") String index,
             @JsonProperty("type") String type,
             @JsonProperty("shard") int shard,
+            @JsonProperty("activeShards") int activeShards,
             @JsonProperty("searchNode") String searchNode,
             @JsonProperty("port") int port,
             @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain)
     {
+        this.activeShards = requireNonNull(activeShards, "activeShards is null");
         this.index = requireNonNull(index, "index is null");
         this.type = requireNonNull(type, "index is null");
         this.searchNode = requireNonNull(searchNode, "searchNode is null");
@@ -70,6 +73,10 @@ public class ElasticsearchSplit
     {
         return shard;
     }
+
+    @JsonProperty
+    public int getActiveShards()
+    { return activeShards; }
 
     @JsonProperty
     public String getSearchNode()

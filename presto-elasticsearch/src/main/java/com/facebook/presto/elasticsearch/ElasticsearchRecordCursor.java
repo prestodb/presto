@@ -189,9 +189,7 @@ public class ElasticsearchRecordCursor
             return retry()
                     .maxAttempts(maxAttempts)
                     .exponentialBackoff(maxRetryTime)
-                    .run("searchRequest", () -> queryBuilder.buildScrollSearchRequest()
-                            .execute()
-                            .actionGet(requestTimeout.toMillis()));
+                    .run("searchRequest", () -> queryBuilder.executeSearchRequest(queryBuilder.buildScrollSearchRequest()));
         }
         catch (Exception e) {
             throw new RuntimeException(e);
@@ -204,9 +202,7 @@ public class ElasticsearchRecordCursor
             return retry()
                     .maxAttempts(maxAttempts)
                     .exponentialBackoff(maxRetryTime)
-                    .run("scrollRequest", () -> queryBuilder.prepareSearchScroll(scrollId)
-                            .execute()
-                            .actionGet(requestTimeout.toMillis()));
+                    .run("scrollRequest", () -> queryBuilder.executeSearchScrollRequest(queryBuilder.prepareSearchScroll(scrollId)));
         }
         catch (Exception e) {
             throw new RuntimeException(e);

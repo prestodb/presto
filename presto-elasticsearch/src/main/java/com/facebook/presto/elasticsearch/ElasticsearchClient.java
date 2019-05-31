@@ -21,7 +21,6 @@ import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.floragunn.searchguard.ssl.SearchGuardSSLPlugin;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -30,24 +29,23 @@ import com.google.common.io.Closer;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import org.elasticsearch.action.admin.cluster.shards.ClusterSearchShardsRequest;
-import org.elasticsearch.action.admin.cluster.shards.ClusterSearchShardsResponse;
-import org.elasticsearch.action.admin.indices.get.GetIndexRequest;
-import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest;
-import org.elasticsearch.client.transport.TransportClient;
+import org.apache.http.HttpHost;
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
+import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestClientBuilder;
+import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.indices.GetIndexRequest;
+import org.elasticsearch.client.indices.GetMappingsRequest;
 import org.elasticsearch.cluster.metadata.MappingMetaData;
-import org.elasticsearch.common.collect.ImmutableOpenMap;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.settings.Settings.Builder;
-import org.elasticsearch.common.transport.TransportAddress;
-import org.elasticsearch.transport.client.PreBuiltTransportClient;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -68,15 +66,6 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RowType.Field;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_ENFORCE_HOSTNAME_VERIFICATION;
-import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_KEYSTORE_FILEPATH;
-import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_KEYSTORE_PASSWORD;
-import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_PEMCERT_FILEPATH;
-import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_PEMKEY_FILEPATH;
-import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_PEMKEY_PASSWORD;
-import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_PEMTRUSTEDCAS_FILEPATH;
-import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_FILEPATH;
-import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_PASSWORD;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.cache.CacheLoader.asyncReloading;
@@ -94,7 +83,7 @@ public class ElasticsearchClient
     private final ExecutorService executor = newFixedThreadPool(1, daemonThreadsNamed("elasticsearch-metadata-%s"));
     private final ObjectMapper objecMapper = new ObjectMapperProvider().get();
     private final ElasticsearchTableDescriptionProvider tableDescriptions;
-    private final Map<String, TransportClient> clients = new HashMap<>();
+    private final Map<String, RestHighLevelClient> clients = new HashMap<>();
     private final LoadingCache<ElasticsearchTableDescription, List<ColumnMetadata>> columnMetadataCache;
     private final Duration requestTimeout;
     private final int maxAttempts;
@@ -112,8 +101,8 @@ public class ElasticsearchClient
 
         for (ElasticsearchTableDescription tableDescription : tableDescriptions.getAllTableDescriptions()) {
             if (!clients.containsKey(tableDescription.getClusterName())) {
-                TransportAddress address = new TransportAddress(InetAddress.getByName(tableDescription.getHost()), tableDescription.getPort());
-                TransportClient client = createTransportClient(config, address, Optional.of(tableDescription.getClusterName()));
+                HttpHost host = new HttpHost(tableDescription.getHost(), tableDescription.getPort(), "http");
+                RestHighLevelClient client = createClient(config, host, Optional.of(tableDescription.getClusterName()));
                 clients.put(tableDescription.getClusterName(), client);
             }
         }
@@ -131,7 +120,7 @@ public class ElasticsearchClient
         // Therefore, we first clear the clients map, then close each client.
         try (Closer closer = Closer.create()) {
             closer.register(clients::clear);
-            for (Entry<String, TransportClient> entry : clients.entrySet()) {
+            for (Entry<String, RestHighLevelClient> entry : clients.entrySet()) {
                 closer.register(entry.getValue());
             }
             closer.register(executor::shutdown);
@@ -198,48 +187,48 @@ public class ElasticsearchClient
         if (tableDescription.getIndexExactMatch()) {
             return ImmutableList.of(tableDescription.getIndex());
         }
-        TransportClient client = clients.get(tableDescription.getClusterName());
+        RestHighLevelClient client = clients.get(tableDescription.getClusterName());
         verify(client != null, "client is null");
-        String[] indices = getIndices(client, new GetIndexRequest());
+        GetIndexRequest request = new GetIndexRequest();
+        String[] indices = getIndices(client);
         return Arrays.stream(indices)
-                    .filter(index -> index.startsWith(tableDescription.getIndex()))
-                    .collect(toImmutableList());
+                .filter(index -> index.startsWith(tableDescription.getIndex()))
+                .collect(toImmutableList());
     }
 
-    public ClusterSearchShardsResponse getSearchShards(String index, ElasticsearchTableDescription tableDescription)
+    public ClusterHealthResponse getHealthResponse(String index, ElasticsearchTableDescription tableDescription)
     {
-        TransportClient client = clients.get(tableDescription.getClusterName());
+        RestHighLevelClient client = clients.get(tableDescription.getClusterName());
         verify(client != null, "client is null");
-        return getSearchShardsResponse(client, new ClusterSearchShardsRequest(index));
-    }
+        ClusterHealthRequest request = new ClusterHealthRequest(index);
 
-    private String[] getIndices(TransportClient client, GetIndexRequest request)
-    {
         try {
             return retry()
                     .maxAttempts(maxAttempts)
                     .exponentialBackoff(maxRetryTime)
-                    .run("getIndices", () -> client.admin()
-                            .indices()
-                            .getIndex(request)
-                            .actionGet(requestTimeout.toMillis())
-                            .getIndices());
+                    .run("getSearchShardsResponse", () -> client
+                            .cluster()
+                            .health(request, RequestOptions.DEFAULT));
         }
         catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
-    private ClusterSearchShardsResponse getSearchShardsResponse(TransportClient client, ClusterSearchShardsRequest request)
+    private String[] getIndices(RestHighLevelClient client)
     {
+        ClusterHealthRequest request = new ClusterHealthRequest();
+
         try {
             return retry()
                     .maxAttempts(maxAttempts)
                     .exponentialBackoff(maxRetryTime)
-                    .run("getSearchShardsResponse", () -> client.admin()
+                    .run("getIndices", () -> client
                             .cluster()
-                            .searchShards(request)
-                            .actionGet(requestTimeout.toMillis()));
+                            .health(request, RequestOptions.DEFAULT)
+                            .getIndices()
+                            .keySet()
+                            .toArray(new String[0]));
         }
         catch (Exception e) {
             throw new RuntimeException(e);
@@ -263,20 +252,20 @@ public class ElasticsearchClient
     private List<ElasticsearchColumn> buildColumns(ElasticsearchTableDescription tableDescription)
     {
         List<ElasticsearchColumn> columns = new ArrayList<>();
-        TransportClient client = clients.get(tableDescription.getClusterName());
+        RestHighLevelClient client = clients.get(tableDescription.getClusterName());
         verify(client != null, "client is null");
         for (String index : getIndices(tableDescription)) {
-            GetMappingsRequest mappingsRequest = new GetMappingsRequest().types(tableDescription.getType());
+            GetMappingsRequest mappingsRequest = new GetMappingsRequest();
 
             if (!isNullOrEmpty(index)) {
                 mappingsRequest.indices(index);
             }
-            ImmutableOpenMap<String, ImmutableOpenMap<String, MappingMetaData>> mappings = getMappings(client, mappingsRequest);
+            Map<String, MappingMetaData> mappings = getMappings(client, mappingsRequest);
 
-            Iterator<String> indexIterator = mappings.keysIt();
+            Iterator<String> indexIterator = mappings.keySet().iterator();
             while (indexIterator.hasNext()) {
                 // TODO use io.airlift.json.JsonCodec
-                MappingMetaData mappingMetaData = mappings.get(indexIterator.next()).get(tableDescription.getType());
+                MappingMetaData mappingMetaData = mappings.get(indexIterator.next()); // NOTE: _doc is the, not compatible with ES 5.x
                 JsonNode rootNode;
                 try {
                     rootNode = objecMapper.readTree(mappingMetaData.source().uncompressed());
@@ -305,17 +294,16 @@ public class ElasticsearchClient
         return columns;
     }
 
-    private ImmutableOpenMap<String, ImmutableOpenMap<String, MappingMetaData>> getMappings(TransportClient client, GetMappingsRequest request)
+    private Map<String, MappingMetaData> getMappings(RestHighLevelClient client, GetMappingsRequest request)
     {
         try {
             return retry()
                     .maxAttempts(maxAttempts)
                     .exponentialBackoff(maxRetryTime)
-                    .run("getMappings", () -> client.admin()
+                    .run("getMappings", () -> client
                             .indices()
-                            .getMappings(request)
-                            .actionGet(requestTimeout.toMillis())
-                            .getMappings());
+                            .getMapping(request, RequestOptions.DEFAULT)
+                            .mappings());
         }
         catch (Exception e) {
             throw new RuntimeException(e);
@@ -464,16 +452,17 @@ public class ElasticsearchClient
             return rightLength - leftLength;
         }
     }
-    static TransportClient createTransportClient(ElasticsearchConnectorConfig config, TransportAddress address)
+
+    static RestHighLevelClient createClient(ElasticsearchConnectorConfig config, HttpHost host)
     {
-        return createTransportClient(config, address, Optional.empty());
+        return createClient(config, host, Optional.empty());
     }
 
-    static TransportClient createTransportClient(ElasticsearchConnectorConfig config, TransportAddress address, Optional<String> clusterName)
+    static RestHighLevelClient createClient(ElasticsearchConnectorConfig config, HttpHost host, Optional<String> clusterName)
     {
         Settings settings;
-        Builder builder;
-        TransportClient client;
+        RestHighLevelClient restClient;
+        /*
         if (clusterName.isPresent()) {
             builder = Settings.builder()
                     .put("cluster.name", clusterName.get());
@@ -482,30 +471,18 @@ public class ElasticsearchClient
             builder = Settings.builder()
                     .put("client.transport.ignore_cluster_name", true);
         }
+         */
+        RestClientBuilder builder = RestClient.builder(host);
+        RestHighLevelClient client = new RestHighLevelClient(builder);
+        // TODO: Add SSL back?
         switch (config.getCertificateFormat()) {
             case PEM:
-                settings = builder
-                        .put(SEARCHGUARD_SSL_TRANSPORT_PEMCERT_FILEPATH, config.getPemcertFilepath())
-                        .put(SEARCHGUARD_SSL_TRANSPORT_PEMKEY_FILEPATH, config.getPemkeyFilepath())
-                        .put(SEARCHGUARD_SSL_TRANSPORT_PEMKEY_PASSWORD, config.getPemkeyPassword())
-                        .put(SEARCHGUARD_SSL_TRANSPORT_PEMTRUSTEDCAS_FILEPATH, config.getPemtrustedcasFilepath())
-                        .put(SEARCHGUARD_SSL_TRANSPORT_ENFORCE_HOSTNAME_VERIFICATION, false)
-                        .build();
-                client = new PreBuiltTransportClient(settings, SearchGuardSSLPlugin.class).addTransportAddress(address);
+                // Handle PEM
                 break;
             case JKS:
-                settings = Settings.builder()
-                        .put(SEARCHGUARD_SSL_TRANSPORT_KEYSTORE_FILEPATH, config.getKeystoreFilepath())
-                        .put(SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_FILEPATH, config.getTruststoreFilepath())
-                        .put(SEARCHGUARD_SSL_TRANSPORT_KEYSTORE_PASSWORD, config.getKeystorePassword())
-                        .put(SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_PASSWORD, config.getTruststorePassword())
-                        .put(SEARCHGUARD_SSL_TRANSPORT_ENFORCE_HOSTNAME_VERIFICATION, false)
-                        .build();
-                client = new PreBuiltTransportClient(settings, SearchGuardSSLPlugin.class).addTransportAddress(address);
+                // Handle JKS
                 break;
             default:
-                settings = builder.build();
-                client = new PreBuiltTransportClient(settings).addTransportAddress(address);
                 break;
         }
         return client;
