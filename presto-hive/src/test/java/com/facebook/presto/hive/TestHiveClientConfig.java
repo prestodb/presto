@@ -126,8 +126,7 @@ public class TestHiveClientConfig
                 .setTemporaryStagingDirectoryPath("/tmp/presto-${USER}")
                 .setTemporaryTableSchema("default")
                 .setTemporaryTableStorageFormat(ORC)
-                .setTemporaryTableCompressionCodec(SNAPPY)
-                .setUseRewindableSplitSource(false));
+                .setTemporaryTableCompressionCodec(SNAPPY));
     }
 
     @Test
@@ -218,7 +217,6 @@ public class TestHiveClientConfig
                 .put("hive.temporary-table-schema", "other")
                 .put("hive.temporary-table-storage-format", "DWRF")
                 .put("hive.temporary-table-compression-codec", "NONE")
-                .put("hive.use-rewindable-split-source", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -306,8 +304,7 @@ public class TestHiveClientConfig
                 .setTemporaryStagingDirectoryPath("updated")
                 .setTemporaryTableSchema("other")
                 .setTemporaryTableStorageFormat(DWRF)
-                .setTemporaryTableCompressionCodec(NONE)
-                .setUseRewindableSplitSource(true);
+                .setTemporaryTableCompressionCodec(NONE);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

@@ -82,7 +82,6 @@ import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createMaterializeExchangesSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
-import static com.facebook.presto.hive.HiveQueryRunner.createRewindableSplitSourceSession;
 import static com.facebook.presto.hive.HiveSessionProperties.RCFILE_OPTIMIZED_WRITER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.getInsertExistingPartitionsBehavior;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
@@ -145,7 +144,6 @@ public class TestHiveIntegrationSmokeTest
     private final String catalog;
     private final Session bucketedSession;
     private final Session materializeExchangesSession;
-    private final Session rewindableSplitSourceSession;
     private final TypeTranslator typeTranslator;
 
     @SuppressWarnings("unused")
@@ -154,7 +152,6 @@ public class TestHiveIntegrationSmokeTest
         this(() -> createQueryRunner(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER),
                 createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
                 createMaterializeExchangesSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
-                createRewindableSplitSourceSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
                 HIVE_CATALOG,
                 new HiveTypeTranslator());
     }
@@ -163,7 +160,6 @@ public class TestHiveIntegrationSmokeTest
             QueryRunnerSupplier queryRunnerSupplier,
             Session bucketedSession,
             Session materializeExchangesSession,
-            Session rewindableSplitSourceSession,
             String catalog,
             TypeTranslator typeTranslator)
     {
@@ -171,7 +167,6 @@ public class TestHiveIntegrationSmokeTest
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.bucketedSession = requireNonNull(bucketedSession, "bucketSession is null");
         this.materializeExchangesSession = requireNonNull(materializeExchangesSession, "materializeExchangesSession is null");
-        this.rewindableSplitSourceSession = requireNonNull(rewindableSplitSourceSession, "rewindableSplitSourceSession is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
     }
 
@@ -1876,7 +1871,6 @@ public class TestHiveIntegrationSmokeTest
     public void testBucketedCatalog()
     {
         testBucketedCatalog(bucketedSession);
-        testBucketedCatalog(rewindableSplitSourceSession);
     }
 
     private void testBucketedCatalog(Session session)
@@ -1897,7 +1891,6 @@ public class TestHiveIntegrationSmokeTest
     public void testBucketedExecution()
     {
         testBucketedExecution(bucketedSession);
-        testBucketedExecution(rewindableSplitSourceSession);
     }
 
     private void testBucketedExecution(Session session)
@@ -2440,7 +2433,6 @@ public class TestHiveIntegrationSmokeTest
     {
         testMismatchedBucketing(getSession());
         testMismatchedBucketing(materializeExchangesSession);
-        testMismatchedBucketing(rewindableSplitSourceSession);
     }
 
     public void testMismatchedBucketing(Session session)
@@ -2795,7 +2787,6 @@ public class TestHiveIntegrationSmokeTest
     {
         testGroupedExecution(getSession());
         testGroupedExecution(materializeExchangesSession);
-        testGroupedExecution(rewindableSplitSourceSession);
     }
 
     private void testGroupedExecution(Session session)

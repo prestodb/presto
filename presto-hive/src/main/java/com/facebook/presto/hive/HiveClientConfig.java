@@ -158,7 +158,6 @@ public class HiveClientConfig
     private String temporaryTableSchema = "default";
     private HiveStorageFormat temporaryTableStorageFormat = ORC;
     private HiveCompressionCodec temporaryTableCompressionCodec = HiveCompressionCodec.SNAPPY;
-    private boolean useRewindableSplitSource;
 
     public int getMaxInitialSplits()
     {
@@ -1294,19 +1293,6 @@ public class HiveClientConfig
     public HiveClientConfig setTemporaryTableCompressionCodec(HiveCompressionCodec temporaryTableCompressionCodec)
     {
         this.temporaryTableCompressionCodec = temporaryTableCompressionCodec;
-        return this;
-    }
-
-    public boolean isUseRewindableSplitSource()
-    {
-        return useRewindableSplitSource;
-    }
-
-    @Config("hive.use-rewindable-split-source")
-    @ConfigDescription("Use rewindable hive split source")
-    public HiveClientConfig setUseRewindableSplitSource(boolean useRewindableSplitSource)
-    {
-        this.useRewindableSplitSource = useRewindableSplitSource;
         return this;
     }
 }

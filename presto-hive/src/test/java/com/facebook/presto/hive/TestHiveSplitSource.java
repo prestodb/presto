@@ -13,12 +13,10 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.SettableFuture;
@@ -274,14 +272,8 @@ public class TestHiveSplitSource
     public void testPreloadSplitsForRewindableSplitSource()
             throws Exception
     {
-        // TODO: Use Session::builder after HiveTestUtils::SESSION is refactored to Session.
-        ConnectorSession session = new TestingConnectorSession(
-                new HiveSessionProperties(
-                        new HiveClientConfig().setUseRewindableSplitSource(true),
-                        new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig()).getSessionProperties());
         HiveSplitSource hiveSplitSource = HiveSplitSource.bucketedRewindable(
-                session,
+                SESSION,
                 "database",
                 "table",
                 TupleDomain.all(),
