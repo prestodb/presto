@@ -98,11 +98,6 @@ public final class RowNumberNode
         return partitionBy;
     }
 
-    public Symbol getRowNumberSymbol()
-    {
-        return new Symbol(rowNumberVariable.getName());
-    }
-
     @JsonProperty
     public VariableReferenceExpression getRowNumberVariable()
     {

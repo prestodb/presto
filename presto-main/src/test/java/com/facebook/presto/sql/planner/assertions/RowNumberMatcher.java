@@ -83,8 +83,8 @@ public class RowNumberMatcher
 
         if (!rowNumberSymbol
                 .map(expectedRowNumberSymbol ->
-                        expectedRowNumberSymbol.toSymbol(symbolAliases)
-                                .equals(rowNumberNode.getRowNumberSymbol()))
+                        expectedRowNumberSymbol.toSymbol(symbolAliases).getName()
+                                .equals(rowNumberNode.getRowNumberVariable().getName()))
                 .orElse(true)) {
             return NO_MATCH;
         }

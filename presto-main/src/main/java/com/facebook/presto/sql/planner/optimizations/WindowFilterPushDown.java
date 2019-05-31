@@ -163,39 +163,39 @@ public class WindowFilterPushDown
             TupleDomain<Symbol> tupleDomain = fromPredicate(metadata, session, castToExpression(node.getPredicate()), types).getTupleDomain();
 
             if (source instanceof RowNumberNode) {
-                Symbol rowNumberSymbol = ((RowNumberNode) source).getRowNumberSymbol();
-                OptionalInt upperBound = extractUpperBound(tupleDomain, rowNumberSymbol);
+                VariableReferenceExpression rowNumberVariable = ((RowNumberNode) source).getRowNumberVariable();
+                OptionalInt upperBound = extractUpperBound(tupleDomain, rowNumberVariable);
 
                 if (upperBound.isPresent()) {
                     source = mergeLimit(((RowNumberNode) source), upperBound.getAsInt());
-                    return rewriteFilterSource(node, source, rowNumberSymbol, upperBound.getAsInt());
+                    return rewriteFilterSource(node, source, rowNumberVariable, upperBound.getAsInt());
                 }
             }
             else if (source instanceof WindowNode && canOptimizeWindowFunction((WindowNode) source, metadata.getFunctionManager()) && isOptimizeTopNRowNumber(session)) {
                 WindowNode windowNode = (WindowNode) source;
-                Symbol rowNumberSymbol = getOnlyElement(windowNode.getCreatedSymbols());
-                OptionalInt upperBound = extractUpperBound(tupleDomain, rowNumberSymbol);
+                VariableReferenceExpression rowNumberVariable = getOnlyElement(windowNode.getCreatedVariable());
+                OptionalInt upperBound = extractUpperBound(tupleDomain, rowNumberVariable);
 
                 if (upperBound.isPresent()) {
                     source = convertToTopNRowNumber(windowNode, upperBound.getAsInt());
-                    return rewriteFilterSource(node, source, rowNumberSymbol, upperBound.getAsInt());
+                    return rewriteFilterSource(node, source, rowNumberVariable, upperBound.getAsInt());
                 }
             }
             return replaceChildren(node, ImmutableList.of(source));
         }
 
-        private PlanNode rewriteFilterSource(FilterNode filterNode, PlanNode source, Symbol rowNumberSymbol, int upperBound)
+        private PlanNode rewriteFilterSource(FilterNode filterNode, PlanNode source, VariableReferenceExpression rowNumberVariable, int upperBound)
         {
             ExtractionResult extractionResult = fromPredicate(metadata, session, castToExpression(filterNode.getPredicate()), types);
             TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
 
-            if (!isEqualRange(tupleDomain, rowNumberSymbol, upperBound)) {
+            if (!isEqualRange(tupleDomain, rowNumberVariable, upperBound)) {
                 return new FilterNode(filterNode.getId(), source, filterNode.getPredicate());
             }
 
             // Remove the row number domain because it is absorbed into the node
             Map<Symbol, Domain> newDomains = tupleDomain.getDomains().get().entrySet().stream()
-                    .filter(entry -> !entry.getKey().equals(rowNumberSymbol))
+                    .filter(entry -> !entry.getKey().equals(rowNumberVariable))
                     .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
 
             // Construct a new predicate
@@ -210,22 +210,22 @@ public class WindowFilterPushDown
             return new FilterNode(filterNode.getId(), source, castToRowExpression(newPredicate));
         }
 
-        private static boolean isEqualRange(TupleDomain<Symbol> tupleDomain, Symbol symbol, long upperBound)
+        private static boolean isEqualRange(TupleDomain<Symbol> tupleDomain, VariableReferenceExpression variable, long upperBound)
         {
             if (tupleDomain.isNone()) {
                 return false;
             }
-            Domain domain = tupleDomain.getDomains().get().get(symbol);
+            Domain domain = tupleDomain.getDomains().get().get(new Symbol(variable.getName()));
             return domain.getValues().equals(ValueSet.ofRanges(Range.lessThanOrEqual(domain.getType(), upperBound)));
         }
 
-        private static OptionalInt extractUpperBound(TupleDomain<Symbol> tupleDomain, Symbol symbol)
+        private static OptionalInt extractUpperBound(TupleDomain<Symbol> tupleDomain, VariableReferenceExpression variable)
         {
             if (tupleDomain.isNone()) {
                 return OptionalInt.empty();
             }
 
-            Domain rowNumberDomain = tupleDomain.getDomains().get().get(symbol);
+            Domain rowNumberDomain = tupleDomain.getDomains().get().get(new Symbol(variable.getName()));
             if (rowNumberDomain == null) {
                 return OptionalInt.empty();
             }
