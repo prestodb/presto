@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.FluentIterable;
@@ -42,7 +41,6 @@ public abstract class SetOperationNode
 {
     private final List<PlanNode> sources;
     private final ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputToInputs;
-    private final ListMultimap<Symbol, Symbol> outputToInputSymbols;
     private final List<VariableReferenceExpression> outputVariables;
 
     @JsonCreator
@@ -61,29 +59,16 @@ public abstract class SetOperationNode
         this.outputToInputs = ImmutableListMultimap.copyOf(outputToInputs);
         this.outputVariables = ImmutableList.copyOf(outputToInputs.keySet());
 
-        validateOutputVariables();
-
         for (Collection<VariableReferenceExpression> inputs : this.outputToInputs.asMap().values()) {
             checkArgument(inputs.size() == this.sources.size(), "Every source needs to map its symbols to an output %s operation symbol", this.getClass().getSimpleName());
         }
 
         // Make sure each source positionally corresponds to their Symbol values in the Multimap
         for (int i = 0; i < sources.size(); i++) {
-            List<String> sourceSymbolNames = sources.get(i).getOutputSymbols().stream().map(Symbol::getName).collect(toImmutableList());
             for (Collection<VariableReferenceExpression> expectedInputs : this.outputToInputs.asMap().values()) {
-                checkArgument(sourceSymbolNames.contains(Iterables.get(expectedInputs, i).getName()), "Source does not provide required symbols");
+                checkArgument(sources.get(i).getOutputVariables().contains(Iterables.get(expectedInputs, i)), "Source does not provide required symbols");
             }
         }
-
-        ImmutableListMultimap.Builder<Symbol, Symbol> builder = ImmutableListMultimap.builder();
-        outputToInputs.asMap().entrySet()
-                .forEach(entry -> builder.putAll(
-                        new Symbol(entry.getKey().getName()),
-                        entry.getValue().stream()
-                                .map(VariableReferenceExpression::getName)
-                                .map(Symbol::new)
-                                .collect(toImmutableList())));
-        outputToInputSymbols = builder.build();
     }
 
     @Override
@@ -99,32 +84,10 @@ public abstract class SetOperationNode
         return outputToInputs;
     }
 
-    public ListMultimap<Symbol, Symbol> getSymbolMapping()
-    {
-        return outputToInputSymbols;
-    }
-
-    @Override
-    public List<Symbol> getOutputSymbols()
-    {
-        return outputVariables.stream()
-                .map(VariableReferenceExpression::getName)
-                .map(Symbol::new)
-                .collect(toImmutableList());
-    }
-
     @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
         return outputVariables;
-    }
-
-    public List<Symbol> sourceOutputSymbolLayout(int sourceIndex)
-    {
-        // Make sure the sourceOutputSymbolLayout symbols are listed in the same order as the corresponding output symbols
-        return getOutputSymbols().stream()
-                .map(symbol -> outputToInputSymbols.get(symbol).get(sourceIndex))
-                .collect(toImmutableList());
     }
 
     public List<VariableReferenceExpression> sourceOutputLayout(int sourceIndex)
@@ -136,21 +99,7 @@ public abstract class SetOperationNode
     }
 
     /**
-     * Returns the output to input symbol mapping for the given source channel
-     */
-    @Deprecated
-    public Map<Symbol, Symbol> sourceSymbolMap(int sourceIndex)
-    {
-        ImmutableMap.Builder<Symbol, Symbol> builder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Collection<Symbol>> entry : outputToInputSymbols.asMap().entrySet()) {
-            builder.put(entry.getKey(), Iterables.get(entry.getValue(), sourceIndex));
-        }
-
-        return builder.build();
-    }
-
-    /**
-     * Returns the output to input symbol mapping for the given source channel
+     * Returns the output to input variable mapping for the given source channel
      */
     public Map<VariableReferenceExpression, VariableReferenceExpression> sourceVariableMap(int sourceIndex)
     {

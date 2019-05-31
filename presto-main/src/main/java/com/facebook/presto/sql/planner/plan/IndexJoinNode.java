@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -116,15 +115,6 @@ public class IndexJoinNode
     public List<PlanNode> getSources()
     {
         return ImmutableList.of(probeSource, indexSource);
-    }
-
-    @Override
-    public List<Symbol> getOutputSymbols()
-    {
-        return ImmutableList.<Symbol>builder()
-                .addAll(probeSource.getOutputSymbols())
-                .addAll(indexSource.getOutputSymbols())
-                .build();
     }
 
     @Override

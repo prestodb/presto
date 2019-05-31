@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.WindowNode.Specification;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -76,18 +75,6 @@ public final class TopNRowNumberNode
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
-    {
-        ImmutableList.Builder<Symbol> builder = ImmutableList.<Symbol>builder().addAll(source.getOutputSymbols());
-
-        if (!partial) {
-            builder.add(new Symbol(rowNumberVariable.getName()));
-        }
-
-        return builder.build();
-    }
-
-    @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
         ImmutableList.Builder<VariableReferenceExpression> builder = ImmutableList.<VariableReferenceExpression>builder().addAll(source.getOutputVariables());
@@ -118,11 +105,6 @@ public final class TopNRowNumberNode
     public OrderingScheme getOrderingScheme()
     {
         return specification.getOrderingScheme().get();
-    }
-
-    public Symbol getRowNumberSymbol()
-    {
-        return new Symbol(rowNumberVariable.getName());
     }
 
     @JsonProperty

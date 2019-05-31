@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -64,12 +63,6 @@ public class ExplainAnalyzeNode
     public boolean isVerbose()
     {
         return verbose;
-    }
-
-    @Override
-    public List<Symbol> getOutputSymbols()
-    {
-        return ImmutableList.of(new Symbol(outputVariable.getName()));
     }
 
     @Override

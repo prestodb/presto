@@ -22,7 +22,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PartitioningScheme;
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
@@ -36,7 +35,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -164,11 +162,6 @@ public class TableWriterNode
         return ImmutableList.of(source);
     }
 
-    @Override
-    public List<Symbol> getOutputSymbols()
-    {
-        return getOutputVariables().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
-    }
     @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {

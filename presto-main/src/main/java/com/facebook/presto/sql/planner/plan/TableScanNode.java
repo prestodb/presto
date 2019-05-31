@@ -18,7 +18,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -28,7 +27,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
@@ -111,7 +109,6 @@ public class TableScanNode
         if (!currentConstraint.isAll() || !enforcedConstraint.isAll()) {
             checkArgument(table.getLayout().isPresent(), "tableLayout must be present when currentConstraint or enforcedConstraint is non-trivial");
         }
-        validateOutputVariables();
     }
 
     /**
@@ -172,12 +169,6 @@ public class TableScanNode
     {
         // table scan should be the leaf node
         return emptyList();
-    }
-
-    @Override
-    public List<Symbol> getOutputSymbols()
-    {
-        return outputVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
     }
 
     @Override

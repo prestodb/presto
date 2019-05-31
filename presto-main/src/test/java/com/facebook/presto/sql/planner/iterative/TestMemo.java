@@ -18,7 +18,6 @@ import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -298,12 +297,6 @@ public class TestMemo
         public List<PlanNode> getSources()
         {
             return sources;
-        }
-
-        @Override
-        public List<Symbol> getOutputSymbols()
-        {
-            return ImmutableList.of();
         }
 
         @Override

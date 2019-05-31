@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -27,7 +26,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -93,15 +91,6 @@ public class DistinctLimitNode
     public List<VariableReferenceExpression> getDistinctVariables()
     {
         return distinctVariables;
-    }
-
-    @Override
-    public List<Symbol> getOutputSymbols()
-    {
-        ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
-        outputSymbols.addAll(distinctVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList()));
-        hashVariable.ifPresent(variable -> outputSymbols.add(new Symbol(variable.getName())));
-        return outputSymbols.build();
     }
 
     @Override

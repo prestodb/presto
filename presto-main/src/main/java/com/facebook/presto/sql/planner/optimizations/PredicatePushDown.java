@@ -83,7 +83,6 @@ import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjunc
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
 import static com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator.isDeterministic;
-import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static com.facebook.presto.sql.planner.ExpressionVariableInliner.inlineVariables;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
@@ -190,7 +189,7 @@ public class PredicatePushDown
                 for (int index = 0; index < node.getInputs().get(i).size(); index++) {
                     outputsToInputs.put(
                             node.getOutputVariables().get(index),
-                            node.getInputsAsSymbols().get(i).get(index).toSymbolReference());
+                            new SymbolReference(node.getInputs().get(i).get(index).getName()));
                 }
 
                 Expression sourcePredicate = inlineVariables(outputsToInputs, context.get(), types);
@@ -349,7 +348,7 @@ public class PredicatePushDown
             boolean modified = false;
             ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
             for (int i = 0; i < node.getSources().size(); i++) {
-                Expression sourcePredicate = inlineSymbols(Maps.transformValues(node.sourceSymbolMap(i), Symbol::toSymbolReference), context.get());
+                Expression sourcePredicate = inlineVariables(Maps.transformValues(node.sourceVariableMap(i), variable -> new SymbolReference(variable.getName())), context.get(), types);
                 PlanNode source = node.getSources().get(i);
                 PlanNode rewrittenSource = context.rewrite(source, sourcePredicate);
                 if (rewrittenSource != source) {

@@ -18,7 +18,6 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -36,7 +35,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -86,26 +84,12 @@ public class WindowNode
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
-    {
-        return ImmutableList.<Symbol>builder()
-                .addAll(source.getOutputSymbols())
-                .addAll(windowFunctions.keySet().stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableList()))
-                .build();
-    }
-
-    @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
         return ImmutableList.<VariableReferenceExpression>builder()
                 .addAll(source.getOutputVariables())
                 .addAll(windowFunctions.keySet())
                 .build();
-    }
-
-    public Set<Symbol> getCreatedSymbols()
-    {
-        return windowFunctions.keySet().stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableSet());
     }
 
     public Set<VariableReferenceExpression> getCreatedVariable()

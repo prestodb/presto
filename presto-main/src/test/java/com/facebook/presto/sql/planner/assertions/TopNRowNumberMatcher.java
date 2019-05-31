@@ -79,8 +79,8 @@ public class TopNRowNumberMatcher
 
         if (!rowNumberSymbol
                 .map(expectedRowNumberSymbol ->
-                        expectedRowNumberSymbol.toSymbol(symbolAliases)
-                                .equals(topNRowNumberNode.getRowNumberSymbol()))
+                        expectedRowNumberSymbol.toSymbol(symbolAliases).getName()
+                                .equals(topNRowNumberNode.getRowNumberVariable().getName()))
                 .orElse(true)) {
             return NO_MATCH;
         }

@@ -44,17 +44,15 @@ public final class WindowNodeUtil
 {
     private WindowNodeUtil() {}
 
-    public static boolean dependsOn(WindowNode parent, WindowNode child)
+    public static boolean dependsOn(WindowNode parent, WindowNode child, TypeProvider types)
     {
-        return parent.getPartitionBy().stream().map(VariableReferenceExpression::getName).map(Symbol::new).anyMatch(child.getCreatedSymbols()::contains)
+        return parent.getPartitionBy().stream().anyMatch(child.getCreatedVariable()::contains)
                 || (parent.getOrderingScheme().isPresent() && parent.getOrderingScheme().get().getOrderBy().stream()
-                .map(VariableReferenceExpression::getName)
-                .map(Symbol::new)
-                .anyMatch(child.getCreatedSymbols()::contains))
+                .anyMatch(child.getCreatedVariable()::contains))
                 || parent.getWindowFunctions().values().stream()
-                .map(WindowNodeUtil::extractWindowFunctionUnique)
+                .map(function -> extractWindowFunctionUniqueVariables(function, types))
                 .flatMap(Collection::stream)
-                .anyMatch(child.getCreatedSymbols()::contains);
+                .anyMatch(child.getCreatedVariable()::contains);
     }
 
     public static WindowType toWindowType(WindowFrame.Type type)

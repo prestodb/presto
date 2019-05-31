@@ -15,15 +15,12 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.InternalPlanNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class GroupReference
         extends InternalPlanNode
@@ -53,12 +50,6 @@ public class GroupReference
     public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitGroupReference(this, context);
-    }
-
-    @Override
-    public List<Symbol> getOutputSymbols()
-    {
-        return outputs.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
     }
 
     @Override

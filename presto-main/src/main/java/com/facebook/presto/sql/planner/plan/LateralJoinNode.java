@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -25,7 +24,6 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -86,7 +84,7 @@ public class LateralJoinNode
         requireNonNull(correlation, "correlation is null");
         requireNonNull(originSubqueryError, "originSubqueryError is null");
 
-        checkArgument(input.getOutputSymbols().containsAll(correlation.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList())), "Input does not contain symbols from correlation");
+        checkArgument(input.getOutputVariables().containsAll(correlation), "Input does not contain symbols from correlation");
 
         this.input = input;
         this.subquery = subquery;
@@ -129,15 +127,6 @@ public class LateralJoinNode
     public List<PlanNode> getSources()
     {
         return ImmutableList.of(input, subquery);
-    }
-
-    @Override
-    public List<Symbol> getOutputSymbols()
-    {
-        return ImmutableList.<Symbol>builder()
-                .addAll(input.getOutputSymbols())
-                .addAll(subquery.getOutputSymbols())
-                .build();
     }
 
     @Override

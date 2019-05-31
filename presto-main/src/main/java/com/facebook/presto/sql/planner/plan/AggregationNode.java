@@ -19,7 +19,6 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -38,7 +37,6 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -134,12 +132,6 @@ public class AggregationNode
     public List<PlanNode> getSources()
     {
         return ImmutableList.of(source);
-    }
-
-    @Override
-    public List<Symbol> getOutputSymbols()
-    {
-        return getOutputVariables().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
     }
 
     @Override

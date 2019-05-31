@@ -182,7 +182,7 @@ public class GatherAndMergeWindows
         @Override
         protected Optional<PlanNode> manipulateAdjacentWindowNodes(WindowNode parent, WindowNode child, Context context)
         {
-            if (!child.getSpecification().equals(parent.getSpecification()) || dependsOn(parent, child)) {
+            if (!child.getSpecification().equals(parent.getSpecification()) || dependsOn(parent, child, context.getSymbolAllocator().getTypes())) {
                 return Optional.empty();
             }
 
@@ -216,7 +216,7 @@ public class GatherAndMergeWindows
         @Override
         protected Optional<PlanNode> manipulateAdjacentWindowNodes(WindowNode parent, WindowNode child, Context context)
         {
-            if ((compare(parent, child) < 0) && (!dependsOn(parent, child))) {
+            if ((compare(parent, child) < 0) && (!dependsOn(parent, child, context.getSymbolAllocator().getTypes()))) {
                 PlanNode transposedWindows = transpose(parent, child);
                 return Optional.of(
                         restrictOutputs(context.getIdAllocator(), transposedWindows, ImmutableSet.copyOf(parent.getOutputVariables()))

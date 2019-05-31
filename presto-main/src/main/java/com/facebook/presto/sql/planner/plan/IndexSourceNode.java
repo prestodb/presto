@@ -19,7 +19,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -31,7 +30,6 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class IndexSourceNode
@@ -83,12 +81,6 @@ public class IndexSourceNode
     public Set<VariableReferenceExpression> getLookupVariables()
     {
         return lookupVariables;
-    }
-
-    @Override
-    public List<Symbol> getOutputSymbols()
-    {
-        return getOutputVariables().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
     }
 
     @Override

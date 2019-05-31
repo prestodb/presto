@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -47,12 +46,6 @@ public class EnforceSingleRowNode
     public List<PlanNode> getSources()
     {
         return ImmutableList.of(source);
-    }
-
-    @Override
-    public List<Symbol> getOutputSymbols()
-    {
-        return source.getOutputSymbols();
     }
 
     @Override

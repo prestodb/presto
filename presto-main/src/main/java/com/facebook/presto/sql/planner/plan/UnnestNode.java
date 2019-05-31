@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -29,7 +28,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -52,7 +50,7 @@ public class UnnestNode
         super(id);
         this.source = requireNonNull(source, "source is null");
         this.replicateVariables = ImmutableList.copyOf(requireNonNull(replicateVariables, "replicateVariables is null"));
-        checkArgument(source.getOutputSymbols().containsAll(replicateVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList())), "Source does not contain all replicateVariables");
+        checkArgument(source.getOutputVariables().containsAll(replicateVariables), "Source does not contain all replicateSymbols");
         requireNonNull(unnestVariables, "unnestVariables is null");
         checkArgument(!unnestVariables.isEmpty(), "unnestVariables is empty");
         ImmutableMap.Builder<VariableReferenceExpression, List<VariableReferenceExpression>> builder = ImmutableMap.builder();
@@ -61,12 +59,6 @@ public class UnnestNode
         }
         this.unnestVariables = builder.build();
         this.ordinalityVariable = requireNonNull(ordinalityVariable, "ordinalityVariable is null");
-    }
-
-    @Override
-    public List<Symbol> getOutputSymbols()
-    {
-        return getOutputVariables().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
     }
 
     @Override

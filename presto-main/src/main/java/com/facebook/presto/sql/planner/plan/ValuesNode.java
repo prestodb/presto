@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -27,7 +26,6 @@ import java.util.List;
 
 import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 @Immutable
 public class ValuesNode
@@ -49,13 +47,6 @@ public class ValuesNode
             checkArgument(row.size() == outputVariables.size() || row.size() == 0,
                     "Expected row to have %s values, but row has %s values", outputVariables.size(), row.size());
         }
-        validateOutputVariables();
-    }
-
-    @Override
-    public List<Symbol> getOutputSymbols()
-    {
-        return outputVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
     }
 
     @Override

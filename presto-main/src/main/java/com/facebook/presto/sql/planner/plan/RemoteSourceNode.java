@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -27,7 +26,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -53,8 +51,6 @@ public class RemoteSourceNode
         this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
         this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
         this.exchangeType = requireNonNull(exchangeType, "exchangeType is null");
-
-        validateOutputVariables();
     }
 
     public RemoteSourceNode(
@@ -74,35 +70,25 @@ public class RemoteSourceNode
     }
 
     @Override
-    @JsonProperty("outputs")
-    public List<Symbol> getOutputSymbols()
-    {
-        return outputVariables.stream()
-                .map(VariableReferenceExpression::getName)
-                .map(Symbol::new)
-                .collect(toImmutableList());
-    }
-
-    @Override
     @JsonProperty
     public List<VariableReferenceExpression> getOutputVariables()
     {
         return outputVariables;
     }
 
-    @JsonProperty("sourceFragmentIds")
+    @JsonProperty
     public List<PlanFragmentId> getSourceFragmentIds()
     {
         return sourceFragmentIds;
     }
 
-    @JsonProperty("orderingScheme")
+    @JsonProperty
     public Optional<OrderingScheme> getOrderingScheme()
     {
         return orderingScheme;
     }
 
-    @JsonProperty("exchangeType")
+    @JsonProperty
     public ExchangeNode.Type getExchangeType()
     {
         return exchangeType;

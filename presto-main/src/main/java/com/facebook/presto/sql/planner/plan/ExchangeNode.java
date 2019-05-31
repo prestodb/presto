@@ -20,7 +20,6 @@ import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.PartitioningScheme;
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -41,7 +40,6 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -254,12 +252,6 @@ public class ExchangeNode
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
-    {
-        return partitioningScheme.getOutputLayout().stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableList());
-    }
-
-    @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
         return partitioningScheme.getOutputLayout();
@@ -281,11 +273,6 @@ public class ExchangeNode
     public List<List<VariableReferenceExpression>> getInputs()
     {
         return inputs;
-    }
-
-    public List<List<Symbol>> getInputsAsSymbols()
-    {
-        return inputs.stream().map(symbols -> symbols.stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableList())).collect(toImmutableList());
     }
 
     @Override

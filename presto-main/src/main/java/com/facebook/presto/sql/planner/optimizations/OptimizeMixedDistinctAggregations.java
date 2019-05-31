@@ -223,7 +223,7 @@ public class OptimizeMixedDistinctAggregations
             Optional<AggregateInfo> aggregateInfo = context.get();
 
             // presence of aggregateInfo => mask also present
-            if (!aggregateInfo.isPresent() || !aggregateInfo.get().getMask().getName().equals(node.getMarkerSymbol().getName())) {
+            if (!aggregateInfo.isPresent() || !aggregateInfo.get().getMask().equals(node.getMarkerVariable())) {
                 return context.defaultRewrite(node, Optional.empty());
             }
 

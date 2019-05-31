@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -56,15 +55,6 @@ public class MarkDistinctNode
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
-    {
-        return ImmutableList.<Symbol>builder()
-                .addAll(source.getOutputSymbols())
-                .add(new Symbol(markerVariable.getName()))
-                .build();
-    }
-
-    @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
         return ImmutableList.<VariableReferenceExpression>builder()
@@ -83,11 +73,6 @@ public class MarkDistinctNode
     public PlanNode getSource()
     {
         return source;
-    }
-
-    public Symbol getMarkerSymbol()
-    {
-        return new Symbol(markerVariable.getName());
     }
 
     @JsonProperty

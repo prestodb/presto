@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -26,7 +25,6 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -52,7 +50,6 @@ public class DeleteNode
         this.target = requireNonNull(target, "target is null");
         this.rowId = requireNonNull(rowId, "rowId is null");
         this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
-        validateOutputVariables();
     }
 
     @JsonProperty
@@ -71,17 +68,6 @@ public class DeleteNode
     public VariableReferenceExpression getRowId()
     {
         return rowId;
-    }
-
-    public Symbol getRowIdAsSymbol()
-    {
-        return new Symbol(rowId.getName());
-    }
-
-    @Override
-    public List<Symbol> getOutputSymbols()
-    {
-        return outputVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
     }
 
     @JsonProperty

@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -138,15 +137,6 @@ public class ApplyNode
     public List<PlanNode> getSources()
     {
         return ImmutableList.of(input, subquery);
-    }
-
-    @Override
-    public List<Symbol> getOutputSymbols()
-    {
-        return ImmutableList.<Symbol>builder()
-                .addAll(input.getOutputSymbols())
-                .addAll(subqueryAssignments.getOutputSymbols())
-                .build();
     }
 
     @Override

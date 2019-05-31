@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineSymbols;
+import static com.facebook.presto.sql.planner.ExpressionVariableInliner.inlineVariables;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.union;
@@ -69,7 +69,7 @@ public class PushProjectionThroughUnion
         ImmutableList.Builder<PlanNode> outputSources = ImmutableList.builder();
 
         for (int i = 0; i < source.getSources().size(); i++) {
-            Map<Symbol, SymbolReference> outputToInput = Maps.transformValues(source.sourceSymbolMap(i), Symbol::toSymbolReference);   // Map: output of union -> input of this source to the union
+            Map<VariableReferenceExpression, SymbolReference> outputToInput = Maps.transformValues(source.sourceVariableMap(i), variable -> new SymbolReference(variable.getName()));   // Map: output of union -> input of this source to the union
             Assignments.Builder assignments = Assignments.builder(); // assignments for the new ProjectNode
 
             // mapping from current ProjectNode to new ProjectNode, used to identify the output layout
@@ -77,7 +77,7 @@ public class PushProjectionThroughUnion
 
             // Translate the assignments in the ProjectNode using symbols of the source of the UnionNode
             for (Map.Entry<VariableReferenceExpression, Expression> entry : parent.getAssignments().entrySet()) {
-                Expression translatedExpression = inlineSymbols(outputToInput, entry.getValue());
+                Expression translatedExpression = inlineVariables(outputToInput, entry.getValue(), context.getSymbolAllocator().getTypes());
                 Type type = entry.getKey().getType();
                 VariableReferenceExpression variable = context.getSymbolAllocator().newVariable(translatedExpression, type);
                 assignments.put(variable, translatedExpression);

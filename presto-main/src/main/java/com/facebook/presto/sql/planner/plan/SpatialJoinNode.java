@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -29,7 +28,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -165,12 +163,6 @@ public class SpatialJoinNode
     public List<PlanNode> getSources()
     {
         return ImmutableList.of(left, right);
-    }
-
-    @Override
-    public List<Symbol> getOutputSymbols()
-    {
-        return getOutputVariables().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
     }
 
     @Override
