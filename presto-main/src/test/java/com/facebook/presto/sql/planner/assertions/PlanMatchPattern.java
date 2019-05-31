@@ -639,11 +639,6 @@ public final class PlanMatchPattern
         return this;
     }
 
-    public PlanMatchPattern withExactAssignments(RvalueMatcher... expectedAliases)
-    {
-        return withExactAssignments(ImmutableList.copyOf(expectedAliases));
-    }
-
     public PlanMatchPattern withExactAssignments(Collection<? extends RvalueMatcher> expectedAliases)
     {
         matchers.add(new StrictAssignedSymbolsMatcher(actualAssignments(), expectedAliases));

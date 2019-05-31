@@ -73,11 +73,6 @@ public class AssignUniqueId
         return ImmutableList.of(source);
     }
 
-    public Symbol getIdVariableAsSymbol()
-    {
-        return new Symbol(idVariable.getName());
-    }
-
     @JsonProperty
     public VariableReferenceExpression getIdVariable()
     {
