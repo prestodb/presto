@@ -50,7 +50,7 @@ public class PlanFragment
     private final List<RemoteSourceNode> remoteSourceNodes;
     private final PartitioningScheme partitioningScheme;
     private final StageExecutionDescriptor stageExecutionDescriptor;
-    private final boolean materializedExchangeSource;
+    private final boolean outputTableWriterFragment;
     private final StatsAndCosts statsAndCosts;
     private final Optional<String> jsonRepresentation;
 
@@ -63,7 +63,7 @@ public class PlanFragment
             @JsonProperty("tableScanSchedulingOrder") List<PlanNodeId> tableScanSchedulingOrder,
             @JsonProperty("partitioningScheme") PartitioningScheme partitioningScheme,
             @JsonProperty("stageExecutionDescriptor") StageExecutionDescriptor stageExecutionDescriptor,
-            @JsonProperty("materializedExchangeSource") boolean materializedExchangeSource,
+            @JsonProperty("outputTableWriterFragment") boolean outputTableWriterFragment,
             @JsonProperty("statsAndCosts") StatsAndCosts statsAndCosts,
             @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation)
     {
@@ -73,7 +73,7 @@ public class PlanFragment
         this.partitioning = requireNonNull(partitioning, "partitioning is null");
         this.tableScanSchedulingOrder = ImmutableList.copyOf(requireNonNull(tableScanSchedulingOrder, "tableScanSchedulingOrder is null"));
         this.stageExecutionDescriptor = requireNonNull(stageExecutionDescriptor, "stageExecutionDescriptor is null");
-        this.materializedExchangeSource = materializedExchangeSource;
+        this.outputTableWriterFragment = outputTableWriterFragment;
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
         this.jsonRepresentation = requireNonNull(jsonRepresentation, "jsonRepresentation is null");
 
@@ -134,9 +134,9 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public boolean isMaterializedExchangeSource()
+    public boolean isOutputTableWriterFragment()
     {
-        return materializedExchangeSource;
+        return outputTableWriterFragment;
     }
 
     @JsonProperty
@@ -199,17 +199,17 @@ public class PlanFragment
 
     public PlanFragment withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PlanFragment(id, root, symbols, partitioning, tableScanSchedulingOrder, partitioningScheme.withBucketToPartition(bucketToPartition), stageExecutionDescriptor, materializedExchangeSource, statsAndCosts, jsonRepresentation);
+        return new PlanFragment(id, root, symbols, partitioning, tableScanSchedulingOrder, partitioningScheme.withBucketToPartition(bucketToPartition), stageExecutionDescriptor, outputTableWriterFragment, statsAndCosts, jsonRepresentation);
     }
 
     public PlanFragment withFixedLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes)
     {
-        return new PlanFragment(id, root, symbols, partitioning, tableScanSchedulingOrder, partitioningScheme, StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(capableTableScanNodes), materializedExchangeSource, statsAndCosts, jsonRepresentation);
+        return new PlanFragment(id, root, symbols, partitioning, tableScanSchedulingOrder, partitioningScheme, StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(capableTableScanNodes), outputTableWriterFragment, statsAndCosts, jsonRepresentation);
     }
 
     public PlanFragment withDynamicLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes)
     {
-        return new PlanFragment(id, root, symbols, partitioning, tableScanSchedulingOrder, partitioningScheme, StageExecutionDescriptor.dynamicLifespanScheduleGroupedExecution(capableTableScanNodes), materializedExchangeSource, statsAndCosts, jsonRepresentation);
+        return new PlanFragment(id, root, symbols, partitioning, tableScanSchedulingOrder, partitioningScheme, StageExecutionDescriptor.dynamicLifespanScheduleGroupedExecution(capableTableScanNodes), outputTableWriterFragment, statsAndCosts, jsonRepresentation);
     }
 
     @Override

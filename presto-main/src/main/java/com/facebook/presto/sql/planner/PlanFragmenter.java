@@ -113,6 +113,8 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.filterKeys;
+import static com.google.common.collect.Streams.stream;
+import static com.google.common.graph.Traverser.forTree;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -149,11 +151,10 @@ public class PlanFragmenter
                 warningCollector,
                 sqlParser,
                 idAllocator,
-                new SymbolAllocator(plan.getTypes().allTypes()));
+                new SymbolAllocator(plan.getTypes().allTypes()),
+                getTableWriterNodeIds(plan.getRoot()));
 
-        FragmentProperties properties = new FragmentProperties(
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()),
-                false);
+        FragmentProperties properties = new FragmentProperties(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()));
         if (forceSingleNode || isForceSingleNodeOutput(session)) {
             properties = properties.setSingleNodeDistribution();
         }
@@ -243,7 +244,7 @@ public class PlanFragmenter
                         outputPartitioningScheme.isReplicateNullsAndAny(),
                         outputPartitioningScheme.getBucketToPartition()),
                 fragment.getStageExecutionDescriptor(),
-                fragment.isMaterializedExchangeSource(),
+                fragment.isOutputTableWriterFragment(),
                 fragment.getStatsAndCosts(),
                 fragment.getJsonRepresentation());
 
@@ -252,6 +253,14 @@ public class PlanFragmenter
             childrenBuilder.add(reassignPartitioningHandleIfNecessaryHelper(session, child, fragment.getPartitioning()));
         }
         return new SubPlan(newFragment, childrenBuilder.build());
+    }
+
+    private static Set<PlanNodeId> getTableWriterNodeIds(PlanNode plan)
+    {
+        return stream(forTree(PlanNode::getSources).depthFirstPreOrder(plan))
+                .filter(node -> node instanceof TableWriterNode)
+                .map(PlanNode::getId)
+                .collect(toImmutableSet());
     }
 
     private static class Fragmenter
@@ -268,6 +277,7 @@ public class PlanFragmenter
         private final WarningCollector warningCollector;
         private final SqlParser sqlParser;
         private final LiteralEncoder literalEncoder;
+        private final Set<PlanNodeId> outputTableWriterNodeIds;
         private int nextFragmentId = ROOT_FRAGMENT_ID + 1;
 
         public Fragmenter(
@@ -278,7 +288,8 @@ public class PlanFragmenter
                 WarningCollector warningCollector,
                 SqlParser sqlParser,
                 PlanNodeIdAllocator idAllocator,
-                SymbolAllocator symbolAllocator)
+                SymbolAllocator symbolAllocator,
+                Set<PlanNodeId> outputTableWriterNodeIds)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
@@ -289,6 +300,7 @@ public class PlanFragmenter
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
+            this.outputTableWriterNodeIds = ImmutableSet.copyOf(requireNonNull(outputTableWriterNodeIds, "outputTableWriterNodeIds is null"));
         }
 
         public SubPlan buildRootFragment(PlanNode root, FragmentProperties properties)
@@ -312,6 +324,17 @@ public class PlanFragmenter
 
             Map<Symbol, Type> fragmentSymbolTypes = filterKeys(symbolAllocator.getTypes().allTypes(), in(extractOutputSymbols(root)));
             planSanityChecker.validatePlanFragment(root, session, metadata, sqlParser, TypeProvider.viewOf(fragmentSymbolTypes), warningCollector);
+
+            Set<PlanNodeId> tableWriterNodeIds = getTableWriterNodeIds(root);
+            boolean outputTableWriterFragment = tableWriterNodeIds.stream().anyMatch(outputTableWriterNodeIds::contains);
+            if (outputTableWriterFragment) {
+                verify(
+                        outputTableWriterNodeIds.containsAll(tableWriterNodeIds),
+                        "outputTableWriterNodeIds %s must include either all or none of tableWriterNodeIds %s",
+                        outputTableWriterNodeIds,
+                        tableWriterNodeIds);
+            }
+
             PlanFragment fragment = new PlanFragment(
                     fragmentId,
                     root,
@@ -320,7 +343,7 @@ public class PlanFragmenter
                     schedulingOrder,
                     properties.getPartitioningScheme(),
                     StageExecutionDescriptor.ungroupedExecution(),
-                    properties.isMaterializedExchangeSource(),
+                    outputTableWriterFragment,
                     statsAndCosts.getForSubplan(root),
                     Optional.of(jsonFragmentPlan(root, fragmentSymbolTypes, metadata.getFunctionManager(), session)));
 
@@ -422,9 +445,7 @@ public class PlanFragmenter
 
             ImmutableList.Builder<SubPlan> builder = ImmutableList.builder();
             for (int sourceIndex = 0; sourceIndex < exchange.getSources().size(); sourceIndex++) {
-                FragmentProperties childProperties = new FragmentProperties(
-                        partitioningScheme.translateOutputLayout(exchange.getInputs().get(sourceIndex)),
-                        context.get().isMaterializedExchangeSource());
+                FragmentProperties childProperties = new FragmentProperties(partitioningScheme.translateOutputLayout(exchange.getInputs().get(sourceIndex)));
                 builder.add(buildSubPlan(exchange.getSources().get(sourceIndex), childProperties, context));
             }
 
@@ -484,9 +505,7 @@ public class PlanFragmenter
                     partitioningSymbolAssignments.getConstants(),
                     partitioningMetadata);
 
-            FragmentProperties writeProperties = new FragmentProperties(
-                    new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), write.getOutputSymbols()),
-                    true);
+            FragmentProperties writeProperties = new FragmentProperties(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), write.getOutputSymbols()));
             writeProperties.setCoordinatorOnlyDistribution();
 
             List<SubPlan> children = ImmutableList.of(buildSubPlan(write, writeProperties, context));
@@ -684,15 +703,13 @@ public class PlanFragmenter
         private final List<SubPlan> children = new ArrayList<>();
 
         private final PartitioningScheme partitioningScheme;
-        private final boolean materializedExchangeSource;
 
         private Optional<PartitioningHandle> partitioningHandle = Optional.empty();
         private final Set<PlanNodeId> partitionedSources = new HashSet<>();
 
-        public FragmentProperties(PartitioningScheme partitioningScheme, boolean materializedExchangeSource)
+        public FragmentProperties(PartitioningScheme partitioningScheme)
         {
             this.partitioningScheme = partitioningScheme;
-            this.materializedExchangeSource = materializedExchangeSource;
         }
 
         public List<SubPlan> getChildren()
@@ -809,11 +826,6 @@ public class PlanFragmenter
         public PartitioningScheme getPartitioningScheme()
         {
             return partitioningScheme;
-        }
-
-        public boolean isMaterializedExchangeSource()
-        {
-            return materializedExchangeSource;
         }
 
         public PartitioningHandle getPartitioningHandle()
