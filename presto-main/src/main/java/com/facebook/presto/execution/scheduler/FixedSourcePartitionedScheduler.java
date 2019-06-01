@@ -337,6 +337,12 @@ public class FixedSourcePartitionedScheduler
         }
 
         @Override
+        public void rewindLifespan(Lifespan lifespan, ConnectorPartitionHandle partitionHandle)
+        {
+            throw new UnsupportedOperationException("rewindLifespan is not supported in AsGroupedSourceScheduler");
+        }
+
+        @Override
         public List<Lifespan> drainCompletelyScheduledLifespans()
         {
             if (!scheduleCompleted) {
