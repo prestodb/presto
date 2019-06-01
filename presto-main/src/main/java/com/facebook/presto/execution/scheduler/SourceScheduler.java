@@ -30,6 +30,8 @@ public interface SourceScheduler
 
     void startLifespan(Lifespan lifespan, ConnectorPartitionHandle partitionHandle);
 
+    void rewindLifespan(Lifespan lifespan, ConnectorPartitionHandle partitionHandle);
+
     List<Lifespan> drainCompletelyScheduledLifespans();
 
     void notifyAllLifespansFinishedExecution();
