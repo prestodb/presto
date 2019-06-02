@@ -485,10 +485,6 @@ public final class SqlToRowExpressionTranslator
         {
             RowExpression value = process(node.getExpression(), context);
 
-            if (node.isTypeOnly()) {
-                return changeType(value, getType(node));
-            }
-
             if (node.isSafe()) {
                 return call(TRY_CAST.name(), functionManager.lookupCast(TRY_CAST, value.getType().getTypeSignature(), getType(node).getTypeSignature()), getType(node), value);
             }
