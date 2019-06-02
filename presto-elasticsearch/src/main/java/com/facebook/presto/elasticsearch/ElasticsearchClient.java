@@ -30,6 +30,8 @@ import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.apache.http.HttpHost;
+import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
+import org.apache.http.ssl.SSLContexts;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.elasticsearch.client.RequestOptions;
@@ -39,13 +41,14 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.indices.GetIndexRequest;
 import org.elasticsearch.client.indices.GetMappingsRequest;
 import org.elasticsearch.cluster.metadata.MappingMetaData;
-import org.elasticsearch.common.settings.Settings;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
+import javax.net.ssl.SSLContext;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -91,7 +94,7 @@ public class ElasticsearchClient
 
     @Inject
     public ElasticsearchClient(ElasticsearchTableDescriptionProvider descriptions, ElasticsearchConnectorConfig config)
-            throws IOException
+            throws IOException, GeneralSecurityException
     {
         tableDescriptions = requireNonNull(descriptions, "description is null");
         ElasticsearchConnectorConfig configuration = requireNonNull(config, "config is null");
@@ -101,8 +104,7 @@ public class ElasticsearchClient
 
         for (ElasticsearchTableDescription tableDescription : tableDescriptions.getAllTableDescriptions()) {
             if (!clients.containsKey(tableDescription.getClusterName())) {
-                HttpHost host = new HttpHost(tableDescription.getHost(), tableDescription.getPort(), "http");
-                RestHighLevelClient client = createClient(config, host, Optional.of(tableDescription.getClusterName()));
+                RestHighLevelClient client = createClient(config, tableDescription.getHost(), tableDescription.getPort());
                 clients.put(tableDescription.getClusterName(), client);
             }
         }
@@ -453,36 +455,44 @@ public class ElasticsearchClient
         }
     }
 
-    static RestHighLevelClient createClient(ElasticsearchConnectorConfig config, HttpHost host)
+    static RestHighLevelClient createClient(ElasticsearchConnectorConfig config, String host, Integer port) throws IOException, GeneralSecurityException
     {
-        return createClient(config, host, Optional.empty());
-    }
+        HttpHost httpHost;
+        RestClientBuilder builder;
+        RestHighLevelClient client;
+        Optional<String> keyPasswordOpt = Optional.of(config.getPemkeyPassword());
+        boolean trustSelfSigned = false; // FIXME: should be an option?
 
-    static RestHighLevelClient createClient(ElasticsearchConnectorConfig config, HttpHost host, Optional<String> clusterName)
-    {
-        Settings settings;
-        RestHighLevelClient restClient;
-        /*
-        if (clusterName.isPresent()) {
-            builder = Settings.builder()
-                    .put("cluster.name", clusterName.get());
-        }
-        else {
-            builder = Settings.builder()
-                    .put("client.transport.ignore_cluster_name", true);
-        }
-         */
-        RestClientBuilder builder = RestClient.builder(host);
-        RestHighLevelClient client = new RestHighLevelClient(builder);
-        // TODO: Add SSL back?
         switch (config.getCertificateFormat()) {
             case PEM:
-                // Handle PEM
+                    SSLContext sslContextFromPem = SSLContexts
+                            .custom()
+                            .loadKeyMaterial(
+                                    PemReader.loadKeyStore(config.getPemcertFilepath(), config.getPemkeyFilepath(), keyPasswordOpt), keyPasswordOpt.orElse("").toCharArray())
+                            .loadTrustMaterial(PemReader.loadTrustStore(config.getPemtrustedcasFilepath()), trustSelfSigned ? new TrustSelfSignedStrategy() : null)
+                            .build();
+                    httpHost = new HttpHost(host, port, "https");
+                    builder = RestClient.builder(httpHost)
+                            .setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder.setSSLContext(sslContextFromPem));
+                    client = new RestHighLevelClient(builder);
+
                 break;
             case JKS:
-                // Handle JKS
+                    SSLContext sslContextFromJks = SSLContexts
+                            .custom()
+                            .loadKeyMaterial(config.getKeystoreFilepath(), config.getKeystorePassword().toCharArray(), "".toCharArray()) // FIXME: Assume no pass?
+                            .loadTrustMaterial(config.getTruststoreFilepath(), config.getTruststorePassword().toCharArray(), trustSelfSigned ? new TrustSelfSignedStrategy() : null)
+                            .build();
+
+                    httpHost = new HttpHost(host, port, "https");
+                    builder = RestClient.builder(httpHost)
+                            .setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder.setSSLContext(sslContextFromJks));
+                    client = new RestHighLevelClient(builder);
+
                 break;
             default:
+                httpHost = new HttpHost(host, port, "http");
+                client = new RestHighLevelClient(RestClient.builder(httpHost));
                 break;
         }
         return client;

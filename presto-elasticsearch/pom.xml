@@ -14,7 +14,6 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.log4j.version>2.11.1</dep.log4j.version>
         <dep.elasticsearch.version>6.7.0</dep.elasticsearch.version>
-        <dep.searchguard.version>6.0.1-25.4</dep.searchguard.version>
         <dep.joda.version>2.10.1</dep.joda.version>
     </properties>
 
