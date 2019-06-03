@@ -112,7 +112,8 @@ public class TestFeaturesConfig
                 .setMaxGroupingSets(2048)
                 .setLegacyUnnestArrayRows(false)
                 .setJsonSerdeCodeGenerationEnabled(false)
-                .setPushLimitThroughOuterJoin(true));
+                .setPushLimitThroughOuterJoin(true)
+                .setMaxConcurrentMaterializations(10));
     }
 
     @Test
@@ -184,6 +185,7 @@ public class TestFeaturesConfig
                 .put("deprecated.legacy-unnest-array-rows", "true")
                 .put("experimental.json-serde-codegen-enabled", "true")
                 .put("optimizer.push-limit-through-outer-join", "false")
+                .put("max-concurrent-materializations", "5")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -251,7 +253,8 @@ public class TestFeaturesConfig
                 .setLegacyUnnestArrayRows(true)
                 .setDefaultFilterFactorEnabled(true)
                 .setJsonSerdeCodeGenerationEnabled(true)
-                .setPushLimitThroughOuterJoin(false);
+                .setPushLimitThroughOuterJoin(false)
+                .setMaxConcurrentMaterializations(5);
         assertFullMapping(properties, expected);
     }
 

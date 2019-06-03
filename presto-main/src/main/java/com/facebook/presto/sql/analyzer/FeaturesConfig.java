@@ -129,6 +129,7 @@ public class FeaturesConfig
     private boolean legacyUnnestArrayRows;
 
     private boolean jsonSerdeCodeGenerationEnabled;
+    private int maxConcurrentMaterializations = 10;
 
     public enum JoinReorderingStrategy
     {
@@ -971,5 +972,19 @@ public class FeaturesConfig
     public boolean isPushLimitThroughOuterJoin()
     {
         return pushLimitThroughOuterJoin;
+    }
+
+    @Config("max-concurrent-materializations")
+    @Min(1)
+    @ConfigDescription("The maximum number of materializing plan sections that can run concurrently")
+    public FeaturesConfig setMaxConcurrentMaterializations(int maxConcurrentMaterializations)
+    {
+        this.maxConcurrentMaterializations = maxConcurrentMaterializations;
+        return this;
+    }
+
+    public int getMaxConcurrentMaterializations()
+    {
+        return maxConcurrentMaterializations;
     }
 }
