@@ -73,6 +73,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.getConcurrentLifespansPerNode;
+import static com.facebook.presto.SystemSessionProperties.getMaxConcurrentMaterializations;
 import static com.facebook.presto.SystemSessionProperties.getMaxTasksPerStage;
 import static com.facebook.presto.SystemSessionProperties.getWriterMinSize;
 import static com.facebook.presto.connector.ConnectorId.isInternalSystemConnector;
@@ -131,6 +132,7 @@ public class SqlQueryScheduler
     private final boolean summarizeTaskInfo;
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicBoolean scheduling = new AtomicBoolean();
+    private final int maxConcurrentMaterializations;
 
     public static SqlQueryScheduler createSqlQueryScheduler(
             QueryStateMachine queryStateMachine,
@@ -232,6 +234,7 @@ public class SqlQueryScheduler
         this.stageLinkages = stageLinkages.build();
 
         this.executor = queryExecutor;
+        this.maxConcurrentMaterializations = getMaxConcurrentMaterializations(session);
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction
@@ -630,9 +633,15 @@ public class SqlQueryScheduler
 
     private List<SqlStageExecution> getStagesReadyForExecution()
     {
+        long runningPlanSections =
+                stream(forTree(StreamingPlanSection::getChildren).depthFirstPreOrder(sectionedPlan))
+                        .map(section -> getStageExecution(section.getPlan().getFragment().getId()).getState())
+                        .filter(state -> !state.isDone() && state != PLANNED)
+                        .count();
         return stream(forTree(StreamingPlanSection::getChildren).depthFirstPreOrder(sectionedPlan))
                 // get all sections ready for execution
                 .filter(this::isReadyForExecution)
+                .limit(maxConcurrentMaterializations - runningPlanSections)
                 // get all stages in the sections
                 .flatMap(section -> stream(forTree(StreamingSubPlan::getChildren).depthFirstPreOrder(section.getPlan())))
                 .map(StreamingSubPlan::getFragment)

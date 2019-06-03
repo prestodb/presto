@@ -2626,6 +2626,13 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testMaterializedPartitioning()
     {
+        testMaterializedPartitioning(Session.builder(materializeExchangesSession).setSystemProperty("max_concurrent_materializations", "1").build());
+        testMaterializedPartitioning(Session.builder(materializeExchangesSession).setSystemProperty("max_concurrent_materializations", "2").build());
+        testMaterializedPartitioning(materializeExchangesSession);
+    }
+
+    private void testMaterializedPartitioning(Session materializeExchangesSession)
+    {
         // Simple smoke tests for materialized partitioning
         // Comprehensive testing is done by TestHiveDistributedAggregationsWithExchangeMaterialization, TestHiveDistributedQueriesWithExchangeMaterialization
 
