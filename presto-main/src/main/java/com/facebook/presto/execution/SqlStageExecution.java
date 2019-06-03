@@ -271,7 +271,7 @@ public final class SqlStageExecution
         if (getAllTasks().stream().anyMatch(task -> getState() == StageState.RUNNING)) {
             stateMachine.transitionToRunning();
         }
-        if (finishedTasks.containsAll(allTasks)) {
+        if (finishedTasks.size() == allTasks.size()) {
             stateMachine.transitionToFinished();
         }
 
@@ -575,7 +575,7 @@ public final class SqlStageExecution
                 if (taskState == TaskState.RUNNING) {
                     stateMachine.transitionToRunning();
                 }
-                if (finishedTasks.containsAll(allTasks)) {
+                if (finishedTasks.size() == allTasks.size()) {
                     stateMachine.transitionToFinished();
                 }
             }
