@@ -86,7 +86,7 @@ public class TestTableFinishOperator
     public void testStatisticsAggregation()
             throws Exception
     {
-        TestTableFinisher tableFinisher = new TestTableFinisher();
+        TestingTableFinisher tableFinisher = new TestingTableFinisher();
         ColumnStatisticMetadata statisticMetadata = new ColumnStatisticMetadata("column", MAX_VALUE);
         StatisticAggregationsDescriptor<Integer> descriptor = new StatisticAggregationsDescriptor<>(
                 ImmutableMap.of(),
@@ -157,7 +157,7 @@ public class TestTableFinishOperator
         assertEquals(driverContext.getMemoryUsage(), 0);
     }
 
-    private static class TestTableFinisher
+    private static class TestingTableFinisher
             implements TableFinisher
     {
         private boolean finished;
