@@ -49,34 +49,33 @@ import java.util.stream.Stream;
 import static com.facebook.presto.sql.planner.assertions.PlanAssert.assertPlan;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.fail;
 
 public class RuleAssert
 {
     private final Metadata metadata;
-    private TestingStatsCalculator statsCalculator;
+    private final TestingStatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
-    private Session session;
     private final Rule<?> rule;
-
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-
-    private TypeProvider types;
-    private PlanNode plan;
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
 
+    private Session session;
+    private TypeProvider types;
+    private PlanNode plan;
+
     public RuleAssert(Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, Rule rule, TransactionManager transactionManager, AccessControl accessControl)
     {
-        this.metadata = metadata;
-        this.statsCalculator = new TestingStatsCalculator(statsCalculator);
-        this.costCalculator = costCalculator;
-        this.session = session;
-        this.rule = rule;
-        this.transactionManager = transactionManager;
-        this.accessControl = accessControl;
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.statsCalculator = new TestingStatsCalculator(requireNonNull(statsCalculator, "statsCalculator is null"));
+        this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+        this.session = requireNonNull(session, "session is null");
+        this.rule = requireNonNull(rule, "rule is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     public RuleAssert setSystemProperty(String key, String value)
@@ -100,7 +99,7 @@ public class RuleAssert
 
     public RuleAssert on(Function<PlanBuilder, PlanNode> planProvider)
     {
-        checkArgument(plan == null, "plan has already been set");
+        checkState(plan == null, "plan has already been set");
 
         PlanBuilder builder = new PlanBuilder(idAllocator, metadata);
         plan = planProvider.apply(builder);
