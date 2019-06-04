@@ -45,6 +45,11 @@ public final class Expressions
         return new ConstantExpression(null, type);
     }
 
+    public static boolean isNull(RowExpression expression)
+    {
+        return expression instanceof ConstantExpression && ((ConstantExpression) expression).isNull();
+    }
+
     public static CallExpression call(String displayName, FunctionHandle functionHandle, Type returnType, RowExpression... arguments)
     {
         return new CallExpression(displayName, functionHandle, returnType, Arrays.asList(arguments));

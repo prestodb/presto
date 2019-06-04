@@ -294,7 +294,7 @@ public class PlanOptimizers
                                         new RewriteSpatialPartitioningAggregation(metadata)))
                                 .build()),
                 simplifyOptimizer,
-                new UnaliasSymbolReferences(),
+                new UnaliasSymbolReferences(metadata.getFunctionManager()),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -362,7 +362,7 @@ public class PlanOptimizers
                 inlineProjections,
                 simplifyOptimizer, // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
                 projectionPushDown,
-                new UnaliasSymbolReferences(), // Run again because predicate pushdown and projection pushdown might add more projections
+                new UnaliasSymbolReferences(metadata.getFunctionManager()), // Run again because predicate pushdown and projection pushdown might add more projections
                 new PruneUnreferencedOutputs(), // Make sure to run this before index join. Filtered projections may not have all the columns.
                 new IndexJoinOptimizer(metadata), // Run this after projections and filters have been fully simplified and pushed down
                 new IterativeOptimizer(
@@ -471,8 +471,6 @@ public class PlanOptimizers
         builder.add(simplifyOptimizer); // Should be always run after PredicatePushDown
         builder.add(projectionPushDown);
         builder.add(inlineProjections);
-        builder.add(new UnaliasSymbolReferences()); // Run unalias after merging projections to simplify projections more efficiently
-        builder.add(new PruneUnreferencedOutputs());
 
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
@@ -483,6 +481,8 @@ public class PlanOptimizers
                 new TranslateExpressions(metadata, sqlParser).rules()));
         // After this point, all planNodes should not contain OriginalExpression
 
+        builder.add(new UnaliasSymbolReferences(metadata.getFunctionManager())); // Run unalias after merging projections to simplify projections more efficiently
+        builder.add(new PruneUnreferencedOutputs());
         builder.add(new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,
