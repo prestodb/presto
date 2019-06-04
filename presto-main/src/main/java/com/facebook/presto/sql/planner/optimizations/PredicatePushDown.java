@@ -223,8 +223,8 @@ public class PredicatePushDown
             // pre-projected symbols.
             Predicate<Expression> isSupported = conjunct ->
                     ExpressionDeterminismEvaluator.isDeterministic(conjunct) &&
-                    SymbolsExtractor.extractUnique(conjunct).stream()
-                            .allMatch(partitionSymbols::contains);
+                            SymbolsExtractor.extractUnique(conjunct).stream()
+                                    .allMatch(partitionSymbols::contains);
 
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(isSupported));
 
