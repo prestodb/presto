@@ -46,8 +46,6 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.roundRobinExchan
 import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.groupingColumns;
 import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.step;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -191,7 +189,7 @@ public class AddIntermediateAggregations
                                     aggregation.getCall().getDisplayName(),
                                     aggregation.getCall().getFunctionHandle(),
                                     aggregation.getCall().getType(),
-                                    ImmutableList.of(castToRowExpression(asSymbolReference(output)))),
+                                    ImmutableList.of(output)),
                             Optional.empty(),
                             Optional.empty(),
                             false,
