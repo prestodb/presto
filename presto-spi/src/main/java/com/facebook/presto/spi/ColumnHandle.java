@@ -13,6 +13,15 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.api.Experimental;
+
+import java.util.List;
+
 public interface ColumnHandle
 {
+    @Experimental
+    default ColumnHandle withRequiredSubfields(List<Subfield> subfields)
+    {
+        return this;
+    }
 }
