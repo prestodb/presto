@@ -112,7 +112,7 @@ row counts for the ``customer`` table using the input column ``mktsegment``::
 
     SELECT count(*) FROM customer GROUP BY mktsegment;
 
-.. code-block:: none
+.. code-block:: none 
 
      _col0
     -------
@@ -785,6 +785,8 @@ USING
 ^^^^^^^^^^^^^^^^^^^^^^^
 Making a join with `USING` helps write shorter code, for example:
 
+.. code-block:: none 
+
     SELECT
         key_1,
         key_2,
@@ -806,12 +808,16 @@ Making a join with `USING` helps write shorter code, for example:
 
 The output is:
 
-| x1 | x2 | y1 | y2 |
-| -----| -----| -----| ----- |
-| 1 | 2 | 10 | 100 |
-| 3 | 4 | 20 | 200 |
+===== ===== == ===
+key_1 key_2 y1 y2
+===== ===== == ===
+1     2     10 100
+3     4     20 200
+===== ===== == ===
 
 Here we used `USING (key_1, key_2)` instead of writing:
+
+.. code-block:: none 
 
     ON a.key_1 = b.key_1
     AND a.key_2 = b.key_2
