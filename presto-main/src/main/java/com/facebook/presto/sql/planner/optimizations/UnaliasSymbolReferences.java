@@ -163,7 +163,7 @@ public class UnaliasSymbolReferences
                 newGroupingSets.add(newGroupingSet.build());
             }
 
-            return new GroupIdNode(node.getId(), source, newGroupingSets.build(), newGroupingMappings, canonicalizeAndDistinctVariable(node.getAggregationArguments()), canonicalize(node.getGroupIdVariable()));
+            return new GroupIdNode(node.getId(), source, newGroupingSets.build(), newGroupingMappings, canonicalizeAndDistinct(node.getAggregationArguments()), canonicalize(node.getGroupIdVariable()));
         }
 
         @Override
@@ -177,7 +177,7 @@ public class UnaliasSymbolReferences
         public PlanNode visitMarkDistinct(MarkDistinctNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerVariable()), canonicalizeAndDistinctVariable(node.getDistinctVariables()), canonicalize(node.getHashVariable()));
+            return new MarkDistinctNode(node.getId(), source, canonicalize(node.getMarkerVariable()), canonicalizeAndDistinct(node.getDistinctVariables()), canonicalize(node.getHashVariable()));
         }
 
         @Override
@@ -188,7 +188,7 @@ public class UnaliasSymbolReferences
             for (Map.Entry<VariableReferenceExpression, List<VariableReferenceExpression>> entry : node.getUnnestVariables().entrySet()) {
                 builder.put(canonicalize(entry.getKey()), entry.getValue());
             }
-            return new UnnestNode(node.getId(), source, canonicalizeAndDistinctVariable(node.getReplicateVariables()), builder.build(), node.getOrdinalityVariable());
+            return new UnnestNode(node.getId(), source, canonicalizeAndDistinct(node.getReplicateVariables()), builder.build(), node.getOrdinalityVariable());
         }
 
         @Override
@@ -198,7 +198,7 @@ public class UnaliasSymbolReferences
 
             ImmutableMap.Builder<VariableReferenceExpression, WindowNode.Function> functions = ImmutableMap.builder();
             for (Map.Entry<VariableReferenceExpression, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
-                VariableReferenceExpression symbol = entry.getKey();
+                VariableReferenceExpression variable = entry.getKey();
 
                 // Be aware of the CallExpression handling.
                 CallExpression callExpression = entry.getValue().getFunctionCall();
@@ -206,7 +206,7 @@ public class UnaliasSymbolReferences
                 WindowNode.Frame canonicalFrame = canonicalize(entry.getValue().getFrame());
 
                 functions.put(
-                        canonicalize(symbol),
+                        canonicalize(variable),
                         new WindowNode.Function(
                                 call(
                                         callExpression.getDisplayName(),
@@ -222,7 +222,7 @@ public class UnaliasSymbolReferences
                     canonicalizeAndDistinct(node.getSpecification()),
                     functions.build(),
                     canonicalize(node.getHashVariable()),
-                    canonicalizeVariables(node.getPrePartitionedInputs()),
+                    canonicalize(node.getPrePartitionedInputs()),
                     node.getPreSortedOrderPrefix());
         }
 
@@ -343,7 +343,7 @@ public class UnaliasSymbolReferences
             return new RemoteSourceNode(
                     node.getId(),
                     node.getSourceFragmentIds(),
-                    canonicalizeAndDistinctVariable(node.getOutputVariables()),
+                    canonicalizeAndDistinct(node.getOutputVariables()),
                     node.getOrderingScheme().map(this::canonicalizeAndDistinct),
                     node.getExchangeType());
         }
@@ -357,7 +357,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitDistinctLimit(DistinctLimitNode node, RewriteContext<Void> context)
         {
-            return new DistinctLimitNode(node.getId(), context.rewrite(node.getSource()), node.getLimit(), node.isPartial(), canonicalizeAndDistinctVariable(node.getDistinctVariables()), canonicalize(node.getHashVariable()));
+            return new DistinctLimitNode(node.getId(), context.rewrite(node.getSource()), node.getLimit(), node.isPartial(), canonicalizeAndDistinct(node.getDistinctVariables()), canonicalize(node.getHashVariable()));
         }
 
         @Override
@@ -379,7 +379,7 @@ public class UnaliasSymbolReferences
                             })
                             .collect(toImmutableList()))
                     .collect(toImmutableList());
-            List<VariableReferenceExpression> canonicalizedOutputVariables = canonicalizeAndDistinctVariable(node.getOutputVariables());
+            List<VariableReferenceExpression> canonicalizedOutputVariables = canonicalizeAndDistinct(node.getOutputVariables());
             checkState(node.getOutputVariables().size() == canonicalizedOutputVariables.size(), "Values output symbols were pruned");
             return new ValuesNode(
                     node.getId(),
@@ -412,7 +412,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitRowNumber(RowNumberNode node, RewriteContext<Void> context)
         {
-            return new RowNumberNode(node.getId(), context.rewrite(node.getSource()), canonicalizeAndDistinctVariable(node.getPartitionBy()), canonicalize(node.getRowNumberVariable()), node.getMaxRowCountPerPartition(), canonicalize(node.getHashVariable()));
+            return new RowNumberNode(node.getId(), context.rewrite(node.getSource()), canonicalizeAndDistinct(node.getPartitionBy()), canonicalize(node.getRowNumberVariable()), node.getMaxRowCountPerPartition(), canonicalize(node.getHashVariable()));
         }
 
         @Override
@@ -485,7 +485,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getInput());
             PlanNode subquery = context.rewrite(node.getSubquery());
-            List<VariableReferenceExpression> canonicalCorrelation = canonicalizeAndDistinctVariable(node.getCorrelation());
+            List<VariableReferenceExpression> canonicalCorrelation = canonicalizeAndDistinct(node.getCorrelation());
 
             return new LateralJoinNode(node.getId(), source, subquery, canonicalCorrelation, node.getType(), node.getOriginSubqueryError());
         }
@@ -531,7 +531,7 @@ public class UnaliasSymbolReferences
                     left,
                     right,
                     canonicalCriteria,
-                    canonicalizeAndDistinctVariable(node.getOutputVariables()),
+                    canonicalizeAndDistinct(node.getOutputVariables()),
                     canonicalFilter.map(OriginalExpressionUtils::castToRowExpression),
                     canonicalLeftHashVariable,
                     canonicalRightHashVariable,
@@ -562,13 +562,13 @@ public class UnaliasSymbolReferences
             PlanNode left = context.rewrite(node.getLeft());
             PlanNode right = context.rewrite(node.getRight());
 
-            return new SpatialJoinNode(node.getId(), node.getType(), left, right, canonicalizeAndDistinctVariable(node.getOutputVariables()), castToRowExpression(canonicalize(castToExpression(node.getFilter()))), canonicalize(node.getLeftPartitionVariable()), canonicalize(node.getRightPartitionVariable()), node.getKdbTree());
+            return new SpatialJoinNode(node.getId(), node.getType(), left, right, canonicalizeAndDistinct(node.getOutputVariables()), castToRowExpression(canonicalize(castToExpression(node.getFilter()))), canonicalize(node.getLeftPartitionVariable()), canonicalize(node.getRightPartitionVariable()), node.getKdbTree());
         }
 
         @Override
         public PlanNode visitIndexSource(IndexSourceNode node, RewriteContext<Void> context)
         {
-            return new IndexSourceNode(node.getId(), node.getIndexHandle(), node.getTableHandle(), canonicalizeVariables(node.getLookupVariables()), node.getOutputVariables(), node.getAssignments(), node.getCurrentConstraint());
+            return new IndexSourceNode(node.getId(), node.getIndexHandle(), node.getTableHandle(), canonicalize(node.getLookupVariables()), node.getOutputVariables(), node.getAssignments(), node.getCurrentConstraint());
         }
 
         @Override
@@ -619,12 +619,6 @@ public class UnaliasSymbolReferences
         public PlanNode visitPlan(PlanNode node, RewriteContext<Void> context)
         {
             throw new UnsupportedOperationException("Unsupported plan node " + node.getClass().getSimpleName());
-        }
-
-        private void map(Symbol symbol, Symbol canonical)
-        {
-            Preconditions.checkArgument(!symbol.equals(canonical), "Can't map symbol to itself: %s", symbol);
-            mapping.put(symbol.getName(), canonical.getName());
         }
 
         private void map(VariableReferenceExpression variable, VariableReferenceExpression canonical)
@@ -707,20 +701,7 @@ public class UnaliasSymbolReferences
             }, value);
         }
 
-        private List<Symbol> canonicalizeAndDistinct(List<Symbol> outputs)
-        {
-            Set<Symbol> added = new HashSet<>();
-            ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
-            for (Symbol symbol : outputs) {
-                Symbol canonical = canonicalize(symbol);
-                if (added.add(canonical)) {
-                    builder.add(canonical);
-                }
-            }
-            return builder.build();
-        }
-
-        private List<VariableReferenceExpression> canonicalizeAndDistinctVariable(List<VariableReferenceExpression> outputs)
+        private List<VariableReferenceExpression> canonicalizeAndDistinct(List<VariableReferenceExpression> outputs)
         {
             Set<VariableReferenceExpression> added = new HashSet<>();
             ImmutableList.Builder<VariableReferenceExpression> builder = ImmutableList.builder();
@@ -736,7 +717,7 @@ public class UnaliasSymbolReferences
         private WindowNode.Specification canonicalizeAndDistinct(WindowNode.Specification specification)
         {
             return new WindowNode.Specification(
-                    canonicalizeAndDistinctVariable(specification.getPartitionBy()),
+                    canonicalizeAndDistinct(specification.getPartitionBy()),
                     specification.getOrderingScheme().map(this::canonicalizeAndDistinct));
         }
 
@@ -756,14 +737,7 @@ public class UnaliasSymbolReferences
             return new OrderingScheme(variables.build(), orderings.build());
         }
 
-        private Set<Symbol> canonicalize(Set<Symbol> symbols)
-        {
-            return symbols.stream()
-                    .map(this::canonicalize)
-                    .collect(toImmutableSet());
-        }
-
-        private Set<VariableReferenceExpression> canonicalizeVariables(Set<VariableReferenceExpression> variables)
+        private Set<VariableReferenceExpression> canonicalize(Set<VariableReferenceExpression> variables)
         {
             return variables.stream()
                     .map(this::canonicalize)
