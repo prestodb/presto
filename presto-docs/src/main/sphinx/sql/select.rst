@@ -803,9 +803,7 @@ You can write:
     JOIN t2
     USING (key_1, key_2)
 
-When using `USING`, the columns key_1 and key_2 will no longer belong to either t1 or t2 (so using * will NOT add two duplicate key columns from t1 and t2).
-
-Note that when using `USING` the column names of `key_1` and `key_2` are no longer part of the original tables (t1 and t2). Thus, using * will NOT add two duplicate key columns from t1 and t2. If we want to get the explicit columns from each of the tables, we'd call them directly without the table prefix (i.e.: key_1), and using `t1.key_1` will return an error. 
+When using `USING` the column names of `key_1` and `key_2` are no longer part of the original tables (t1 and t2). Thus, using * will NOT add two duplicate key columns from t1 and t2. If we want to get the explicit columns from each of the tables, we'd call them directly without the table prefix (i.e.: key_1), and using `t1.key_1` will return an error. 
 This can be an issue if, for example, we wanted to get t1.key_1 and check it for NULL values (i.e.: in order to detect all the rows in t1 that don't have a match in t2).
 
 The following example shows how to access each of the columns using SELECT:
