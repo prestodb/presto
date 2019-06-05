@@ -113,27 +113,30 @@ public abstract class PrecisionRecallAggregation
 
     protected static class BucketResult
     {
-        public final double totalTrueWeight;
-        public final double totalFalseWeight;
-        public final double runningTrueWeight;
-        public final double runningFalseWeight;
-        public final double left;
-        public final double right;
+        public final double threshold;
+        public final double positive;
+        public final double negative;
+        public final double truePositive;
+        public final double trueNegative;
+        public final double falsePositive;
+        public final double falseNegative;
 
         public BucketResult(
-                double left,
-                double right,
-                double totalTrueWeight,
-                double totalFalseWeight,
-                double runningTrueWeight,
-                double runningFalseWeight)
+                double threshold,
+                double positive,
+                double negative,
+                double truePositive,
+                double trueNegative,
+                double falsePositive,
+                double falseNegative)
         {
-            this.left = left;
-            this.right = right;
-            this.totalTrueWeight = totalTrueWeight;
-            this.totalFalseWeight = totalFalseWeight;
-            this.runningTrueWeight = runningTrueWeight;
-            this.runningFalseWeight = runningFalseWeight;
+            this.threshold = threshold;
+            this.positive = positive;
+            this.negative = negative;
+            this.truePositive = truePositive;
+            this.trueNegative = trueNegative;
+            this.falsePositive = falsePositive;
+            this.falseNegative = falseNegative;
         }
     }
 
@@ -174,11 +177,12 @@ public abstract class PrecisionRecallAggregation
 
                 final BucketResult result = new BucketResult(
                         trueResult.left,
-                        trueResult.right,
                         totalTrueWeight,
                         totalFalseWeight,
+                        totalTrueWeight - runningTrueWeight,
+                        runningFalseWeight,
                         runningTrueWeight,
-                        runningFalseWeight);
+                        totalFalseWeight - runningFalseWeight);
 
                 runningTrueWeight += trueResult.weight;
                 runningFalseWeight += falseResult.weight;

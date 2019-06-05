@@ -24,7 +24,7 @@ import com.facebook.presto.spi.type.DoubleType;
 import java.util.Iterator;
 
 @AggregationFunction("classification_recall")
-@Description("Computes recall for precision-recall curves")
+@Description("Computes recall (true-positive rate) for binary classification")
 public final class ClassificationRecallAggregation
         extends PrecisionRecallAggregation
 {
@@ -38,10 +38,9 @@ public final class ClassificationRecallAggregation
         BlockBuilder entryBuilder = out.beginBlockEntry();
         while (resultsIterator.hasNext()) {
             final BucketResult result = resultsIterator.next();
-            final double remainingTrueWeight = result.totalTrueWeight - result.runningTrueWeight;
             DoubleType.DOUBLE.writeDouble(
                     entryBuilder,
-                    remainingTrueWeight / result.totalTrueWeight);
+                    result.truePositive / result.positive);
         }
         out.closeEntry();
     }

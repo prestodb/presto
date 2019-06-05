@@ -23,24 +23,24 @@ import com.facebook.presto.spi.type.DoubleType;
 
 import java.util.Iterator;
 
-@AggregationFunction("classification_precision")
-@Description("Computes precision for precision-recall curves")
-public final class ClassificationPrecisionAggregation
+@AggregationFunction("classification_fall_out")
+@Description("Computes fall-out (false-positive rate) for binary classification")
+public final class ClassificationFallOutAggregation
         extends PrecisionRecallAggregation
 {
-    private ClassificationPrecisionAggregation() {}
+    private ClassificationFallOutAggregation() {}
 
     @OutputFunction("array(double)")
     public static void output(@AggregationState PrecisionRecallState state, BlockBuilder out)
     {
-        Iterator<PrecisionRecallAggregation.BucketResult> resultsIterator = getResultsIterator(state);
+        Iterator<BucketResult> resultsIterator = getResultsIterator(state);
 
         BlockBuilder entryBuilder = out.beginBlockEntry();
         while (resultsIterator.hasNext()) {
             final BucketResult result = resultsIterator.next();
             DoubleType.DOUBLE.writeDouble(
                     entryBuilder,
-                    result.truePositive / (result.truePositive + result.falseNegative));
+                    result.falsePositive / result.negative);
         }
         out.closeEntry();
     }
