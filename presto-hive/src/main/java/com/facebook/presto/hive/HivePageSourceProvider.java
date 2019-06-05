@@ -368,7 +368,8 @@ public class HivePageSourceProvider
                                 columnMapping.getCoercionFrom().get().getTypeSignature(),
                                 columnHandle.getHiveColumnIndex(),
                                 columnHandle.getColumnType(),
-                                Optional.empty());
+                                Optional.empty(),
+                                columnHandle.getRequiredSubfields());
                     })
                     .collect(toList());
         }
