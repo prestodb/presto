@@ -658,8 +658,9 @@ public interface ConnectorMetadata
     /**
      * Commits partition for table creation.
      * To enable recoverable grouped execution, it is required that output connector supports partition commit.
-     * @apiNote This method is unstable and subject to change in the future.
+     * This method is unstable and subject to change in the future.
      */
+    @Experimental
     default void commitPartition(ConnectorSession session, ConnectorOutputTableHandle tableHandle, int partitionId, Collection<Slice> fragments)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support partition commit");
@@ -668,8 +669,9 @@ public interface ConnectorMetadata
     /**
      * Commits partition for table insertion.
      * To enable recoverable grouped execution, it is required that output connector supports partition commit.
-     * @apiNote This method is unstable and subject to change in the future.
+     * This method is unstable and subject to change in the future.
      */
+    @Experimental
     default void commitPartition(ConnectorSession session, ConnectorInsertTableHandle tableHandle, int partitionId, Collection<Slice> fragments)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support partition commit");
