@@ -17,6 +17,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
 import org.testng.annotations.Test;
@@ -45,6 +46,7 @@ public class TestJsonHiveHandles
             .put("hiveColumnIndex", -1)
             .put("columnType", PARTITION_KEY.toString())
             .put("comment", "comment")
+            .put("requiredSubfields", ImmutableList.of())
             .build();
 
     private final ObjectMapper objectMapper = new ObjectMapperProvider().get();
