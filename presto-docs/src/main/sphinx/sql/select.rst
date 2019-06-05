@@ -112,7 +112,7 @@ row counts for the ``customer`` table using the input column ``mktsegment``::
 
     SELECT count(*) FROM customer GROUP BY mktsegment;
 
-.. code-block:: none 
+.. code-block:: none
 
      _col0
     -------
