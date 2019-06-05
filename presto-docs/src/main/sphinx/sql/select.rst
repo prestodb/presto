@@ -793,7 +793,7 @@ Making a join with `USING` helps write shorter code, for example:
         table_1.*
         table_2.*
         -- The select here is the same as simply writing: *
-        -- Writing something like: table_1.key_1 will return an error (see explenation below)
+        -- Writing something like: table_1.key_1 will return an error (see explanation below)
     FROM (
         VALUES
             (1, 3, 10),
