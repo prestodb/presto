@@ -783,7 +783,32 @@ The following query will fail with the error ``Column 'name' is ambiguous``::
 
 USING
 ^^^^^^^^^^^^^^^^^^^^^^^
-Making a join with `USING` helps write shorter code, for example:
+Making a join with `USING` helps write shorter code. For example, instead of the following code:
+
+.. code-block:: none 
+
+    SELECT
+        *
+    FROM t1 
+    JOIN t2
+    ON t1.key_1 = t2.key_1 AND t1.key_2 = t2.key_2
+
+You can write:
+
+.. code-block:: none 
+
+    SELECT
+        *
+    FROM t1
+    JOIN t2
+    USING (key_1, key_2)
+
+When using `USING`, the columns key_1 and key_2 will no longer belong to either t1 or t2 (so using * will NOT add two duplicate key columns from t1 and t2).
+
+Note that when using `USING` the column names of `key_1` and `key_2` are no longer part of the original tables (t1 and t2). Thus, using * will NOT add two duplicate key columns from t1 and t2. If we want to get the explicit columns from each of the tables, we'd call them directly without the table prefix (i.e.: key_1), and using `t1.key_1` will return an error. 
+This can be an issue if, for example, we wanted to get t1.key_1 and check it for NULL values (i.e.: in order to detect all the rows in t1 that don't have a match in t2).
+
+The following example shows how to access each of the columns using SELECT:
 
 .. code-block:: none 
 
@@ -793,7 +818,7 @@ Making a join with `USING` helps write shorter code, for example:
         table_1.*
         table_2.*
         -- The select here is the same as simply writing: *
-        -- Writing something like: table_1.key_1 will return an error (see explanation below)
+        -- Writing something like: table_1.key_1 will return an error (see explanation above)
     FROM (
         VALUES
             (1, 3, 10),
@@ -815,15 +840,7 @@ key_1 key_2 y1 y2
 3     4     20 200
 ===== ===== == ===
 
-Here we used `USING (key_1, key_2)` instead of writing:
 
-.. code-block:: none 
-
-    ON a.key_1 = b.key_1
-    AND a.key_2 = b.key_2
-
-Note that when using `USING` the column names of `key_1` and `key_2` are no longer part of the original tables (table_1, table_2). So if we want to get the explicit columns from each of the tables, we'd call them directly without the table prefix (i.e.: key_1), since using `table_1.key_1 will return an error. 
-This can be an issue if, for example, we wanted to get table_2.key_1 and check it for NULL values (i.e.: in order to detect all the rows in table_1 that don't have a match in table_2).
 
 
 
