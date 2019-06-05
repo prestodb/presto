@@ -31,8 +31,8 @@ import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.ExpressionVariableInliner;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -123,7 +123,7 @@ public class PredicatePushDown
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -131,7 +131,7 @@ public class PredicatePushDown
         requireNonNull(idAllocator, "idAllocator is null");
 
         return SimplePlanRewriter.rewriteWith(
-                new Rewriter(symbolAllocator, idAllocator, metadata, literalEncoder, effectivePredicateExtractor, sqlParser, session, types),
+                new Rewriter(variableAllocator, idAllocator, metadata, literalEncoder, effectivePredicateExtractor, sqlParser, session, types),
                 plan,
                 TRUE_LITERAL);
     }
@@ -139,7 +139,7 @@ public class PredicatePushDown
     private static class Rewriter
             extends SimplePlanRewriter<Expression>
     {
-        private final SymbolAllocator symbolAllocator;
+        private final PlanVariableAllocator variableAllocator;
         private final PlanNodeIdAllocator idAllocator;
         private final Metadata metadata;
         private final LiteralEncoder literalEncoder;
@@ -150,7 +150,7 @@ public class PredicatePushDown
         private final ExpressionEquivalence expressionEquivalence;
 
         private Rewriter(
-                SymbolAllocator symbolAllocator,
+                PlanVariableAllocator variableAllocator,
                 PlanNodeIdAllocator idAllocator,
                 Metadata metadata,
                 LiteralEncoder literalEncoder,
@@ -159,7 +159,7 @@ public class PredicatePushDown
                 Session session,
                 TypeProvider types)
         {
-            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+            this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.literalEncoder = requireNonNull(literalEncoder, "literalEncoder is null");
@@ -657,7 +657,7 @@ public class PredicatePushDown
                 return new VariableReferenceExpression(((SymbolReference) expression).getName(), extractType(expression));
             }
 
-            return symbolAllocator.newVariable(expression, extractType(expression));
+            return variableAllocator.newVariable(expression, extractType(expression));
         }
 
         private OuterJoinPushDownResult processLimitedOuterJoin(Expression inheritedPredicate, Expression outerEffectivePredicate, Expression innerEffectivePredicate, Expression joinPredicate, Collection<VariableReferenceExpression> outerVariables)

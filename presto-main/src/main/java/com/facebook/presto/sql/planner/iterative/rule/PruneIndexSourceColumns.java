@@ -18,7 +18,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.google.common.collect.Maps;
 
@@ -40,7 +40,7 @@ public class PruneIndexSourceColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, IndexSourceNode indexSourceNode, Set<VariableReferenceExpression> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, IndexSourceNode indexSourceNode, Set<VariableReferenceExpression> referencedOutputs)
     {
         Set<VariableReferenceExpression> prunedLookupSymbols = indexSourceNode.getLookupVariables().stream()
                 .filter(referencedOutputs::contains)

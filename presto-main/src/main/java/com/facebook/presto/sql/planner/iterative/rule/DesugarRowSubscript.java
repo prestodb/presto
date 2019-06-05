@@ -47,6 +47,6 @@ public class DesugarRowSubscript
         requireNonNull(sqlParser, "sqlParser is null");
         requireNonNull(metadata, "metadata is null");
 
-        return (expression, context) -> DesugarRowSubscriptRewriter.rewrite(expression, context.getSession(), metadata, sqlParser, context.getSymbolAllocator());
+        return (expression, context) -> DesugarRowSubscriptRewriter.rewrite(expression, context.getSession(), metadata, sqlParser, context.getVariableAllocator());
     }
 }

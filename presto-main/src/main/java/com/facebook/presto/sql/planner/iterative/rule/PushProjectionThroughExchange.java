@@ -93,7 +93,7 @@ public class PushProjectionThroughExchange
 
         ImmutableList.Builder<PlanNode> newSourceBuilder = ImmutableList.builder();
         ImmutableList.Builder<List<VariableReferenceExpression>> inputsBuilder = ImmutableList.builder();
-        TypeProvider types = context.getSymbolAllocator().getTypes();
+        TypeProvider types = context.getVariableAllocator().getTypes();
         for (int i = 0; i < exchange.getSources().size(); i++) {
             Map<VariableReferenceExpression, SymbolReference> outputToInputMap = extractExchangeOutputToInput(exchange, i);
 
@@ -132,7 +132,7 @@ public class PushProjectionThroughExchange
             for (Map.Entry<VariableReferenceExpression, RowExpression> projection : project.getAssignments().entrySet()) {
                 Expression translatedExpression = inlineVariables(outputToInputMap, castToExpression(projection.getValue()), types);
                 Type type = projection.getKey().getType();
-                VariableReferenceExpression variable = context.getSymbolAllocator().newVariable(translatedExpression, type);
+                VariableReferenceExpression variable = context.getVariableAllocator().newVariable(translatedExpression, type);
                 projections.put(variable, castToRowExpression(translatedExpression));
                 inputs.add(variable);
             }

@@ -104,7 +104,7 @@ public class AddIntermediateAggregations
         Lookup lookup = context.getLookup();
         PlanNodeIdAllocator idAllocator = context.getIdAllocator();
         Session session = context.getSession();
-        TypeProvider types = context.getSymbolAllocator().getTypes();
+        TypeProvider types = context.getVariableAllocator().getTypes();
 
         Optional<PlanNode> rewrittenSource = recurseToPartial(lookup.resolve(aggregation.getSource()), lookup, idAllocator, types);
 

@@ -51,7 +51,7 @@ public class TransformCorrelatedLateralJoinToJoin
     {
         PlanNode subquery = lateralJoinNode.getSubquery();
 
-        PlanNodeDecorrelator planNodeDecorrelator = new PlanNodeDecorrelator(context.getIdAllocator(), context.getSymbolAllocator(), context.getLookup());
+        PlanNodeDecorrelator planNodeDecorrelator = new PlanNodeDecorrelator(context.getIdAllocator(), context.getVariableAllocator(), context.getLookup());
         Optional<DecorrelatedNode> decorrelatedNodeOptional = planNodeDecorrelator.decorrelateFilters(subquery, lateralJoinNode.getCorrelation());
 
         return decorrelatedNodeOptional.map(decorrelatedNode ->

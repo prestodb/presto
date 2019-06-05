@@ -26,8 +26,8 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.EqualityInference;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -248,7 +248,7 @@ public class ReorderJoins
             List<Expression> joinPredicates = getJoinPredicates(leftVariables, rightVariables);
             List<EquiJoinClause> joinConditions = joinPredicates.stream()
                     .filter(JoinEnumerator::isJoinEqualityCondition)
-                    .map(predicate -> toEquiJoinClause((ComparisonExpression) predicate, leftVariables, context.getSymbolAllocator()))
+                    .map(predicate -> toEquiJoinClause((ComparisonExpression) predicate, leftVariables, context.getVariableAllocator()))
                     .collect(toImmutableList());
             if (joinConditions.isEmpty()) {
                 return INFINITE_COST_RESULT;
@@ -259,7 +259,7 @@ public class ReorderJoins
 
             Set<VariableReferenceExpression> requiredJoinVariables = ImmutableSet.<VariableReferenceExpression>builder()
                     .addAll(outputVariables)
-                    .addAll(VariablesExtractor.extractUnique(joinPredicates, context.getSymbolAllocator().getTypes()))
+                    .addAll(VariablesExtractor.extractUnique(joinPredicates, context.getVariableAllocator().getTypes()))
                     .build();
 
             JoinEnumerationResult leftResult = getJoinSource(
@@ -320,20 +320,20 @@ public class ReorderJoins
                     .map(conjunct -> allFilterInference.rewriteExpression(
                             conjunct,
                             variable -> leftVariables.contains(variable) || rightVariables.contains(variable),
-                            context.getSymbolAllocator().getTypes()))
+                            context.getVariableAllocator().getTypes()))
                     .filter(Objects::nonNull)
                     // filter expressions that contain only left or right symbols
-                    .filter(conjunct -> allFilterInference.rewriteExpression(conjunct, leftVariables::contains, context.getSymbolAllocator().getTypes()) == null)
-                    .filter(conjunct -> allFilterInference.rewriteExpression(conjunct, rightVariables::contains, context.getSymbolAllocator().getTypes()) == null)
+                    .filter(conjunct -> allFilterInference.rewriteExpression(conjunct, leftVariables::contains, context.getVariableAllocator().getTypes()) == null)
+                    .filter(conjunct -> allFilterInference.rewriteExpression(conjunct, rightVariables::contains, context.getVariableAllocator().getTypes()) == null)
                     .forEach(joinPredicatesBuilder::add);
 
             // create equality inference on available symbols
             // TODO: make generateEqualitiesPartitionedBy take left and right scope
             List<Expression> joinEqualities = allFilterInference.generateEqualitiesPartitionedBy(
                     variable -> leftVariables.contains(variable) || rightVariables.contains(variable),
-                    context.getSymbolAllocator().getTypes()).getScopeEqualities();
+                    context.getVariableAllocator().getTypes()).getScopeEqualities();
             EqualityInference joinInference = createEqualityInference(joinEqualities.toArray(new Expression[0]));
-            joinPredicatesBuilder.addAll(joinInference.generateEqualitiesPartitionedBy(in(leftVariables), context.getSymbolAllocator().getTypes()).getScopeStraddlingEqualities());
+            joinPredicatesBuilder.addAll(joinInference.generateEqualitiesPartitionedBy(in(leftVariables), context.getVariableAllocator().getTypes()).getScopeStraddlingEqualities());
 
             return joinPredicatesBuilder.build();
         }
@@ -344,9 +344,9 @@ public class ReorderJoins
             if (nodes.size() == 1) {
                 PlanNode planNode = getOnlyElement(nodes);
                 ImmutableList.Builder<Expression> predicates = ImmutableList.builder();
-                predicates.addAll(allFilterInference.generateEqualitiesPartitionedBy(outputVariables::contains, context.getSymbolAllocator().getTypes()).getScopeEqualities());
+                predicates.addAll(allFilterInference.generateEqualitiesPartitionedBy(outputVariables::contains, context.getVariableAllocator().getTypes()).getScopeEqualities());
                 stream(nonInferrableConjuncts(allFilter))
-                        .map(conjunct -> allFilterInference.rewriteExpression(conjunct, outputVariables::contains, context.getSymbolAllocator().getTypes()))
+                        .map(conjunct -> allFilterInference.rewriteExpression(conjunct, outputVariables::contains, context.getVariableAllocator().getTypes()))
                         .filter(Objects::nonNull)
                         .forEach(predicates::add);
                 Expression filter = combineConjuncts(predicates.build());
@@ -366,10 +366,10 @@ public class ReorderJoins
                     && ((ComparisonExpression) expression).getRight() instanceof SymbolReference;
         }
 
-        private static EquiJoinClause toEquiJoinClause(ComparisonExpression equality, Set<VariableReferenceExpression> leftVariables, SymbolAllocator symbolAllocator)
+        private static EquiJoinClause toEquiJoinClause(ComparisonExpression equality, Set<VariableReferenceExpression> leftVariables, PlanVariableAllocator variableAllocator)
         {
-            VariableReferenceExpression leftVariable = symbolAllocator.toVariableReference(Symbol.from(equality.getLeft()));
-            VariableReferenceExpression rightVariable = symbolAllocator.toVariableReference(Symbol.from(equality.getRight()));
+            VariableReferenceExpression leftVariable = variableAllocator.toVariableReference(Symbol.from(equality.getLeft()));
+            VariableReferenceExpression rightVariable = variableAllocator.toVariableReference(Symbol.from(equality.getRight()));
             EquiJoinClause equiJoinClause = new EquiJoinClause(leftVariable, rightVariable);
             return leftVariables.contains(leftVariable) ? equiJoinClause : equiJoinClause.flip();
         }

@@ -126,12 +126,12 @@ public class MultipleDistinctAggregationToMarkDistinct
                 Set<VariableReferenceExpression> inputs = aggregation.getArguments().stream()
                         .map(OriginalExpressionUtils::castToExpression)
                         .map(Symbol::from)
-                        .map(context.getSymbolAllocator()::toVariableReference)
+                        .map(context.getVariableAllocator()::toVariableReference)
                         .collect(toSet());
 
                 VariableReferenceExpression marker = markers.get(inputs);
                 if (marker == null) {
-                    marker = context.getSymbolAllocator().newVariable(Iterables.getLast(inputs).getName(), BOOLEAN, "distinct");
+                    marker = context.getVariableAllocator().newVariable(Iterables.getLast(inputs).getName(), BOOLEAN, "distinct");
                     markers.put(inputs, marker);
 
                     ImmutableSet.Builder<VariableReferenceExpression> distinctVariables = ImmutableSet.<VariableReferenceExpression>builder()

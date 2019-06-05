@@ -40,6 +40,6 @@ public class DesugarLambdaExpression
 
     private static Expression rewrite(Expression expression, Rule.Context context)
     {
-        return LambdaCaptureDesugaringRewriter.rewrite(expression, context.getSymbolAllocator());
+        return LambdaCaptureDesugaringRewriter.rewrite(expression, context.getVariableAllocator());
     }
 }

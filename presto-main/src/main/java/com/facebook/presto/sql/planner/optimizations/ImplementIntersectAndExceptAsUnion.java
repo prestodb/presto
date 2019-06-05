@@ -25,7 +25,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -116,15 +116,15 @@ public class ImplementIntersectAndExceptAsUnion
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
         requireNonNull(types, "types is null");
-        requireNonNull(symbolAllocator, "symbolAllocator is null");
+        requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(session, functionManager, idAllocator, symbolAllocator), plan);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(session, functionManager, idAllocator, variableAllocator), plan);
     }
 
     private static class Rewriter
@@ -135,15 +135,15 @@ public class ImplementIntersectAndExceptAsUnion
         private final Session session;
         private final StandardFunctionResolution functionResolution;
         private final PlanNodeIdAllocator idAllocator;
-        private final SymbolAllocator symbolAllocator;
+        private final PlanVariableAllocator variableAllocator;
 
-        private Rewriter(Session session, FunctionManager functionManager, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
+        private Rewriter(Session session, FunctionManager functionManager, PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator)
         {
             requireNonNull(functionManager, "functionManager is null");
             this.session = requireNonNull(session, "session is null");
             this.functionResolution = new FunctionResolution(functionManager);
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
-            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+            this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         }
 
         @Override
@@ -200,7 +200,7 @@ public class ImplementIntersectAndExceptAsUnion
         {
             ImmutableList.Builder<VariableReferenceExpression> variablesBuilder = ImmutableList.builder();
             for (int i = 0; i < count; i++) {
-                variablesBuilder.add(symbolAllocator.newVariable(nameHint, type));
+                variablesBuilder.add(variableAllocator.newVariable(nameHint, type));
             }
             return variablesBuilder.build();
         }
@@ -219,14 +219,14 @@ public class ImplementIntersectAndExceptAsUnion
             Assignments.Builder assignments = Assignments.builder();
             // add existing intersect symbols to projection
             for (Map.Entry<VariableReferenceExpression, SymbolReference> entry : projections.entrySet()) {
-                VariableReferenceExpression variable = symbolAllocator.newVariable(entry.getKey().getName(), entry.getKey().getType());
+                VariableReferenceExpression variable = variableAllocator.newVariable(entry.getKey().getName(), entry.getKey().getType());
                 assignments.put(variable, castToRowExpression(entry.getValue()));
             }
 
             // add extra marker fields to the projection
             for (int i = 0; i < markers.size(); ++i) {
                 Expression expression = (i == markerIndex) ? TRUE_LITERAL : new Cast(new NullLiteral(), StandardTypes.BOOLEAN);
-                assignments.put(symbolAllocator.newVariable(markers.get(i).getName(), BOOLEAN), castToRowExpression(expression));
+                assignments.put(variableAllocator.newVariable(markers.get(i).getName(), BOOLEAN), castToRowExpression(expression));
             }
 
             return new ProjectNode(idAllocator.getNextId(), source, assignments.build());

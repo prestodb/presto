@@ -149,7 +149,6 @@ public class PlanFragmenter
 
     public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        SymbolAllocator symbolAllocator = new SymbolAllocator(plan.getTypes().allTypes());
         Fragmenter fragmenter = new Fragmenter(
                 session,
                 metadata,
@@ -158,7 +157,7 @@ public class PlanFragmenter
                 warningCollector,
                 sqlParser,
                 idAllocator,
-                new SymbolAllocator(plan.getTypes().allTypes()),
+                new PlanVariableAllocator(plan.getTypes().allVariables()),
                 getTableWriterNodeIds(plan.getRoot()));
 
         FragmentProperties properties = new FragmentProperties(new PartitioningScheme(
@@ -314,7 +313,7 @@ public class PlanFragmenter
         private final Session session;
         private final Metadata metadata;
         private final PlanNodeIdAllocator idAllocator;
-        private final SymbolAllocator symbolAllocator;
+        private final PlanVariableAllocator variableAllocator;
         private final StatsAndCosts statsAndCosts;
         private final PlanSanityChecker planSanityChecker;
         private final WarningCollector warningCollector;
@@ -331,7 +330,7 @@ public class PlanFragmenter
                 WarningCollector warningCollector,
                 SqlParser sqlParser,
                 PlanNodeIdAllocator idAllocator,
-                SymbolAllocator symbolAllocator,
+                PlanVariableAllocator variableAllocator,
                 Set<PlanNodeId> outputTableWriterNodeIds)
         {
             this.session = requireNonNull(session, "session is null");
@@ -341,7 +340,7 @@ public class PlanFragmenter
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
-            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+            this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
             this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
             this.outputTableWriterNodeIds = ImmutableSet.copyOf(requireNonNull(outputTableWriterNodeIds, "outputTableWriterNodeIds is null"));
         }
@@ -582,7 +581,7 @@ public class PlanFragmenter
                 VariableReferenceExpression variable;
                 if (argumentBinding.isConstant()) {
                     ConstantExpression constant = argumentBinding.getConstant();
-                    variable = symbolAllocator.newVariable("constant_partition", constant.getType());
+                    variable = variableAllocator.newVariable("constant_partition", constant.getType());
                     constants.put(variable, constant);
                 }
                 else {
@@ -729,9 +728,9 @@ public class PlanFragmenter
                                                             inputs,
                                                             Optional.empty())),
                                             insertHandle,
-                                            symbolAllocator.newVariable("partialrows", BIGINT),
-                                            symbolAllocator.newVariable("fragment", VARBINARY),
-                                            symbolAllocator.newVariable("tablecommitcontext", VARBINARY),
+                                            variableAllocator.newVariable("partialrows", BIGINT),
+                                            variableAllocator.newVariable("fragment", VARBINARY),
+                                            variableAllocator.newVariable("tablecommitcontext", VARBINARY),
                                             outputs,
                                             outputColumnNames,
                                             Optional.of(new PartitioningScheme(
@@ -743,7 +742,7 @@ public class PlanFragmenter
                                             Optional.empty(),
                                             Optional.empty()))),
                     insertHandle,
-                    symbolAllocator.newVariable("rows", BIGINT),
+                    variableAllocator.newVariable("rows", BIGINT),
                     Optional.empty(),
                     Optional.empty());
         }

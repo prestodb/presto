@@ -80,9 +80,9 @@ public class PushProjectionThroughUnion
 
             // Translate the assignments in the ProjectNode using symbols of the source of the UnionNode
             for (Map.Entry<VariableReferenceExpression, RowExpression> entry : parent.getAssignments().entrySet()) {
-                Expression translatedExpression = ExpressionVariableInliner.inlineVariables(outputToInput, castToExpression(entry.getValue()), context.getSymbolAllocator().getTypes());
+                Expression translatedExpression = ExpressionVariableInliner.inlineVariables(outputToInput, castToExpression(entry.getValue()), context.getVariableAllocator().getTypes());
                 Type type = entry.getKey().getType();
-                VariableReferenceExpression variable = context.getSymbolAllocator().newVariable(translatedExpression, type);
+                VariableReferenceExpression variable = context.getVariableAllocator().newVariable(translatedExpression, type);
                 assignments.put(variable, castToRowExpression(translatedExpression));
                 projectVariableMapping.put(new VariableReferenceExpression(entry.getKey().getName(), type), variable);
             }

@@ -37,8 +37,8 @@ import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.PartitioningScheme;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PreferredProperties.PartitioningProperties;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -152,9 +152,9 @@ public class AddExchanges
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        PlanWithProperties result = plan.accept(new Rewriter(idAllocator, symbolAllocator, session), PreferredProperties.any());
+        PlanWithProperties result = plan.accept(new Rewriter(idAllocator, variableAllocator, session), PreferredProperties.any());
         return result.getNode();
     }
 
@@ -162,7 +162,7 @@ public class AddExchanges
             extends InternalPlanVisitor<PlanWithProperties, PreferredProperties>
     {
         private final PlanNodeIdAllocator idAllocator;
-        private final SymbolAllocator symbolAllocator;
+        private final PlanVariableAllocator variableAllocator;
         private final TypeProvider types;
         private final Session session;
         private final boolean distributedIndexJoins;
@@ -174,11 +174,11 @@ public class AddExchanges
         private final int hashPartitionCount;
         private final ExchangeMaterializationStrategy exchangeMaterializationStrategy;
 
-        public Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+        public Rewriter(PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, Session session)
         {
             this.idAllocator = idAllocator;
-            this.symbolAllocator = symbolAllocator;
-            this.types = symbolAllocator.getTypes();
+            this.variableAllocator = variableAllocator;
+            this.types = variableAllocator.getTypes();
             this.session = session;
             this.distributedIndexJoins = isDistributedIndexJoinEnabled(session);
             this.redistributeWrites = isRedistributeWrites(session);
@@ -1184,7 +1184,7 @@ public class AddExchanges
                     // NOTE: new symbols for ExchangeNode output are required in order to keep plan logically correct with new local union below
 
                     List<VariableReferenceExpression> exchangeOutputLayout = node.getOutputVariables().stream()
-                            .map(symbolAllocator::newVariable)
+                            .map(variableAllocator::newVariable)
                             .collect(toImmutableList());
 
                     result = new ExchangeNode(

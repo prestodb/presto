@@ -78,7 +78,7 @@ import static java.util.Objects.requireNonNull;
 class SubqueryPlanner
 {
     private final Analysis analysis;
-    private final SymbolAllocator symbolAllocator;
+    private final PlanVariableAllocator variableAllocator;
     private final PlanNodeIdAllocator idAllocator;
     private final Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> lambdaDeclarationToVariableMap;
     private final Metadata metadata;
@@ -86,21 +86,21 @@ class SubqueryPlanner
 
     SubqueryPlanner(
             Analysis analysis,
-            SymbolAllocator symbolAllocator,
+            PlanVariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
             Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> lambdaDeclarationToVariableMap,
             Metadata metadata,
             Session session)
     {
         requireNonNull(analysis, "analysis is null");
-        requireNonNull(symbolAllocator, "symbolAllocator is null");
+        requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(lambdaDeclarationToVariableMap, "lambdaDeclarationToVariableMap is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(session, "session is null");
 
         this.analysis = analysis;
-        this.symbolAllocator = symbolAllocator;
+        this.variableAllocator = variableAllocator;
         this.idAllocator = idAllocator;
         this.lambdaDeclarationToVariableMap = lambdaDeclarationToVariableMap;
         this.metadata = metadata;
@@ -186,19 +186,19 @@ class SubqueryPlanner
 
         subPlan = handleSubqueries(subPlan, inPredicate.getValue(), node);
 
-        subPlan = subPlan.appendProjections(ImmutableList.of(inPredicate.getValue()), symbolAllocator, idAllocator);
+        subPlan = subPlan.appendProjections(ImmutableList.of(inPredicate.getValue()), variableAllocator, idAllocator);
 
         checkState(inPredicate.getValueList() instanceof SubqueryExpression);
         SubqueryExpression valueListSubquery = (SubqueryExpression) inPredicate.getValueList();
         SubqueryExpression uncoercedValueListSubquery = uncoercedSubquery(valueListSubquery);
         PlanBuilder subqueryPlan = createPlanBuilder(uncoercedValueListSubquery);
 
-        subqueryPlan = subqueryPlan.appendProjections(ImmutableList.of(valueListSubquery), symbolAllocator, idAllocator);
+        subqueryPlan = subqueryPlan.appendProjections(ImmutableList.of(valueListSubquery), variableAllocator, idAllocator);
         SymbolReference valueList = new SymbolReference(subqueryPlan.translate(valueListSubquery).getName());
 
         VariableReferenceExpression rewrittenValue = subPlan.translate(inPredicate.getValue());
         InPredicate inPredicateSubqueryExpression = new InPredicate(new SymbolReference(rewrittenValue.getName()), valueList);
-        VariableReferenceExpression inPredicateSubqueryVariable = symbolAllocator.newVariable(inPredicateSubqueryExpression, BOOLEAN);
+        VariableReferenceExpression inPredicateSubqueryVariable = variableAllocator.newVariable(inPredicateSubqueryExpression, BOOLEAN);
 
         subPlan.getTranslations().put(inPredicate, inPredicateSubqueryVariable);
 
@@ -225,7 +225,7 @@ class SubqueryPlanner
         SubqueryExpression uncoercedScalarSubquery = uncoercedSubquery(scalarSubquery);
         PlanBuilder subqueryPlan = createPlanBuilder(uncoercedScalarSubquery);
         subqueryPlan = subqueryPlan.withNewRoot(new EnforceSingleRowNode(idAllocator.getNextId(), subqueryPlan.getRoot()));
-        subqueryPlan = subqueryPlan.appendProjections(coercions, symbolAllocator, idAllocator);
+        subqueryPlan = subqueryPlan.appendProjections(coercions, variableAllocator, idAllocator);
 
         VariableReferenceExpression uncoercedScalarSubqueryVariable = subqueryPlan.translate(uncoercedScalarSubquery);
         subPlan.getTranslations().put(uncoercedScalarSubquery, uncoercedScalarSubqueryVariable);
@@ -253,7 +253,7 @@ class SubqueryPlanner
                         idAllocator.getNextId(),
                         subPlan.getRoot(),
                         subqueryNode,
-                        ImmutableList.copyOf(VariablesExtractor.extractUnique(correlation.values(), symbolAllocator.getTypes())),
+                        ImmutableList.copyOf(VariablesExtractor.extractUnique(correlation.values(), variableAllocator.getTypes())),
                         type,
                         subQueryNotSupportedError(query, "Given correlated subquery")),
                 analysis.getParameters());
@@ -294,7 +294,7 @@ class SubqueryPlanner
         // add an explicit projection that removes all columns
         PlanNode subqueryNode = new ProjectNode(idAllocator.getNextId(), subqueryPlan.getRoot(), Assignments.of());
 
-        VariableReferenceExpression exists = symbolAllocator.newVariable("exists", BOOLEAN);
+        VariableReferenceExpression exists = variableAllocator.newVariable("exists", BOOLEAN);
         subPlan.getTranslations().put(existsPredicate, exists);
         ExistsPredicate rewrittenExistsPredicate = new ExistsPredicate(BooleanLiteral.TRUE_LITERAL);
         return appendApplyNode(
@@ -377,14 +377,14 @@ class SubqueryPlanner
 
     private PlanBuilder planQuantifiedApplyNode(PlanBuilder subPlan, QuantifiedComparisonExpression quantifiedComparison, boolean correlationAllowed)
     {
-        subPlan = subPlan.appendProjections(ImmutableList.of(quantifiedComparison.getValue()), symbolAllocator, idAllocator);
+        subPlan = subPlan.appendProjections(ImmutableList.of(quantifiedComparison.getValue()), variableAllocator, idAllocator);
 
         checkState(quantifiedComparison.getSubquery() instanceof SubqueryExpression);
         SubqueryExpression quantifiedSubquery = (SubqueryExpression) quantifiedComparison.getSubquery();
 
         SubqueryExpression uncoercedQuantifiedSubquery = uncoercedSubquery(quantifiedSubquery);
         PlanBuilder subqueryPlan = createPlanBuilder(uncoercedQuantifiedSubquery);
-        subqueryPlan = subqueryPlan.appendProjections(ImmutableList.of(quantifiedSubquery), symbolAllocator, idAllocator);
+        subqueryPlan = subqueryPlan.appendProjections(ImmutableList.of(quantifiedSubquery), variableAllocator, idAllocator);
 
         QuantifiedComparisonExpression coercedQuantifiedComparison = new QuantifiedComparisonExpression(
                 quantifiedComparison.getOperator(),
@@ -392,7 +392,7 @@ class SubqueryPlanner
                 new SymbolReference(subPlan.translate(quantifiedComparison.getValue()).getName()),
                 new SymbolReference(subqueryPlan.translate(quantifiedSubquery).getName()));
 
-        VariableReferenceExpression coercedQuantifiedComparisonVariable = symbolAllocator.newVariable(coercedQuantifiedComparison, BOOLEAN);
+        VariableReferenceExpression coercedQuantifiedComparisonVariable = variableAllocator.newVariable(coercedQuantifiedComparison, BOOLEAN);
         subPlan.getTranslations().put(quantifiedComparison, coercedQuantifiedComparisonVariable);
 
         return appendApplyNode(
@@ -438,7 +438,7 @@ class SubqueryPlanner
         if (!correlationAllowed && !correlation.isEmpty()) {
             throw notSupportedException(subquery, "Correlated subquery in given context");
         }
-        subPlan = subPlan.appendProjections(correlation.keySet(), symbolAllocator, idAllocator);
+        subPlan = subPlan.appendProjections(correlation.keySet(), variableAllocator, idAllocator);
         subqueryNode = replaceExpressionsWithSymbols(subqueryNode, correlation);
 
         TranslationMap translations = subPlan.copyTranslations();
@@ -449,7 +449,7 @@ class SubqueryPlanner
                         root,
                         subqueryNode,
                         subqueryAssignments,
-                        ImmutableList.copyOf(VariablesExtractor.extractUnique(correlation.values(), symbolAllocator.getTypes())),
+                        ImmutableList.copyOf(VariablesExtractor.extractUnique(correlation.values(), variableAllocator.getTypes())),
                         subQueryNotSupportedError(subquery, "Given correlated subquery")),
                 analysis.getParameters());
     }
@@ -481,7 +481,7 @@ class SubqueryPlanner
 
     private PlanBuilder createPlanBuilder(Node node)
     {
-        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session)
+        RelationPlan relationPlan = new RelationPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session)
                 .process(node, null);
         TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToVariableMap);
 

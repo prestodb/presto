@@ -19,7 +19,7 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
@@ -66,12 +66,12 @@ public abstract class ProjectOffPushDownRule<N extends PlanNode>
         return pruneInputs(
                 targetNode.getOutputVariables(),
                 parent.getAssignments().getExpressions().stream().map(OriginalExpressionUtils::castToExpression).collect(toImmutableList()),
-                context.getSymbolAllocator().getTypes())
-                .flatMap(prunedOutputs -> this.pushDownProjectOff(context.getIdAllocator(), context.getSymbolAllocator(), targetNode, prunedOutputs))
+                context.getVariableAllocator().getTypes())
+                .flatMap(prunedOutputs -> this.pushDownProjectOff(context.getIdAllocator(), context.getVariableAllocator(), targetNode, prunedOutputs))
                 .map(newChild -> parent.replaceChildren(ImmutableList.of(newChild)))
                 .map(Result::ofPlanNode)
                 .orElse(Result.empty());
     }
 
-    protected abstract Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, N targetNode, Set<VariableReferenceExpression> referencedOutputs);
+    protected abstract Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, N targetNode, Set<VariableReferenceExpression> referencedOutputs);
 }

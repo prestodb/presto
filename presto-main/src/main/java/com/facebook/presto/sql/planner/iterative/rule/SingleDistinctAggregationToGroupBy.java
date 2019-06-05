@@ -123,7 +123,7 @@ public class SingleDistinctAggregationToGroupBy
         Set<VariableReferenceExpression> variables = Iterables.getOnlyElement(argumentSets).stream()
                 .map(OriginalExpressionUtils::castToExpression)
                 .map(Symbol::from)
-                .map(context.getSymbolAllocator()::toVariableReference)
+                .map(context.getVariableAllocator()::toVariableReference)
                 .collect(Collectors.toSet());
 
         return Result.ofPlanNode(

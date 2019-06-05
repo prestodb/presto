@@ -208,7 +208,7 @@ public class PushPartialAggregationThroughExchange
             String functionName = functionManager.getFunctionMetadata(originalAggregation.getFunctionHandle()).getName();
             FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
             InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
-            VariableReferenceExpression intermediateVariable = context.getSymbolAllocator().newVariable(functionName, function.getIntermediateType());
+            VariableReferenceExpression intermediateVariable = context.getVariableAllocator().newVariable(functionName, function.getIntermediateType());
 
             checkState(!originalAggregation.getOrderBy().isPresent(), "Aggregate with ORDER BY does not support partial aggregation");
             intermediateAggregation.put(intermediateVariable, new AggregationNode.Aggregation(

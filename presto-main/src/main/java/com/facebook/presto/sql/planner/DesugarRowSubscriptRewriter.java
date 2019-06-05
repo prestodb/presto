@@ -60,11 +60,11 @@ public class DesugarRowSubscriptRewriter
         return ExpressionTreeRewriter.rewriteWith(new Visitor(expressionTypes), expression, null);
     }
 
-    public static Expression rewrite(Expression expression, Session session, Metadata metadata, SqlParser sqlParser, SymbolAllocator symbolAllocator)
+    public static Expression rewrite(Expression expression, Session session, Metadata metadata, SqlParser sqlParser, PlanVariableAllocator variableAllocator)
     {
         requireNonNull(metadata, "metadata is null");
         requireNonNull(sqlParser, "sqlParser is null");
-        return new AnalyzedExpressionRewriter(session, metadata, sqlParser, symbolAllocator.getTypes()).rewriteWith(Visitor::new, expression);
+        return new AnalyzedExpressionRewriter(session, metadata, sqlParser, variableAllocator.getTypes()).rewriteWith(Visitor::new, expression);
     }
 
     private static class Visitor

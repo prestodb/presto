@@ -25,7 +25,7 @@ import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.PartitioningScheme;
-import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -100,15 +100,15 @@ public class HashGenerationOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
         requireNonNull(types, "types is null");
-        requireNonNull(symbolAllocator, "symbolAllocator is null");
+        requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
         if (SystemSessionProperties.isOptimizeHashGenerationEnabled(session)) {
-            PlanWithProperties result = plan.accept(new Rewriter(idAllocator, symbolAllocator, functionManager), new HashComputationSet());
+            PlanWithProperties result = plan.accept(new Rewriter(idAllocator, variableAllocator, functionManager), new HashComputationSet());
             return result.getNode();
         }
         return plan;
@@ -118,13 +118,13 @@ public class HashGenerationOptimizer
             extends InternalPlanVisitor<PlanWithProperties, HashComputationSet>
     {
         private final PlanNodeIdAllocator idAllocator;
-        private final SymbolAllocator symbolAllocator;
+        private final PlanVariableAllocator variableAllocator;
         private final FunctionManager functionManager;
 
-        private Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, FunctionManager functionManager)
+        private Rewriter(PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, FunctionManager functionManager)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
-            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+            this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
             this.functionManager = requireNonNull(functionManager, "functionManager is null");
         }
 
@@ -504,7 +504,7 @@ public class HashGenerationOptimizer
             List<HashComputation> hashVariableOrder = ImmutableList.copyOf(preference.getHashes());
             Map<HashComputation, VariableReferenceExpression> newHashVariables = new HashMap<>();
             for (HashComputation preferredHashVariable : hashVariableOrder) {
-                newHashVariables.put(preferredHashVariable, symbolAllocator.newHashVariable());
+                newHashVariables.put(preferredHashVariable, variableAllocator.newHashVariable());
             }
 
             // rewrite partition function to include new variables (and precomputed hash
@@ -569,7 +569,7 @@ public class HashGenerationOptimizer
             // create new hash variables
             Map<HashComputation, VariableReferenceExpression> newHashVariables = new HashMap<>();
             for (HashComputation preferredHashSymbol : preference.getHashes()) {
-                newHashVariables.put(preferredHashSymbol, symbolAllocator.newHashVariable());
+                newHashVariables.put(preferredHashSymbol, variableAllocator.newHashVariable());
             }
 
             // add hash variables to sources
@@ -620,7 +620,7 @@ public class HashGenerationOptimizer
                 VariableReferenceExpression hashVariable = child.getHashVariables().get(hashComputation);
                 RowExpression hashExpression;
                 if (hashVariable == null) {
-                    hashVariable = symbolAllocator.newHashVariable();
+                    hashVariable = variableAllocator.newHashVariable();
                     hashExpression = hashComputation.getHashExpression();
                 }
                 else {
@@ -735,7 +735,7 @@ public class HashGenerationOptimizer
             for (HashComputation hashComputation : requiredHashes.getHashes()) {
                 if (!planWithProperties.getHashVariables().containsKey(hashComputation)) {
                     RowExpression hashExpression = hashComputation.getHashExpression();
-                    VariableReferenceExpression hashVariable = symbolAllocator.newHashVariable();
+                    VariableReferenceExpression hashVariable = variableAllocator.newHashVariable();
                     assignments.put(hashVariable, hashExpression);
                     outputHashVariables.put(hashComputation, hashVariable);
                 }

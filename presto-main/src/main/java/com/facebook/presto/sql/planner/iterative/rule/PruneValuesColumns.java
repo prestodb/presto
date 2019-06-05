@@ -18,7 +18,7 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Arrays;
@@ -39,7 +39,7 @@ public class PruneValuesColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, ValuesNode valuesNode, Set<VariableReferenceExpression> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, ValuesNode valuesNode, Set<VariableReferenceExpression> referencedOutputs)
     {
         List<VariableReferenceExpression> newOutputs = filteredCopy(valuesNode.getOutputVariables(), referencedOutputs::contains);
 

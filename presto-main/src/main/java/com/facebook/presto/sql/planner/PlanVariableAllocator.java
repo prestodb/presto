@@ -28,41 +28,37 @@ import com.google.common.primitives.Ints;
 
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public class SymbolAllocator
+public class PlanVariableAllocator
         implements VariableAllocator
 {
     private static final Pattern DISALLOWED_CHAR_PATTERN = Pattern.compile("[^a-zA-Z0-9_\\-$]+");
 
-    private final Map<Symbol, Type> symbols;
+    private final Map<String, Type> variables;
     private int nextId;
 
-    public SymbolAllocator()
+    public PlanVariableAllocator()
     {
-        symbols = new HashMap<>();
+        variables = new HashMap<>();
     }
 
-    public SymbolAllocator(Map<Symbol, Type> initial)
+    public PlanVariableAllocator(Collection<VariableReferenceExpression> initial)
     {
-        symbols = new HashMap<>(initial);
-    }
-
-    public VariableReferenceExpression newVariable(Symbol symbolHint)
-    {
-        checkArgument(symbols.containsKey(symbolHint), "symbolHint not in symbols map");
-        return newVariable(symbolHint.getName(), symbols.get(symbolHint));
+        this.variables = requireNonNull(initial, "initial is null").stream()
+                .collect(Collectors.toMap(VariableReferenceExpression::getName, VariableReferenceExpression::getType));
     }
 
     public VariableReferenceExpression newVariable(VariableReferenceExpression variableHint)
     {
+        checkArgument(variables.containsKey(variableHint.getName()), "variableHint name not in variables map");
         return newVariable(variableHint.getName(), variableHint.getType());
     }
 
@@ -71,12 +67,6 @@ public class SymbolAllocator
         return newVariable(nameHint.getSuffix(), type, null);
     }
 
-    public Symbol newSymbol(String nameHint, Type type)
-    {
-        return newSymbol(nameHint, type, null);
-    }
-
-    @Override
     public VariableReferenceExpression newVariable(String nameHint, Type type)
     {
         return newVariable(nameHint, type, null);
@@ -89,12 +79,6 @@ public class SymbolAllocator
 
     @Override
     public VariableReferenceExpression newVariable(String nameHint, Type type, String suffix)
-    {
-        Symbol symbol = newSymbol(nameHint, type, suffix);
-        return new VariableReferenceExpression(symbol.getName(), type);
-    }
-
-    public Symbol newSymbol(String nameHint, Type type, String suffix)
     {
         requireNonNull(nameHint, "name is null");
         requireNonNull(type, "type is null");
@@ -122,43 +106,17 @@ public class SymbolAllocator
         unique = DISALLOWED_CHAR_PATTERN.matcher(unique).replaceAll("_");
 
         String attempt = unique;
-        while (symbols.containsKey(new Symbol(attempt))) {
+        while (variables.containsKey(attempt)) {
             attempt = unique + "_" + nextId();
         }
 
-        Symbol symbol = new Symbol(attempt);
-        symbols.put(symbol, type);
-        return symbol;
+        variables.put(attempt, type);
+        return new VariableReferenceExpression(attempt, type);
     }
 
     public VariableReferenceExpression newVariable(Expression expression, Type type)
     {
-        Symbol symbol = newSymbol(expression, type);
-        return new VariableReferenceExpression(symbol.getName(), type);
-    }
-
-    public Symbol newSymbol(Expression expression, Type type)
-    {
-        return newSymbol(expression, type, null);
-    }
-
-    public Symbol newSymbol(Expression expression, Type type, String suffix)
-    {
-        String nameHint = "expr";
-        if (expression instanceof Identifier) {
-            nameHint = ((Identifier) expression).getValue();
-        }
-        else if (expression instanceof FunctionCall) {
-            nameHint = ((FunctionCall) expression).getName().getSuffix();
-        }
-        else if (expression instanceof SymbolReference) {
-            nameHint = ((SymbolReference) expression).getName();
-        }
-        else if (expression instanceof GroupingOperation) {
-            nameHint = "grouping";
-        }
-
-        return newSymbol(nameHint, type, suffix);
+        return newVariable(expression, type, null);
     }
 
     public VariableReferenceExpression newVariable(Expression expression, Type type, String suffix)
@@ -179,12 +137,6 @@ public class SymbolAllocator
         return newVariable(nameHint, type, suffix);
     }
 
-    public Symbol newSymbol(Field field)
-    {
-        String nameHint = field.getName().orElse("field");
-        return newSymbol(nameHint, field.getType());
-    }
-
     public VariableReferenceExpression newVariable(Field field)
     {
         return newVariable(field.getName().orElse("field"), field.getType(), null);
@@ -192,7 +144,9 @@ public class SymbolAllocator
 
     public TypeProvider getTypes()
     {
-        return TypeProvider.viewOf(symbols);
+        return TypeProvider.fromVariables(variables.entrySet().stream()
+                .map(entry -> new VariableReferenceExpression(entry.getKey(), entry.getValue()))
+                .collect(toImmutableList()));
     }
 
     private int nextId()
@@ -202,13 +156,6 @@ public class SymbolAllocator
 
     public VariableReferenceExpression toVariableReference(Symbol symbol)
     {
-        return new VariableReferenceExpression(symbol.getName(), getTypes().get(symbol));
-    }
-
-    public List<VariableReferenceExpression> toVariableReferences(Collection<Symbol> symbols)
-    {
-        return symbols.stream()
-                .map(symbol -> new VariableReferenceExpression(symbol.getName(), getTypes().get(symbol)))
-                .collect(toImmutableList());
+        return new VariableReferenceExpression(symbol.getName(), variables.get(symbol.getName()));
     }
 }

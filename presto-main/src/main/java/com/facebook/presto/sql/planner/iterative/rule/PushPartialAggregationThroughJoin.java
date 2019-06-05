@@ -91,10 +91,10 @@ public class PushPartialAggregationThroughJoin
         }
 
         // TODO: leave partial aggregation above Join?
-        if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getLeft().getOutputVariables(), context.getSymbolAllocator().getTypes())) {
+        if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getLeft().getOutputVariables(), context.getVariableAllocator().getTypes())) {
             return Result.ofPlanNode(pushPartialToLeftChild(aggregationNode, joinNode, context));
         }
-        else if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getRight().getOutputVariables(), context.getSymbolAllocator().getTypes())) {
+        else if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getRight().getOutputVariables(), context.getVariableAllocator().getTypes())) {
             return Result.ofPlanNode(pushPartialToRightChild(aggregationNode, joinNode, context));
         }
 
@@ -114,7 +114,7 @@ public class PushPartialAggregationThroughJoin
     private PlanNode pushPartialToLeftChild(AggregationNode node, JoinNode child, Context context)
     {
         Set<VariableReferenceExpression> joinLeftChildVariables = ImmutableSet.copyOf(child.getLeft().getOutputVariables());
-        List<VariableReferenceExpression> groupingSet = getPushedDownGroupingSet(node, joinLeftChildVariables, intersection(getJoinRequiredVariables(child, context.getSymbolAllocator().getTypes()), joinLeftChildVariables));
+        List<VariableReferenceExpression> groupingSet = getPushedDownGroupingSet(node, joinLeftChildVariables, intersection(getJoinRequiredVariables(child, context.getVariableAllocator().getTypes()), joinLeftChildVariables));
         AggregationNode pushedAggregation = replaceAggregationSource(node, child.getLeft(), groupingSet);
         return pushPartialToJoin(node, child, pushedAggregation, child.getRight(), context);
     }
@@ -122,7 +122,7 @@ public class PushPartialAggregationThroughJoin
     private PlanNode pushPartialToRightChild(AggregationNode node, JoinNode child, Context context)
     {
         Set<VariableReferenceExpression> joinRightChildVariables = ImmutableSet.copyOf(child.getRight().getOutputVariables());
-        List<VariableReferenceExpression> groupingSet = getPushedDownGroupingSet(node, joinRightChildVariables, intersection(getJoinRequiredVariables(child, context.getSymbolAllocator().getTypes()), joinRightChildVariables));
+        List<VariableReferenceExpression> groupingSet = getPushedDownGroupingSet(node, joinRightChildVariables, intersection(getJoinRequiredVariables(child, context.getVariableAllocator().getTypes()), joinRightChildVariables));
         AggregationNode pushedAggregation = replaceAggregationSource(node, child.getRight(), groupingSet);
         return pushPartialToJoin(node, child, child.getLeft(), pushedAggregation, context);
     }

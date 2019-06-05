@@ -51,7 +51,7 @@ public class PruneJoinChildrenColumns
                 .addAll(
                         joinNode.getFilter()
                                 .map(OriginalExpressionUtils::castToExpression)
-                                .map(expression -> extractUnique(expression, context.getSymbolAllocator().getTypes()))
+                                .map(expression -> extractUnique(expression, context.getVariableAllocator().getTypes()))
                                 .orElse(ImmutableSet.of()))
                 .build();
 

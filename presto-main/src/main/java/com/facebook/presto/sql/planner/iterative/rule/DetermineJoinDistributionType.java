@@ -142,7 +142,7 @@ public class DetermineJoinDistributionType
 
     private PlanNodeWithCost getJoinNodeWithCost(Context context, JoinNode possibleJoinNode)
     {
-        TypeProvider types = context.getSymbolAllocator().getTypes();
+        TypeProvider types = context.getVariableAllocator().getTypes();
         StatsProvider stats = context.getStatsProvider();
         boolean replicated = possibleJoinNode.getDistributionType().get().equals(REPLICATED);
         /*

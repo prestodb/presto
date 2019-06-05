@@ -317,7 +317,7 @@ public class ExtractSpatialJoins
         if (spatialComparison.getOperator() == LESS_THAN || spatialComparison.getOperator() == LESS_THAN_OR_EQUAL) {
             // ST_Distance(a, b) <= r
             radius = spatialComparison.getRight();
-            Set<VariableReferenceExpression> radiusVariables = VariablesExtractor.extractUnique(radius, context.getSymbolAllocator().getTypes());
+            Set<VariableReferenceExpression> radiusVariables = VariablesExtractor.extractUnique(radius, context.getVariableAllocator().getTypes());
             if (radiusVariables.isEmpty() || (rightVariables.containsAll(radiusVariables) && containsNone(leftVariables, radiusVariables))) {
                 newRadiusVariable = newRadiusVariable(context, radius);
                 newComparison = new ComparisonExpression(spatialComparison.getOperator(), spatialComparison.getLeft(), toExpression(newRadiusVariable, radius));
@@ -329,7 +329,7 @@ public class ExtractSpatialJoins
         else {
             // r >= ST_Distance(a, b)
             radius = spatialComparison.getLeft();
-            Set<VariableReferenceExpression> radiusVariables = VariablesExtractor.extractUnique(radius, context.getSymbolAllocator().getTypes());
+            Set<VariableReferenceExpression> radiusVariables = VariablesExtractor.extractUnique(radius, context.getVariableAllocator().getTypes());
             if (radiusVariables.isEmpty() || (rightVariables.containsAll(radiusVariables) && containsNone(leftVariables, radiusVariables))) {
                 newRadiusVariable = newRadiusVariable(context, radius);
                 newComparison = new ComparisonExpression(spatialComparison.getOperator().flip(), spatialComparison.getRight(), toExpression(newRadiusVariable, radius));
@@ -386,8 +386,8 @@ public class ExtractSpatialJoins
             return Result.empty();
         }
 
-        Set<VariableReferenceExpression> firstVariables = VariablesExtractor.extractUnique(firstArgument, context.getSymbolAllocator().getTypes());
-        Set<VariableReferenceExpression> secondVariables = VariablesExtractor.extractUnique(secondArgument, context.getSymbolAllocator().getTypes());
+        Set<VariableReferenceExpression> firstVariables = VariablesExtractor.extractUnique(firstArgument, context.getVariableAllocator().getTypes());
+        Set<VariableReferenceExpression> secondVariables = VariablesExtractor.extractUnique(secondArgument, context.getVariableAllocator().getTypes());
 
         if (firstVariables.isEmpty() || secondVariables.isEmpty()) {
             return Result.empty();
@@ -422,8 +422,8 @@ public class ExtractSpatialJoins
         Optional<VariableReferenceExpression> leftPartitionVariable = Optional.empty();
         Optional<VariableReferenceExpression> rightPartitionVariable = Optional.empty();
         if (kdbTree.isPresent()) {
-            leftPartitionVariable = Optional.of(context.getSymbolAllocator().newVariable("pid", INTEGER));
-            rightPartitionVariable = Optional.of(context.getSymbolAllocator().newVariable("pid", INTEGER));
+            leftPartitionVariable = Optional.of(context.getVariableAllocator().newVariable("pid", INTEGER));
+            rightPartitionVariable = Optional.of(context.getVariableAllocator().newVariable("pid", INTEGER));
 
             if (alignment > 0) {
                 newLeftNode = addPartitioningNodes(context, newLeftNode, leftPartitionVariable.get(), kdbTree.get(), newFirstArgument, Optional.empty());
@@ -452,7 +452,7 @@ public class ExtractSpatialJoins
 
     private static Type getExpressionType(Expression expression, Context context, Metadata metadata, SqlParser sqlParser)
     {
-        Type type = getExpressionTypes(context.getSession(), metadata, sqlParser, context.getSymbolAllocator().getTypes(), expression, emptyList(), WarningCollector.NOOP)
+        Type type = getExpressionTypes(context.getSession(), metadata, sqlParser, context.getVariableAllocator().getTypes(), expression, emptyList(), WarningCollector.NOOP)
                 .get(NodeRef.of(expression));
         verify(type != null);
         return type;
@@ -572,7 +572,7 @@ public class ExtractSpatialJoins
             return Optional.empty();
         }
 
-        return Optional.of(context.getSymbolAllocator().newVariable(expression, metadata.getType(GEOMETRY_TYPE_SIGNATURE)));
+        return Optional.of(context.getVariableAllocator().newVariable(expression, metadata.getType(GEOMETRY_TYPE_SIGNATURE)));
     }
 
     private static Optional<VariableReferenceExpression> newRadiusVariable(Context context, Expression expression)
@@ -581,7 +581,7 @@ public class ExtractSpatialJoins
             return Optional.empty();
         }
 
-        return Optional.of(context.getSymbolAllocator().newVariable(expression, DOUBLE));
+        return Optional.of(context.getVariableAllocator().newVariable(expression, DOUBLE));
     }
 
     private static PlanNode addProjection(Context context, PlanNode node, VariableReferenceExpression variable, Expression expression)
@@ -608,7 +608,7 @@ public class ExtractSpatialJoins
         radius.map(partitioningArguments::add);
 
         FunctionCall partitioningFunction = new FunctionCall(QualifiedName.of("spatial_partitions"), partitioningArguments.build());
-        VariableReferenceExpression partitionsVariable = context.getSymbolAllocator().newVariable(partitioningFunction, new ArrayType(INTEGER));
+        VariableReferenceExpression partitionsVariable = context.getVariableAllocator().newVariable(partitioningFunction, new ArrayType(INTEGER));
         projections.put(partitionsVariable, castToRowExpression(partitioningFunction));
 
         return new UnnestNode(

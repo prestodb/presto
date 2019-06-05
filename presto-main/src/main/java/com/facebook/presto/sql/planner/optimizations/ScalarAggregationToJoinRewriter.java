@@ -20,7 +20,7 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelator.DecorrelatedNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -58,19 +58,19 @@ import static java.util.Objects.requireNonNull;
 public class ScalarAggregationToJoinRewriter
 {
     private final FunctionResolution functionResolution;
-    private final SymbolAllocator symbolAllocator;
+    private final PlanVariableAllocator variableAllocator;
     private final PlanNodeIdAllocator idAllocator;
     private final Lookup lookup;
     private final PlanNodeDecorrelator planNodeDecorrelator;
 
-    public ScalarAggregationToJoinRewriter(FunctionManager functionManager, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
+    public ScalarAggregationToJoinRewriter(FunctionManager functionManager, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
     {
         requireNonNull(functionManager, "metadata is null");
         this.functionResolution = new FunctionResolution(functionManager);
-        this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+        this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.lookup = requireNonNull(lookup, "lookup is null");
-        this.planNodeDecorrelator = new PlanNodeDecorrelator(idAllocator, symbolAllocator, lookup);
+        this.planNodeDecorrelator = new PlanNodeDecorrelator(idAllocator, variableAllocator, lookup);
     }
 
     public PlanNode rewriteScalarAggregation(LateralJoinNode lateralJoinNode, AggregationNode aggregation)
@@ -81,7 +81,7 @@ public class ScalarAggregationToJoinRewriter
             return lateralJoinNode;
         }
 
-        VariableReferenceExpression nonNull = symbolAllocator.newVariable("non_null", BooleanType.BOOLEAN);
+        VariableReferenceExpression nonNull = variableAllocator.newVariable("non_null", BooleanType.BOOLEAN);
         Assignments scalarAggregationSourceAssignments = Assignments.builder()
                 .putAll(identitiesAsSymbolReferences(source.get().getNode().getOutputVariables()))
                 .put(nonNull, castToRowExpression(TRUE_LITERAL))
@@ -109,7 +109,7 @@ public class ScalarAggregationToJoinRewriter
         AssignUniqueId inputWithUniqueColumns = new AssignUniqueId(
                 idAllocator.getNextId(),
                 lateralJoinNode.getInput(),
-                symbolAllocator.newVariable("unique", BIGINT));
+                variableAllocator.newVariable("unique", BIGINT));
 
         JoinNode leftOuterJoin = new JoinNode(
                 idAllocator.getNextId(),

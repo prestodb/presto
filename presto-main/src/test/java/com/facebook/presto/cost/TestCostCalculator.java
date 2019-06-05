@@ -39,10 +39,10 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.optimizations.TranslateExpressions;
@@ -569,7 +569,7 @@ public class TestCostCalculator
     private PlanNode translateExpression(PlanNode node, StatsCalculator statsCalculator, TypeProvider typeProvider)
     {
         IterativeOptimizer optimizer = new IterativeOptimizer(new RuleStatsRecorder(), statsCalculator, costCalculatorUsingExchanges, new TranslateExpressions(metadata, new SqlParser()).rules());
-        return optimizer.optimize(node, session, typeProvider, new SymbolAllocator(typeProvider.allTypes()), new PlanNodeIdAllocator(), WarningCollector.NOOP);
+        return optimizer.optimize(node, session, typeProvider, new PlanVariableAllocator(typeProvider.allVariables()), new PlanNodeIdAllocator(), WarningCollector.NOOP);
     }
 
     private static class TestingCostProvider

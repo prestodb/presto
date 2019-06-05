@@ -158,7 +158,7 @@ public class GatherAndMergeWindows
                         .putAll(identitiesAsSymbolReferences(targetInputs))
                         .build();
 
-                if (!newTargetChildOutputs.containsAll(extractUnique(newAssignments, context.getSymbolAllocator().getTypes()))) {
+                if (!newTargetChildOutputs.containsAll(extractUnique(newAssignments, context.getVariableAllocator().getTypes()))) {
                     // Projection uses an output of the target -- can't move the target above this projection.
                     return Optional.empty();
                 }
@@ -193,7 +193,7 @@ public class GatherAndMergeWindows
         @Override
         protected Optional<PlanNode> manipulateAdjacentWindowNodes(WindowNode parent, WindowNode child, Context context)
         {
-            if (!child.getSpecification().equals(parent.getSpecification()) || dependsOn(parent, child, context.getSymbolAllocator().getTypes())) {
+            if (!child.getSpecification().equals(parent.getSpecification()) || dependsOn(parent, child, context.getVariableAllocator().getTypes())) {
                 return Optional.empty();
             }
 
@@ -227,7 +227,7 @@ public class GatherAndMergeWindows
         @Override
         protected Optional<PlanNode> manipulateAdjacentWindowNodes(WindowNode parent, WindowNode child, Context context)
         {
-            if ((compare(parent, child) < 0) && (!dependsOn(parent, child, context.getSymbolAllocator().getTypes()))) {
+            if ((compare(parent, child) < 0) && (!dependsOn(parent, child, context.getVariableAllocator().getTypes()))) {
                 PlanNode transposedWindows = transpose(parent, child);
                 return Optional.of(
                         restrictOutputs(context.getIdAllocator(), transposedWindows, ImmutableSet.copyOf(parent.getOutputVariables()))

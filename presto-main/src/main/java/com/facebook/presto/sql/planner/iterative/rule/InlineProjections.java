@@ -84,7 +84,7 @@ public class InlineProjections
                 .entrySet().stream()
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
-                        entry -> castToRowExpression(inlineReferences(castToExpression(entry.getValue()), assignments, context.getSymbolAllocator().getTypes()))));
+                        entry -> castToRowExpression(inlineReferences(castToExpression(entry.getValue()), assignments, context.getVariableAllocator().getTypes()))));
 
         // Synthesize identity assignments for the inputs of expressions that were inlined
         // to place in the child projection.
@@ -95,7 +95,7 @@ public class InlineProjections
                 .filter(entry -> targets.contains(entry.getKey()))
                 .map(Map.Entry::getValue)
                 .map(OriginalExpressionUtils::castToExpression)
-                .flatMap(entry -> VariablesExtractor.extractAll(entry, context.getSymbolAllocator().getTypes()).stream())
+                .flatMap(entry -> VariablesExtractor.extractAll(entry, context.getVariableAllocator().getTypes()).stream())
                 .collect(toSet());
 
         Builder childAssignments = Assignments.builder();
@@ -146,7 +146,7 @@ public class InlineProjections
                 .getExpressions()
                 .stream()
                 .map(OriginalExpressionUtils::castToExpression)
-                .flatMap(expression -> VariablesExtractor.extractAll(expression, context.getSymbolAllocator().getTypes()).stream())
+                .flatMap(expression -> VariablesExtractor.extractAll(expression, context.getVariableAllocator().getTypes()).stream())
                 .filter(childOutputSet::contains)
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
@@ -159,7 +159,7 @@ public class InlineProjections
         // change the semantics of those expressions
         Set<VariableReferenceExpression> tryArguments = parent.getAssignments()
                 .getExpressions().stream()
-                .flatMap(expression -> extractTryArguments(castToExpression(expression), context.getSymbolAllocator().getTypes()).stream())
+                .flatMap(expression -> extractTryArguments(castToExpression(expression), context.getVariableAllocator().getTypes()).stream())
                 .collect(toSet());
 
         Set<VariableReferenceExpression> singletons = dependencies.entrySet().stream()

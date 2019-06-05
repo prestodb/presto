@@ -102,7 +102,7 @@ import static java.util.Objects.requireNonNull;
 class QueryPlanner
 {
     private final Analysis analysis;
-    private final SymbolAllocator symbolAllocator;
+    private final PlanVariableAllocator variableAllocator;
     private final PlanNodeIdAllocator idAllocator;
     private final Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> lambdaDeclarationToVariableMap;
     private final Metadata metadata;
@@ -111,26 +111,26 @@ class QueryPlanner
 
     QueryPlanner(
             Analysis analysis,
-            SymbolAllocator symbolAllocator,
+            PlanVariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
             Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> lambdaDeclarationToVariableMap,
             Metadata metadata,
             Session session)
     {
         requireNonNull(analysis, "analysis is null");
-        requireNonNull(symbolAllocator, "symbolAllocator is null");
+        requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(lambdaDeclarationToVariableMap, "lambdaDeclarationToVariableMap is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(session, "session is null");
 
         this.analysis = analysis;
-        this.symbolAllocator = symbolAllocator;
+        this.variableAllocator = variableAllocator;
         this.idAllocator = idAllocator;
         this.lambdaDeclarationToVariableMap = lambdaDeclarationToVariableMap;
         this.metadata = metadata;
         this.session = session;
-        this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session);
+        this.subqueryPlanner = new SubqueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session);
     }
 
     public RelationPlan plan(Query query)
@@ -209,7 +209,7 @@ class QueryPlanner
         ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> columns = ImmutableMap.builder();
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (Field field : descriptor.getAllFields()) {
-            VariableReferenceExpression variable = symbolAllocator.newVariable(field.getName().get(), field.getType());
+            VariableReferenceExpression variable = variableAllocator.newVariable(field.getName().get(), field.getType());
             outputVariablesBuilder.add(variable);
             columns.put(variable, analysis.getColumn(field));
             fields.add(field);
@@ -217,7 +217,7 @@ class QueryPlanner
 
         // add rowId column
         Field rowIdField = Field.newUnqualified(Optional.empty(), rowIdType);
-        VariableReferenceExpression rowIdVariable = symbolAllocator.newVariable("$rowId", rowIdField.getType());
+        VariableReferenceExpression rowIdVariable = variableAllocator.newVariable("$rowId", rowIdField.getType());
         outputVariablesBuilder.add(rowIdVariable);
         columns.put(rowIdVariable, rowIdHandle);
         fields.add(rowIdField);
@@ -241,8 +241,8 @@ class QueryPlanner
         // create delete node
         VariableReferenceExpression rowId = new VariableReferenceExpression(builder.translate(new FieldReference(relationPlan.getDescriptor().indexOf(rowIdField))).getName(), rowIdField.getType());
         List<VariableReferenceExpression> deleteNodeOutputVariables = ImmutableList.of(
-                symbolAllocator.newVariable("partialrows", BIGINT),
-                symbolAllocator.newVariable("fragment", VARBINARY));
+                variableAllocator.newVariable("partialrows", BIGINT),
+                variableAllocator.newVariable("fragment", VARBINARY));
 
         List<Symbol> deleteNodeOutputSymbols = deleteNodeOutputVariables.stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableList());
         return new DeleteNode(idAllocator.getNextId(), builder.getRoot(), new DeleteHandle(handle, metadata.getTableMetadata(session, handle).getTable()), rowId, deleteNodeOutputVariables);
@@ -259,7 +259,7 @@ class QueryPlanner
 
     private PlanBuilder planQueryBody(Query query)
     {
-        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session)
+        RelationPlan relationPlan = new RelationPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session)
                 .process(query.getQueryBody(), null);
 
         return planBuilderFor(relationPlan);
@@ -270,7 +270,7 @@ class QueryPlanner
         RelationPlan relationPlan;
 
         if (node.getFrom().isPresent()) {
-            relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session)
+            relationPlan = new RelationPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session)
                     .process(node.getFrom().get(), null);
         }
         else {
@@ -340,13 +340,13 @@ class QueryPlanner
         Assignments.Builder projections = Assignments.builder();
         for (Expression expression : expressions) {
             if (expression instanceof SymbolReference) {
-                VariableReferenceExpression variable = symbolAllocator.toVariableReference(Symbol.from(expression));
+                VariableReferenceExpression variable = variableAllocator.toVariableReference(Symbol.from(expression));
                 projections.put(variable, castToRowExpression(expression));
                 outputTranslations.put(expression, variable);
                 continue;
             }
 
-            VariableReferenceExpression variable = symbolAllocator.newVariable(expression, analysis.getTypeWithCoercions(expression));
+            VariableReferenceExpression variable = variableAllocator.newVariable(expression, analysis.getTypeWithCoercions(expression));
             projections.put(variable, castToRowExpression(subPlan.rewrite(expression)));
             outputTranslations.put(expression, variable);
         }
@@ -365,7 +365,7 @@ class QueryPlanner
         for (Expression expression : expressions) {
             Type type = analysis.getType(expression);
             Type coercion = analysis.getCoercion(expression);
-            VariableReferenceExpression variable = symbolAllocator.newVariable(expression, firstNonNull(coercion, type));
+            VariableReferenceExpression variable = variableAllocator.newVariable(expression, firstNonNull(coercion, type));
             Expression rewritten = subPlan.rewrite(expression);
             if (coercion != null) {
                 rewritten = new Cast(
@@ -393,11 +393,11 @@ class QueryPlanner
                 // If this is an identity projection, no need to rewrite it
                 // This is needed because certain synthetic identity expressions such as "group id" introduced when planning GROUPING
                 // don't have a corresponding analysis, so the code below doesn't work for them
-                projections.put(symbolAllocator.toVariableReference(Symbol.from(expression)), castToRowExpression(expression));
+                projections.put(variableAllocator.toVariableReference(Symbol.from(expression)), castToRowExpression(expression));
                 continue;
             }
 
-            VariableReferenceExpression variable = symbolAllocator.newVariable(expression, analysis.getType(expression));
+            VariableReferenceExpression variable = variableAllocator.newVariable(expression, analysis.getType(expression));
             Expression rewritten = subPlan.rewrite(expression);
             projections.put(variable, castToRowExpression(rewritten));
             translations.put(expression, variable);
@@ -484,7 +484,7 @@ class QueryPlanner
 
         for (Expression expression : groupByExpressions) {
             VariableReferenceExpression input = subPlan.translate(expression);
-            VariableReferenceExpression output = symbolAllocator.newVariable(expression, analysis.getTypeWithCoercions(expression), "gid");
+            VariableReferenceExpression output = variableAllocator.newVariable(expression, analysis.getTypeWithCoercions(expression), "gid");
             groupingTranslations.put(expression, output);
             groupingSetMappings.put(output, input);
         }
@@ -532,7 +532,7 @@ class QueryPlanner
         // 2.c. Generate GroupIdNode (multiple grouping sets) or ProjectNode (single grouping set)
         Optional<VariableReferenceExpression> groupIdVariable = Optional.empty();
         if (groupingSets.size() > 1) {
-            groupIdVariable = Optional.of(symbolAllocator.newVariable("groupId", BIGINT));
+            groupIdVariable = Optional.of(variableAllocator.newVariable("groupId", BIGINT));
             GroupIdNode groupId = new GroupIdNode(idAllocator.getNextId(), subPlan.getRoot(), groupingSets, groupingSetMappings, aggregationArguments, groupIdVariable.get());
             subPlan = new PlanBuilder(groupingTranslations, groupId, analysis.getParameters());
         }
@@ -553,7 +553,7 @@ class QueryPlanner
         boolean needPostProjectionCoercion = false;
         for (FunctionCall aggregate : analysis.getAggregates(node)) {
             Expression rewritten = argumentTranslations.rewrite(aggregate);
-            VariableReferenceExpression newVariable = symbolAllocator.newVariable(rewritten, analysis.getType(aggregate));
+            VariableReferenceExpression newVariable = variableAllocator.newVariable(rewritten, analysis.getType(aggregate));
 
             // TODO: this is a hack, because we apply coercions to the output of expressions, rather than the arguments to expressions.
             // Therefore we can end up with this implicit cast, and have to move it into a post-projection
@@ -572,7 +572,7 @@ class QueryPlanner
                                     analysis.getType(aggregate),
                                     rewrittenFunction.getArguments().stream().map(OriginalExpressionUtils::castToRowExpression).collect(toImmutableList())),
                             rewrittenFunction.getFilter().map(OriginalExpressionUtils::castToRowExpression),
-                            rewrittenFunction.getOrderBy().map(orderBy -> toOrderingScheme(orderBy, symbolAllocator.getTypes())),
+                            rewrittenFunction.getOrderBy().map(orderBy -> toOrderingScheme(orderBy, variableAllocator.getTypes())),
                             rewrittenFunction.isDistinct(),
                             Optional.empty()));
         }
@@ -689,7 +689,7 @@ class QueryPlanner
         for (GroupingOperation groupingOperation : analysis.getGroupingOperations(node)) {
             Expression rewritten = GroupingOperationRewriter.rewriteGroupingOperation(groupingOperation, descriptor, analysis.getColumnReferenceFields(), groupIdVariable);
             Type coercion = analysis.getCoercion(groupingOperation);
-            VariableReferenceExpression variable = symbolAllocator.newVariable(rewritten, analysis.getTypeWithCoercions(groupingOperation));
+            VariableReferenceExpression variable = variableAllocator.newVariable(rewritten, analysis.getTypeWithCoercions(groupingOperation));
             if (coercion != null) {
                 rewritten = new Cast(
                         rewritten,
@@ -756,7 +756,7 @@ class QueryPlanner
                 inputs.add(frameEnd);
             }
 
-            subPlan = subPlan.appendProjections(inputs.build(), symbolAllocator, idAllocator);
+            subPlan = subPlan.appendProjections(inputs.build(), variableAllocator, idAllocator);
 
             // Rewrite PARTITION BY in terms of pre-projected inputs
             ImmutableList.Builder<VariableReferenceExpression> partitionByVariables = ImmutableList.builder();
@@ -812,7 +812,7 @@ class QueryPlanner
             }
 
             Type returnType = analysis.getType(windowFunction);
-            VariableReferenceExpression newVariable = symbolAllocator.newVariable(rewritten, returnType);
+            VariableReferenceExpression newVariable = variableAllocator.newVariable(rewritten, returnType);
             outputTranslations.put(windowFunction, newVariable);
 
             // TODO: replace arguments with RowExpression once we introduce subquery expression for RowExpression (#12745).

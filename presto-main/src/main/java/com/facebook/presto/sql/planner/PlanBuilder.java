@@ -98,7 +98,7 @@ class PlanBuilder
         return translations;
     }
 
-    public PlanBuilder appendProjections(Iterable<Expression> expressions, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanBuilder appendProjections(Iterable<Expression> expressions, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator)
     {
         TranslationMap translations = copyTranslations();
 
@@ -111,7 +111,7 @@ class PlanBuilder
 
         ImmutableMap.Builder<VariableReferenceExpression, Expression> newTranslations = ImmutableMap.builder();
         for (Expression expression : expressions) {
-            VariableReferenceExpression variable = symbolAllocator.newVariable(expression, getAnalysis().getTypeWithCoercions(expression));
+            VariableReferenceExpression variable = variableAllocator.newVariable(expression, getAnalysis().getTypeWithCoercions(expression));
             projections.put(variable, castToRowExpression(translations.rewrite(expression)));
             newTranslations.put(variable, expression);
         }

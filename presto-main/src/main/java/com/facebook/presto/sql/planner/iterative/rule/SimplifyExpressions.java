@@ -21,7 +21,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
-import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
@@ -42,7 +42,7 @@ public class SimplifyExpressions
         extends ExpressionRewriteRuleSet
 {
     @VisibleForTesting
-    static Expression rewrite(Expression expression, Session session, SymbolAllocator symbolAllocator, Metadata metadata, LiteralEncoder literalEncoder, SqlParser sqlParser)
+    static Expression rewrite(Expression expression, Session session, PlanVariableAllocator variableAllocator, Metadata metadata, LiteralEncoder literalEncoder, SqlParser sqlParser)
     {
         requireNonNull(metadata, "metadata is null");
         requireNonNull(sqlParser, "sqlParser is null");
@@ -51,7 +51,7 @@ public class SimplifyExpressions
         }
         expression = pushDownNegations(expression);
         expression = extractCommonPredicates(expression);
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), expression, emptyList(), WarningCollector.NOOP);
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, variableAllocator.getTypes(), expression, emptyList(), WarningCollector.NOOP);
         ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
         return literalEncoder.toExpression(interpreter.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)));
     }
@@ -77,6 +77,6 @@ public class SimplifyExpressions
         requireNonNull(sqlParser, "sqlParser is null");
         LiteralEncoder literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
 
-        return (expression, context) -> rewrite(expression, context.getSession(), context.getSymbolAllocator(), metadata, literalEncoder, sqlParser);
+        return (expression, context) -> rewrite(expression, context.getSession(), context.getVariableAllocator(), metadata, literalEncoder, sqlParser);
     }
 }

@@ -93,7 +93,7 @@ public class RewriteSpatialPartitioningAggregation
     public Result apply(AggregationNode node, Captures captures, Context context)
     {
         ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregations = ImmutableMap.builder();
-        VariableReferenceExpression partitionCountVariable = context.getSymbolAllocator().newVariable("partition_count", INTEGER);
+        VariableReferenceExpression partitionCountVariable = context.getVariableAllocator().newVariable("partition_count", INTEGER);
         ImmutableMap.Builder<VariableReferenceExpression, RowExpression> envelopeAssignments = ImmutableMap.builder();
         for (Map.Entry<VariableReferenceExpression, Aggregation> entry : node.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
@@ -101,7 +101,7 @@ public class RewriteSpatialPartitioningAggregation
             Type geometryType = metadata.getType(GEOMETRY_TYPE_SIGNATURE);
             if (name.equals(NAME) && aggregation.getArguments().size() == 1) {
                 RowExpression geometry = getOnlyElement(aggregation.getArguments());
-                VariableReferenceExpression envelopeVariable = context.getSymbolAllocator().newVariable("envelope", geometryType);
+                VariableReferenceExpression envelopeVariable = context.getVariableAllocator().newVariable("envelope", geometryType);
                 if (isFunctionNameMatch(geometry, "ST_Envelope")) {
                     envelopeAssignments.put(envelopeVariable, geometry);
                 }

@@ -344,7 +344,7 @@ public class TranslateExpressions
             boolean changed = false;
             ImmutableMap.Builder<VariableReferenceExpression, AggregationNode.Aggregation> rewrittenAggregation = builder();
             for (Map.Entry<VariableReferenceExpression, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
-                AggregationNode.Aggregation rewritten = translateAggregation(entry.getValue(), context.getSession(), context.getSymbolAllocator().getTypes());
+                AggregationNode.Aggregation rewritten = translateAggregation(entry.getValue(), context.getSession(), context.getVariableAllocator().getTypes());
                 rewrittenAggregation.put(entry.getKey(), rewritten);
                 if (!rewritten.equals(entry.getValue())) {
                     changed = true;
@@ -443,7 +443,7 @@ public class TranslateExpressions
         ImmutableMap.Builder<VariableReferenceExpression, AggregationNode.Aggregation> rewrittenAggregation = builder();
         boolean changed = false;
         for (Map.Entry<VariableReferenceExpression, AggregationNode.Aggregation> entry : statisticAggregations.getAggregations().entrySet()) {
-            AggregationNode.Aggregation rewritten = translateAggregation(entry.getValue(), context.getSession(), context.getSymbolAllocator().getTypes());
+            AggregationNode.Aggregation rewritten = translateAggregation(entry.getValue(), context.getSession(), context.getVariableAllocator().getTypes());
             rewrittenAggregation.put(entry.getKey(), rewritten);
             if (!rewritten.equals(entry.getValue())) {
                 changed = true;
@@ -566,7 +566,7 @@ public class TranslateExpressions
             return toRowExpression(
                     castToExpression(expression),
                     context.getSession(),
-                    analyze(castToExpression(expression), context.getSession(), context.getSymbolAllocator().getTypes()));
+                    analyze(castToExpression(expression), context.getSession(), context.getVariableAllocator().getTypes()));
         }
         return expression;
     }
@@ -594,7 +594,7 @@ public class TranslateExpressions
                 rewritten = toRowExpression(
                         castToExpression(expression),
                         context.getSession(),
-                        analyze(castToExpression(expression), context.getSession(), context.getSymbolAllocator().getTypes()));
+                        analyze(castToExpression(expression), context.getSession(), context.getVariableAllocator().getTypes()));
                 anyRewritten = true;
             }
             else {
@@ -605,7 +605,6 @@ public class TranslateExpressions
         if (!anyRewritten) {
             return Optional.empty();
         }
-
         return Optional.of(builder.build());
     }
 }

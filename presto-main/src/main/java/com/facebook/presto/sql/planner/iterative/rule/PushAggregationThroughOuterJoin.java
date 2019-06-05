@@ -25,10 +25,9 @@ import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.ExpressionVariableInliner;
 import com.facebook.presto.sql.planner.OrderingScheme;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -51,6 +50,7 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.shouldPushAggregationThroughJoin;
 import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.sql.planner.ExpressionVariableInliner.inlineVariables;
 import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
 import static com.facebook.presto.sql.planner.optimizations.DistinctOutputQueryUtil.isDistinct;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggregation;
@@ -187,7 +187,7 @@ public class PushAggregationThroughOuterJoin
                     join.getDistributionType());
         }
 
-        Optional<PlanNode> resultNode = coalesceWithNullAggregation(rewrittenAggregation, rewrittenJoin, context.getSymbolAllocator(), context.getIdAllocator(), context.getLookup());
+        Optional<PlanNode> resultNode = coalesceWithNullAggregation(rewrittenAggregation, rewrittenJoin, context.getVariableAllocator(), context.getIdAllocator(), context.getLookup());
         if (!resultNode.isPresent()) {
             return Result.empty();
         }
@@ -231,12 +231,12 @@ public class PushAggregationThroughOuterJoin
     // of an aggregation over a single null row is one or zero rather than null. In order to ensure correct results,
     // we add a coalesce function with the output of the new outer join and the agggregation performed over a single
     // null row.
-    private Optional<PlanNode> coalesceWithNullAggregation(AggregationNode aggregationNode, PlanNode outerJoin, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
+    private Optional<PlanNode> coalesceWithNullAggregation(AggregationNode aggregationNode, PlanNode outerJoin, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
     {
         // Create an aggregation node over a row of nulls.
         Optional<MappedAggregationInfo> aggregationOverNullInfoResultNode = createAggregationOverNull(
                 aggregationNode,
-                symbolAllocator,
+                variableAllocator,
                 idAllocator,
                 lookup);
 
@@ -281,19 +281,19 @@ public class PushAggregationThroughOuterJoin
         return Optional.of(new ProjectNode(idAllocator.getNextId(), crossJoin, assignmentsBuilder.build()));
     }
 
-    private Optional<MappedAggregationInfo> createAggregationOverNull(AggregationNode referenceAggregation, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
+    private Optional<MappedAggregationInfo> createAggregationOverNull(AggregationNode referenceAggregation, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
     {
         // Create a values node that consists of a single row of nulls.
         // Map the output symbols from the referenceAggregation's source
         // to symbol references for the new values node.
         NullLiteral nullLiteral = new NullLiteral();
-        TypeProvider types = symbolAllocator.getTypes();
+        TypeProvider types = variableAllocator.getTypes();
         ImmutableList.Builder<VariableReferenceExpression> nullVariables = ImmutableList.builder();
         ImmutableList.Builder<RowExpression> nullLiterals = ImmutableList.builder();
         ImmutableMap.Builder<VariableReferenceExpression, SymbolReference> sourcesVariableMappingBuilder = ImmutableMap.builder();
         for (VariableReferenceExpression sourceVariable : referenceAggregation.getSource().getOutputVariables()) {
             nullLiterals.add(castToRowExpression(nullLiteral));
-            VariableReferenceExpression nullVariable = symbolAllocator.newVariable(nullLiteral, sourceVariable.getType());
+            VariableReferenceExpression nullVariable = variableAllocator.newVariable(nullLiteral, sourceVariable.getType());
             nullVariables.add(nullVariable);
             // TODO The type should be from sourceVariable.getType
             sourcesVariableMappingBuilder.put(sourceVariable, new SymbolReference(nullVariable.getName()));
@@ -324,14 +324,14 @@ public class PushAggregationThroughOuterJoin
                             aggregation.getCall().getType(),
                             aggregation.getArguments()
                                     .stream()
-                                    .map(argument -> castToRowExpression(ExpressionVariableInliner.inlineVariables(sourcesVariableMapping, castToExpression(argument), types)))
+                                    .map(argument -> castToRowExpression(inlineVariables(sourcesVariableMapping, castToExpression(argument), types)))
                                     .collect(toImmutableList())),
-                    aggregation.getFilter().map(filter -> castToRowExpression(ExpressionVariableInliner.inlineVariables(sourcesVariableMapping, castToExpression(filter), types))),
+                    aggregation.getFilter().map(filter -> castToRowExpression(inlineVariables(sourcesVariableMapping, castToExpression(filter), types))),
                     aggregation.getOrderBy().map(orderBy -> inlineOrderByVariables(sourcesVariableMapping, orderBy)),
                     aggregation.isDistinct(),
                     aggregation.getMask().map(x -> new VariableReferenceExpression(sourcesVariableMapping.get(x).getName(), x.getType())));
             String functionName = functionManager.getFunctionMetadata(overNullAggregation.getFunctionHandle()).getName();
-            VariableReferenceExpression overNull = symbolAllocator.newVariable(functionName, aggregationVariable.getType());
+            VariableReferenceExpression overNull = variableAllocator.newVariable(functionName, aggregationVariable.getType());
             aggregationsOverNullBuilder.put(overNull, overNullAggregation);
             aggregationsVariableMappingBuilder.put(aggregationVariable, overNull);
         }

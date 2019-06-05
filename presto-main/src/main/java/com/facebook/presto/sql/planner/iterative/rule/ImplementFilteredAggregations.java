@@ -97,7 +97,7 @@ public class ImplementFilteredAggregations
             if (entry.getValue().getFilter().isPresent()) {
                 // TODO remove cast once assignment can be RowExpression
                 Expression filter = OriginalExpressionUtils.castToExpression(entry.getValue().getFilter().get());
-                VariableReferenceExpression variable = context.getSymbolAllocator().newVariable(filter, BOOLEAN);
+                VariableReferenceExpression variable = context.getVariableAllocator().newVariable(filter, BOOLEAN);
                 verify(!mask.isPresent(), "Expected aggregation without mask symbols, see Rule pattern");
                 newAssignments.put(variable, castToRowExpression(filter));
                 mask = Optional.of(variable);

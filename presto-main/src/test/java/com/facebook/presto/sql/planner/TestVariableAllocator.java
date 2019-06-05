@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BigintType;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
@@ -21,19 +22,19 @@ import java.util.Set;
 
 import static org.testng.Assert.assertEquals;
 
-public class TestSymbolAllocator
+public class TestVariableAllocator
 {
     @Test
     public void testUnique()
     {
-        SymbolAllocator allocator = new SymbolAllocator();
-        Set<Symbol> symbols = ImmutableSet.<Symbol>builder()
-                .add(allocator.newSymbol("foo_1_0", BigintType.BIGINT))
-                .add(allocator.newSymbol("foo", BigintType.BIGINT))
-                .add(allocator.newSymbol("foo", BigintType.BIGINT))
-                .add(allocator.newSymbol("foo", BigintType.BIGINT))
+        PlanVariableAllocator allocator = new PlanVariableAllocator();
+        Set<VariableReferenceExpression> variables = ImmutableSet.<VariableReferenceExpression>builder()
+                .add(allocator.newVariable("foo_1_0", BigintType.BIGINT))
+                .add(allocator.newVariable("foo", BigintType.BIGINT))
+                .add(allocator.newVariable("foo", BigintType.BIGINT))
+                .add(allocator.newVariable("foo", BigintType.BIGINT))
                 .build();
 
-        assertEquals(symbols.size(), 4);
+        assertEquals(variables.size(), 4);
     }
 }

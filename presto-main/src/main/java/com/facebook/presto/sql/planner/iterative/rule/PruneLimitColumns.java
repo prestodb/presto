@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 
 import java.util.Optional;
@@ -34,7 +34,7 @@ public class PruneLimitColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, LimitNode limitNode, Set<VariableReferenceExpression> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, LimitNode limitNode, Set<VariableReferenceExpression> referencedOutputs)
     {
         return restrictChildOutputs(idAllocator, limitNode, referencedOutputs);
     }

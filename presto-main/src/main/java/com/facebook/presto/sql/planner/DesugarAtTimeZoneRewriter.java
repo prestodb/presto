@@ -45,7 +45,7 @@ public class DesugarAtTimeZoneRewriter
 
     private DesugarAtTimeZoneRewriter() {}
 
-    public static Expression rewrite(Expression expression, Session session, Metadata metadata, SqlParser sqlParser, SymbolAllocator symbolAllocator)
+    public static Expression rewrite(Expression expression, Session session, Metadata metadata, SqlParser sqlParser, PlanVariableAllocator variableAllocator)
     {
         requireNonNull(metadata, "metadata is null");
         requireNonNull(sqlParser, "sqlParser is null");
@@ -53,7 +53,7 @@ public class DesugarAtTimeZoneRewriter
         if (expression instanceof SymbolReference) {
             return expression;
         }
-        return new AnalyzedExpressionRewriter(session, metadata, sqlParser, symbolAllocator.getTypes()).rewriteWith(Visitor::new, expression);
+        return new AnalyzedExpressionRewriter(session, metadata, sqlParser, variableAllocator.getTypes()).rewriteWith(Visitor::new, expression);
     }
 
     private static class Visitor

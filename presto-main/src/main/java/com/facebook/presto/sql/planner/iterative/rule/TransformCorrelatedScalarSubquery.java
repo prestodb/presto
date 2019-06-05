@@ -116,7 +116,7 @@ public class TransformCorrelatedScalarSubquery
                     lateralJoinNode.getOriginSubqueryError()));
         }
 
-        VariableReferenceExpression unique = context.getSymbolAllocator().newVariable("unique", BIGINT);
+        VariableReferenceExpression unique = context.getVariableAllocator().newVariable("unique", BIGINT);
 
         LateralJoinNode rewrittenLateralJoinNode = new LateralJoinNode(
                 context.getIdAllocator().getNextId(),
@@ -129,7 +129,7 @@ public class TransformCorrelatedScalarSubquery
                 lateralJoinNode.getType(),
                 lateralJoinNode.getOriginSubqueryError());
 
-        VariableReferenceExpression isDistinct = context.getSymbolAllocator().newVariable("is_distinct", BooleanType.BOOLEAN);
+        VariableReferenceExpression isDistinct = context.getVariableAllocator().newVariable("is_distinct", BooleanType.BOOLEAN);
         MarkDistinctNode markDistinctNode = new MarkDistinctNode(
                 context.getIdAllocator().getNextId(),
                 rewrittenLateralJoinNode,

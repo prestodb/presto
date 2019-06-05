@@ -26,8 +26,8 @@ import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -89,9 +89,9 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        return rewriteWith(new Rewriter(functionResolution, idAllocator, symbolAllocator), plan, null);
+        return rewriteWith(new Rewriter(functionResolution, idAllocator, variableAllocator), plan, null);
     }
 
     private static class Rewriter
@@ -99,13 +99,13 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
     {
         private final StandardFunctionResolution functionResolution;
         private final PlanNodeIdAllocator idAllocator;
-        private final SymbolAllocator symbolAllocator;
+        private final PlanVariableAllocator variableAllocator;
 
-        public Rewriter(StandardFunctionResolution functionResolution, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
+        public Rewriter(StandardFunctionResolution functionResolution, PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator)
         {
             this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
-            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+            this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         }
 
         @Override
@@ -133,10 +133,10 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
             Type outputColumnType = outputColumn.getType();
             checkState(outputColumnType.isOrderable(), "Subquery result type must be orderable");
 
-            VariableReferenceExpression minValue = symbolAllocator.newVariable("min", outputColumnType);
-            VariableReferenceExpression maxValue = symbolAllocator.newVariable("max", outputColumnType);
-            VariableReferenceExpression countAllValue = symbolAllocator.newVariable("count_all", BigintType.BIGINT);
-            VariableReferenceExpression countNonNullValue = symbolAllocator.newVariable("count_non_null", BigintType.BIGINT);
+            VariableReferenceExpression minValue = variableAllocator.newVariable("min", outputColumnType);
+            VariableReferenceExpression maxValue = variableAllocator.newVariable("max", outputColumnType);
+            VariableReferenceExpression countAllValue = variableAllocator.newVariable("count_all", BigintType.BIGINT);
+            VariableReferenceExpression countNonNullValue = variableAllocator.newVariable("count_non_null", BigintType.BIGINT);
 
             List<RowExpression> outputColumnReferences = ImmutableList.of(castToRowExpression(new SymbolReference(outputColumn.getName())));
 

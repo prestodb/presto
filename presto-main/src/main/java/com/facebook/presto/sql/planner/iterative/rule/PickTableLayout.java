@@ -159,7 +159,7 @@ public class PickTableLayout
                     castToExpression(filterNode.getPredicate()),
                     false,
                     context.getSession(),
-                    context.getSymbolAllocator().getTypes(),
+                    context.getVariableAllocator().getTypes(),
                     context.getIdAllocator(),
                     metadata,
                     parser,

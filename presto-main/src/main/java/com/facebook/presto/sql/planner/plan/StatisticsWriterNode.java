@@ -22,10 +22,12 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.List;
+import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
@@ -117,7 +119,8 @@ public class StatisticsWriterNode
 
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "@type")
     @JsonSubTypes({
-            @JsonSubTypes.Type(value = WriteStatisticsHandle.class, name = "WriteStatisticsHandle")})
+            @JsonSubTypes.Type(value = WriteStatisticsHandle.class, name = "WriteStatisticsHandle"),
+            @JsonSubTypes.Type(value = TestWriteStatisticsHandle.class, name = "TestWriteStatisticsHandle")})
     @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
     public abstract static class WriteStatisticsTarget
     {
@@ -169,6 +172,36 @@ public class StatisticsWriterNode
         public String toString()
         {
             return handle.toString();
+        }
+    }
+
+    // only used for testing
+    @VisibleForTesting
+    public static class TestWriteStatisticsHandle
+            extends WriteStatisticsTarget
+    {
+        @Override
+        public String toString()
+        {
+            return "test";
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            return true;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hashCode("test");
         }
     }
 }

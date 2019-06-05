@@ -35,8 +35,8 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.MatchResult;
 import com.facebook.presto.sql.planner.assertions.Matcher;
@@ -286,7 +286,7 @@ public class TestConnectorOptimization
     private static PlanNode optimize(PlanNode plan, Map<ConnectorId, Set<ConnectorPlanOptimizer>> optimizers)
     {
         ApplyConnectorOptimization optimizer = new ApplyConnectorOptimization(() -> optimizers);
-        return optimizer.optimize(plan, TEST_SESSION, TypeProvider.empty(), new SymbolAllocator(), new PlanNodeIdAllocator(), WarningCollector.NOOP);
+        return optimizer.optimize(plan, TEST_SESSION, TypeProvider.empty(), new PlanVariableAllocator(), new PlanNodeIdAllocator(), WarningCollector.NOOP);
     }
 
     private static ConnectorPlanOptimizer filterPushdown()

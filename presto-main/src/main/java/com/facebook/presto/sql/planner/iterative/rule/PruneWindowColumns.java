@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.optimizations.WindowNodeUtil;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableSet;
@@ -38,7 +38,7 @@ public class PruneWindowColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, WindowNode windowNode, Set<VariableReferenceExpression> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, WindowNode windowNode, Set<VariableReferenceExpression> referencedOutputs)
     {
         Map<VariableReferenceExpression, WindowNode.Function> referencedFunctions = Maps.filterKeys(windowNode.getWindowFunctions(), referencedOutputs::contains);
 
@@ -59,7 +59,7 @@ public class PruneWindowColumns
         windowNode.getHashVariable().ifPresent(referencedInputs::add);
 
         for (WindowNode.Function windowFunction : referencedFunctions.values()) {
-            referencedInputs.addAll(WindowNodeUtil.extractWindowFunctionUniqueVariables(windowFunction, symbolAllocator.getTypes()));
+            referencedInputs.addAll(WindowNodeUtil.extractWindowFunctionUniqueVariables(windowFunction, variableAllocator.getTypes()));
             windowFunction.getFrame().getStartValue().ifPresent(referencedInputs::add);
             windowFunction.getFrame().getEndValue().ifPresent(referencedInputs::add);
         }

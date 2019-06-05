@@ -100,7 +100,7 @@ public class PushTableWriteThroughUnion
                 outputMappings.put(outputVariable, inputMappings.get(outputVariable));
             }
             else {
-                VariableReferenceExpression newVariable = context.getSymbolAllocator().newVariable(outputVariable);
+                VariableReferenceExpression newVariable = context.getVariableAllocator().newVariable(outputVariable);
                 outputMappings.put(outputVariable, newVariable);
                 mappings.put(outputVariable, newVariable);
             }

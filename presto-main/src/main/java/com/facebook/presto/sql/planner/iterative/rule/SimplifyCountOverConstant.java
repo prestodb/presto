@@ -82,7 +82,7 @@ public class SimplifyCountOverConstant
             VariableReferenceExpression variable = entry.getKey();
             AggregationNode.Aggregation aggregation = entry.getValue();
 
-            if (isCountOverConstant(aggregation, child.getAssignments(), context.getSymbolAllocator().getTypes())) {
+            if (isCountOverConstant(aggregation, child.getAssignments(), context.getVariableAllocator().getTypes())) {
                 changed = true;
                 aggregations.put(variable, new AggregationNode.Aggregation(
                         new CallExpression(

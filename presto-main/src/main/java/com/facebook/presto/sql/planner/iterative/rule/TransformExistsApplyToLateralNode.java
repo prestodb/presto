@@ -121,7 +121,7 @@ public class TransformExistsApplyToLateralNode
         checkState(applyNode.getSubquery().getOutputVariables().isEmpty(), "Expected subquery output variables to be pruned");
 
         VariableReferenceExpression exists = getOnlyElement(applyNode.getSubqueryAssignments().getVariables());
-        VariableReferenceExpression subqueryTrue = context.getSymbolAllocator().newVariable("subqueryTrue", BOOLEAN);
+        VariableReferenceExpression subqueryTrue = context.getVariableAllocator().newVariable("subqueryTrue", BOOLEAN);
 
         Assignments.Builder assignments = Assignments.builder();
         assignments.putAll(identitiesAsSymbolReferences(applyNode.getInput().getOutputVariables()));
@@ -136,7 +136,7 @@ public class TransformExistsApplyToLateralNode
                         false),
                 Assignments.of(subqueryTrue, castToRowExpression(TRUE_LITERAL)));
 
-        PlanNodeDecorrelator decorrelator = new PlanNodeDecorrelator(context.getIdAllocator(), context.getSymbolAllocator(), context.getLookup());
+        PlanNodeDecorrelator decorrelator = new PlanNodeDecorrelator(context.getIdAllocator(), context.getVariableAllocator(), context.getLookup());
         if (!decorrelator.decorrelateFilters(subquery, applyNode.getCorrelation()).isPresent()) {
             return Optional.empty();
         }
@@ -154,7 +154,7 @@ public class TransformExistsApplyToLateralNode
 
     private PlanNode rewriteToDefaultAggregation(ApplyNode parent, Context context)
     {
-        VariableReferenceExpression count = context.getSymbolAllocator().newVariable("count", BIGINT);
+        VariableReferenceExpression count = context.getVariableAllocator().newVariable("count", BIGINT);
         VariableReferenceExpression exists = getOnlyElement(parent.getSubqueryAssignments().getVariables());
 
         return new LateralJoinNode(

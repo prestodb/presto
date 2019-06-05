@@ -129,7 +129,7 @@ public class DetermineSemiJoinDistributionType
 
     private PlanNodeWithCost getSemiJoinNodeWithCost(SemiJoinNode possibleJoinNode, Context context)
     {
-        TypeProvider types = context.getSymbolAllocator().getTypes();
+        TypeProvider types = context.getVariableAllocator().getTypes();
         StatsProvider stats = context.getStatsProvider();
         boolean replicated = possibleJoinNode.getDistributionType().get().equals(REPLICATED);
         /*
