@@ -60,13 +60,13 @@ public class ElasticsearchSplitManager
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         for (String index : indices) {
             ClusterHealthResponse healthResponse = client.getHealthResponse(index, table);
-            int activeShards = healthResponse.getActiveShards();
-            IntStream.range(0, activeShards).forEachOrdered(nodeIndex -> {
+            int shards = healthResponse.getIndices().get(index).getNumberOfShards();
+            IntStream.range(0, shards).forEachOrdered(nodeIndex -> {
                 ElasticsearchSplit split = new ElasticsearchSplit(
                         index,
                         table.getType(),
                         nodeIndex,
-                        activeShards,
+                        shards,
                         table.getHost(),
                         table.getPort(),
                         layoutHandle.getTupleDomain());

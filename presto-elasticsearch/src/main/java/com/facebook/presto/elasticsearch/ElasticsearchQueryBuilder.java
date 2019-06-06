@@ -67,7 +67,7 @@ public class ElasticsearchQueryBuilder
     private final int scrollSize;
     private final RestHighLevelClient client;
     private final int shard;
-    private final int activeShards;
+    private final int shards;
     private final TupleDomain<ColumnHandle> tupleDomain;
     private final List<ElasticsearchColumnHandle> columns;
     private final String index;
@@ -83,7 +83,7 @@ public class ElasticsearchQueryBuilder
         tupleDomain = split.getTupleDomain();
         index = split.getIndex();
         shard = split.getShard();
-        activeShards = split.getActiveShards();
+        shards = split.getShards();
         type = split.getType();
         InetAddress address;
         try {
@@ -110,7 +110,7 @@ public class ElasticsearchQueryBuilder
     public SearchRequest buildScrollSearchRequest()
     {
         String indices = index != null && !index.isEmpty() ? index : "_all";
-        SliceBuilder sliceBuilder = new SliceBuilder(shard, activeShards);
+        SliceBuilder sliceBuilder = new SliceBuilder(shard, shards);
         List<String> fields = columns.stream()
                 .map(ElasticsearchColumnHandle::getColumnName)
                 .collect(toList());
