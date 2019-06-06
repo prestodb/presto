@@ -27,6 +27,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import java.io.IOException;
+import java.security.GeneralSecurityException;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -57,7 +58,7 @@ public class ElasticsearchConnectorModule
     @Singleton
     @Provides
     public static ElasticsearchClient createElasticsearchClient(ElasticsearchConnectorConfig config, ElasticsearchTableDescriptionProvider elasticsearchTableDescriptionProvider)
-            throws IOException
+            throws IOException, GeneralSecurityException
     {
         return new ElasticsearchClient(elasticsearchTableDescriptionProvider, config);
     }
