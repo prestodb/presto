@@ -141,7 +141,7 @@ public class SplitSourceFactory
                     node.getTable(),
                     getSplitSchedulingStrategy(stageExecutionDescriptor, node.getId()));
 
-            SplitSource splitSource = node.isTemporaryTable() ? new LazySplitSource(splitSourceSupplier) : splitSourceSupplier.get();
+            SplitSource splitSource = new LazySplitSource(splitSourceSupplier);
 
             splitSources.add(splitSource);
 
