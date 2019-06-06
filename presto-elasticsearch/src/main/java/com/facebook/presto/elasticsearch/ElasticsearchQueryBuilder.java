@@ -94,7 +94,7 @@ public class ElasticsearchQueryBuilder
             throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, format("Error connecting to search node (%s:%d)", split.getSearchNode(), split.getPort()), e);
         }
         try {
-            client = createClient(config, address.getHostAddress(), split.getPort());
+            client = createClient(config, address.getHostName(), split.getPort());
         } catch (IOException | GeneralSecurityException e) {
             throw new PrestoException(ELASTICSEARCH_INVALID_SSL_CONFIG, format("Error while trying to set up SSL configuration"));
         }
