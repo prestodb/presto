@@ -22,7 +22,6 @@ import com.facebook.presto.spi.type.Type;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
-import org.apache.http.HttpHost;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchScrollRequest;
@@ -41,12 +40,14 @@ import org.elasticsearch.search.slice.SliceBuilder;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.security.GeneralSecurityException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.elasticsearch.ElasticsearchClient.createClient;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_CONNECTION_ERROR;
+import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_INVALID_SSL_CONFIG;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -92,7 +93,11 @@ public class ElasticsearchQueryBuilder
         catch (UnknownHostException e) {
             throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, format("Error connecting to search node (%s:%d)", split.getSearchNode(), split.getPort()), e);
         }
-        client = createClient(config, new HttpHost(address, split.getPort()));
+        try {
+            client = createClient(config, address.getHostAddress(), split.getPort());
+        } catch (IOException | GeneralSecurityException e) {
+            throw new PrestoException(ELASTICSEARCH_INVALID_SSL_CONFIG, format("Error while trying to set up SSL configuration"));
+        }
         scrollTimeout = config.getScrollTimeout();
         scrollSize = config.getScrollSize();
     }
@@ -132,7 +137,7 @@ public class ElasticsearchQueryBuilder
             return client.search(searchRequest, RequestOptions.DEFAULT);
         }
         catch (IOException e) {
-            return null;
+            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, "Couldn't execute a search request");
         }
     }
 
@@ -142,7 +147,7 @@ public class ElasticsearchQueryBuilder
             return client.scroll(searchScrollRequest, RequestOptions.DEFAULT);
         }
         catch (IOException e) {
-            return null;
+            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, "Couldn't execute a scroll request");
         }
     }
 
