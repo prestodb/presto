@@ -249,7 +249,7 @@ Field               Required  Type           Description
 ``clusterName``     required  string         Elasticsearch cluster name.
 ``index``           required  string         Elasticsearch index that is backing this table.
 ``indexExactMatch`` optional  boolean        If set to true, the index specified with the ``index`` property is used. Otherwise, all indices starting with the prefix specified by the ``index`` property are used.
-``type``            required  string         Elasticsearch `mapping type`_, which determines how the document are indexed.
+``type``            required  string         Elasticsearch `mapping type`_, which determines how the document are indexed (like "_doc").
 ``columns``         optional  list           List of column metadata information.
 =================== ========= ============== =============================
 
