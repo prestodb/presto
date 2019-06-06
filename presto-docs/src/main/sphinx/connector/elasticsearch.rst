@@ -263,11 +263,31 @@ Optionally, column metadata can be described in the same table description JSON 
 ===================== ========= ============== =============================
 Field                 Required  Type           Description
 ===================== ========= ============== =============================
-``name``              optional  string         Column name of Elasticsearch field.
-``type``              optional  string         Column type of Elasticsearch `field`_.
-``jsonPath``          optional  string         Json path of Elasticsearch field.
-``jsonType``          optional  string         Json type of Elasticsearch field.
+``name``              required  string         Column name of Elasticsearch field.
+``type``              required  string         Column type of Elasticsearch field (see second column of `data type mapping`_).
+``jsonPath``          required  string         Json path of Elasticsearch field (when in doubt set to the same as ``name``).
+``jsonType``          required  string         Json type of Elasticsearch field (when in doubt set to the same as ``type``).
 ``ordinalPosition``   optional  integer        Ordinal position of the column.
 ===================== ========= ============== =============================
 
-.. _field: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-types.html
+.. _data type mapping: #data-types
+
+Data Types
+----------
+
+The data type mappings are as follows:
+
+============= ======
+Elasticsearch Presto
+============= ======
+``binary``    ``VARBINARY``
+``boolean``   ``BOOLEAN``
+``double``    ``DOUBLE``
+``float``     ``DOUBLE``
+``integer``   ``INTEGER``
+``keyword``   ``VARCHAR``
+``long``      ``BIGINT``
+``string``    ``VARCHAR``
+``text``      ``VARCHAR``
+(all others)  (unsupported)
+============= ======
