@@ -60,8 +60,7 @@ public class ScalarImplementationHeader
             return ((Method) annotatedElement).getName();
         }
 
-        checkArgument(false, "Only Classes and Methods are supported as annotated elements.");
-        return null;
+        throw new UnsupportedOperationException("Only Classes and Methods are supported as annotated elements.");
     }
 
     private static String camelToSnake(String name)
