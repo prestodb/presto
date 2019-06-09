@@ -33,6 +33,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.testing.MaterializedResult;
@@ -263,6 +264,12 @@ public class DistributedQueryRunner
     public NodePartitioningManager getNodePartitioningManager()
     {
         return coordinator.getNodePartitioningManager();
+    }
+
+    @Override
+    public ConnectorPlanOptimizerManager getPlanOptimizerManager()
+    {
+        return coordinator.getPlanOptimizerManager();
     }
 
     @Override

@@ -19,6 +19,8 @@ import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -131,11 +133,14 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class PlanOptimizers
 {
     private final List<PlanOptimizer> optimizers;
+    // TODO: make use of connector optimizers; usage and tests will be added in the next commit
+    private final Map<ConnectorId, Set<ConnectorPlanOptimizer>> connectorOptimizers;
     private final RuleStatsRecorder ruleStats = new RuleStatsRecorder();
     private final OptimizerStatsRecorder optimizerStats = new OptimizerStatsRecorder();
     private final MBeanExporter exporter;
@@ -147,6 +152,7 @@ public class PlanOptimizers
             FeaturesConfig featuresConfig,
             MBeanExporter exporter,
             SplitManager splitManager,
+            ConnectorPlanOptimizerManager planOptimizerManager,
             PageSourceManager pageSourceManager,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
@@ -160,6 +166,7 @@ public class PlanOptimizers
                 false,
                 exporter,
                 splitManager,
+                planOptimizerManager,
                 pageSourceManager,
                 statsCalculator,
                 costCalculator,
@@ -189,6 +196,7 @@ public class PlanOptimizers
             boolean forceSingleNode,
             MBeanExporter exporter,
             SplitManager splitManager,
+            ConnectorPlanOptimizerManager planOptimizerManager,
             PageSourceManager pageSourceManager,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
@@ -197,6 +205,7 @@ public class PlanOptimizers
             TaskCountEstimator taskCountEstimator)
     {
         this.exporter = exporter;
+        this.connectorOptimizers = planOptimizerManager.getOptimizers();
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
         Set<Rule<?>> predicatePushDownRules = ImmutableSet.of(
