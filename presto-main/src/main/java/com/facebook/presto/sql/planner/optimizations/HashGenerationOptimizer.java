@@ -128,7 +128,7 @@ public class HashGenerationOptimizer
         }
 
         @Override
-        protected PlanWithProperties visitPlan(PlanNode node, HashComputationSet parentPreference)
+        public PlanWithProperties visitPlan(PlanNode node, HashComputationSet parentPreference)
         {
             return planSimpleNodeWithProperties(node, parentPreference);
         }

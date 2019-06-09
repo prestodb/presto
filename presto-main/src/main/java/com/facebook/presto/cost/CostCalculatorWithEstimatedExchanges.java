@@ -98,7 +98,7 @@ public class CostCalculatorWithEstimatedExchanges
         }
 
         @Override
-        protected LocalCostEstimate visitPlan(PlanNode node, Void context)
+        public LocalCostEstimate visitPlan(PlanNode node, Void context)
         {
             // TODO implement logic for other node types and return LocalCostEstimate.unknown() here (or throw)
             return LocalCostEstimate.zero();

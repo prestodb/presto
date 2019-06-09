@@ -40,7 +40,7 @@ public class Plans
         }
 
         @Override
-        protected PlanNode visitPlan(PlanNode node, Void context)
+        public PlanNode visitPlan(PlanNode node, Void context)
         {
             List<PlanNode> children = node.getSources().stream()
                     .map(child -> child.accept(this, context))

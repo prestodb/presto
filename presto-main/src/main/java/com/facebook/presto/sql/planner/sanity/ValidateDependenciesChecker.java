@@ -111,7 +111,7 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
-        protected Void visitPlan(PlanNode node, Set<VariableReferenceExpression> boundVariables)
+        public Void visitPlan(PlanNode node, Set<VariableReferenceExpression> boundVariables)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }

@@ -305,7 +305,7 @@ public class PhasedExecutionSchedule
         }
 
         @Override
-        protected Set<PlanFragmentId> visitPlan(PlanNode node, PlanFragmentId currentFragmentId)
+        public Set<PlanFragmentId> visitPlan(PlanNode node, PlanFragmentId currentFragmentId)
         {
             List<PlanNode> sources = node.getSources();
             if (sources.isEmpty()) {

@@ -613,7 +613,7 @@ public class UnaliasSymbolReferences
         }
 
         @Override
-        protected PlanNode visitPlan(PlanNode node, RewriteContext<Void> context)
+        public PlanNode visitPlan(PlanNode node, RewriteContext<Void> context)
         {
             throw new UnsupportedOperationException("Unsupported plan node " + node.getClass().getSimpleName());
         }

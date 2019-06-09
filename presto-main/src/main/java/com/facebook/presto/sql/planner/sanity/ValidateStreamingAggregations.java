@@ -68,7 +68,7 @@ public class ValidateStreamingAggregations
         }
 
         @Override
-        protected Void visitPlan(PlanNode node, Void context)
+        public Void visitPlan(PlanNode node, Void context)
         {
             node.getSources().forEach(source -> source.accept(this, context));
             return null;

@@ -223,7 +223,7 @@ public final class GraphvizPrinter
         }
 
         @Override
-        protected Void visitPlan(PlanNode node, Void context)
+        public Void visitPlan(PlanNode node, Void context)
         {
             throw new UnsupportedOperationException(format("Node %s does not have a Graphviz visitor", node.getClass().getName()));
         }
@@ -639,7 +639,7 @@ public final class GraphvizPrinter
         }
 
         @Override
-        protected Void visitPlan(PlanNode node, Void context)
+        public Void visitPlan(PlanNode node, Void context)
         {
             for (PlanNode child : node.getSources()) {
                 printEdge(node, child);

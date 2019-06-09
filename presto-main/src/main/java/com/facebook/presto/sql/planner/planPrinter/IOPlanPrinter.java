@@ -465,7 +465,7 @@ public class IOPlanPrinter
             extends InternalPlanVisitor<Void, IOPlanBuilder>
     {
         @Override
-        protected Void visitPlan(PlanNode node, IOPlanBuilder context)
+        public Void visitPlan(PlanNode node, IOPlanBuilder context)
         {
             return processChildren(node, context);
         }

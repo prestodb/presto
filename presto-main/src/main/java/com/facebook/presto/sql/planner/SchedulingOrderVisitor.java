@@ -42,7 +42,7 @@ public class SchedulingOrderVisitor
             extends InternalPlanVisitor<Void, Consumer<PlanNodeId>>
     {
         @Override
-        protected Void visitPlan(PlanNode node, Consumer<PlanNodeId> schedulingOrder)
+        public Void visitPlan(PlanNode node, Consumer<PlanNodeId> schedulingOrder)
         {
             for (PlanNode source : node.getSources()) {
                 source.accept(this, schedulingOrder);

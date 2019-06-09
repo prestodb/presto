@@ -97,7 +97,7 @@ final class PlanMatchingVisitor
     }
 
     @Override
-    protected MatchResult visitPlan(PlanNode node, PlanMatchPattern pattern)
+    public MatchResult visitPlan(PlanNode node, PlanMatchPattern pattern)
     {
         List<PlanMatchingState> states = pattern.shapeMatches(node);
 

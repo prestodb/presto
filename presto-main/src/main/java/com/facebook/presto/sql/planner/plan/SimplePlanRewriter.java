@@ -33,7 +33,7 @@ public abstract class SimplePlanRewriter<C>
     }
 
     @Override
-    protected PlanNode visitPlan(PlanNode node, RewriteContext<C> context)
+    public PlanNode visitPlan(PlanNode node, RewriteContext<C> context)
     {
         return context.defaultRewrite(node, context.get());
     }
