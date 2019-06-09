@@ -120,6 +120,7 @@ import com.facebook.presto.sql.gen.RowExpressionPredicateCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.CompilerConfig;
+import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
@@ -389,6 +390,9 @@ public class ServerMainModule
 
         // node partitioning manager
         binder.bind(NodePartitioningManager.class).in(Scopes.SINGLETON);
+
+        // connector plan optimizer manager
+        binder.bind(ConnectorPlanOptimizerManager.class).in(Scopes.SINGLETON);
 
         // index manager
         binder.bind(IndexManager.class).in(Scopes.SINGLETON);
