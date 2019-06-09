@@ -50,12 +50,6 @@ public class SymbolAllocator
         symbols = new HashMap<>(initial);
     }
 
-    public Symbol newSymbol(Symbol symbolHint)
-    {
-        checkArgument(symbols.containsKey(symbolHint), "symbolHint not in symbols map");
-        return newSymbol(symbolHint.getName(), symbols.get(symbolHint));
-    }
-
     public VariableReferenceExpression newVariable(Symbol symbolHint)
     {
         checkArgument(symbols.containsKey(symbolHint), "symbolHint not in symbols map");
@@ -65,11 +59,6 @@ public class SymbolAllocator
     public VariableReferenceExpression newVariable(VariableReferenceExpression variableHint)
     {
         return newVariable(variableHint.getName(), variableHint.getType());
-    }
-
-    public Symbol newSymbol(QualifiedName nameHint, Type type)
-    {
-        return newSymbol(nameHint.getSuffix(), type, null);
     }
 
     public VariableReferenceExpression newVariable(QualifiedName nameHint, Type type)
