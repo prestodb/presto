@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
@@ -36,6 +37,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class SymbolAllocator
+        implements VariableAllocator
 {
     private final Map<Symbol, Type> symbols;
     private int nextId;
@@ -71,6 +73,7 @@ public class SymbolAllocator
         return newSymbol(nameHint, type, null);
     }
 
+    @Override
     public VariableReferenceExpression newVariable(String nameHint, Type type)
     {
         return newVariable(nameHint, type, null);
@@ -81,6 +84,7 @@ public class SymbolAllocator
         return newVariable("$hashValue", BigintType.BIGINT);
     }
 
+    @Override
     public VariableReferenceExpression newVariable(String nameHint, Type type, String suffix)
     {
         Symbol symbol = newSymbol(nameHint, type, suffix);
