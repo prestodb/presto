@@ -11,14 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.connector;
+package com.facebook.presto.spi;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public final class ConnectorId
@@ -32,7 +31,9 @@ public final class ConnectorId
     public ConnectorId(String catalogName)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
-        checkArgument(!catalogName.isEmpty(), "catalogName is empty");
+        if (catalogName.isEmpty()) {
+            throw new IllegalArgumentException("catalogName is empty");
+        }
     }
 
     public String getCatalogName()
