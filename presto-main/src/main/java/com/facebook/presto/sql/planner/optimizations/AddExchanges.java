@@ -188,7 +188,7 @@ public class AddExchanges
         }
 
         @Override
-        protected PlanWithProperties visitPlan(PlanNode node, PreferredProperties preferredProperties)
+        public PlanWithProperties visitPlan(PlanNode node, PreferredProperties preferredProperties)
         {
             return rebaseAndDeriveProperties(node, planChild(node, preferredProperties));
         }

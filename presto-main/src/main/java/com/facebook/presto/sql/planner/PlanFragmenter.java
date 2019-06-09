@@ -899,7 +899,7 @@ public class PlanFragmenter
         }
 
         @Override
-        protected GroupedExecutionProperties visitPlan(PlanNode node, Void context)
+        public GroupedExecutionProperties visitPlan(PlanNode node, Void context)
         {
             if (node.getSources().isEmpty()) {
                 return GroupedExecutionProperties.notCapable();

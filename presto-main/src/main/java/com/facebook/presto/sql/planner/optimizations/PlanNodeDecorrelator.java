@@ -90,7 +90,7 @@ public class PlanNodeDecorrelator
         }
 
         @Override
-        protected Optional<DecorrelationResult> visitPlan(PlanNode node, Void context)
+        public Optional<DecorrelationResult> visitPlan(PlanNode node, Void context)
         {
             return Optional.of(new DecorrelationResult(
                     node,

@@ -73,7 +73,7 @@ public class ExpressionExtractor
         }
 
         @Override
-        protected Void visitPlan(PlanNode node, ImmutableList.Builder<RowExpression> context)
+        public Void visitPlan(PlanNode node, ImmutableList.Builder<RowExpression> context)
         {
             if (recursive) {
                 return super.visitPlan(node, context);

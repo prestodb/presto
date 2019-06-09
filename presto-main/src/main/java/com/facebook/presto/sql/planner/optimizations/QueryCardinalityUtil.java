@@ -83,7 +83,7 @@ public final class QueryCardinalityUtil
         }
 
         @Override
-        protected Range<Long> visitPlan(PlanNode node, Void context)
+        public Range<Long> visitPlan(PlanNode node, Void context)
         {
             return Range.atLeast(0L);
         }

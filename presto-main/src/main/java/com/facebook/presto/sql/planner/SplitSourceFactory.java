@@ -373,7 +373,7 @@ public class SplitSourceFactory
         }
 
         @Override
-        protected Map<PlanNodeId, SplitSource> visitPlan(PlanNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitPlan(PlanNode node, Void context)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }

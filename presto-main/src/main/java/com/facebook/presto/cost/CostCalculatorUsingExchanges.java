@@ -98,7 +98,7 @@ public class CostCalculatorUsingExchanges
         }
 
         @Override
-        protected PlanCostEstimate visitPlan(PlanNode node, Void context)
+        public PlanCostEstimate visitPlan(PlanNode node, Void context)
         {
             // TODO implement cost estimates for all plan nodes
             return PlanCostEstimate.unknown();

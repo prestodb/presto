@@ -190,7 +190,7 @@ public class AllAtOnceExecutionSchedule
         }
 
         @Override
-        protected Void visitPlan(PlanNode node, Void context)
+        public Void visitPlan(PlanNode node, Void context)
         {
             List<PlanNode> sources = node.getSources();
             if (sources.isEmpty()) {

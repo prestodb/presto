@@ -81,7 +81,7 @@ public class ValidateAggregationsWithDefaultValues
         }
 
         @Override
-        protected Optional<SeenExchanges> visitPlan(PlanNode node, Void context)
+        public Optional<SeenExchanges> visitPlan(PlanNode node, Void context)
         {
             return aggregatedSeenExchanges(node.getSources());
         }

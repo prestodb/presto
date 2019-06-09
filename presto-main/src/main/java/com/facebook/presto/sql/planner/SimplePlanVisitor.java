@@ -20,7 +20,7 @@ public class SimplePlanVisitor<C>
         extends InternalPlanVisitor<Void, C>
 {
     @Override
-    protected Void visitPlan(PlanNode node, C context)
+    public Void visitPlan(PlanNode node, C context)
     {
         for (PlanNode source : node.getSources()) {
             source.accept(this, context);

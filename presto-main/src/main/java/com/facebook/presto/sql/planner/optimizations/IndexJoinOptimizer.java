@@ -488,7 +488,7 @@ public class IndexJoinOptimizer
                 extends InternalPlanVisitor<Map<VariableReferenceExpression, VariableReferenceExpression>, Set<VariableReferenceExpression>>
         {
             @Override
-            protected Map<VariableReferenceExpression, VariableReferenceExpression> visitPlan(PlanNode node, Set<VariableReferenceExpression> lookupVariables)
+            public Map<VariableReferenceExpression, VariableReferenceExpression> visitPlan(PlanNode node, Set<VariableReferenceExpression> lookupVariables)
             {
                 throw new UnsupportedOperationException("Node not expected to be part of Index pipeline: " + node);
             }

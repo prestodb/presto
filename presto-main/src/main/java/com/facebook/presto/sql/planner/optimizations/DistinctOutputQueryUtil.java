@@ -62,7 +62,7 @@ public final class DistinctOutputQueryUtil
         }
 
         @Override
-        protected Boolean visitPlan(PlanNode node, Void context)
+        public Boolean visitPlan(PlanNode node, Void context)
         {
             return false;
         }

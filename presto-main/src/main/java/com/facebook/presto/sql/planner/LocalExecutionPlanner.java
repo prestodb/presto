@@ -2499,7 +2499,7 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        protected PhysicalOperation visitPlan(PlanNode node, LocalExecutionPlanContext context)
+        public PhysicalOperation visitPlan(PlanNode node, LocalExecutionPlanContext context)
         {
             throw new UnsupportedOperationException("not yet implemented");
         }

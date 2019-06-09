@@ -125,7 +125,7 @@ public class AddLocalExchanges
         }
 
         @Override
-        protected PlanWithProperties visitPlan(PlanNode node, StreamPreferredProperties parentPreferences)
+        public PlanWithProperties visitPlan(PlanNode node, StreamPreferredProperties parentPreferences)
         {
             return planAndEnforceChildren(
                     node,

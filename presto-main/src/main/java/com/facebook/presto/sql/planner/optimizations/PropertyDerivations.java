@@ -163,7 +163,7 @@ public class PropertyDerivations
         }
 
         @Override
-        protected ActualProperties visitPlan(PlanNode node, List<ActualProperties> inputProperties)
+        public ActualProperties visitPlan(PlanNode node, List<ActualProperties> inputProperties)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }

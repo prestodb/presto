@@ -158,7 +158,7 @@ public final class StreamPropertyDerivations
         }
 
         @Override
-        protected StreamProperties visitPlan(PlanNode node, List<StreamProperties> inputProperties)
+        public StreamProperties visitPlan(PlanNode node, List<StreamProperties> inputProperties)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }

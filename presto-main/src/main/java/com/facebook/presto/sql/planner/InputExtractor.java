@@ -106,7 +106,7 @@ public class InputExtractor
         }
 
         @Override
-        protected Void visitPlan(PlanNode node, Void context)
+        public Void visitPlan(PlanNode node, Void context)
         {
             for (PlanNode child : node.getSources()) {
                 child.accept(this, context);

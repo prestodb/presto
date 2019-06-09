@@ -18,7 +18,7 @@ public abstract class PlanVisitor<R, C>
     /**
      * The default behavior to perform when visiting a PlanNode
      */
-    protected abstract R visitPlan(PlanNode node, C context);
+    public abstract R visitPlan(PlanNode node, C context);
 
     public R visitFilter(FilterNode node, C context)
     {

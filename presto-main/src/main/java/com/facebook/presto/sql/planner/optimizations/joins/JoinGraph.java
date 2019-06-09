@@ -232,7 +232,7 @@ public class JoinGraph
         }
 
         @Override
-        protected JoinGraph visitPlan(PlanNode node, Context context)
+        public JoinGraph visitPlan(PlanNode node, Context context)
         {
             if (!shallow) {
                 for (PlanNode child : node.getSources()) {

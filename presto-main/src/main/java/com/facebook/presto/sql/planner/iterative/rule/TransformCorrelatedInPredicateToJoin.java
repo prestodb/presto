@@ -353,7 +353,7 @@ public class TransformCorrelatedInPredicateToJoin
         }
 
         @Override
-        protected Optional<Decorrelated> visitPlan(PlanNode node, PlanNode reference)
+        public Optional<Decorrelated> visitPlan(PlanNode node, PlanNode reference)
         {
             if (isCorrelatedRecursively(node)) {
                 return Optional.empty();

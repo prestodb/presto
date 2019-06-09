@@ -108,7 +108,7 @@ public class EffectivePredicateExtractor
         }
 
         @Override
-        protected Expression visitPlan(PlanNode node, Void context)
+        public Expression visitPlan(PlanNode node, Void context)
         {
             return TRUE_LITERAL;
         }
