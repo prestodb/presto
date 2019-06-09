@@ -14,13 +14,14 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;

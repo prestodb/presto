@@ -16,9 +16,9 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;

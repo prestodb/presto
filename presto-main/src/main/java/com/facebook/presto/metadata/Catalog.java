@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.Connector;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.transaction;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;

@@ -14,12 +14,12 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.Expression;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;

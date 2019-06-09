@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -22,7 +23,6 @@ import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SetOperationNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.UnionNode;

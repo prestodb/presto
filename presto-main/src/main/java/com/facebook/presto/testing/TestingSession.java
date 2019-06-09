@@ -15,12 +15,12 @@ package com.facebook.presto.testing;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.system.StaticSystemTablesProvider;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
@@ -33,8 +33,8 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
 
-import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
-import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
+import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
+import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
 import static java.util.Locale.ENGLISH;
 
 public final class TestingSession

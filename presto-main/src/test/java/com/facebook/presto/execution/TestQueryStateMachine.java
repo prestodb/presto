@@ -15,13 +15,13 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AccessControlManager;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.resourceGroups.QueryType;

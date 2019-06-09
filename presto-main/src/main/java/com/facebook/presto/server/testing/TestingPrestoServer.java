@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.server.testing;
 
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.eventlistener.EventListenerManager;
@@ -38,6 +37,7 @@ import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.server.ShutdownAction;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.server.smile.SmileModule;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.split.PageSourceManager;

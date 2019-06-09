@@ -14,14 +14,14 @@
 
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

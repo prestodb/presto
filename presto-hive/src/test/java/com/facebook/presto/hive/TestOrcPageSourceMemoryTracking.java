@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Split;
@@ -25,6 +24,7 @@ import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
 import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;

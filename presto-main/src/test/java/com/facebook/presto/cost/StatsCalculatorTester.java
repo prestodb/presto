@@ -15,9 +15,9 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;

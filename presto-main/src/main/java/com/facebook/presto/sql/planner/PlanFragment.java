@@ -15,11 +15,11 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.operator.StageExecutionDescriptor;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

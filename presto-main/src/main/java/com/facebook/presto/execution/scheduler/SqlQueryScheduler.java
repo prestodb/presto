@@ -14,7 +14,6 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.BasicStageStats;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.NodeTaskMap;
@@ -32,6 +31,7 @@ import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.metadata.InternalNode;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -75,7 +75,6 @@ import static com.facebook.presto.SystemSessionProperties.getConcurrentLifespans
 import static com.facebook.presto.SystemSessionProperties.getMaxConcurrentMaterializations;
 import static com.facebook.presto.SystemSessionProperties.getMaxTasksPerStage;
 import static com.facebook.presto.SystemSessionProperties.getWriterMinSize;
-import static com.facebook.presto.connector.ConnectorId.isInternalSystemConnector;
 import static com.facebook.presto.execution.BasicStageStats.aggregateBasicStageStats;
 import static com.facebook.presto.execution.SqlStageExecution.createSqlStageExecution;
 import static com.facebook.presto.execution.StageState.ABORTED;
@@ -87,6 +86,7 @@ import static com.facebook.presto.execution.StageState.RUNNING;
 import static com.facebook.presto.execution.StageState.SCHEDULED;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createDiscardingOutputBuffers;
 import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
+import static com.facebook.presto.spi.ConnectorId.isInternalSystemConnector;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;

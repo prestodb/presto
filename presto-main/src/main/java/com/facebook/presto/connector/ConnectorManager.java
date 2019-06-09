@@ -26,6 +26,7 @@ import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControlManager;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.SystemTable;
@@ -73,8 +74,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
-import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
+import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
+import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;

@@ -14,7 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;

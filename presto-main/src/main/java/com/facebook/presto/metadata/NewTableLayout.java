@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.sql.planner.PartitioningHandle;

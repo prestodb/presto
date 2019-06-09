@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.transaction;
 
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.CatalogMetadata;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.util.concurrent.ListenableFuture;

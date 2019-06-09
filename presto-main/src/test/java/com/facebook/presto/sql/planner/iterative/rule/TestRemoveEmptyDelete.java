@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;

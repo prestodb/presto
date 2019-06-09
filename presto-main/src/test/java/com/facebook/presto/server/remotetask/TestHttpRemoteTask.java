@@ -14,7 +14,6 @@
 package com.facebook.presto.server.remotetask;
 
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -36,6 +35,7 @@ import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.smile.SmileCodec;
 import com.facebook.presto.server.smile.SmileModule;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;

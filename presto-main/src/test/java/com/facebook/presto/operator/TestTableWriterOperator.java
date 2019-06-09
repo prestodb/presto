@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.facebook.presto.metadata.FunctionManager;
@@ -25,6 +24,7 @@ import com.facebook.presto.operator.DevNullOperator.DevNullOperatorFactory;
 import com.facebook.presto.operator.TableWriterOperator.TableWriterInfo;
 import com.facebook.presto.operator.TableWriterOperator.TableWriterOperatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;

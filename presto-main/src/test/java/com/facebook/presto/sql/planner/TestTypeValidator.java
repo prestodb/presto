@@ -13,13 +13,15 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -29,9 +31,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.sanity.TypeValidator;

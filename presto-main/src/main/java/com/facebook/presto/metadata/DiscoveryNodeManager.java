@@ -14,10 +14,10 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.server.InternalCommunicationConfig;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.NodeState;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;

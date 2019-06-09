@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative;
 
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.List;
 import java.util.stream.Collectors;

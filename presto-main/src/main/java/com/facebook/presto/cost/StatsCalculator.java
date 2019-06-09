@@ -14,10 +14,10 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 
 public interface StatsCalculator
 {

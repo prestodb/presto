@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.FixedBucketNodeMap;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
@@ -24,6 +23,7 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.BucketPartitionFunction;
 import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.spi.BucketFunction;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.connector.ConnectorBucketNodeMap;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;

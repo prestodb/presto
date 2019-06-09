@@ -14,10 +14,10 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;

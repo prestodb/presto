@@ -13,8 +13,8 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.BasicPrincipal;
 import com.facebook.presto.spi.security.Identity;

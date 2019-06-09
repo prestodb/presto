@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.planner.iterative;
 
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.InternalPlanNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

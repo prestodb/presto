@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.memory;
 
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.metadata.Split;
@@ -21,6 +20,7 @@ import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.TableScanOperator;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.HostAddress;

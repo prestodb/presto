@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
