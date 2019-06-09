@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -103,7 +104,9 @@ public class HivePageSourceProvider
                 hiveSplit.getLength(),
                 hiveSplit.getFileSize(),
                 hiveSplit.getSchema(),
-                hiveSplit.getEffectivePredicate(),
+                hiveSplit.getDomainPredicate()
+                        .transform(Subfield::getRootName)
+                        .transform(hiveSplit.getPredicateColumns()::get),
                 hiveColumns,
                 hiveSplit.getPartitionKeys(),
                 hiveStorageTimeZone,

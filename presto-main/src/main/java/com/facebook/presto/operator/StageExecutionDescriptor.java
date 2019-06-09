@@ -23,6 +23,7 @@ import java.util.Set;
 
 import static com.facebook.presto.operator.StageExecutionDescriptor.StageExecutionStrategy.DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION;
 import static com.facebook.presto.operator.StageExecutionDescriptor.StageExecutionStrategy.FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION;
+import static com.facebook.presto.operator.StageExecutionDescriptor.StageExecutionStrategy.RECOVERABLE_GROUPED_EXECUTION;
 import static com.facebook.presto.operator.StageExecutionDescriptor.StageExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -31,8 +32,9 @@ public class StageExecutionDescriptor
 {
     private final StageExecutionStrategy stageExecutionStrategy;
     private final Set<PlanNodeId> groupedExecutionScanNodes;
+    private final int totalLifespans;
 
-    private StageExecutionDescriptor(StageExecutionStrategy stageExecutionStrategy, Set<PlanNodeId> groupedExecutionScanNodes)
+    private StageExecutionDescriptor(StageExecutionStrategy stageExecutionStrategy, Set<PlanNodeId> groupedExecutionScanNodes, int totalLifespans)
     {
         switch (stageExecutionStrategy) {
             case UNGROUPED_EXECUTION:
@@ -40,6 +42,7 @@ public class StageExecutionDescriptor
                 break;
             case FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION:
             case DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION:
+            case RECOVERABLE_GROUPED_EXECUTION:
                 checkArgument(!groupedExecutionScanNodes.isEmpty(), "groupedExecutionScanNodes cannot be empty if stage execution strategy is grouped execution");
                 break;
             default:
@@ -48,25 +51,33 @@ public class StageExecutionDescriptor
 
         this.stageExecutionStrategy = requireNonNull(stageExecutionStrategy, "stageExecutionStrategy is null");
         this.groupedExecutionScanNodes = requireNonNull(groupedExecutionScanNodes, "groupedExecutionScanNodes is null");
+        this.totalLifespans = totalLifespans;
     }
 
     public static StageExecutionDescriptor ungroupedExecution()
     {
-        return new StageExecutionDescriptor(UNGROUPED_EXECUTION, ImmutableSet.of());
+        return new StageExecutionDescriptor(UNGROUPED_EXECUTION, ImmutableSet.of(), 1);
     }
 
-    public static StageExecutionDescriptor fixedLifespanScheduleGroupedExecution(List<PlanNodeId> capableScanNodes)
+    public static StageExecutionDescriptor fixedLifespanScheduleGroupedExecution(List<PlanNodeId> capableScanNodes, int totalLifespans)
     {
         requireNonNull(capableScanNodes, "capableScanNodes is null");
         checkArgument(!capableScanNodes.isEmpty(), "capableScanNodes cannot be empty if stage execution strategy is grouped execution");
-        return new StageExecutionDescriptor(FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION, ImmutableSet.copyOf(capableScanNodes));
+        return new StageExecutionDescriptor(FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION, ImmutableSet.copyOf(capableScanNodes), totalLifespans);
     }
 
-    public static StageExecutionDescriptor dynamicLifespanScheduleGroupedExecution(List<PlanNodeId> capableScanNodes)
+    public static StageExecutionDescriptor dynamicLifespanScheduleGroupedExecution(List<PlanNodeId> capableScanNodes, int totalLifespans)
     {
         requireNonNull(capableScanNodes, "capableScanNodes is null");
         checkArgument(!capableScanNodes.isEmpty(), "capableScanNodes cannot be empty if stage execution strategy is grouped execution");
-        return new StageExecutionDescriptor(DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION, ImmutableSet.copyOf(capableScanNodes));
+        return new StageExecutionDescriptor(DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION, ImmutableSet.copyOf(capableScanNodes), totalLifespans);
+    }
+
+    public static StageExecutionDescriptor recoverableGroupedExecution(List<PlanNodeId> capableScanNodes, int totalLifespans)
+    {
+        requireNonNull(capableScanNodes, "capableScanNodes is null");
+        checkArgument(!capableScanNodes.isEmpty(), "capableScanNodes cannot be empty if stage execution strategy is grouped execution");
+        return new StageExecutionDescriptor(RECOVERABLE_GROUPED_EXECUTION, ImmutableSet.copyOf(capableScanNodes), totalLifespans);
     }
 
     public StageExecutionStrategy getStageExecutionStrategy()
@@ -81,7 +92,7 @@ public class StageExecutionDescriptor
 
     public boolean isDynamicLifespanSchedule()
     {
-        return stageExecutionStrategy == DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION;
+        return stageExecutionStrategy == DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION || stageExecutionStrategy == RECOVERABLE_GROUPED_EXECUTION;
     }
 
     public boolean isScanGroupedExecution(PlanNodeId scanNodeId)
@@ -89,14 +100,21 @@ public class StageExecutionDescriptor
         return groupedExecutionScanNodes.contains(scanNodeId);
     }
 
+    public boolean isRecoverableGroupedExecution()
+    {
+        return stageExecutionStrategy == RECOVERABLE_GROUPED_EXECUTION;
+    }
+
     @JsonCreator
     public static StageExecutionDescriptor jsonCreator(
             @JsonProperty("stageExecutionStrategy") StageExecutionStrategy stageExecutionStrategy,
-            @JsonProperty("groupedExecutionScanNodes") Set<PlanNodeId> groupedExecutionCapableScanNodes)
+            @JsonProperty("groupedExecutionScanNodes") Set<PlanNodeId> groupedExecutionCapableScanNodes,
+            @JsonProperty("totalLifespans") int totalLifespans)
     {
         return new StageExecutionDescriptor(
                 requireNonNull(stageExecutionStrategy, "stageExecutionStrategy is null"),
-                ImmutableSet.copyOf(requireNonNull(groupedExecutionCapableScanNodes, "groupedExecutionScanNodes is null")));
+                ImmutableSet.copyOf(requireNonNull(groupedExecutionCapableScanNodes, "groupedExecutionScanNodes is null")),
+                totalLifespans);
     }
 
     @JsonProperty("stageExecutionStrategy")
@@ -111,10 +129,17 @@ public class StageExecutionDescriptor
         return groupedExecutionScanNodes;
     }
 
+    @JsonProperty("totalLifespans")
+    public int getTotalLifespans()
+    {
+        return totalLifespans;
+    }
+
     public enum StageExecutionStrategy
     {
         UNGROUPED_EXECUTION,
         FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION,
-        DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION
+        DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION,
+        RECOVERABLE_GROUPED_EXECUTION,
     }
 }

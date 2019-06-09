@@ -21,16 +21,10 @@ import static java.util.Objects.requireNonNull;
 
 public class TableCommitContext
 {
-    public enum CommitGranularity
-    {
-        PARTITION,
-        TABLE,
-    }
-
     private final Lifespan lifespan;
     private final int stageId;
     private final int taskId;
-    private final CommitGranularity commitGranularity;
+    private final boolean lifespanCommitRequired;
     private final boolean lastPage;
 
     @JsonCreator
@@ -38,13 +32,13 @@ public class TableCommitContext
             @JsonProperty("lifespan") Lifespan lifespan,
             @JsonProperty("stageId") int stageId,
             @JsonProperty("taskId") int taskId,
-            @JsonProperty("commitGranularity") CommitGranularity commitGranularity,
+            @JsonProperty("lifespanCommitRequired") boolean lifespanCommitRequired,
             @JsonProperty("lastPage") boolean lastPage)
     {
         this.lifespan = requireNonNull(lifespan, "lifespan is null");
         this.stageId = stageId;
         this.taskId = taskId;
-        this.commitGranularity = requireNonNull(commitGranularity, "commitGranularity is null");
+        this.lifespanCommitRequired = lifespanCommitRequired;
         this.lastPage = lastPage;
     }
 
@@ -67,9 +61,9 @@ public class TableCommitContext
     }
 
     @JsonProperty
-    public CommitGranularity getCommitGranularity()
+    public boolean isLifespanCommitRequired()
     {
-        return commitGranularity;
+        return lifespanCommitRequired;
     }
 
     @JsonProperty

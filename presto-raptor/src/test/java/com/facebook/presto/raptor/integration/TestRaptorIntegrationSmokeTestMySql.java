@@ -16,8 +16,11 @@ package com.facebook.presto.raptor.integration;
 import com.facebook.presto.raptor.RaptorPlugin;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.testing.mysql.MySqlOptions;
 import io.airlift.testing.mysql.TestingMySqlServer;
+import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -26,17 +29,26 @@ import java.util.Map;
 
 import static com.facebook.presto.raptor.RaptorQueryRunner.copyTables;
 import static com.facebook.presto.raptor.RaptorQueryRunner.createSession;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @Test
 public class TestRaptorIntegrationSmokeTestMySql
         extends TestRaptorIntegrationSmokeTest
 {
+    private static final MySqlOptions MY_SQL_OPTIONS;
+
+    static {
+        MySqlOptions.Builder mySqlOptionsBuilder = MySqlOptions.builder();
+        mySqlOptionsBuilder.setCommandTimeout(new Duration(90, SECONDS));
+        MY_SQL_OPTIONS = mySqlOptionsBuilder.build();
+    }
+
     private final TestingMySqlServer mysqlServer;
 
     public TestRaptorIntegrationSmokeTestMySql()
             throws Exception
     {
-        this(new TestingMySqlServer("testuser", "testpass", "testdb"));
+        this(new TestingMySqlServer("testuser", "testpass", ImmutableList.of("testdb"), MY_SQL_OPTIONS));
     }
 
     private TestRaptorIntegrationSmokeTestMySql(TestingMySqlServer mysqlServer)

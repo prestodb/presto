@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.221-SNAPSHOT</version>
+    <version>0.222-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -59,6 +59,7 @@
         <dep.logback.version>1.2.3</dep.logback.version>
         <dep.parquet.version>1.10.0</dep.parquet.version>
         <dep.nexus-staging-plugin.version>1.6.8</dep.nexus-staging-plugin.version>
+        <dep.asm.version>6.2.1</dep.asm.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -104,6 +105,7 @@
         <module>presto-redshift</module>
         <module>presto-sqlserver</module>
         <module>presto-mongodb</module>
+        <module>presto-bytecode</module>
         <module>presto-client</module>
         <module>presto-parser</module>
         <module>presto-main</module>
@@ -307,6 +309,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-cli</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-bytecode</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -604,12 +612,6 @@
 
             <dependency>
                 <groupId>io.airlift</groupId>
-                <artifactId>bytecode</artifactId>
-                <version>1.1</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
                 <artifactId>joni</artifactId>
                 <version>2.1.5.3</version>
             </dependency>
@@ -677,7 +679,25 @@
             <dependency>
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm</artifactId>
-                <version>6.2.1</version>
+                <version>${dep.asm.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.ow2.asm</groupId>
+                <artifactId>asm-tree</artifactId>
+                <version>${dep.asm.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.ow2.asm</groupId>
+                <artifactId>asm-util</artifactId>
+                <version>${dep.asm.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.ow2.asm</groupId>
+                <artifactId>asm-analysis</artifactId>
+                <version>${dep.asm.version}</version>
             </dependency>
 
             <dependency>
@@ -901,7 +921,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>testing-mysql-server</artifactId>
-                <version>8.0.12-2</version>
+                <version>8.0.12-4</version>
             </dependency>
 
             <dependency>
@@ -1247,6 +1267,30 @@
                         <exclude>**/*jmhTest*.java</exclude>
                         <exclude>**/*jmhType*.java</exclude>
                     </excludes>
+                </configuration>
+            </plugin>
+
+            <!-- Always build a jar with the test classes -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <!-- do not build an empty jar if the project is
+                         e.g. a pom project -->
+                    <skipIfEmpty>true</skipIfEmpty>
+                    <archive>
+                        <manifest>
+                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                            <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
+                            <addClasspath>false</addClasspath>
+                        </manifest>
+                        <manifestEntries>
+                            <!-- This is actually the time when the build was done -->
+                            <Build-Time>${git.build.time}</Build-Time>
+                            <Git-Commit-Id>${git.commit.id}</Git-Commit-Id>
+                            <Implementation-Version>${project.version}-${git.commit.id.abbrev}</Implementation-Version>
+                        </manifestEntries>
+                    </archive>
                 </configuration>
             </plugin>
         </plugins>

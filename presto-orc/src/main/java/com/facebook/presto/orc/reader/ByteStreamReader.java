@@ -23,6 +23,7 @@ import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -35,7 +36,6 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
@@ -97,6 +97,16 @@ public class ByteStreamReader
             }
         }
 
+        if (dataStream == null && presentStream != null) {
+            presentStream.skip(nextBatchSize);
+            Block nullValueBlock = new RunLengthEncodedBlock(
+                    type.createBlockBuilder(null, 1).appendNull().build(),
+                    nextBatchSize);
+            readOffset = 0;
+            nextBatchSize = 0;
+            return nullValueBlock;
+        }
+
         BlockBuilder builder = type.createBlockBuilder(null, nextBatchSize);
         if (presentStream == null) {
             if (dataStream == null) {
@@ -107,7 +117,6 @@ public class ByteStreamReader
         else {
             for (int i = 0; i < nextBatchSize; i++) {
                 if (presentStream.nextBit()) {
-                    verify(dataStream != null);
                     type.writeLong(builder, dataStream.next());
                 }
                 else {

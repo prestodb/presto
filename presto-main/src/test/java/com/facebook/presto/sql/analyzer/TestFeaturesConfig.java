@@ -56,6 +56,8 @@ public class TestFeaturesConfig
                 .setJoinMaxBroadcastTableSize(null)
                 .setGroupedExecutionForAggregationEnabled(false)
                 .setDynamicScheduleForGroupedExecutionEnabled(false)
+                .setRecoverableGroupedExecutionEnabled(false)
+                .setMaxFailedTaskPercentage(0.3)
                 .setConcurrentLifespansPerTask(0)
                 .setFastInequalityJoins(true)
                 .setColocatedJoinsEnabled(false)
@@ -112,7 +114,8 @@ public class TestFeaturesConfig
                 .setMaxGroupingSets(2048)
                 .setLegacyUnnestArrayRows(false)
                 .setJsonSerdeCodeGenerationEnabled(false)
-                .setPushLimitThroughOuterJoin(true));
+                .setPushLimitThroughOuterJoin(true)
+                .setMaxConcurrentMaterializations(10));
     }
 
     @Test
@@ -139,6 +142,8 @@ public class TestFeaturesConfig
                 .put("join-max-broadcast-table-size", "42GB")
                 .put("grouped-execution-for-aggregation-enabled", "true")
                 .put("dynamic-schedule-for-grouped-execution", "true")
+                .put("recoverable-grouped-execution-enabled", "true")
+                .put("max-failed-task-percentage", "0.8")
                 .put("concurrent-lifespans-per-task", "1")
                 .put("fast-inequality-joins", "false")
                 .put("colocated-joins-enabled", "true")
@@ -184,6 +189,7 @@ public class TestFeaturesConfig
                 .put("deprecated.legacy-unnest-array-rows", "true")
                 .put("experimental.json-serde-codegen-enabled", "true")
                 .put("optimizer.push-limit-through-outer-join", "false")
+                .put("max-concurrent-materializations", "5")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -200,6 +206,8 @@ public class TestFeaturesConfig
                 .setJoinMaxBroadcastTableSize(new DataSize(42, GIGABYTE))
                 .setGroupedExecutionForAggregationEnabled(true)
                 .setDynamicScheduleForGroupedExecutionEnabled(true)
+                .setRecoverableGroupedExecutionEnabled(true)
+                .setMaxFailedTaskPercentage(0.8)
                 .setConcurrentLifespansPerTask(1)
                 .setFastInequalityJoins(false)
                 .setColocatedJoinsEnabled(true)
@@ -251,7 +259,8 @@ public class TestFeaturesConfig
                 .setLegacyUnnestArrayRows(true)
                 .setDefaultFilterFactorEnabled(true)
                 .setJsonSerdeCodeGenerationEnabled(true)
-                .setPushLimitThroughOuterJoin(false);
+                .setPushLimitThroughOuterJoin(false)
+                .setMaxConcurrentMaterializations(5);
         assertFullMapping(properties, expected);
     }
 

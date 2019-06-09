@@ -25,6 +25,7 @@ import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -121,6 +122,18 @@ public abstract class AbstractMockMetadata
 
     @Override
     public TableHandle getAlternativeTableHandle(Session session, TableHandle tableHandle, PartitioningHandle partitioningHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isPushdownFilterSupported(Session session, TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public PushdownFilterResult pushdownFilter(Session session, TableHandle tableHandle, RowExpression filter)
     {
         throw new UnsupportedOperationException();
     }

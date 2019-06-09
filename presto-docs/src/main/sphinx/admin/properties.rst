@@ -97,7 +97,7 @@ Memory Management Properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``data size``
-    * **Default value:** ``query.max-total-memory * 2``
+    * **Default value:** ``query.max-memory * 2``
 
     This is the max amount of user and system memory a query can use across the entire cluster.
     System memory is allocated during execution for things that are not directly

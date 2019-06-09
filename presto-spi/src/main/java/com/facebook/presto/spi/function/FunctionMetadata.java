@@ -17,6 +17,7 @@ import com.facebook.presto.spi.type.TypeSignature;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Collections.unmodifiableList;
@@ -105,5 +106,30 @@ public class FunctionMetadata
     public boolean isCalledOnNullInput()
     {
         return calledOnNullInput;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        FunctionMetadata other = (FunctionMetadata) obj;
+        return Objects.equals(this.name, other.name) &&
+                Objects.equals(this.operatorType, other.operatorType) &&
+                Objects.equals(this.argumentTypes, other.argumentTypes) &&
+                Objects.equals(this.returnType, other.returnType) &&
+                Objects.equals(this.functionKind, other.functionKind) &&
+                Objects.equals(this.deterministic, other.deterministic) &&
+                Objects.equals(this.calledOnNullInput, other.calledOnNullInput);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(name, operatorType, argumentTypes, returnType, functionKind, deterministic, calledOnNullInput);
     }
 }

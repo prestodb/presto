@@ -70,6 +70,7 @@ import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.operator.StatisticsWriterOperator.StatisticsWriterOperatorFactory;
 import com.facebook.presto.operator.StreamingAggregationOperator.StreamingAggregationOperatorFactory;
 import com.facebook.presto.operator.TableCommitContext;
+import com.facebook.presto.operator.TableFinishOperator.LifespanCommitter;
 import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskExchangeClientManager;
@@ -2236,7 +2237,8 @@ public class LocalExecutionPlanner
                     session,
                     statisticsAggregation,
                     getSymbolTypes(node.getOutputSymbols(), context.getTypes()),
-                    tableCommitContextCodec);
+                    tableCommitContextCodec,
+                    stageExecutionDescriptor.isRecoverableGroupedExecution());
 
             return new PhysicalOperation(operatorFactory, outputMapping.build(), context, source);
         }
@@ -2308,9 +2310,11 @@ public class LocalExecutionPlanner
                     context.getNextOperatorId(),
                     node.getId(),
                     createTableFinisher(session, node, metadata),
+                    createLifespanCommitter(session, node, metadata),
                     statisticsAggregation,
                     descriptor,
-                    session);
+                    session,
+                    tableCommitContextCodec);
             Map<Symbol, Integer> layout = ImmutableMap.of(node.getOutputSymbols().get(0), 0);
 
             return new PhysicalOperation(operatorFactory, layout, context, source);
@@ -2806,6 +2810,22 @@ public class LocalExecutionPlanner
             else if (target instanceof DeleteHandle) {
                 metadata.finishDelete(session, ((DeleteHandle) target).getHandle(), fragments);
                 return Optional.empty();
+            }
+            else {
+                throw new AssertionError("Unhandled target type: " + target.getClass().getName());
+            }
+        };
+    }
+
+    private static LifespanCommitter createLifespanCommitter(Session session, TableFinishNode node, Metadata metadata)
+    {
+        WriterTarget target = node.getTarget();
+        return (partitionId, fragments) -> {
+            if (target instanceof CreateHandle) {
+                metadata.commitPartition(session, ((CreateHandle) target).getHandle(), partitionId, fragments);
+            }
+            else if (target instanceof InsertHandle) {
+                metadata.commitPartition(session, ((InsertHandle) target).getHandle(), partitionId, fragments);
             }
             else {
                 throw new AssertionError("Unhandled target type: " + target.getClass().getName());

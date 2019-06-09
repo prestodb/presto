@@ -249,6 +249,12 @@ public final class FunctionAssertions
         assertEquals(actual, expected);
     }
 
+    public void assertFunctionWithError(String projection, Type expectedType, double expected, double delta)
+    {
+        Number actual = (Number) selectSingleValue(projection, expectedType, compiler);
+        assertEquals(actual.doubleValue(), expected, delta);
+    }
+
     public void assertFunctionString(String projection, Type expectedType, String expected)
     {
         Object actual = selectSingleValue(projection, expectedType, compiler);

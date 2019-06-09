@@ -119,6 +119,12 @@ public class FixedLifespanScheduler
         verify(totalLifespanExecutionFinished <= partitionHandles.size());
     }
 
+    @Override
+    public void onTaskFailed(int taskId, List<SourceScheduler> sourceSchedulers)
+    {
+        throw new UnsupportedOperationException("onTaskFailed is not supported in FixedLifespanScheduler");
+    }
+
     public SettableFuture schedule(SourceScheduler scheduler)
     {
         // Return a new future even if newDriverGroupReady has not finished.

@@ -13,12 +13,10 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.SettableFuture;
@@ -37,6 +35,7 @@ import java.util.concurrent.Executors;
 
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -60,6 +59,8 @@ public class TestHiveSplitSource
                 "database",
                 "table",
                 TupleDomain.all(),
+                TRUE,
+                ImmutableMap.of(),
                 10,
                 10,
                 new DataSize(1, MEGABYTE),
@@ -94,6 +95,8 @@ public class TestHiveSplitSource
                 "database",
                 "table",
                 TupleDomain.all(),
+                TRUE,
+                ImmutableMap.of(),
                 10,
                 10,
                 new DataSize(1, MEGABYTE),
@@ -152,6 +155,8 @@ public class TestHiveSplitSource
                 "database",
                 "table",
                 TupleDomain.all(),
+                TRUE,
+                ImmutableMap.of(),
                 10,
                 10,
                 new DataSize(1, MEGABYTE),
@@ -206,6 +211,8 @@ public class TestHiveSplitSource
                 "database",
                 "table",
                 TupleDomain.all(),
+                TRUE,
+                ImmutableMap.of(),
                 10,
                 10000,
                 maxOutstandingSplitsSize,
@@ -245,6 +252,8 @@ public class TestHiveSplitSource
                 "database",
                 "table",
                 TupleDomain.all(),
+                TRUE,
+                ImmutableMap.of(),
                 10,
                 10,
                 new DataSize(1, MEGABYTE),
@@ -263,17 +272,13 @@ public class TestHiveSplitSource
     public void testPreloadSplitsForRewindableSplitSource()
             throws Exception
     {
-        // TODO: Use Session::builder after HiveTestUtils::SESSION is refactored to Session.
-        ConnectorSession session = new TestingConnectorSession(
-                new HiveSessionProperties(
-                        new HiveClientConfig().setUseRewindableSplitSource(true),
-                        new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig()).getSessionProperties());
         HiveSplitSource hiveSplitSource = HiveSplitSource.bucketedRewindable(
-                session,
+                SESSION,
                 "database",
                 "table",
                 TupleDomain.all(),
+                TRUE,
+                ImmutableMap.of(),
                 10,
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
@@ -333,6 +338,8 @@ public class TestHiveSplitSource
                 "database",
                 "table",
                 TupleDomain.all(),
+                TRUE,
+                ImmutableMap.of(),
                 10,
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
@@ -369,6 +376,8 @@ public class TestHiveSplitSource
                 "database",
                 "table",
                 TupleDomain.all(),
+                TRUE,
+                ImmutableMap.of(),
                 10,
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),

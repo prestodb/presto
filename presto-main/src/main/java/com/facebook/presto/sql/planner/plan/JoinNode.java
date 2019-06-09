@@ -104,13 +104,13 @@ public class JoinNode
         if (distributionType.isPresent()) {
             // The implementation of full outer join only works if the data is hash partitioned.
             checkArgument(
-                    !(distributionType.get() == REPLICATED && (type == RIGHT || type == FULL)),
+                    !(distributionType.get() == REPLICATED && type.mustPartition()),
                     "%s join do not work with %s distribution type",
                     type,
                     distributionType.get());
             // It does not make sense to PARTITION when there is nothing to partition on
             checkArgument(
-                    !(distributionType.get() == PARTITIONED && criteria.isEmpty() && type != RIGHT && type != FULL),
+                    !(distributionType.get() == PARTITIONED && type.mustReplicate(criteria)),
                     "Equi criteria are empty, so %s join should not have %s distribution type",
                     type,
                     distributionType.get());
@@ -192,6 +192,18 @@ public class JoinNode
         public String getJoinLabel()
         {
             return joinLabel;
+        }
+
+        public boolean mustPartition()
+        {
+            // With REPLICATED, the unmatched rows from right-side would be duplicated.
+            return this == RIGHT || this == FULL;
+        }
+
+        public boolean mustReplicate(List<JoinNode.EquiJoinClause> criteria)
+        {
+            // There is nothing to partition on
+            return criteria.isEmpty() && (this == INNER || this == LEFT);
         }
     }
 

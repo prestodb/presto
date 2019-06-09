@@ -47,6 +47,9 @@ public class StageStats
     private final int runningTasks;
     private final int completedTasks;
 
+    private final int totalLifespans;
+    private final int completedLifespans;
+
     private final int totalDrivers;
     private final int queuedDrivers;
     private final int runningDrivers;
@@ -90,6 +93,9 @@ public class StageStats
             @JsonProperty("runningTasks") int runningTasks,
             @JsonProperty("completedTasks") int completedTasks,
 
+            @JsonProperty("totalLifespans") int totalLifespans,
+            @JsonProperty("completedLifespans") int completedLifespans,
+
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
             @JsonProperty("runningDrivers") int runningDrivers,
@@ -132,6 +138,11 @@ public class StageStats
         this.runningTasks = runningTasks;
         checkArgument(completedTasks >= 0, "completedTasks is negative");
         this.completedTasks = completedTasks;
+
+        checkArgument(totalLifespans >= 0, "completedLifespans is negative");
+        this.totalLifespans = totalLifespans;
+        checkArgument(completedLifespans >= 0, "completedLifespans is negative");
+        this.completedLifespans = completedLifespans;
 
         checkArgument(totalDrivers >= 0, "totalDrivers is negative");
         this.totalDrivers = totalDrivers;
@@ -203,6 +214,18 @@ public class StageStats
     public int getCompletedTasks()
     {
         return completedTasks;
+    }
+
+    @JsonProperty
+    public int getTotalLifespans()
+    {
+        return totalLifespans;
+    }
+
+    @JsonProperty
+    public int getCompletedLifespans()
+    {
+        return completedLifespans;
     }
 
     @JsonProperty

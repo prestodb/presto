@@ -83,7 +83,7 @@ public final class HiveSessionProperties
     private static final String TEMPORARY_TABLE_SCHEMA = "temporary_table_schema";
     private static final String TEMPORARY_TABLE_STORAGE_FORMAT = "temporary_table_storage_format";
     private static final String TEMPORARY_TABLE_COMPRESSION_CODEC = "temporary_table_compression_codec";
-    public static final String USE_REWINDABLE_SPLIT_SOURCE = "use_rewindable_split_source";
+    public static final String PUSHDOWN_FILTER_ENABLED = "pushdown_filter_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -353,9 +353,9 @@ public final class HiveSessionProperties
                         value -> HiveCompressionCodec.valueOf(((String) value).toUpperCase()),
                         HiveCompressionCodec::name),
                 booleanProperty(
-                        USE_REWINDABLE_SPLIT_SOURCE,
-                        "Use rewindable hive split source",
-                        hiveClientConfig.isUseRewindableSplitSource(),
+                        PUSHDOWN_FILTER_ENABLED,
+                        "Experimental: enable complex filter pushdown",
+                        false,
                         false));
     }
 
@@ -591,9 +591,9 @@ public final class HiveSessionProperties
         return session.getProperty(TEMPORARY_TABLE_COMPRESSION_CODEC, HiveCompressionCodec.class);
     }
 
-    public static boolean isUseRewindableSplitSource(ConnectorSession session)
+    public static boolean isPushdownFilterEnabled(ConnectorSession session)
     {
-        return session.getProperty(USE_REWINDABLE_SPLIT_SOURCE, Boolean.class);
+        return session.getProperty(PUSHDOWN_FILTER_ENABLED, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)

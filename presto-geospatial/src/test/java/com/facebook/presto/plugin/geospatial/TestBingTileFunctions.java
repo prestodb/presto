@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.plugin.geospatial;
 
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -24,9 +27,13 @@ import org.testng.annotations.Test;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
+import static com.facebook.presto.block.BlockAssertions.createTypedLongsBlock;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
+import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.plugin.geospatial.BingTile.fromCoordinates;
 import static com.facebook.presto.plugin.geospatial.BingTileType.BING_TILE;
@@ -35,13 +42,17 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 
 public class TestBingTileFunctions
         extends AbstractTestFunctions
 {
+    private InternalAggregationFunction approxDistinct;
+
     @BeforeClass
     protected void registerFunctions()
     {
@@ -51,6 +62,9 @@ public class TestBingTileFunctions
         }
         functionAssertions.getMetadata().addFunctions(extractFunctions(plugin.getFunctions()));
         functionAssertions.getMetadata().addFunctions(ImmutableList.of(APPLY_FUNCTION));
+        FunctionManager functionManager = functionAssertions.getMetadata().getFunctionManager();
+        approxDistinct = functionManager.getAggregateFunctionImplementation(
+                functionManager.lookupFunction("approx_distinct", fromTypes(BING_TILE)));
     }
 
     @Test
@@ -509,5 +523,28 @@ public class TestBingTileFunctions
 
         assertFunction("bing_tile(3, 5, 3) IS DISTINCT FROM bing_tile(3, 5, 4)", BOOLEAN, true);
         assertFunction("bing_tile('213') IS DISTINCT FROM bing_tile('2131')", BOOLEAN, true);
+    }
+
+    @Test
+    public void testApproxDistinct()
+    {
+        assertApproxDistinct(1, "12");
+        assertApproxDistinct(2, "12", "21");
+        assertApproxDistinct(1, "12", "12");
+        assertApproxDistinct(4, "012", "12", "120", "102");
+        assertApproxDistinct(3, "012", "120", "012", "120", "111");
+    }
+
+    private void assertApproxDistinct(int expectedValue, String... quadkeys)
+    {
+        List<Long> encodings = Arrays.stream(quadkeys)
+                .map(BingTile::fromQuadKey)
+                .map(BingTile::encode)
+                .collect(toList());
+        assertAggregation(approxDistinct, Long.valueOf(expectedValue), new Page(createTypedLongsBlock(BING_TILE, encodings)));
+        Collections.reverse(encodings);
+        assertAggregation(approxDistinct, Long.valueOf(expectedValue), new Page(createTypedLongsBlock(BING_TILE, encodings)));
+        Collections.shuffle(encodings);
+        assertAggregation(approxDistinct, Long.valueOf(expectedValue), new Page(createTypedLongsBlock(BING_TILE, encodings)));
     }
 }

@@ -24,9 +24,12 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -51,6 +54,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Function;
 
 import static com.facebook.presto.hive.BackgroundHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
+import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
@@ -206,7 +210,7 @@ public class HiveSplitManager
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
                 table,
                 hivePartitions,
-                layout.getCompactEffectivePredicate(),
+                getPathDomain(layout.getDomainPredicate(), layout.getPredicateColumns()),
                 createBucketSplitInfo(bucketHandle, bucketFilter),
                 session,
                 hdfsEnvironment,
@@ -224,7 +228,9 @@ public class HiveSplitManager
                         session,
                         table.getDatabaseName(),
                         table.getTableName(),
-                        layout.getCompactEffectivePredicate(),
+                        layout.getDomainPredicate(),
+                        layout.getRemainingPredicate(),
+                        layout.getPredicateColumns(),
                         maxInitialSplits,
                         maxOutstandingSplits,
                         maxOutstandingSplitsSize,
@@ -237,9 +243,25 @@ public class HiveSplitManager
                         session,
                         table.getDatabaseName(),
                         table.getTableName(),
-                        layout.getCompactEffectivePredicate(),
+                        layout.getDomainPredicate(),
+                        layout.getRemainingPredicate(),
+                        layout.getPredicateColumns(),
                         maxInitialSplits,
                         maxOutstandingSplits,
+                        maxOutstandingSplitsSize,
+                        hiveSplitLoader,
+                        executor,
+                        new CounterStat());
+                break;
+            case REWINDABLE_GROUPED_SCHEDULING:
+                splitSource = HiveSplitSource.bucketedRewindable(
+                        session,
+                        table.getDatabaseName(),
+                        table.getTableName(),
+                        layout.getDomainPredicate(),
+                        layout.getRemainingPredicate(),
+                        layout.getPredicateColumns(),
+                        maxInitialSplits,
                         maxOutstandingSplitsSize,
                         hiveSplitLoader,
                         executor,
@@ -251,6 +273,16 @@ public class HiveSplitManager
         hiveSplitLoader.start(splitSource);
 
         return splitSource;
+    }
+
+    private static Optional<Domain> getPathDomain(TupleDomain<Subfield> domainPredicate, Map<String, HiveColumnHandle> predicateColumns)
+    {
+        checkArgument(!domainPredicate.isNone(), "Unexpected domain predicate: none");
+
+        return domainPredicate.getDomains().get().entrySet().stream()
+                .filter(entry -> isPathColumnHandle(predicateColumns.get(entry.getKey().getRootName())))
+                .findFirst()
+                .map(Map.Entry::getValue);
     }
 
     @Managed

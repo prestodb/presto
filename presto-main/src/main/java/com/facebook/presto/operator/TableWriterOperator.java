@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
-import com.facebook.presto.operator.TableCommitContext.CommitGranularity;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageSinkProperties;
@@ -79,10 +78,12 @@ public class TableWriterOperator
         private final Session session;
         private final OperatorFactory statisticsAggregationOperatorFactory;
         private final List<Type> types;
+        private final boolean partitionCommitRequired;
         private boolean closed;
         private final JsonCodec<TableCommitContext> tableCommitContextCodec;
 
-        public TableWriterOperatorFactory(int operatorId,
+        public TableWriterOperatorFactory(
+                int operatorId,
                 PlanNodeId planNodeId,
                 PageSinkManager pageSinkManager,
                 WriterTarget writerTarget,
@@ -90,7 +91,8 @@ public class TableWriterOperator
                 Session session,
                 OperatorFactory statisticsAggregationOperatorFactory,
                 List<Type> types,
-                JsonCodec<TableCommitContext> tableCommitContextCodec)
+                JsonCodec<TableCommitContext> tableCommitContextCodec,
+                boolean partitionCommitRequired)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -102,6 +104,7 @@ public class TableWriterOperator
             this.statisticsAggregationOperatorFactory = requireNonNull(statisticsAggregationOperatorFactory, "statisticsAggregationOperatorFactory is null");
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
+            this.partitionCommitRequired = partitionCommitRequired;
         }
 
         @Override
@@ -111,16 +114,24 @@ public class TableWriterOperator
             OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, TableWriterOperator.class.getSimpleName());
             Operator statisticsAggregationOperator = statisticsAggregationOperatorFactory.createOperator(driverContext);
             boolean statisticsCpuTimerEnabled = !(statisticsAggregationOperator instanceof DevNullOperator) && isStatisticsCpuTimerEnabled(session);
-            return new TableWriterOperator(context, createPageSink(), columnChannels, statisticsAggregationOperator, types, statisticsCpuTimerEnabled, tableCommitContextCodec);
+            return new TableWriterOperator(
+                    context,
+                    createPageSink(),
+                    columnChannels,
+                    statisticsAggregationOperator,
+                    types,
+                    statisticsCpuTimerEnabled,
+                    tableCommitContextCodec,
+                    partitionCommitRequired);
         }
 
         private ConnectorPageSink createPageSink()
         {
             if (target instanceof CreateHandle) {
-                return pageSinkManager.createPageSink(session, ((CreateHandle) target).getHandle(), PageSinkProperties.defaultProperties());
+                return pageSinkManager.createPageSink(session, ((CreateHandle) target).getHandle(), PageSinkProperties.builder().setPartitionCommitRequired(partitionCommitRequired).build());
             }
             if (target instanceof InsertHandle) {
-                return pageSinkManager.createPageSink(session, ((InsertHandle) target).getHandle(), PageSinkProperties.defaultProperties());
+                return pageSinkManager.createPageSink(session, ((InsertHandle) target).getHandle(), PageSinkProperties.builder().setPartitionCommitRequired(partitionCommitRequired).build());
             }
             throw new UnsupportedOperationException("Unhandled target type: " + target.getClass().getName());
         }
@@ -134,7 +145,7 @@ public class TableWriterOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TableWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, target, columnChannels, session, statisticsAggregationOperatorFactory, types, tableCommitContextCodec);
+            return new TableWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, target, columnChannels, session, statisticsAggregationOperatorFactory, types, tableCommitContextCodec, partitionCommitRequired);
         }
     }
 
@@ -163,6 +174,7 @@ public class TableWriterOperator
     private final boolean statisticsCpuTimerEnabled;
 
     private final JsonCodec<TableCommitContext> tableCommitContextCodec;
+    private final boolean partitionCommitRequired;
 
     public TableWriterOperator(
             OperatorContext operatorContext,
@@ -171,7 +183,8 @@ public class TableWriterOperator
             Operator statisticAggregationOperator,
             List<Type> types,
             boolean statisticsCpuTimerEnabled,
-            JsonCodec<TableCommitContext> tableCommitContextCodec)
+            JsonCodec<TableCommitContext> tableCommitContextCodec,
+            boolean partitionCommitRequired)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.pageSinkMemoryContext = operatorContext.newLocalSystemMemoryContext(TableWriterOperator.class.getSimpleName());
@@ -182,6 +195,7 @@ public class TableWriterOperator
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
         this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
+        this.partitionCommitRequired = partitionCommitRequired;
     }
 
     @Override
@@ -363,7 +377,7 @@ public class TableWriterOperator
                         operatorContext.getDriverContext().getLifespan(),
                         taskId.getStageId().getId(),
                         taskId.getId(),
-                        CommitGranularity.TABLE,
+                        partitionCommitRequired,
                         lastPage)));
     }
 

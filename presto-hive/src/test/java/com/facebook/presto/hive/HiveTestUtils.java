@@ -23,10 +23,17 @@ import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageSorter;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.relation.DeterminismEvaluator;
+import com.facebook.presto.spi.relation.DomainTranslator;
+import com.facebook.presto.spi.relation.ExpressionOptimizer;
+import com.facebook.presto.spi.relation.PredicateCompiler;
+import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.NamedTypeSignature;
@@ -35,6 +42,11 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.gen.RowExpressionPredicateCompiler;
+import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
+import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
+import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -59,12 +71,44 @@ public final class HiveTestUtils
 
     public static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
 
+    public static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
+
+    public static final StandardFunctionResolution FUNCTION_RESOLUTION = new FunctionResolution(METADATA.getFunctionManager());
+
+    public static final RowExpressionService ROW_EXPRESSION_SERVICE = new RowExpressionService() {
+        @Override
+        public DomainTranslator getDomainTranslator()
+        {
+            return new RowExpressionDomainTranslator(METADATA);
+        }
+
+        @Override
+        public ExpressionOptimizer getExpressionOptimizer()
+        {
+            return new RowExpressionOptimizer(METADATA);
+        }
+
+        @Override
+        public PredicateCompiler getPredicateCompiler()
+        {
+            return new RowExpressionPredicateCompiler(METADATA);
+        }
+
+        @Override
+        public DeterminismEvaluator getDeterminismEvaluator()
+        {
+            return new RowExpressionDeterminismEvaluator(METADATA);
+        }
+    };
+
     static {
         // associate TYPE_MANAGER with a function manager
         new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
     }
 
-    public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(new HiveClientConfig());
+    public static final HiveClientConfig HIVE_CLIENT_CONFIG = new HiveClientConfig();
+
+    public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(HIVE_CLIENT_CONFIG);
 
     public static final PageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
 
@@ -75,7 +119,7 @@ public final class HiveTestUtils
         return ImmutableSet.<HivePageSourceFactory>builder()
                 .add(new RcFilePageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats))
                 .add(new OrcPageSourceFactory(TYPE_MANAGER, hiveClientConfig, testHdfsEnvironment, stats))
-                .add(new DwrfPageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats))
+                .add(new DwrfPageSourceFactory(TYPE_MANAGER, hiveClientConfig, testHdfsEnvironment, stats))
                 .add(new ParquetPageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats))
                 .build();
     }

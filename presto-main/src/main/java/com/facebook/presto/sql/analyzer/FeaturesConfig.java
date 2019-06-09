@@ -68,6 +68,8 @@ public class FeaturesConfig
     private boolean colocatedJoinsEnabled;
     private boolean groupedExecutionForAggregationEnabled;
     private boolean dynamicScheduleForGroupedExecution;
+    private boolean recoverableGroupedExecutionEnabled;
+    private double maxFailedTaskPercentage = 0.3;
     private int concurrentLifespansPerTask;
     private boolean spatialJoinsEnabled = true;
     private boolean fastInequalityJoins = true;
@@ -129,6 +131,7 @@ public class FeaturesConfig
     private boolean legacyUnnestArrayRows;
 
     private boolean jsonSerdeCodeGenerationEnabled;
+    private int maxConcurrentMaterializations = 10;
 
     public enum JoinReorderingStrategy
     {
@@ -339,6 +342,32 @@ public class FeaturesConfig
     public FeaturesConfig setDynamicScheduleForGroupedExecutionEnabled(boolean dynamicScheduleForGroupedExecution)
     {
         this.dynamicScheduleForGroupedExecution = dynamicScheduleForGroupedExecution;
+        return this;
+    }
+
+    public boolean isRecoverableGroupedExecutionEnabled()
+    {
+        return recoverableGroupedExecutionEnabled;
+    }
+
+    @Config("recoverable-grouped-execution-enabled")
+    @ConfigDescription("Use recoverable grouped execution when possible")
+    public FeaturesConfig setRecoverableGroupedExecutionEnabled(boolean recoverableGroupedExecutionEnabled)
+    {
+        this.recoverableGroupedExecutionEnabled = recoverableGroupedExecutionEnabled;
+        return this;
+    }
+
+    public double getMaxFailedTaskPercentage()
+    {
+        return maxFailedTaskPercentage;
+    }
+
+    @Config("max-failed-task-percentage")
+    @ConfigDescription("Max percentage of failed tasks that are retryable for recoverable dynamic scheduling")
+    public FeaturesConfig setMaxFailedTaskPercentage(double maxFailedTaskPercentage)
+    {
+        this.maxFailedTaskPercentage = maxFailedTaskPercentage;
         return this;
     }
 
@@ -971,5 +1000,19 @@ public class FeaturesConfig
     public boolean isPushLimitThroughOuterJoin()
     {
         return pushLimitThroughOuterJoin;
+    }
+
+    @Config("max-concurrent-materializations")
+    @Min(1)
+    @ConfigDescription("The maximum number of materializing plan sections that can run concurrently")
+    public FeaturesConfig setMaxConcurrentMaterializations(int maxConcurrentMaterializations)
+    {
+        this.maxConcurrentMaterializations = maxConcurrentMaterializations;
+        return this;
+    }
+
+    public int getMaxConcurrentMaterializations()
+    {
+        return maxConcurrentMaterializations;
     }
 }

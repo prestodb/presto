@@ -16,12 +16,16 @@ package com.facebook.presto.verifier;
 import com.facebook.presto.Session;
 import com.facebook.presto.plugin.memory.MemoryPlugin;
 import com.facebook.presto.tests.StandaloneQueryRunner;
+import com.google.common.collect.ImmutableList;
+import io.airlift.testing.mysql.MySqlOptions;
 import io.airlift.testing.mysql.TestingMySqlServer;
+import io.airlift.units.Duration;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class VerifierTestUtil
 {
@@ -29,6 +33,14 @@ public class VerifierTestUtil
     public static final String SCHEMA = "default";
     public static final String XDB = "presto";
     public static final String VERIFIER_QUERIES_TABLE = "verifier_queries";
+
+    private static final MySqlOptions MY_SQL_OPTIONS;
+
+    static {
+        MySqlOptions.Builder mySqlOptionsBuilder = MySqlOptions.builder();
+        mySqlOptionsBuilder.setCommandTimeout(new Duration(90, SECONDS));
+        MY_SQL_OPTIONS = mySqlOptionsBuilder.build();
+    }
 
     private VerifierTestUtil()
     {
@@ -55,7 +67,7 @@ public class VerifierTestUtil
     public static TestingMySqlServer setupMySql()
             throws Exception
     {
-        TestingMySqlServer mySqlServer = new TestingMySqlServer("testuser", "testpass", XDB);
+        TestingMySqlServer mySqlServer = new TestingMySqlServer("testuser", "testpass", ImmutableList.of(XDB), MY_SQL_OPTIONS);
         try (Handle handle = getHandle(mySqlServer)) {
             handle.execute("CREATE TABLE verifier_queries (\n" +
                     "  id int(11) unsigned NOT NULL PRIMARY KEY AUTO_INCREMENT,\n" +

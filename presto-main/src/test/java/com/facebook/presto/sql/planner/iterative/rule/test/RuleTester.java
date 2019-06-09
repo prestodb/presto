@@ -21,7 +21,9 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.assertions.OptimizerAssert;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.transaction.TransactionManager;
@@ -97,6 +99,11 @@ public class RuleTester
     public RuleAssert assertThat(Rule rule)
     {
         return new RuleAssert(metadata, queryRunner.getStatsCalculator(), queryRunner.getEstimatedExchangesCostCalculator(), session, rule, transactionManager, accessControl);
+    }
+
+    public OptimizerAssert assertThat(PlanOptimizer optimizer)
+    {
+        return new OptimizerAssert(metadata, queryRunner.getStatsCalculator(), session, optimizer, transactionManager, accessControl);
     }
 
     @Override

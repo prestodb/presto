@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.util;
 
-import io.airlift.bytecode.ClassDefinition;
-import io.airlift.bytecode.DynamicClassLoader;
-import io.airlift.bytecode.ParameterizedType;
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.bytecode.ParameterizedType;
 import io.airlift.log.Logger;
 
 import java.lang.invoke.MethodHandle;
@@ -25,9 +25,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static io.airlift.bytecode.BytecodeUtils.toJavaIdentifierString;
-import static io.airlift.bytecode.ClassGenerator.classGenerator;
-import static io.airlift.bytecode.ParameterizedType.typeFromJavaClassName;
+import static com.facebook.presto.bytecode.BytecodeUtils.toJavaIdentifierString;
+import static com.facebook.presto.bytecode.ClassGenerator.classGenerator;
+import static com.facebook.presto.bytecode.ParameterizedType.typeFromJavaClassName;
 import static java.time.ZoneOffset.UTC;
 
 public final class CompilerUtils

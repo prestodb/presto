@@ -84,6 +84,8 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionT
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
 import static com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineSymbols;
+import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
+import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
@@ -223,8 +225,8 @@ public class PredicatePushDown
             // pre-projected symbols.
             Predicate<Expression> isSupported = conjunct ->
                     ExpressionDeterminismEvaluator.isDeterministic(conjunct) &&
-                    SymbolsExtractor.extractUnique(conjunct).stream()
-                            .allMatch(partitionSymbols::contains);
+                            SymbolsExtractor.extractUnique(conjunct).stream()
+                                    .allMatch(partitionSymbols::contains);
 
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(isSupported));
 
@@ -517,6 +519,18 @@ public class PredicatePushDown
                 leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
                 rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
 
+                // if the distribution type is already set, make sure that changes from PredicatePushDown
+                // don't make the join node invalid.
+                Optional<JoinNode.DistributionType> distributionType = node.getDistributionType();
+                if (node.getDistributionType().isPresent()) {
+                    if (node.getType().mustPartition()) {
+                        distributionType = Optional.of(PARTITIONED);
+                    }
+                    if (node.getType().mustReplicate(equiJoinClauses)) {
+                        distributionType = Optional.of(REPLICATED);
+                    }
+                }
+
                 output = new JoinNode(
                         node.getId(),
                         node.getType(),
@@ -530,7 +544,7 @@ public class PredicatePushDown
                         newJoinFilter.map(OriginalExpressionUtils::castToRowExpression),
                         node.getLeftHashSymbol(),
                         node.getRightHashSymbol(),
-                        node.getDistributionType());
+                        distributionType);
             }
 
             if (!postJoinPredicate.equals(TRUE_LITERAL)) {

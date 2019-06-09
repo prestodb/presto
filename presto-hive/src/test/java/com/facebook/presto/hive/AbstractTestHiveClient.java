@@ -62,6 +62,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.block.Block;
@@ -170,7 +171,9 @@ import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
+import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
 import static com.facebook.presto.hive.HiveTestUtils.PAGE_SORTER;
+import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.arrayType;
@@ -202,6 +205,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -589,11 +593,11 @@ public abstract class AbstractTestHiveClient
     protected String invalidClientId;
     protected ConnectorTableHandle invalidTableHandle;
 
-    protected ColumnHandle dsColumn;
-    protected ColumnHandle fileFormatColumn;
-    protected ColumnHandle dummyColumn;
-    protected ColumnHandle intColumn;
-    protected ColumnHandle invalidColumnHandle;
+    protected HiveColumnHandle dsColumn;
+    protected HiveColumnHandle fileFormatColumn;
+    protected HiveColumnHandle dummyColumn;
+    protected HiveColumnHandle intColumn;
+    protected HiveColumnHandle invalidColumnHandle;
 
     protected int partitionCount;
     protected TupleDomain<ColumnHandle> tupleDomain;
@@ -654,6 +658,8 @@ public abstract class AbstractTestHiveClient
                 ImmutableList.of(),
                 ImmutableList.of(new HivePartition(invalidTable, "unknown", ImmutableMap.of())),
                 TupleDomain.all(),
+                TRUE,
+                ImmutableMap.of(),
                 TupleDomain.all(),
                 Optional.empty(),
                 Optional.empty());
@@ -697,8 +703,10 @@ public abstract class AbstractTestHiveClient
                 .build();
         partitionCount = partitions.size();
         tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29"))));
+        TupleDomain<Subfield> domainPredicate = tupleDomain.transform(HiveColumnHandle.class::cast)
+                .transform(column -> new Subfield(column.getName(), ImmutableList.of()));
         tableLayout = new ConnectorTableLayout(
-                new HiveTableLayoutHandle(tablePartitionFormat, partitionColumns, partitions, tupleDomain, tupleDomain, Optional.empty(), Optional.empty()),
+                new HiveTableLayoutHandle(tablePartitionFormat, partitionColumns, partitions, domainPredicate, TRUE, ImmutableMap.of(dsColumn.getName(), dsColumn), tupleDomain, Optional.empty(), Optional.empty()),
                 Optional.empty(),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("2012-12-29"))), false),
@@ -725,7 +733,7 @@ public abstract class AbstractTestHiveClient
                                 dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 4L)), false)))))),
                 ImmutableList.of());
         List<HivePartition> unpartitionedPartitions = ImmutableList.of(new HivePartition(tableUnpartitioned));
-        unpartitionedTableLayout = new ConnectorTableLayout(new HiveTableLayoutHandle(tableUnpartitioned, ImmutableList.of(), unpartitionedPartitions, TupleDomain.all(), TupleDomain.all(), Optional.empty(), Optional.empty()));
+        unpartitionedTableLayout = new ConnectorTableLayout(new HiveTableLayoutHandle(tableUnpartitioned, ImmutableList.of(), unpartitionedPartitions, TupleDomain.all(), TRUE, ImmutableMap.of(), TupleDomain.all(), Optional.empty(), Optional.empty()));
         timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(timeZoneId));
     }
 
@@ -773,6 +781,8 @@ public abstract class AbstractTestHiveClient
                 getHiveClientConfig().getMaxPartitionsPerScan(),
                 TYPE_MANAGER,
                 locationService,
+                FUNCTION_RESOLUTION,
+                ROW_EXPRESSION_SERVICE,
                 new TableParameterCodec(),
                 PARTITION_UPDATE_CODEC,
                 listeningDecorator(executor),
@@ -1655,8 +1665,10 @@ public abstract class AbstractTestHiveClient
                     layoutHandle.getSchemaTableName(),
                     layoutHandle.getPartitionColumns(),
                     layoutHandle.getPartitions().get(),
-                    layoutHandle.getCompactEffectivePredicate(),
-                    layoutHandle.getPromisedPredicate(),
+                    layoutHandle.getDomainPredicate(),
+                    layoutHandle.getRemainingPredicate(),
+                    layoutHandle.getPredicateColumns(),
+                    layoutHandle.getPartitionColumnPredicate(),
                     Optional.of(new HiveBucketHandle(bucketHandle.getColumns(), bucketHandle.getTableBucketCount(), 2)),
                     layoutHandle.getBucketFilter());
 

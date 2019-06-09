@@ -67,7 +67,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.execution.BasicStageStats.EMPTY_STAGE_STATS;
-import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.FINISHING;
 import static com.facebook.presto.execution.QueryState.PLANNING;
@@ -83,6 +82,7 @@ import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
@@ -301,7 +301,7 @@ public class QueryStateMachine
         QueryState state = queryState.get();
 
         ErrorCode errorCode = null;
-        if (state == FAILED) {
+        if (state == QueryState.FAILED) {
             ExecutionFailureInfo failureCause = this.failureCause.get();
             if (failureCause != null) {
                 errorCode = failureCause.getErrorCode();
@@ -363,7 +363,7 @@ public class QueryStateMachine
 
         ExecutionFailureInfo failureCause = null;
         ErrorCode errorCode = null;
-        if (state == FAILED) {
+        if (state == QueryState.FAILED) {
             failureCause = this.failureCause.get();
             if (failureCause != null) {
                 errorCode = failureCause.getErrorCode();
@@ -372,6 +372,20 @@ public class QueryStateMachine
 
         boolean completeInfo = getAllStages(rootStage).stream().allMatch(StageInfo::isFinalStageInfo);
         boolean isScheduled = isScheduled(rootStage);
+        Optional<List<TaskId>> failedTasks;
+        // Traversing all tasks is expensive, thus only construct failedTasks list when query finished.
+        if (state.isDone()) {
+            failedTasks = Optional.of(getAllStages(rootStage).stream()
+                    .map(StageInfo::getTasks)
+                    .flatMap(List::stream)
+                    .filter(taskInfo -> taskInfo.getTaskStatus().getState() == TaskState.FAILED)
+                    .map(TaskInfo::getTaskStatus)
+                    .map(TaskStatus::getTaskId)
+                    .collect(toImmutableList()));
+        }
+        else {
+            failedTasks = Optional.empty();
+        }
 
         return new QueryInfo(
                 queryId,
@@ -402,7 +416,8 @@ public class QueryStateMachine
                 output.get(),
                 completeInfo,
                 resourceGroup,
-                queryType);
+                queryType,
+                failedTasks);
     }
 
     private QueryStats getQueryStats(Optional<StageInfo> rootStage)
@@ -480,10 +495,7 @@ public class QueryStateMachine
                     processedInputPositions += stageStats.getProcessedInputPositions();
                 }
 
-                if (plan.isMaterializedExchangeSource()) {
-                    writtenOutputPhysicalDataSize += stageStats.getPhysicalWrittenDataSize().toBytes();
-                }
-                else {
+                if (plan.isOutputTableWriterFragment()) {
                     writtenOutputPositions += stageInfo.getStageStats().getOperatorSummaries().stream()
                             .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
                             .mapToLong(OperatorStats::getInputPositions)
@@ -493,6 +505,9 @@ public class QueryStateMachine
                             .mapToLong(stats -> stats.getInputDataSize().toBytes())
                             .sum();
                     writtenOutputPhysicalDataSize += stageStats.getPhysicalWrittenDataSize().toBytes();
+                }
+                else {
+                    writtenIntermediatePhysicalDataSize += stageStats.getPhysicalWrittenDataSize().toBytes();
                 }
             }
 
@@ -781,7 +796,7 @@ public class QueryStateMachine
         requireNonNull(throwable, "throwable is null");
         failureCause.compareAndSet(null, toFailure(throwable));
 
-        boolean failed = queryState.setIf(FAILED, currentState -> !currentState.isDone());
+        boolean failed = queryState.setIf(QueryState.FAILED, currentState -> !currentState.isDone());
         if (failed) {
             QUERY_STATE_LOG.debug(throwable, "Query %s failed", queryId);
             session.getTransactionId().ifPresent(transactionId -> {
@@ -810,7 +825,7 @@ public class QueryStateMachine
         // can only be observed if the transition to FAILED is successful.
         failureCause.compareAndSet(null, toFailure(new PrestoException(USER_CANCELED, "Query was canceled")));
 
-        boolean canceled = queryState.setIf(FAILED, currentState -> !currentState.isDone());
+        boolean canceled = queryState.setIf(QueryState.FAILED, currentState -> !currentState.isDone());
         if (canceled) {
             session.getTransactionId().ifPresent(transactionId -> {
                 if (transactionManager.isAutoCommit(transactionId)) {
@@ -913,7 +928,7 @@ public class QueryStateMachine
 
     public Optional<ExecutionFailureInfo> getFailureInfo()
     {
-        if (queryState.get() != FAILED) {
+        if (queryState.get() != QueryState.FAILED) {
             return Optional.empty();
         }
         return Optional.ofNullable(this.failureCause.get());
@@ -981,7 +996,8 @@ public class QueryStateMachine
                 queryInfo.getOutput(),
                 queryInfo.isCompleteInfo(),
                 queryInfo.getResourceGroupId(),
-                queryInfo.getQueryType());
+                queryInfo.getQueryType(),
+                queryInfo.getFailedTasks());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }
 

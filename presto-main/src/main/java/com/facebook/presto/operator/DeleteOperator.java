@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.operator.TableCommitContext.CommitGranularity;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.block.Block;
@@ -193,7 +192,7 @@ public class DeleteOperator
                         operatorContext.getDriverContext().getLifespan(),
                         taskId.getStageId().getId(),
                         taskId.getId(),
-                        CommitGranularity.TABLE,
+                        false,
                         true)));
 
         return new Page(positionCount, rowsBuilder.build(), fragmentBuilder.build(), RunLengthEncodedBlock.create(VARBINARY, tableCommitContext, positionCount));

@@ -15,7 +15,9 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -45,7 +47,9 @@ public class HiveSplit
     private final String database;
     private final String table;
     private final String partitionName;
-    private final TupleDomain<HiveColumnHandle> effectivePredicate;
+    private final TupleDomain<Subfield> domainPredicate;
+    private final RowExpression remainingPredicate;
+    private final Map<String, HiveColumnHandle> predicateColumns;
     private final OptionalInt readBucketNumber;
     private final OptionalInt tableBucketNumber;
     private final boolean forceLocalScheduling;
@@ -68,7 +72,9 @@ public class HiveSplit
             @JsonProperty("readBucketNumber") OptionalInt readBucketNumber,
             @JsonProperty("tableBucketNumber") OptionalInt tableBucketNumber,
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
-            @JsonProperty("effectivePredicate") TupleDomain<HiveColumnHandle> effectivePredicate,
+            @JsonProperty("domainPredicate") TupleDomain<Subfield> domainPredicate,
+            @JsonProperty("remainingPredicate") RowExpression remainingPredicate,
+            @JsonProperty("predicateColumns") Map<String, HiveColumnHandle> predicateColumns,
             @JsonProperty("columnCoercions") Map<Integer, HiveType> columnCoercions,
             @JsonProperty("bucketConversion") Optional<BucketConversion> bucketConversion,
             @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled)
@@ -85,9 +91,11 @@ public class HiveSplit
         requireNonNull(addresses, "addresses is null");
         requireNonNull(readBucketNumber, "readBucketNumber is null");
         requireNonNull(tableBucketNumber, "tableBucketNumber is null");
-        requireNonNull(effectivePredicate, "tupleDomain is null");
         requireNonNull(columnCoercions, "columnCoercions is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
+        requireNonNull(domainPredicate, "domainPredicate is null");
+        requireNonNull(remainingPredicate, "remainingPredicate is null");
+        requireNonNull(predicateColumns, "predicateColumns is null");
 
         this.database = database;
         this.table = table;
@@ -102,7 +110,9 @@ public class HiveSplit
         this.readBucketNumber = readBucketNumber;
         this.tableBucketNumber = tableBucketNumber;
         this.forceLocalScheduling = forceLocalScheduling;
-        this.effectivePredicate = effectivePredicate;
+        this.domainPredicate = domainPredicate;
+        this.remainingPredicate = remainingPredicate;
+        this.predicateColumns = predicateColumns;
         this.columnCoercions = columnCoercions;
         this.bucketConversion = bucketConversion;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
@@ -182,9 +192,21 @@ public class HiveSplit
     }
 
     @JsonProperty
-    public TupleDomain<HiveColumnHandle> getEffectivePredicate()
+    public TupleDomain<Subfield> getDomainPredicate()
     {
-        return effectivePredicate;
+        return domainPredicate;
+    }
+
+    @JsonProperty
+    public RowExpression getRemainingPredicate()
+    {
+        return remainingPredicate;
+    }
+
+    @JsonProperty
+    public Map<String, HiveColumnHandle> getPredicateColumns()
+    {
+        return predicateColumns;
     }
 
     @JsonProperty
@@ -242,7 +264,8 @@ public class HiveSplit
                 .addValue(start)
                 .addValue(length)
                 .addValue(fileSize)
-                .addValue(effectivePredicate)
+                .addValue(domainPredicate)
+                .addValue(remainingPredicate)
                 .addValue(s3SelectPushdownEnabled)
                 .toString();
     }

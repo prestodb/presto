@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -25,26 +29,22 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.BytecodeBlock;
-import io.airlift.bytecode.BytecodeNode;
-import io.airlift.bytecode.Scope;
-import io.airlift.bytecode.Variable;
 
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
+import static com.facebook.presto.bytecode.instruction.Constant.loadBoolean;
+import static com.facebook.presto.bytecode.instruction.Constant.loadDouble;
+import static com.facebook.presto.bytecode.instruction.Constant.loadFloat;
+import static com.facebook.presto.bytecode.instruction.Constant.loadInt;
+import static com.facebook.presto.bytecode.instruction.Constant.loadLong;
+import static com.facebook.presto.bytecode.instruction.Constant.loadString;
 import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.generateLambda;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
-import static io.airlift.bytecode.instruction.Constant.loadBoolean;
-import static io.airlift.bytecode.instruction.Constant.loadDouble;
-import static io.airlift.bytecode.instruction.Constant.loadFloat;
-import static io.airlift.bytecode.instruction.Constant.loadInt;
-import static io.airlift.bytecode.instruction.Constant.loadLong;
-import static io.airlift.bytecode.instruction.Constant.loadString;
 
 public class RowExpressionCompiler
 {

@@ -28,6 +28,10 @@ import com.facebook.presto.operator.aggregation.BitwiseOrAggregation;
 import com.facebook.presto.operator.aggregation.BooleanAndAggregation;
 import com.facebook.presto.operator.aggregation.BooleanOrAggregation;
 import com.facebook.presto.operator.aggregation.CentralMomentsAggregation;
+import com.facebook.presto.operator.aggregation.ClassificationMissRateAggregation;
+import com.facebook.presto.operator.aggregation.ClassificationPrecisionAggregation;
+import com.facebook.presto.operator.aggregation.ClassificationRecallAggregation;
+import com.facebook.presto.operator.aggregation.ClassificationThresholdsAggregation;
 import com.facebook.presto.operator.aggregation.CountAggregation;
 import com.facebook.presto.operator.aggregation.CountIfAggregation;
 import com.facebook.presto.operator.aggregation.DefaultApproximateCountDistinctAggregation;
@@ -468,6 +472,10 @@ class StaticFunctionNamespace
                 .aggregates(RealCorrelationAggregation.class)
                 .aggregates(BitwiseOrAggregation.class)
                 .aggregates(BitwiseAndAggregation.class)
+                .aggregates(ClassificationMissRateAggregation.class)
+                .aggregates(ClassificationPrecisionAggregation.class)
+                .aggregates(ClassificationRecallAggregation.class)
+                .aggregates(ClassificationThresholdsAggregation.class)
                 .scalar(RepeatFunction.class)
                 .scalars(SequenceFunction.class)
                 .scalars(SessionFunctions.class)
