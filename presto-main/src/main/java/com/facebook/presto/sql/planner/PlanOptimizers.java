@@ -19,8 +19,6 @@ import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -104,6 +102,7 @@ import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPre
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
+import com.facebook.presto.sql.planner.optimizations.ApplyConnectorOptimization;
 import com.facebook.presto.sql.planner.optimizations.BeginTableWrite;
 import com.facebook.presto.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
@@ -133,14 +132,11 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 public class PlanOptimizers
 {
     private final List<PlanOptimizer> optimizers;
-    // TODO: make use of connector optimizers; usage and tests will be added in the next commit
-    private final Map<ConnectorId, Set<ConnectorPlanOptimizer>> connectorOptimizers;
     private final RuleStatsRecorder ruleStats = new RuleStatsRecorder();
     private final OptimizerStatsRecorder optimizerStats = new OptimizerStatsRecorder();
     private final MBeanExporter exporter;
@@ -205,7 +201,6 @@ public class PlanOptimizers
             TaskCountEstimator taskCountEstimator)
     {
         this.exporter = exporter;
-        this.connectorOptimizers = planOptimizerManager.getOptimizers();
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
         Set<Rule<?>> predicatePushDownRules = ImmutableSet.of(
@@ -518,12 +513,6 @@ public class PlanOptimizers
         // Precomputed hashes - this assumes that partitioning will not change
         builder.add(new HashGenerationOptimizer());
 
-        builder.add(new MetadataDeleteOptimizer(metadata));
-        builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite
-
-        // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging
-        // TODO: figure out how to improve the set flattening optimizer so that it can run at any point
-
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
         builder.add(new IterativeOptimizer(
@@ -532,6 +521,16 @@ public class PlanOptimizers
                 costCalculator,
                 new TranslateExpressions(metadata, sqlParser).rules()));
 
+        // TODO: Do not move other PlanNode to SPI until this rule is moved to the end of logical planning (i.e., where AddExchanges lives)
+        // TODO: The connector optimizer should not change plan shape (computations) at this point util #12960 is landed. (e.g., connector may pushdown filters to table scan but cannot add a new node)
+        // TODO: Run RemoveRedundantIdentityProjections and PruneUnreferencedOutputs once (1) we can have ProjectNode in SPI and (2) have moved the connector optimization above HashGenerationOptimizer
+        builder.add(new ApplyConnectorOptimization(planOptimizerManager.getOptimizers()));
+
+        builder.add(new MetadataDeleteOptimizer(metadata));
+        builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite
+
+        // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging
+        // TODO: figure out how to improve the set flattening optimizer so that it can run at any point
         this.optimizers = builder.build();
     }
 
