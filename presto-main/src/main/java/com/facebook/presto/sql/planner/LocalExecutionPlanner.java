@@ -240,7 +240,7 @@ import static com.facebook.presto.operator.TableWriterOperator.TableWriterOperat
 import static com.facebook.presto.operator.UnnestOperator.UnnestOperatorFactory;
 import static com.facebook.presto.operator.WindowFunctionDefinition.window;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
-import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
@@ -1704,8 +1704,8 @@ public class LocalExecutionPlanner
 
         private Optional<RowExpression> removeExpressionFromFilter(RowExpression filter, RowExpression expression)
         {
-            RowExpression updatedJoinFilter = replaceExpression(filter, ImmutableMap.of(expression, TRUE));
-            return updatedJoinFilter == TRUE ? Optional.empty() : Optional.of(updatedJoinFilter);
+            RowExpression updatedJoinFilter = replaceExpression(filter, ImmutableMap.of(expression, TRUE_CONSTANT));
+            return updatedJoinFilter == TRUE_CONSTANT ? Optional.empty() : Optional.of(updatedJoinFilter);
         }
 
         private SpatialPredicate spatialTest(CallExpression functionCall, boolean probeFirst, Optional<OperatorType> comparisonOperator)

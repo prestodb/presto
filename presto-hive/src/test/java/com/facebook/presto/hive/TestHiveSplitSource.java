@@ -35,7 +35,7 @@ import java.util.concurrent.Executors;
 
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
-import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -59,7 +59,7 @@ public class TestHiveSplitSource
                 "database",
                 "table",
                 TupleDomain.all(),
-                TRUE,
+                TRUE_CONSTANT,
                 ImmutableMap.of(),
                 10,
                 10,
@@ -95,7 +95,7 @@ public class TestHiveSplitSource
                 "database",
                 "table",
                 TupleDomain.all(),
-                TRUE,
+                TRUE_CONSTANT,
                 ImmutableMap.of(),
                 10,
                 10,
@@ -155,7 +155,7 @@ public class TestHiveSplitSource
                 "database",
                 "table",
                 TupleDomain.all(),
-                TRUE,
+                TRUE_CONSTANT,
                 ImmutableMap.of(),
                 10,
                 10,
@@ -211,7 +211,7 @@ public class TestHiveSplitSource
                 "database",
                 "table",
                 TupleDomain.all(),
-                TRUE,
+                TRUE_CONSTANT,
                 ImmutableMap.of(),
                 10,
                 10000,
@@ -252,7 +252,7 @@ public class TestHiveSplitSource
                 "database",
                 "table",
                 TupleDomain.all(),
-                TRUE,
+                TRUE_CONSTANT,
                 ImmutableMap.of(),
                 10,
                 10,
@@ -277,7 +277,7 @@ public class TestHiveSplitSource
                 "database",
                 "table",
                 TupleDomain.all(),
-                TRUE,
+                TRUE_CONSTANT,
                 ImmutableMap.of(),
                 10,
                 new DataSize(1, MEGABYTE),
@@ -338,7 +338,7 @@ public class TestHiveSplitSource
                 "database",
                 "table",
                 TupleDomain.all(),
-                TRUE,
+                TRUE_CONSTANT,
                 ImmutableMap.of(),
                 10,
                 new DataSize(1, MEGABYTE),
@@ -376,7 +376,7 @@ public class TestHiveSplitSource
                 "database",
                 "table",
                 TupleDomain.all(),
-                TRUE,
+                TRUE_CONSTANT,
                 ImmutableMap.of(),
                 10,
                 new DataSize(1, MEGABYTE),

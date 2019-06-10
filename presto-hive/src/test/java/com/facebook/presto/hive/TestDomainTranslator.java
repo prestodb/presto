@@ -43,7 +43,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
-import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IN;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -163,7 +163,7 @@ public class TestDomainTranslator
     private void assertPredicateTranslates(RowExpression predicate, String subfield, Domain domain)
     {
         ExtractionResult<Subfield> result = domainTranslator.fromPredicate(TEST_SESSION.toConnectorSession(), predicate, columnExtractor);
-        assertEquals(result.getRemainingExpression(), TRUE);
+        assertEquals(result.getRemainingExpression(), TRUE_CONSTANT);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(new Subfield(subfield), domain)));
     }
 

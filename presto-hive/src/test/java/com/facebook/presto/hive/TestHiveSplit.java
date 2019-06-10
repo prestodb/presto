@@ -45,7 +45,7 @@ import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
-import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -80,7 +80,7 @@ public class TestHiveSplit
                 OptionalInt.empty(),
                 true,
                 TupleDomain.all(),
-                TRUE,
+                TRUE_CONSTANT,
                 ImmutableMap.of(),
                 ImmutableMap.of(1, HIVE_STRING),
                 Optional.of(new HiveSplit.BucketConversion(

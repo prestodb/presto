@@ -63,7 +63,7 @@ import java.util.Set;
 import static com.facebook.presto.SystemSessionProperties.isNewOptimizerEnabled;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.metadata.TableLayoutResult.computeEnforced;
-import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterNonDeterministicConjuncts;
@@ -232,7 +232,7 @@ public class PickTableLayout
 
             Session session = context.getSession();
             if (metadata.isPushdownFilterSupported(session, tableHandle)) {
-                PushdownFilterResult pushdownFilterResult = metadata.pushdownFilter(session, tableHandle, TRUE);
+                PushdownFilterResult pushdownFilterResult = metadata.pushdownFilter(session, tableHandle, TRUE_CONSTANT);
                 if (pushdownFilterResult.getLayout().getPredicate().isNone()) {
                     return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), tableScanNode.getOutputVariables(), ImmutableList.of()));
                 }
@@ -312,7 +312,7 @@ public class PickTableLayout
                     TupleDomain.all());
 
             RowExpression unenforcedFilter = pushdownFilterResult.getUnenforcedFilter();
-            if (!TRUE.equals(unenforcedFilter)) {
+            if (!TRUE_CONSTANT.equals(unenforcedFilter)) {
                 return new FilterNode(idAllocator.getNextId(), tableScan, replaceExpression(unenforcedFilter, symbolToColumnMapping.inverse()));
             }
 

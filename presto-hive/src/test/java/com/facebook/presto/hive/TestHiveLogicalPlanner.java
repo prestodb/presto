@@ -44,7 +44,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENA
 import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
-import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -84,12 +84,12 @@ public class TestHiveLogicalPlanner
         assertPlan(pushdownFilterEnabled, "SELECT linenumber FROM lineitem WHERE partkey = 10",
                 output(exchange(
                         strictTableScan("lineitem", identityMap("linenumber")))),
-                plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", ImmutableList.of()), Domain.singleValue(BIGINT, 10L))), TRUE, ImmutableSet.of("partkey")));
+                plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", ImmutableList.of()), Domain.singleValue(BIGINT, 10L))), TRUE_CONSTANT, ImmutableSet.of("partkey")));
 
         assertPlan(pushdownFilterEnabled, "SELECT partkey, linenumber FROM lineitem WHERE partkey = 10",
                 output(exchange(
                         strictTableScan("lineitem", identityMap("partkey", "linenumber")))),
-                plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", ImmutableList.of()), Domain.singleValue(BIGINT, 10L))), TRUE, ImmutableSet.of("partkey")));
+                plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", ImmutableList.of()), Domain.singleValue(BIGINT, 10L))), TRUE_CONSTANT, ImmutableSet.of("partkey")));
 
         // Only remaining predicate
         assertPlan("SELECT linenumber FROM lineitem WHERE mod(orderkey, 2) = 1",
