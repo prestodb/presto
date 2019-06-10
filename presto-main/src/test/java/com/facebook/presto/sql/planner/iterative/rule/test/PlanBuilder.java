@@ -391,14 +391,19 @@ public class PlanBuilder
         return new LateralJoinNode(idAllocator.getNextId(), input, subquery, correlation, LateralJoinNode.Type.INNER, "");
     }
 
-    public TableScanNode tableScan(List<VariableReferenceExpression> variables, Map<VariableReferenceExpression, ColumnHandle> assignments)
+    public TableScanNode tableScan(String catalogName, List<VariableReferenceExpression> variables, Map<VariableReferenceExpression, ColumnHandle> assignments)
     {
         TableHandle tableHandle = new TableHandle(
-                new ConnectorId("testConnector"),
+                new ConnectorId(catalogName),
                 new TestingTableHandle(),
                 TestingTransactionHandle.create(),
                 Optional.empty());
         return tableScan(tableHandle, variables, assignments, TupleDomain.all(), TupleDomain.all());
+    }
+
+    public TableScanNode tableScan(List<VariableReferenceExpression> variables, Map<VariableReferenceExpression, ColumnHandle> assignments)
+    {
+        return tableScan("testConnector", variables, assignments);
     }
 
     public TableScanNode tableScan(TableHandle tableHandle, List<VariableReferenceExpression> variables, Map<VariableReferenceExpression, ColumnHandle> assignments)
