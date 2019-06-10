@@ -618,11 +618,30 @@ const SMALL_SPARKLINE_PROPERTIES = {
 };
 
 const TASK_FILTER = {
-    ALL: function () { return true },
-    PLANNED: function (state) { return state === 'PLANNED' },
-    RUNNING: function (state) { return state === 'RUNNING' },
-    FINISHED: function (state) { return state === 'FINISHED' },
-    FAILED: function (state) { return state === 'FAILED' || state === 'ABORTED' || state === 'CANCELED' },
+    NONE: {
+        text: "None",
+        predicate: function () { return false }
+    },
+    ALL: {
+        text: "All",
+        predicate: function () { return true }
+    },
+    PLANNED: {
+        text: "Planned",
+        predicate: function (state) { return state === 'PLANNED' }
+    },
+    RUNNING: {
+        text: "Running",
+        predicate: function (state) { return state === 'RUNNING' }
+    },
+    FINISHED: {
+        text: "Finished",
+        predicate: function (state) { return state === 'FINISHED' }
+    },
+    FAILED: {
+        text: "Aborted/Canceled/Failed",
+        predicate: function (state) { return state === 'FAILED' || state === 'ABORTED' || state === 'CANCELED' }
+    },
 };
 
 export class QueryDetail extends React.Component {
@@ -655,7 +674,7 @@ export class QueryDetail extends React.Component {
             stageRefresh: true,
             taskRefresh: true,
 
-            taskFilter: TASK_FILTER.ALL,
+            taskFilter: TASK_FILTER.NONE,
         };
 
         this.refreshLoop = this.refreshLoop.bind(this);
@@ -834,9 +853,9 @@ export class QueryDetail extends React.Component {
         }
     }
 
-    renderTaskFilterListItem(taskFilter, taskFilterText) {
+    renderTaskFilterListItem(taskFilter) {
         return (
-            <li><a href="#" className={this.state.taskFilter === taskFilter ? "selected" : ""} onClick={this.handleTaskFilterClick.bind(this, taskFilter)}>{taskFilterText}</a></li>
+            <li><a href="#" className={this.state.taskFilter === taskFilter ? "selected" : ""} onClick={this.handleTaskFilterClick.bind(this, taskFilter)}>{taskFilter.text}</a></li>
         );
     }
 
@@ -892,15 +911,18 @@ export class QueryDetail extends React.Component {
             return;
         }
 
-        const tasks = this.getTasksFromStage(this.state.lastSnapshotTasks).filter(task => this.state.taskFilter(task.taskStatus.state), this);
+        let tasks = [];
+        if (this.state.taskFilter !== TASK_FILTER.NONE) {
+            tasks = this.getTasksFromStage(this.state.lastSnapshotTasks).filter(task => this.state.taskFilter.predicate(task.taskStatus.state), this);
+        }
 
         return (
             <div>
                 <div className="row">
-                    <div className="col-xs-9">
+                    <div className="col-xs-6">
                         <h3>Tasks</h3>
                     </div>
-                    <div className="col-xs-3">
+                    <div className="col-xs-6">
                         <table className="header-inline-links">
                             <tbody>
                             <tr>
@@ -908,14 +930,15 @@ export class QueryDetail extends React.Component {
                                     <div className="input-group-btn text-right">
                                         <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true"
                                                 aria-expanded="false">
-                                            Show <span className="caret"/>
+                                            Show: {this.state.taskFilter.text} <span className="caret"/>
                                         </button>
                                         <ul className="dropdown-menu">
-                                            {this.renderTaskFilterListItem(TASK_FILTER.ALL, "All")}
-                                            {this.renderTaskFilterListItem(TASK_FILTER.PLANNED, "Planned")}
-                                            {this.renderTaskFilterListItem(TASK_FILTER.RUNNING, "Running")}
-                                            {this.renderTaskFilterListItem(TASK_FILTER.FINISHED, "Finished")}
-                                            {this.renderTaskFilterListItem(TASK_FILTER.FAILED, "Aborted/Canceled/Failed")}
+                                            {this.renderTaskFilterListItem(TASK_FILTER.NONE)}
+                                            {this.renderTaskFilterListItem(TASK_FILTER.ALL)}
+                                            {this.renderTaskFilterListItem(TASK_FILTER.PLANNED)}
+                                            {this.renderTaskFilterListItem(TASK_FILTER.RUNNING)}
+                                            {this.renderTaskFilterListItem(TASK_FILTER.FINISHED)}
+                                            {this.renderTaskFilterListItem(TASK_FILTER.FAILED)}
                                         </ul>
                                     </div>
                                 </td>
