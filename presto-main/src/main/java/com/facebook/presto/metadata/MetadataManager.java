@@ -106,7 +106,7 @@ import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
-import static com.facebook.presto.spi.relation.LogicalRowExpressions.FALSE;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.FALSE_CONSTANT;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -430,7 +430,7 @@ public class MetadataManager
     @Override
     public PushdownFilterResult pushdownFilter(Session session, TableHandle tableHandle, RowExpression filter)
     {
-        checkArgument(!FALSE.equals(filter), "Cannot pushdown filter that is always false");
+        checkArgument(!FALSE_CONSTANT.equals(filter), "Cannot pushdown filter that is always false");
 
         ConnectorId connectorId = tableHandle.getConnectorId();
 

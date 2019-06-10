@@ -217,7 +217,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
-import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -1753,8 +1753,8 @@ public class HiveMetadata
     @Override
     public ConnectorPushdownFilterResult pushdownFilter(ConnectorSession session, ConnectorTableHandle tableHandle, RowExpression filter, Optional<ConnectorTableLayoutHandle> currentLayoutHandle)
     {
-        if (TRUE.equals(filter) && currentLayoutHandle.isPresent()) {
-            return new ConnectorPushdownFilterResult(getTableLayout(session, currentLayoutHandle.get()), TRUE);
+        if (TRUE_CONSTANT.equals(filter) && currentLayoutHandle.isPresent()) {
+            return new ConnectorPushdownFilterResult(getTableLayout(session, currentLayoutHandle.get()), TRUE_CONSTANT);
         }
 
         if (currentLayoutHandle.isPresent()) {
@@ -1812,7 +1812,7 @@ public class HiveMetadata
                                 hivePartitionResult.getEnforcedConstraint(),
                                 hivePartitionResult.getBucketHandle(),
                                 hivePartitionResult.getBucketFilter())),
-                TRUE);
+                TRUE_CONSTANT);
     }
 
     private static Set<VariableReferenceExpression> extractAll(RowExpression expression)
@@ -1858,7 +1858,7 @@ public class HiveMetadata
                                 ImmutableList.copyOf(hivePartitionResult.getPartitionColumns()),
                                 getPartitionsAsList(hivePartitionResult),
                                 hivePartitionResult.getEffectivePredicate().transform(HiveMetadata::toSubfield),
-                                TRUE,
+                                TRUE_CONSTANT,
                                 predicateColumns,
                                 hivePartitionResult.getEnforcedConstraint(),
                                 hivePartitionResult.getBucketHandle(),

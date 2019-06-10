@@ -37,8 +37,8 @@ import static java.util.stream.Collectors.toList;
 
 public final class LogicalRowExpressions
 {
-    public static final ConstantExpression TRUE = new ConstantExpression(true, BOOLEAN);
-    public static final ConstantExpression FALSE = new ConstantExpression(false, BOOLEAN);
+    public static final ConstantExpression TRUE_CONSTANT = new ConstantExpression(true, BOOLEAN);
+    public static final ConstantExpression FALSE_CONSTANT = new ConstantExpression(false, BOOLEAN);
 
     private final DeterminismEvaluator determinismEvaluator;
     private final StandardFunctionResolution functionResolution;
@@ -115,9 +115,9 @@ public final class LogicalRowExpressions
         if (expressions.isEmpty()) {
             switch (form) {
                 case AND:
-                    return TRUE;
+                    return TRUE_CONSTANT;
                 case OR:
-                    return FALSE;
+                    return FALSE_CONSTANT;
                 default:
                     throw new IllegalArgumentException("Unsupported binary expression operator");
             }
@@ -199,13 +199,13 @@ public final class LogicalRowExpressions
 
         List<RowExpression> conjuncts = expressions.stream()
                 .flatMap(e -> extractConjuncts(e).stream())
-                .filter(e -> !e.equals(TRUE))
+                .filter(e -> !e.equals(TRUE_CONSTANT))
                 .collect(toList());
 
         conjuncts = removeDuplicates(conjuncts);
 
-        if (conjuncts.contains(FALSE)) {
-            return FALSE;
+        if (conjuncts.contains(FALSE_CONSTANT)) {
+            return FALSE_CONSTANT;
         }
 
         return and(conjuncts);
@@ -218,7 +218,7 @@ public final class LogicalRowExpressions
 
     public RowExpression combineDisjuncts(Collection<RowExpression> expressions)
     {
-        return combineDisjunctsWithDefault(expressions, FALSE);
+        return combineDisjunctsWithDefault(expressions, FALSE_CONSTANT);
     }
 
     public RowExpression combineDisjunctsWithDefault(Collection<RowExpression> expressions, RowExpression emptyDefault)
@@ -227,13 +227,13 @@ public final class LogicalRowExpressions
 
         List<RowExpression> disjuncts = expressions.stream()
                 .flatMap(e -> extractDisjuncts(e).stream())
-                .filter(e -> !e.equals(FALSE))
+                .filter(e -> !e.equals(FALSE_CONSTANT))
                 .collect(toList());
 
         disjuncts = removeDuplicates(disjuncts);
 
-        if (disjuncts.contains(TRUE)) {
-            return TRUE;
+        if (disjuncts.contains(TRUE_CONSTANT)) {
+            return TRUE_CONSTANT;
         }
 
         return disjuncts.isEmpty() ? emptyDefault : or(disjuncts);
