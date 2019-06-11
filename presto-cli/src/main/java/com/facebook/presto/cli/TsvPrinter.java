@@ -53,6 +53,18 @@ public class TsvPrinter
     }
 
     @Override
+    public void printRow(List<?> row, boolean complete)
+            throws IOException
+    {
+        if (needHeader) {
+            needHeader = false;
+            printRows(ImmutableList.of(fieldNames), false);
+        }
+
+        writer.write(formatRow(row));
+    }
+
+    @Override
     public void finish()
             throws IOException
     {

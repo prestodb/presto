@@ -63,6 +63,71 @@ public class AlignedTablePrinter
     }
 
     @Override
+    public void printRow(List<?> row, boolean complete)
+            throws IOException
+    {
+        rowCount++;
+        int columns = fieldNames.size();
+
+        int[] maxWidth = new int[columns];
+        for (int i = 0; i < columns; i++) {
+            maxWidth[i] = max(1, consoleWidth(fieldNames.get(i)));
+        }
+
+        for (int i = 0; i < row.size(); i++) {
+            String s = formatValue(row.get(i));
+            maxWidth[i] = max(maxWidth[i], maxLineLength(s));
+        }
+
+        if (!headerOutput) {
+            headerOutput = true;
+
+            for (int i = 0; i < columns; i++) {
+                if (i > 0) {
+                    writer.append('|');
+                }
+                String name = fieldNames.get(i);
+                writer.append(center(name, maxWidth[i], 1));
+            }
+            writer.append('\n');
+
+            for (int i = 0; i < columns; i++) {
+                if (i > 0) {
+                    writer.append('+');
+                }
+                writer.append(repeat("-", maxWidth[i] + 2));
+            }
+            writer.append('\n');
+        }
+
+        List<List<String>> columnLines = new ArrayList<>(columns);
+        int maxLines = 1;
+        for (int i = 0; i < columns; i++) {
+            String s = formatValue(row.get(i));
+            ImmutableList<String> lines = ImmutableList.copyOf(LINE_SPLITTER.split(s));
+            columnLines.add(lines);
+            maxLines = max(maxLines, lines.size());
+        }
+
+        for (int line = 0; line < maxLines; line++) {
+            for (int column = 0; column < columns; column++) {
+                if (column > 0) {
+                    writer.append('|');
+                }
+                List<String> lines = columnLines.get(column);
+                String s = (line < lines.size()) ? lines.get(line) : "";
+                boolean numeric = row.get(column) instanceof Number;
+                String out = align(s, maxWidth[column], 1, numeric);
+                if ((!complete || (rowCount > 1)) && ((line + 1) < lines.size())) {
+                    out = out.substring(0, out.length() - 1) + "+";
+                }
+                writer.append(out);
+            }
+            writer.append('\n');
+        }
+    }
+
+    @Override
     public void printRows(List<List<?>> rows, boolean complete)
             throws IOException
     {

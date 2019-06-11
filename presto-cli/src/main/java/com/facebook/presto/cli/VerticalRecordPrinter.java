@@ -56,6 +56,37 @@ public class VerticalRecordPrinter
     }
 
     @Override
+    public void printRow(List<?> row, boolean complete)
+            throws IOException
+    {
+        int valuesWidth = 0;
+        for (Object o : row) {
+            valuesWidth = max(valuesWidth, maxLineLength(formatValue(o)));
+        }
+        rowCount++;
+
+        String header = "-[ RECORD " + rowCount + " ]";
+        if ((namesWidth + 1) >= header.length()) {
+            header += repeat("-", (namesWidth + 1) - header.length()) + "+";
+        }
+        header += repeat("-", max(0, (namesWidth + valuesWidth + 3) - header.length()));
+        writer.append(header).append('\n');
+
+        for (int i = 0; i < row.size(); i++) {
+            String name = fieldNames.get(i);
+            String column = formatValue(row.get(i));
+            for (String line : LINE_SPLITTER.split(column)) {
+                writer.append(name)
+                        .append(repeat(" ", namesWidth - consoleWidth(name)))
+                        .append(" | ")
+                        .append(formatValue(line))
+                        .append("\n");
+                name = repeat(" ", consoleWidth(name));
+            }
+        }
+    }
+
+    @Override
     public void printRows(List<List<?>> rows, boolean complete)
             throws IOException
     {

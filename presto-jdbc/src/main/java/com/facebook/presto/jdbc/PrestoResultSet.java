@@ -56,6 +56,10 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -122,7 +126,7 @@ public class PrestoResultSet
         this.resultSetMetaData = new PrestoResultSetMetaData(columnInfoList);
         this.warningsManager = requireNonNull(warningsManager, "warningsManager is null");
 
-        this.results = flatten(new ResultsPageIterator(client, progressCallback, warningsManager), maxRows);
+        this.results = new AsyncIterator(flatten(new ResultsPageIterator(client, progressCallback, warningsManager), maxRows));
     }
 
     public String getQueryId()
@@ -1754,6 +1758,58 @@ public class PrestoResultSet
     {
         Iterator<T> rowsIterator = concat(transform(iterator, Iterable::iterator));
         return (maxRows > 0) ? new LengthLimitedIterator<>(rowsIterator, maxRows) : rowsIterator;
+    }
+
+    private static class AsyncIterator<T>
+            implements Iterator<T>
+    {
+        private static final int MAX_QUEUED_ROWS = 50_000;
+        private final BlockingQueue<T> rowQueue = new LinkedBlockingQueue<>(MAX_QUEUED_ROWS);
+        Iterator<T> dataItr;
+        CompletableFuture<Void> future;
+        static {
+            if (System.getProperty("java.util.concurrent.ForkJoinPool.common.parallelism") == null) {
+                System.setProperty("java.util.concurrent.ForkJoinPool.common.parallelism", "24");
+            }
+        }
+        public AsyncIterator(Iterator<T> dataItr)
+        {
+            this.dataItr = dataItr;
+            future = CompletableFuture.runAsync(() -> {
+                while (dataItr.hasNext()) {
+                    try {
+                        rowQueue.put(dataItr.next());
+                    }
+                    catch (InterruptedException ex) {
+                        throw new RuntimeException(ex);
+                    }
+                }
+            });
+        }
+        @Override
+        public boolean hasNext()
+        {
+            if (!rowQueue.isEmpty()) {
+                return true;
+            }
+            while (rowQueue.isEmpty() && !future.isDone()) {
+                // making sure rowQueue has some records to process oe will return false
+            }
+            if (future.isCompletedExceptionally()) {
+                try {
+                    future.get();
+                }
+                catch (ExecutionException | InterruptedException ex) {
+                    throw new RuntimeException(ex);
+                }
+            }
+            return !rowQueue.isEmpty();
+        }
+        @Override
+        public T next()
+        {
+            return rowQueue.poll();
+        }
     }
 
     private static class ResultsPageIterator

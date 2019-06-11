@@ -249,12 +249,14 @@ public class PrestoStatement
             currentWarningsManager.set(Optional.of(warningsManager));
             resultSet = new PrestoResultSet(client, maxRows.get(), progressConsumer, warningsManager);
 
+            String updateType = client.isFinished() ? client.finalStatusInfo().getUpdateType() : client.currentStatusInfo().getUpdateType();
+
             for (Map.Entry<String, SelectedRole> entry : client.getSetRoles().entrySet()) {
                 connection.get().setRole(entry.getKey(), entry.getValue());
             }
 
             // check if this is a query
-            if (client.currentStatusInfo().getUpdateType() == null) {
+            if (updateType == null) {
                 currentResult.set(resultSet);
                 return true;
             }
