@@ -16,8 +16,14 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.ExpressionSymbolInliner;
+import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -25,9 +31,8 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.Assignments.Builder;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.relational.OriginalExpressionUtils;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.util.AstUtils;
 import com.google.common.collect.ImmutableSet;
@@ -39,14 +44,13 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAsSymbolReference;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.isIdentity;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
-import static com.facebook.presto.sql.relational.Expressions.variable;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static java.util.stream.Collectors.toSet;
 
 /**
@@ -62,6 +66,14 @@ public class InlineProjections
 
     private static final Pattern<ProjectNode> PATTERN = project()
             .with(source().matching(project().capturedAs(CHILD)));
+    private final FunctionResolution functionResolution;
+    private final boolean useRowExpression;
+
+    public InlineProjections(FunctionManager functionManager, boolean useRowExpression)
+    {
+        this.functionResolution = new FunctionResolution(functionManager);
+        this.useRowExpression = useRowExpression;
+    }
 
     @Override
     public Pattern<ProjectNode> getPattern()
@@ -85,7 +97,7 @@ public class InlineProjections
                 .entrySet().stream()
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
-                        entry -> castToRowExpression(inlineReferences(castToExpression(entry.getValue()), assignments))));
+                        entry -> inlineReferences(entry.getValue(), assignments)));
 
         // Synthesize identity assignments for the inputs of expressions that were inlined
         // to place in the child projection.
@@ -95,7 +107,6 @@ public class InlineProjections
                 .entrySet().stream()
                 .filter(entry -> targets.contains(entry.getKey()))
                 .map(Map.Entry::getValue)
-                .map(OriginalExpressionUtils::castToExpression)
                 .flatMap(entry -> SymbolsExtractor.extractAllVariable(entry, context.getSymbolAllocator().getTypes()).stream())
                 .collect(toSet());
 
@@ -106,7 +117,12 @@ public class InlineProjections
             }
         }
         for (VariableReferenceExpression input : inputs) {
-            childAssignments.put(identityAsSymbolReference(input));
+            if (useRowExpression) {
+                childAssignments.put(input, input);
+            }
+            else {
+                childAssignments.put(identityAsSymbolReference(input));
+            }
         }
 
         return Result.ofPlanNode(
@@ -119,6 +135,21 @@ public class InlineProjections
                         Assignments.copyOf(parentAssignments)));
     }
 
+    private RowExpression inlineReferences(RowExpression expression, Assignments assignments)
+    {
+        if (isExpression(expression)) {
+            return castToRowExpression(inlineReferences(castToExpression(expression), assignments));
+        }
+        Function<VariableReferenceExpression, RowExpression> mapping = variable -> {
+            if (assignments.get(variable) == null) {
+                return variable;
+            }
+            return assignments.get(variable);
+        };
+
+        return RowExpressionVariableInliner.inlineVariables(mapping, expression);
+    }
+
     private Expression inlineReferences(Expression expression, Assignments assignments)
     {
         Function<Symbol, Expression> mapping = symbol -> {
@@ -128,7 +159,7 @@ public class InlineProjections
             return castToExpression(assignments.get(symbol));
         };
 
-        return inlineSymbols(mapping, expression);
+        return ExpressionSymbolInliner.inlineSymbols(mapping, expression);
     }
 
     private Sets.SetView<VariableReferenceExpression> extractInliningTargets(ProjectNode parent, ProjectNode child, Context context)
@@ -142,26 +173,25 @@ public class InlineProjections
         // which come from the child, as opposed to an enclosing scope.
 
         Set<VariableReferenceExpression> childOutputSet = ImmutableSet.copyOf(child.getOutputVariables());
+        TypeProvider types = context.getSymbolAllocator().getTypes();
 
         Map<VariableReferenceExpression, Long> dependencies = parent.getAssignments()
                 .getExpressions()
                 .stream()
-                .map(OriginalExpressionUtils::castToExpression)
-                .flatMap(expression -> SymbolsExtractor.extractAll(expression).stream())
-                .map(symbol -> variable(symbol.getName(), context.getSymbolAllocator().getTypes().get(symbol)))
+                .flatMap(expression -> SymbolsExtractor.extractAllVariable(expression, types).stream())
                 .filter(childOutputSet::contains)
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
         // find references to simple constants
         Set<VariableReferenceExpression> constants = dependencies.keySet().stream()
-                .filter(input -> castToExpression(child.getAssignments().get(input)) instanceof Literal)
+                .filter(input -> child.getAssignments().get(input) instanceof ConstantExpression)
                 .collect(toSet());
 
         // exclude any complex inputs to TRY expressions. Inlining them would potentially
         // change the semantics of those expressions
         Set<VariableReferenceExpression> tryArguments = parent.getAssignments()
                 .getExpressions().stream()
-                .flatMap(expression -> extractTryArguments(castToExpression(expression), context.getSymbolAllocator().getTypes()).stream())
+                .flatMap(expression -> extractTryArguments(expression, types).stream())
                 .collect(toSet());
 
         Set<VariableReferenceExpression> singletons = dependencies.entrySet().stream()
@@ -172,6 +202,26 @@ public class InlineProjections
                 .collect(toSet());
 
         return Sets.union(singletons, constants);
+    }
+
+    private Set<VariableReferenceExpression> extractTryArguments(RowExpression expression, TypeProvider types)
+    {
+        if (isExpression(expression)) {
+            return extractTryArguments(castToExpression(expression), types);
+        }
+        ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
+        expression.accept(new DefaultRowExpressionTraversalVisitor<ImmutableSet.Builder<VariableReferenceExpression>>()
+        {
+            @Override
+            public Void visitCall(CallExpression call, ImmutableSet.Builder<VariableReferenceExpression> context)
+            {
+                if (functionResolution.isTryFunction(call.getFunctionHandle())) {
+                    context.addAll(SymbolsExtractor.extractAll(call));
+                }
+                return null;
+            }
+        }, builder);
+        return builder.build();
     }
 
     private Set<VariableReferenceExpression> extractTryArguments(Expression expression, TypeProvider types)

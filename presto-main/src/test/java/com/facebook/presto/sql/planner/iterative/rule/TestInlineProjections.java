@@ -33,7 +33,7 @@ public class TestInlineProjections
     @Test
     public void test()
     {
-        tester().assertThat(new InlineProjections())
+        tester().assertThat(new InlineProjections(getFunctionManager(), false))
                 .on(p ->
                         p.project(
                                 Assignments.builder()
@@ -73,7 +73,7 @@ public class TestInlineProjections
     @Test
     public void testIdentityProjections()
     {
-        tester().assertThat(new InlineProjections())
+        tester().assertThat(new InlineProjections(getFunctionManager(), false))
                 .on(p ->
                         p.project(
                                 assignment(p.variable("output"), expression("value")),
@@ -86,7 +86,7 @@ public class TestInlineProjections
     @Test
     public void testSubqueryProjections()
     {
-        tester().assertThat(new InlineProjections())
+        tester().assertThat(new InlineProjections(getFunctionManager(), false))
                 .on(p ->
                         p.project(
                                 identityAssignmentsAsSymbolReferences(p.variable("fromOuterScope"), p.variable("value")),

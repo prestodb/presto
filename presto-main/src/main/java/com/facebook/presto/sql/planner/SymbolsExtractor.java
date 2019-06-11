@@ -149,6 +149,14 @@ public final class SymbolsExtractor
         return builder.build();
     }
 
+    public static List<VariableReferenceExpression> extractAllVariable(RowExpression expression, TypeProvider types)
+    {
+        if (isExpression(expression)) {
+            return extractAllVariable(castToExpression(expression), types);
+        }
+        return extractAll(expression);
+    }
+
     public static List<VariableReferenceExpression> extractAllVariable(Expression expression, TypeProvider types)
     {
         ImmutableList.Builder<VariableReferenceExpression> builder = ImmutableList.builder();
