@@ -122,7 +122,7 @@ public class PlanBuilder
         this.metadata = metadata;
     }
 
-    public OutputNode output(List<String> columnNames, List<Symbol> outputs, List<VariableReferenceExpression> variables, PlanNode source)
+    public OutputNode output(List<String> columnNames, List<VariableReferenceExpression> variables, PlanNode source)
     {
         return new OutputNode(
                 idAllocator.getNextId(),
@@ -391,24 +391,23 @@ public class PlanBuilder
         return new LateralJoinNode(idAllocator.getNextId(), input, subquery, correlation, LateralJoinNode.Type.INNER, "");
     }
 
-    public TableScanNode tableScan(List<Symbol> symbols, List<VariableReferenceExpression> variables, Map<VariableReferenceExpression, ColumnHandle> assignments)
+    public TableScanNode tableScan(List<VariableReferenceExpression> variables, Map<VariableReferenceExpression, ColumnHandle> assignments)
     {
         TableHandle tableHandle = new TableHandle(
                 new ConnectorId("testConnector"),
                 new TestingTableHandle(),
                 TestingTransactionHandle.create(),
                 Optional.empty());
-        return tableScan(tableHandle, symbols, variables, assignments, TupleDomain.all(), TupleDomain.all());
+        return tableScan(tableHandle, variables, assignments, TupleDomain.all(), TupleDomain.all());
     }
 
-    public TableScanNode tableScan(TableHandle tableHandle, List<Symbol> symbols, List<VariableReferenceExpression> variables, Map<VariableReferenceExpression, ColumnHandle> assignments)
+    public TableScanNode tableScan(TableHandle tableHandle, List<VariableReferenceExpression> variables, Map<VariableReferenceExpression, ColumnHandle> assignments)
     {
-        return tableScan(tableHandle, symbols, variables, assignments, TupleDomain.all(), TupleDomain.all());
+        return tableScan(tableHandle, variables, assignments, TupleDomain.all(), TupleDomain.all());
     }
 
     public TableScanNode tableScan(
             TableHandle tableHandle,
-            List<Symbol> symbols,
             List<VariableReferenceExpression> variables,
             Map<VariableReferenceExpression, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> currentConstraint,
@@ -425,7 +424,6 @@ public class PlanBuilder
 
     public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, VariableReferenceExpression deleteRowId)
     {
-        Symbol deleteRowIdSymbol = new Symbol(deleteRowId.getName());
         TableWriterNode.DeleteHandle deleteHandle = new TableWriterNode.DeleteHandle(
                 new TableHandle(
                         new ConnectorId("testConnector"),
@@ -768,7 +766,7 @@ public class PlanBuilder
                 0);
     }
 
-    public RowNumberNode rowNumber(List<VariableReferenceExpression> partitionBy, Optional<Integer> maxRowCountPerPartition, Symbol rowNumberSymbol, VariableReferenceExpression rownNumberVariable, PlanNode source)
+    public RowNumberNode rowNumber(List<VariableReferenceExpression> partitionBy, Optional<Integer> maxRowCountPerPartition, VariableReferenceExpression rownNumberVariable, PlanNode source)
     {
         return new RowNumberNode(
                 idAllocator.getNextId(),

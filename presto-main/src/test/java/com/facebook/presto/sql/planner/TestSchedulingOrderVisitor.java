@@ -44,8 +44,8 @@ public class TestSchedulingOrderVisitor
     public void testJoinOrder()
     {
         PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), METADATA);
-        TableScanNode a = planBuilder.tableScan(emptyList(), emptyList(), emptyMap());
-        TableScanNode b = planBuilder.tableScan(emptyList(), emptyList(), emptyMap());
+        TableScanNode a = planBuilder.tableScan(emptyList(), emptyMap());
+        TableScanNode b = planBuilder.tableScan(emptyList(), emptyMap());
         List<PlanNodeId> order = scheduleOrder(planBuilder.join(JoinNode.Type.INNER, a, b));
         assertEquals(order, ImmutableList.of(b.getId(), a.getId()));
     }
@@ -54,8 +54,8 @@ public class TestSchedulingOrderVisitor
     public void testIndexJoinOrder()
     {
         PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), METADATA);
-        TableScanNode a = planBuilder.tableScan(emptyList(), emptyList(), emptyMap());
-        TableScanNode b = planBuilder.tableScan(emptyList(), emptyList(), emptyMap());
+        TableScanNode a = planBuilder.tableScan(emptyList(), emptyMap());
+        TableScanNode b = planBuilder.tableScan(emptyList(), emptyMap());
         List<PlanNodeId> order = scheduleOrder(planBuilder.indexJoin(IndexJoinNode.Type.INNER, a, b));
         assertEquals(order, ImmutableList.of(b.getId(), a.getId()));
     }
@@ -65,9 +65,9 @@ public class TestSchedulingOrderVisitor
     {
         PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), METADATA);
         VariableReferenceExpression sourceJoin = planBuilder.variable("sourceJoin");
-        TableScanNode a = planBuilder.tableScan(ImmutableList.of(new Symbol(sourceJoin.getName())), ImmutableList.of(sourceJoin), ImmutableMap.of(sourceJoin, new TestingColumnHandle("sourceJoin")));
+        TableScanNode a = planBuilder.tableScan(ImmutableList.of(sourceJoin), ImmutableMap.of(sourceJoin, new TestingColumnHandle("sourceJoin")));
         VariableReferenceExpression filteringSource = planBuilder.variable("filteringSource");
-        TableScanNode b = planBuilder.tableScan(ImmutableList.of(new Symbol(filteringSource.getName())), ImmutableList.of(filteringSource), ImmutableMap.of(filteringSource, new TestingColumnHandle("filteringSource")));
+        TableScanNode b = planBuilder.tableScan(ImmutableList.of(filteringSource), ImmutableMap.of(filteringSource, new TestingColumnHandle("filteringSource")));
         List<PlanNodeId> order = scheduleOrder(planBuilder.semiJoin(
                 sourceJoin,
                 filteringSource,

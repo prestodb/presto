@@ -44,7 +44,6 @@ public class TestRemoveEmptyDelete
                                         TestingTransactionHandle.create(),
                                         Optional.empty()),
                                 ImmutableList.of(),
-                                ImmutableList.of(),
                                 ImmutableMap.of()),
                         p.variable(p.symbol("a", BigintType.BIGINT))))
                 .doesNotFire();
