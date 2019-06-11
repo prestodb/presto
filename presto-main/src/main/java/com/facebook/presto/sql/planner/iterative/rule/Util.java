@@ -14,12 +14,12 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -44,7 +44,7 @@ class Util
      * <p>
      * If all inputs are used, return Optional.empty() to indicate that no pruning is necessary.
      */
-    public static Optional<Set<VariableReferenceExpression>> pruneInputs(Collection<VariableReferenceExpression> availableInputs, Collection<Expression> expressions, TypeProvider types)
+    public static Optional<Set<VariableReferenceExpression>> pruneInputs(Collection<VariableReferenceExpression> availableInputs, Collection<RowExpression> expressions, TypeProvider types)
     {
         Set<VariableReferenceExpression> availableInputsSet = ImmutableSet.copyOf(availableInputs);
         Set<VariableReferenceExpression> prunedInputs = Sets.filter(availableInputsSet, SymbolsExtractor.extractUniqueVariable(expressions, types)::contains);
