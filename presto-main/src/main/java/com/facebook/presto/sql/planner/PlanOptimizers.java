@@ -509,12 +509,6 @@ public class PlanOptimizers
         // Precomputed hashes - this assumes that partitioning will not change
         builder.add(new HashGenerationOptimizer());
 
-        builder.add(new MetadataDeleteOptimizer(metadata));
-        builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite
-
-        // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging
-        // TODO: figure out how to improve the set flattening optimizer so that it can run at any point
-
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
         builder.add(new IterativeOptimizer(
@@ -522,7 +516,13 @@ public class PlanOptimizers
                 statsCalculator,
                 costCalculator,
                 new TranslateExpressions(metadata, sqlParser).rules()));
+        // After this point, all planNodes should not contain OriginalExpression
 
+        builder.add(new MetadataDeleteOptimizer(metadata));
+        builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite
+
+        // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging
+        // TODO: figure out how to improve the set flattening optimizer so that it can run at any point
         this.optimizers = builder.build();
     }
 
