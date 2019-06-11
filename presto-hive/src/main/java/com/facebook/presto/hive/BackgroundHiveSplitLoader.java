@@ -365,14 +365,15 @@ public class BackgroundHiveSplitLoader
             return addSplitsToSource(splits, splitFactory);
         }
 
-        // Bucketed partitions are fully loaded immediately since all files must be loaded to determine the file to bucket mapping
-        if (tableBucketInfo.isPresent()) {
-            return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.get(), bucketConversion, partitionName));
-        }
-
         // S3 Select pushdown works at the granularity of individual S3 objects,
         // therefore we must not split files when it is enabled.
         boolean splittable = getHeaderCount(schema) == 0 && getFooterCount(schema) == 0 && !s3SelectPushdownEnabled;
+
+        // Bucketed partitions are fully loaded immediately since all files must be loaded to determine the file to bucket mapping
+        if (tableBucketInfo.isPresent()) {
+            return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.get(), bucketConversion, partitionName, splittable));
+        }
+
         fileIterators.addLast(createInternalHiveSplitIterator(path, fs, splitFactory, splittable));
         return COMPLETED_FUTURE;
     }
@@ -416,7 +417,8 @@ public class BackgroundHiveSplitLoader
             InternalHiveSplitFactory splitFactory,
             BucketSplitInfo bucketSplitInfo,
             Optional<BucketConversion> bucketConversion,
-            String partitionName)
+            String partitionName,
+            boolean splittable)
     {
         int readBucketCount = bucketSplitInfo.getReadBucketCount();
         int tableBucketCount = bucketSplitInfo.getTableBucketCount();
@@ -485,7 +487,7 @@ public class BackgroundHiveSplitLoader
             if (!eligibleTableBucketNumbers.isEmpty()) {
                 LocatedFileStatus file = files.get(partitionBucketNumber);
                 eligibleTableBucketNumbers.stream()
-                        .map(tableBucketNumber -> splitFactory.createInternalHiveSplit(file, readBucketNumber, tableBucketNumber))
+                        .map(tableBucketNumber -> splitFactory.createInternalHiveSplit(file, readBucketNumber, tableBucketNumber, splittable))
                         .forEach(optionalSplit -> optionalSplit.ifPresent(splitList::add));
             }
         }
