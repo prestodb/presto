@@ -67,6 +67,7 @@ public class FeaturesConfig
     private DataSize joinMaxBroadcastTableSize;
     private boolean colocatedJoinsEnabled;
     private boolean groupedExecutionForAggregationEnabled;
+    private boolean groupedExecutionForEligibleTableScansEnabled;
     private boolean dynamicScheduleForGroupedExecution;
     private boolean recoverableGroupedExecutionEnabled;
     private double maxFailedTaskPercentage = 0.3;
@@ -329,6 +330,19 @@ public class FeaturesConfig
     public FeaturesConfig setGroupedExecutionForAggregationEnabled(boolean groupedExecutionForAggregationEnabled)
     {
         this.groupedExecutionForAggregationEnabled = groupedExecutionForAggregationEnabled;
+        return this;
+    }
+
+    public boolean isGroupedExecutionForEligibleTableScansEnabled()
+    {
+        return groupedExecutionForEligibleTableScansEnabled;
+    }
+
+    @Config("experimental.grouped-execution-for-eligible-table-scans-enabled")
+    @ConfigDescription("Experimental: Use grouped execution for eligible table scans")
+    public FeaturesConfig setGroupedExecutionForEligibleTableScansEnabled(boolean groupedExecutionForEligibleTableScansEnabled)
+    {
+        this.groupedExecutionForEligibleTableScansEnabled = groupedExecutionForEligibleTableScansEnabled;
         return this;
     }
 

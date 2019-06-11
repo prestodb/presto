@@ -64,6 +64,7 @@ public final class SystemSessionProperties
     public static final String PARTITIONING_PROVIDER_CATALOG = "partitioning_provider_catalog";
     public static final String EXCHANGE_MATERIALIZATION_STRATEGY = "exchange_materialization_strategy";
     public static final String GROUPED_EXECUTION_FOR_AGGREGATION = "grouped_execution_for_aggregation";
+    public static final String GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS = "grouped_execution_for_eligible_table_scans";
     public static final String DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION = "dynamic_schedule_for_grouped_execution";
     public static final String RECOVERABLE_GROUPED_EXECUTION = "recoverable_grouped_execution";
     public static final String MAX_FAILED_TASK_PERCENTAGE = "max_failed_task_percentage";
@@ -211,6 +212,11 @@ public final class SystemSessionProperties
                         GROUPED_EXECUTION_FOR_AGGREGATION,
                         "Use grouped execution for aggregation when possible",
                         featuresConfig.isGroupedExecutionForAggregationEnabled(),
+                        false),
+                booleanProperty(
+                        GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS,
+                        "Experimental: Use grouped execution for eligible table scans",
+                        featuresConfig.isGroupedExecutionForEligibleTableScansEnabled(),
                         false),
                 booleanProperty(
                         DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION,
@@ -674,6 +680,11 @@ public final class SystemSessionProperties
     public static boolean isGroupedExecutionForAggregationEnabled(Session session)
     {
         return session.getSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, Boolean.class);
+    }
+
+    public static boolean isGroupedExecutionForEligibleTableScansEnabled(Session session)
+    {
+        return session.getSystemProperty(GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS, Boolean.class);
     }
 
     public static boolean isDynamicScheduleForGroupedExecution(Session session)
