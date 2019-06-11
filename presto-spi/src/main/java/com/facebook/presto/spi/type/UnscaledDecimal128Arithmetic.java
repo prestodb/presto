@@ -1501,7 +1501,7 @@ public final class UnscaledDecimal128Arithmetic
         long remainder = 0;
         for (int dividendIndex = dividendLength - 1; dividendIndex >= 0; dividendIndex--) {
             remainder = (remainder << 32) + (dividend[dividendIndex] & LONG_MASK);
-            long quotient = remainder / divisorUnsigned;
+            long quotient = divideUnsignedLong(remainder, divisor);
             dividend[dividendIndex] = (int) quotient;
             remainder = remainder - (quotient * divisorUnsigned);
         }
