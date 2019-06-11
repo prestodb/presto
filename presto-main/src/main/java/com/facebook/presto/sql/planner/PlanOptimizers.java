@@ -497,14 +497,6 @@ public class PlanOptimizers
                         new PushPartialAggregationThroughJoin(),
                         new PushPartialAggregationThroughExchange(metadata.getFunctionManager()),
                         new PruneJoinColumns())));
-        builder.add(new IterativeOptimizer(
-                ruleStats,
-                statsCalculator,
-                costCalculator,
-                ImmutableSet.of(
-                        new AddIntermediateAggregations(),
-                        new RemoveRedundantIdentityProjections())));
-        // DO NOT add optimizers that change the plan shape (computations) after this point
 
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
@@ -514,7 +506,14 @@ public class PlanOptimizers
                 costCalculator,
                 new TranslateExpressions(metadata, sqlParser).rules()));
         // After this point, all planNodes should not contain OriginalExpression
-
+        builder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(
+                        new AddIntermediateAggregations(),
+                        new RemoveRedundantIdentityProjections())));
+        // DO NOT add optimizers that change the plan shape (computations) after this point
         // Precomputed hashes - this assumes that partitioning will not change
         builder.add(new HashGenerationOptimizer(metadata.getFunctionManager()));
 
