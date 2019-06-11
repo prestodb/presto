@@ -54,7 +54,7 @@ public class TestPruneCountAggregationOverScalar
                                         new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
                                         ImmutableList.of(BIGINT))
                                 .source(
-                                        p.tableScan(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of())))
+                                        p.tableScan(ImmutableList.of(), ImmutableMap.of())))
                 ).doesNotFire();
     }
 
@@ -71,7 +71,7 @@ public class TestPruneCountAggregationOverScalar
                                 .step(AggregationNode.Step.SINGLE)
                                 .source(
                                         p.aggregation((aggregationBuilder) -> aggregationBuilder
-                                                .source(p.tableScan(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of()))
+                                                .source(p.tableScan(ImmutableList.of(), ImmutableMap.of()))
                                                 .globalGrouping()
                                                 .step(AggregationNode.Step.SINGLE)))))
                 .matches(values(ImmutableMap.of("count_1", 0)));
@@ -107,7 +107,7 @@ public class TestPruneCountAggregationOverScalar
                                         ImmutableList.of(BIGINT))
                                 .step(AggregationNode.Step.SINGLE)
                                 .globalGrouping()
-                                .source(p.enforceSingleRow(p.tableScan(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of())))))
+                                .source(p.enforceSingleRow(p.tableScan(ImmutableList.of(), ImmutableMap.of())))))
                 .matches(values(ImmutableMap.of("count_1", 0)));
     }
 
@@ -126,9 +126,9 @@ public class TestPruneCountAggregationOverScalar
                                 .source(
                                         p.aggregation(aggregationBuilder -> {
                                             aggregationBuilder
-                                                    .source(p.tableScan(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of())).groupingSets(singleGroupingSet(ImmutableList.of(p.variable("orderkey"))));
+                                                    .source(p.tableScan(ImmutableList.of(), ImmutableMap.of())).groupingSets(singleGroupingSet(ImmutableList.of(p.variable("orderkey"))));
                                             aggregationBuilder
-                                                    .source(p.tableScan(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of()));
+                                                    .source(p.tableScan(ImmutableList.of(), ImmutableMap.of()));
                                         }))))
                 .doesNotFire();
     }
@@ -154,7 +154,6 @@ public class TestPruneCountAggregationOverScalar
                                                             new TpchTableHandle("orders", TINY_SCALE_FACTOR),
                                                             TestingTransactionHandle.create(),
                                                             Optional.empty()),
-                                                    ImmutableList.of(totalPrice),
                                                     ImmutableList.of(totalPriceVariable),
                                                     ImmutableMap.of(totalPriceVariable, new TpchColumnHandle(totalPrice.getName(), DOUBLE))))));
 

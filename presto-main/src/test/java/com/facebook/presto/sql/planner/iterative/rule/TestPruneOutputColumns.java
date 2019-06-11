@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -38,7 +37,6 @@ public class TestPruneOutputColumns
                     VariableReferenceExpression b = p.variable("b");
                     return p.output(
                             ImmutableList.of("B label"),
-                            ImmutableList.of(new Symbol("b")),
                             ImmutableList.of(b),
                             p.values(a, b));
                 })
@@ -60,7 +58,6 @@ public class TestPruneOutputColumns
                     VariableReferenceExpression b = p.variable("b");
                     return p.output(
                             ImmutableList.of("A label", "B label"),
-                            ImmutableList.of(new Symbol("a"), new Symbol("b")),
                             ImmutableList.of(a, b),
                             p.values(a, b));
                 })

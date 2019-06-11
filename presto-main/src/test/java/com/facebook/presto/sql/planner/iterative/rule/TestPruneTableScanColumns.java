@@ -58,7 +58,6 @@ public class TestPruneTableScanColumns
                                             new TpchTableHandle("orders", TINY_SCALE_FACTOR),
                                             TestingTransactionHandle.create(),
                                             Optional.empty()),
-                                    ImmutableList.of(orderdate, totalprice),
                                     ImmutableList.of(orderdateVariable, totalpriceVariable),
                                     ImmutableMap.of(
                                             orderdateVariable, new TpchColumnHandle(orderdate.getName(), DATE),
@@ -80,7 +79,6 @@ public class TestPruneTableScanColumns
                     return p.project(
                             Assignments.of(p.variable("y"), expression("x")),
                             p.tableScan(
-                                    ImmutableList.of(x),
                                     ImmutableList.of(xv),
                                     ImmutableMap.of(p.variable(p.symbol("x")), new TestingColumnHandle("x"))));
                 })
