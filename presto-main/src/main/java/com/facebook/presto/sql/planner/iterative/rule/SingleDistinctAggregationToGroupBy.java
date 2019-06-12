@@ -17,7 +17,6 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -122,7 +121,6 @@ public class SingleDistinctAggregationToGroupBy
 
         Set<VariableReferenceExpression> variables = Iterables.getOnlyElement(argumentSets).stream()
                 .map(OriginalExpressionUtils::castToExpression)
-                .map(Symbol::from)
                 .map(context.getVariableAllocator()::toVariableReference)
                 .collect(Collectors.toSet());
 

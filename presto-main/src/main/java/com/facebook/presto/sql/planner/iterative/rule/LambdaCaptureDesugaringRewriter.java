@@ -103,7 +103,7 @@ public class LambdaCaptureDesugaringRewriter
         @Override
         public Expression rewriteSymbolReference(SymbolReference node, Context context, ExpressionTreeRewriter<Context> treeRewriter)
         {
-            context.getReferencedVariables().add(variableAllocator.toVariableReference(Symbol.from(node)));
+            context.getReferencedVariables().add(variableAllocator.toVariableReference(node));
             return null;
         }
     }

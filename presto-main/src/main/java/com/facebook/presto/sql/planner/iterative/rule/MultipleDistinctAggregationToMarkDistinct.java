@@ -18,7 +18,6 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -125,7 +124,6 @@ public class MultipleDistinctAggregationToMarkDistinct
             if (aggregation.isDistinct() && !aggregation.getFilter().isPresent() && !aggregation.getMask().isPresent()) {
                 Set<VariableReferenceExpression> inputs = aggregation.getArguments().stream()
                         .map(OriginalExpressionUtils::castToExpression)
-                        .map(Symbol::from)
                         .map(context.getVariableAllocator()::toVariableReference)
                         .collect(toSet());
 

@@ -27,7 +27,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.EqualityInference;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -365,8 +364,8 @@ public class ReorderJoins
 
         private static EquiJoinClause toEquiJoinClause(ComparisonExpression equality, Set<VariableReferenceExpression> leftVariables, PlanVariableAllocator variableAllocator)
         {
-            VariableReferenceExpression leftVariable = variableAllocator.toVariableReference(Symbol.from(equality.getLeft()));
-            VariableReferenceExpression rightVariable = variableAllocator.toVariableReference(Symbol.from(equality.getRight()));
+            VariableReferenceExpression leftVariable = variableAllocator.toVariableReference(equality.getLeft());
+            VariableReferenceExpression rightVariable = variableAllocator.toVariableReference(equality.getRight());
             EquiJoinClause equiJoinClause = new EquiJoinClause(leftVariable, rightVariable);
             return leftVariables.contains(leftVariable) ? equiJoinClause : equiJoinClause.flip();
         }

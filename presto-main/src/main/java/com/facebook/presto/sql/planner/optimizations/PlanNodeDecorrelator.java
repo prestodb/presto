@@ -20,7 +20,6 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -292,8 +291,8 @@ public class PlanNodeDecorrelator
                     continue;
                 }
 
-                VariableReferenceExpression left = variableAllocator.toVariableReference(Symbol.from(comparison.getLeft()));
-                VariableReferenceExpression right = variableAllocator.toVariableReference(Symbol.from(comparison.getRight()));
+                VariableReferenceExpression left = variableAllocator.toVariableReference(comparison.getLeft());
+                VariableReferenceExpression right = variableAllocator.toVariableReference(comparison.getRight());
 
                 if (correlation.contains(left) && !correlation.contains(right)) {
                     mapping.put(left, right);

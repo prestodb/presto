@@ -154,8 +154,11 @@ public class PlanVariableAllocator
         return nextId++;
     }
 
-    public VariableReferenceExpression toVariableReference(Symbol symbol)
+    public VariableReferenceExpression toVariableReference(Expression expression)
     {
-        return new VariableReferenceExpression(symbol.getName(), variables.get(symbol.getName()));
+        checkArgument(expression instanceof SymbolReference, "Unexpected expression: %s", expression);
+        String name = ((SymbolReference) expression).getName();
+        checkArgument(variables.containsKey(name), "variable map does not contain name");
+        return new VariableReferenceExpression(name, variables.get(name));
     }
 }

@@ -340,7 +340,7 @@ class QueryPlanner
         Assignments.Builder projections = Assignments.builder();
         for (Expression expression : expressions) {
             if (expression instanceof SymbolReference) {
-                VariableReferenceExpression variable = variableAllocator.toVariableReference(Symbol.from(expression));
+                VariableReferenceExpression variable = variableAllocator.toVariableReference(expression);
                 projections.put(variable, castToRowExpression(expression));
                 outputTranslations.put(expression, variable);
                 continue;
@@ -393,7 +393,7 @@ class QueryPlanner
                 // If this is an identity projection, no need to rewrite it
                 // This is needed because certain synthetic identity expressions such as "group id" introduced when planning GROUPING
                 // don't have a corresponding analysis, so the code below doesn't work for them
-                projections.put(variableAllocator.toVariableReference(Symbol.from(expression)), castToRowExpression(expression));
+                projections.put(variableAllocator.toVariableReference(expression), castToRowExpression(expression));
                 continue;
             }
 

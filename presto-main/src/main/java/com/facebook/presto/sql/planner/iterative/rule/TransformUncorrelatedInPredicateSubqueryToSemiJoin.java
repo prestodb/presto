@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
@@ -84,8 +83,8 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
         SemiJoinNode replacement = new SemiJoinNode(context.getIdAllocator().getNextId(),
                 applyNode.getInput(),
                 applyNode.getSubquery(),
-                context.getVariableAllocator().toVariableReference(Symbol.from(inPredicate.getValue())),
-                context.getVariableAllocator().toVariableReference(Symbol.from(inPredicate.getValueList())),
+                context.getVariableAllocator().toVariableReference(inPredicate.getValue()),
+                context.getVariableAllocator().toVariableReference(inPredicate.getValueList()),
                 semiJoinVariable,
                 Optional.empty(),
                 Optional.empty(),
