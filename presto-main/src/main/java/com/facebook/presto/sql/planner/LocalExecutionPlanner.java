@@ -409,7 +409,7 @@ public class LocalExecutionPlanner
                         if (argument.isConstant()) {
                             return argument.getConstant().getType();
                         }
-                        return types.get(argument.getColumn());
+                        return argument.getVariableReference().getType();
                     })
                     .collect(toImmutableList());
         }

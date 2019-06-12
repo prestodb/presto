@@ -73,7 +73,7 @@ public class SymbolToInputParameterRewriter
                     return node;
                 }
 
-                Type type = types.get(symbol);
+                Type type = types.get(node);
                 checkArgument(type != null, "Cannot resolve symbol %s", node.getName());
 
                 int parameter = fieldToParameter.computeIfAbsent(channel, field -> {

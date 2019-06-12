@@ -24,7 +24,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -452,7 +451,7 @@ public class OptimizeMixedDistinctAggregations
                         ImmutableList.Builder<RowExpression> argumentsBuilder = ImmutableList.builder();
                         for (RowExpression argument : aggregation.getArguments()) {
                             if (castToExpression(argument) instanceof SymbolReference &&
-                                    toVariableReference(Symbol.from(castToExpression(argument)), variableAllocator.getTypes()).equals(distinctVariable)) {
+                                    toVariableReference(castToExpression(argument), variableAllocator.getTypes()).equals(distinctVariable)) {
                                 argumentsBuilder.add(castToRowExpression(asSymbolReference(duplicatedDistinctVariable)));
                             }
                             else {
@@ -492,9 +491,9 @@ public class OptimizeMixedDistinctAggregations
         {
             ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
             for (RowExpression argument : arguments) {
-                if (castToExpression(argument) instanceof SymbolReference) {
-                    Symbol symbol = Symbol.from(castToExpression(argument));
-                    builder.add(variable(symbol.getName(), types.get(symbol)));
+                Expression expression = castToExpression(argument);
+                if (expression instanceof SymbolReference) {
+                    builder.add(variable(((SymbolReference) expression).getName(), types.get(expression)));
                 }
             }
             return builder.build();
@@ -537,8 +536,7 @@ public class OptimizeMixedDistinctAggregations
                     .flatMap(aggregation -> aggregation.getArguments().stream())
                     .distinct()
                     .map(OriginalExpressionUtils::castToExpression)
-                    .map(Symbol::from)
-                    .map(symbol -> toVariableReference(symbol, types))
+                    .map(expression -> toVariableReference(expression, types))
                     .collect(Collectors.toList());
         }
 
@@ -548,7 +546,7 @@ public class OptimizeMixedDistinctAggregations
                     .filter(aggregation -> aggregation.getMask().isPresent())
                     .flatMap(aggregation -> aggregation.getArguments().stream())
                     .distinct()
-                    .map(symbol -> toVariableReference(Symbol.from(castToExpression(symbol)), types))
+                    .map(expression -> toVariableReference(castToExpression(expression), types))
                     .collect(Collectors.toList());
         }
 

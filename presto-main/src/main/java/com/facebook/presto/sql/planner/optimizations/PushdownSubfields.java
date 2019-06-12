@@ -32,7 +32,6 @@ import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -233,7 +232,7 @@ public class PushdownSubfields
                 Expression expression = castToExpression(entry.getValue());
 
                 if (expression instanceof SymbolReference) {
-                    context.get().addAssignment(variable, new VariableReferenceExpression(((SymbolReference) expression).getName(), types.get(Symbol.from(expression))));
+                    context.get().addAssignment(variable, new VariableReferenceExpression(((SymbolReference) expression).getName(), types.get(expression)));
                     continue;
                 }
 
@@ -549,7 +548,7 @@ public class PushdownSubfields
             @Override
             protected Void visitSymbolReference(SymbolReference node, Context context)
             {
-                context.variables.add(new VariableReferenceExpression(node.getName(), typeProvider.get(Symbol.from(node))));
+                context.variables.add(new VariableReferenceExpression(node.getName(), typeProvider.get(node)));
                 return null;
             }
         }

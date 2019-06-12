@@ -859,8 +859,8 @@ public final class FunctionAssertions
 
         Object result = evaluator.evaluate(symbol -> {
             int position = 0;
-            int channel = INPUT_MAPPING.get(new VariableReferenceExpression(symbol.getName(), SYMBOL_TYPES.get(symbol)));
-            Type type = SYMBOL_TYPES.get(symbol);
+            int channel = INPUT_MAPPING.get(new VariableReferenceExpression(symbol.getName(), SYMBOL_TYPES.get(symbol.toSymbolReference())));
+            Type type = SYMBOL_TYPES.get(symbol.toSymbolReference());
 
             Block block = SOURCE_PAGE.getBlock(channel);
 

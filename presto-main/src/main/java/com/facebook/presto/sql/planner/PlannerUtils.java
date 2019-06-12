@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -54,8 +55,7 @@ public class PlannerUtils
                         .map(SortItem::getSortKey)
                         .map(item -> {
                             checkArgument(item instanceof SymbolReference, "must be symbol reference");
-                            Symbol symbol = Symbol.from(item);
-                            return variable(symbol.getName(), types.get(symbol));
+                            return variable(((SymbolReference) item).getName(), types.get(item));
                         }).collect(toImmutableList()),
                 orderBy.getSortItems().stream()
                         .map(PlannerUtils::toSortOrder)
@@ -70,8 +70,9 @@ public class PlannerUtils
         return new OrderingScheme(ImmutableList.copyOf(orderings.keySet()), orderings);
     }
 
-    public static VariableReferenceExpression toVariableReference(Symbol symbol, TypeProvider types)
+    public static VariableReferenceExpression toVariableReference(Expression expression, TypeProvider types)
     {
-        return variable(symbol.getName(), types.get(symbol));
+        checkArgument(expression instanceof SymbolReference);
+        return variable(((SymbolReference) expression).getName(), types.get(expression));
     }
 }

@@ -301,10 +301,10 @@ public final class ExpressionDomainTranslator
             this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionManager());
         }
 
-        private Type checkedTypeLookup(Symbol symbol)
+        private Type checkedTypeLookup(Expression expression)
         {
-            Type type = types.get(symbol);
-            checkArgument(type != null, "Types is missing info for symbol: %s", symbol);
+            Type type = types.get(expression);
+            checkArgument(type != null, "Types is missing info for expression: %s", expression);
             return type;
         }
 
@@ -720,11 +720,10 @@ public final class ExpressionDomainTranslator
                 return super.visitIsNullPredicate(node, complement);
             }
 
-            Symbol symbol = Symbol.from(node.getValue());
-            Type columnType = checkedTypeLookup(symbol);
+            Type columnType = checkedTypeLookup(node.getValue());
             Domain domain = complementIfNecessary(Domain.onlyNull(columnType), complement);
             return new ExtractionResult(
-                    TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)),
+                    TupleDomain.withColumnDomains(ImmutableMap.of(Symbol.from(node.getValue()), domain)),
                     TRUE_LITERAL);
         }
 
@@ -735,12 +734,11 @@ public final class ExpressionDomainTranslator
                 return super.visitIsNotNullPredicate(node, complement);
             }
 
-            Symbol symbol = Symbol.from(node.getValue());
-            Type columnType = checkedTypeLookup(symbol);
+            Type columnType = checkedTypeLookup(node.getValue());
 
             Domain domain = complementIfNecessary(Domain.notNull(columnType), complement);
             return new ExtractionResult(
-                    TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)),
+                    TupleDomain.withColumnDomains(ImmutableMap.of(Symbol.from(node.getValue()), domain)),
                     TRUE_LITERAL);
         }
 

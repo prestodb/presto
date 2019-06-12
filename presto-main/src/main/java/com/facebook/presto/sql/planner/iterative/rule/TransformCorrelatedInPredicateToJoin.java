@@ -23,7 +23,6 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
@@ -72,6 +71,7 @@ import static com.facebook.presto.sql.planner.plan.Patterns.Apply.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -186,8 +186,10 @@ public class TransformCorrelatedInPredicateToJoin
                         .put(buildSideKnownNonNull, castToRowExpression(bigint(0)))
                         .build());
 
-        SymbolReference probeSideSymbolReference = Symbol.from(inPredicate.getValue()).toSymbolReference();
-        SymbolReference buildSideSymbolReference = Symbol.from(inPredicate.getValueList()).toSymbolReference();
+        checkArgument(inPredicate.getValue() instanceof SymbolReference, "Unexpected expression: %s", inPredicate.getValue());
+        SymbolReference probeSideSymbolReference = (SymbolReference) inPredicate.getValue();
+        checkArgument(inPredicate.getValueList() instanceof SymbolReference, "Unexpected expression: %s", inPredicate.getValueList());
+        SymbolReference buildSideSymbolReference = (SymbolReference) inPredicate.getValueList();
 
         Expression joinExpression = and(
                 or(
@@ -327,7 +329,7 @@ public class TransformCorrelatedInPredicateToJoin
                         .flatMap(AstUtils::preOrder)
                         .filter(SymbolReference.class::isInstance)
                         .map(SymbolReference.class::cast)
-                        .map(symbolReference -> new VariableReferenceExpression(symbolReference.getName(), types.get(Symbol.from(symbolReference))))
+                        .map(symbolReference -> new VariableReferenceExpression(symbolReference.getName(), types.get(symbolReference)))
                         .filter(variable -> !correlation.contains(variable))
                         .map(AssignmentUtils::identityAsSymbolReference)
                         .forEach(assignments::put);

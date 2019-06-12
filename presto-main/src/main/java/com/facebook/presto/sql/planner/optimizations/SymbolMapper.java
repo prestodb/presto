@@ -98,7 +98,7 @@ public class SymbolMapper
         if (canonical.equals(variable.getName())) {
             return variable;
         }
-        return new VariableReferenceExpression(canonical, types.get(new Symbol(canonical)));
+        return new VariableReferenceExpression(canonical, types.get(new SymbolReference(canonical)));
     }
 
     public Expression map(Expression value)

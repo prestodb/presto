@@ -38,7 +38,6 @@ import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PreferredProperties.PartitioningProperties;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -1391,7 +1390,7 @@ public class AddExchanges
         Map<VariableReferenceExpression, VariableReferenceExpression> outputToInput = new HashMap<>();
         for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : assignments.getMap().entrySet()) {
             if (castToExpression(assignment.getValue()) instanceof SymbolReference) {
-                outputToInput.put(assignment.getKey(), toVariableReference(Symbol.from(castToExpression(assignment.getValue())), types));
+                outputToInput.put(assignment.getKey(), toVariableReference(castToExpression(assignment.getValue()), types));
             }
         }
         return outputToInput;

@@ -21,7 +21,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PartitioningScheme;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -104,7 +103,7 @@ public class PushProjectionThroughExchange
             partitioningColumns.stream()
                     .map(outputToInputMap::get)
                     .forEach(nameReference -> {
-                        VariableReferenceExpression variable = toVariableReference(Symbol.from(nameReference), types);
+                        VariableReferenceExpression variable = toVariableReference(nameReference, types);
                         projections.put(variable, castToRowExpression(nameReference));
                         inputs.add(variable);
                     });
@@ -123,7 +122,7 @@ public class PushProjectionThroughExchange
                         .filter(variable -> !partitioningColumns.contains(variable))
                         .map(outputToInputMap::get)
                         .forEach(nameReference -> {
-                            VariableReferenceExpression variable = toVariableReference(Symbol.from(nameReference), types);
+                            VariableReferenceExpression variable = toVariableReference(nameReference, types);
                             projections.put(variable, castToRowExpression(nameReference));
                             inputs.add(variable);
                         });

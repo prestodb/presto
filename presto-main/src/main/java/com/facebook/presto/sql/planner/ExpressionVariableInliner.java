@@ -70,7 +70,7 @@ public class ExpressionVariableInliner
                 return node;
             }
 
-            Expression expression = mapping.apply(new VariableReferenceExpression(node.getName(), types.get(new Symbol(node.getName()))));
+            Expression expression = mapping.apply(new VariableReferenceExpression(node.getName(), types.get(node)));
             checkState(expression != null, "Cannot resolve symbol %s", node.getName());
             return expression;
         }

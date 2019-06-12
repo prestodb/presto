@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Collection;
@@ -56,10 +57,10 @@ public class TypeProvider
         this.types = types;
     }
 
-    public Type get(Symbol symbol)
+    public Type get(Expression expression)
     {
-        requireNonNull(symbol, "symbol is null");
-
+        requireNonNull(expression, "expression is null");
+        Symbol symbol = Symbol.from(expression);
         Type type = types.get(symbol);
         checkArgument(type != null, "no type found found for symbol '%s'", symbol);
 

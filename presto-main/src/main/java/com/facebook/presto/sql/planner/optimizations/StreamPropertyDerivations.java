@@ -26,7 +26,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -349,7 +348,7 @@ public final class StreamPropertyDerivations
                 RowExpression expression = assignment.getValue();
                 if (isExpression(expression)) {
                     if (castToExpression(expression) instanceof SymbolReference) {
-                        inputToOutput.put(toVariableReference(Symbol.from(castToExpression(expression)), types), assignment.getKey());
+                        inputToOutput.put(toVariableReference(castToExpression(expression), types), assignment.getKey());
                     }
                 }
                 else {

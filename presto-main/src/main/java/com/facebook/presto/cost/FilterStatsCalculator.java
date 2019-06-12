@@ -35,7 +35,6 @@ import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -297,7 +296,7 @@ public class FilterStatsCalculator
         protected PlanNodeStatsEstimate visitIsNotNullPredicate(IsNotNullPredicate node, Void context)
         {
             if (node.getValue() instanceof SymbolReference) {
-                VariableReferenceExpression variable = toVariable(Symbol.from(node.getValue()));
+                VariableReferenceExpression variable = toVariable(node.getValue());
                 VariableStatsEstimate variableStats = input.getVariableStatistics(variable);
                 PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
                 result.setOutputRowCount(input.getOutputRowCount() * (1 - variableStats.getNullsFraction()));
@@ -311,7 +310,7 @@ public class FilterStatsCalculator
         protected PlanNodeStatsEstimate visitIsNullPredicate(IsNullPredicate node, Void context)
         {
             if (node.getValue() instanceof SymbolReference) {
-                VariableReferenceExpression variable = toVariable(Symbol.from(node.getValue()));
+                VariableReferenceExpression variable = toVariable(node.getValue());
                 VariableStatsEstimate variableStats = input.getVariableStatistics(variable);
                 PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
                 result.setOutputRowCount(input.getOutputRowCount() * variableStats.getNullsFraction());
@@ -339,7 +338,7 @@ public class FilterStatsCalculator
                 return PlanNodeStatsEstimate.unknown();
             }
 
-            VariableStatsEstimate valueStats = input.getVariableStatistics(toVariable(Symbol.from(node.getValue())));
+            VariableStatsEstimate valueStats = input.getVariableStatistics(toVariable(node.getValue()));
             Expression lowerBound = new ComparisonExpression(GREATER_THAN_OR_EQUAL, node.getValue(), node.getMin());
             Expression upperBound = new ComparisonExpression(LESS_THAN_OR_EQUAL, node.getValue(), node.getMax());
 
@@ -390,7 +389,7 @@ public class FilterStatsCalculator
             result.setOutputRowCount(min(inEstimate.getOutputRowCount(), notNullValuesBeforeIn));
 
             if (node.getValue() instanceof SymbolReference) {
-                VariableReferenceExpression valueVariable = toVariable(Symbol.from(node.getValue()));
+                VariableReferenceExpression valueVariable = toVariable(node.getValue());
                 VariableStatsEstimate newvariableStats = inEstimate.getVariableStatistics(valueVariable)
                         .mapDistinctValuesCount(newDistinctValuesCount -> min(newDistinctValuesCount, valueStats.getDistinctValuesCount()));
                 result.addVariableStatistics(valueVariable, newvariableStats);
@@ -422,7 +421,7 @@ public class FilterStatsCalculator
             }
 
             VariableStatsEstimate leftStats = getExpressionStats(left);
-            Optional<VariableReferenceExpression> leftVariable = left instanceof SymbolReference ? Optional.of(toVariable(Symbol.from(left))) : Optional.empty();
+            Optional<VariableReferenceExpression> leftVariable = left instanceof SymbolReference ? Optional.of(toVariable(left)) : Optional.empty();
             if (right instanceof Literal) {
                 Object literalValue = LiteralInterpreter.evaluate(metadata, session.toConnectorSession(), right);
                 if (literalValue == null) {
@@ -438,15 +437,14 @@ public class FilterStatsCalculator
                 return estimateExpressionToLiteralComparison(input, leftStats, leftVariable, value, operator);
             }
 
-            Optional<VariableReferenceExpression> rightVariable = right instanceof SymbolReference ? Optional.of(toVariable(Symbol.from(right))) : Optional.empty();
+            Optional<VariableReferenceExpression> rightVariable = right instanceof SymbolReference ? Optional.of(toVariable(right)) : Optional.empty();
             return estimateExpressionToExpressionComparison(input, leftStats, leftVariable, rightStats, rightVariable, operator);
         }
 
         private Type getType(Expression expression)
         {
             if (expression instanceof SymbolReference) {
-                Symbol symbol = Symbol.from(expression);
-                return requireNonNull(types.get(symbol), () -> format("No type for symbol %s", symbol));
+                return requireNonNull(types.get(expression), () -> format("No type for expression %s", expression));
             }
 
             ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
@@ -465,15 +463,16 @@ public class FilterStatsCalculator
         private VariableStatsEstimate getExpressionStats(Expression expression)
         {
             if (expression instanceof SymbolReference) {
-                VariableReferenceExpression variable = toVariable(Symbol.from(expression));
+                VariableReferenceExpression variable = toVariable(expression);
                 return requireNonNull(input.getVariableStatistics(variable), () -> format("No statistics for variable %s", variable));
             }
             return scalarStatsCalculator.calculate(expression, input, session, types);
         }
 
-        private VariableReferenceExpression toVariable(Symbol symbol)
+        private VariableReferenceExpression toVariable(Expression expression)
         {
-            return new VariableReferenceExpression(symbol.getName(), types.get(symbol));
+            checkArgument(expression instanceof SymbolReference, "Unexpected expression: %s", expression);
+            return new VariableReferenceExpression(((SymbolReference) expression).getName(), types.get(expression));
         }
     }
 

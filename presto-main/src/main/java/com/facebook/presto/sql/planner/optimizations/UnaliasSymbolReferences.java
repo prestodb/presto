@@ -636,7 +636,7 @@ public class UnaliasSymbolReferences
 
                 if (expression instanceof SymbolReference) {
                     // Always map a trivial symbol projection
-                    VariableReferenceExpression variable = new VariableReferenceExpression(Symbol.from(expression).getName(), types.get(Symbol.from(expression)));
+                    VariableReferenceExpression variable = new VariableReferenceExpression(((SymbolReference) expression).getName(), types.get(expression));
                     if (!variable.getName().equals(entry.getKey().getName())) {
                         map(entry.getKey(), variable);
                     }
@@ -677,7 +677,7 @@ public class UnaliasSymbolReferences
             while (mapping.containsKey(canonical)) {
                 canonical = mapping.get(canonical);
             }
-            return new VariableReferenceExpression(canonical, types.get(new Symbol(canonical)));
+            return new VariableReferenceExpression(canonical, types.get(new SymbolReference(canonical)));
         }
 
         private Optional<VariableReferenceExpression> canonicalize(Optional<VariableReferenceExpression> variable)

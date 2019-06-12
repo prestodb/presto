@@ -27,7 +27,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -370,7 +369,7 @@ public class PushAggregationThroughOuterJoin
         for (RowExpression argument : aggregation.getArguments()) {
             Expression expression = castToExpression(argument);
             if (expression instanceof SymbolReference) {
-                inputVariables.add(toVariableReference(Symbol.from(expression), types));
+                inputVariables.add(toVariableReference(expression, types));
             }
         }
         return sourceVariables.stream()

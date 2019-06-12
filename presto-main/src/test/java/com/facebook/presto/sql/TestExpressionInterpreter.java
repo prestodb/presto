@@ -1545,7 +1545,7 @@ public class TestExpressionInterpreter
         Object rowExpressionResult = new RowExpressionInterpreter(rowExpression, METADATA, TEST_SESSION.toConnectorSession(), true).optimize(symbol -> {
             Object value = symbolConstant(symbol);
             if (value == null) {
-                return new VariableReferenceExpression(symbol.getName(), SYMBOL_TYPES.get(symbol));
+                return new VariableReferenceExpression(symbol.getName(), SYMBOL_TYPES.get(symbol.toSymbolReference()));
             }
             return value;
         });

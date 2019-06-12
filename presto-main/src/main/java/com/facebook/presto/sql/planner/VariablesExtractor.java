@@ -162,7 +162,7 @@ public final class VariablesExtractor
         @Override
         protected Void visitSymbolReference(SymbolReference node, ImmutableList.Builder<VariableReferenceExpression> builder)
         {
-            builder.add(new VariableReferenceExpression(node.getName(), types.get(Symbol.from(node))));
+            builder.add(new VariableReferenceExpression(node.getName(), types.get(node)));
             return null;
         }
     }

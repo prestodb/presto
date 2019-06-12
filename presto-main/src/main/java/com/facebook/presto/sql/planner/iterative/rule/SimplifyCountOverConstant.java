@@ -21,7 +21,6 @@ import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -121,7 +120,7 @@ public class SimplifyCountOverConstant
         RowExpression argument = aggregation.getArguments().get(0);
         Expression assigned = null;
         if (castToExpression(argument) instanceof SymbolReference) {
-            assigned = castToExpression(inputs.get(toVariableReference(Symbol.from(castToExpression(argument)), types)));
+            assigned = castToExpression(inputs.get(toVariableReference(castToExpression(argument), types)));
         }
 
         return assigned instanceof Literal && !(assigned instanceof NullLiteral);

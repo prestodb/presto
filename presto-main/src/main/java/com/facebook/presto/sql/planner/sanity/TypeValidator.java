@@ -27,7 +27,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -123,7 +122,7 @@ public final class TypeValidator
                 if (isExpression(expression)) {
                     if (castToExpression(expression) instanceof SymbolReference) {
                         SymbolReference symbolReference = (SymbolReference) castToExpression(expression);
-                        verifyTypeSignature(entry.getKey(), types.get(Symbol.from(symbolReference)).getTypeSignature());
+                        verifyTypeSignature(entry.getKey(), types.get(symbolReference).getTypeSignature());
                         continue;
                     }
                     Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, castToExpression(expression), emptyList(), warningCollector);

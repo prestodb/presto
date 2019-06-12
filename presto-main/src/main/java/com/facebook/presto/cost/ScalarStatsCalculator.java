@@ -33,7 +33,6 @@ import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
@@ -340,8 +339,7 @@ public class ScalarStatsCalculator
         @Override
         protected VariableStatsEstimate visitSymbolReference(SymbolReference node, Void context)
         {
-            Symbol symbol = Symbol.from(node);
-            return input.getVariableStatistics(new VariableReferenceExpression(symbol.getName(), types.get(symbol)));
+            return input.getVariableStatistics(new VariableReferenceExpression(node.getName(), types.get(node)));
         }
 
         @Override

@@ -1321,7 +1321,7 @@ public class TestExpressionDomainTranslator
 
     private InPredicate in(Symbol symbol, List<?> values)
     {
-        return in(symbol.toSymbolReference(), TYPES.get(symbol), values);
+        return in(symbol.toSymbolReference(), TYPES.get(symbol.toSymbolReference()), values);
     }
 
     private static BetweenPredicate between(Symbol symbol, Expression min, Expression max)
@@ -1509,7 +1509,7 @@ public class TestExpressionDomainTranslator
         private NumericValues(Symbol column, T min, T integerNegative, T fractionalNegative, T integerPositive, T fractionalPositive, T max)
         {
             this.column = requireNonNull(column, "column is null");
-            this.type = requireNonNull(TYPES.get(column), "type for column not found: " + column);
+            this.type = requireNonNull(TYPES.get(column.toSymbolReference()), "type for column not found: " + column);
             this.min = requireNonNull(min, "min is null");
             this.integerNegative = requireNonNull(integerNegative, "integerNegative is null");
             this.fractionalNegative = requireNonNull(fractionalNegative, "fractionalNegative is null");
