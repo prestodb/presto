@@ -290,7 +290,7 @@ public class ReorderJoins
 
             PlanNode right = rightResult.planNode.orElseThrow(() -> new VerifyException("Plan node is not present"));
 
-            // sort output symbols so that the left input symbols are first
+            // sort output variables so that the left input variables are first
             List<VariableReferenceExpression> sortedOutputVariables = Stream.concat(left.getOutputVariables().stream(), right.getOutputVariables().stream())
                     .filter(outputVariables::contains)
                     .collect(toImmutableList());
@@ -311,23 +311,21 @@ public class ReorderJoins
         private List<Expression> getJoinPredicates(Set<VariableReferenceExpression> leftVariables, Set<VariableReferenceExpression> rightVariables)
         {
             ImmutableList.Builder<Expression> joinPredicatesBuilder = ImmutableList.builder();
-            List<Symbol> leftSymbols = leftVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
-            List<Symbol> rightSymbols = rightVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
             // This takes all conjuncts that were part of allFilters that
             // could not be used for equality inference.
-            // If they use both the left and right symbols, we add them to the list of joinPredicates
+            // If they use both the left and right variables, we add them to the list of joinPredicates
             stream(nonInferrableConjuncts(allFilter))
                     .map(conjunct -> allFilterInference.rewriteExpression(
                             conjunct,
                             variable -> leftVariables.contains(variable) || rightVariables.contains(variable),
                             context.getVariableAllocator().getTypes()))
                     .filter(Objects::nonNull)
-                    // filter expressions that contain only left or right symbols
+                    // filter expressions that contain only left or right variables
                     .filter(conjunct -> allFilterInference.rewriteExpression(conjunct, leftVariables::contains, context.getVariableAllocator().getTypes()) == null)
                     .filter(conjunct -> allFilterInference.rewriteExpression(conjunct, rightVariables::contains, context.getVariableAllocator().getTypes()) == null)
                     .forEach(joinPredicatesBuilder::add);
 
-            // create equality inference on available symbols
+            // create equality inference on available variables
             // TODO: make generateEqualitiesPartitionedBy take left and right scope
             List<Expression> joinEqualities = allFilterInference.generateEqualitiesPartitionedBy(
                     variable -> leftVariables.contains(variable) || rightVariables.contains(variable),
@@ -340,7 +338,6 @@ public class ReorderJoins
 
         private JoinEnumerationResult getJoinSource(LinkedHashSet<PlanNode> nodes, List<VariableReferenceExpression> outputVariables)
         {
-            List<Symbol> outputSymbols = outputVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
             if (nodes.size() == 1) {
                 PlanNode planNode = getOnlyElement(nodes);
                 ImmutableList.Builder<Expression> predicates = ImmutableList.builder();
