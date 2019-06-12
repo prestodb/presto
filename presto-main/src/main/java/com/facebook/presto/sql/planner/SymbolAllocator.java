@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
@@ -212,5 +214,17 @@ public class SymbolAllocator
         return symbols.stream()
                 .map(symbol -> new VariableReferenceExpression(symbol.getName(), getTypes().get(symbol)))
                 .collect(toImmutableList());
+    }
+
+    public VariableReferenceExpression newVariable(RowExpression expression)
+    {
+        String nameHint = "expr";
+        if (expression instanceof VariableReferenceExpression) {
+            nameHint = ((VariableReferenceExpression) expression).getName();
+        }
+        else if (expression instanceof CallExpression) {
+            nameHint = ((CallExpression) expression).getDisplayName();
+        }
+        return newVariable(nameHint, expression.getType(), null);
     }
 }

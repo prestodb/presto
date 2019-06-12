@@ -20,13 +20,14 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.ExpressionVariableInliner;
+import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
-import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -42,6 +43,7 @@ import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.union;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 
 public class PushProjectionThroughUnion
         implements Rule<ProjectNode>
@@ -72,7 +74,7 @@ public class PushProjectionThroughUnion
         ImmutableList.Builder<PlanNode> outputSources = ImmutableList.builder();
 
         for (int i = 0; i < source.getSources().size(); i++) {
-            Map<VariableReferenceExpression, SymbolReference> outputToInput = Maps.transformValues(source.sourceVariableMap(i), variable -> new SymbolReference(variable.getName()));   // Map: output of union -> input of this source to the union
+            Map<VariableReferenceExpression, SymbolReference> outputToInput = Maps.transformValues(source.sourceVariableMap(i), OriginalExpressionUtils::asSymbolReference);  // Map: output of union -> input of this source to the union
             Assignments.Builder assignments = Assignments.builder(); // assignments for the new ProjectNode
 
             // mapping from current ProjectNode to new ProjectNode, used to identify the output layout
@@ -80,11 +82,19 @@ public class PushProjectionThroughUnion
 
             // Translate the assignments in the ProjectNode using symbols of the source of the UnionNode
             for (Map.Entry<VariableReferenceExpression, RowExpression> entry : parent.getAssignments().entrySet()) {
-                Expression translatedExpression = ExpressionVariableInliner.inlineVariables(outputToInput, castToExpression(entry.getValue()), context.getSymbolAllocator().getTypes());
+                RowExpression translatedExpression;
                 Type type = entry.getKey().getType();
-                VariableReferenceExpression variable = context.getSymbolAllocator().newVariable(translatedExpression, type);
-                assignments.put(variable, castToRowExpression(translatedExpression));
-                projectVariableMapping.put(new VariableReferenceExpression(entry.getKey().getName(), type), variable);
+                VariableReferenceExpression variable;
+                if (isExpression(entry.getValue())) {
+                    translatedExpression = castToRowExpression(ExpressionVariableInliner.inlineVariables(outputToInput, castToExpression(entry.getValue()), context.getSymbolAllocator().getTypes()));
+                    variable = context.getSymbolAllocator().newVariable(castToExpression(translatedExpression), type);
+                }
+                else {
+                    translatedExpression = RowExpressionVariableInliner.inlineVariables(source.sourceVariableMap(i), entry.getValue());
+                    variable = context.getSymbolAllocator().newVariable(translatedExpression);
+                }
+                assignments.put(variable, translatedExpression);
+                projectVariableMapping.put(entry.getKey(), variable);
             }
             outputSources.add(new ProjectNode(context.getIdAllocator().getNextId(), source.getSources().get(i), assignments.build()));
             outputLayout.forEach(variable -> mappings.put(variable, projectVariableMapping.get(variable)));

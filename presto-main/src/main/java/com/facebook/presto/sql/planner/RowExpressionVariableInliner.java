@@ -31,19 +31,19 @@ public final class RowExpressionVariableInliner
         extends RowExpressionRewriter<Void>
 {
     private final Set<String> excludedNames = new HashSet<>();
-    private final Function<VariableReferenceExpression, RowExpression> mapping;
+    private final Function<VariableReferenceExpression, ? extends RowExpression> mapping;
 
-    private RowExpressionVariableInliner(Function<VariableReferenceExpression, RowExpression> mapping)
+    private RowExpressionVariableInliner(Function<VariableReferenceExpression, ? extends RowExpression> mapping)
     {
         this.mapping = mapping;
     }
 
-    public static RowExpression inlineVariables(Function<VariableReferenceExpression, RowExpression> mapping, RowExpression expression)
+    public static RowExpression inlineVariables(Function<VariableReferenceExpression, ? extends RowExpression> mapping, RowExpression expression)
     {
         return RowExpressionTreeRewriter.rewriteWith(new RowExpressionVariableInliner(mapping), expression);
     }
 
-    public static RowExpression inlineVariables(Map<VariableReferenceExpression, RowExpression> mapping, RowExpression expression)
+    public static RowExpression inlineVariables(Map<VariableReferenceExpression, ? extends RowExpression> mapping, RowExpression expression)
     {
         return inlineVariables(mapping::get, expression);
     }

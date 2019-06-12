@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -69,6 +70,7 @@ class Util
     /**
      * @return If the node has outputs not in permittedOutputs, returns an identity projection containing only those node outputs also in permittedOutputs.
      */
+    @Deprecated
     public static Optional<PlanNode> restrictOutputs(PlanNodeIdAllocator idAllocator, PlanNode node, Set<VariableReferenceExpression> permittedOutputs)
     {
         List<VariableReferenceExpression> restrictedOutputs = node.getOutputVariables().stream()
@@ -84,6 +86,26 @@ class Util
                         idAllocator.getNextId(),
                         node,
                         identityAssignmentsAsSymbolReferences(restrictedOutputs)));
+    }
+
+    /**
+     * @return If the node has outputs not in permittedOutputs, returns an identity projection containing only those node outputs also in permittedOutputs.
+     */
+    public static Optional<PlanNode> restrictOutputsAsVariable(PlanNodeIdAllocator idAllocator, PlanNode node, Set<VariableReferenceExpression> permittedOutputs)
+    {
+        List<VariableReferenceExpression> restrictedOutputs = node.getOutputVariables().stream()
+                .filter(permittedOutputs::contains)
+                .collect(toImmutableList());
+
+        if (restrictedOutputs.size() == node.getOutputVariables().size()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(
+                new ProjectNode(
+                        idAllocator.getNextId(),
+                        node,
+                        identityAssignments(restrictedOutputs)));
     }
 
     /**
