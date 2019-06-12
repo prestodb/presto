@@ -1766,7 +1766,7 @@ public class HiveMetadata
         //  - range filters that apply to subfields,
         //  - the rest
         ExtractionResult<Subfield> decomposedFilter = rowExpressionService.getDomainTranslator()
-                .fromPredicate(session, filter, new SubfieldExtractor(functionResolution));
+                .fromPredicate(session, filter, new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(), session));
 
         Map<String, ColumnHandle> columnHandles = getColumnHandles(session, tableHandle);
         TupleDomain<ColumnHandle> entireColumnDomain = decomposedFilter.getTupleDomain()
