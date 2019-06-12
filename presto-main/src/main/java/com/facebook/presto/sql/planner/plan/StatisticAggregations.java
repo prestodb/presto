@@ -19,7 +19,6 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -32,7 +31,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class StatisticAggregations
@@ -59,14 +57,6 @@ public class StatisticAggregations
     public List<VariableReferenceExpression> getGroupingVariables()
     {
         return groupingVariables;
-    }
-
-    public List<Symbol> getGroupingSymbols()
-    {
-        return groupingVariables.stream()
-                .map(VariableReferenceExpression::getName)
-                .map(Symbol::new)
-                .collect(toImmutableList());
     }
 
     public Parts createPartialAggregations(PlanVariableAllocator variableAllocator, FunctionManager functionManager)

@@ -2245,7 +2245,7 @@ public class LocalExecutionPlanner
                         node.getId(),
                         aggregation.getAggregations(),
                         ImmutableSet.of(),
-                        aggregation.getGroupingVariables(),
+                        groupingVariables,
                         FINAL,
                         Optional.empty(),
                         Optional.empty(),
