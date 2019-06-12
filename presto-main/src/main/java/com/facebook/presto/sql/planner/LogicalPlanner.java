@@ -76,6 +76,7 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -362,15 +363,15 @@ public class LogicalPlanner
                 assignments.put(output, castToRowExpression(cast));
             }
             else {
-                Symbol input = plan.getSymbol(index);
+                VariableReferenceExpression input = plan.getVariable(index);
                 Type tableType = column.getType();
-                Type queryType = variableAllocator.getTypes().get(input);
+                Type queryType = input.getType();
 
                 if (queryType.equals(tableType) || metadata.getTypeManager().isTypeOnlyCoercion(queryType, tableType)) {
-                    assignments.put(output, castToRowExpression(input.toSymbolReference()));
+                    assignments.put(output, castToRowExpression(new SymbolReference(input.getName())));
                 }
                 else {
-                    Expression cast = new Cast(input.toSymbolReference(), tableType.getTypeSignature().toString());
+                    Expression cast = new Cast(new SymbolReference(input.getName()), tableType.getTypeSignature().toString());
                     assignments.put(output, castToRowExpression(cast));
                 }
             }
@@ -513,8 +514,7 @@ public class LogicalPlanner
 
     private PlanNode createOutputPlan(RelationPlan plan, Analysis analysis)
     {
-        ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
-        ImmutableList.Builder<VariableReferenceExpression> outputVariables = ImmutableList.builder();
+        ImmutableList.Builder<VariableReferenceExpression> outputs = ImmutableList.builder();
         ImmutableList.Builder<String> names = ImmutableList.builder();
 
         int columnNumber = 0;
@@ -524,14 +524,13 @@ public class LogicalPlanner
             names.add(name);
 
             int fieldIndex = outputDescriptor.indexOf(field);
-            Symbol symbol = plan.getSymbol(fieldIndex);
-            outputs.add(symbol);
-            outputVariables.add(new VariableReferenceExpression(symbol.getName(), field.getType()));
+            VariableReferenceExpression variable = plan.getVariable(fieldIndex);
+            outputs.add(variable);
 
             columnNumber++;
         }
 
-        return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names.build(), outputVariables.build());
+        return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names.build(), outputs.build());
     }
 
     private RelationPlan createRelationPlan(Analysis analysis, Query query)

@@ -447,7 +447,7 @@ class RelationPlanner
             VariableReferenceExpression leftOutput = variableAllocator.newVariable(identifier, type);
             int leftField = joinAnalysis.getLeftJoinFields().get(i);
             leftCoercions.put(leftOutput, castToRowExpression(new Cast(
-                    left.getSymbol(leftField).toSymbolReference(),
+                    new SymbolReference(left.getVariable(leftField).getName()),
                     type.getTypeSignature().toString(),
                     false,
                     metadata.getTypeManager().isTypeOnlyCoercion(left.getDescriptor().getFieldByIndex(leftField).getType(), type))));
@@ -457,7 +457,7 @@ class RelationPlanner
             VariableReferenceExpression rightOutput = variableAllocator.newVariable(identifier, type);
             int rightField = joinAnalysis.getRightJoinFields().get(i);
             rightCoercions.put(rightOutput, castToRowExpression(new Cast(
-                    right.getSymbol(rightField).toSymbolReference(),
+                    new SymbolReference(right.getVariable(rightField).getName()),
                     type.getTypeSignature().toString(),
                     false,
                     metadata.getTypeManager().isTypeOnlyCoercion(right.getDescriptor().getFieldByIndex(rightField).getType(), type))));
@@ -881,19 +881,6 @@ class RelationPlanner
         public ListMultimap<VariableReferenceExpression, VariableReferenceExpression> getVariableMapping()
         {
             return variableMapping;
-        }
-
-        public ListMultimap<Symbol, Symbol> getSymbolMapping()
-        {
-            ImmutableListMultimap.Builder<Symbol, Symbol> builder = ImmutableListMultimap.builder();
-            variableMapping.asMap().entrySet().stream()
-                    .forEach(entry -> builder.putAll(
-                            new Symbol(entry.getKey().getName()),
-                            entry.getValue().stream()
-                                    .map(VariableReferenceExpression::getName)
-                                    .map(Symbol::new)
-                                    .collect(toImmutableList())));
-            return builder.build();
         }
     }
 }

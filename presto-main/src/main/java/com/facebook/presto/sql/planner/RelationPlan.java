@@ -59,12 +59,6 @@ class RelationPlan
         this.fieldMappings = ImmutableList.copyOf(fieldMappings);
     }
 
-    public Symbol getSymbol(int fieldIndex)
-    {
-        checkArgument(fieldIndex >= 0 && fieldIndex < fieldMappings.size(), "No field->symbol mapping for field %s", fieldIndex);
-        return new Symbol(fieldMappings.get(fieldIndex).getName());
-    }
-
     public VariableReferenceExpression getVariable(int fieldIndex)
     {
         checkArgument(fieldIndex >= 0 && fieldIndex < fieldMappings.size(), "No field->symbol mapping for field %s", fieldIndex);

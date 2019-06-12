@@ -194,9 +194,9 @@ class TranslationMap
             @Override
             public Expression rewriteFieldReference(FieldReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                Symbol symbol = rewriteBase.getSymbol(node.getFieldIndex());
-                checkState(symbol != null, "No symbol mapping for node '%s' (%s)", node, node.getFieldIndex());
-                return symbol.toSymbolReference();
+                VariableReferenceExpression variable = rewriteBase.getVariable(node.getFieldIndex());
+                checkState(variable != null, "No variable mapping for node '%s' (%s)", node, node.getFieldIndex());
+                return new SymbolReference(variable.getName());
             }
 
             @Override
