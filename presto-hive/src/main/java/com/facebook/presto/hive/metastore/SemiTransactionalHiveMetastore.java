@@ -601,7 +601,7 @@ public class SemiTransactionalHiveMetastore
                 // empty string match everything
                 continue;
             }
-            if (values.get(i).equals(pattern.get(i))) {
+            if (!values.get(i).equals(pattern.get(i))) {
                 return false;
             }
         }
