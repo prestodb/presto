@@ -15,8 +15,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -25,7 +23,9 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expres
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
 
 public class TestPruneMarkDistinctColumns
         extends BaseRuleTest
@@ -41,7 +41,7 @@ public class TestPruneMarkDistinctColumns
                     VariableReferenceExpression mark = p.variable("mark");
                     VariableReferenceExpression unused = p.variable("unused");
                     return p.project(
-                            Assignments.of(key2, new SymbolReference(key.getName())),
+                            assignment(key2, asSymbolReference(key)),
                             p.markDistinct(mark, ImmutableList.of(key), p.values(key, unused)));
                 })
                 .matches(

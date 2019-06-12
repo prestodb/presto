@@ -591,7 +591,7 @@ public class ExtractSpatialJoins
             projections.put(identityAsSymbolReference(outputVariable));
         }
 
-        projections.put(variable, expression);
+        projections.put(variable, castToRowExpression(expression));
         return new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build());
     }
 
@@ -609,7 +609,7 @@ public class ExtractSpatialJoins
 
         FunctionCall partitioningFunction = new FunctionCall(QualifiedName.of("spatial_partitions"), partitioningArguments.build());
         VariableReferenceExpression partitionsVariable = context.getSymbolAllocator().newVariable(partitioningFunction, new ArrayType(INTEGER));
-        projections.put(partitionsVariable, partitioningFunction);
+        projections.put(partitionsVariable, castToRowExpression(partitioningFunction));
 
         return new UnnestNode(
                 context.getIdAllocator().getNextId(),

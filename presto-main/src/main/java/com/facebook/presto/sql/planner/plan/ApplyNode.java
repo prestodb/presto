@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -83,7 +84,7 @@ public class ApplyNode
 
         checkArgument(input.getOutputVariables().containsAll(correlation), "Input does not contain symbols from correlation");
         checkArgument(
-                subqueryAssignments.getExpressions().stream().allMatch(ApplyNodeUtil::isSupportedSubqueryExpression),
+                subqueryAssignments.getExpressions().stream().map(OriginalExpressionUtils::castToExpression).allMatch(ApplyNodeUtil::isSupportedSubqueryExpression),
                 "Unexpected expression used for subquery expression");
 
         this.input = input;

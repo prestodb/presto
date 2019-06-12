@@ -27,6 +27,7 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -48,6 +49,7 @@ import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToR
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Maps.transformValues;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
@@ -203,7 +205,7 @@ public class EliminateCrossJoins
             result = new ProjectNode(
                     idAllocator.getNextId(),
                     result,
-                    Assignments.copyOf(graph.getAssignments().get()));
+                    Assignments.copyOf(transformValues(graph.getAssignments().get(), OriginalExpressionUtils::castToRowExpression)));
         }
 
         // If needed, introduce a projection to constrain the outputs to what was originally expected

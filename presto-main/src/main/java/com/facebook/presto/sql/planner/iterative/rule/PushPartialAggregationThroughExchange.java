@@ -170,7 +170,7 @@ public class PushPartialAggregationThroughExchange
 
             for (VariableReferenceExpression output : aggregation.getOutputVariables()) {
                 VariableReferenceExpression input = symbolMapper.map(output);
-                assignments.put(output, new SymbolReference(input.getName()));
+                assignments.put(output, castToRowExpression(new SymbolReference(input.getName())));
             }
             partials.add(new ProjectNode(context.getIdAllocator().getNextId(), mappedPartial, assignments.build()));
         }

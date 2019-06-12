@@ -20,7 +20,6 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.testing.LocalQueryRunner;

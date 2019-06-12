@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.sanity;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -64,7 +65,6 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -278,7 +278,7 @@ public final class ValidateDependenciesChecker
             source.accept(this, boundVariables); // visit child
 
             Set<VariableReferenceExpression> inputs = createInputs(source, boundVariables);
-            for (Expression expression : node.getAssignments().getExpressions()) {
+            for (RowExpression expression : node.getAssignments().getExpressions()) {
                 Set<VariableReferenceExpression> dependencies = SymbolsExtractor.extractUniqueVariable(expression, types);
                 checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
             }
@@ -674,7 +674,7 @@ public final class ValidateDependenciesChecker
                     .addAll(createInputs(node.getInput(), boundVariables))
                     .build();
 
-            for (Expression expression : node.getSubqueryAssignments().getExpressions()) {
+            for (RowExpression expression : node.getSubqueryAssignments().getExpressions()) {
                 Set<VariableReferenceExpression> dependencies = SymbolsExtractor.extractUniqueVariable(expression, types);
                 checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
             }

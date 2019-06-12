@@ -41,6 +41,7 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
@@ -69,7 +70,6 @@ import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.sanity.PlanSanityChecker;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -102,7 +102,6 @@ import static com.facebook.presto.sql.planner.SymbolsExtractor.extractOutputVari
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
@@ -110,6 +109,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonFragmentPlan;
+import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -561,13 +561,13 @@ public class PlanFragmenter
         private PartitioningVariableAssignments assignPartitioningVariables(Partitioning partitioning)
         {
             ImmutableList.Builder<VariableReferenceExpression> variables = ImmutableList.builder();
-            ImmutableMap.Builder<VariableReferenceExpression, Expression> constants = ImmutableMap.builder();
+            ImmutableMap.Builder<VariableReferenceExpression, RowExpression> constants = ImmutableMap.builder();
             for (ArgumentBinding argumentBinding : partitioning.getArguments()) {
                 VariableReferenceExpression variable;
                 if (argumentBinding.isConstant()) {
                     ConstantExpression constant = argumentBinding.getConstant();
-                    Expression expression = literalEncoder.toExpression(constant.getValue(), constant.getType());
-                    variable = symbolAllocator.newVariable(expression, constant.getType());
+                    RowExpression expression = constant(constant.getValue(), constant.getType());
+                    variable = symbolAllocator.newVariable("constant_partition", constant.getType());
                     constants.put(variable, expression);
                 }
                 else {
@@ -633,7 +633,7 @@ public class PlanFragmenter
                 List<VariableReferenceExpression> outputs,
                 List<List<VariableReferenceExpression>> inputs,
                 List<PlanNode> sources,
-                Map<VariableReferenceExpression, Expression> constantExpressions,
+                Map<VariableReferenceExpression, RowExpression> constantExpressions,
                 PartitioningMetadata partitioningMetadata)
         {
             if (!constantExpressions.isEmpty()) {
@@ -657,8 +657,8 @@ public class PlanFragmenter
                 sources = sources.stream()
                         .map(source -> {
                             Assignments.Builder assignments = Assignments.builder();
-                            assignments.putAll(identitiesAsSymbolReferences(source.getOutputVariables()));
-                            constantVariables.forEach(variable -> assignments.put(variable, constantExpressions.get(variable)));
+                            source.getOutputVariables().forEach(variable -> assignments.put(variable, new VariableReferenceExpression(variable.getName(), variable.getType())));
+                            constantVariables.forEach(symbol -> assignments.put(symbol, constantExpressions.get(symbol)));
                             return new ProjectNode(idAllocator.getNextId(), source, assignments.build());
                         })
                         .collect(toImmutableList());
@@ -1217,9 +1217,9 @@ public class PlanFragmenter
     private static class PartitioningVariableAssignments
     {
         private final List<VariableReferenceExpression> variables;
-        private final Map<VariableReferenceExpression, Expression> constants;
+        private final Map<VariableReferenceExpression, RowExpression> constants;
 
-        private PartitioningVariableAssignments(List<VariableReferenceExpression> variables, Map<VariableReferenceExpression, Expression> constants)
+        private PartitioningVariableAssignments(List<VariableReferenceExpression> variables, Map<VariableReferenceExpression, RowExpression> constants)
         {
             this.variables = ImmutableList.copyOf(requireNonNull(variables, "variables is null"));
             this.constants = ImmutableMap.copyOf(requireNonNull(constants, "constants is null"));
@@ -1233,7 +1233,7 @@ public class PlanFragmenter
             return variables;
         }
 
-        public Map<VariableReferenceExpression, Expression> getConstants()
+        public Map<VariableReferenceExpression, RowExpression> getConstants()
         {
             return constants;
         }

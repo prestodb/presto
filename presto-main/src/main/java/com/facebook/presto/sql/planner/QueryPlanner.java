@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
@@ -88,6 +89,7 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.groupingSets;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -338,13 +340,13 @@ class QueryPlanner
         for (Expression expression : expressions) {
             if (expression instanceof SymbolReference) {
                 VariableReferenceExpression variable = symbolAllocator.toVariableReference(Symbol.from(expression));
-                projections.put(variable, expression);
+                projections.put(variable, castToRowExpression(expression));
                 outputTranslations.put(expression, variable);
                 continue;
             }
 
             VariableReferenceExpression variable = symbolAllocator.newVariable(expression, analysis.getTypeWithCoercions(expression));
-            projections.put(variable, subPlan.rewrite(expression));
+            projections.put(variable, castToRowExpression(subPlan.rewrite(expression)));
             outputTranslations.put(expression, variable);
         }
 
@@ -355,9 +357,9 @@ class QueryPlanner
                 analysis.getParameters());
     }
 
-    private Map<VariableReferenceExpression, Expression> coerce(Iterable<? extends Expression> expressions, PlanBuilder subPlan, TranslationMap translations)
+    private Map<VariableReferenceExpression, RowExpression> coerce(Iterable<? extends Expression> expressions, PlanBuilder subPlan, TranslationMap translations)
     {
-        ImmutableMap.Builder<VariableReferenceExpression, Expression> projections = ImmutableMap.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, RowExpression> projections = ImmutableMap.builder();
 
         for (Expression expression : expressions) {
             Type type = analysis.getType(expression);
@@ -371,7 +373,7 @@ class QueryPlanner
                         false,
                         metadata.getTypeManager().isTypeOnlyCoercion(type, coercion));
             }
-            projections.put(variable, rewritten);
+            projections.put(variable, castToRowExpression(rewritten));
             translations.put(expression, variable);
         }
 
@@ -390,13 +392,13 @@ class QueryPlanner
                 // If this is an identity projection, no need to rewrite it
                 // This is needed because certain synthetic identity expressions such as "group id" introduced when planning GROUPING
                 // don't have a corresponding analysis, so the code below doesn't work for them
-                projections.put(symbolAllocator.toVariableReference(Symbol.from(expression)), expression);
+                projections.put(symbolAllocator.toVariableReference(Symbol.from(expression)), castToRowExpression(expression));
                 continue;
             }
 
             VariableReferenceExpression variable = symbolAllocator.newVariable(expression, analysis.getType(expression));
             Expression rewritten = subPlan.rewrite(expression);
-            projections.put(variable, rewritten);
+            projections.put(variable, castToRowExpression(rewritten));
             translations.put(expression, variable);
         }
 
@@ -536,7 +538,7 @@ class QueryPlanner
         else {
             Assignments.Builder assignments = Assignments.builder();
             aggregationArguments.stream().map(AssignmentUtils::identityAsSymbolReference).forEach(assignments::put);
-            groupingSetMappings.forEach((key, value) -> assignments.put(key, new SymbolReference(value.getName())));
+            groupingSetMappings.forEach((key, value) -> assignments.put(key, castToRowExpression(asSymbolReference(value))));
 
             ProjectNode project = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build());
             subPlan = new PlanBuilder(groupingTranslations, project, analysis.getParameters());
@@ -694,7 +696,7 @@ class QueryPlanner
                         false,
                         metadata.getTypeManager().isTypeOnlyCoercion(analysis.getType(groupingOperation), coercion));
             }
-            projections.put(variable, rewritten);
+            projections.put(variable, castToRowExpression(rewritten));
             newTranslations.put(groupingOperation, variable);
         }
 

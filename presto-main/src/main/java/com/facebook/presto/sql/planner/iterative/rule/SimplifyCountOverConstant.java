@@ -119,7 +119,7 @@ public class SimplifyCountOverConstant
         RowExpression argument = aggregation.getArguments().get(0);
         Expression assigned = null;
         if (castToExpression(argument) instanceof SymbolReference) {
-            assigned = inputs.get(Symbol.from(castToExpression(argument)));
+            assigned = castToExpression(inputs.get(Symbol.from(castToExpression(argument))));
         }
 
         return assigned instanceof Literal && !(assigned instanceof NullLiteral);

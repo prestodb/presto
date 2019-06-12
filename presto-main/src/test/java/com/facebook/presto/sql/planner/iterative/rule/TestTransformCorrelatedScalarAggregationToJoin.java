@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -29,6 +28,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functi
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 
 public class TestTransformCorrelatedScalarAggregationToJoin
         extends BaseRuleTest
@@ -104,9 +104,9 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     {
         tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionManager()))
                 .on(p -> p.lateral(
-                        ImmutableList.of(p.variable(p.symbol("corr"))),
+                        ImmutableList.of(p.variable("corr")),
                         p.values(p.variable("corr")),
-                        p.project(Assignments.of(p.variable("expr"), p.expression("sum + 1")),
+                        p.project(assignment(p.variable("expr"), p.expression("sum + 1")),
                                 p.aggregation(ab -> ab
                                         .source(p.values(p.variable("a"), p.variable("b")))
                                         .addAggregation(p.variable(p.symbol("sum")), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))

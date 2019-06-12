@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.AssignmentUtils;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -125,7 +126,7 @@ public class ExpressionRewriteRuleSet
         @Override
         public Result apply(ProjectNode projectNode, Captures captures, Context context)
         {
-            Assignments assignments = projectNode.getAssignments().rewrite(x -> rewriter.rewrite(x, context));
+            Assignments assignments = AssignmentUtils.rewrite(projectNode.getAssignments(), x -> rewriter.rewrite(x, context));
             if (projectNode.getAssignments().equals(assignments)) {
                 return Result.empty();
             }
@@ -325,7 +326,7 @@ public class ExpressionRewriteRuleSet
         @Override
         public Result apply(ApplyNode applyNode, Captures captures, Context context)
         {
-            Assignments subqueryAssignments = applyNode.getSubqueryAssignments().rewrite(x -> rewriter.rewrite(x, context));
+            Assignments subqueryAssignments = AssignmentUtils.rewrite(applyNode.getSubqueryAssignments(), x -> rewriter.rewrite(x, context));
             if (applyNode.getSubqueryAssignments().equals(subqueryAssignments)) {
                 return Result.empty();
             }

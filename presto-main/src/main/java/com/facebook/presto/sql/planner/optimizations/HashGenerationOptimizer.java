@@ -18,6 +18,7 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
@@ -78,6 +79,9 @@ import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -623,7 +627,7 @@ public class HashGenerationOptimizer
                 else {
                     hashExpression = new SymbolReference(hashVariable.getName());
                 }
-                newAssignments.put(hashVariable, hashExpression);
+                newAssignments.put(hashVariable, castToRowExpression(hashExpression));
                 allHashVariables.put(hashComputation, hashVariable);
             }
 
@@ -720,7 +724,7 @@ public class HashGenerationOptimizer
             for (VariableReferenceExpression variable : planWithProperties.getNode().getOutputVariables()) {
                 HashComputation partitionVariables = resultHashVariables.get(variable);
                 if (partitionVariables == null || requiredHashes.getHashes().contains(partitionVariables)) {
-                    assignments.put(variable, new SymbolReference(variable.getName()));
+                    assignments.put(variable, castToRowExpression(asSymbolReference(variable)));
 
                     if (partitionVariables != null) {
                         outputHashVariables.put(partitionVariables, planWithProperties.getHashVariables().get(partitionVariables));
@@ -733,7 +737,7 @@ public class HashGenerationOptimizer
                 if (!planWithProperties.getHashVariables().containsKey(hashComputation)) {
                     Expression hashExpression = hashComputation.getHashExpression();
                     VariableReferenceExpression hashVariable = symbolAllocator.newHashVariable();
-                    assignments.put(hashVariable, hashExpression);
+                    assignments.put(hashVariable, castToRowExpression(hashExpression));
                     outputHashVariables.put(hashComputation, hashVariable);
                 }
             }
@@ -962,12 +966,12 @@ public class HashGenerationOptimizer
         }
     }
 
-    private static Map<VariableReferenceExpression, VariableReferenceExpression> computeIdentityTranslations(Map<VariableReferenceExpression, Expression> assignments)
+    private static Map<VariableReferenceExpression, VariableReferenceExpression> computeIdentityTranslations(Map<VariableReferenceExpression, RowExpression> assignments)
     {
         Map<VariableReferenceExpression, VariableReferenceExpression> outputToInput = new HashMap<>();
-        for (Map.Entry<VariableReferenceExpression, Expression> assignment : assignments.entrySet()) {
-            if (assignment.getValue() instanceof SymbolReference) {
-                outputToInput.put(assignment.getKey(), new VariableReferenceExpression(((SymbolReference) assignment.getValue()).getName(), assignment.getKey().getType()));
+        for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : assignments.entrySet()) {
+            if (castToExpression(assignment.getValue()) instanceof SymbolReference) {
+                outputToInput.put(assignment.getKey(), new VariableReferenceExpression(((SymbolReference) castToExpression(assignment.getValue())).getName(), assignment.getKey().getType()));
             }
         }
         return outputToInput;

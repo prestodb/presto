@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -29,6 +30,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -54,29 +57,38 @@ public class ExpressionMatcher
     public Optional<VariableReferenceExpression> getAssignedVariable(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         Optional<VariableReferenceExpression> result = Optional.empty();
-        ImmutableList.Builder<Expression> matchesBuilder = ImmutableList.builder();
-        Map<VariableReferenceExpression, Expression> assignments = getAssignments(node);
+        ImmutableList.Builder<Object> matchesBuilder = ImmutableList.builder();
+        Map<VariableReferenceExpression, RowExpression> assignments = getAssignments(node);
 
         if (assignments == null) {
             return result;
         }
 
-        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
-
-        for (Map.Entry<VariableReferenceExpression, Expression> assignment : assignments.entrySet()) {
-            if (verifier.process(assignment.getValue(), expression)) {
-                result = Optional.of(assignment.getKey());
-                matchesBuilder.add(assignment.getValue());
+        for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : assignments.entrySet()) {
+            RowExpression rightValue = assignment.getValue();
+            if (isExpression(rightValue)) {
+                ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
+                if (verifier.process(castToExpression(rightValue), expression)) {
+                    result = Optional.of(assignment.getKey());
+                    matchesBuilder.add(castToExpression(rightValue));
+                }
+            }
+            else {
+                RowExpressionVerifier verifier = new RowExpressionVerifier(symbolAliases, metadata, session);
+                if (verifier.process(expression, rightValue)) {
+                    result = Optional.of(assignment.getKey());
+                    matchesBuilder.add(rightValue);
+                }
             }
         }
 
-        List<Expression> matches = matchesBuilder.build();
+        List<Object> matches = matchesBuilder.build();
         checkState(matches.size() < 2, "Ambiguous expression %s matches multiple assignments", expression,
-                (matches.stream().map(Expression::toString).collect(Collectors.joining(", "))));
+                (matches.stream().map(Object::toString).collect(Collectors.joining(", "))));
         return result;
     }
 
-    private static Map<VariableReferenceExpression, Expression> getAssignments(PlanNode node)
+    private static Map<VariableReferenceExpression, RowExpression> getAssignments(PlanNode node)
     {
         if (node instanceof ProjectNode) {
             ProjectNode projectNode = (ProjectNode) node;

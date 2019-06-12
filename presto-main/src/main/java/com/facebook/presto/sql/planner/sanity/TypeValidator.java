@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -42,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -116,15 +118,22 @@ public final class TypeValidator
         {
             visitPlan(node, context);
 
-            for (Map.Entry<VariableReferenceExpression, Expression> entry : node.getAssignments().entrySet()) {
-                if (entry.getValue() instanceof SymbolReference) {
-                    SymbolReference symbolReference = (SymbolReference) entry.getValue();
-                    verifyTypeSignature(entry.getKey(), types.get(Symbol.from(symbolReference)).getTypeSignature());
-                    continue;
+            for (Map.Entry<VariableReferenceExpression, RowExpression> entry : node.getAssignments().entrySet()) {
+                RowExpression expression = entry.getValue();
+                if (isExpression(expression)) {
+                    if (castToExpression(expression) instanceof SymbolReference) {
+                        SymbolReference symbolReference = (SymbolReference) castToExpression(expression);
+                        verifyTypeSignature(entry.getKey(), types.get(Symbol.from(symbolReference)).getTypeSignature());
+                        continue;
+                    }
+                    Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, castToExpression(expression), emptyList(), warningCollector);
+                    Type actualType = expressionTypes.get(NodeRef.of(castToExpression(expression)));
+                    verifyTypeSignature(entry.getKey(), actualType.getTypeSignature());
                 }
-                Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, entry.getValue(), emptyList(), warningCollector);
-                Type actualType = expressionTypes.get(NodeRef.of(entry.getValue()));
-                verifyTypeSignature(entry.getKey(), actualType.getTypeSignature());
+                else {
+                    Type actualType = expression.getType();
+                    verifyTypeSignature(entry.getKey(), actualType.getTypeSignature());
+                }
             }
 
             return null;

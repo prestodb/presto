@@ -24,12 +24,13 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.tree.SymbolReference;
 
 import java.util.List;
 
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -66,7 +67,7 @@ final class PlanMatchingVisitor
         for (List<VariableReferenceExpression> inputs : allInputs) {
             Assignments.Builder assignments = Assignments.builder();
             for (int i = 0; i < inputs.size(); ++i) {
-                assignments.put(outputs.get(i), new SymbolReference(inputs.get(i).getName()));
+                assignments.put(outputs.get(i), castToRowExpression(asSymbolReference(inputs.get(i))));
             }
             newAliases = newAliases.updateAssignments(assignments.build());
         }

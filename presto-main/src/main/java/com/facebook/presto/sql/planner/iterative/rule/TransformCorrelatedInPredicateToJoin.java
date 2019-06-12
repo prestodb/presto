@@ -124,7 +124,7 @@ public class TransformCorrelatedInPredicateToJoin
         if (subqueryAssignments.size() != 1) {
             return Result.empty();
         }
-        Expression assignmentExpression = getOnlyElement(subqueryAssignments.getExpressions());
+        Expression assignmentExpression = castToExpression(getOnlyElement(subqueryAssignments.getExpressions()));
         if (!(assignmentExpression instanceof InPredicate)) {
             return Result.empty();
         }
@@ -183,7 +183,7 @@ public class TransformCorrelatedInPredicateToJoin
                 decorrelatedBuildSource,
                 Assignments.builder()
                         .putAll(identitiesAsSymbolReferences(decorrelatedBuildSource.getOutputVariables()))
-                        .put(buildSideKnownNonNull, bigint(0))
+                        .put(buildSideKnownNonNull, castToRowExpression(bigint(0)))
                         .build());
 
         SymbolReference probeSideSymbolReference = Symbol.from(inPredicate.getValue()).toSymbolReference();
@@ -233,7 +233,7 @@ public class TransformCorrelatedInPredicateToJoin
                 aggregation,
                 Assignments.builder()
                         .putAll(identitiesAsSymbolReferences(apply.getInput().getOutputVariables()))
-                        .put(inPredicateOutputVariable, inPredicateEquivalent)
+                        .put(inPredicateOutputVariable, castToRowExpression(inPredicateEquivalent))
                         .build());
     }
 

@@ -101,7 +101,6 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DI
 import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.MoreLists.nElements;
@@ -121,6 +120,16 @@ public class PlanBuilder
     {
         this.idAllocator = idAllocator;
         this.metadata = metadata;
+    }
+
+    public static Assignments assignment(VariableReferenceExpression variable, Expression expression)
+    {
+        return Assignments.builder().put(variable, OriginalExpressionUtils.castToRowExpression(expression)).build();
+    }
+
+    public static Assignments assignment(VariableReferenceExpression variable1, Expression expression1, VariableReferenceExpression variable2, Expression expression2)
+    {
+        return Assignments.builder().put(variable1, OriginalExpressionUtils.castToRowExpression(expression1)).put(variable2, OriginalExpressionUtils.castToRowExpression(expression2)).build();
     }
 
     public OutputNode output(List<String> columnNames, List<Symbol> outputs, List<VariableReferenceExpression> variables, PlanNode source)
@@ -247,7 +256,7 @@ public class PlanBuilder
 
     public FilterNode filter(Expression predicate, PlanNode source)
     {
-        return new FilterNode(idAllocator.getNextId(), source, castToRowExpression(predicate));
+        return new FilterNode(idAllocator.getNextId(), source, OriginalExpressionUtils.castToRowExpression(predicate));
     }
 
     public FilterNode filter(RowExpression predicate, PlanNode source)
@@ -794,6 +803,11 @@ public class PlanBuilder
     public static Expression expression(String sql)
     {
         return ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql));
+    }
+
+    public static RowExpression castToRowExpression(String sql)
+    {
+        return OriginalExpressionUtils.castToRowExpression(ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql)));
     }
 
     public static Expression expression(String sql, ParsingOptions options)

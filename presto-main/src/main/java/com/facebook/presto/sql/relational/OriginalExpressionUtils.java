@@ -41,7 +41,7 @@ public final class OriginalExpressionUtils
         return new OriginalExpression(expression);
     }
 
-    public static Expression asSymbolReference(VariableReferenceExpression variable)
+    public static SymbolReference asSymbolReference(VariableReferenceExpression variable)
     {
         return new SymbolReference(variable.getName());
     }

@@ -99,6 +99,7 @@ import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReferen
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.facebook.presto.sql.planner.sanity.PlanSanityChecker.DISTRIBUTED_PLAN_SANITY_CHECKER;
 import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -358,7 +359,7 @@ public class LogicalPlanner
             int index = insert.getColumns().indexOf(columns.get(column.getName()));
             if (index < 0) {
                 Expression cast = new Cast(new NullLiteral(), column.getType().getTypeSignature().toString());
-                assignments.put(output, cast);
+                assignments.put(output, castToRowExpression(cast));
             }
             else {
                 Symbol input = plan.getSymbol(index);
@@ -366,11 +367,11 @@ public class LogicalPlanner
                 Type queryType = symbolAllocator.getTypes().get(input);
 
                 if (queryType.equals(tableType) || metadata.getTypeManager().isTypeOnlyCoercion(queryType, tableType)) {
-                    assignments.put(output, input.toSymbolReference());
+                    assignments.put(output, castToRowExpression(input.toSymbolReference()));
                 }
                 else {
                     Expression cast = new Cast(input.toSymbolReference(), tableType.getTypeSignature().toString());
-                    assignments.put(output, cast);
+                    assignments.put(output, castToRowExpression(cast));
                 }
             }
         }

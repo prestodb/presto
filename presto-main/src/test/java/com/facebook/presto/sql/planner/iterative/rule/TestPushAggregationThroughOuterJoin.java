@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -38,7 +37,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAsSymbolReference;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.LAST;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 
@@ -202,9 +201,7 @@ public class TestPushAggregationThroughOuterJoin
                         .source(
                                 p.join(
                                         JoinNode.Type.LEFT,
-                                        p.project(Assignments.builder()
-                                                        .put(identityAsSymbolReference(p.variable("COL1", BIGINT)))
-                                                        .build(),
+                                        p.project(identityAssignmentsAsSymbolReferences(p.variable("COL1", BIGINT)),
                                                 p.aggregation(builder ->
                                                         builder.singleGroupingSet(p.variable("COL1"), p.variable("unused"))
                                                                 .source(
