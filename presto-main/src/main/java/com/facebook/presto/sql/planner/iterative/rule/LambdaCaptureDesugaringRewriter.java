@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.BindExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -64,17 +63,16 @@ public class LambdaCaptureDesugaringRewriter
             LinkedHashSet<VariableReferenceExpression> referencedVariables = new LinkedHashSet<>();
             Expression rewrittenBody = treeRewriter.rewrite(node.getBody(), context.withReferencedVariables(referencedVariables));
 
-            List<Symbol> lambdaArguments = node.getArguments().stream()
+            List<String> lambdaArgumentNames = node.getArguments().stream()
                     .map(LambdaArgumentDeclaration::getName)
                     .map(Identifier::getValue)
-                    .map(Symbol::new)
                     .collect(toImmutableList());
 
             // referenced variables - lambda arguments = capture variables
-            Set<VariableReferenceExpression> captureVariables = referencedVariables.stream().filter(variable -> !lambdaArguments.contains(new Symbol(variable.getName()))).collect(toImmutableSet());
+            Set<VariableReferenceExpression> captureVariables = referencedVariables.stream().filter(variable -> !lambdaArgumentNames.contains(variable.getName())).collect(toImmutableSet());
 
-            // x -> f(x, captureSymbol)    will be rewritten into
-            // "$internal$bind"(captureSymbol, (extraSymbol, x) -> f(x, extraSymbol))
+            // x -> f(x, captureVariable)    will be rewritten into
+            // "$internal$bind"(captureVariable, (extraVariable, x) -> f(x, extraVariable))
 
             ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> captureVariableToExtraVariable = ImmutableMap.builder();
             ImmutableList.Builder<LambdaArgumentDeclaration> newLambdaArguments = ImmutableList.builder();
@@ -85,13 +83,13 @@ public class LambdaCaptureDesugaringRewriter
             }
             newLambdaArguments.addAll(node.getArguments());
 
-            ImmutableMap<VariableReferenceExpression, VariableReferenceExpression> symbolsMap = captureVariableToExtraVariable.build();
-            Function<VariableReferenceExpression, Expression> variableMapping = variable -> new SymbolReference(symbolsMap.getOrDefault(variable, variable).getName());
+            ImmutableMap<VariableReferenceExpression, VariableReferenceExpression> variablesMap = captureVariableToExtraVariable.build();
+            Function<VariableReferenceExpression, Expression> variableMapping = variable -> new SymbolReference(variablesMap.getOrDefault(variable, variable).getName());
             Expression rewrittenExpression = new LambdaExpression(newLambdaArguments.build(), inlineVariables(variableMapping, rewrittenBody, variableAllocator.getTypes()));
 
             if (captureVariables.size() != 0) {
                 List<Expression> capturedValues = captureVariables.stream()
-                        .map(symbol -> new SymbolReference(symbol.getName()))
+                        .map(variable -> new SymbolReference(variable.getName()))
                         .collect(toImmutableList());
                 rewrittenExpression = new BindExpression(capturedValues, rewrittenExpression);
             }
