@@ -15,7 +15,7 @@ This document describes how to setup the Elasticsearch Connector to run SQL quer
 
 .. note::
 
-    It is highly recommended to use Elasticsearch 6.0.0 or later.
+    Elasticsearch 6.0.0 or later is required for this connector to work
 
 Configuration
 -------------
@@ -227,7 +227,6 @@ A table definition file describes a table in JSON format.
         "clusterName": ...,
         "index": ...,
         "indexExactMatch": ...,
-        "type": ...
         "columns": [
             {
                 "name": ...,
@@ -249,7 +248,6 @@ Field               Required  Type           Description
 ``clusterName``     required  string         Elasticsearch cluster name.
 ``index``           required  string         Elasticsearch index that is backing this table.
 ``indexExactMatch`` optional  boolean        If set to true, the index specified with the ``index`` property is used. Otherwise, all indices starting with the prefix specified by the ``index`` property are used.
-``type``            required  string         Elasticsearch `mapping type`_, which determines how the document are indexed.
 ``columns``         optional  list           List of column metadata information.
 =================== ========= ============== =============================
 

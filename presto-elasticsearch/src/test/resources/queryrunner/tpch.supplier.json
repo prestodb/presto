@@ -5,7 +5,6 @@
     "port": "9200",
     "clusterName": "test",
     "index": "supplier",
-    "type": "_doc",
     "columns": [
             {
                 "name": "suppkey",

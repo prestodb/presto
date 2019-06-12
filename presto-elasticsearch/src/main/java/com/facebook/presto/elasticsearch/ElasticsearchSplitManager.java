@@ -64,7 +64,6 @@ public class ElasticsearchSplitManager
             IntStream.range(0, shards).forEachOrdered(nodeIndex -> {
                 ElasticsearchSplit split = new ElasticsearchSplit(
                         index,
-                        table.getType(),
                         nodeIndex,
                         shards,
                         table.getHost(),

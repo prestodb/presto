@@ -5,7 +5,6 @@
     "port": "9200",
     "clusterName": "test",
     "index": "nation",
-    "type": "_doc",
     "columns": [
             {
                 "name": "nationkey",

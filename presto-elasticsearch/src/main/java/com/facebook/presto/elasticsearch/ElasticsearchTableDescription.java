@@ -33,7 +33,6 @@ public class ElasticsearchTableDescription
     private final String clusterName;
     private final String index;
     private final boolean indexExactMatch;
-    private final String type;
     private final Optional<List<ElasticsearchColumn>> columns;
 
     @JsonCreator
@@ -45,7 +44,6 @@ public class ElasticsearchTableDescription
             @JsonProperty("clusterName") String clusterName,
             @JsonProperty("index") String index,
             @JsonProperty("indexExactMatch") boolean indexExactMatch,
-            @JsonProperty("type") String type,
             @JsonProperty("columns") Optional<List<ElasticsearchColumn>> columns)
     {
         checkArgument(!isNullOrEmpty(tableName), "tableName is null or empty");
@@ -53,7 +51,6 @@ public class ElasticsearchTableDescription
         checkArgument(!isNullOrEmpty(host), "host is null or empty");
         checkArgument(!isNullOrEmpty(clusterName), "clusterName is null or empty");
         checkArgument(!isNullOrEmpty(index), "index is null or empty");
-        checkArgument(!isNullOrEmpty(type), "type is null or empty");
         requireNonNull(columns, "columns is null");
         this.tableName = tableName;
         this.schemaName = schemaName;
@@ -62,7 +59,6 @@ public class ElasticsearchTableDescription
         this.clusterName = clusterName;
         this.index = index;
         this.indexExactMatch = indexExactMatch;
-        this.type = type;
         this.columns = columns;
     }
 
@@ -109,12 +105,6 @@ public class ElasticsearchTableDescription
     }
 
     @JsonProperty
-    public String getType()
-    {
-        return type;
-    }
-
-    @JsonProperty
     public Optional<List<ElasticsearchColumn>> getColumns()
     {
         return columns;
@@ -131,7 +121,6 @@ public class ElasticsearchTableDescription
                 .add("clusterName", clusterName)
                 .add("index", index)
                 .add("indexExactMatch", indexExactMatch)
-                .add("type", type)
                 .add("columns", columns)
                 .toString();
     }

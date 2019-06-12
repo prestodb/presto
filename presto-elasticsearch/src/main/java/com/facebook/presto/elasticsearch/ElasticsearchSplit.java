@@ -31,7 +31,6 @@ public class ElasticsearchSplit
 {
     private final int shards;
     private final String index;
-    private final String type;
     private final int shard;
     private final String searchNode;
     private final int port;
@@ -40,7 +39,6 @@ public class ElasticsearchSplit
     @JsonCreator
     public ElasticsearchSplit(
             @JsonProperty("index") String index,
-            @JsonProperty("type") String type,
             @JsonProperty("shard") int shard,
             @JsonProperty("shards") int shards,
             @JsonProperty("searchNode") String searchNode,
@@ -49,7 +47,6 @@ public class ElasticsearchSplit
     {
         this.shards = requireNonNull(shards, "shards is null");
         this.index = requireNonNull(index, "index is null");
-        this.type = requireNonNull(type, "index is null");
         this.searchNode = requireNonNull(searchNode, "searchNode is null");
         this.port = port;
         this.shard = shard;
@@ -60,12 +57,6 @@ public class ElasticsearchSplit
     public String getIndex()
     {
         return index;
-    }
-
-    @JsonProperty
-    public String getType()
-    {
-        return type;
     }
 
     @JsonProperty
@@ -119,7 +110,6 @@ public class ElasticsearchSplit
     {
         return toStringHelper(this)
                 .addValue(index)
-                .addValue(type)
                 .addValue(shard)
                 .addValue(port)
                 .addValue(searchNode)

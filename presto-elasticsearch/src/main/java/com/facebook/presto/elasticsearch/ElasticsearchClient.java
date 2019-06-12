@@ -180,7 +180,6 @@ public class ElasticsearchClient
                 table.getClusterName(),
                 table.getIndex(),
                 table.getIndexExactMatch(),
-                table.getType(),
                 Optional.of(buildColumns(table)));
     }
 
@@ -267,7 +266,7 @@ public class ElasticsearchClient
             Iterator<String> indexIterator = mappings.keySet().iterator();
             while (indexIterator.hasNext()) {
                 // TODO use io.airlift.json.JsonCodec
-                MappingMetaData mappingMetaData = mappings.get(indexIterator.next()); // NOTE: _doc is the, not compatible with ES 5.x
+                MappingMetaData mappingMetaData = mappings.get(indexIterator.next());
                 JsonNode rootNode;
                 try {
                     rootNode = objecMapper.readTree(mappingMetaData.source().uncompressed());
@@ -275,8 +274,7 @@ public class ElasticsearchClient
                 catch (IOException e) {
                     throw new PrestoException(ELASTICSEARCH_CORRUPTED_MAPPING_METADATA, e);
                 }
-                // parse field mapping JSON: https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-get-field-mapping.html
-                JsonNode mappingNode = rootNode.get(tableDescription.getType());
+                JsonNode mappingNode = rootNode.get("_doc");
                 JsonNode propertiesNode = mappingNode.get("properties");
 
                 List<String> lists = new ArrayList<>();

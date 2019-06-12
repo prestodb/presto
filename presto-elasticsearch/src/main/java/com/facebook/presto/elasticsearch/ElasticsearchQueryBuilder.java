@@ -72,7 +72,6 @@ public class ElasticsearchQueryBuilder
     private final TupleDomain<ColumnHandle> tupleDomain;
     private final List<ElasticsearchColumnHandle> columns;
     private final String index;
-    private final String type;
 
     public ElasticsearchQueryBuilder(List<ElasticsearchColumnHandle> columnHandles, ElasticsearchConnectorConfig config, ElasticsearchSplit split)
     {
@@ -85,7 +84,6 @@ public class ElasticsearchQueryBuilder
         index = split.getIndex();
         shard = split.getShard();
         shards = split.getShards();
-        type = split.getType();
         InetAddress address;
         try {
             address = InetAddress.getByName(split.getSearchNode());
