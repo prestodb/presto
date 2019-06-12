@@ -39,7 +39,7 @@ import java.util.Set;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.ExpressionVariableInliner.inlineVariables;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
-import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReference;
+import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
 import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
