@@ -229,6 +229,13 @@ public class PlanOptimizers
                 ImmutableSet.of(
                         new InlineProjections(metadata.getFunctionManager(), false),
                         new RemoveRedundantIdentityProjections()));
+        IterativeOptimizer inlineProjectionsAsRowExpression = new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                ImmutableSet.of(
+                        new InlineProjections(metadata.getFunctionManager(), true),
+                        new RemoveRedundantIdentityProjections()));
 
         IterativeOptimizer projectionPushDown = new IterativeOptimizer(
                 ruleStats,
@@ -470,7 +477,6 @@ public class PlanOptimizers
         builder.add(predicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
         builder.add(simplifyOptimizer); // Should be always run after PredicatePushDown
         builder.add(projectionPushDown);
-        builder.add(inlineProjections);
 
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
@@ -481,6 +487,7 @@ public class PlanOptimizers
                 new TranslateExpressions(metadata, sqlParser).rules()));
         // After this point, all planNodes should not contain OriginalExpression
 
+        builder.add(inlineProjectionsAsRowExpression);
         builder.add(new UnaliasSymbolReferences(metadata.getFunctionManager())); // Run unalias after merging projections to simplify projections more efficiently
         builder.add(new PruneUnreferencedOutputs());
         builder.add(new IterativeOptimizer(
