@@ -82,6 +82,7 @@ import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createMaterializeExchangesSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
+import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.RCFILE_OPTIMIZED_WRITER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.getInsertExistingPartitionsBehavior;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
@@ -4084,6 +4085,15 @@ public class TestHiveIntegrationSmokeTest
         assertTrue(hiveInsertTableHandle.getLocationHandle().getWritePath().toString().startsWith("file:/tmp/custom/temporary-"));
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testLikeSerializesWithPushdownFilter()
+    {
+        Session pushdownFilterEnabled = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
+                .build();
+        assertQuerySucceeds(pushdownFilterEnabled, "SELECT comment FROM lineitem WHERE comment LIKE 'abc%'");
     }
 
     @Test

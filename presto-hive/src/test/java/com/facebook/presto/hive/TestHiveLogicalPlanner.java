@@ -89,9 +89,7 @@ public class TestHiveLogicalPlanner
     @Test
     public void testPushdownFilter()
     {
-        Session pushdownFilterEnabled = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
-                .build();
+        Session pushdownFilterEnabled = pushdownFilterEnabled();
 
         // Only domain predicates
         assertPlan("SELECT linenumber FROM lineitem WHERE partkey = 10",
@@ -156,31 +154,51 @@ public class TestHiveLogicalPlanner
                 plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", ImmutableList.of()), Domain.singleValue(BIGINT, 10L))), remainingPredicate, ImmutableSet.of("partkey", "orderkey")));
     }
 
-    private RowExpression constant(int value)
+    @Test
+    public void testPushdownFilterOnSubfields()
     {
-        return new CallExpression(CAST.name(),
-                getQueryRunner().getMetadata().getFunctionManager().lookupCast(CastType.CAST, VARCHAR.getTypeSignature(), BIGINT.getTypeSignature()),
-                BIGINT,
-                ImmutableList.of(new ConstantExpression(Slices.utf8Slice(String.valueOf(value)), VARCHAR)));
-    }
+        assertUpdate("CREATE TABLE test_pushdown_filter_on_subfields(" +
+                         "id bigint, " +
+                         "a array(bigint), " +
+                         "b map(varchar, bigint), " +
+                         "c row(" +
+                             "a bigint, " +
+                             "b row(x bigint), " +
+                             "c array(bigint), " +
+                             "d map(bigint, bigint), " +
+                             "e map(varchar, bigint)))");
 
-    private static Map<String, String> identityMap(String...values)
-    {
-        return Arrays.stream(values).collect(toImmutableMap(Functions.identity(), Functions.identity()));
-    }
+        assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE a[1] = 1",
+                        ImmutableMap.of(new Subfield("a[1]"), Domain.singleValue(BIGINT, 1L)));
 
-    private void assertTableLayout(Plan plan, String tableName, TupleDomain<Subfield> domainPredicate, RowExpression remainingPredicate, Set<String> predicateColumnNames)
-    {
-        TableScanNode tableScan = searchFrom(plan.getRoot())
-                .where(node -> isTableScanNode(node, tableName))
-                .findOnlyElement();
+        assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields where a[1 + 1] = 1",
+                        ImmutableMap.of(new Subfield("a[2]"), Domain.singleValue(BIGINT, 1L)));
 
-        assertTrue(tableScan.getTable().getLayout().isPresent());
-        HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableScan.getTable().getLayout().get();
+        assertPushdownFilterOnSubfields("SELECT *  FROM test_pushdown_filter_on_subfields WHERE b['foo'] = 1",
+                        ImmutableMap.of(new Subfield("b[\"foo\"]"), Domain.singleValue(BIGINT, 1L)));
 
-        assertEquals(layoutHandle.getPredicateColumns().keySet(), predicateColumnNames);
-        assertEquals(layoutHandle.getDomainPredicate(), domainPredicate);
-        assertEquals(layoutHandle.getRemainingPredicate(), remainingPredicate);
+        assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE b[concat('f','o', 'o')] = 1",
+                        ImmutableMap.of(new Subfield("b[\"foo\"]"), Domain.singleValue(BIGINT, 1L)));
+
+        assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.a = 1",
+                        ImmutableMap.of(new Subfield("c.a"), Domain.singleValue(BIGINT, 1L)));
+
+        assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.b.x = 1",
+                        ImmutableMap.of(new Subfield("c.b.x"), Domain.singleValue(BIGINT, 1L)));
+
+        assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.c[5] = 1",
+                        ImmutableMap.of(new Subfield("c.c[5]"), Domain.singleValue(BIGINT, 1L)));
+
+        assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.d[5] = 1",
+                        ImmutableMap.of(new Subfield("c.d[5]"), Domain.singleValue(BIGINT, 1L)));
+
+        assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.e[concat('f', 'o', 'o')] = 1",
+                        ImmutableMap.of(new Subfield("c.e[\"foo\"]"), Domain.singleValue(BIGINT, 1L)));
+
+        assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.e['foo'] = 1",
+                        ImmutableMap.of(new Subfield("c.e[\"foo\"]"), Domain.singleValue(BIGINT, 1L)));
+
+        assertUpdate("DROP TABLE test_pushdown_filter_on_subfields");
     }
 
     @Test
@@ -506,6 +524,53 @@ public class TestHiveLogicalPlanner
     private static boolean isTableScanNode(PlanNode node, String tableName)
     {
         return node instanceof TableScanNode && ((HiveTableHandle) ((TableScanNode) node).getTable().getConnectorHandle()).getTableName().equals(tableName);
+    }
+
+    private void assertPushdownFilterOnSubfields(String query, Map<Subfield, Domain> predicateDomains)
+    {
+        String tableName = "test_pushdown_filter_on_subfields";
+        assertPlan(pushdownFilterEnabled(), query,
+                output(exchange(PlanMatchPattern.tableScan(tableName))),
+                plan -> assertTableLayout(
+                        plan,
+                        tableName,
+                        withColumnDomains(predicateDomains),
+                        TRUE_CONSTANT,
+                        predicateDomains.keySet().stream().map(Subfield::getRootName).collect(toImmutableSet())));
+    }
+
+    private Session pushdownFilterEnabled()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
+                .build();
+    }
+
+    private RowExpression constant(long value)
+    {
+        return new CallExpression(CAST.name(),
+                getQueryRunner().getMetadata().getFunctionManager().lookupCast(CastType.CAST, VARCHAR.getTypeSignature(), BIGINT.getTypeSignature()),
+                BIGINT,
+                ImmutableList.of(new ConstantExpression(Slices.utf8Slice(String.valueOf(value)), VARCHAR)));
+    }
+
+    private static Map<String, String> identityMap(String...values)
+    {
+        return Arrays.stream(values).collect(toImmutableMap(Functions.identity(), Functions.identity()));
+    }
+
+    private void assertTableLayout(Plan plan, String tableName, TupleDomain<Subfield> domainPredicate, RowExpression remainingPredicate, Set<String> predicateColumnNames)
+    {
+        TableScanNode tableScan = searchFrom(plan.getRoot())
+                .where(node -> isTableScanNode(node, tableName))
+                .findOnlyElement();
+
+        assertTrue(tableScan.getTable().getLayout().isPresent());
+        HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableScan.getTable().getLayout().get();
+
+        assertEquals(layoutHandle.getPredicateColumns().keySet(), predicateColumnNames);
+        assertEquals(layoutHandle.getDomainPredicate(), domainPredicate);
+        assertEquals(layoutHandle.getRemainingPredicate(), remainingPredicate);
     }
 
     private static final class HiveTableScanMatcher
