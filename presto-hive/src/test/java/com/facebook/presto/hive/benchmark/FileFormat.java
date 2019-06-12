@@ -40,6 +40,8 @@ import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.OutputStreamOrcDataSink;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
+import com.facebook.presto.parquet.writer.ParquetWriter;
+import com.facebook.presto.parquet.writer.ParquetWriterOptions;
 import com.facebook.presto.rcfile.AircompressorCodecFactory;
 import com.facebook.presto.rcfile.HadoopCodecFactory;
 import com.facebook.presto.rcfile.RcFileEncoding;
@@ -217,8 +219,9 @@ public enum FileFormat
                 List<String> columnNames,
                 List<Type> columnTypes,
                 HiveCompressionCodec compressionCodec)
+                throws IOException
         {
-            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.PARQUET, session);
+            return new PrestoParquetFormatWriter(targetFile, columnNames, columnTypes, compressionCodec);
         }
     },
 
@@ -574,6 +577,37 @@ public enum FileFormat
                     false,
                     BOTH,
                     new OrcWriterStats());
+        }
+
+        @Override
+        public void writePage(Page page)
+                throws IOException
+        {
+            writer.write(page);
+        }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            writer.close();
+        }
+    }
+
+    private static class PrestoParquetFormatWriter
+            implements FormatWriter
+    {
+        private final ParquetWriter writer;
+
+        public PrestoParquetFormatWriter(File targetFile, List<String> columnNames, List<Type> types, HiveCompressionCodec compressionCodec)
+                throws IOException
+        {
+            writer = new ParquetWriter(
+                    new FileOutputStream(targetFile),
+                    columnNames,
+                    types,
+                    ParquetWriterOptions.builder().build(),
+                    compressionCodec.getParquetCompressionCodec().get().getHadoopCompressionCodecClassName());
         }
 
         @Override
