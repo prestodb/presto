@@ -18,6 +18,7 @@ import com.facebook.presto.hive.HdfsConfigurationUpdater;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.HiveBasicStatistics;
+import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.HiveType;
@@ -98,6 +99,7 @@ import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -928,6 +930,27 @@ public class FileHiveMetastore
             }
         }
         return true;
+    }
+
+    @Override
+    public boolean isPartitionsBucketingConsistencyCheckSupported()
+    {
+        return true;
+    }
+
+    @Override
+    public boolean isPartitionsBucketingConsistent(String databaseName, String tableName, List<String> partitionNames)
+    {
+        if (partitionNames.isEmpty()) {
+            return true;
+        }
+        Table table = getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+        List<Partition> partitions = getPartitionsByNames(databaseName, tableName, partitionNames).values().stream()
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toImmutableList());
+        return HiveBucketProperty.isPartitionsBucketingConsistent(table, partitions);
     }
 
     @Override

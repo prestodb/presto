@@ -667,6 +667,18 @@ public class GlueHiveMetastore
                 .collect(toList());
     }
 
+    @Override
+    public boolean isPartitionsBucketingConsistencyCheckSupported()
+    {
+        return false;
+    }
+
+    @Override
+    public boolean isPartitionsBucketingConsistent(String databaseName, String tableName, List<String> partitionNames)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     /**
      * <pre>
      * Ex: Partition keys = ['a', 'b']

@@ -68,6 +68,10 @@ public interface HiveMetastore
 
     Optional<List<String>> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts);
 
+    boolean isPartitionsBucketingConsistencyCheckSupported();
+
+    boolean isPartitionsBucketingConsistent(String databaseName, String tableName, List<String> partitionNames);
+
     Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues);
 
     List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames);

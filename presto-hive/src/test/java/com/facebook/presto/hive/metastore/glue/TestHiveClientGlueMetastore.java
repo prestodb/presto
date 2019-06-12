@@ -95,4 +95,10 @@ public class TestHiveClientGlueMetastore
     {
         testStorePartitionWithStatistics(STATISTICS_PARTITIONED_TABLE_COLUMNS, BASIC_STATISTICS_1, BASIC_STATISTICS_2, BASIC_STATISTICS_1, EMPTY_TABLE_STATISTICS);
     }
+
+    @Override
+    public void testPartitionsBucketingConsistency()
+    {
+        // Glue metastore does not support bucketing consistency check
+    }
 }

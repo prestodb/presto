@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
@@ -361,6 +362,34 @@ public class InMemoryHiveMetastore
                 .filter(entry -> partitionMatches(entry.getValue(), databaseName, tableName, parts))
                 .map(entry -> entry.getKey().getPartitionName())
                 .collect(toList()));
+    }
+
+    @Override
+    public boolean isPartitionsBucketingConsistencyCheckSupported()
+    {
+        return true;
+    }
+
+    @Override
+    public boolean isPartitionsBucketingConsistent(String databaseName, String tableName, List<String> partitionNames)
+    {
+        if (partitionNames.isEmpty()) {
+            return true;
+        }
+        Table table = getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+        Optional<HiveBucketProperty> tableBucketingProperty = HiveBucketProperty.fromStorageDescriptor(table.getSd(), tableName);
+        for (String partitionName : partitionNames) {
+            Partition partition = partitions.get(PartitionName.partition(databaseName, tableName, partitionName));
+            if (partition == null) {
+                continue;
+            }
+            Optional<HiveBucketProperty> partitionBucketProperty = HiveBucketProperty.fromStorageDescriptor(partition.getSd(), tableName);
+            if (!tableBucketingProperty.equals(partitionBucketProperty)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean partitionMatches(Partition partition, String databaseName, String tableName, List<String> parts)

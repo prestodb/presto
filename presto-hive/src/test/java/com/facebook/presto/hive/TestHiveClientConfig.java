@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HiveClientConfig.BucketingConsistencyCheckStrategy;
 import com.facebook.presto.hive.HiveClientConfig.HdfsAuthenticationType;
 import com.facebook.presto.hive.HiveClientConfig.HiveMetastoreAuthenticationType;
 import com.facebook.presto.hive.s3.S3FileSystemType;
@@ -106,6 +107,8 @@ public class TestHiveClientConfig
                 .setSkipDeletionForAlter(false)
                 .setSkipTargetCleanupOnRollback(false)
                 .setBucketExecutionEnabled(true)
+                .setBucketingConsistencyCheckStrategy(BucketingConsistencyCheckStrategy.CHECK_FLAGGED_TABLED)
+                .setBucketingConsistencyCheckMaxPartitionCount(1000)
                 .setIgnoreTableBucketing(false)
                 .setFileSystemMaxCacheSize(1000)
                 .setTableStatisticsEnabled(true)
@@ -196,6 +199,8 @@ public class TestHiveClientConfig
                 .put("hive.skip-deletion-for-alter", "true")
                 .put("hive.skip-target-cleanup-on-rollback", "true")
                 .put("hive.bucket-execution", "false")
+                .put("hive.bucketing-consistency-check-strategy", "DO_NOT_CHECK")
+                .put("hive.bucketing-consistency-check-max-partition-count", "2000")
                 .put("hive.sorted-writing", "false")
                 .put("hive.ignore-table-bucketing", "true")
                 .put("hive.fs.cache.max-size", "1010")
@@ -283,6 +288,8 @@ public class TestHiveClientConfig
                 .setSkipDeletionForAlter(true)
                 .setSkipTargetCleanupOnRollback(true)
                 .setBucketExecutionEnabled(false)
+                .setBucketingConsistencyCheckStrategy(BucketingConsistencyCheckStrategy.DO_NOT_CHECK)
+                .setBucketingConsistencyCheckMaxPartitionCount(2000)
                 .setSortedWritingEnabled(false)
                 .setIgnoreTableBucketing(true)
                 .setFileSystemMaxCacheSize(1010)

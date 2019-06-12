@@ -37,4 +37,10 @@ public class TestHiveClient
 
         setup(host, port, databaseName, timeZone);
     }
+
+    @Override
+    public void testPartitionsBucketingConsistency()
+    {
+        // Hive metastore does not support bucketing consistency check
+    }
 }

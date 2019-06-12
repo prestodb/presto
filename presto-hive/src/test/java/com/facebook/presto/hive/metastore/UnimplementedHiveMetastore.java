@@ -168,6 +168,18 @@ class UnimplementedHiveMetastore
     }
 
     @Override
+    public boolean isPartitionsBucketingConsistencyCheckSupported()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isPartitionsBucketingConsistent(String databaseName, String tableName, List<String> partitionNames)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Map<String, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
     {
         throw new UnsupportedOperationException();

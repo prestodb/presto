@@ -101,10 +101,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 import com.google.common.net.HostAndPort;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -188,6 +190,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.toHiveType;
+import static com.facebook.presto.hive.HiveUtil.PRESTO_BUCKETING_CONSISTENCY_CHECK_ENABLED_FLAG;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.HiveWriteUtils.createDirectory;
@@ -200,6 +203,8 @@ import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDoub
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
+import static com.facebook.presto.hive.metastore.SortingColumn.Order.ASCENDING;
+import static com.facebook.presto.hive.metastore.SortingColumn.Order.DESCENDING;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
@@ -2434,7 +2439,7 @@ public abstract class AbstractTestHiveClient
                             .put(BUCKETED_BY_PROPERTY, ImmutableList.of("id"))
                             .put(BUCKET_COUNT_PROPERTY, bucketCount)
                             .put(SORTED_BY_PROPERTY, ImmutableList.builder()
-                                    .add(new SortingColumn("value_asc", SortingColumn.Order.ASCENDING))
+                                    .add(new SortingColumn("value_asc", ASCENDING))
                                     .add(new SortingColumn("value_desc", SortingColumn.Order.DESCENDING))
                                     .build())
                             .build());
@@ -3123,6 +3128,11 @@ public abstract class AbstractTestHiveClient
 
     protected Partition createDummyPartition(Table table, String partitionName)
     {
+        return createDummyPartition(table, partitionName, Optional.empty());
+    }
+
+    protected Partition createDummyPartition(Table table, String partitionName, Optional<HiveBucketProperty> bucketProperty)
+    {
         return Partition.builder()
                 .setDatabaseName(table.getDatabaseName())
                 .setTableName(table.getTableName())
@@ -3130,7 +3140,8 @@ public abstract class AbstractTestHiveClient
                 .setValues(toPartitionValues(partitionName))
                 .withStorage(storage -> storage
                         .setStorageFormat(fromHiveStorageFormat(HiveStorageFormat.ORC))
-                        .setLocation(partitionTargetPath(new SchemaTableName(table.getDatabaseName(), table.getTableName()), partitionName)))
+                        .setLocation(partitionTargetPath(new SchemaTableName(table.getDatabaseName(), table.getTableName()), partitionName))
+                        .setBucketProperty(bucketProperty))
                 .setParameters(ImmutableMap.of(
                         PRESTO_VERSION_NAME, "testversion",
                         PRESTO_QUERY_ID_NAME, "20180101_123456_00001_x1y2z"))
@@ -4583,13 +4594,19 @@ public abstract class AbstractTestHiveClient
                 .collect(toList());
     }
 
-    private void createEmptyTable(SchemaTableName schemaTableName, HiveStorageFormat hiveStorageFormat, List<Column> columns, List<Column> partitionColumns)
+    private Table createEmptyTable(SchemaTableName schemaTableName, HiveStorageFormat hiveStorageFormat, List<Column> columns, List<Column> partitionColumns)
             throws Exception
     {
-        createEmptyTable(schemaTableName, hiveStorageFormat, columns, partitionColumns, Optional.empty());
+        return createEmptyTable(schemaTableName, hiveStorageFormat, columns, partitionColumns, Optional.empty());
     }
 
-    private void createEmptyTable(SchemaTableName schemaTableName, HiveStorageFormat hiveStorageFormat, List<Column> columns, List<Column> partitionColumns, Optional<HiveBucketProperty> bucketProperty)
+    private Table createEmptyTable(SchemaTableName schemaTableName, HiveStorageFormat hiveStorageFormat, List<Column> columns, List<Column> partitionColumns, Optional<HiveBucketProperty> bucketProperty)
+            throws Exception
+    {
+        return createEmptyTable(schemaTableName, hiveStorageFormat, columns, partitionColumns, bucketProperty, ImmutableMap.of());
+    }
+
+    private Table createEmptyTable(SchemaTableName schemaTableName, HiveStorageFormat hiveStorageFormat, List<Column> columns, List<Column> partitionColumns, Optional<HiveBucketProperty> bucketProperty, Map<String, String> parameters)
             throws Exception
     {
         Path targetPath;
@@ -4610,9 +4627,11 @@ public abstract class AbstractTestHiveClient
                     .setTableName(tableName)
                     .setOwner(tableOwner)
                     .setTableType(MANAGED_TABLE)
-                    .setParameters(ImmutableMap.of(
-                            PRESTO_VERSION_NAME, TEST_SERVER_VERSION,
-                            PRESTO_QUERY_ID_NAME, session.getQueryId()))
+                    .setParameters(ImmutableMap.<String, String>builder()
+                            .put(PRESTO_VERSION_NAME, TEST_SERVER_VERSION)
+                            .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
+                            .putAll(parameters)
+                            .build())
                     .setDataColumns(columns)
                     .setPartitionColumns(partitionColumns);
 
@@ -4631,6 +4650,10 @@ public abstract class AbstractTestHiveClient
         HdfsContext context = new HdfsContext(newSession(), schemaTableName.getSchemaName(), schemaTableName.getTableName());
         List<String> targetDirectoryList = listDirectory(context, targetPath);
         assertEquals(targetDirectoryList, ImmutableList.of());
+
+        try (Transaction transaction = newTransaction()) {
+            return transaction.getMetastore(schemaTableName.getSchemaName()).getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName()).get();
+        }
     }
 
     private void alterBucketProperty(SchemaTableName schemaTableName, Optional<HiveBucketProperty> bucketProperty)
@@ -4889,6 +4912,231 @@ public abstract class AbstractTestHiveClient
     {
         if (expectedTag == tag) {
             throw new TestingRollbackException();
+        }
+    }
+
+    @Test
+    public void testPartitionsBucketingConsistency()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("test_partitions_bucketing_consistency");
+        try {
+            ExtendedHiveMetastore metastoreClient = getMetastoreClient();
+
+            List<String> tableBucketColumns = ImmutableList.of("id", "name");
+            int tableBucketCount = 4;
+            List<SortingColumn> tableBucketSorting = ImmutableList.of(new SortingColumn("id", ASCENDING), new SortingColumn("name", DESCENDING));
+            HiveBucketProperty tableBucketProperty = new HiveBucketProperty(tableBucketColumns, tableBucketCount, tableBucketSorting);
+
+            Table table = createEmptyTable(
+                    tableName,
+                    ORC,
+                    ImmutableList.of(
+                            new Column("id", HIVE_LONG, Optional.empty()),
+                            new Column("name", HIVE_STRING, Optional.empty()),
+                            new Column("comment", HIVE_STRING, Optional.empty())),
+                    ImmutableList.of(new Column("partition", HIVE_STRING, Optional.empty())),
+                    Optional.of(tableBucketProperty),
+                    ImmutableMap.of(PRESTO_BUCKETING_CONSISTENCY_CHECK_ENABLED_FLAG, "true"));
+
+            List<Partition> inconsistentBucketingPartitions = ImmutableList.<Partition>builder()
+                    .add(createDummyPartition(table, "partition=non_bucketed", Optional.empty()))
+                    .add(createDummyPartition(
+                            table,
+                            "partition=bucketed_by_id",
+                            Optional.of(new HiveBucketProperty(ImmutableList.of("id"), tableBucketCount, ImmutableList.of(new SortingColumn("id", ASCENDING))))))
+                    .add(createDummyPartition(
+                            table,
+                            "partition=bucketed_by_name",
+                            Optional.of(new HiveBucketProperty(ImmutableList.of("name"), tableBucketCount, ImmutableList.of(new SortingColumn("name", DESCENDING))))))
+                    .add(createDummyPartition(
+                            table,
+                            "partition=bucketed_by_id_comment",
+                            Optional.of(new HiveBucketProperty(ImmutableList.of("id", "comment"), tableBucketCount, ImmutableList.of(new SortingColumn("id", ASCENDING), new SortingColumn("comment", DESCENDING))))))
+                    .add(createDummyPartition(
+                            table,
+                            "partition=bucketed_by_id_name_8_buckets",
+                            Optional.of(new HiveBucketProperty(tableBucketColumns, 8, tableBucketSorting))))
+                    .add(createDummyPartition(
+                            table,
+                            "partition=bucketed_by_id_name_4_buckets_non_sorted",
+                            Optional.of(new HiveBucketProperty(tableBucketColumns, tableBucketCount, ImmutableList.of()))))
+                    .add(createDummyPartition(
+                            table,
+                            "partition=bucketed_by_id_name_4_buckets_sorted_by_id_asc",
+                            Optional.of(new HiveBucketProperty(tableBucketColumns, tableBucketCount, ImmutableList.of(new SortingColumn("id", ASCENDING))))))
+                    .add(createDummyPartition(
+                            table,
+                            "partition=bucketed_by_id_name_4_buckets_sorted_by_name_desc",
+                            Optional.of(new HiveBucketProperty(tableBucketColumns, tableBucketCount, ImmutableList.of(new SortingColumn("name", DESCENDING))))))
+                    .add(createDummyPartition(
+                            table,
+                            "partition=bucketed_by_id_name_4_buckets_sorted_by_id_desc_name_desc",
+                            Optional.of(new HiveBucketProperty(tableBucketColumns, tableBucketCount, ImmutableList.of(new SortingColumn("id", DESCENDING), new SortingColumn("name", DESCENDING))))))
+                    .build();
+
+            Partition consistentPartitionForAlter = createDummyPartition(
+                    table,
+                    "partition=consistent_for_alter",
+                    Optional.of(new HiveBucketProperty(tableBucketColumns, tableBucketCount, tableBucketSorting)));
+
+            List<Partition> consistentBucketingPartitions = ImmutableList.<Partition>builder()
+                    .add(consistentPartitionForAlter)
+                    .add(createDummyPartition(
+                            table,
+                            "partition=bucketed_by_id_name_4_buckets_sorted_by_id_asc_name_desc_1",
+                            Optional.of(new HiveBucketProperty(tableBucketColumns, tableBucketCount, tableBucketSorting))))
+                    .add(createDummyPartition(
+                            table,
+                            "partition=bucketed_by_id_name_4_buckets_sorted_by_id_asc_name_desc_2",
+                            Optional.of(new HiveBucketProperty(tableBucketColumns, tableBucketCount, tableBucketSorting))))
+                    .build();
+
+            List<PartitionWithStatistics> partitionsWithStatistics = Streams.concat(inconsistentBucketingPartitions.stream(), consistentBucketingPartitions.stream())
+                    .map(partition -> new PartitionWithStatistics(partition, getPartitionName(table, partition), PartitionStatistics.empty()))
+                    .collect(toImmutableList());
+            metastoreClient.addPartitions(tableName.getSchemaName(), tableName.getTableName(), partitionsWithStatistics);
+
+            try (Transaction transaction = newTransaction()) {
+                ConnectorSession session = newSession();
+                SemiTransactionalHiveMetastore metastore = transaction.getMetastore(tableName.getSchemaName());
+                if (!metastore.isPartitionsBucketingConsistent(tableName.getSchemaName(), tableName.getSchemaName(), ImmutableList.of())) {
+                    fail("partitions bucketing is expected to be consistent for 0 partitions");
+                }
+
+                List<String> inconsistentPartitionNames = new ArrayList<>();
+                for (Partition inconsistentBucketingPartition : inconsistentBucketingPartitions) {
+                    inconsistentPartitionNames.add(getPartitionName(table, inconsistentBucketingPartition));
+                    assertPartitionBucketingIsNotConsistent(session, transaction, tableName, inconsistentPartitionNames);
+                }
+
+                for (Partition inconsistentBucketingPartition : inconsistentBucketingPartitions) {
+                    List<String> partitionNames = new ArrayList<>();
+                    partitionNames.add(getPartitionName(table, inconsistentBucketingPartition));
+                    assertPartitionBucketingIsNotConsistent(session, transaction, tableName, partitionNames);
+                    for (Partition consistentBucketingPartition : consistentBucketingPartitions) {
+                        partitionNames.add(getPartitionName(table, consistentBucketingPartition));
+                        assertPartitionBucketingIsNotConsistent(session, transaction, tableName, partitionNames);
+                    }
+                }
+
+                List<String> partitionNames = new ArrayList<>();
+                for (Partition consistentBucketingPartition : consistentBucketingPartitions) {
+                    partitionNames.add(getPartitionName(table, consistentBucketingPartition));
+                    assertPartitionBucketingIsConsistent(session, transaction, tableName, partitionNames);
+                }
+                transaction.commit();
+            }
+
+            try (Transaction transaction = newTransaction()) {
+                ConnectorSession session = newSession();
+                SemiTransactionalHiveMetastore metastore = transaction.getMetastore(tableName.getSchemaName());
+
+                Partition currentTransactionInconsistentPartition = createDummyPartition(
+                        table,
+                        "partition=current_transaction_inconsistent",
+                        Optional.of(new HiveBucketProperty(ImmutableList.of("id"), tableBucketCount, ImmutableList.of(new SortingColumn("id", ASCENDING)))));
+                Partition currentTransactionConsistentPartition = createDummyPartition(
+                        table,
+                        "partition=current_transaction_consistent",
+                        Optional.of(tableBucketProperty));
+
+                metastore.addPartition(session, tableName.getSchemaName(), tableName.getTableName(), currentTransactionInconsistentPartition, new Path("/"), PartitionStatistics.empty());
+                metastore.addPartition(session, tableName.getSchemaName(), tableName.getTableName(), currentTransactionConsistentPartition, new Path("/"), PartitionStatistics.empty());
+
+                assertPartitionBucketingIsNotConsistent(session, transaction, tableName, ImmutableList.of(getPartitionName(table, currentTransactionInconsistentPartition)));
+                assertPartitionBucketingIsNotConsistent(
+                        session,
+                        transaction,
+                        tableName,
+                        ImmutableList.of(getPartitionName(table, currentTransactionInconsistentPartition), getPartitionName(table, inconsistentBucketingPartitions.get(0))));
+                assertPartitionBucketingIsNotConsistent(
+                        session,
+                        transaction,
+                        tableName,
+                        ImmutableList.of(getPartitionName(table, currentTransactionInconsistentPartition), getPartitionName(table, consistentBucketingPartitions.get(0))));
+                assertPartitionBucketingIsNotConsistent(
+                        session,
+                        transaction,
+                        tableName,
+                        ImmutableList.of(getPartitionName(table, currentTransactionConsistentPartition), getPartitionName(table, inconsistentBucketingPartitions.get(0))));
+                assertPartitionBucketingIsConsistent(session, transaction, tableName, ImmutableList.of(getPartitionName(table, currentTransactionConsistentPartition)));
+                assertPartitionBucketingIsConsistent(
+                        session,
+                        transaction,
+                        tableName,
+                        ImmutableList.of(getPartitionName(table, currentTransactionConsistentPartition), getPartitionName(table, consistentBucketingPartitions.get(0))));
+                transaction.rollback();
+            }
+
+            try (Transaction transaction = newTransaction()) {
+                ConnectorSession session = newSession();
+                SemiTransactionalHiveMetastore metastore = transaction.getMetastore(tableName.getSchemaName());
+
+                assertPartitionBucketingIsConsistent(session, transaction, tableName, ImmutableList.of(getPartitionName(table, consistentPartitionForAlter)));
+
+                metastore.dropPartition(session, tableName.getSchemaName(), tableName.getTableName(), consistentPartitionForAlter.getValues());
+
+                Partition inconsistentPartitionForAlter = createDummyPartition(
+                        table,
+                        "partition=consistent_for_alter",
+                        Optional.of(new HiveBucketProperty(tableBucketColumns, 8, tableBucketSorting)));
+                metastore.addPartition(session, tableName.getSchemaName(), tableName.getTableName(), inconsistentPartitionForAlter, new Path("/"), PartitionStatistics.empty());
+
+                assertPartitionBucketingIsNotConsistent(session, transaction, tableName, ImmutableList.of(getPartitionName(table, consistentPartitionForAlter)));
+
+                transaction.rollback();
+            }
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    private static String getPartitionName(Table table, Partition partition)
+    {
+        List<String> columnNames = table.getPartitionColumns().stream()
+                .map(Column::getName)
+                .collect(toImmutableList());
+        return makePartName(columnNames, partition.getValues());
+    }
+
+    private static void assertPartitionBucketingIsConsistent(ConnectorSession session, Transaction transaction, SchemaTableName table, List<String> partitionNames)
+    {
+        assertPartitionBucketingIsConsistent(session, transaction, table, partitionNames, true);
+    }
+
+    private static void assertPartitionBucketingIsNotConsistent(ConnectorSession session, Transaction transaction, SchemaTableName table, List<String> partitionNames)
+    {
+        assertPartitionBucketingIsConsistent(session, transaction, table, partitionNames, false);
+    }
+
+    private static void assertPartitionBucketingIsConsistent(ConnectorSession session, Transaction transaction, SchemaTableName table, List<String> partitionNames, boolean expected)
+    {
+        String message = format("partitions bucketing is expected to be %s for partitions: %s", expected ? "consistent" : "not consistent", partitionNames);
+        SemiTransactionalHiveMetastore metastore = transaction.getMetastore(table.getSchemaName());
+        if (metastore.isPartitionsBucketingConsistent(table.getSchemaName(), table.getTableName(), partitionNames) != expected) {
+            fail(message);
+        }
+        ConnectorMetadata metadata = transaction.getMetadata();
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(session, table);
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+        ColumnHandle partitionColumnHandle = columnHandles.get("partition");
+        Domain partitionDomain = Domain.multipleValues(VARCHAR, partitionNames.stream()
+                .map(HiveUtil::toPartitionValues)
+                .map(values -> values.get(0))
+                .map(Slices::utf8Slice)
+                .collect(toImmutableList()));
+        ColumnHandle bucketColumnHandle = columnHandles.get("$bucket");
+        Domain bucketDomain = Domain.singleValue(BIGINT, 1L);
+        Constraint<ColumnHandle> constraint = new Constraint<>(TupleDomain.withColumnDomains(ImmutableMap.of(partitionColumnHandle, partitionDomain, bucketColumnHandle, bucketDomain)));
+        HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) metadata
+                .getTableLayouts(session, tableHandle, constraint, Optional.empty()).get(0).getTableLayout().getHandle();
+        if (!layoutHandle.getBucketHandle().isPresent() == expected) {
+            fail(message);
+        }
+        if (!layoutHandle.getBucketFilter().isPresent() == expected) {
+            fail(message);
         }
     }
 

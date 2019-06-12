@@ -353,6 +353,19 @@ public class RecordingHiveMetastore
     }
 
     @Override
+    public boolean isPartitionsBucketingConsistencyCheckSupported()
+    {
+        return delegate.isPartitionsBucketingConsistencyCheckSupported();
+    }
+
+    @Override
+    public boolean isPartitionsBucketingConsistent(String databaseName, String tableName, List<String> partitionNames)
+    {
+        verifyRecordingMode();
+        return delegate.isPartitionsBucketingConsistent(databaseName, tableName, partitionNames);
+    }
+
+    @Override
     public Map<String, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
     {
         return loadValue(

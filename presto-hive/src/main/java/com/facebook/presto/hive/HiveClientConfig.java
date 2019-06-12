@@ -131,6 +131,10 @@ public class HiveClientConfig
     private boolean skipTargetCleanupOnRollback;
 
     private boolean bucketExecutionEnabled = true;
+
+    private BucketingConsistencyCheckStrategy bucketingConsistencyCheckStrategy = BucketingConsistencyCheckStrategy.CHECK_FLAGGED_TABLED;
+    private int bucketingConsistencyCheckMaxPartitionCount = 1000;
+
     private boolean sortedWritingEnabled = true;
     private boolean ignoreTableBucketing;
 
@@ -1045,6 +1049,40 @@ public class HiveClientConfig
     public HiveClientConfig setBucketExecutionEnabled(boolean bucketExecutionEnabled)
     {
         this.bucketExecutionEnabled = bucketExecutionEnabled;
+        return this;
+    }
+
+    @NotNull
+    public BucketingConsistencyCheckStrategy getBucketingConsistencyCheckStrategy()
+    {
+        return bucketingConsistencyCheckStrategy;
+    }
+
+    @Config("hive.bucketing-consistency-check-strategy")
+    @ConfigDescription("Bucketing consistency check strategy. Possible values are: CHECK_ALL_TABLES, CHECK_FLAGGED_TABLED, DO_NOT_CHECK")
+    public HiveClientConfig setBucketingConsistencyCheckStrategy(BucketingConsistencyCheckStrategy bucketingConsistencyCheckStrategy)
+    {
+        this.bucketingConsistencyCheckStrategy = bucketingConsistencyCheckStrategy;
+        return this;
+    }
+
+    public enum BucketingConsistencyCheckStrategy
+    {
+        CHECK_ALL_TABLES,
+        CHECK_FLAGGED_TABLED,
+        DO_NOT_CHECK,
+    }
+
+    public int getBucketingConsistencyCheckMaxPartitionCount()
+    {
+        return bucketingConsistencyCheckMaxPartitionCount;
+    }
+
+    @Config("hive.bucketing-consistency-check-max-partition-count")
+    @ConfigDescription("Maximum number of partitions for the bucketing consistency check. Partitions bucketing is considered to be inconsistent if the number of partitions is higher")
+    public HiveClientConfig setBucketingConsistencyCheckMaxPartitionCount(int bucketingConsistencyCheckMaxPartitionCount)
+    {
+        this.bucketingConsistencyCheckMaxPartitionCount = bucketingConsistencyCheckMaxPartitionCount;
         return this;
     }
 

@@ -943,6 +943,18 @@ public class ThriftHiveMetastore
     }
 
     @Override
+    public boolean isPartitionsBucketingConsistencyCheckSupported()
+    {
+        return false;
+    }
+
+    @Override
+    public boolean isPartitionsBucketingConsistent(String databaseName, String tableName, List<String> partitionNames)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitionsWithStatistics)
     {
         List<Partition> partitions = partitionsWithStatistics.stream()

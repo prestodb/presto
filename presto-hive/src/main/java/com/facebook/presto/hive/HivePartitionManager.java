@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
+import com.facebook.presto.hive.HiveClientConfig.BucketingConsistencyCheckStrategy;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
@@ -62,7 +63,10 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketFilter;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketHandle;
+import static com.facebook.presto.hive.HiveSessionProperties.getBucketingConsistencyCheckMaxPartitionCount;
+import static com.facebook.presto.hive.HiveSessionProperties.getBucketingConsistencyCheckStrategy;
 import static com.facebook.presto.hive.HiveSessionProperties.shouldIgnoreTableBucketing;
+import static com.facebook.presto.hive.HiveUtil.PRESTO_BUCKETING_CONSISTENCY_CHECK_ENABLED_FLAG;
 import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
@@ -139,19 +143,21 @@ public class HivePartitionManager
                 .map(column -> typeManager.getType(column.getTypeSignature()))
                 .collect(toList());
 
-        List<String> partitionNames = getFilteredPartitionNames(metastore, tableName, partitionColumns, effectivePredicate);
-
-        Iterable<HivePartition> partitionsIterable = () -> partitionNames.stream()
-                // Apply extra filters which could not be done by getFilteredPartitionNames
+        List<HivePartition> partitions = getFilteredPartitionNames(metastore, tableName, partitionColumns, effectivePredicate).stream()
                 .map(partitionName -> parseValuesAndFilterPartition(tableName, partitionName, partitionColumns, partitionTypes, constraint))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .iterator();
+                .collect(toImmutableList());
+
+        if (hiveBucketHandle.isPresent() && !isPartitionsBucketingConsistent(session, metastore, table, partitions)) {
+            hiveBucketHandle = Optional.empty();
+            bucketFilter = Optional.empty();
+        }
 
         // All partition key domains will be fully evaluated, so we don't need to include those
         TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), not(Predicates.in(partitionColumns))));
         TupleDomain<ColumnHandle> enforcedTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), Predicates.in(partitionColumns)));
-        return new HivePartitionResult(partitionColumns, partitionsIterable, effectivePredicate, remainingTupleDomain, enforcedTupleDomain, hiveBucketHandle, bucketFilter);
+        return new HivePartitionResult(partitionColumns, partitions, effectivePredicate, remainingTupleDomain, enforcedTupleDomain, hiveBucketHandle, bucketFilter);
     }
 
     public HivePartitionResult getPartitions(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, List<List<String>> partitionValuesList, ConnectorSession session)
@@ -277,6 +283,46 @@ public class HivePartitionManager
         // fetch the partition names
         return metastore.getPartitionNamesByParts(tableName.getSchemaName(), tableName.getTableName(), filter)
                 .orElseThrow(() -> new TableNotFoundException(tableName));
+    }
+
+    private boolean isPartitionsBucketingConsistent(ConnectorSession session, SemiTransactionalHiveMetastore metastore, Table table, List<HivePartition> partitions)
+    {
+        if (!isBucketingConsistencyCheckEnabled(session, table)) {
+            // consider consistent for compatibility
+            return true;
+        }
+
+        if (!metastore.isPartitionsBucketingConsistencyCheckSupported()) {
+            // Not every metastore implementation supports the consistency check
+            // consider consistent for compatibility
+            return true;
+        }
+
+        if (partitions.size() > getBucketingConsistencyCheckMaxPartitionCount(session)) {
+            // consider inconsistent if the partition limit exceeded
+            return false;
+        }
+
+        List<String> partitionNames = partitions.stream()
+                .map(HivePartition::getPartitionId)
+                .collect(toImmutableList());
+
+        return metastore.isPartitionsBucketingConsistent(table.getDatabaseName(), table.getTableName(), partitionNames);
+    }
+
+    private static boolean isBucketingConsistencyCheckEnabled(ConnectorSession session, Table table)
+    {
+        BucketingConsistencyCheckStrategy bucketingConsistencyCheckStrategy = getBucketingConsistencyCheckStrategy(session);
+        switch (bucketingConsistencyCheckStrategy) {
+            case CHECK_ALL_TABLES:
+                return true;
+            case CHECK_FLAGGED_TABLED:
+                return Boolean.valueOf(table.getParameters().get(PRESTO_BUCKETING_CONSISTENCY_CHECK_ENABLED_FLAG));
+            case DO_NOT_CHECK:
+                return false;
+            default:
+                throw new IllegalArgumentException("Unexpected bucketing consistency check strategy: " + bucketingConsistencyCheckStrategy);
+        }
     }
 
     public static HivePartition parsePartition(

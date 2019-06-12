@@ -149,6 +149,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Cate
 public final class HiveUtil
 {
     public static final String PRESTO_VIEW_FLAG = "presto_view";
+    public static final String PRESTO_BUCKETING_CONSISTENCY_CHECK_ENABLED_FLAG = "presto_bucketing_consistency_check_enabled";
 
     private static final String VIEW_PREFIX = "/* Presto View: ";
     private static final String VIEW_SUFFIX = " */";

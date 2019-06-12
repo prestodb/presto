@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.SortingColumn;
+import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -64,6 +66,20 @@ public class HiveBucketProperty
                     .collect(toImmutableList());
         }
         return Optional.of(new HiveBucketProperty(storageDescriptor.getBucketCols(), storageDescriptor.getNumBuckets(), sortedBy));
+    }
+
+    public static boolean isPartitionsBucketingConsistent(Table table, List<Partition> partitions)
+    {
+        if (partitions.isEmpty()) {
+            return true;
+        }
+        Optional<HiveBucketProperty> tableBucketProperty = table.getStorage().getBucketProperty();
+        for (Partition partition : partitions) {
+            if (!partition.getStorage().getBucketProperty().equals(tableBucketProperty)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @JsonProperty

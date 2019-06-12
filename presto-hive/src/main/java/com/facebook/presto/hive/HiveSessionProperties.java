@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HiveClientConfig.BucketingConsistencyCheckStrategy;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -42,6 +43,8 @@ public final class HiveSessionProperties
 {
     private static final String IGNORE_TABLE_BUCKETING = "ignore_table_bucketing";
     private static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
+    private static final String BUCKETING_CONSISTENCY_CHECK_STRATEGY = "bucketing_consistency_check_strategy";
+    private static final String BUCKETING_CONSISTENCY_CHECK_MAX_PARTITION_COUNT = "bucketing_consistency_check_max_partitions";
     private static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
     private static final String INSERT_EXISTING_PARTITIONS_BEHAVIOR = "insert_existing_partitions_behavior";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
@@ -118,6 +121,20 @@ public final class HiveSessionProperties
                         BUCKET_EXECUTION_ENABLED,
                         "Enable bucket-aware execution: only use a single worker per bucket",
                         hiveClientConfig.isBucketExecutionEnabled(),
+                        false),
+                new PropertyMetadata<>(
+                        BUCKETING_CONSISTENCY_CHECK_STRATEGY,
+                        "Bucketing consistency check strategy. Possible values are: CHECK_ALL_TABLES, CHECK_FLAGGED_TABLED, DO_NOT_CHECK",
+                        VARCHAR,
+                        BucketingConsistencyCheckStrategy.class,
+                        hiveClientConfig.getBucketingConsistencyCheckStrategy(),
+                        false,
+                        value -> BucketingConsistencyCheckStrategy.valueOf(((String) value).toUpperCase()),
+                        BucketingConsistencyCheckStrategy::name),
+                integerProperty(
+                        BUCKETING_CONSISTENCY_CHECK_MAX_PARTITION_COUNT,
+                        "Maximum number of partitions for the bucketing consistency check. Partitions bucketing is considered to be inconsistent if the number of partitions is higher",
+                        hiveClientConfig.getBucketingConsistencyCheckMaxPartitionCount(),
                         false),
                 booleanProperty(
                         FORCE_LOCAL_SCHEDULING,
@@ -367,6 +384,16 @@ public final class HiveSessionProperties
     public static boolean isBucketExecutionEnabled(ConnectorSession session)
     {
         return session.getProperty(BUCKET_EXECUTION_ENABLED, Boolean.class);
+    }
+
+    public static BucketingConsistencyCheckStrategy getBucketingConsistencyCheckStrategy(ConnectorSession session)
+    {
+        return session.getProperty(BUCKETING_CONSISTENCY_CHECK_STRATEGY, BucketingConsistencyCheckStrategy.class);
+    }
+
+    public static int getBucketingConsistencyCheckMaxPartitionCount(ConnectorSession session)
+    {
+        return session.getProperty(BUCKETING_CONSISTENCY_CHECK_MAX_PARTITION_COUNT, Integer.class);
     }
 
     public static boolean shouldIgnoreTableBucketing(ConnectorSession session)

@@ -16,6 +16,7 @@ package com.facebook.presto.hive.metastore;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.HiveBasicStatistics;
+import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.LocationHandle.WriteMode;
 import com.facebook.presto.hive.PartitionNotFoundException;
@@ -606,6 +607,59 @@ public class SemiTransactionalHiveMetastore
             }
         }
         return true;
+    }
+
+    public synchronized boolean isPartitionsBucketingConsistencyCheckSupported()
+    {
+        return delegate.isPartitionsBucketingConsistencyCheckSupported();
+    }
+
+    /**
+     * This method returns:
+     *  - Optional.of(true) if partitions bucketing is known to be consistent
+     *  - Optional.of(false) if partitions bucketing is known to be not consistent
+     *  - Optional.empty() if unknown
+     */
+    public synchronized boolean isPartitionsBucketingConsistent(String databaseName, String tableName, List<String> partitionNames)
+    {
+        if (partitionNames.isEmpty()) {
+            return true;
+        }
+
+        Table table = getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+
+        ImmutableList.Builder<String> existingPartitions = ImmutableList.builder();
+        ImmutableList.Builder<Partition> partitionsAddedInCurrentTransaction = ImmutableList.builder();
+        Map<List<String>, Action<PartitionAndMore>> partitionActions = this.partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
+        for (String partitionName : partitionNames) {
+            List<String> partitionValues = toPartitionValues(partitionName);
+            Action<PartitionAndMore> partitionAction = partitionActions.get(partitionValues);
+            if (partitionAction == null) {
+                existingPartitions.add(partitionName);
+                continue;
+            }
+            switch (partitionAction.getType()) {
+                case ADD:
+                case ALTER:
+                    partitionsAddedInCurrentTransaction.add(partitionAction.getData().getPartition());
+                    break;
+                case INSERT_EXISTING:
+                    existingPartitions.add(partitionName);
+                    break;
+                case DROP:
+                    // do nothing
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unexpected action: " + partitionAction.getType());
+            }
+        }
+
+        if (!HiveBucketProperty.isPartitionsBucketingConsistent(table, partitionsAddedInCurrentTransaction.build())) {
+            return false;
+        }
+
+        return delegate.isPartitionsBucketingConsistent(databaseName, tableName, existingPartitions.build());
     }
 
     public synchronized Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues)
