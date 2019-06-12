@@ -2,10 +2,10 @@
     "tableName": "region",
     "schemaName": "tpch",
     "host": "localhost",
-    "port": "9300",
+    "port": "9200",
     "clusterName": "test",
     "index": "region",
-    "type": "doc",
+    "type": "_doc",
     "columns": [
             {
                 "name": "regionkey",

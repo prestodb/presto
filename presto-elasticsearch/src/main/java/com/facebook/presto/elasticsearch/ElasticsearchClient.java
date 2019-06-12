@@ -455,7 +455,8 @@ public class ElasticsearchClient
         }
     }
 
-    static RestHighLevelClient createClient(ElasticsearchConnectorConfig config, String host, Integer port) throws IOException, GeneralSecurityException
+    static RestHighLevelClient createClient(ElasticsearchConnectorConfig config, String host, Integer port)
+            throws IOException, GeneralSecurityException
     {
         HttpHost httpHost;
         RestClientBuilder builder;
@@ -465,29 +466,29 @@ public class ElasticsearchClient
 
         switch (config.getCertificateFormat()) {
             case PEM:
-                    SSLContext sslContextFromPem = SSLContexts
-                            .custom()
-                            .loadKeyMaterial(
-                                    PemReader.loadKeyStore(config.getPemcertFilepath(), config.getPemkeyFilepath(), keyPasswordOpt), keyPasswordOpt.orElse("").toCharArray())
-                            .loadTrustMaterial(PemReader.loadTrustStore(config.getPemtrustedcasFilepath()), trustSelfSigned ? new TrustSelfSignedStrategy() : null)
-                            .build();
-                    httpHost = new HttpHost(host, port, "https");
-                    builder = RestClient.builder(httpHost)
-                            .setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder.setSSLContext(sslContextFromPem));
-                    client = new RestHighLevelClient(builder);
+                SSLContext sslContextFromPem = SSLContexts
+                        .custom()
+                        .loadKeyMaterial(
+                                PemReader.loadKeyStore(config.getPemcertFilepath(), config.getPemkeyFilepath(), keyPasswordOpt), keyPasswordOpt.orElse("").toCharArray())
+                        .loadTrustMaterial(PemReader.loadTrustStore(config.getPemtrustedcasFilepath()), trustSelfSigned ? new TrustSelfSignedStrategy() : null)
+                        .build();
+                httpHost = new HttpHost(host, port, "https");
+                builder = RestClient.builder(httpHost)
+                        .setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder.setSSLContext(sslContextFromPem));
+                client = new RestHighLevelClient(builder);
 
                 break;
             case JKS:
-                    SSLContext sslContextFromJks = SSLContexts
-                            .custom()
-                            .loadKeyMaterial(config.getKeystoreFilepath(), config.getKeystorePassword().toCharArray(), "".toCharArray()) // FIXME: Assume no pass?
-                            .loadTrustMaterial(config.getTruststoreFilepath(), config.getTruststorePassword().toCharArray(), trustSelfSigned ? new TrustSelfSignedStrategy() : null)
-                            .build();
+                SSLContext sslContextFromJks = SSLContexts
+                        .custom()
+                        .loadKeyMaterial(config.getKeystoreFilepath(), config.getKeystorePassword().toCharArray(), "".toCharArray()) // FIXME: Assume no pass?
+                        .loadTrustMaterial(config.getTruststoreFilepath(), config.getTruststorePassword().toCharArray(), trustSelfSigned ? new TrustSelfSignedStrategy() : null)
+                        .build();
 
-                    httpHost = new HttpHost(host, port, "https");
-                    builder = RestClient.builder(httpHost)
-                            .setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder.setSSLContext(sslContextFromJks));
-                    client = new RestHighLevelClient(builder);
+                httpHost = new HttpHost(host, port, "https");
+                builder = RestClient.builder(httpHost)
+                        .setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder.setSSLContext(sslContextFromJks));
+                client = new RestHighLevelClient(builder);
 
                 break;
             default:

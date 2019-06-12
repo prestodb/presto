@@ -95,7 +95,8 @@ public class ElasticsearchQueryBuilder
         }
         try {
             client = createClient(config, address.getHostName(), split.getPort());
-        } catch (IOException | GeneralSecurityException e) {
+        }
+        catch (IOException | GeneralSecurityException e) {
             throw new PrestoException(ELASTICSEARCH_INVALID_SSL_CONFIG, format("Error while trying to set up SSL configuration"));
         }
         scrollTimeout = config.getScrollTimeout();

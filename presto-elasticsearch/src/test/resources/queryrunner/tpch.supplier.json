@@ -2,10 +2,10 @@
     "tableName": "supplier",
     "schemaName": "tpch",
     "host": "localhost",
-    "port": "9300",
+    "port": "9200",
     "clusterName": "test",
     "index": "supplier",
-    "type": "doc",
+    "type": "_doc",
     "columns": [
             {
                 "name": "suppkey",

@@ -2,10 +2,10 @@
     "tableName": "lineitem",
     "schemaName": "tpch",
     "host": "localhost",
-    "port": "9300",
+    "port": "9200",
     "clusterName": "test",
     "index": "lineitem",
-    "type": "doc",
+    "type": "_doc",
     "columns": [
             {
                 "name": "orderkey",

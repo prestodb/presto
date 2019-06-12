@@ -42,7 +42,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static org.elasticsearch.client.Requests.flushRequest;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
-import static org.elasticsearch.common.xcontent.XContentType.JSON;
 
 public class ElasticsearchLoader
         extends AbstractTestingPrestoClient<Void>
@@ -100,9 +99,10 @@ public class ElasticsearchLoader
                         dataBuilder.field(columns.get(i).getName(), value);
                     }
                     dataBuilder.endObject();
-                    client.prepareIndex(tableName, "doc")
-                            .setSource(dataBuilder.toString(), JSON) // FIXME?
-                            .get();
+                    client.prepareIndex(tableName, "_doc")
+                            .setSource(dataBuilder)
+                            .execute()
+                            .actionGet();
                 }
                 catch (IOException e) {
                     throw new UncheckedIOException("Error loading data into Elasticsearch index: " + tableName, e);
