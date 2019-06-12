@@ -89,11 +89,6 @@ public class Assignments
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
     }
 
-    public List<Symbol> getOutputSymbols()
-    {
-        return assignments.keySet().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
-    }
-
     public List<VariableReferenceExpression> getOutputs()
     {
         return ImmutableList.copyOf(assignments.keySet());
