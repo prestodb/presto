@@ -21,7 +21,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
+import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -132,7 +132,7 @@ public class PlanNodeDecorrelator
                     childDecorrelationResult.node,
                     castToRowExpression(ExpressionUtils.combineConjuncts(uncorrelatedPredicates)));
 
-            Set<VariableReferenceExpression> variablesToPropagate = Sets.difference(SymbolsExtractor.extractUniqueVariable(correlatedPredicates, symbolAllocator.getTypes()), ImmutableSet.copyOf(correlation));
+            Set<VariableReferenceExpression> variablesToPropagate = Sets.difference(VariablesExtractor.extractUnique(correlatedPredicates, symbolAllocator.getTypes()), ImmutableSet.copyOf(correlation));
             return Optional.of(new DecorrelationResult(
                     newFilterNode,
                     Sets.union(childDecorrelationResult.variablesToPropagate, variablesToPropagate),
@@ -309,7 +309,7 @@ public class PlanNodeDecorrelator
 
         private boolean isCorrelated(Expression expression)
         {
-            return correlation.stream().anyMatch(SymbolsExtractor.extractUniqueVariable(expression, symbolAllocator.getTypes())::contains);
+            return correlation.stream().anyMatch(VariablesExtractor.extractUnique(expression, symbolAllocator.getTypes())::contains);
         }
     }
 
@@ -369,7 +369,7 @@ public class PlanNodeDecorrelator
 
     private boolean containsCorrelation(PlanNode node, List<VariableReferenceExpression> correlation)
     {
-        return Sets.union(SymbolsExtractor.extractUniqueVariable(node, lookup, symbolAllocator.getTypes()), SymbolsExtractor.extractOutputVariables(node, lookup, symbolAllocator.getTypes())).stream().anyMatch(correlation::contains);
+        return Sets.union(VariablesExtractor.extractUnique(node, lookup, symbolAllocator.getTypes()), VariablesExtractor.extractOutputVariables(node, lookup)).stream().anyMatch(correlation::contains);
     }
 
     public static class DecorrelatedNode

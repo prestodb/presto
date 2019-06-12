@@ -33,8 +33,8 @@ import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -227,9 +227,8 @@ public class PredicatePushDown
             // pre-projected symbols.
             Predicate<Expression> isSupported = conjunct ->
                     ExpressionDeterminismEvaluator.isDeterministic(conjunct) &&
-                            SymbolsExtractor.extractUniqueVariable(conjunct, types)
-                                    .stream()
-                                    .allMatch(node.getPartitionBy()::contains);
+                    VariablesExtractor.extractUnique(conjunct, types).stream()
+                            .allMatch(node.getPartitionBy()::contains);
 
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(isSupported));
 
@@ -250,7 +249,7 @@ public class PredicatePushDown
                     .map(Map.Entry::getKey)
                     .collect(Collectors.toSet());
 
-            Predicate<Expression> deterministic = conjunct -> deterministicVariables.containsAll(SymbolsExtractor.extractUniqueVariable(conjunct, types));
+            Predicate<Expression> deterministic = conjunct -> deterministicVariables.containsAll(VariablesExtractor.extractUnique(conjunct, types));
 
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(deterministic));
 
@@ -293,7 +292,7 @@ public class PredicatePushDown
             //   2. references to complex expressions that appear only once
             // which come from the node, as opposed to an enclosing scope.
             Set<VariableReferenceExpression> childOutputSet = ImmutableSet.copyOf(node.getOutputVariables());
-            Map<VariableReferenceExpression, Long> dependencies = SymbolsExtractor.extractAllVariable(expression, types).stream()
+            Map<VariableReferenceExpression, Long> dependencies = VariablesExtractor.extractAll(expression, types).stream()
                     .filter(childOutputSet::contains)
                     .collect(Collectors.groupingBy(identity(), Collectors.counting()));
 
@@ -308,7 +307,7 @@ public class PredicatePushDown
                     .filter(entry -> node.getCommonGroupingColumns().contains(entry.getKey()))
                     .collect(Collectors.toMap(Map.Entry::getKey, entry -> new SymbolReference(entry.getValue().getName())));
 
-            Predicate<Expression> pushdownEligiblePredicate = conjunct -> SymbolsExtractor.extractUniqueVariable(conjunct, types).stream()
+            Predicate<Expression> pushdownEligiblePredicate = conjunct -> VariablesExtractor.extractUnique(conjunct, types).stream()
                     .allMatch(commonGroupingVariableMapping.keySet()::contains);
 
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(pushdownEligiblePredicate));
@@ -329,7 +328,7 @@ public class PredicatePushDown
         {
             Set<VariableReferenceExpression> pushDownableVariables = ImmutableSet.copyOf(node.getDistinctVariables());
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream()
-                    .collect(Collectors.partitioningBy(conjunct -> pushDownableVariables.containsAll(SymbolsExtractor.extractUniqueVariable(conjunct, types))));
+                    .collect(Collectors.partitioningBy(conjunct -> pushDownableVariables.containsAll(VariablesExtractor.extractUnique(conjunct, types))));
 
             PlanNode rewrittenNode = context.defaultRewrite(node, combineConjuncts(conjuncts.get(true)));
 
@@ -471,7 +470,7 @@ public class PredicatePushDown
                 if (joinEqualityExpression(node.getLeft().getOutputVariables()).test(conjunct)) {
                     ComparisonExpression equality = (ComparisonExpression) conjunct;
 
-                    boolean alignedComparison = Iterables.all(SymbolsExtractor.extractUniqueVariable(equality.getLeft(), types), in(node.getLeft().getOutputVariables()));
+                    boolean alignedComparison = Iterables.all(VariablesExtractor.extractUnique(equality.getLeft(), types), in(node.getLeft().getOutputVariables()));
                     Expression leftExpression = (alignedComparison) ? equality.getLeft() : equality.getRight();
                     Expression rightExpression = (alignedComparison) ? equality.getRight() : equality.getLeft();
 
@@ -663,8 +662,8 @@ public class PredicatePushDown
 
         private OuterJoinPushDownResult processLimitedOuterJoin(Expression inheritedPredicate, Expression outerEffectivePredicate, Expression innerEffectivePredicate, Expression joinPredicate, Collection<VariableReferenceExpression> outerVariables)
         {
-            checkArgument(Iterables.all(SymbolsExtractor.extractUniqueVariable(outerEffectivePredicate, types), in(outerVariables)), "outerEffectivePredicate must only contain variables from outerVariables");
-            checkArgument(Iterables.all(SymbolsExtractor.extractUniqueVariable(innerEffectivePredicate, types), not(in(outerVariables))), "innerEffectivePredicate must not contain variables from outerVariables");
+            checkArgument(Iterables.all(VariablesExtractor.extractUnique(outerEffectivePredicate, types), in(outerVariables)), "outerEffectivePredicate must only contain variables from outerVariables");
+            checkArgument(Iterables.all(VariablesExtractor.extractUnique(innerEffectivePredicate, types), not(in(outerVariables))), "innerEffectivePredicate must not contain variables from outerVariables");
 
             ImmutableList.Builder<Expression> outerPushdownConjuncts = ImmutableList.builder();
             ImmutableList.Builder<Expression> innerPushdownConjuncts = ImmutableList.builder();
@@ -784,8 +783,8 @@ public class PredicatePushDown
 
         private InnerJoinPushDownResult processInnerJoin(Expression inheritedPredicate, Expression leftEffectivePredicate, Expression rightEffectivePredicate, Expression joinPredicate, Collection<VariableReferenceExpression> leftVariables)
         {
-            checkArgument(Iterables.all(SymbolsExtractor.extractUniqueVariable(leftEffectivePredicate, types), in(leftVariables)), "leftEffectivePredicate must only contain variables from leftVariables");
-            checkArgument(Iterables.all(SymbolsExtractor.extractUniqueVariable(rightEffectivePredicate, types), not(in(leftVariables))), "rightEffectivePredicate must not contain variables from leftVariables");
+            checkArgument(Iterables.all(VariablesExtractor.extractUnique(leftEffectivePredicate, types), in(leftVariables)), "leftEffectivePredicate must only contain variables from leftVariables");
+            checkArgument(Iterables.all(VariablesExtractor.extractUnique(rightEffectivePredicate, types), not(in(leftVariables))), "rightEffectivePredicate must not contain variables from leftVariables");
 
             ImmutableList.Builder<Expression> leftPushDownConjuncts = ImmutableList.builder();
             ImmutableList.Builder<Expression> rightPushDownConjuncts = ImmutableList.builder();
@@ -1009,8 +1008,8 @@ public class PredicatePushDown
                 if (isDeterministic(expression) && expression instanceof ComparisonExpression) {
                     ComparisonExpression comparison = (ComparisonExpression) expression;
                     if (comparison.getOperator() == ComparisonExpression.Operator.EQUAL) {
-                        Set<VariableReferenceExpression> variables1 = SymbolsExtractor.extractUniqueVariable(comparison.getLeft(), types);
-                        Set<VariableReferenceExpression> variables2 = SymbolsExtractor.extractUniqueVariable(comparison.getRight(), types);
+                        Set<VariableReferenceExpression> variables1 = VariablesExtractor.extractUnique(comparison.getLeft(), types);
+                        Set<VariableReferenceExpression> variables2 = VariablesExtractor.extractUnique(comparison.getRight(), types);
                         if (variables1.isEmpty() || variables2.isEmpty()) {
                             return false;
                         }
@@ -1186,7 +1185,7 @@ public class PredicatePushDown
 
             // Sort non-equality predicates by those that can be pushed down and those that cannot
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(inheritedPredicate)) {
-                if (node.getGroupIdVariable().isPresent() && SymbolsExtractor.extractUniqueVariable(conjunct, types).contains(node.getGroupIdVariable().get())) {
+                if (node.getGroupIdVariable().isPresent() && VariablesExtractor.extractUnique(conjunct, types).contains(node.getGroupIdVariable().get())) {
                     // aggregation operator synthesizes outputs for group ids corresponding to the global grouping set (i.e., ()), so we
                     // need to preserve any predicates that evaluate the group id to run after the aggregation
                     // TODO: we should be able to infer if conditions on grouping() correspond to global grouping sets to determine whether
@@ -1293,7 +1292,7 @@ public class PredicatePushDown
         @Override
         public PlanNode visitAssignUniqueId(AssignUniqueId node, RewriteContext<Expression> context)
         {
-            Set<VariableReferenceExpression> predicateVariables = SymbolsExtractor.extractUniqueVariable(context.get(), types);
+            Set<VariableReferenceExpression> predicateVariables = VariablesExtractor.extractUnique(context.get(), types);
             checkState(!predicateVariables.contains(node.getIdVariable()), "UniqueId in predicate is not yet supported");
             return context.defaultRewrite(node, context.get());
         }

@@ -19,8 +19,8 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.ExpressionVariableInliner;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.Assignments.Builder;
@@ -44,7 +44,6 @@ import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAsSym
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.isIdentity;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
-import static com.facebook.presto.sql.relational.Expressions.variable;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static java.util.stream.Collectors.toSet;
@@ -96,7 +95,7 @@ public class InlineProjections
                 .filter(entry -> targets.contains(entry.getKey()))
                 .map(Map.Entry::getValue)
                 .map(OriginalExpressionUtils::castToExpression)
-                .flatMap(entry -> SymbolsExtractor.extractAllVariable(entry, context.getSymbolAllocator().getTypes()).stream())
+                .flatMap(entry -> VariablesExtractor.extractAll(entry, context.getSymbolAllocator().getTypes()).stream())
                 .collect(toSet());
 
         Builder childAssignments = Assignments.builder();
@@ -147,8 +146,7 @@ public class InlineProjections
                 .getExpressions()
                 .stream()
                 .map(OriginalExpressionUtils::castToExpression)
-                .flatMap(expression -> SymbolsExtractor.extractAll(expression).stream())
-                .map(symbol -> variable(symbol.getName(), context.getSymbolAllocator().getTypes().get(symbol)))
+                .flatMap(expression -> VariablesExtractor.extractAll(expression, context.getSymbolAllocator().getTypes()).stream())
                 .filter(childOutputSet::contains)
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
@@ -179,7 +177,7 @@ public class InlineProjections
         return AstUtils.preOrder(expression)
                 .filter(TryExpression.class::isInstance)
                 .map(TryExpression.class::cast)
-                .flatMap(tryExpression -> SymbolsExtractor.extractAllVariable(tryExpression, types).stream())
+                .flatMap(tryExpression -> VariablesExtractor.extractAll(tryExpression, types).stream())
                 .collect(toSet());
     }
 }

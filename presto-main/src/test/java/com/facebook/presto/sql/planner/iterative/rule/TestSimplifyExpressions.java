@@ -19,11 +19,12 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
+import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.util.Comparator;
@@ -126,7 +127,7 @@ public class TestSimplifyExpressions
 
     private static Map<Symbol, Type> booleanSymbolTypeMapFor(Expression expression)
     {
-        return SymbolsExtractor.extractUnique(expression).stream()
+        return ImmutableSet.copyOf(VariablesExtractor.extractAllSymbols(expression)).stream()
                 .collect(Collectors.toMap(symbol -> symbol, symbol -> BOOLEAN));
     }
 

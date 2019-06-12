@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
-import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUniqueVariable;
+import static com.facebook.presto.sql.planner.VariablesExtractor.extractUnique;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.google.common.base.Predicates.not;
@@ -51,7 +51,7 @@ public class PruneJoinChildrenColumns
                 .addAll(
                         joinNode.getFilter()
                                 .map(OriginalExpressionUtils::castToExpression)
-                                .map(expression -> extractUniqueVariable(expression, context.getSymbolAllocator().getTypes()))
+                                .map(expression -> extractUnique(expression, context.getSymbolAllocator().getTypes()))
                                 .orElse(ImmutableSet.of()))
                 .build();
 

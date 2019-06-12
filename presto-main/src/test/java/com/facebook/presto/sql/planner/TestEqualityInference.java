@@ -358,13 +358,13 @@ public class TestEqualityInference
 
     private static Predicate<Expression> matchesVariableScope(final Predicate<VariableReferenceExpression> variableScope, TypeProvider types)
     {
-        return expression -> Iterables.all(SymbolsExtractor.extractUniqueVariable(expression, types), variableScope);
+        return expression -> Iterables.all(VariablesExtractor.extractUnique(expression, types), variableScope);
     }
 
     private static Predicate<Expression> matchesStraddlingScope(final Predicate<VariableReferenceExpression> variableScope, TypeProvider types)
     {
         return expression -> {
-            Set<VariableReferenceExpression> variables = SymbolsExtractor.extractUniqueVariable(expression, types);
+            Set<VariableReferenceExpression> variables = VariablesExtractor.extractUnique(expression, types);
             return Iterables.any(variables, variableScope) && Iterables.any(variables, not(variableScope));
         };
     }

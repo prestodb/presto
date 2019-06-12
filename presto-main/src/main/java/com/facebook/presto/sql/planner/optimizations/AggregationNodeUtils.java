@@ -17,8 +17,8 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
@@ -54,18 +54,18 @@ public class AggregationNodeUtils
     {
         // types will be no longer needed once everything is RowExpression.
         ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
-        aggregation.getArguments().forEach(argument -> builder.addAll(extractAllVariables(argument, types)));
-        aggregation.getFilter().ifPresent(filter -> builder.addAll(extractAllVariables(filter, types)));
+        aggregation.getArguments().forEach(argument -> builder.addAll(extractAll(argument, types)));
+        aggregation.getFilter().ifPresent(filter -> builder.addAll(extractAll(filter, types)));
         aggregation.getOrderBy().ifPresent(orderingScheme -> builder.addAll(orderingScheme.getOrderBy()));
         return builder.build();
     }
 
-    private static List<VariableReferenceExpression> extractAllVariables(RowExpression expression, TypeProvider types)
+    private static List<VariableReferenceExpression> extractAll(RowExpression expression, TypeProvider types)
     {
         if (isExpression(expression)) {
-            return SymbolsExtractor.extractAllVariable(castToExpression(expression), types);
+            return VariablesExtractor.extractAll(castToExpression(expression), types);
         }
-        return SymbolsExtractor.extractAll(expression)
+        return VariablesExtractor.extractAll(expression)
                 .stream()
                 .collect(toImmutableList());
     }

@@ -15,9 +15,8 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType;
 import com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType;
@@ -37,7 +36,6 @@ import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.R
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.ROWS;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 
 public final class WindowNodeUtil
@@ -86,30 +84,16 @@ public final class WindowNodeUtil
     }
 
     // Explicitly limit the following functions for WindowNode.
-    // TODO: Once the arguments in CallExpression are pure RowExpressions, move the method to SymbolsExtractor
-    public static Set<Symbol> extractWindowFunctionUnique(WindowNode.Function function)
-    {
-        ImmutableSet.Builder<Symbol> builder = ImmutableSet.builder();
-        for (RowExpression argument : function.getFunctionCall().getArguments()) {
-            if (isExpression(argument)) {
-                builder.addAll(SymbolsExtractor.extractAll(castToExpression(argument)));
-            }
-            else {
-                builder.addAll(SymbolsExtractor.extractAll(argument).stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableSet()));
-            }
-        }
-        return builder.build();
-    }
-
+    // TODO: Once the arguments in CallExpression are pure RowExpressions, move the method to VariablesExtractor
     public static Set<VariableReferenceExpression> extractWindowFunctionUniqueVariables(WindowNode.Function function, TypeProvider types)
     {
         ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
         for (RowExpression argument : function.getFunctionCall().getArguments()) {
             if (isExpression(argument)) {
-                builder.addAll(SymbolsExtractor.extractAllVariable(castToExpression(argument), types));
+                builder.addAll(VariablesExtractor.extractAll(castToExpression(argument), types));
             }
             else {
-                builder.addAll(SymbolsExtractor.extractAll(argument));
+                builder.addAll(VariablesExtractor.extractAll(argument));
             }
         }
         return builder.build();

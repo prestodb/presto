@@ -18,7 +18,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
+import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.google.common.collect.Streams;
 
 import java.util.Optional;
@@ -42,7 +42,7 @@ public class PruneFilterColumns
     {
         Set<VariableReferenceExpression> prunedFilterInputs = Streams.concat(
                 referencedOutputs.stream(),
-                SymbolsExtractor.extractUniqueVariable(castToExpression(filterNode.getPredicate()), symbolAllocator.getTypes()).stream())
+                VariablesExtractor.extractUnique(castToExpression(filterNode.getPredicate()), symbolAllocator.getTypes()).stream())
                 .collect(toImmutableSet());
 
         return restrictChildOutputs(idAllocator, filterNode, prunedFilterInputs);

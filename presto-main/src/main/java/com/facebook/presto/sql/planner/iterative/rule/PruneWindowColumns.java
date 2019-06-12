@@ -59,7 +59,7 @@ public class PruneWindowColumns
         windowNode.getHashVariable().ifPresent(referencedInputs::add);
 
         for (WindowNode.Function windowFunction : referencedFunctions.values()) {
-            referencedInputs.addAll(symbolAllocator.toVariableReferences(WindowNodeUtil.extractWindowFunctionUnique(windowFunction)));
+            referencedInputs.addAll(WindowNodeUtil.extractWindowFunctionUniqueVariables(windowFunction, symbolAllocator.getTypes()));
             windowFunction.getFrame().getStartValue().ifPresent(referencedInputs::add);
             windowFunction.getFrame().getEndValue().ifPresent(referencedInputs::add);
         }

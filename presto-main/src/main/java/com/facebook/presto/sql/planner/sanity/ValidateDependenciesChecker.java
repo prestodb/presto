@@ -24,8 +24,8 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.optimizations.WindowNodeUtil;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -248,10 +248,10 @@ public final class ValidateDependenciesChecker
             // TODO https://github.com/prestodb/presto/issues/12892
             Set<String> dependencies;
             if (isExpression(node.getPredicate())) {
-                dependencies = SymbolsExtractor.extractUniqueVariable(castToExpression(node.getPredicate()), types).stream().map(VariableReferenceExpression::getName).collect(toImmutableSet());
+                dependencies = VariablesExtractor.extractUnique(castToExpression(node.getPredicate()), types).stream().map(VariableReferenceExpression::getName).collect(toImmutableSet());
             }
             else {
-                dependencies = SymbolsExtractor.extractUniqueVariable(node.getPredicate()).stream().map(VariableReferenceExpression::getName).collect(toImmutableSet());
+                dependencies = VariablesExtractor.extractUnique(node.getPredicate()).stream().map(VariableReferenceExpression::getName).collect(toImmutableSet());
             }
             checkArgument(
                     inputs.stream().map(VariableReferenceExpression::getName).collect(toImmutableSet()).containsAll(dependencies),
@@ -281,10 +281,10 @@ public final class ValidateDependenciesChecker
             for (RowExpression expression : node.getAssignments().getExpressions()) {
                 Set<VariableReferenceExpression> dependencies;
                 if (isExpression(expression)) {
-                    dependencies = SymbolsExtractor.extractUniqueVariable(castToExpression(expression), types);
+                    dependencies = VariablesExtractor.extractUnique(castToExpression(expression), types);
                 }
                 else {
-                    dependencies = SymbolsExtractor.extractUniqueVariable(expression);
+                    dependencies = VariablesExtractor.extractUnique(expression);
                 }
                 checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
             }
@@ -382,10 +382,10 @@ public final class ValidateDependenciesChecker
                 // TODO https://github.com/prestodb/presto/issues/12892
                 Set<String> predicateVariables;
                 if (isExpression(predicate)) {
-                    predicateVariables = SymbolsExtractor.extractUniqueVariable(castToExpression(predicate), types).stream().map(VariableReferenceExpression::getName).collect(toImmutableSet());
+                    predicateVariables = VariablesExtractor.extractUnique(castToExpression(predicate), types).stream().map(VariableReferenceExpression::getName).collect(toImmutableSet());
                 }
                 else {
-                    predicateVariables = SymbolsExtractor.extractUniqueVariable(predicate).stream().map(VariableReferenceExpression::getName).collect(toImmutableSet());
+                    predicateVariables = VariablesExtractor.extractUnique(predicate).stream().map(VariableReferenceExpression::getName).collect(toImmutableSet());
                 }
                 checkArgument(
                         allInputs.stream().map(VariableReferenceExpression::getName).collect(toImmutableSet()).containsAll(predicateVariables),
@@ -430,18 +430,18 @@ public final class ValidateDependenciesChecker
                     .addAll(rightInputs)
                     .build();
 
-            Set<VariableReferenceExpression> predicateSymbols;
+            Set<VariableReferenceExpression> predicateVariables;
             if (isExpression(node.getFilter())) {
-                predicateSymbols = SymbolsExtractor.extractUniqueVariable(castToExpression(node.getFilter()), types);
+                predicateVariables = VariablesExtractor.extractUnique(castToExpression(node.getFilter()), types);
             }
             else {
-                predicateSymbols = SymbolsExtractor.extractUniqueVariable(node.getFilter());
+                predicateVariables = VariablesExtractor.extractUnique(node.getFilter());
             }
 
             checkArgument(
-                    allInputs.containsAll(predicateSymbols),
+                    allInputs.containsAll(predicateVariables),
                     "Symbol from filter (%s) not in sources (%s)",
-                    predicateSymbols,
+                    predicateVariables,
                     allInputs);
 
             checkLeftOutputVariablesBeforeRight(node.getLeft().getOutputVariables(), node.getOutputVariables());
@@ -514,7 +514,7 @@ public final class ValidateDependenciesChecker
         @Override
         public Void visitValues(ValuesNode node, Set<VariableReferenceExpression> boundVariables)
         {
-            Set<VariableReferenceExpression> correlatedDependencies = SymbolsExtractor.extractUniqueVariable(node, types);
+            Set<VariableReferenceExpression> correlatedDependencies = VariablesExtractor.extractUnique(node, types);
             checkDependencies(
                     boundVariables,
                     correlatedDependencies,
@@ -673,7 +673,7 @@ public final class ValidateDependenciesChecker
             node.getSubquery().accept(this, subqueryCorrelation); // visit child
 
             checkDependencies(node.getInput().getOutputVariables(), node.getCorrelation(), "APPLY input must provide all the necessary correlation variables for subquery");
-            checkDependencies(SymbolsExtractor.extractUniqueVariable(node.getSubquery(), types), node.getCorrelation(), "not all APPLY correlation symbols are used in subquery");
+            checkDependencies(VariablesExtractor.extractUnique(node.getSubquery(), types), node.getCorrelation(), "not all APPLY correlation symbols are used in subquery");
 
             ImmutableSet<VariableReferenceExpression> inputs = ImmutableSet.<VariableReferenceExpression>builder()
                     .addAll(createInputs(node.getSubquery(), boundVariables))
@@ -683,10 +683,10 @@ public final class ValidateDependenciesChecker
             for (RowExpression expression : node.getSubqueryAssignments().getExpressions()) {
                 Set<VariableReferenceExpression> dependencies;
                 if (isExpression(expression)) {
-                    dependencies = SymbolsExtractor.extractUniqueVariable(castToExpression(expression), types);
+                    dependencies = VariablesExtractor.extractUnique(castToExpression(expression), types);
                 }
                 else {
-                    dependencies = SymbolsExtractor.extractUniqueVariable(expression);
+                    dependencies = VariablesExtractor.extractUnique(expression);
                 }
                 checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
             }
@@ -710,7 +710,7 @@ public final class ValidateDependenciesChecker
                     node.getCorrelation(),
                     "LATERAL input must provide all the necessary correlation symbols for subquery");
             checkDependencies(
-                    SymbolsExtractor.extractUniqueVariable(node.getSubquery(), types),
+                    VariablesExtractor.extractUnique(node.getSubquery(), types),
                     node.getCorrelation(),
                     "not all LATERAL correlation symbols are used in subquery");
 

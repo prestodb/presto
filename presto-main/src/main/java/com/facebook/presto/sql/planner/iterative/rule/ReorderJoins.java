@@ -28,7 +28,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.EqualityInference;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
+import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.JoinNodeUtils;
@@ -259,7 +259,7 @@ public class ReorderJoins
 
             Set<VariableReferenceExpression> requiredJoinVariables = ImmutableSet.<VariableReferenceExpression>builder()
                     .addAll(outputVariables)
-                    .addAll(SymbolsExtractor.extractUniqueVariable(joinPredicates, context.getSymbolAllocator().getTypes()))
+                    .addAll(VariablesExtractor.extractUnique(joinPredicates, context.getSymbolAllocator().getTypes()))
                     .build();
 
             JoinEnumerationResult leftResult = getJoinSource(

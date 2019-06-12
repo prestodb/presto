@@ -15,9 +15,8 @@ package com.facebook.presto.sql;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -253,13 +252,6 @@ public final class ExpressionUtils
         return combineConjuncts(conjuncts);
     }
 
-    public static boolean referencesAny(Expression expression, Collection<Symbol> variables)
-    {
-        Set<Symbol> references = SymbolsExtractor.extractUnique(expression);
-
-        return variables.stream().anyMatch(references::contains);
-    }
-
     public static Function<Expression, Expression> expressionOrNullVariables(TypeProvider types, final Predicate<VariableReferenceExpression>... nullVariableScopes)
     {
         return expression -> {
@@ -267,7 +259,7 @@ public final class ExpressionUtils
             resultDisjunct.add(expression);
 
             for (Predicate<VariableReferenceExpression> nullVariableScope : nullVariableScopes) {
-                List<VariableReferenceExpression> variables = SymbolsExtractor.extractUniqueVariable(expression, types).stream()
+                List<VariableReferenceExpression> variables = VariablesExtractor.extractUnique(expression, types).stream()
                         .filter(nullVariableScope)
                         .collect(toImmutableList());
 

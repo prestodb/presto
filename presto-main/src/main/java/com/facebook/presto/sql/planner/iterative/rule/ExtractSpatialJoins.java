@@ -43,6 +43,7 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.split.SplitSource.SplitBatch;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.Rule.Context;
 import com.facebook.presto.sql.planner.iterative.Rule.Result;
@@ -87,7 +88,6 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;
-import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUniqueVariable;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAsSymbolReference;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
@@ -317,7 +317,7 @@ public class ExtractSpatialJoins
         if (spatialComparison.getOperator() == LESS_THAN || spatialComparison.getOperator() == LESS_THAN_OR_EQUAL) {
             // ST_Distance(a, b) <= r
             radius = spatialComparison.getRight();
-            Set<VariableReferenceExpression> radiusVariables = extractUniqueVariable(radius, context.getSymbolAllocator().getTypes());
+            Set<VariableReferenceExpression> radiusVariables = VariablesExtractor.extractUnique(radius, context.getSymbolAllocator().getTypes());
             if (radiusVariables.isEmpty() || (rightVariables.containsAll(radiusVariables) && containsNone(leftVariables, radiusVariables))) {
                 newRadiusVariable = newRadiusVariable(context, radius);
                 newComparison = new ComparisonExpression(spatialComparison.getOperator(), spatialComparison.getLeft(), toExpression(newRadiusVariable, radius));
@@ -329,7 +329,7 @@ public class ExtractSpatialJoins
         else {
             // r >= ST_Distance(a, b)
             radius = spatialComparison.getLeft();
-            Set<VariableReferenceExpression> radiusVariables = extractUniqueVariable(radius, context.getSymbolAllocator().getTypes());
+            Set<VariableReferenceExpression> radiusVariables = VariablesExtractor.extractUnique(radius, context.getSymbolAllocator().getTypes());
             if (radiusVariables.isEmpty() || (rightVariables.containsAll(radiusVariables) && containsNone(leftVariables, radiusVariables))) {
                 newRadiusVariable = newRadiusVariable(context, radius);
                 newComparison = new ComparisonExpression(spatialComparison.getOperator().flip(), spatialComparison.getRight(), toExpression(newRadiusVariable, radius));
@@ -386,8 +386,8 @@ public class ExtractSpatialJoins
             return Result.empty();
         }
 
-        Set<VariableReferenceExpression> firstVariables = extractUniqueVariable(firstArgument, context.getSymbolAllocator().getTypes());
-        Set<VariableReferenceExpression> secondVariables = extractUniqueVariable(secondArgument, context.getSymbolAllocator().getTypes());
+        Set<VariableReferenceExpression> firstVariables = VariablesExtractor.extractUnique(firstArgument, context.getSymbolAllocator().getTypes());
+        Set<VariableReferenceExpression> secondVariables = VariablesExtractor.extractUnique(secondArgument, context.getSymbolAllocator().getTypes());
 
         if (firstVariables.isEmpty() || secondVariables.isEmpty()) {
             return Result.empty();

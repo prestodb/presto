@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -24,42 +23,40 @@ import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.util.Map;
-
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
-import static com.facebook.presto.sql.planner.SymbolsExtractor.extractAll;
-import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUnique;
+import static com.facebook.presto.sql.planner.VariablesExtractor.extractAll;
+import static com.facebook.presto.sql.planner.VariablesExtractor.extractUnique;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.testng.Assert.assertEquals;
 
-public class TestSymbolExtractor
+public class TestVariableExtractor
 {
     private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
     private static final TestingRowExpressionTranslator TRANSLATOR = new TestingRowExpressionTranslator(METADATA);
-    private static final Map<Symbol, Type> SYMBOL_TYPES = ImmutableMap.of(new Symbol("a"), BIGINT, new Symbol("b"), BIGINT, new Symbol("c"), BIGINT);
+    private static final TypeProvider SYMBOL_TYPES = TypeProvider.viewOf(ImmutableMap.of(new Symbol("a"), BIGINT, new Symbol("b"), BIGINT, new Symbol("c"), BIGINT));
 
     @Test
     public void testSimple()
     {
-        assertSymbols("a > b");
-        assertSymbols("a + b > c");
-        assertSymbols("sin(a) - b");
-        assertSymbols("sin(a) + cos(a) - b");
-        assertSymbols("sin(a) + cos(a) + a - b");
-        assertSymbols("COALESCE(a, b, 1)");
-        assertSymbols("a IN (a, b, c)");
-        assertSymbols("transform(sequence(1, 5), a -> a + b)");
-        assertSymbols("bigint '1'");
+        assertVariables("a > b");
+        assertVariables("a + b > c");
+        assertVariables("sin(a) - b");
+        assertVariables("sin(a) + cos(a) - b");
+        assertVariables("sin(a) + cos(a) + a - b");
+        assertVariables("COALESCE(a, b, 1)");
+        assertVariables("a IN (a, b, c)");
+        assertVariables("transform(sequence(1, 5), a -> a + b)");
+        assertVariables("bigint '1'");
     }
 
-    private static void assertSymbols(String expression)
+    private static void assertVariables(String expression)
     {
         Expression expected = rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expression, new ParsingOptions()));
-        RowExpression actual = TRANSLATOR.translate(expected, TypeProvider.copyOf(SYMBOL_TYPES));
-        assertEquals(extractUnique(expected), extractUnique(actual));
+        RowExpression actual = TRANSLATOR.translate(expected, SYMBOL_TYPES);
+        assertEquals(VariablesExtractor.extractUnique(expected, SYMBOL_TYPES), extractUnique(actual));
         assertEquals(
-                extractAll(expected).stream().sorted().collect(toImmutableList()),
-                extractAll(actual).stream().map(variable -> new Symbol(variable.getName())).sorted().collect(toImmutableList()));
+                VariablesExtractor.extractAll(expected, SYMBOL_TYPES).stream().sorted().collect(toImmutableList()),
+                extractAll(actual).stream().sorted().collect(toImmutableList()));
     }
 }

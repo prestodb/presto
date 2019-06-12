@@ -21,8 +21,8 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -158,7 +158,7 @@ public class GatherAndMergeWindows
                         .putAll(identitiesAsSymbolReferences(targetInputs))
                         .build();
 
-                if (!newTargetChildOutputs.containsAll(extractUniqueVariable(newAssignments, context.getSymbolAllocator().getTypes()))) {
+                if (!newTargetChildOutputs.containsAll(extractUnique(newAssignments, context.getSymbolAllocator().getTypes()))) {
                     // Projection uses an output of the target -- can't move the target above this projection.
                     return Optional.empty();
                 }
@@ -176,10 +176,10 @@ public class GatherAndMergeWindows
         }
     }
 
-    private static Set<VariableReferenceExpression> extractUniqueVariable(Assignments assignments, TypeProvider types)
+    private static Set<VariableReferenceExpression> extractUnique(Assignments assignments, TypeProvider types)
     {
         Collection<RowExpression> expressions = assignments.getExpressions();
-        return SymbolsExtractor.extractUniqueVariable(expressions.stream().map(OriginalExpressionUtils::castToExpression).collect(toImmutableList()), types);
+        return VariablesExtractor.extractUnique(expressions.stream().map(OriginalExpressionUtils::castToExpression).collect(toImmutableList()), types);
     }
 
     public static class MergeAdjacentWindowsOverProjects

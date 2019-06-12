@@ -16,8 +16,8 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
@@ -47,7 +47,7 @@ class Util
     public static Optional<Set<VariableReferenceExpression>> pruneInputs(Collection<VariableReferenceExpression> availableInputs, Collection<Expression> expressions, TypeProvider types)
     {
         Set<VariableReferenceExpression> availableInputsSet = ImmutableSet.copyOf(availableInputs);
-        Set<VariableReferenceExpression> prunedInputs = Sets.filter(availableInputsSet, SymbolsExtractor.extractUniqueVariable(expressions, types)::contains);
+        Set<VariableReferenceExpression> prunedInputs = Sets.filter(availableInputsSet, VariablesExtractor.extractUnique(expressions, types)::contains);
 
         if (prunedInputs.size() == availableInputsSet.size()) {
             return Optional.empty();
