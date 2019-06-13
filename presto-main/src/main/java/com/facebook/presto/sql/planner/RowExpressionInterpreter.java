@@ -528,7 +528,7 @@ public class RowExpressionInterpreter
                     checkArgument(node.getArguments().size() == 2);
 
                     Object base = node.getArguments().get(0).accept(this, context);
-                    int index = ((Number) node.getArguments().get(1).accept(this, context)).intValue();
+                    Object index = node.getArguments().get(1).accept(this, context);
 
                     // if the base part is evaluated to be null, the dereference expression should also be null
                     if (base == null) {
@@ -542,7 +542,7 @@ public class RowExpressionInterpreter
                                 toRowExpression(base, node.getArguments().get(0).getType()),
                                 toRowExpression(index, node.getArguments().get(1).getType()));
                     }
-                    return interpretDereference(base, node.getType(), index);
+                    return interpretDereference(base, node.getType(), ((Number) index).intValue());
                 }
                 case BIND: {
                     List<Object> values = node.getArguments()
@@ -734,7 +734,7 @@ public class RowExpressionInterpreter
             checkArgument(
                     (likePatternExpression instanceof CallExpression &&
                             (((CallExpression) likePatternExpression).getFunctionHandle().equals(resolution.likePatternFunction()) ||
-                            (resolution.isCastFunction(((CallExpression) likePatternExpression).getFunctionHandle())))),
+                                    (resolution.isCastFunction(((CallExpression) likePatternExpression).getFunctionHandle())))),
                     "expect a like_pattern function or a cast function");
             Object value = argumentValues.get(0);
             Object possibleCompiledPattern = argumentValues.get(1);
