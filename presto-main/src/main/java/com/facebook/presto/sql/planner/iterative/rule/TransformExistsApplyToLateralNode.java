@@ -46,6 +46,7 @@ import java.util.Optional;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggregation;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.LateralJoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.LateralJoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
@@ -121,7 +122,7 @@ public class TransformExistsApplyToLateralNode
         VariableReferenceExpression subqueryTrue = context.getSymbolAllocator().newVariable("subqueryTrue", BOOLEAN);
 
         Assignments.Builder assignments = Assignments.builder();
-        assignments.putIdentities(applyNode.getInput().getOutputVariables());
+        assignments.putAll(identitiesAsSymbolReferences(applyNode.getInput().getOutputVariables()));
         assignments.put(exists, new CoalesceExpression(ImmutableList.of(new SymbolReference(subqueryTrue.getName()), BooleanLiteral.FALSE_LITERAL)));
 
         PlanNode subquery = new ProjectNode(

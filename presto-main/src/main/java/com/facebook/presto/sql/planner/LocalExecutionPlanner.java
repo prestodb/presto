@@ -250,6 +250,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WR
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
@@ -1140,7 +1141,7 @@ public class LocalExecutionPlanner
             RowExpression filterExpression = node.getPredicate();
             List<VariableReferenceExpression> outputVariables = node.getOutputVariables();
 
-            return visitScanFilterAndProject(context, node.getId(), sourceNode, Optional.of(filterExpression), Assignments.identity(outputVariables), outputVariables);
+            return visitScanFilterAndProject(context, node.getId(), sourceNode, Optional.of(filterExpression), identityAssignmentsAsSymbolReferences(outputVariables), outputVariables);
         }
 
         @Override

@@ -39,6 +39,8 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strict
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.CURRENT_ROW;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
@@ -181,10 +183,10 @@ public class TestMergeAdjacentWindows
                                 p.project(
                                         Assignments.builder()
                                                 .put(p.variable("one"), expression("CAST(1 AS bigint)"))
-                                                .putIdentities(ImmutableList.of(p.variable("a"), p.variable("avgOutput")))
+                                                .putAll(identitiesAsSymbolReferences(ImmutableList.of(p.variable("a"), p.variable("avgOutput"))))
                                                 .build(),
                                         p.project(
-                                                Assignments.identity(p.variable("a"), p.variable("avgOutput"), p.variable("unused")),
+                                                identityAssignmentsAsSymbolReferences(p.variable("a"), p.variable("avgOutput"), p.variable("unused")),
                                                 p.window(
                                                         newWindowNodeSpecification(p, "a"),
                                                         ImmutableMap.of(p.variable(p.symbol("avgOutput")), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),

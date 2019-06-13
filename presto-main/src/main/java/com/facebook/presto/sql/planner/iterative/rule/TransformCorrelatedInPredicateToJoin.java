@@ -29,6 +29,7 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.AssignmentUtils;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
@@ -66,6 +67,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.or;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.Patterns.Apply.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
@@ -180,7 +182,7 @@ public class TransformCorrelatedInPredicateToJoin
                 idAllocator.getNextId(),
                 decorrelatedBuildSource,
                 Assignments.builder()
-                        .putIdentities(decorrelatedBuildSource.getOutputVariables())
+                        .putAll(identitiesAsSymbolReferences(decorrelatedBuildSource.getOutputVariables()))
                         .put(buildSideKnownNonNull, bigint(0))
                         .build());
 
@@ -230,7 +232,7 @@ public class TransformCorrelatedInPredicateToJoin
                 idAllocator.getNextId(),
                 aggregation,
                 Assignments.builder()
-                        .putIdentities(apply.getInput().getOutputVariables())
+                        .putAll(identitiesAsSymbolReferences(apply.getInput().getOutputVariables()))
                         .put(inPredicateOutputVariable, inPredicateEquivalent)
                         .build());
     }
@@ -327,7 +329,8 @@ public class TransformCorrelatedInPredicateToJoin
                         .map(SymbolReference.class::cast)
                         .map(symbolReference -> new VariableReferenceExpression(symbolReference.getName(), types.get(Symbol.from(symbolReference))))
                         .filter(variable -> !correlation.contains(variable))
-                        .forEach(assignments::putIdentity);
+                        .map(AssignmentUtils::identityAsSymbolReference)
+                        .forEach(assignments::put);
 
                 return new Decorrelated(
                         decorrelated.getCorrelatedPredicates(),

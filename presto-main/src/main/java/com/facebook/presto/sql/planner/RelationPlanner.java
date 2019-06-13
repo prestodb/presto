@@ -93,6 +93,7 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.Join.Type.INNER;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -434,8 +435,8 @@ class RelationPlanner
         Assignments.Builder leftCoercions = Assignments.builder();
         Assignments.Builder rightCoercions = Assignments.builder();
 
-        leftCoercions.putIdentities(left.getRoot().getOutputVariables());
-        rightCoercions.putIdentities(right.getRoot().getOutputVariables());
+        leftCoercions.putAll(identitiesAsSymbolReferences(left.getRoot().getOutputVariables()));
+        rightCoercions.putAll(identitiesAsSymbolReferences(right.getRoot().getOutputVariables()));
         for (int i = 0; i < joinColumns.size(); i++) {
             Identifier identifier = joinColumns.get(i);
             Type type = analysis.getType(identifier);

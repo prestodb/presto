@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 
 public class TestInlineProjections
         extends BaseRuleTest
@@ -75,7 +76,7 @@ public class TestInlineProjections
                         p.project(
                                 Assignments.of(p.variable("output"), expression("value")),
                                 p.project(
-                                        Assignments.identity(p.variable("value")),
+                                        identityAssignmentsAsSymbolReferences(p.variable("value")),
                                         p.values(p.variable("value")))))
                 .doesNotFire();
     }
@@ -86,9 +87,9 @@ public class TestInlineProjections
         tester().assertThat(new InlineProjections())
                 .on(p ->
                         p.project(
-                                Assignments.identity(p.variable("fromOuterScope"), p.variable("value")),
+                                identityAssignmentsAsSymbolReferences(p.variable("fromOuterScope"), p.variable("value")),
                                 p.project(
-                                        Assignments.identity(p.variable("value")),
+                                        identityAssignmentsAsSymbolReferences(p.variable("value")),
                                         p.values(p.variable("value")))))
                 .doesNotFire();
     }

@@ -18,7 +18,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Predicate;
@@ -39,7 +38,6 @@ import java.util.stream.Collector;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
 public class Assignments
@@ -47,16 +45,6 @@ public class Assignments
     public static Builder builder()
     {
         return new Builder();
-    }
-
-    public static Assignments identity(VariableReferenceExpression... variables)
-    {
-        return identity(asList(variables));
-    }
-
-    public static Assignments identity(Iterable<VariableReferenceExpression> variables)
-    {
-        return builder().putIdentities(variables).build();
     }
 
     public static Assignments copyOf(Map<VariableReferenceExpression, Expression> assignments)
@@ -122,13 +110,6 @@ public class Assignments
         return assignments.entrySet().stream()
                 .filter(entry -> predicate.apply(entry.getKey()))
                 .collect(toAssignments());
-    }
-
-    public boolean isIdentity(VariableReferenceExpression output)
-    {
-        Expression expression = assignments.get(output);
-
-        return expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(output.getName());
     }
 
     private Collector<Entry<VariableReferenceExpression, Expression>, Builder, Assignments> toAssignments()
@@ -251,20 +232,6 @@ public class Assignments
         public Builder put(Entry<VariableReferenceExpression, Expression> assignment)
         {
             put(assignment.getKey(), assignment.getValue());
-            return this;
-        }
-
-        public Builder putIdentities(Iterable<VariableReferenceExpression> variables)
-        {
-            for (VariableReferenceExpression variable : variables) {
-                putIdentity(variable);
-            }
-            return this;
-        }
-
-        public Builder putIdentity(VariableReferenceExpression variable)
-        {
-            put(variable, new SymbolReference(variable.getName()));
             return this;
         }
 

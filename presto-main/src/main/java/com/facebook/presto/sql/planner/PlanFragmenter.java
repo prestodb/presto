@@ -102,6 +102,7 @@ import static com.facebook.presto.sql.planner.SymbolsExtractor.extractOutputVari
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
@@ -656,7 +657,7 @@ public class PlanFragmenter
                 sources = sources.stream()
                         .map(source -> {
                             Assignments.Builder assignments = Assignments.builder();
-                            assignments.putIdentities(source.getOutputVariables());
+                            assignments.putAll(identitiesAsSymbolReferences(source.getOutputVariables()));
                             constantVariables.forEach(variable -> assignments.put(variable, constantExpressions.get(variable)));
                             return new ProjectNode(idAllocator.getNextId(), source, assignments.build());
                         })

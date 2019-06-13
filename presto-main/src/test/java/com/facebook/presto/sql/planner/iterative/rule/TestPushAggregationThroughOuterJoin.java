@@ -38,6 +38,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAsSymbolReference;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.LAST;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 
@@ -202,7 +203,7 @@ public class TestPushAggregationThroughOuterJoin
                                 p.join(
                                         JoinNode.Type.LEFT,
                                         p.project(Assignments.builder()
-                                                        .putIdentity(p.variable("COL1", BIGINT))
+                                                        .put(identityAsSymbolReference(p.variable("COL1", BIGINT)))
                                                         .build(),
                                                 p.aggregation(builder ->
                                                         builder.singleGroupingSet(p.variable("COL1"), p.variable("unused"))

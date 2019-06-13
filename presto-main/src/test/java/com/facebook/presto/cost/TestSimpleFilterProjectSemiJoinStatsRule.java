@@ -18,7 +18,6 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.Expression;
 import org.testng.annotations.DataProvider;
@@ -29,6 +28,7 @@ import java.util.Optional;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 
 public class TestSimpleFilterProjectSemiJoinStatsRule
         extends BaseStatsCalculatorTest
@@ -127,9 +127,9 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
             if (toRowExpression) {
                 return pb.filter(
                         TRANSLATOR.translateAndOptimize(expression("sjo"), pb.getTypes()),
-                        pb.project(Assignments.identity(semiJoinOutput, a), semiJoinNode));
+                        pb.project(identityAssignmentsAsSymbolReferences(semiJoinOutput, a), semiJoinNode));
             }
-            return pb.filter(expression("sjo"), pb.project(Assignments.identity(semiJoinOutput, a), semiJoinNode));
+            return pb.filter(expression("sjo"), pb.project(identityAssignmentsAsSymbolReferences(semiJoinOutput, a), semiJoinNode));
         })
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)

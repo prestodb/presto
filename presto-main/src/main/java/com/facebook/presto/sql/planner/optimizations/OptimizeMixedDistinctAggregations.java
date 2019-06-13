@@ -60,6 +60,7 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAsSymbolReference;
 import static com.facebook.presto.sql.relational.Expressions.variable;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
@@ -225,7 +226,7 @@ public class OptimizeMixedDistinctAggregations
                     outputVariables.put(coalesceVariables.get(variable), expression);
                 }
                 else {
-                    outputVariables.putIdentity(variable);
+                    outputVariables.put(identityAsSymbolReference(variable));
                 }
             }
 
