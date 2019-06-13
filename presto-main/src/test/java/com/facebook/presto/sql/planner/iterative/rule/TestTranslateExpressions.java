@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.optimizations;
+package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
@@ -22,32 +22,30 @@ import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.FunctionType;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.variable;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
 public class TestTranslateExpressions
+        extends BaseRuleTest
 {
     private static final Metadata METADATA = createTestMetadataManager();
     private static final FunctionManager FUNCTION_MANAGER = METADATA.getFunctionManager();
@@ -63,23 +61,26 @@ public class TestTranslateExpressions
     @Test
     public void testTranslateAggregationWithLambda()
     {
-        TranslateExpressions translator = new TranslateExpressions(METADATA, new SqlParser());
-        Aggregation aggregation = new Aggregation(
-                new CallExpression(
-                        "reduce_agg",
-                        REDUCE_AGG,
-                        INTEGER,
-                        ImmutableList.of(
-                                castToRowExpression(expression("input")),
-                                castToRowExpression(expression("0")),
-                                castToRowExpression(expression("(x,y) -> x*y")),
-                                castToRowExpression(expression("(a,b) -> a*b")))),
-                Optional.of(castToRowExpression(expression("input > 10"))),
-                Optional.empty(),
-                false,
-                Optional.empty());
-        Aggregation translated = translator.translateAggregation(aggregation, TEST_SESSION, TypeProvider.viewOf(ImmutableMap.of(new Symbol("input"), INTEGER)));
-        assertEquals(translated, new Aggregation(
+        PlanNode result = tester().assertThat(new TranslateExpressions(METADATA, new SqlParser()).aggreagationRowExpressionRewriteRule())
+                .on(p -> p.aggregation(builder -> builder.globalGrouping()
+                        .addAggregation(variable("reduce_agg", INTEGER), new AggregationNode.Aggregation(
+                                new CallExpression(
+                                        "reduce_agg",
+                                        REDUCE_AGG,
+                                        INTEGER,
+                                        ImmutableList.of(
+                                                castToRowExpression(expression("input")),
+                                                castToRowExpression(expression("0")),
+                                                castToRowExpression(expression("(x,y) -> x*y")),
+                                                castToRowExpression(expression("(a,b) -> a*b")))),
+                                Optional.of(castToRowExpression(expression("input > 10"))),
+                                Optional.empty(),
+                                false,
+                                Optional.empty()))
+                        .source(p.values(p.variable("input", INTEGER)))))
+                .get();
+        AggregationNode.Aggregation translated = ((AggregationNode) result).getAggregations().get(variable("reduce_agg", INTEGER));
+        assertEquals(translated, new AggregationNode.Aggregation(
                 new CallExpression(
                         "reduce_agg",
                         REDUCE_AGG,
@@ -95,32 +96,35 @@ public class TestTranslateExpressions
                                         ImmutableList.of(INTEGER, INTEGER),
                                         ImmutableList.of("a", "b"),
                                         multiply(variable("a", INTEGER), variable("b", INTEGER))))),
-                Optional.of(greaterThan(variable("input", INTEGER), constant(10L, INTEGER))),
+                Optional.of(gt(variable("input", INTEGER), constant(10L, INTEGER))),
                 Optional.empty(),
                 false,
                 Optional.empty()));
-        assertFalse(isUntranslated(translated));
+        assertFalse(hasUntranslated(translated));
     }
 
     @Test
     public void testTranslateIntermediateAggregationWithLambda()
     {
-        TranslateExpressions translator = new TranslateExpressions(METADATA, new SqlParser());
-        Aggregation aggregation = new Aggregation(
-                new CallExpression(
-                        "reduce_agg",
-                        REDUCE_AGG,
-                        INTEGER,
-                        ImmutableList.of(
-                                castToRowExpression(expression("input")),
-                                castToRowExpression(expression("(x,y) -> x*y")),
-                                castToRowExpression(expression("(a,b) -> a*b")))),
-                Optional.of(castToRowExpression(expression("input > 10"))),
-                Optional.empty(),
-                false,
-                Optional.empty());
-        Aggregation translated = translator.translateAggregation(aggregation, TEST_SESSION, TypeProvider.viewOf(ImmutableMap.of(new Symbol("input"), INTEGER)));
-        assertEquals(translated, new Aggregation(
+        PlanNode result = tester().assertThat(new TranslateExpressions(METADATA, new SqlParser()).aggreagationRowExpressionRewriteRule())
+                .on(p -> p.aggregation(builder -> builder.globalGrouping()
+                        .addAggregation(variable("reduce_agg", INTEGER), new AggregationNode.Aggregation(
+                                new CallExpression(
+                                        "reduce_agg",
+                                        REDUCE_AGG,
+                                        INTEGER,
+                                        ImmutableList.of(
+                                                castToRowExpression(expression("input")),
+                                                castToRowExpression(expression("(x,y) -> x*y")),
+                                                castToRowExpression(expression("(a,b) -> a*b")))),
+                                Optional.of(castToRowExpression(expression("input > 10"))),
+                                Optional.empty(),
+                                false,
+                                Optional.empty()))
+                        .source(p.values(p.variable("input", INTEGER)))))
+                .get();
+        AggregationNode.Aggregation translated = ((AggregationNode) result).getAggregations().get(variable("reduce_agg", INTEGER));
+        assertEquals(translated, new AggregationNode.Aggregation(
                 new CallExpression(
                         "reduce_agg",
                         REDUCE_AGG,
@@ -135,14 +139,14 @@ public class TestTranslateExpressions
                                         ImmutableList.of(INTEGER, INTEGER),
                                         ImmutableList.of("a", "b"),
                                         multiply(variable("a", INTEGER), variable("b", INTEGER))))),
-                Optional.of(greaterThan(variable("input", INTEGER), constant(10L, INTEGER))),
+                Optional.of(gt(variable("input", INTEGER), constant(10L, INTEGER))),
                 Optional.empty(),
                 false,
                 Optional.empty()));
-        assertFalse(isUntranslated(translated));
+        assertFalse(hasUntranslated(translated));
     }
 
-    private CallExpression greaterThan(RowExpression left, RowExpression right)
+    private CallExpression gt(RowExpression left, RowExpression right)
     {
         return call("GREATER_THAN", FUNCTION_RESOLUTION.comparisonFunction(OperatorType.GREATER_THAN, left.getType(), right.getType()), BOOLEAN, ImmutableList.of(left, right));
     }
@@ -152,7 +156,7 @@ public class TestTranslateExpressions
         return call("MULTIPLY", FUNCTION_RESOLUTION.arithmeticFunction(OperatorType.MULTIPLY, left.getType(), right.getType()), left.getType(), ImmutableList.of(left, right));
     }
 
-    private static boolean isUntranslated(AggregationNode.Aggregation aggregation)
+    private static boolean hasUntranslated(AggregationNode.Aggregation aggregation)
     {
         return aggregation.getCall().getArguments().stream().anyMatch(OriginalExpressionUtils::isExpression) ||
                 aggregation.getFilter().map(OriginalExpressionUtils::isExpression).orElse(false);

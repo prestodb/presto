@@ -586,7 +586,7 @@ public class TestHiveIntegrationSmokeTest
         // assure reader supports basic column reordering and pruning
         assertQuery(session, "SELECT _integer, _varchar, _integer from test_format_table", "SELECT 2, 'foo', 2");
 
-        assertQuery(session, "SELECT * from test_format_table", select);
+        assertQuery(session, "SELECT * FROM test_format_table", select);
 
         assertUpdate(session, "DROP TABLE test_format_table");
 
@@ -620,7 +620,7 @@ public class TestHiveIntegrationSmokeTest
         List<?> partitions = getPartitions("test_create_partitioned_table_as");
         assertEquals(partitions.size(), 3);
 
-        assertQuery(session, "SELECT * from test_create_partitioned_table_as", "SELECT orderkey, shippriority, orderstatus FROM orders");
+        assertQuery(session, "SELECT * FROM test_create_partitioned_table_as", "SELECT orderkey, shippriority, orderstatus FROM orders");
 
         assertUpdate(session, "DROP TABLE test_create_partitioned_table_as");
 
@@ -661,7 +661,7 @@ public class TestHiveIntegrationSmokeTest
     {
         assertUpdate("" +
                 "CREATE TABLE test_create_table_nonexistent_partition_columns\n" +
-                "(grape bigint, apple varchar, orange bigint, pear varchar)\n" +
+                "(grape BIGINT, apple VARCHAR, orange BIGINT, pear VARCHAR)\n" +
                 "WITH (partitioned_by = ARRAY['dragonfruit'])");
     }
 
@@ -761,7 +761,7 @@ public class TestHiveIntegrationSmokeTest
                 // make sure that we will get one file per bucket regardless of writer count configured
                 getParallelWriteSession(),
                 createTable,
-                "SELECT count(*) from orders");
+                "SELECT COUNT(*) FROM orders");
 
         verifyPartitionedBucketedTable(storageFormat, tableName);
 
@@ -800,7 +800,7 @@ public class TestHiveIntegrationSmokeTest
                 // make sure that we will get one file per bucket regardless of writer count configured
                 getParallelWriteSession(),
                 createTable,
-                "SELECT count(*) from orders");
+                "SELECT COUNT(*) FROM orders");
 
         verifyPartitionedBucketedTable(storageFormat, tableName);
 
@@ -820,7 +820,7 @@ public class TestHiveIntegrationSmokeTest
         List<?> partitions = getPartitions(tableName);
         assertEquals(partitions.size(), 3);
 
-        assertQuery("SELECT * from " + tableName, "SELECT custkey, custkey, comment, orderstatus FROM orders");
+        assertQuery("SELECT * FROM " + tableName, "SELECT custkey, custkey, COMMENT, orderstatus FROM orders");
 
         for (int i = 1; i <= 30; i++) {
             assertQuery(
@@ -946,7 +946,7 @@ public class TestHiveIntegrationSmokeTest
         List<?> partitions = getPartitions(tableName);
         assertEquals(partitions.size(), 3);
 
-        MaterializedResult actual = computeActual("SELECT * from " + tableName);
+        MaterializedResult actual = computeActual("SELECT * FROM " + tableName);
         MaterializedResult expected = resultBuilder(getSession(), canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()))
                 .row("a", "b", "c")
                 .row("aa", "bb", "cc")
@@ -1009,10 +1009,10 @@ public class TestHiveIntegrationSmokeTest
                 "   bucket_count = 11 " +
                 ") " +
                 "AS " +
-                "SELECT custkey, comment " +
+                "SELECT custkey, COMMENT " +
                 "FROM customer " +
                 "WHERE custkey < 0", 0);
-        assertQuery("SELECT count(*) FROM " + tableName, "SELECT 0");
+        assertQuery("SELECT COUNT(*) FROM " + tableName, "SELECT 0");
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -1202,13 +1202,13 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(session, "INSERT INTO test_insert_format_table " + select, 1);
 
-        assertQuery(session, "SELECT * from test_insert_format_table", select);
+        assertQuery(session, "SELECT * FROM test_insert_format_table", select);
 
-        assertUpdate(session, "INSERT INTO test_insert_format_table (_tinyint, _smallint, _integer, _bigint, _real, _double) SELECT CAST(1 AS TINYINT), CAST(2 AS SMALLINT), 3, 4, cast(14.3E0 as REAL), 14.3E0", 1);
+        assertUpdate(session, "INSERT INTO test_insert_format_table (_tinyint, _smallint, _integer, _bigint, _real, _double) SELECT CAST(1 AS TINYINT), CAST(2 AS SMALLINT), 3, 4, CAST(14.3E0 AS REAL), 14.3E0", 1);
 
-        assertQuery(session, "SELECT * from test_insert_format_table where _bigint = 4", "SELECT null, null, null, 4, 3, 2, 1, 14.3, 14.3, null, null, null");
+        assertQuery(session, "SELECT * FROM test_insert_format_table WHERE _bigint = 4", "SELECT null, null, null, 4, 3, 2, 1, 14.3, 14.3, null, null, null");
 
-        assertQuery(session, "SELECT * from test_insert_format_table where _real = CAST(14.3 as REAL)", "SELECT null, null, null, 4, 3, 2, 1, 14.3, 14.3, null, null, null");
+        assertQuery(session, "SELECT * FROM test_insert_format_table WHERE _real = CAST(14.3 AS REAL)", "SELECT NULL, NULL, NULL, 4, 3, 2, 1, 14.3, 14.3, NULL, NULL, NULL");
 
         assertUpdate(session, "INSERT INTO test_insert_format_table (_double, _bigint) SELECT 2.72E0, 3", 1);
 
@@ -1216,7 +1216,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(session, "INSERT INTO test_insert_format_table (_decimal_short, _decimal_long) SELECT DECIMAL '2.72', DECIMAL '98765432101234567890.0123456789'", 1);
 
-        assertQuery(session, "SELECT * from test_insert_format_table where _decimal_long = DECIMAL '98765432101234567890.0123456789'", "SELECT null, null, null, null, null, null, null, null, null, null, 2.72, 98765432101234567890.0123456789");
+        assertQuery(session, "SELECT * FROM test_insert_format_table WHERE _decimal_long = DECIMAL '98765432101234567890.0123456789'", "SELECT NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 2.72, 98765432101234567890.0123456789");
 
         assertUpdate(session, "DROP TABLE test_insert_format_table");
 
@@ -1263,7 +1263,7 @@ public class TestHiveIntegrationSmokeTest
                         "INSERT INTO test_insert_partitioned_table " +
                         "SELECT orderkey, shippriority, orderstatus " +
                         "FROM tpch.tiny.orders",
-                "SELECT count(*) from orders");
+                "SELECT COUNT(*) FROM orders");
 
         // verify the partitions
         List<?> partitions = getPartitions("test_insert_partitioned_table");
@@ -1412,11 +1412,11 @@ public class TestHiveIntegrationSmokeTest
                 "CREATE TABLE test_null_partition (test VARCHAR, part VARCHAR)\n" +
                 "WITH (partitioned_by = ARRAY['part'])");
 
-        assertUpdate("INSERT INTO test_null_partition VALUES ('hello', 'test'), ('world', null)", 2);
+        assertUpdate("INSERT INTO test_null_partition VALUES ('hello', 'test'), ('world', NULL)", 2);
 
         assertQuery(
                 "SELECT * FROM test_null_partition",
-                "VALUES ('hello', 'test'), ('world', null)");
+                "VALUES ('hello', 'test'), ('world', NULL)");
 
         assertQuery(
                 "SELECT * FROM \"test_null_partition$partitions\"",
@@ -1470,13 +1470,13 @@ public class TestHiveIntegrationSmokeTest
         // we are not constrained by hive.max-partitions-per-scan when listing partitions
         assertQuery(
                 session,
-                "SELECT * FROM " + partitionsTable + " WHERE part > 490 and part <= 500",
+                "SELECT * FROM " + partitionsTable + " WHERE part > 490 AND part <= 500",
                 "VALUES 491, 492, 493, 494, 495, 496, 497, 498, 499, 500");
 
         assertQuery(
                 session,
                 "SELECT * FROM " + partitionsTable + " WHERE part < 0",
-                "SELECT null WHERE false");
+                "SELECT NULL WHERE FALSE");
 
         assertQuery(
                 session,
@@ -1500,7 +1500,7 @@ public class TestHiveIntegrationSmokeTest
         // verify cannot query more than 1000 partitions
         assertQueryFails(
                 session,
-                "SELECT * from " + tableName + " WHERE part < 1001",
+                "SELECT * FROM " + tableName + " WHERE part < 1001",
                 format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
 
         // verify cannot query all partitions
@@ -1621,7 +1621,7 @@ public class TestHiveIntegrationSmokeTest
         assertQuery(
                 session,
                 "SELECT * from " + tableName,
-                "SELECT orderkey, comment, orderstatus FROM orders");
+                "SELECT orderkey, COMMENT, orderstatus FROM orders");
 
         assertUpdate(session, "DROP TABLE " + tableName);
 
@@ -1631,11 +1631,11 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testDeleteFromUnpartitionedTable()
     {
-        assertUpdate("CREATE TABLE test_delete_unpartitioned AS SELECT orderstatus FROM tpch.tiny.orders", "SELECT count(*) from orders");
+        assertUpdate("CREATE TABLE test_delete_unpartitioned AS SELECT orderstatus FROM tpch.tiny.orders", "SELECT COUNT(*) FROM orders");
 
         assertUpdate("DELETE FROM test_delete_unpartitioned");
 
-        MaterializedResult result = computeActual("SELECT * from test_delete_unpartitioned");
+        MaterializedResult result = computeActual("SELECT * FROM test_delete_unpartitioned");
         assertEquals(result.getRowCount(), 0);
 
         assertUpdate("DROP TABLE test_delete_unpartitioned");
@@ -1667,13 +1667,13 @@ public class TestHiveIntegrationSmokeTest
 
         // Delete returns number of rows deleted, or null if obtaining the number is hard or impossible.
         // Currently, Hive implementation always returns null.
-        assertUpdate("DELETE FROM test_metadata_delete WHERE LINE_STATUS='F' and LINE_NUMBER=CAST(3 AS INTEGER)");
+        assertUpdate("DELETE FROM test_metadata_delete WHERE LINE_STATUS='F' AND LINE_NUMBER=CAST(3 AS INTEGER)");
 
-        assertQuery("SELECT * from test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'F' or linenumber<>3");
+        assertQuery("SELECT * from test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'F' OR linenumber<>3");
 
         assertUpdate("DELETE FROM test_metadata_delete WHERE LINE_STATUS='O'");
 
-        assertQuery("SELECT * from test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' and linenumber<>3");
+        assertQuery("SELECT * FROM test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' AND linenumber<>3");
 
         try {
             getQueryRunner().execute("DELETE FROM test_metadata_delete WHERE ORDER_KEY=1");
@@ -1683,7 +1683,7 @@ public class TestHiveIntegrationSmokeTest
             assertEquals(e.getMessage(), "This connector only supports delete where one or more partitions are deleted entirely");
         }
 
-        assertQuery("SELECT * from test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' and linenumber<>3");
+        assertQuery("SELECT * FROM test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' and linenumber<>3");
 
         assertUpdate("DROP TABLE test_metadata_delete");
 
@@ -1898,7 +1898,7 @@ public class TestHiveIntegrationSmokeTest
     {
         assertQuery(session, "select count(*) a from orders t1 join orders t2 on t1.custkey=t2.custkey");
         assertQuery(session, "select count(*) a from orders t1 join customer t2 on t1.custkey=t2.custkey", "SELECT count(*) from orders");
-        assertQuery(session, "select count(distinct custkey) from orders");
+        assertQuery(session, "SELECT COUNT(DISTINCT custkey) FROM orders");
 
         assertQuery(
                 Session.builder(session).setSystemProperty("task_writer_count", "1").build(),
@@ -1919,7 +1919,7 @@ public class TestHiveIntegrationSmokeTest
                             .setSystemProperty("writer_min_size", "32MB")
                             .build(),
                     "CREATE TABLE scale_writers_small AS SELECT * FROM tpch.tiny.orders",
-                    (long) computeActual("SELECT count(*) FROM tpch.tiny.orders").getOnlyValue());
+                    (long) computeActual("SELECT COUNT(*) FROM tpch.tiny.orders").getOnlyValue());
 
             assertEquals(computeActual("SELECT count(DISTINCT \"$path\") FROM scale_writers_small").getOnlyValue(), 1L);
 
@@ -1929,11 +1929,11 @@ public class TestHiveIntegrationSmokeTest
                             .setSystemProperty("scale_writers", "true")
                             .setSystemProperty("writer_min_size", "1MB")
                             .build(),
-                    "CREATE TABLE scale_writers_large WITH (format = 'RCBINARY') AS SELECT * FROM tpch.sf1.orders",
+                    "CREATE TABLE scale_writers_large WITH (FORMAT = 'RCBINARY') AS SELECT * FROM tpch.sf1.orders",
                     (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
 
-            long files = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM scale_writers_large");
-            long workers = (long) computeScalar("SELECT count(*) FROM system.runtime.nodes");
+            long files = (long) computeScalar("SELECT COUNT(DISTINCT \"$path\") FROM scale_writers_large");
+            long workers = (long) computeScalar("SELECT COUNT(*) FROM system.runtime.nodes");
             assertThat(files).isBetween(2L, workers);
         }
         finally {
@@ -2269,9 +2269,9 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testAddColumn()
     {
-        assertUpdate("CREATE TABLE test_add_column (a bigint COMMENT 'test comment AAA')");
-        assertUpdate("ALTER TABLE test_add_column ADD COLUMN b bigint COMMENT 'test comment BBB'");
-        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN a varchar", ".* Column 'a' already exists");
+        assertUpdate("CREATE TABLE test_add_column (a BIGINT COMMENT 'test comment AAA')");
+        assertUpdate("ALTER TABLE test_add_column ADD COLUMN b BIGINT COMMENT 'test comment BBB'");
+        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN a VARCHAR", ".* Column 'a' already exists");
         assertQueryFails("ALTER TABLE test_add_column ADD COLUMN c bad_type", ".* Unknown type 'bad_type' for column 'c'");
         assertQuery("SHOW COLUMNS FROM test_add_column", "VALUES ('a', 'bigint', '', 'test comment AAA'), ('b', 'bigint', '', 'test comment BBB')");
         assertUpdate("DROP TABLE test_add_column");
@@ -2288,7 +2288,7 @@ public class TestHiveIntegrationSmokeTest
                 "AS\n" +
                 "SELECT orderkey, orderstatus FROM orders";
 
-        assertUpdate(createTable, "SELECT count(*) FROM orders");
+        assertUpdate(createTable, "SELECT COUNT(*) FROM orders");
         assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN orderkey TO new_orderkey");
         assertQuery("SELECT new_orderkey, orderstatus FROM test_rename_column", "SELECT orderkey, orderstatus FROM orders");
         assertQueryFails("ALTER TABLE test_rename_column RENAME COLUMN \"$path\" TO test", ".* Cannot rename hidden column");
@@ -2327,7 +2327,7 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails("CREATE TABLE test_avro_types (x tinyint) WITH (format = 'AVRO')", "Column x is tinyint, which is not supported by Avro. Use integer instead.");
         assertQueryFails("CREATE TABLE test_avro_types (x smallint) WITH (format = 'AVRO')", "Column x is smallint, which is not supported by Avro. Use integer instead.");
 
-        assertQueryFails("CREATE TABLE test_avro_types WITH (format = 'AVRO') AS SELECT cast(42 AS smallint) z", "Column z is smallint, which is not supported by Avro. Use integer instead.");
+        assertQueryFails("CREATE TABLE test_avro_types WITH (FORMAT = 'AVRO') AS SELECT CAST(42 AS SMALLINT) z", "Column z is smallint, which is not supported by Avro. Use integer instead.");
     }
 
     @Test
@@ -2361,20 +2361,20 @@ public class TestHiveIntegrationSmokeTest
     {
         // Test not specific to Hive, but needs a connector supporting table creation
 
-        assertUpdate("CREATE TABLE test_table_with_char (a char(20))");
+        assertUpdate("CREATE TABLE test_table_with_char (a CHAR(20))");
         try {
             assertUpdate("INSERT INTO test_table_with_char (a) VALUES" +
-                    "(cast('aaa' as char(20)))," +
-                    "(cast('bbb' as char(20)))," +
-                    "(cast('bbc' as char(20)))," +
-                    "(cast('bbd' as char(20)))", 4);
+                    "(CAST('aaa' AS CHAR(20)))," +
+                    "(CAST('bbb' AS CHAR(20)))," +
+                    "(CAST('bbc' AS CHAR(20)))," +
+                    "(CAST('bbd' AS CHAR(20)))", 4);
 
             assertQuery(
                     "SELECT a, a <= 'bbc' FROM test_table_with_char",
-                    "VALUES (cast('aaa' as char(20)), true), " +
-                            "(cast('bbb' as char(20)), true), " +
-                            "(cast('bbc' as char(20)), true), " +
-                            "(cast('bbd' as char(20)), false)");
+                    "VALUES (CAST('aaa' AS CHAR(20)), TRUE), " +
+                            "(CAST('bbb' AS CHAR(20)), TRUE), " +
+                            "(CAST('bbc' AS CHAR(20)), TRUE), " +
+                            "(CAST('bbd' AS CHAR(20)), FALSE)");
 
             assertQuery(
                     "SELECT a FROM test_table_with_char WHERE a <= 'bbc'",
@@ -2394,12 +2394,12 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate(
                     "CREATE TABLE test_mismatch_bucketing_with_predicate_8\n" +
                             "WITH (bucket_count = 8, bucketed_by = ARRAY['key8']) AS\n" +
-                            "SELECT custkey key8, comment value8 FROM orders",
+                            "SELECT custkey key8, COMMENT value8 FROM orders",
                     15000);
             assertUpdate(
                     "CREATE TABLE test_mismatch_bucketing_with_predicate_32\n" +
                             "WITH (bucket_count = 32, bucketed_by = ARRAY['key32']) AS\n" +
-                            "SELECT custkey key32, comment value32 FROM orders",
+                            "SELECT custkey key32, COMMENT value32 FROM orders",
                     15000);
 
             Session withMismatchOptimization = Session.builder(getSession())
@@ -2454,7 +2454,7 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate(
                     session,
                     "CREATE TABLE test_mismatch_bucketingN AS\n" +
-                            "SELECT orderkey keyN, comment valueN FROM orders",
+                            "SELECT orderkey keyN, COMMENT valueN FROM orders",
                     15000);
 
             Session withMismatchOptimization = Session.builder(session)
@@ -2492,11 +2492,11 @@ public class TestHiveIntegrationSmokeTest
                     "ON key16=keyN";
 
             assertUpdate(withoutMismatchOptimization, writeToTableWithMoreBuckets, 15000, assertRemoteExchangesCount(4));
-            assertQuery(withoutMismatchOptimization, "SELECT * FROM test_mismatch_bucketing_out32", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
+            assertQuery(withoutMismatchOptimization, "SELECT * FROM test_mismatch_bucketing_out32", "SELECT orderkey, COMMENT, orderkey, COMMENT, orderkey, COMMENT FROM orders");
             assertUpdate(withoutMismatchOptimization, "DROP TABLE IF EXISTS test_mismatch_bucketing_out32");
 
             assertUpdate(withMismatchOptimization, writeToTableWithMoreBuckets, 15000, assertRemoteExchangesCount(2));
-            assertQuery(withMismatchOptimization, "SELECT * FROM test_mismatch_bucketing_out32", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
+            assertQuery(withMismatchOptimization, "SELECT * FROM test_mismatch_bucketing_out32", "SELECT orderkey, COMMENT, orderkey, COMMENT, orderkey, COMMENT FROM orders");
 
             assertUpdate(withMismatchOptimization, writeToTableWithFewerBuckets, 15000, assertRemoteExchangesCount(2));
             assertQuery(withMismatchOptimization, "SELECT * FROM test_mismatch_bucketing_out8", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
@@ -2528,7 +2528,7 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate(
                     "CREATE TABLE test_partial_merge_pushdown_32buckets\n" +
                             "WITH (bucket_count = 32, bucketed_by = ARRAY['key32']) AS\n" +
-                            "SELECT orderkey key32, comment value32 FROM orders",
+                            "SELECT orderkey key32, COMMENT value32 FROM orders",
                     15000);
             assertUpdate(
                     "CREATE TABLE test_partial_merge_pushdown_nobucket AS\n" +
@@ -2573,20 +2573,20 @@ public class TestHiveIntegrationSmokeTest
                     "ON key16=key_nobucket";
 
             assertUpdate(withoutPartialMergePushdownOptimization, joinAndWriteToTableWithSameBuckets, 15000, assertRemoteExchangesCount(3));
-            assertQuery("SELECT * FROM test_partial_merge_pushdown_out16", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
+            assertQuery("SELECT * FROM test_partial_merge_pushdown_out16", "SELECT orderkey, COMMENT, orderkey, COMMENT, orderkey, COMMENT FROM orders");
             assertUpdate("DROP TABLE IF EXISTS test_partial_merge_pushdown_out16");
 
             assertUpdate(withPartialMergePushdownOptimization, joinAndWriteToTableWithSameBuckets, 15000, assertRemoteExchangesCount(2));
-            assertQuery("SELECT * FROM test_partial_merge_pushdown_out16", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
+            assertQuery("SELECT * FROM test_partial_merge_pushdown_out16", "SELECT orderkey, COMMENT, orderkey, COMMENT, orderkey, COMMENT FROM orders");
             assertUpdate("DROP TABLE IF EXISTS test_partial_merge_pushdown_out16");
 
             assertUpdate(withoutPartialMergePushdownOptimization, joinAndWriteToTableWithFewerBuckets, 15000, assertRemoteExchangesCount(4));
-            assertQuery("SELECT * FROM test_partial_merge_pushdown_out8", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
+            assertQuery("SELECT * FROM test_partial_merge_pushdown_out8", "SELECT orderkey, COMMENT, orderkey, COMMENT, orderkey, COMMENT FROM orders");
             assertUpdate("DROP TABLE IF EXISTS test_partial_merge_pushdown_out8");
 
             // cannot pushdown the partial merge for TableWrite
             assertUpdate(withPartialMergePushdownOptimization, joinAndWriteToTableWithFewerBuckets, 15000, assertRemoteExchangesCount(3));
-            assertQuery("SELECT * FROM test_partial_merge_pushdown_out8", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
+            assertQuery("SELECT * FROM test_partial_merge_pushdown_out8", "SELECT orderkey, COMMENT, orderkey, COMMENT, orderkey, COMMENT FROM orders");
             assertUpdate("DROP TABLE IF EXISTS test_partial_merge_pushdown_out8");
 
             //
@@ -2600,11 +2600,11 @@ public class TestHiveIntegrationSmokeTest
                     "  test_partial_merge_pushdown_16buckets";
 
             assertUpdate(withoutPartialMergePushdownOptimization, readAndWriteToTableWithFewerBuckets, 15000, assertRemoteExchangesCount(2));
-            assertQuery("SELECT * FROM test_partial_merge_pushdown_out8", "SELECT orderkey, comment from orders");
+            assertQuery("SELECT * FROM test_partial_merge_pushdown_out8", "SELECT orderkey, COMMENT FROM orders");
             assertUpdate("DROP TABLE IF EXISTS test_partial_merge_pushdown_out8");
 
             assertUpdate(withPartialMergePushdownOptimization, readAndWriteToTableWithFewerBuckets, 15000, assertRemoteExchangesCount(1));
-            assertQuery("SELECT * FROM test_partial_merge_pushdown_out8", "SELECT orderkey, comment from orders");
+            assertQuery("SELECT * FROM test_partial_merge_pushdown_out8", "SELECT orderkey, COMMENT FROM orders");
             assertUpdate("DROP TABLE IF EXISTS test_partial_merge_pushdown_out8");
         }
         finally {
@@ -2630,7 +2630,7 @@ public class TestHiveIntegrationSmokeTest
         // Comprehensive testing is done by TestHiveDistributedAggregationsWithExchangeMaterialization, TestHiveDistributedQueriesWithExchangeMaterialization
 
         // simple aggregation
-        assertQuery(materializeExchangesSession, "SELECT orderkey, COUNT(*) lines FROM lineitem GROUP BY orderkey", assertRemoteMaterializedExchangesCount(1));
+        assertQuery(materializeExchangesSession, "SELECT orderkey, COUNT(*) LINES FROM lineitem GROUP BY orderkey", assertRemoteMaterializedExchangesCount(1));
         // simple distinct
         assertQuery(materializeExchangesSession, "SELECT distinct orderkey FROM lineitem", assertRemoteMaterializedExchangesCount(1));
         // more complex aggregation
@@ -2648,8 +2648,8 @@ public class TestHiveIntegrationSmokeTest
 
         // 3-way join
         try {
-            assertUpdate("CREATE TABLE test_orders_part1 AS SELECT orderkey, totalprice FROM orders", "SELECT count(*) FROM orders");
-            assertUpdate("CREATE TABLE test_orders_part2 AS SELECT orderkey, comment FROM orders", "SELECT count(*) FROM orders");
+            assertUpdate("CREATE TABLE test_orders_part1 AS SELECT orderkey, totalprice FROM orders", "SELECT COUNT(*) FROM orders");
+            assertUpdate("CREATE TABLE test_orders_part2 AS SELECT orderkey, COMMENT FROM orders", "SELECT count(*) FROM orders");
 
             assertQuery(
                     materializeExchangesSession,
@@ -2695,7 +2695,7 @@ public class TestHiveIntegrationSmokeTest
                     "CREATE TABLE test_bucketed_lineitem2\n" +
                             "WITH (bucket_count = 17, bucketed_by = ARRAY['partkey', 'suppkey']) AS\n" +
                             "SELECT * FROM lineitem",
-                    "SELECT count(*) from lineitem");
+                    "SELECT COUNT(*) FROM lineitem");
             // bucketed table as probe side
             assertQuery(
                     materializeExchangesSession,
@@ -2733,21 +2733,21 @@ public class TestHiveIntegrationSmokeTest
         // Window functions
         assertQuery(
                 materializeExchangesSession,
-                "SELECT sum(rn) FROM (SELECT row_number() OVER(PARTITION BY orderkey ORDER BY linenumber) as rn FROM lineitem) WHERE rn > 5",
+                "SELECT sum(rn) FROM (SELECT row_number() OVER(PARTITION BY orderkey ORDER BY linenumber) AS rn FROM lineitem) WHERE rn > 5",
                 "SELECT 41137",
                 assertRemoteMaterializedExchangesCount(1)
                         // make sure that the window function has been planned as a WindowNode
                         .andThen(plan -> assertTrue(searchFrom(plan.getRoot()).where(node -> node instanceof WindowNode).matches())));
         assertQuery(
                 materializeExchangesSession,
-                "SELECT sum(rn) FROM (SELECT row_number() OVER(PARTITION BY orderkey) as rn FROM lineitem)",
+                "SELECT sum(rn) FROM (SELECT row_number() OVER(PARTITION BY orderkey) AS rn FROM lineitem)",
                 "SELECT 180782",
                 assertRemoteMaterializedExchangesCount(1)
                         // make sure that the window function has been planned as a RowNumberNode
                         .andThen(plan -> assertTrue(searchFrom(plan.getRoot()).where(node -> node instanceof RowNumberNode).matches())));
         assertQuery(
                 materializeExchangesSession,
-                "SELECT sum(rn) FROM (SELECT row_number() OVER(PARTITION BY orderkey ORDER BY linenumber) as rn FROM lineitem) WHERE rn < 5",
+                "SELECT sum(rn) FROM (SELECT row_number() OVER(PARTITION BY orderkey ORDER BY linenumber) AS rn FROM lineitem) WHERE rn < 5",
                 "SELECT 107455",
                 assertRemoteMaterializedExchangesCount(1)
                         // make sure that the window function has been planned as a TopNRowNumberNode
@@ -2826,7 +2826,7 @@ public class TestHiveIntegrationSmokeTest
                     session,
                     "CREATE TABLE test_grouped_joinDual\n" +
                             "WITH (bucket_count = 13, bucketed_by = ARRAY['keyD']) AS\n" +
-                            "SELECT orderkey keyD, comment valueD FROM orders CROSS JOIN UNNEST(repeat(NULL, 2))",
+                            "SELECT orderkey keyD, COMMENT valueD FROM orders CROSS JOIN UNNEST(repeat(NULL, 2))",
                     30000);
             assertUpdate(
                     session,
@@ -2916,7 +2916,7 @@ public class TestHiveIntegrationSmokeTest
                             "ON key1 = key2\n" +
                             "JOIN test_grouped_joinN\n" +
                             "ON key2 = keyN";
-            @Language("SQL") String expectedJoinQuery = "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders";
+            @Language("SQL") String expectedJoinQuery = "SELECT orderkey, COMMENT, orderkey, COMMENT, orderkey, COMMENT FROM orders";
             @Language("SQL") String leftJoinBucketedTable =
                     "SELECT key1, value1, key2, value2\n" +
                             "FROM test_grouped_join1\n" +
@@ -2927,7 +2927,7 @@ public class TestHiveIntegrationSmokeTest
                             "FROM (SELECT * FROM test_grouped_join2 WHERE key2 % 2 = 0)\n" +
                             "RIGHT JOIN test_grouped_join1\n" +
                             "ON key1 = key2";
-            @Language("SQL") String expectedOuterJoinQuery = "SELECT orderkey, comment, CASE mod(orderkey, 2) WHEN 0 THEN orderkey END, CASE mod(orderkey, 2) WHEN 0 THEN comment END from orders";
+            @Language("SQL") String expectedOuterJoinQuery = "SELECT orderkey, COMMENT, CASE mod(orderkey, 2) WHEN 0 THEN orderkey END, CASE mod(orderkey, 2) WHEN 0 THEN COMMENT END FROM orders";
 
             assertQuery(notColocated, joinThreeBucketedTable, expectedJoinQuery);
             assertQuery(notColocated, leftJoinBucketedTable, expectedOuterJoinQuery);
@@ -3004,7 +3004,7 @@ public class TestHiveIntegrationSmokeTest
                             "FROM\n" +
                             "  test_grouped_joinDual\n" +
                             "GROUP BY keyD";
-            @Language("SQL") String expectedSingleGroupByQuery = "SELECT orderkey, 2 from orders";
+            @Language("SQL") String expectedSingleGroupByQuery = "SELECT orderkey, 2 FROM orders";
             @Language("SQL") String groupByOfUnionBucketed =
                     "SELECT\n" +
                             "  key\n" +
@@ -3097,7 +3097,7 @@ public class TestHiveIntegrationSmokeTest
                             "  GROUP BY keyD\n" +
                             ")\n" +
                             "ON key1 = key2";
-            @Language("SQL") String expectedJoinGroupedWithGrouped = "SELECT orderkey, 2, 2 from orders";
+            @Language("SQL") String expectedJoinGroupedWithGrouped = "SELECT orderkey, 2, 2 FROM orders";
             @Language("SQL") String joinGroupedWithUngrouped =
                     "SELECT keyD, countD, valueN\n" +
                             "FROM (\n" +
@@ -3109,7 +3109,7 @@ public class TestHiveIntegrationSmokeTest
                             "  FROM test_grouped_joinN\n" +
                             ")\n" +
                             "ON keyD = keyN";
-            @Language("SQL") String expectedJoinGroupedWithUngrouped = "SELECT orderkey, 2, comment from orders";
+            @Language("SQL") String expectedJoinGroupedWithUngrouped = "SELECT orderkey, 2, COMMENT FROM orders";
             @Language("SQL") String joinUngroupedWithGrouped =
                     "SELECT keyN, valueN, countD\n" +
                             "FROM (\n" +
@@ -3121,7 +3121,7 @@ public class TestHiveIntegrationSmokeTest
                             "  GROUP BY keyD\n" +
                             ")\n" +
                             "ON keyN = keyD";
-            @Language("SQL") String expectedJoinUngroupedWithGrouped = "SELECT orderkey, comment, 2 from orders";
+            @Language("SQL") String expectedJoinUngroupedWithGrouped = "SELECT orderkey, COMMENT, 2 FROM orders";
             @Language("SQL") String groupOnJoinResult =
                     "SELECT keyD, count(valueD), count(valueN)\n" +
                             "FROM\n" +
@@ -3227,7 +3227,7 @@ public class TestHiveIntegrationSmokeTest
             // ===============
             assertQuery(
                     colocatedOneGroupAtATime,
-                    "SELECT key, count(*) OVER (PARTITION BY key ORDER BY value) FROM test_grouped_window",
+                    "SELECT KEY, COUNT(*) OVER (PARTITION BY KEY ORDER BY value) FROM test_grouped_window",
                     "VALUES\n" +
                             "(1, 1),\n" +
                             "(2, 1),\n" +
@@ -3243,7 +3243,7 @@ public class TestHiveIntegrationSmokeTest
 
             assertQuery(
                     colocatedOneGroupAtATime,
-                    "SELECT key, row_number() OVER (PARTITION BY key ORDER BY value) FROM test_grouped_window",
+                    "SELECT KEY, row_number() OVER (PARTITION BY KEY ORDER BY value) FROM test_grouped_window",
                     "VALUES\n" +
                             "(1, 1),\n" +
                             "(2, 1),\n" +
@@ -3259,7 +3259,7 @@ public class TestHiveIntegrationSmokeTest
 
             assertQuery(
                     colocatedOneGroupAtATime,
-                    "SELECT key, n FROM (SELECT key, row_number() OVER (PARTITION BY key ORDER BY value) AS n FROM test_grouped_window) WHERE n <= 2",
+                    "SELECT KEY, n FROM (SELECT KEY, row_number() OVER (PARTITION BY KEY ORDER BY value) AS n FROM test_grouped_window) WHERE n <= 2",
                     "VALUES\n" +
                             "(1, 1),\n" +
                             "(2, 1),\n" +
@@ -3362,7 +3362,7 @@ public class TestHiveIntegrationSmokeTest
                 .setCatalogSessionProperty(catalog, RCFILE_OPTIMIZED_WRITER_ENABLED, Boolean.toString(rcFileOptimizedWriterEnabled))
                 .build();
 
-        assertUpdate(session, "CREATE TABLE test_table_with_char_rc WITH (format = 'RCTEXT') AS SELECT CAST('khaki' AS CHAR(7)) char_column", 1);
+        assertUpdate(session, "CREATE TABLE test_table_with_char_rc WITH (FORMAT = 'RCTEXT') AS SELECT CAST('khaki' AS CHAR(7)) char_column", 1);
         try {
             assertQuery(session,
                     "SELECT * FROM test_table_with_char_rc WHERE char_column = 'khaki  '",
@@ -3376,7 +3376,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testInvalidPartitionValue()
     {
-        assertUpdate("CREATE TABLE invalid_partition_value (a int, b varchar) WITH (partitioned_by = ARRAY['b'])");
+        assertUpdate("CREATE TABLE invalid_partition_value (a INT, b VARCHAR) WITH (partitioned_by = ARRAY['b'])");
         assertQueryFails(
                 "INSERT INTO invalid_partition_value VALUES (4, 'test' || chr(13))",
                 "\\QHive partition keys can only contain printable ASCII characters (0x20 - 0x7E). Invalid value: 74 65 73 74 0D\\E");
@@ -3551,7 +3551,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testAnalyzePropertiesSystemTable()
     {
-        assertQuery("SELECT * FROM system.metadata.analyze_properties WHERE catalog_name = 'hive'",
+        assertQuery("SELECT * FROM system.METADATA.analyze_properties WHERE catalog_name = 'hive'",
                 "SELECT 'hive', 'partitions', '', 'array(array(varchar))', 'Partitions to be analyzed'");
     }
 

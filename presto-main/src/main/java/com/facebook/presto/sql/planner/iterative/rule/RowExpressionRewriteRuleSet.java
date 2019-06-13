@@ -77,7 +77,7 @@ public class RowExpressionRewriteRuleSet
         }
     }
 
-    private final RowExpressionRewriter rewriter;
+    protected final RowExpressionRewriter rewriter;
 
     public RowExpressionRewriteRuleSet(RowExpressionRewriter rewriter)
     {
@@ -87,16 +87,66 @@ public class RowExpressionRewriteRuleSet
     public Set<Rule<?>> rules()
     {
         return ImmutableSet.of(
-                new ValuesRowExpressionRewrite(),
-                new FilterRowExpressionRewrite(),
-                new ProjectRowExpressionRewrite(),
-                new ApplyRowExpressionRewrite(),
-                new WindowRowExpressionRewrite(),
-                new JoinRowExpressionRewrite(),
-                new SpatialJoinRowExpressionRewrite(),
-                new AggregationRowExpressionRewrite(),
-                new TableFinishRowExpressionRewrite(),
-                new TableWriterRowExpressionRewrite());
+                valueRowExpressionRewriteRule(),
+                filterRowExpressionRewriteRule(),
+                projectRowExpressionRewriteRule(),
+                applyNodeRowExpressionRewriteRule(),
+                windowRowExpressionRewriteRule(),
+                joinRowExpressionRewriteRule(),
+                spatialJoinRowExpressionRewriteRule(),
+                aggreagationRowExpressionRewriteRule(),
+                tableFinishRowExpressionRewriteRule(),
+                tableWriterRowExpressionRewriteRule());
+    }
+
+    public Rule<ValuesNode> valueRowExpressionRewriteRule()
+    {
+        return new ValuesRowExpressionRewrite();
+    }
+
+    public Rule<FilterNode> filterRowExpressionRewriteRule()
+    {
+        return new FilterRowExpressionRewrite();
+    }
+
+    public Rule<ProjectNode> projectRowExpressionRewriteRule()
+    {
+        return new ProjectRowExpressionRewrite();
+    }
+
+    public Rule<ApplyNode> applyNodeRowExpressionRewriteRule()
+    {
+        return new ApplyRowExpressionRewrite();
+    }
+
+    public Rule<WindowNode> windowRowExpressionRewriteRule()
+    {
+        return new WindowRowExpressionRewrite();
+    }
+
+    public Rule<JoinNode> joinRowExpressionRewriteRule()
+    {
+        return new JoinRowExpressionRewrite();
+    }
+
+    public Rule<SpatialJoinNode> spatialJoinRowExpressionRewriteRule()
+    {
+        return new SpatialJoinRowExpressionRewrite();
+    }
+
+    public Rule<TableFinishNode> tableFinishRowExpressionRewriteRule()
+    {
+        return new TableFinishRowExpressionRewrite();
+    }
+
+    public Rule<TableWriterNode> tableWriterRowExpressionRewriteRule()
+    {
+        return new TableWriterRowExpressionRewrite();
+    }
+
+    public Rule<AggregationNode> aggreagationRowExpressionRewriteRule()
+    {
+        return new AggregationRowExpressionRewrite();
     }
 
     private final class ProjectRowExpressionRewrite

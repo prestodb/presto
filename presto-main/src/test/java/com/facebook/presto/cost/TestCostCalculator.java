@@ -43,7 +43,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
-import com.facebook.presto.sql.planner.optimizations.TranslateExpressions;
+import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
