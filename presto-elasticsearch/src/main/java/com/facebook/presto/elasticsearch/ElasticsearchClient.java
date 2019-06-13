@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
+import io.airlift.security.pem.PemReader;
 import io.airlift.units.Duration;
 import org.apache.http.HttpHost;
 import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
