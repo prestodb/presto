@@ -99,7 +99,6 @@ import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Glo
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.streamPartitionedOn;
-import static com.facebook.presto.sql.planner.optimizations.AddExchanges.computeIdentityTranslations;
 import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReference;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
@@ -621,7 +620,7 @@ public class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            Map<VariableReferenceExpression, VariableReferenceExpression> identities = computeIdentityTranslations(node.getAssignments(), types);
+            Map<VariableReferenceExpression, VariableReferenceExpression> identities = computeIdentityTranslations(node.getAssignments().getMap(), types);
 
             ActualProperties translatedProperties = properties.translate(column -> Optional.ofNullable(identities.get(column)));
 
@@ -777,6 +776,17 @@ public class PropertyDerivations
 
             return Optional.of(ImmutableList.copyOf(builder.build()));
         }
+    }
+
+    private static Map<VariableReferenceExpression, VariableReferenceExpression> computeIdentityTranslations(Map<VariableReferenceExpression, Expression> assignments, TypeProvider types)
+    {
+        Map<VariableReferenceExpression, VariableReferenceExpression> inputToOutput = new HashMap<>();
+        for (Map.Entry<VariableReferenceExpression, Expression> assignment : assignments.entrySet()) {
+            if (assignment.getValue() instanceof SymbolReference) {
+                inputToOutput.put(toVariableReference(Symbol.from(assignment.getValue()), types), assignment.getKey());
+            }
+        }
+        return inputToOutput;
     }
 
     static boolean spillPossible(Session session, JoinNode.Type joinType)

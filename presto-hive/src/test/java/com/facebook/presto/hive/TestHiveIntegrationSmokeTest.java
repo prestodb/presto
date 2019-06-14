@@ -4086,6 +4086,22 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testGroupByWithUnion()
+    {
+        assertQuery("SELECT\n" +
+                "      linenumber,\n" +
+                "      'xxx'\n" +
+                "  FROM\n" +
+                "  (\n" +
+                "      (SELECT orderkey, linenumber FROM lineitem)\n" +
+                "      UNION\n" +
+                "      (SELECT orderkey, linenumber FROM lineitem)\n" +
+                "  ) WHERE orderkey = 1 \n" +
+                "  GROUP BY\n" +
+                "      linenumber");
+    }
+
     private HiveInsertTableHandle getHiveInsertTableHandle(Session session, String tableName)
     {
         Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
