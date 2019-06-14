@@ -63,6 +63,8 @@ public class TaskManagerConfig
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
 
     private Duration statusRefreshMaxWait = new Duration(1, TimeUnit.SECONDS);
+    private Duration infoRefreshMaxWait = new Duration(0, TimeUnit.SECONDS);
+
     private Duration infoUpdateInterval = new Duration(3, TimeUnit.SECONDS);
 
     private int writerCount = 1;
@@ -105,6 +107,21 @@ public class TaskManagerConfig
     public TaskManagerConfig setInfoUpdateInterval(Duration infoUpdateInterval)
     {
         this.infoUpdateInterval = infoUpdateInterval;
+        return this;
+    }
+
+    @NotNull
+    public Duration getInfoRefreshMaxWait()
+    {
+        return infoRefreshMaxWait;
+    }
+
+    @Config("experimental.task.info-update-refresh-max-wait")
+    @ConfigDescription("When this is set to non-zero, task info update request will be a long polling with " +
+            "given maximum update refresh wait time. This is an experimental config to reduce unnecessary task info update.")
+    public TaskManagerConfig setInfoRefreshMaxWait(Duration infoRefreshMaxWait)
+    {
+        this.infoRefreshMaxWait = infoRefreshMaxWait;
         return this;
     }
 
