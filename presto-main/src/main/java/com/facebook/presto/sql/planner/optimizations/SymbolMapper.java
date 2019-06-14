@@ -32,6 +32,8 @@ import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.relational.RowExpressionRewriter;
+import com.facebook.presto.sql.relational.RowExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -50,7 +52,6 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.groupingSets;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
-import static com.facebook.presto.sql.relational.SymbolToSymbolTranslator.rewriteWith;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
@@ -118,7 +119,14 @@ public class SymbolMapper
         if (isExpression(value)) {
             return castToRowExpression(map(castToExpression(value)));
         }
-        return rewriteWith(value, this::map);
+        return RowExpressionTreeRewriter.rewriteWith(new RowExpressionRewriter<Void>()
+        {
+            @Override
+            public RowExpression rewriteVariableReference(VariableReferenceExpression variable, Void context, RowExpressionTreeRewriter<Void> treeRewriter)
+            {
+                return map(variable);
+            }
+        }, value);
     }
 
     public OrderingScheme map(OrderingScheme orderingScheme)
