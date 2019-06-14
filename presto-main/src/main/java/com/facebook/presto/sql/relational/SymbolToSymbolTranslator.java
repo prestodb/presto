@@ -38,6 +38,6 @@ public class SymbolToSymbolTranslator
         if (!transformed.getName().equals(node.getName())) {
             return new VariableReferenceExpression(transformed.getName(), node.getType());
         }
-        return null;
+        return node;
     }
 }
