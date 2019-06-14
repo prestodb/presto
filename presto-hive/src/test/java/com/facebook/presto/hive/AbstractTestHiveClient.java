@@ -3123,6 +3123,11 @@ public abstract class AbstractTestHiveClient
 
     protected Partition createDummyPartition(Table table, String partitionName)
     {
+        return createDummyPartition(table, partitionName, Optional.empty());
+    }
+
+    protected Partition createDummyPartition(Table table, String partitionName, Optional<HiveBucketProperty> bucketProperty)
+    {
         return Partition.builder()
                 .setDatabaseName(table.getDatabaseName())
                 .setTableName(table.getTableName())
@@ -3130,7 +3135,8 @@ public abstract class AbstractTestHiveClient
                 .setValues(toPartitionValues(partitionName))
                 .withStorage(storage -> storage
                         .setStorageFormat(fromHiveStorageFormat(HiveStorageFormat.ORC))
-                        .setLocation(partitionTargetPath(new SchemaTableName(table.getDatabaseName(), table.getTableName()), partitionName)))
+                        .setLocation(partitionTargetPath(new SchemaTableName(table.getDatabaseName(), table.getTableName()), partitionName))
+                        .setBucketProperty(bucketProperty))
                 .setParameters(ImmutableMap.of(
                         PRESTO_VERSION_NAME, "testversion",
                         PRESTO_QUERY_ID_NAME, "20180101_123456_00001_x1y2z"))
@@ -4583,13 +4589,19 @@ public abstract class AbstractTestHiveClient
                 .collect(toList());
     }
 
-    private void createEmptyTable(SchemaTableName schemaTableName, HiveStorageFormat hiveStorageFormat, List<Column> columns, List<Column> partitionColumns)
+    protected Table createEmptyTable(SchemaTableName schemaTableName, HiveStorageFormat hiveStorageFormat, List<Column> columns, List<Column> partitionColumns)
             throws Exception
     {
-        createEmptyTable(schemaTableName, hiveStorageFormat, columns, partitionColumns, Optional.empty());
+        return createEmptyTable(schemaTableName, hiveStorageFormat, columns, partitionColumns, Optional.empty());
     }
 
-    private void createEmptyTable(SchemaTableName schemaTableName, HiveStorageFormat hiveStorageFormat, List<Column> columns, List<Column> partitionColumns, Optional<HiveBucketProperty> bucketProperty)
+    protected Table createEmptyTable(SchemaTableName schemaTableName, HiveStorageFormat hiveStorageFormat, List<Column> columns, List<Column> partitionColumns, Optional<HiveBucketProperty> bucketProperty)
+            throws Exception
+    {
+        return createEmptyTable(schemaTableName, hiveStorageFormat, columns, partitionColumns, bucketProperty, ImmutableMap.of());
+    }
+
+    protected Table createEmptyTable(SchemaTableName schemaTableName, HiveStorageFormat hiveStorageFormat, List<Column> columns, List<Column> partitionColumns, Optional<HiveBucketProperty> bucketProperty, Map<String, String> parameters)
             throws Exception
     {
         Path targetPath;
@@ -4610,9 +4622,11 @@ public abstract class AbstractTestHiveClient
                     .setTableName(tableName)
                     .setOwner(tableOwner)
                     .setTableType(MANAGED_TABLE)
-                    .setParameters(ImmutableMap.of(
-                            PRESTO_VERSION_NAME, TEST_SERVER_VERSION,
-                            PRESTO_QUERY_ID_NAME, session.getQueryId()))
+                    .setParameters(ImmutableMap.<String, String>builder()
+                            .put(PRESTO_VERSION_NAME, TEST_SERVER_VERSION)
+                            .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
+                            .putAll(parameters)
+                            .build())
                     .setDataColumns(columns)
                     .setPartitionColumns(partitionColumns);
 
@@ -4631,6 +4645,10 @@ public abstract class AbstractTestHiveClient
         HdfsContext context = new HdfsContext(newSession(), schemaTableName.getSchemaName(), schemaTableName.getTableName());
         List<String> targetDirectoryList = listDirectory(context, targetPath);
         assertEquals(targetDirectoryList, ImmutableList.of());
+
+        try (Transaction transaction = newTransaction()) {
+            return transaction.getMetastore(schemaTableName.getSchemaName()).getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName()).get();
+        }
     }
 
     private void alterBucketProperty(SchemaTableName schemaTableName, Optional<HiveBucketProperty> bucketProperty)
