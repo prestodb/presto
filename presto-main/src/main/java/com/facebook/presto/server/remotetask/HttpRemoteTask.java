@@ -193,6 +193,7 @@ public final class HttpRemoteTask
             ScheduledExecutorService errorScheduledExecutor,
             Duration maxErrorDuration,
             Duration taskStatusRefreshMaxWait,
+            Duration taskInfoRefreshMaxWait,
             Duration taskInfoUpdateInterval,
             boolean summarizeTaskInfo,
             Codec<TaskStatus> taskStatusCodec,
@@ -217,6 +218,7 @@ public final class HttpRemoteTask
         requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
         requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         requireNonNull(stats, "stats is null");
+        requireNonNull(taskInfoRefreshMaxWait, "taskInfoRefreshMaxWait is null");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             this.taskId = taskId;
@@ -276,6 +278,7 @@ public final class HttpRemoteTask
                     initialTask,
                     httpClient,
                     taskInfoUpdateInterval,
+                    taskInfoRefreshMaxWait,
                     taskInfoCodec,
                     maxErrorDuration,
                     summarizeTaskInfo,
