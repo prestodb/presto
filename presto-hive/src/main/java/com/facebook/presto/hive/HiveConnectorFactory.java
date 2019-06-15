@@ -135,6 +135,9 @@ public class HiveConnectorFactory
             HiveAnalyzeProperties hiveAnalyzeProperties = injector.getInstance(HiveAnalyzeProperties.class);
             ConnectorAccessControl accessControl = new PartitionsAwareAccessControl(injector.getInstance(ConnectorAccessControl.class));
             Set<Procedure> procedures = injector.getInstance(Key.get(new TypeLiteral<Set<Procedure>>() {}));
+            StandardFunctionResolution functionResolution = injector.getInstance(StandardFunctionResolution.class);
+            RowExpressionService rowExpressionService = injector.getInstance(RowExpressionService.class);
+            HivePartitionManager hivePartitionManager = injector.getInstance(HivePartitionManager.class);
 
             return new HiveConnector(
                     lifeCycleManager,
@@ -151,6 +154,9 @@ public class HiveConnectorFactory
                     hiveTableProperties.getTableProperties(),
                     hiveAnalyzeProperties.getAnalyzeProperties(),
                     accessControl,
+                    functionResolution,
+                    rowExpressionService,
+                    hivePartitionManager,
                     classLoader);
         }
         catch (Exception e) {
