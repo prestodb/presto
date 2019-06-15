@@ -17,8 +17,6 @@ import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.statistics.MetastoreHiveStatisticsProvider;
-import com.facebook.presto.spi.function.StandardFunctionResolution;
-import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.json.JsonCodec;
@@ -49,8 +47,6 @@ public class HiveMetadataFactory
     private final DateTimeZone timeZone;
     private final TypeManager typeManager;
     private final LocationService locationService;
-    private final StandardFunctionResolution functionResolution;
-    private final RowExpressionService rowExpressionService;
     private final TableParameterCodec tableParameterCodec;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final ListeningExecutorService fileRenameExecutor;
@@ -68,8 +64,6 @@ public class HiveMetadataFactory
             @ForFileRename ListeningExecutorService fileRenameExecutor,
             TypeManager typeManager,
             LocationService locationService,
-            StandardFunctionResolution functionResolution,
-            RowExpressionService rowExpressionService,
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             TypeTranslator typeTranslator,
@@ -90,8 +84,6 @@ public class HiveMetadataFactory
                 hiveClientConfig.getMaxPartitionsPerScan(),
                 typeManager,
                 locationService,
-                functionResolution,
-                rowExpressionService,
                 tableParameterCodec,
                 partitionUpdateCodec,
                 fileRenameExecutor,
@@ -114,8 +106,6 @@ public class HiveMetadataFactory
             int maxPartitions,
             TypeManager typeManager,
             LocationService locationService,
-            StandardFunctionResolution functionResolution,
-            RowExpressionService rowExpressionService,
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             ListeningExecutorService fileRenameExecutor,
@@ -136,8 +126,6 @@ public class HiveMetadataFactory
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
-        this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
-        this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.tableParameterCodec = requireNonNull(tableParameterCodec, "tableParameterCodec is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.fileRenameExecutor = requireNonNull(fileRenameExecutor, "fileRenameExecutor is null");
@@ -174,8 +162,6 @@ public class HiveMetadataFactory
                 createsOfNonManagedTablesEnabled,
                 typeManager,
                 locationService,
-                functionResolution,
-                rowExpressionService,
                 tableParameterCodec,
                 partitionUpdateCodec,
                 typeTranslator,
