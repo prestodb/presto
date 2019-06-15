@@ -183,4 +183,11 @@ public class HiveClientModule
     {
         return transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore();
     }
+
+    @Singleton
+    @Provides
+    public Function<HiveTransactionHandle, HiveMetadata> createMetadataGetter(HiveTransactionManager transactionManager)
+    {
+        return transactionHandle -> (HiveMetadata) transactionManager.get(transactionHandle);
+    }
 }

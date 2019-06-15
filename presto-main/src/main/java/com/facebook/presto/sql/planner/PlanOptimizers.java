@@ -414,7 +414,6 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
-                new PushdownSubfields(metadata),
 
                 // Because ReorderJoins runs only once,
                 // PredicatePushDown, PruneUnreferenedOutputpus and RemoveRedundantIdentityProjections
@@ -434,6 +433,11 @@ public class PlanOptimizers
                 ImmutableSet.of(
                         new CreatePartialTopN(),
                         new PushTopNThroughUnion())));
+
+        // TODO: move connector optimizer to here; use AddExchange's logic to determine max subplan
+        // prune subfields after connector rule in case compute has been pushed down
+        builder.add(new PushdownSubfields(metadata));
+
         builder.add(new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,

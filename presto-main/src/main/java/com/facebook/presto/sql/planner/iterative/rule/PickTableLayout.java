@@ -19,8 +19,6 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.PushdownFilterResult;
-import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.operator.scalar.TryFunction;
 import com.facebook.presto.spi.ColumnHandle;
@@ -33,7 +31,6 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -44,14 +41,11 @@ import com.facebook.presto.sql.planner.LookupSymbolResolver;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
@@ -62,8 +56,6 @@ import java.util.Set;
 import static com.facebook.presto.SystemSessionProperties.isNewOptimizerEnabled;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.metadata.TableLayoutResult.computeEnforced;
-import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
-import static com.facebook.presto.spi.relation.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterNonDeterministicConjuncts;
@@ -75,7 +67,6 @@ import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
@@ -230,20 +221,6 @@ public class PickTableLayout
             }
 
             Session session = context.getSession();
-            if (metadata.isPushdownFilterSupported(session, tableHandle)) {
-                PushdownFilterResult pushdownFilterResult = metadata.pushdownFilter(session, tableHandle, TRUE_CONSTANT);
-                if (pushdownFilterResult.getLayout().getPredicate().isNone()) {
-                    return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), tableScanNode.getOutputVariables(), ImmutableList.of()));
-                }
-
-                return Result.ofPlanNode(new TableScanNode(
-                        tableScanNode.getId(),
-                        pushdownFilterResult.getLayout().getNewTableHandle(),
-                        tableScanNode.getOutputVariables(),
-                        tableScanNode.getAssignments(),
-                        pushdownFilterResult.getLayout().getPredicate(),
-                        TupleDomain.all()));
-            }
 
             TableLayoutResult layout = metadata.getLayout(
                     session,
@@ -278,46 +255,6 @@ public class PickTableLayout
             SqlParser parser,
             ExpressionDomainTranslator domainTranslator)
     {
-        if (metadata.isPushdownFilterSupported(session, node.getTable())) {
-            Map<NodeRef<Expression>, Type> predicateTypes = getExpressionTypes(
-                    session,
-                    metadata,
-                    parser,
-                    types,
-                    predicate,
-                    emptyList(),
-                    WarningCollector.NOOP,
-                    false);
-
-            BiMap<VariableReferenceExpression, VariableReferenceExpression> symbolToColumnMapping = node.getAssignments().entrySet().stream()
-                    .collect(toImmutableBiMap(
-                            Map.Entry::getKey,
-                            entry -> new VariableReferenceExpression(getColumnName(session, metadata, node.getTable(), entry.getValue()), entry.getKey().getType())));
-            RowExpression translatedPredicate = replaceExpression(SqlToRowExpressionTranslator.translate(predicate, predicateTypes, ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), session, false), symbolToColumnMapping);
-
-            PushdownFilterResult pushdownFilterResult = metadata.pushdownFilter(session, node.getTable(), translatedPredicate);
-
-            TableLayout layout = pushdownFilterResult.getLayout();
-            if (layout.getPredicate().isNone()) {
-                return new ValuesNode(idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of());
-            }
-
-            TableScanNode tableScan = new TableScanNode(
-                    node.getId(),
-                    layout.getNewTableHandle(),
-                    node.getOutputVariables(),
-                    node.getAssignments(),
-                    layout.getPredicate(),
-                    TupleDomain.all());
-
-            RowExpression unenforcedFilter = pushdownFilterResult.getUnenforcedFilter();
-            if (!TRUE_CONSTANT.equals(unenforcedFilter)) {
-                return new FilterNode(idAllocator.getNextId(), tableScan, replaceExpression(unenforcedFilter, symbolToColumnMapping.inverse()));
-            }
-
-            return tableScan;
-        }
-
         // don't include non-deterministic predicates
         Expression deterministicPredicate = filterDeterministicConjuncts(predicate);
         ExpressionDomainTranslator.ExtractionResult decomposedPredicate = ExpressionDomainTranslator.fromPredicate(
@@ -394,11 +331,6 @@ public class PickTableLayout
             return new FilterNode(idAllocator.getNextId(), tableScan, castToRowExpression(resultingPredicate));
         }
         return tableScan;
-    }
-
-    private static String getColumnName(Session session, Metadata metadata, TableHandle tableHandle, ColumnHandle columnHandle)
-    {
-        return metadata.getColumnMetadata(session, tableHandle, columnHandle).getName();
     }
 
     private static class LayoutConstraintEvaluator
