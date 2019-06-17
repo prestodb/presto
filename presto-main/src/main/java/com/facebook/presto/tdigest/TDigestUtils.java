@@ -1,4 +1,18 @@
 /*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
  * Licensed to Ted Dunning under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -18,12 +32,54 @@
 package com.facebook.presto.tdigest;
 
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
-/**
- * Static sorting methods
- */
-public class Sort {
-    private static final Random prng = new Random(); // for choosing pivots during quicksort
+import static java.lang.String.format;
+
+public final class TDigestUtils
+{
+    private TDigestUtils() {}
+
+    static double weightedAverage(double x1, double w1, double x2, double w2)
+    {
+        if (x1 <= x2) {
+            return weightedAverageSorted(x1, w1, x2, w2);
+        }
+        else {
+            return weightedAverageSorted(x2, w2, x1, w1);
+        }
+    }
+
+    private static double weightedAverageSorted(double x1, double w1, double x2, double w2)
+    {
+        final double x = (x1 * w1 + x2 * w2) / (w1 + w2);
+        return Math.max(x1, Math.min(x, x2));
+    }
+
+    // Scale Functions
+    public static double maxSize(double q, double compression, double n)
+    {
+        return Z(compression, n) * q * (1 - q) / compression;
+    }
+
+    public static double maxSize(double q, double normalizer)
+    {
+        return q * (1 - q) / normalizer;
+    }
+
+    public static double normalizer(double compression, double n)
+    {
+        return compression / Z(compression, n);
+    }
+
+    private static double Z(double compression, double n)
+    {
+        return 4 * Math.log(n / compression) + 24;
+    }
+
+    // Sorting Functions
+    private static final Random prng = ThreadLocalRandom.current(); // for choosing pivots during quicksort
+
     /**
      * Quick sort using an index array.  On return,
      * values[order[i]] is in order as i goes 0..values.length
@@ -31,8 +87,8 @@ public class Sort {
      * @param order  Indexes into values
      * @param values The values to sort.
      */
-    @SuppressWarnings("WeakerAccess")
-    public static void sort(int[] order, double[] values) {
+    public static void sort(int[] order, double[] values)
+    {
         sort(order, values, 0, values.length);
     }
 
@@ -44,8 +100,8 @@ public class Sort {
      * @param values The values to sort.
      * @param n      The number of values to sort
      */
-    @SuppressWarnings("WeakerAccess")
-    public static void sort(int[] order, double[] values, int n) {
+    public static void sort(int[] order, double[] values, int n)
+    {
         sort(order, values, 0, n);
     }
 
@@ -58,8 +114,8 @@ public class Sort {
      * @param start  The first element to sort
      * @param n      The number of values to sort
      */
-    @SuppressWarnings("WeakerAccess")
-    public static void sort(int[] order, double[] values, int start, int n) {
+    public static void sort(int[] order, double[] values, int start, int n)
+    {
         for (int i = start; i < start + n; i++) {
             order[i] = i;
         }
@@ -76,10 +132,10 @@ public class Sort {
      * @param end    The value after the last value to sort
      * @param limit  The minimum size to recurse down to.
      */
-    private static void quickSort(int[] order, double[] values, int start, int end, int limit) {
+    private static void quickSort(int[] order, double[] values, int start, int end, int limit)
+    {
         // the while loop implements tail-recursion to avoid excessive stack calls on nasty cases
         while (end - start > limit) {
-
             // pivot by a random element
             int pivotIndex = start + prng.nextInt(end - start);
             double pivotValue = values[order[pivotIndex]];
@@ -103,14 +159,17 @@ public class Sort {
                 if (vi == pivotValue) {
                     if (low != i) {
                         swap(order, low, i);
-                    } else {
+                    }
+                    else {
                         i++;
                     }
                     low++;
-                } else if (vi > pivotValue) {
+                }
+                else if (vi > pivotValue) {
                     high--;
                     swap(order, i, high);
-                } else {
+                }
+                else {
                     // vi < pivotValue
                     i++;
                 }
@@ -132,13 +191,12 @@ public class Sort {
             if (from == low) {
                 // ran out of things to copy.  This means that the the last destination is the boundary
                 low = to + 1;
-            } else {
+            }
+            else {
                 // ran out of places to copy to.  This means that there are uncopied pivots and the
                 // boundary is at the beginning of those
                 low = from;
             }
-
-//            checkPartition(order, values, pivotValue, start, low, high, end);
 
             // now recurse, but arrange it so we handle the longer limit by tail recursion
             if (low - start < end - high) {
@@ -147,7 +205,8 @@ public class Sort {
                 // this is really a way to do
                 //    quickSort(order, values, high, end, limit);
                 start = high;
-            } else {
+            }
+            else {
                 quickSort(order, values, high, end, limit);
                 // this is really a way to do
                 //    quickSort(order, values, start, low, limit);
@@ -164,8 +223,8 @@ public class Sort {
      * @param key    Values to sort on
      * @param values The auxilliary values to sort.
      */
-    @SuppressWarnings("WeakerAccess")
-    public static void sort(double[] key, double[] ... values) {
+    public static void sort(double[] key, double[]... values)
+    {
         sort(key, 0, key.length, values);
     }
 
@@ -177,8 +236,8 @@ public class Sort {
      * @param n      The number of values to sort
      * @param values The auxilliary values to sort.
      */
-    @SuppressWarnings("WeakerAccess")
-    public static void sort(double[] key, int start, int n, double[]... values) {
+    public static void sort(double[] key, int start, int n, double[]... values)
+    {
         quickSort(key, values, start, start + n, 8);
         insertionSort(key, values, start, start + n, 8);
     }
@@ -192,10 +251,10 @@ public class Sort {
      * @param end    The value after the last value to sort
      * @param limit  The minimum size to recurse down to.
      */
-    private static void quickSort(double[] key, double[][] values, int start, int end, int limit) {
+    private static void quickSort(double[] key, double[][] values, int start, int end, int limit)
+    {
         // the while loop implements tail-recursion to avoid excessive stack calls on nasty cases
         while (end - start > limit) {
-
             // median of three values for the pivot
             int a = start;
             int b = (start + end) / 2;
@@ -212,31 +271,36 @@ public class Sort {
                     // vc > va > vb
                     pivotIndex = a;
                     pivotValue = va;
-                } else {
+                }
+                else {
                     // va > vb, va >= vc
                     if (vc < vb) {
                         // va > vb > vc
                         pivotIndex = b;
                         pivotValue = vb;
-                    } else {
+                    }
+                    else {
                         // va >= vc >= vb
                         pivotIndex = c;
                         pivotValue = vc;
                     }
                 }
-            } else {
+            }
+            else {
                 // vb >= va
                 if (vc > vb) {
                     // vc > vb >= va
                     pivotIndex = b;
                     pivotValue = vb;
-                } else {
+                }
+                else {
                     // vb >= va, vb >= vc
                     if (vc < va) {
                         // vb >= va > vc
                         pivotIndex = a;
                         pivotValue = va;
-                    } else {
+                    }
+                    else {
                         // vb >= vc >= va
                         pivotIndex = c;
                         pivotValue = vc;
@@ -263,14 +327,17 @@ public class Sort {
                 if (vi == pivotValue) {
                     if (low != i) {
                         swap(low, i, key, values);
-                    } else {
+                    }
+                    else {
                         i++;
                     }
                     low++;
-                } else if (vi > pivotValue) {
+                }
+                else if (vi > pivotValue) {
                     high--;
                     swap(i, high, key, values);
-                } else {
+                }
+                else {
                     // vi < pivotValue
                     i++;
                 }
@@ -292,13 +359,12 @@ public class Sort {
             if (from == low) {
                 // ran out of things to copy.  This means that the the last destination is the boundary
                 low = to + 1;
-            } else {
+            }
+            else {
                 // ran out of places to copy to.  This means that there are uncopied pivots and the
                 // boundary is at the beginning of those
                 low = from;
             }
-
-//            checkPartition(order, values, pivotValue, start, low, high, end);
 
             // now recurse, but arrange it so we handle the longer limit by tail recursion
             if (low - start < end - high) {
@@ -307,7 +373,8 @@ public class Sort {
                 // this is really a way to do
                 //    quickSort(order, values, high, end, limit);
                 start = high;
-            } else {
+            }
+            else {
                 quickSort(key, values, high, end, limit);
                 // this is really a way to do
                 //    quickSort(order, values, start, low, limit);
@@ -315,7 +382,6 @@ public class Sort {
             }
         }
     }
-
 
     /**
      * Limited range insertion sort.  We assume that no element has to move more than limit steps
@@ -328,7 +394,8 @@ public class Sort {
      * @param limit  The largest amount of disorder
      */
     @SuppressWarnings("SameParameterValue")
-    private static void insertionSort(double[] key, double[][] values, int start, int end, int limit) {
+    private static void insertionSort(double[] key, double[][] values, int start, int end, int limit)
+    {
         // loop invariant: all values start ... i-1 are ordered
         for (int i = start + 1; i < end; i++) {
             double v = key[i];
@@ -350,13 +417,15 @@ public class Sort {
         }
     }
 
-    private static void swap(int[] order, int i, int j) {
+    private static void swap(int[] order, int i, int j)
+    {
         int t = order[i];
         order[i] = order[j];
         order[j] = t;
     }
 
-    private static void swap(int i, int j, double[] key, double[]...values) {
+    private static void swap(int i, int j, double[] key, double[]...values)
+    {
         double t = key[i];
         key[i] = key[j];
         key[j] = t;
@@ -379,33 +448,33 @@ public class Sort {
      * @param high       Values from low to high are equal to the pivot.
      * @param end        Values from high to end are above the pivot.
      */
-    @SuppressWarnings("UnusedDeclaration")
-    public static void checkPartition(int[] order, double[] values, double pivotValue, int start, int low, int high, int end) {
+    public static void checkPartition(int[] order, double[] values, double pivotValue, int start, int low, int high, int end)
+    {
         if (order.length != values.length) {
             throw new IllegalArgumentException("Arguments must be same size");
         }
 
         if (!(start >= 0 && low >= start && high >= low && end >= high)) {
-            throw new IllegalArgumentException(String.format("Invalid indices %d, %d, %d, %d", start, low, high, end));
+            throw new IllegalArgumentException(format("Invalid indices %d, %d, %d, %d", start, low, high, end));
         }
 
         for (int i = 0; i < low; i++) {
             double v = values[order[i]];
             if (v >= pivotValue) {
-                throw new IllegalArgumentException(String.format("Value greater than pivot at %d", i));
+                throw new IllegalArgumentException(format("Value greater than pivot at %d", i));
             }
         }
 
         for (int i = low; i < high; i++) {
             if (values[order[i]] != pivotValue) {
-                throw new IllegalArgumentException(String.format("Non-pivot at %d", i));
+                throw new IllegalArgumentException(format("Non-pivot at %d", i));
             }
         }
 
         for (int i = high; i < end; i++) {
             double v = values[order[i]];
             if (v <= pivotValue) {
-                throw new IllegalArgumentException(String.format("Value less than pivot at %d", i));
+                throw new IllegalArgumentException(format("Value less than pivot at %d", i));
             }
         }
     }
@@ -421,7 +490,8 @@ public class Sort {
      * @param limit  The largest amount of disorder
      */
     @SuppressWarnings("SameParameterValue")
-    private static void insertionSort(int[] order, double[] values, int start, int n, int limit) {
+    private static void insertionSort(int[] order, double[] values, int start, int n, int limit)
+    {
         for (int i = start + 1; i < n; i++) {
             int t = order[i];
             double v = values[order[i]];
@@ -443,8 +513,8 @@ public class Sort {
      *
      * @param order The array to reverse
      */
-    @SuppressWarnings("WeakerAccess")
-    public static void reverse(int[] order) {
+    public static void reverse(int[] order)
+    {
         reverse(order, 0, order.length);
     }
 
@@ -455,8 +525,8 @@ public class Sort {
      * @param offset Where to start reversing.
      * @param length How many elements to reverse
      */
-    @SuppressWarnings("WeakerAccess")
-    public static void reverse(int[] order, int offset, int length) {
+    public static void reverse(int[] order, int offset, int length)
+    {
         for (int i = 0; i < length / 2; i++) {
             int t = order[offset + i];
             order[offset + i] = order[offset + length - i - 1];
@@ -471,8 +541,9 @@ public class Sort {
      * @param offset Where to start reversing.
      * @param length How many elements to reverse
      */
-    @SuppressWarnings({"WeakerAccess", "SameParameterValue"})
-    public static void reverse(double[] order, int offset, int length) {
+    @SuppressWarnings("SameParameterValue")
+    public static void reverse(double[] order, int offset, int length)
+    {
         for (int i = 0; i < length / 2; i++) {
             double t = order[offset + i];
             order[offset + i] = order[offset + length - i - 1];
