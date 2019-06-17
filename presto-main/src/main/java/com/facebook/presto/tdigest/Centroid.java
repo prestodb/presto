@@ -1,4 +1,18 @@
 /*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
  * Licensed to Ted Dunning under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,141 +31,107 @@
 
 package com.facebook.presto.tdigest;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
+import javax.annotation.concurrent.NotThreadSafe;
+
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * A single centroid which represents a number of data points.
  */
-public class Centroid implements Comparable<Centroid>, Serializable {
+@NotThreadSafe
+public class Centroid
+        implements Comparable<Centroid>, Serializable
+{
     private static final AtomicInteger uniqueCount = new AtomicInteger(1);
 
-    private double centroid = 0;
-    private int count = 0;
+    private double centroid;
+    private int count;
 
     // The ID is transient because it must be unique within a given JVM. A new
     // ID should be generated from uniqueCount when a Centroid is deserialized.
     private transient int id;
 
-    private List<Double> actualData = null;
-
-    private Centroid(boolean record) {
-        id = uniqueCount.getAndIncrement();
-        if (record) {
-            actualData = new ArrayList<>();
-        }
-    }
-
-    public Centroid(double x) {
-        this(false);
+    public Centroid(double x)
+    {
         start(x, 1, uniqueCount.getAndIncrement());
     }
 
-    public Centroid(double x, int w) {
-        this(false);
+    public Centroid(double x, int w)
+    {
         start(x, w, uniqueCount.getAndIncrement());
     }
 
-    public Centroid(double x, int w, int id) {
-        this(false);
+    public Centroid(double x, int w, int id)
+    {
         start(x, w, id);
     }
 
-    public Centroid(double x, int id, boolean record) {
-        this(record);
-        start(x, 1, id);
-    }
-
-    Centroid(double x, int w, List<Double> data) {
-        this(x, w);
-        actualData = data;
-    }
-
-    private void start(double x, int w, int id) {
+    private void start(double x, int w, int id)
+    {
         this.id = id;
         add(x, w);
     }
 
-    public void add(double x, int w) {
-        if (actualData != null) {
-            actualData.add(x);
-        }
+    public void add(double x, int w)
+    {
         count += w;
         centroid += w * (x - centroid) / count;
     }
 
-    public double mean() {
+    public double getMean()
+    {
         return centroid;
     }
 
-    public int count() {
+    public int getWeight()
+    {
         return count;
     }
 
-    public int id() {
+    public int getId()
+    {
         return id;
     }
 
     @Override
-    public String toString() {
+    public String toString()
+    {
         return "Centroid{" +
-                "centroid=" + centroid +
+                "mean=" + centroid +
                 ", count=" + count +
                 '}';
     }
 
     @Override
-    public int hashCode() {
+    public int hashCode()
+    {
         return id;
     }
 
     @Override
-    public int compareTo(@SuppressWarnings("NullableProblems") Centroid o) {
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Centroid centroid = (Centroid) o;
+        return this.centroid == centroid.getMean() && this.count == centroid.getWeight();
+    }
+
+    @Override
+    public int compareTo(Centroid o)
+    {
+        requireNonNull(o);
         int r = Double.compare(centroid, o.centroid);
         if (r == 0) {
             r = id - o.id;
         }
         return r;
-    }
-
-    public List<Double> data() {
-        return actualData;
-    }
-
-    @SuppressWarnings("WeakerAccess")
-    public void insertData(double x) {
-        if (actualData == null) {
-            actualData = new ArrayList<>();
-        }
-        actualData.add(x);
-    }
-
-    public static Centroid createWeighted(double x, int w, Iterable<? extends Double> data) {
-        Centroid r = new Centroid(data != null);
-        r.add(x, w, data);
-        return r;
-    }
-
-    public void add(double x, int w, Iterable<? extends Double> data) {
-        if (actualData != null) {
-            if (data != null) {
-                for (Double old : data) {
-                    actualData.add(old);
-                }
-            } else {
-                actualData.add(x);
-            }
-        }
-        centroid = AbstractTDigest.weightedAverage(centroid, count, x, w);
-        count += w;
-    }
-
-    private void readObject(ObjectInputStream in) throws ClassNotFoundException, IOException {
-        in.defaultReadObject();
-        id = uniqueCount.getAndIncrement();
     }
 }
