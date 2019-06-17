@@ -37,12 +37,10 @@ public final class ClassificationPrecisionAggregation
 
         BlockBuilder entryBuilder = out.beginBlockEntry();
         while (resultsIterator.hasNext()) {
-            final BucketResult result = resultsIterator.next();
-            final double remainingTrueWeight = result.totalTrueWeight - result.runningTrueWeight;
-            final double remainingFalseWeight = result.totalFalseWeight - result.runningFalseWeight;
+            BucketResult result = resultsIterator.next();
             DoubleType.DOUBLE.writeDouble(
                     entryBuilder,
-                    remainingTrueWeight / (remainingTrueWeight + remainingFalseWeight));
+                    result.getTruePositive() / (result.getTruePositive() + result.getFalseNegative()));
         }
         out.closeEntry();
     }
