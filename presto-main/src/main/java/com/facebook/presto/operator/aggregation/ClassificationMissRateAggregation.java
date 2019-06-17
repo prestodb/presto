@@ -24,7 +24,7 @@ import com.facebook.presto.spi.type.DoubleType;
 import java.util.Iterator;
 
 @AggregationFunction("classification_miss_rate")
-@Description("Computes miss-rate for precision-recall curves")
+@Description("Computes miss-rate (false-negative rate) for binary classification")
 public final class ClassificationMissRateAggregation
         extends PrecisionRecallAggregation
 {
@@ -37,10 +37,10 @@ public final class ClassificationMissRateAggregation
 
         BlockBuilder entryBuilder = out.beginBlockEntry();
         while (resultsIterator.hasNext()) {
-            final BucketResult result = resultsIterator.next();
+            BucketResult result = resultsIterator.next();
             DoubleType.DOUBLE.writeDouble(
                     entryBuilder,
-                    result.runningFalseWeight / result.totalTrueWeight);
+                    result.getFalseNegative() / result.getPositive());
         }
         out.closeEntry();
     }

@@ -23,12 +23,12 @@ import com.facebook.presto.spi.type.DoubleType;
 
 import java.util.Iterator;
 
-@AggregationFunction("classification_thresholds")
-@Description("Computes thresholds for metrics of binary classification")
-public final class ClassificationThresholdsAggregation
+@AggregationFunction("classification_fall_out")
+@Description("Computes fall-out (false-positive rate) for binary classification")
+public final class ClassificationFallOutAggregation
         extends PrecisionRecallAggregation
 {
-    private ClassificationThresholdsAggregation() {}
+    private ClassificationFallOutAggregation() {}
 
     @OutputFunction("array(double)")
     public static void output(@AggregationState PrecisionRecallState state, BlockBuilder out)
@@ -40,7 +40,7 @@ public final class ClassificationThresholdsAggregation
             BucketResult result = resultsIterator.next();
             DoubleType.DOUBLE.writeDouble(
                     entryBuilder,
-                    result.getThreshold());
+                    result.getFalsePositive() / result.getNegative());
         }
         out.closeEntry();
     }
