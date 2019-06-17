@@ -87,6 +87,7 @@ import static com.facebook.presto.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.LikeFunctions.isLikePattern;
 import static com.facebook.presto.type.LikeFunctions.unescapeLiteralLikePattern;
+import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -731,6 +732,13 @@ public class RowExpressionInterpreter
             checkArgument(resolution.isLikeFunction(callExpression.getFunctionHandle()));
             checkArgument(callExpression.getArguments().size() == 2);
             RowExpression likePatternExpression = callExpression.getArguments().get(1);
+            if (optimize) {
+                // Do not optimize pattern into constant which is not serializable.
+                return notChanged();
+            }
+            if (likePatternExpression instanceof ConstantExpression && likePatternExpression.getType().equals(LIKE_PATTERN)) {
+                return notChanged();
+            }
             checkArgument(
                     (likePatternExpression instanceof CallExpression &&
                             (((CallExpression) likePatternExpression).getFunctionHandle().equals(resolution.likePatternFunction()) ||
