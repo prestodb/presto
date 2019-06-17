@@ -34,6 +34,7 @@ import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.annotations.VisibleForTesting;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
@@ -298,7 +299,7 @@ public class HivePageSource
         return delegate.getSystemMemoryUsage();
     }
 
-    protected void closeWithSuppression(Throwable throwable)
+    private void closeWithSuppression(Throwable throwable)
     {
         requireNonNull(throwable, "throwable is null");
         try {
@@ -312,7 +313,8 @@ public class HivePageSource
         }
     }
 
-    public ConnectorPageSource getPageSource()
+    @VisibleForTesting
+    ConnectorPageSource getPageSource()
     {
         return delegate;
     }
