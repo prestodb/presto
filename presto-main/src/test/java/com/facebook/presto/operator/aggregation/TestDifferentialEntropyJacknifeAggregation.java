@@ -45,19 +45,11 @@ public class TestDifferentialEntropyJacknifeAggregation
             final ArrayList<Double> subWeights = new ArrayList<Double>(weights);
             subWeights.remove(i);
 
-<<<<<<< HEAD
             double holdOutEntropy = (samples.size() - 1) *
                     super.getEntropyFromSamplesAndWeights(subSamples, subWeights) /
                     samples.size();
             entropy -= holdOutEntropy;
         }
-=======
-            entropy -= (samples.size() - 1) *
-                    super.getEntropyFromSamplesAndWeights(subSamples, subWeights) /
-                    samples.size();
-        }
-
->>>>>>> differential_entropy_udf
         return entropy;
     }
 }

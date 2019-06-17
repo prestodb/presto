@@ -35,18 +35,23 @@ Serializes sample-entropy states.
 public class StateSerializer
         implements AccumulatorStateSerializer<State>
 {
+    /*
     public static StateStrategy create(
-            long size)
+            long size,
+            boolean hasWeight)
     {
-        throw new InvalidParameterException(String.format("Unsupported"));
+        return hasWeight ?
+                new WeightedReservoirSampleStateStrategy(size) :
+                new UnweightedReservoirSampleStateStrategy(size);
     }
 
     public static StateStrategy create(
             long size,
             String method)
     {
-        throw new InvalidParameterException(String.format("Unsupported"));
+        return new UnweightedReservoirSampleStateStrategy(size);
     }
+    */
 
     public static StateStrategy create(
             long size,
@@ -54,6 +59,11 @@ public class StateSerializer
             double min,
             double max)
     {
+        if (method.equalsIgnoreCase("unweighted_reservoir") ||
+                method.equalsIgnoreCase("unweighted_reservoir")) {
+            throw new InvalidParameterException("Methods and arguments mismatch");
+        }
+
         if (method.equalsIgnoreCase("fixed_histogram_mle")) {
             return new FixedHistogramMLEStateStrategy(size, min, max);
         }
@@ -67,6 +77,26 @@ public class StateSerializer
 
     public static void validate(StateStrategy strategy, String method)
     {
+        if (method.equalsIgnoreCase("unweighted_reservoir")) {
+            if (!(strategy instanceof UnweightedReservoirSampleStateStrategy)) {
+                throw new PrestoException(
+                        INVALID_FUNCTION_ARGUMENT,
+                        "Inconsistent method");
+            }
+
+            return;
+        }
+
+        if (method.equalsIgnoreCase("weighted_reservoir")) {
+            if (!(strategy instanceof WeightedReservoirSampleStateStrategy)) {
+                throw new PrestoException(
+                        INVALID_FUNCTION_ARGUMENT,
+                        "Inconsistent method");
+            }
+
+            return;
+        }
+
         if (method.equalsIgnoreCase("fixed_histogram_mle")) {
             if (!(strategy instanceof FixedHistogramMLEStateStrategy)) {
                 throw new PrestoException(
@@ -86,17 +116,40 @@ public class StateSerializer
 
             return;
         }
-
         throw new InvalidParameterException("unknown method");
     }
 
     public static void validate(StateStrategy strategy)
     {
+        if (strategy instanceof UnweightedReservoirSampleStateStrategy) {
+            return;
+        }
+
         throw new InvalidParameterException(String.format("Unsupported"));
     }
 
     public static void combine(StateStrategy target, StateStrategy source)
     {
+        if (target instanceof UnweightedReservoirSampleStateStrategy) {
+            if (!(source instanceof UnweightedReservoirSampleStateStrategy)) {
+                throw new PrestoException(
+                        INVALID_FUNCTION_ARGUMENT,
+                        "Inconsistent strategy");
+            }
+            ((UnweightedReservoirSampleStateStrategy) target).mergeWith((UnweightedReservoirSampleStateStrategy) source);
+            return;
+        }
+
+        if (target instanceof WeightedReservoirSampleStateStrategy) {
+            if (!(source instanceof WeightedReservoirSampleStateStrategy)) {
+                throw new PrestoException(
+                        INVALID_FUNCTION_ARGUMENT,
+                        "Inconsistent strategy");
+            }
+            ((WeightedReservoirSampleStateStrategy) target).mergeWith((WeightedReservoirSampleStateStrategy) source);
+            return;
+        }
+
         if (target instanceof FixedHistogramMLEStateStrategy) {
             if (!(source instanceof FixedHistogramMLEStateStrategy)) {
                 throw new PrestoException(
@@ -140,11 +193,17 @@ public class StateSerializer
         if (strategy == null) {
             sliceOut.appendInt(0);
         }
-        else if (strategy instanceof FixedHistogramMLEStateStrategy) {
+        else if (strategy instanceof UnweightedReservoirSampleStateStrategy) {
+            sliceOut.appendInt(1);
+        }
+        else if (strategy instanceof WeightedReservoirSampleStateStrategy) {
             sliceOut.appendInt(2);
         }
-        else if (strategy instanceof FixedHistogramJacknifeStateStrategy) {
+        else if (strategy instanceof FixedHistogramMLEStateStrategy) {
             sliceOut.appendInt(3);
+        }
+        else if (strategy instanceof FixedHistogramJacknifeStateStrategy) {
+            sliceOut.appendInt(4);
         }
         else {
             throw new InvalidParameterException("unknown method in serialize");
@@ -190,10 +249,16 @@ public class StateSerializer
         if (method == 0) {
             return null;
         }
+        if (method == 1) {
+            return new UnweightedReservoirSampleStateStrategy(input);
+        }
         if (method == 2) {
-            return new FixedHistogramMLEStateStrategy(input);
+            return new WeightedReservoirSampleStateStrategy(input);
         }
         if (method == 3) {
+            return new FixedHistogramMLEStateStrategy(input);
+        }
+        if (method == 4) {
             return new FixedHistogramJacknifeStateStrategy(input);
         }
         throw new InvalidParameterException("unknown method in deserialize");

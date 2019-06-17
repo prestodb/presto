@@ -86,7 +86,6 @@ public abstract class TestDifferentialEntropyStateHistogramBasedStrategy
     }
 
     @Test
-<<<<<<< HEAD
     public void normal()
     {
         final StateStrategy strategy =
@@ -103,8 +102,6 @@ public abstract class TestDifferentialEntropyStateHistogramBasedStrategy
     }
 
     @Test
-=======
->>>>>>> differential_entropy_udf
     public void outOfBounds()
     {
         final StateStrategy strategy =

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.differentialentropy;
 
-import com.facebook.presto.operator.aggregation.fixedhistogram.FixedDoubleBreakdownHistogram;
+import com.facebook.presto.operator.aggregation.reservoirsample.WeightedDoubleReservoirSample;
 import com.google.common.collect.Streams;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
@@ -22,30 +22,29 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.operator.aggregation.differentialentropy.FixedHistogramStateStrategyUtils.getXLogX;
-import static com.facebook.presto.operator.aggregation.differentialentropy.FixedHistogramStateStrategyUtils.throwIfIllegalParameters;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
 /*
-Calculates sample entropy using jacknife estimates on a fixed histogram.
-See http://cs.brown.edu/~pvaliant/unseen_nips.pdf.
+Tmp Ami
  */
-public class FixedHistogramJacknifeStateStrategy
+public class WeightedReservoirSampleStateStrategy
         implements StateStrategy
 {
-    protected final FixedDoubleBreakdownHistogram histogram;
+    protected final WeightedDoubleReservoirSample reservoir;
 
-    public FixedHistogramJacknifeStateStrategy(long bucketCount, double min, double max)
+    public WeightedReservoirSampleStateStrategy(long size)
     {
-        histogram = new FixedDoubleBreakdownHistogram((int) bucketCount, min, max);
+        reservoir = new WeightedDoubleReservoirSample((int) size);
     }
 
-    protected FixedHistogramJacknifeStateStrategy(FixedHistogramJacknifeStateStrategy other)
+    protected WeightedReservoirSampleStateStrategy(WeightedReservoirSampleStateStrategy other)
     {
-        histogram = other.getBreakdownHistogram().clone();
+        reservoir = other.getReservoir().clone();
     }
 
-    public FixedHistogramJacknifeStateStrategy(SliceInput input)
+    public WeightedReservoirSampleStateStrategy(SliceInput input)
     {
-        histogram = new FixedDoubleBreakdownHistogram(input);
+        reservoir = new WeightedDoubleReservoirSample(input);
     }
 
     @Override
@@ -56,37 +55,33 @@ public class FixedHistogramJacknifeStateStrategy
             double min,
             double max)
     {
-        throwIfIllegalParameters(
-                histogram.getBucketCount(),
-                histogram.getMin(),
-                histogram.getMax(),
-                bucketCount,
-                sample,
-                weight,
-                min,
-                max);
+        throw new IllegalArgumentException("Unsupported for this type");
     }
 
     @Override
     public void validateParameters(
-            long bucketCount,
+            long size,
             double sample,
             double weight)
     {
-        throwIfIllegalParameters(
-                histogram.getBucketCount(),
-                histogram.getMin(),
-                histogram.getMax(),
-                bucketCount,
-                sample,
-                weight);
+        if (weight < 0.0) {
+            throw new PrestoException(
+                    INVALID_FUNCTION_ARGUMENT,
+                    "Weight must be non-negative");
+        }
+
+        if (size != reservoir.getMaxSamples()) {
+            throw new PrestoException(
+                    INVALID_FUNCTION_ARGUMENT,
+                    "Inconsistent size");
+        }
     }
 
     @Override
     public void mergeWith(StateStrategy other)
     {
-        getBreakdownHistogram()
-                .mergeWith(((FixedHistogramJacknifeStateStrategy) other).getBreakdownHistogram());
+        getReservoir()
+                .mergeWith(((WeightedReservoirSampleStateStrategy) other).getReservoir());
     }
 
     @Override
@@ -101,7 +96,7 @@ public class FixedHistogramJacknifeStateStrategy
         Map<Double, Double> bucketWeights = Streams.stream(getBreakdownHistogram().iterator()).collect(
                 Collectors.groupingBy(
                         FixedDoubleBreakdownHistogram.BucketWeight::getLeft,
-                        Collectors.summingDouble(e -> e.getCount() * e.getWeight())));
+                        Collectors.summingDouble(FixedDoubleBreakdownHistogram.BucketWeight::getWeight)));
         double sumW = bucketWeights.values().stream().mapToDouble(Double::doubleValue).sum();
         if (sumW == 0.0) {
             return 0.0;
@@ -113,6 +108,7 @@ public class FixedHistogramJacknifeStateStrategy
                 bucketWeights.values().stream().mapToDouble(w -> w == 0.0 ? 0.0 : w * Math.log(w)).sum();
 
         double entropy = n * calculateEntropy(histogram.getWidth(), sumW, sumWLogW);
+        System.out.println("orig ent " + calculateEntropy(histogram.getWidth(), sumW, sumWLogW));
         entropy -= Streams.stream(getBreakdownHistogram().iterator()).mapToDouble(
                 e -> {
                     double bucketWeight = bucketWeights.get(e.getLeft());
@@ -120,7 +116,7 @@ public class FixedHistogramJacknifeStateStrategy
                         return 0.0;
                     }
                     return getHoldOutEntropy(
-                        n,
+                        e.getCount(),
                         e.getRight() - e.getLeft(),
                         sumW,
                         sumWLogW,
@@ -181,14 +177,14 @@ public class FixedHistogramJacknifeStateStrategy
         getBreakdownHistogram().serialize(out);
     }
 
-    public FixedDoubleBreakdownHistogram getBreakdownHistogram()
+    public WeightedDoubleReservoirSample getReservoir()
     {
-        return histogram;
+        return reservoir;
     }
 
     @Override
     public StateStrategy clone()
     {
-        return new FixedHistogramJacknifeStateStrategy(this);
+        return new WeightedReservoirSampleStateStrategy(this);
     }
 }
