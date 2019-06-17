@@ -134,7 +134,7 @@ public class Centroid
             return false;
         }
         Centroid centroid = (Centroid) o;
-        return this.centroid == centroid.centroid && this.count == centroid.count();
+        return this.centroid == centroid.mean() && this.count == centroid.count();
     }
 
     @Override

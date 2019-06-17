@@ -17,15 +17,10 @@
 
 package com.facebook.presto.operator.scalar;
 
-import com.google.common.base.Preconditions;
-import io.airlift.slice.Slice;
-
 import java.io.Serializable;
-import java.util.ArrayList;
+import java.nio.ByteBuffer;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
-import java.util.Random;
 
 /**
  * Adaptive histogram based on something like streaming k-means crossed with Q-digest.
@@ -46,16 +41,10 @@ import java.util.Random;
  *
  * - easy to adapt for use with map-reduce
  */
-
-public abstract class TDigest
-        implements Serializable
-{
+public abstract class TDigest implements Serializable {
     protected ScaleFunction scale = ScaleFunction.K_2;
     double min = Double.POSITIVE_INFINITY;
     double max = Double.NEGATIVE_INFINITY;
-
-    final Random gen = new Random();
-    boolean recordAllData;
 
     /**
      * Creates an {@link MergingDigest}.  This is generally the best known implementation right now.
@@ -65,9 +54,21 @@ public abstract class TDigest
      * @return the MergingDigest
      */
     @SuppressWarnings("WeakerAccess")
-    public static TDigest createMergingDigest(double compression)
-    {
+    public static TDigest createMergingDigest(double compression) {
         return new MergingDigest(compression);
+    }
+
+    /**
+     * Creates a TDigest of whichever type is the currently recommended type.  MergingDigest is generally the best
+     * known implementation right now.
+     *
+     * @param compression The compression parameter.  100 is a common value for normal uses.  1000 is extremely large.
+     *                    The number of centroids retained will be a smallish (usually less than 10) multiple of this number.
+     * @return the TDigest
+     */
+    @SuppressWarnings({"unused", "WeakerAccess", "SameParameterValue"})
+    public static TDigest createDigest(double compression) {
+        return createMergingDigest(compression);
     }
 
     /**
@@ -78,34 +79,13 @@ public abstract class TDigest
      */
     public abstract void add(double x, int w);
 
-    abstract void add(double x, int w, Centroid base);
-
-    public void add(double x)
-    {
-        add(x, 1);
-    }
-
-    public void add(TDigest other)
-    {
-        List<Centroid> tmp = new ArrayList<>();
-        for (Centroid centroid : other.centroids()) {
-            tmp.add(centroid);
-        }
-
-        Collections.shuffle(tmp, gen);
-        for (Centroid centroid : tmp) {
-            add(centroid.mean(), centroid.count(), centroid);
-        }
-    }
-
-    public abstract void add(List<? extends TDigest> others);
-
-    final void checkValue(double x)
-    {
+    final void checkValue(double x) {
         if (Double.isNaN(x)) {
             throw new IllegalArgumentException("Cannot add NaN");
         }
     }
+
+    public abstract void add(List<? extends TDigest> others);
 
     /**
      * Re-examines a t-digest to determine whether some centroids are redundant.  If your data are
@@ -175,8 +155,7 @@ public abstract class TDigest
      */
     public abstract int smallByteSize();
 
-    public void setScaleFunction(ScaleFunction scaleFunction)
-    {
+    public void setScaleFunction(ScaleFunction scaleFunction) {
         if (scaleFunction.toString().endsWith("NO_NORM")) {
             throw new IllegalArgumentException(
                     String.format("Can't use %s as scale with %s", scaleFunction, this.getClass()));
@@ -185,71 +164,54 @@ public abstract class TDigest
     }
 
     /**
-     * Same as {@link #weightedAverageSorted(double, double, double, double)} but flips
-     * the order of the variables if <code>x2</code> is greater than
-     * <code>x1</code>.
-     */
-    static double weightedAverage(double x1, double w1, double x2, double w2)
-    {
-        if (x1 <= x2) {
-            return weightedAverageSorted(x1, w1, x2, w2);
-        }
-        else {
-            return weightedAverageSorted(x2, w2, x1, w1);
-        }
-    }
-
-    /**
-     * Compute the weighted average between <code>x1</code> with a weight of
-     * <code>w1</code> and <code>x2</code> with a weight of <code>w2</code>.
-     * This expects <code>x1</code> to be less than or equal to <code>x2</code>
-     * and is guaranteed to return a number between <code>x1</code> and
-     * <code>x2</code>.
-     */
-    private static double weightedAverageSorted(double x1, double w1, double x2, double w2)
-    {
-        Preconditions.checkArgument(x1 <= x2, "error");
-        final double x = (x1 * w1 + x2 * w2) / (w1 + w2);
-        return Math.max(x1, Math.min(x, x2));
-    }
-
-    /**
-     * Serialize this TDigest into a Slice.  Note that the serialization used is
+     * Serialize this TDigest into a byte buffer.  Note that the serialization used is
      * very straightforward and is considerably larger than strictly necessary.
      *
-     * @return slice The Slice representation of the serialized TDigest.
+     * @param buf The byte buffer into which the TDigest should be serialized.
      */
-    public abstract Slice serialize();
+    public abstract void asBytes(ByteBuffer buf);
 
     /**
-     * Sets up so that all centroids will record all data assigned to them.  For testing only, really.
-     */
-    public TDigest recordAllData()
-    {
-        recordAllData = true;
-        return this;
-    }
-
-    public boolean isRecording()
-    {
-        return recordAllData;
-    }
-
-    /**
-     * Adds a sample to a histogram.
+     * Serialize this TDigest into a byte buffer.  Some simple compression is used
+     * such as using variable byte representation to store the centroid weights and
+     * using delta-encoding on the centroid means so that floats can be reasonably
+     * used to store the centroid means.
      *
-     * @param x The value to add.
+     * @param buf The byte buffer into which the TDigest should be serialized.
      */
+    public abstract void asSmallBytes(ByteBuffer buf);
+
+    /**
+     * Tell this TDigest to record the original data as much as possible for test
+     * purposes.
+     *
+     * @return This TDigest so that configurations can be done in fluent style.
+     */
+    public abstract TDigest recordAllData();
+
+    public abstract boolean isRecording();
+
+    /**
+     * Add a sample to this TDigest.
+     *
+     * @param x The data value to add
+     */
+    public abstract void add(double x);
+
+    /**
+     * Add all of the centroids of another TDigest to this one.
+     *
+     * @param other The other TDigest
+     */
+    public abstract void add(TDigest other);
 
     public abstract int centroidCount();
 
-    public double getMin()
-    {
+    public double getMin() {
         return min;
     }
 
-    public double getMax()
-    {
+    public double getMax() {
         return max;
     }
 
@@ -257,8 +219,7 @@ public abstract class TDigest
      * Over-ride the min and max values for testing purposes
      */
     @SuppressWarnings("SameParameterValue")
-    void setMinMax(double min, double max)
-    {
+    void setMinMax(double min, double max) {
         this.min = min;
         this.max = max;
     }

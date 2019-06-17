@@ -17,13 +17,7 @@
 
 package com.facebook.presto.operator.scalar;
 
-import com.google.common.base.Preconditions;
-import io.airlift.slice.BasicSliceInput;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceInput;
-import io.airlift.slice.SliceOutput;
-
+import java.nio.ByteBuffer;
 import java.util.AbstractCollection;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -67,20 +61,17 @@ import java.util.List;
  * since even with the overhead, the memory cost is less than 40 bytes per centroid which is much less than half
  * what the AVLTreeDigest uses and no dynamic allocation is required at all.
  */
-
-public class MergingDigest
-        extends TDigest
-{
-    private int mergeCount;
+public class MergingDigest extends AbstractTDigest {
+    private int mergeCount = 0;
 
     private final double publicCompression;
     private final double compression;
 
     // points to the first unused centroid
-    private int activeCentroids;
+    private int lastUsedCell;
 
     // sum_i weight[i]  See also unmergedWeight
-    private double totalWeight;
+    private double totalWeight = 0;
 
     // number of points that have been added to each merged centroid
     private final double[] weight;
@@ -88,17 +79,18 @@ public class MergingDigest
     private final double[] mean;
 
     // history of all data added to centroids (for testing purposes)
-    private List<List<Double>> data;
+    private List<List<Double>> data = null;
 
     // sum_i tempWeight[i]
-    private double unmergedWeight;
+    private double unmergedWeight = 0;
 
     // this is the index of the next temporary centroid
-    // this is a more Java-like convention than activeCentroids uses
-    private int tempUsed;
+    // this is a more Java-like convention than lastUsedCell uses
+    private int tempUsed = 0;
     private final double[] tempWeight;
     private final double[] tempMean;
-    private List<List<Double>> tempData;
+    private List<List<Double>> tempData = null;
+
 
     // array used for sorting the temp centroids.  This is a field
     // to avoid allocations during operation
@@ -123,8 +115,7 @@ public class MergingDigest
      * @param compression The compression factor
      */
     @SuppressWarnings("WeakerAccess")
-    public MergingDigest(double compression)
-    {
+    public MergingDigest(double compression) {
         this(compression, -1);
     }
 
@@ -132,11 +123,10 @@ public class MergingDigest
      * If you know the size of the temporary buffer for incoming points, you can use this entry point.
      *
      * @param compression Compression factor for t-digest.  Same as 1/\delta in the paper.
-     * @param bufferSize How many samples to retain before merging.
+     * @param bufferSize  How many samples to retain before merging.
      */
     @SuppressWarnings("WeakerAccess")
-    public MergingDigest(double compression, int bufferSize)
-    {
+    public MergingDigest(double compression, int bufferSize) {
         // we can guarantee that we only need ceiling(compression).
         this(compression, bufferSize, -1);
     }
@@ -145,12 +135,11 @@ public class MergingDigest
      * Fully specified constructor.  Normally only used for deserializing a buffer t-digest.
      *
      * @param compression Compression factor
-     * @param bufferSize Number of temporary centroids
-     * @param size Size of main buffer
+     * @param bufferSize  Number of temporary centroids
+     * @param size        Size of main buffer
      */
     @SuppressWarnings("WeakerAccess")
-    public MergingDigest(double compression, int bufferSize, int size)
-    {
+    public MergingDigest(double compression, int bufferSize, int size) {
         // ensure compression >= 10
         // default size = 2 * ceil(compression)
         // default bufferSize = 5 * size
@@ -169,9 +158,7 @@ public class MergingDigest
         double sizeFudge = 0;
         if (useWeightLimit) {
             sizeFudge = 10;
-            if (compression < 30) {
-                sizeFudge += 20;
-            }
+            if (compression < 30) sizeFudge += 20;
         }
 
         // default size
@@ -179,6 +166,7 @@ public class MergingDigest
 
         // default buffer
         if (bufferSize == -1) {
+            // TODO update with current numbers
             // having a big buffer is good for speed
             // experiments show bufferSize = 1 gives half the performance of bufferSize=10
             // bufferSize = 2 gives 40% worse performance than 10
@@ -238,15 +226,14 @@ public class MergingDigest
         tempMean = new double[bufferSize];
         order = new int[bufferSize];
 
-        activeCentroids = 0;
+        lastUsedCell = 0;
     }
 
     /**
      * Turns on internal data recording.
      */
     @Override
-    public TDigest recordAllData()
-    {
+    public TDigest recordAllData() {
         super.recordAllData();
         data = new ArrayList<>();
         tempData = new ArrayList<>();
@@ -254,34 +241,31 @@ public class MergingDigest
     }
 
     @Override
-    void add(double mean, int weight, Centroid base)
-    {
-        add(mean, weight, base.data());
+    void add(double x, int w, Centroid base) {
+        add(x, w, base.data());
     }
 
     @Override
-    public void add(double mean, int weight)
-    {
-        add(mean, weight, (List<Double>) null);
+    public void add(double x, int w) {
+        add(x, w, (List<Double>) null);
     }
 
-    private void add(double mean, int weight, List<Double> history)
-    {
-        if (Double.isNaN(mean)) {
+    private void add(double x, int w, List<Double> history) {
+        if (Double.isNaN(x)) {
             throw new IllegalArgumentException("Cannot add NaN to t-digest");
         }
-        if (tempUsed >= tempWeight.length - activeCentroids - 1) {
+        if (tempUsed >= tempWeight.length - lastUsedCell - 1) {
             mergeNewValues();
         }
         int where = tempUsed++;
-        tempWeight[where] = weight;
-        tempMean[where] = mean;
-        unmergedWeight += weight;
-        if (mean < min) {
-            min = mean;
+        tempWeight[where] = w;
+        tempMean[where] = x;
+        unmergedWeight += w;
+        if (x < min) {
+            min = x;
         }
-        if (mean > max) {
-            max = mean;
+        if (x > max) {
+            max = x;
         }
 
         if (data != null) {
@@ -292,89 +276,83 @@ public class MergingDigest
                 tempData.add(new ArrayList<Double>());
             }
             if (history == null) {
-                history = Collections.singletonList(mean);
+                history = Collections.singletonList(x);
             }
             tempData.get(where).addAll(history);
         }
     }
 
-    private void add(double[] mean, double[] weight, int count, List<List<Double>> data)
-    {
-        if (mean.length != weight.length) {
+    private void add(double[] m, double[] w, int count, List<List<Double>> data) {
+        if (m.length != w.length) {
             throw new IllegalArgumentException("Arrays not same length");
         }
-        if (mean.length < count + activeCentroids) {
+        if (m.length < count + lastUsedCell) {
             // make room to add existing centroids
-            double[] mean1 = new double[count + activeCentroids];
-            System.arraycopy(mean, 0, mean1, 0, count);
-            mean = mean1;
-            double[] weight1 = new double[count + activeCentroids];
-            System.arraycopy(weight, 0, weight1, 0, count);
-            weight = weight1;
+            double[] m1 = new double[count + lastUsedCell];
+            System.arraycopy(m, 0, m1, 0, count);
+            m = m1;
+            double[] w1 = new double[count + lastUsedCell];
+            System.arraycopy(w, 0, w1, 0, count);
+            w = w1;
         }
         double total = 0;
         for (int i = 0; i < count; i++) {
-            total += weight[i];
+            total += w[i];
         }
-        merge(mean, weight, count, data, null, total, false, compression);
+        merge(m, w, count, data, null, total, false, compression);
     }
 
     @Override
-    public void add(List<? extends TDigest> others)
-    {
+    public void add(List<? extends TDigest> others) {
         if (others.size() == 0) {
             return;
         }
-        int size = activeCentroids;
+        int size = lastUsedCell;
         for (TDigest other : others) {
-            // other.compress();
+            other.compress();
             size += other.centroidCount();
         }
 
-        double[] mean = new double[size];
-        double[] weight = new double[size];
+        double[] m = new double[size];
+        double[] w = new double[size];
         List<List<Double>> data;
         if (recordAllData) {
             data = new ArrayList<>();
-        }
-        else {
+        } else {
             data = null;
         }
         int offset = 0;
         for (TDigest other : others) {
             if (other instanceof MergingDigest) {
-                MergingDigest digest = (MergingDigest) other;
-                System.arraycopy(digest.mean, 0, mean, offset, digest.activeCentroids);
-                System.arraycopy(digest.weight, 0, weight, offset, digest.activeCentroids);
+                MergingDigest md = (MergingDigest) other;
+                System.arraycopy(md.mean, 0, m, offset, md.lastUsedCell);
+                System.arraycopy(md.weight, 0, w, offset, md.lastUsedCell);
                 if (data != null) {
                     for (Centroid centroid : other.centroids()) {
                         data.add(centroid.data());
                     }
                 }
-                offset += digest.activeCentroids;
-            }
-            else {
+                offset += md.lastUsedCell;
+            } else {
                 for (Centroid centroid : other.centroids()) {
-                    mean[offset] = centroid.mean();
-                    weight[offset] = centroid.count();
+                    m[offset] = centroid.mean();
+                    w[offset] = centroid.count();
                     if (recordAllData) {
-                        Preconditions.checkArgument(data != null, "data is null");
+                        assert data != null;
                         data.add(centroid.data());
                     }
                     offset++;
                 }
             }
         }
-        add(mean, weight, size, data);
+        add(m, w, size, data);
     }
 
-    private void mergeNewValues()
-    {
+    private void mergeNewValues() {
         mergeNewValues(false, compression);
     }
 
-    private void mergeNewValues(boolean force, double compression)
-    {
+    private void mergeNewValues(boolean force, double compression) {
         if (totalWeight == 0 && unmergedWeight == 0) {
             // seriously nothing to do
             return;
@@ -394,15 +372,14 @@ public class MergingDigest
 
     private void merge(double[] incomingMean, double[] incomingWeight, int incomingCount,
             List<List<Double>> incomingData, int[] incomingOrder,
-            double unmergedWeight, boolean runBackwards, double compression)
-    {
-        System.arraycopy(mean, 0, incomingMean, incomingCount, activeCentroids);
-        System.arraycopy(weight, 0, incomingWeight, incomingCount, activeCentroids);
-        incomingCount += activeCentroids;
+            double unmergedWeight, boolean runBackwards, double compression) {
+        System.arraycopy(mean, 0, incomingMean, incomingCount, lastUsedCell);
+        System.arraycopy(weight, 0, incomingWeight, incomingCount, lastUsedCell);
+        incomingCount += lastUsedCell;
 
         if (incomingData != null) {
-            for (int i = 0; i < activeCentroids; i++) {
-                Preconditions.checkArgument(data != null, "data is null");
+            for (int i = 0; i < lastUsedCell; i++) {
+                assert data != null;
                 incomingData.add(data.get(i));
             }
             data = new ArrayList<>();
@@ -418,84 +395,82 @@ public class MergingDigest
 
         totalWeight += unmergedWeight;
 
-        Preconditions.checkArgument((activeCentroids + incomingCount) > 0, "error");
-        activeCentroids = 0;
-        mean[activeCentroids] = incomingMean[incomingOrder[0]];
-        weight[activeCentroids] = incomingWeight[incomingOrder[0]];
-        double weightSoFar = 0;
+        assert (lastUsedCell + incomingCount) > 0;
+        lastUsedCell = 0;
+        mean[lastUsedCell] = incomingMean[incomingOrder[0]];
+        weight[lastUsedCell] = incomingWeight[incomingOrder[0]];
+        double wSoFar = 0;
         if (data != null) {
-            Preconditions.checkArgument(data != null, "data is null");
+            assert incomingData != null;
             data.add(incomingData.get(incomingOrder[0]));
         }
+
 
         // weight will contain all zeros after this loop
 
         double normalizer = scale.normalizer(compression, totalWeight);
         double k1 = scale.k(0, normalizer);
-        double weightLimit = totalWeight * scale.q(k1 + 1, normalizer);
+        double wLimit = totalWeight * scale.q(k1 + 1, normalizer);
         for (int i = 1; i < incomingCount; i++) {
             int ix = incomingOrder[i];
-            double proposedWeight = weight[activeCentroids] + incomingWeight[ix];
-            double projectedWeight = weightSoFar + proposedWeight;
+            double proposedWeight = weight[lastUsedCell] + incomingWeight[ix];
+            double projectedW = wSoFar + proposedWeight;
             boolean addThis;
             if (useWeightLimit) {
-                double q0 = weightSoFar / totalWeight;
-                double q2 = (weightSoFar + proposedWeight) / totalWeight;
+                double q0 = wSoFar / totalWeight;
+                double q2 = (wSoFar + proposedWeight) / totalWeight;
                 addThis = proposedWeight <= totalWeight * Math.min(scale.max(q0, normalizer), scale.max(q2, normalizer));
-            }
-            else {
-                addThis = projectedWeight <= weightLimit;
+            } else {
+                addThis = projectedW <= wLimit;
             }
 
             if (addThis) {
                 // next point will fit
                 // so merge into existing centroid
-                weight[activeCentroids] += incomingWeight[ix];
-                mean[activeCentroids] = mean[activeCentroids] + (incomingMean[ix] - mean[activeCentroids]) * incomingWeight[ix] / weight[activeCentroids];
+                weight[lastUsedCell] += incomingWeight[ix];
+                mean[lastUsedCell] = mean[lastUsedCell] + (incomingMean[ix] - mean[lastUsedCell]) * incomingWeight[ix] / weight[lastUsedCell];
                 incomingWeight[ix] = 0;
 
                 if (data != null) {
-                    while (data.size() <= activeCentroids) {
+                    while (data.size() <= lastUsedCell) {
                         data.add(new ArrayList<Double>());
                     }
-                    Preconditions.checkArgument(incomingData != null, "data is null");
-                    Preconditions.checkArgument(data.get(activeCentroids) != incomingData.get(ix), "error");
-                    data.get(activeCentroids).addAll(incomingData.get(ix));
+                    assert incomingData != null;
+                    assert data.get(lastUsedCell) != incomingData.get(ix);
+                    data.get(lastUsedCell).addAll(incomingData.get(ix));
                 }
-            }
-            else {
+            } else {
                 // didn't fit ... move to next output, copy out first centroid
-                weightSoFar += weight[activeCentroids];
+                wSoFar += weight[lastUsedCell];
                 if (!useWeightLimit) {
-                    k1 = scale.k(weightSoFar / totalWeight, normalizer);
-                    weightLimit = totalWeight * scale.q(k1 + 1, normalizer);
+                    k1 = scale.k(wSoFar / totalWeight, normalizer);
+                    wLimit = totalWeight * scale.q(k1 + 1, normalizer);
                 }
 
-                activeCentroids++;
-                mean[activeCentroids] = incomingMean[ix];
-                weight[activeCentroids] = incomingWeight[ix];
+                lastUsedCell++;
+                mean[lastUsedCell] = incomingMean[ix];
+                weight[lastUsedCell] = incomingWeight[ix];
                 incomingWeight[ix] = 0;
 
                 if (data != null) {
-                    Preconditions.checkArgument(data != null, "data is null");
-                    Preconditions.checkArgument(data.size() == activeCentroids, "error");
+                    assert incomingData != null;
+                    assert data.size() == lastUsedCell;
                     data.add(incomingData.get(ix));
                 }
             }
         }
         // points to next empty cell
-        activeCentroids++;
+        lastUsedCell++;
 
         // sanity check
         double sum = 0;
-        for (int i = 0; i < activeCentroids; i++) {
+        for (int i = 0; i < lastUsedCell; i++) {
             sum += weight[i];
         }
-
-        Preconditions.checkArgument(sum == totalWeight, "error");
+        assert sum == totalWeight;
         if (runBackwards) {
-            Sort.reverse(mean, 0, activeCentroids);
-            Sort.reverse(weight, 0, activeCentroids);
+            Sort.reverse(mean, 0, lastUsedCell);
+            Sort.reverse(weight, 0, lastUsedCell);
             if (data != null) {
                 Collections.reverse(data);
             }
@@ -503,24 +478,22 @@ public class MergingDigest
 
         if (totalWeight > 0) {
             min = Math.min(min, mean[0]);
-            max = Math.max(max, mean[activeCentroids - 1]);
+            max = Math.max(max, mean[lastUsedCell - 1]);
         }
     }
 
     /**
      * Exposed for testing.
      */
-    int checkWeights()
-    {
-        return checkWeights(weight, totalWeight, activeCentroids);
+    int checkWeights() {
+        return checkWeights(weight, totalWeight, lastUsedCell);
     }
 
-    private int checkWeights(double[] weight, double total, int last)
-    {
+    private int checkWeights(double[] w, double total, int last) {
         int badCount = 0;
 
         int n = last;
-        if (weight[n] > 0) {
+        if (w[n] > 0) {
             n++;
         }
 
@@ -530,24 +503,24 @@ public class MergingDigest
         double left = 0;
         String header = "\n";
         for (int i = 0; i < n; i++) {
-            double dq = weight[i] / total;
+            double dq = w[i] / total;
             double k2 = scale.k(q + dq, normalizer);
             q += dq / 2;
-            if (k2 - k1 > 1 && weight[i] != 1) {
+            if (k2 - k1 > 1 && w[i] != 1) {
                 System.out.printf("%sOversize centroid at " +
                                 "%d, k0=%.2f, k1=%.2f, dk=%.2f, w=%.2f, q=%.4f, dq=%.4f, left=%.1f, current=%.2f maxw=%.2f\n",
-                        header, i, k1, k2, k2 - k1, weight[i], q, dq, left, weight[i], totalWeight * scale.max(q, normalizer));
+                        header, i, k1, k2, k2 - k1, w[i], q, dq, left, w[i], totalWeight * scale.max(q, normalizer));
                 header = "";
                 badCount++;
             }
-            if (k2 - k1 > 4 && weight[i] != 1) {
+            if (k2 - k1 > 4 && w[i] != 1) {
                 throw new IllegalStateException(
                         String.format("Egregiously oversized centroid at " +
                                         "%d, k0=%.2f, k1=%.2f, dk=%.2f, w=%.2f, q=%.4f, dq=%.4f, left=%.1f, current=%.2f, maxw=%.2f\n",
-                                i, k1, k2, k2 - k1, weight[i], q, dq, left, weight[i], totalWeight * scale.max(q, normalizer)));
+                                i, k1, k2, k2 - k1, w[i], q, dq, left, w[i], totalWeight * scale.max(q, normalizer)));
             }
             q += dq / 2;
-            left += weight[i];
+            left += w[i];
             k1 = k2;
         }
 
@@ -561,46 +534,38 @@ public class MergingDigest
      * the outside world.
      */
     @Override
-    public void compress()
-    {
+    public void compress() {
         mergeNewValues(true, publicCompression);
     }
 
     @Override
-    public long size()
-    {
+    public long size() {
         return (long) (totalWeight + unmergedWeight);
     }
 
     @Override
-    public double cdf(double x)
-    {
+    public double cdf(double x) {
         mergeNewValues();
 
-        if (activeCentroids == 0) {
+        if (lastUsedCell == 0) {
             // no data to examine
             return Double.NaN;
-        }
-        else if (activeCentroids == 1) {
+        } else if (lastUsedCell == 1) {
             // exactly one centroid, should have max==min
             double width = max - min;
             if (x < min) {
                 return 0;
-            }
-            else if (x > max) {
+            } else if (x > max) {
                 return 1;
-            }
-            else if (x - min <= width) {
+            } else if (x - min <= width) {
                 // min and max are too close together to do any viable interpolation
                 return 0.5;
-            }
-            else {
+            } else {
                 // interpolate if somehow we have weight > 0 and max != min
                 return (x - min) / (max - min);
             }
-        }
-        else {
-            int n = activeCentroids;
+        } else {
+            int n = lastUsedCell;
             if (x < min) {
                 return 0;
             }
@@ -617,31 +582,27 @@ public class MergingDigest
                     // must be a sample exactly at min
                     if (x == min) {
                         return 0.5 / totalWeight;
-                    }
-                    else {
+                    } else {
                         return (1 + (x - min) / (mean[0] - min) * (weight[0] / 2 - 1)) / totalWeight;
                     }
-                }
-                else {
+                } else {
                     // this should be redundant with the check x < min
                     return 0;
                 }
             }
-            Preconditions.checkArgument(x >= mean[0], "error");
+            assert x >= mean[0];
 
             // and the right tail
             if (x > mean[n - 1]) {
                 if (max - mean[n - 1] > 0) {
                     if (x == max) {
                         return 1 - 0.5 / totalWeight;
-                    }
-                    else {
+                    } else {
                         // there has to be a single sample exactly at max
                         double dq = (1 + (max - x) / (max - mean[n - 1]) * (weight[n - 1] / 2 - 1)) / totalWeight;
                         return 1 - dq;
                     }
-                }
-                else {
+                } else {
                     return 1;
                 }
             }
@@ -661,8 +622,7 @@ public class MergingDigest
                         it++;
                     }
                     return (weightSoFar + dw / 2) / totalWeight;
-                }
-                else if (mean[it] <= x && x < mean[it + 1]) {
+                } else if (mean[it] <= x && x < mean[it + 1]) {
                     // landed between centroids ... check for floating point madness
                     if (mean[it + 1] - mean[it] > 0) {
                         // note how we handle singleton centroids here
@@ -676,19 +636,17 @@ public class MergingDigest
                                 // two singletons means no interpolation
                                 // left singleton is in, right is out
                                 return (weightSoFar + 1) / totalWeight;
-                            }
-                            else {
+                            } else {
                                 leftExcludedW = 0.5;
                             }
-                        }
-                        else if (weight[it + 1] == 1) {
+                        } else if (weight[it + 1] == 1) {
                             rightExcludedW = 0.5;
                         }
                         double dw = (weight[it] + weight[it + 1]) / 2;
 
                         // can't have double singleton (handled that earlier)
-                        Preconditions.checkArgument(dw > 1, "error");
-                        Preconditions.checkArgument((leftExcludedW + rightExcludedW) <= 0.5, "error");
+                        assert dw > 1;
+                        assert (leftExcludedW + rightExcludedW) <= 0.5;
 
                         // adjust endpoints for any singleton
                         double left = mean[it];
@@ -697,52 +655,46 @@ public class MergingDigest
                         double dwNoSingleton = dw - leftExcludedW - rightExcludedW;
 
                         // adjustments have only limited effect on endpoints
-                        Preconditions.checkArgument(dwNoSingleton > dw / 2, "error");
-                        Preconditions.checkArgument(right - left > 0, "error");
-
+                        assert dwNoSingleton > dw / 2;
+                        assert right - left > 0;
                         double base = weightSoFar + weight[it] / 2 + leftExcludedW;
                         return (base + dwNoSingleton * (x - left) / (right - left)) / totalWeight;
-                    }
-                    else {
+                    } else {
                         // this is simply caution against floating point madness
                         // it is conceivable that the centroids will be different
                         // but too near to allow safe interpolation
                         double dw = (weight[it] + weight[it + 1]) / 2;
                         return (weightSoFar + dw) / totalWeight;
                     }
-                }
-                else {
+                } else {
                     weightSoFar += weight[it];
                 }
             }
             if (x == mean[n - 1]) {
                 return 1 - 0.5 / totalWeight;
-            }
-            else {
+            } else {
                 throw new IllegalStateException("Can't happen ... loop fell through");
             }
         }
     }
 
     @Override
-    public double quantile(double q)
-    {
+    public double quantile(double q) {
         if (q < 0 || q > 1) {
             throw new IllegalArgumentException("q should be in [0,1], got " + q);
         }
         mergeNewValues();
 
-        if (activeCentroids == 0) {
+        if (lastUsedCell == 0) {
             // no centroids means no data, no way to get a quantile
             return Double.NaN;
-        }
-        else if (activeCentroids == 1) {
+        } else if (lastUsedCell == 1) {
             // with one data point, all quantiles lead to Rome
             return mean[0];
         }
 
         // we know that there are at least two centroids now
-        int n = activeCentroids;
+        int n = lastUsedCell;
 
         // if values were stored in a sorted array, index would be the offset we are interested in
         final double index = q * totalWeight;
@@ -767,7 +719,7 @@ public class MergingDigest
 
         // if the right-most centroid has more than one sample, we still know
         // that one sample occurred at max so we can do some interpolation
-        if (weight[n - 1] > 1 && totalWeight - index <= weight[n - 1] / 2) {
+        if (weight[n-1] > 1 && totalWeight - index <= weight[n - 1] / 2) {
             return max - (totalWeight - index - 1) / (weight[n - 1] / 2 - 1) * (max - mean[n - 1]);
         }
 
@@ -784,8 +736,7 @@ public class MergingDigest
                     if (index - weightSoFar < 0.5) {
                         // within the singleton's sphere
                         return mean[i];
-                    }
-                    else {
+                    } else {
                         leftUnit = 0.5;
                     }
                 }
@@ -804,9 +755,9 @@ public class MergingDigest
             weightSoFar += dw;
         }
         // we handled singleton at end up above
-        Preconditions.checkArgument(weight[n - 1] > 1, "error");
-        Preconditions.checkArgument(index <= totalWeight, "error");
-        Preconditions.checkArgument(index >= totalWeight - weight[n - 1] / 2, "error");
+        assert weight[n - 1] > 1;
+        assert index <= totalWeight;
+        assert index >= totalWeight - weight[n - 1] / 2;
 
         // weightSoFar = totalWeight - weight[n-1]/2 (very nearly)
         // so we interpolate out to max value ever seen
@@ -816,146 +767,155 @@ public class MergingDigest
     }
 
     @Override
-    public int centroidCount()
-    {
+    public int centroidCount() {
         mergeNewValues();
-        return activeCentroids;
+        return lastUsedCell;
     }
 
     @Override
-    public Collection<Centroid> centroids()
-    {
+    public Collection<Centroid> centroids() {
         // we don't actually keep centroid structures around so we have to fake it
         compress();
-        return new AbstractCollection<Centroid>()
-        {
+        return new AbstractCollection<Centroid>() {
             @Override
-            public Iterator<Centroid> iterator()
-            {
-                return new Iterator<Centroid>()
-                {
-                    int i;
+            public Iterator<Centroid> iterator() {
+                return new Iterator<Centroid>() {
+                    int i = 0;
 
                     @Override
-                    public boolean hasNext()
-                    {
-                        return i < activeCentroids;
+                    public boolean hasNext() {
+                        return i < lastUsedCell;
                     }
 
                     @Override
-                    public Centroid next()
-                    {
+                    public Centroid next() {
                         Centroid rc = new Centroid(mean[i], (int) weight[i], data != null ? data.get(i) : null);
                         i++;
                         return rc;
                     }
 
                     @Override
-                    public void remove()
-                    {
+                    public void remove() {
                         throw new UnsupportedOperationException("Default operation");
                     }
                 };
             }
 
             @Override
-            public int size()
-            {
-                return activeCentroids;
+            public int size() {
+                return lastUsedCell;
             }
         };
     }
 
     @Override
-    public double compression()
-    {
+    public double compression() {
         return publicCompression;
     }
 
     @Override
-    public int byteSize()
-    {
+    public int byteSize() {
         compress();
-        // format code, type code, min (double), max (double), compression(double), #centroids(int),
+        // format code, compression(float), buffer-size(int), temp-size(int), #centroids-1(int),
         // then two doubles per centroid
-        return activeCentroids * 16 + 30;
+        return lastUsedCell * 16 + 32;
     }
 
     @Override
-    public int smallByteSize()
-    {
+    public int smallByteSize() {
         compress();
         // format code(int), compression(float), buffer-size(short), temp-size(short), #centroids-1(short),
         // then two floats per centroid
-        return activeCentroids * 8 + 30;
+        return lastUsedCell * 8 + 30;
     }
 
     @SuppressWarnings("WeakerAccess")
-    public ScaleFunction getScaleFunction()
-    {
+    public ScaleFunction getScaleFunction() {
         return scale;
     }
 
-    public enum Encoding
-    {
-        VERBOSE_ENCODING((byte) 0), SMALL_ENCODING((byte) 1);
+    public enum Encoding {
+        VERBOSE_ENCODING(1), SMALL_ENCODING(2);
 
-        private final byte code;
+        private final int code;
 
-        Encoding(byte code)
-        {
+        Encoding(int code) {
             this.code = code;
         }
     }
 
     @Override
-    public Slice serialize()
-    {
-        SliceOutput sliceBuilder = new DynamicSliceOutput(byteSize());
-
+    public void asBytes(ByteBuffer buf) {
         compress();
-        sliceBuilder.writeByte(0); // version 0 of T-Digest serialization                     // 1
-        sliceBuilder.writeByte(0); // represents the underlying data type of the distribution // + 1
-        sliceBuilder.writeDouble(min);                                                              // + 8
-        sliceBuilder.writeDouble(max);                                                              // + 8
-        sliceBuilder.writeDouble(publicCompression);                                                // + 8
-        sliceBuilder.writeInt(activeCentroids);                                                     // + 4 = 30
-        for (int i = 0; i < activeCentroids; i++) {
-            sliceBuilder.writeDouble(weight[i]);
-            sliceBuilder.writeDouble(mean[i]);
+        buf.putInt(Encoding.VERBOSE_ENCODING.code);
+        buf.putDouble(min);
+        buf.putDouble(max);
+        buf.putDouble(publicCompression);
+        buf.putInt(lastUsedCell);
+        for (int i = 0; i < lastUsedCell; i++) {
+            buf.putDouble(weight[i]);
+            buf.putDouble(mean[i]);
         }
-
-        return sliceBuilder.slice();
-    }
-
-    @SuppressWarnings("WeakerAccess")
-    public static MergingDigest deserialize(Slice slice)
-    {
-        SliceInput sliceInput = new BasicSliceInput(slice);
-        byte format = sliceInput.readByte();
-        Preconditions.checkArgument(format == 0, "Invalid format");
-        byte type = sliceInput.readByte();
-        Preconditions.checkArgument(type == 0, "Invalid type; expecting '0' (type double)");
-        double min = sliceInput.readDouble();
-        double max = sliceInput.readDouble();
-        double compression = sliceInput.readDouble();
-        int activeCentroids = sliceInput.readInt();
-        MergingDigest md = new MergingDigest(compression);
-        md.setMinMax(min, max);
-        md.activeCentroids = activeCentroids;
-        for (int i = 0; i < activeCentroids; i++) {
-            md.weight[i] = sliceInput.readDouble();
-            md.mean[i] = sliceInput.readDouble();
-
-            md.totalWeight += md.weight[i];
-        }
-        sliceInput.close();
-        return md;
     }
 
     @Override
-    public String toString()
-    {
+    public void asSmallBytes(ByteBuffer buf) {
+        compress();
+        buf.putInt(Encoding.SMALL_ENCODING.code);    // 4
+        buf.putDouble(min);                          // + 8
+        buf.putDouble(max);                          // + 8
+        buf.putFloat((float) publicCompression);           // + 4
+        buf.putShort((short) mean.length);           // + 2
+        buf.putShort((short) tempMean.length);       // + 2
+        buf.putShort((short) lastUsedCell);          // + 2 = 30
+        for (int i = 0; i < lastUsedCell; i++) {
+            buf.putFloat((float) weight[i]);
+            buf.putFloat((float) mean[i]);
+        }
+    }
+
+    @SuppressWarnings("WeakerAccess")
+    public static MergingDigest fromBytes(ByteBuffer buf) {
+        int encoding = buf.getInt();
+        if (encoding == Encoding.VERBOSE_ENCODING.code) {
+            double min = buf.getDouble();
+            double max = buf.getDouble();
+            double compression = buf.getDouble();
+            int n = buf.getInt();
+            MergingDigest r = new MergingDigest(compression);
+            r.setMinMax(min, max);
+            r.lastUsedCell = n;
+            for (int i = 0; i < n; i++) {
+                r.weight[i] = buf.getDouble();
+                r.mean[i] = buf.getDouble();
+
+                r.totalWeight += r.weight[i];
+            }
+            return r;
+        } else if (encoding == Encoding.SMALL_ENCODING.code) {
+            double min = buf.getDouble();
+            double max = buf.getDouble();
+            double compression = buf.getFloat();
+            int n = buf.getShort();
+            int bufferSize = buf.getShort();
+            MergingDigest r = new MergingDigest(compression, bufferSize, n);
+            r.setMinMax(min, max);
+            r.lastUsedCell = buf.getShort();
+            for (int i = 0; i < r.lastUsedCell; i++) {
+                r.weight[i] = buf.getFloat();
+                r.mean[i] = buf.getFloat();
+
+                r.totalWeight += r.weight[i];
+            }
+            return r;
+        } else {
+            throw new IllegalStateException("Invalid format for serialized histogram");
+        }
+
+    }
+
+    @Override
+    public String toString() {
         return "MergingDigest"
                 + "-" + getScaleFunction()
                 + "-" + (useWeightLimit ? "weight" : "kSize")

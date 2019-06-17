@@ -22,10 +22,7 @@ import java.util.Random;
 /**
  * Static sorting methods
  */
-public class Sort
-{
-    private Sort() {};
-
+public class Sort {
     private static final Random prng = new Random(); // for choosing pivots during quicksort
     /**
      * Quick sort using an index array.  On return,
@@ -35,8 +32,7 @@ public class Sort
      * @param values The values to sort.
      */
     @SuppressWarnings("WeakerAccess")
-    public static void sort(int[] order, double[] values)
-    {
+    public static void sort(int[] order, double[] values) {
         sort(order, values, 0, values.length);
     }
 
@@ -49,8 +45,7 @@ public class Sort
      * @param n      The number of values to sort
      */
     @SuppressWarnings("WeakerAccess")
-    public static void sort(int[] order, double[] values, int n)
-    {
+    public static void sort(int[] order, double[] values, int n) {
         sort(order, values, 0, n);
     }
 
@@ -64,8 +59,7 @@ public class Sort
      * @param n      The number of values to sort
      */
     @SuppressWarnings("WeakerAccess")
-    public static void sort(int[] order, double[] values, int start, int n)
-    {
+    public static void sort(int[] order, double[] values, int start, int n) {
         for (int i = start; i < start + n; i++) {
             order[i] = i;
         }
@@ -82,11 +76,10 @@ public class Sort
      * @param end    The value after the last value to sort
      * @param limit  The minimum size to recurse down to.
      */
-
-    private static void quickSort(int[] order, double[] values, int start, int end, int limit)
-    {
+    private static void quickSort(int[] order, double[] values, int start, int end, int limit) {
         // the while loop implements tail-recursion to avoid excessive stack calls on nasty cases
         while (end - start > limit) {
+
             // pivot by a random element
             int pivotIndex = start + prng.nextInt(end - start);
             double pivotValue = values[order[pivotIndex]];
@@ -110,17 +103,14 @@ public class Sort
                 if (vi == pivotValue) {
                     if (low != i) {
                         swap(order, low, i);
-                    }
-                    else {
+                    } else {
                         i++;
                     }
                     low++;
-                }
-                else if (vi > pivotValue) {
+                } else if (vi > pivotValue) {
                     high--;
                     swap(order, i, high);
-                }
-                else {
+                } else {
                     // vi < pivotValue
                     i++;
                 }
@@ -142,8 +132,7 @@ public class Sort
             if (from == low) {
                 // ran out of things to copy.  This means that the the last destination is the boundary
                 low = to + 1;
-            }
-            else {
+            } else {
                 // ran out of places to copy to.  This means that there are uncopied pivots and the
                 // boundary is at the beginning of those
                 low = from;
@@ -158,8 +147,7 @@ public class Sort
                 // this is really a way to do
                 //    quickSort(order, values, high, end, limit);
                 start = high;
-            }
-            else {
+            } else {
                 quickSort(order, values, high, end, limit);
                 // this is really a way to do
                 //    quickSort(order, values, start, low, limit);
@@ -177,8 +165,7 @@ public class Sort
      * @param values The auxilliary values to sort.
      */
     @SuppressWarnings("WeakerAccess")
-    public static void sort(double[] key, double[]... values)
-    {
+    public static void sort(double[] key, double[] ... values) {
         sort(key, 0, key.length, values);
     }
 
@@ -191,8 +178,7 @@ public class Sort
      * @param values The auxilliary values to sort.
      */
     @SuppressWarnings("WeakerAccess")
-    public static void sort(double[] key, int start, int n, double[]... values)
-    {
+    public static void sort(double[] key, int start, int n, double[]... values) {
         quickSort(key, values, start, start + n, 8);
         insertionSort(key, values, start, start + n, 8);
     }
@@ -206,10 +192,10 @@ public class Sort
      * @param end    The value after the last value to sort
      * @param limit  The minimum size to recurse down to.
      */
-    private static void quickSort(double[] key, double[][] values, int start, int end, int limit)
-    {
+    private static void quickSort(double[] key, double[][] values, int start, int end, int limit) {
         // the while loop implements tail-recursion to avoid excessive stack calls on nasty cases
         while (end - start > limit) {
+
             // median of three values for the pivot
             int a = start;
             int b = (start + end) / 2;
@@ -226,36 +212,31 @@ public class Sort
                     // vc > va > vb
                     pivotIndex = a;
                     pivotValue = va;
-                }
-                else {
+                } else {
                     // va > vb, va >= vc
                     if (vc < vb) {
                         // va > vb > vc
                         pivotIndex = b;
                         pivotValue = vb;
-                    }
-                    else {
+                    } else {
                         // va >= vc >= vb
                         pivotIndex = c;
                         pivotValue = vc;
                     }
                 }
-            }
-            else {
+            } else {
                 // vb >= va
                 if (vc > vb) {
                     // vc > vb >= va
                     pivotIndex = b;
                     pivotValue = vb;
-                }
-                else {
+                } else {
                     // vb >= va, vb >= vc
                     if (vc < va) {
                         // vb >= va > vc
                         pivotIndex = a;
                         pivotValue = va;
-                    }
-                    else {
+                    } else {
                         // vb >= vc >= va
                         pivotIndex = c;
                         pivotValue = vc;
@@ -282,17 +263,14 @@ public class Sort
                 if (vi == pivotValue) {
                     if (low != i) {
                         swap(low, i, key, values);
-                    }
-                    else {
+                    } else {
                         i++;
                     }
                     low++;
-                }
-                else if (vi > pivotValue) {
+                } else if (vi > pivotValue) {
                     high--;
                     swap(i, high, key, values);
-                }
-                else {
+                } else {
                     // vi < pivotValue
                     i++;
                 }
@@ -314,8 +292,7 @@ public class Sort
             if (from == low) {
                 // ran out of things to copy.  This means that the the last destination is the boundary
                 low = to + 1;
-            }
-            else {
+            } else {
                 // ran out of places to copy to.  This means that there are uncopied pivots and the
                 // boundary is at the beginning of those
                 low = from;
@@ -330,8 +307,7 @@ public class Sort
                 // this is really a way to do
                 //    quickSort(order, values, high, end, limit);
                 start = high;
-            }
-            else {
+            } else {
                 quickSort(key, values, high, end, limit);
                 // this is really a way to do
                 //    quickSort(order, values, start, low, limit);
@@ -339,6 +315,7 @@ public class Sort
             }
         }
     }
+
 
     /**
      * Limited range insertion sort.  We assume that no element has to move more than limit steps
@@ -351,8 +328,7 @@ public class Sort
      * @param limit  The largest amount of disorder
      */
     @SuppressWarnings("SameParameterValue")
-    private static void insertionSort(double[] key, double[][] values, int start, int end, int limit)
-    {
+    private static void insertionSort(double[] key, double[][] values, int start, int end, int limit) {
         // loop invariant: all values start ... i-1 are ordered
         for (int i = start + 1; i < end; i++) {
             double v = key[i];
@@ -374,15 +350,13 @@ public class Sort
         }
     }
 
-    private static void swap(int[] order, int i, int j)
-    {
+    private static void swap(int[] order, int i, int j) {
         int t = order[i];
         order[i] = order[j];
         order[j] = t;
     }
 
-    private static void swap(int i, int j, double[] key, double[]...values)
-    {
+    private static void swap(int i, int j, double[] key, double[]...values) {
         double t = key[i];
         key[i] = key[j];
         key[j] = t;
@@ -406,8 +380,7 @@ public class Sort
      * @param end        Values from high to end are above the pivot.
      */
     @SuppressWarnings("UnusedDeclaration")
-    public static void checkPartition(int[] order, double[] values, double pivotValue, int start, int low, int high, int end)
-    {
+    public static void checkPartition(int[] order, double[] values, double pivotValue, int start, int low, int high, int end) {
         if (order.length != values.length) {
             throw new IllegalArgumentException("Arguments must be same size");
         }
@@ -448,8 +421,7 @@ public class Sort
      * @param limit  The largest amount of disorder
      */
     @SuppressWarnings("SameParameterValue")
-    private static void insertionSort(int[] order, double[] values, int start, int n, int limit)
-    {
+    private static void insertionSort(int[] order, double[] values, int start, int n, int limit) {
         for (int i = start + 1; i < n; i++) {
             int t = order[i];
             double v = values[order[i]];
@@ -472,8 +444,7 @@ public class Sort
      * @param order The array to reverse
      */
     @SuppressWarnings("WeakerAccess")
-    public static void reverse(int[] order)
-    {
+    public static void reverse(int[] order) {
         reverse(order, 0, order.length);
     }
 
@@ -485,8 +456,7 @@ public class Sort
      * @param length How many elements to reverse
      */
     @SuppressWarnings("WeakerAccess")
-    public static void reverse(int[] order, int offset, int length)
-    {
+    public static void reverse(int[] order, int offset, int length) {
         for (int i = 0; i < length / 2; i++) {
             int t = order[offset + i];
             order[offset + i] = order[offset + length - i - 1];
@@ -502,8 +472,7 @@ public class Sort
      * @param length How many elements to reverse
      */
     @SuppressWarnings({"WeakerAccess", "SameParameterValue"})
-    public static void reverse(double[] order, int offset, int length)
-    {
+    public static void reverse(double[] order, int offset, int length) {
         for (int i = 0; i < length / 2; i++) {
             double t = order[offset + i];
             order[offset + i] = order[offset + length - i - 1];

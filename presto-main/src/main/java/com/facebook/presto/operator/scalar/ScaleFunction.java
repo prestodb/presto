@@ -27,51 +27,43 @@ package com.facebook.presto.operator.scalar;
  * compression factor. The K_2_NO_NORM and K_3_NO_NORM versions result in the cluster count increasing roughly with
  * log(n).
  */
-public enum ScaleFunction
-{
+public enum ScaleFunction {
     /**
      * Generates uniform cluster sizes. Used for comparison only.
      */
     K_0 {
         @Override
-        public double k(double q, double compression, double n)
-        {
+        public double k(double q, double compression, double n) {
             return compression * q / 2;
         }
 
         @Override
-        public double k(double q, double normalizer)
-        {
+        public double k(double q, double normalizer) {
             return normalizer * q;
         }
 
         @Override
-        public double q(double k, double compression, double n)
-        {
+        public double q(double k, double compression, double n) {
             return 2 * k / compression;
         }
 
         @Override
-        public double q(double k, double normalizer)
-        {
+        public double q(double k, double normalizer) {
             return k / normalizer;
         }
 
         @Override
-        public double max(double q, double compression, double n)
-        {
+        public double max(double q, double compression, double n) {
             return 2 / compression;
         }
 
         @Override
-        public double max(double q, double normalizer)
-        {
+        public double max(double q, double normalizer) {
             return 1 / normalizer;
         }
 
         @Override
-        public double normalizer(double compression, double n)
-        {
+        public double normalizer(double compression, double n) {
             return compression / 2;
         }
     },
@@ -82,60 +74,50 @@ public enum ScaleFunction
      */
     K_1 {
         @Override
-        public double k(double q, double compression, double n)
-        {
+        public double k(double q, double compression, double n) {
             return compression * Math.asin(2 * q - 1) / (2 * Math.PI);
         }
 
         @Override
-        public double k(double q, double normalizer)
-        {
+        public double k(double q, double normalizer) {
             return normalizer * Math.asin(2 * q - 1);
         }
 
+
         @Override
-        public double q(double k, double compression, double n)
-        {
+        public double q(double k, double compression, double n) {
             return (Math.sin(k * (2 * Math.PI / compression)) + 1) / 2;
         }
 
         @Override
-        public double q(double k, double normalizer)
-        {
+        public double q(double k, double normalizer) {
             return (Math.sin(k / normalizer) + 1) / 2;
         }
 
         @Override
-        public double max(double q, double compression, double n)
-        {
+        public double max(double q, double compression, double n) {
             if (q <= 0) {
                 return 0;
-            }
-            else if (q >= 1) {
+            } else if (q >= 1) {
                 return 0;
-            }
-            else {
+            } else {
                 return 2 * Math.sin(Math.PI / compression) * Math.sqrt(q * (1 - q));
             }
         }
 
         @Override
-        public double max(double q, double normalizer)
-        {
+        public double max(double q, double normalizer) {
             if (q <= 0) {
                 return 0;
-            }
-            else if (q >= 1) {
+            } else if (q >= 1) {
                 return 0;
-            }
-            else {
+            } else {
                 return 2 * Math.sin(0.5 / normalizer) * Math.sqrt(q * (1 - q));
             }
         }
 
         @Override
-        public double normalizer(double compression, double n)
-        {
+        public double normalizer(double compression, double n) {
             return compression / (2 * Math.PI);
         }
     },
@@ -146,60 +128,49 @@ public enum ScaleFunction
      */
     K_1_FAST {
         @Override
-        public double k(double q, double compression, double n)
-        {
+        public double k(double q, double compression, double n) {
             return compression * fastAsin(2 * q - 1) / (2 * Math.PI);
         }
 
         @Override
-        public double k(double q, double normalizer)
-        {
+        public double k(double q, double normalizer) {
             return normalizer * fastAsin(2 * q - 1);
         }
 
         @Override
-        public double q(double k, double compression, double n)
-        {
+        public double q(double k, double compression, double n) {
             return (Math.sin(k * (2 * Math.PI / compression)) + 1) / 2;
         }
 
         @Override
-        public double q(double k, double normalizer)
-        {
+        public double q(double k, double normalizer) {
             return (Math.sin(k / normalizer) + 1) / 2;
         }
 
         @Override
-        public double max(double q, double compression, double n)
-        {
+        public double max(double q, double compression, double n) {
             if (q <= 0) {
                 return 0;
-            }
-            else if (q >= 1) {
+            } else if (q >= 1) {
                 return 0;
-            }
-            else {
+            } else {
                 return 2 * Math.sin(Math.PI / compression) * Math.sqrt(q * (1 - q));
             }
         }
 
         @Override
-        public double max(double q, double normalizer)
-        {
+        public double max(double q, double normalizer) {
             if (q <= 0) {
                 return 0;
-            }
-            else if (q >= 1) {
+            } else if (q >= 1) {
                 return 0;
-            }
-            else {
+            } else {
                 return 2 * Math.sin(0.5 / normalizer) * Math.sqrt(q * (1 - q));
             }
         }
 
         @Override
-        public double normalizer(double compression, double n)
-        {
+        public double normalizer(double compression, double n) {
             return compression / (2 * Math.PI);
         }
     },
@@ -210,80 +181,66 @@ public enum ScaleFunction
      */
     K_2 {
         @Override
-        public double k(double q, double compression, double n)
-        {
+        public double k(double q, double compression, double n) {
             if (n <= 1) {
                 if (q <= 0) {
                     return -10;
-                }
-                else if (q >= 1) {
+                } else if (q >= 1) {
                     return 10;
-                }
-                else {
+                } else {
                     return 0;
                 }
             }
             if (q == 0) {
                 return 2 * k(1 / n, compression, n);
-            }
-            else if (q == 1) {
+            } else if (q == 1) {
                 return 2 * k((n - 1) / n, compression, n);
-            }
-            else {
+            } else {
                 return compression * Math.log(q / (1 - q)) / Z(compression, n);
             }
         }
 
         @Override
-        public double k(double q, double normalizer)
-        {
+        public double k(double q, double normalizer) {
             if (q < 1e-15) {
                 // this will return something more extreme than q = 1/n
                 return 2 * k(1e-15, normalizer);
-            }
-            else if (q > 1 - 1e-15) {
+            } else if (q > 1 - 1e-15) {
                 // this will return something more extreme than q = (n-1)/n
                 return 2 * k(1 - 1e-15, normalizer);
-            }
-            else {
+            } else {
                 return Math.log(q / (1 - q)) * normalizer;
             }
         }
 
         @Override
-        public double q(double k, double compression, double n)
-        {
+        public double q(double k, double compression, double n) {
             double w = Math.exp(k * Z(compression, n) / compression);
             return w / (1 + w);
         }
 
         @Override
-        public double q(double k, double normalizer)
-        {
+        public double q(double k, double normalizer) {
             double w = Math.exp(k / normalizer);
             return w / (1 + w);
         }
 
         @Override
-        public double max(double q, double compression, double n)
-        {
+        public double max(double q, double compression, double n) {
             return Z(compression, n) * q * (1 - q) / compression;
         }
 
         @Override
-        public double max(double q, double normalizer)
-        {
+        public double max(double q, double normalizer) {
             return q * (1 - q) / normalizer;
         }
 
         @Override
-        public double normalizer(double compression, double n)
-        {
+        public double normalizer(double compression, double n) {
             return compression / Z(compression, n);
         }
 
-        private double Z(double compression, double n)
-        {
+        private double Z(double compression, double n) {
             return 4 * Math.log(n / compression) + 24;
         }
     },
@@ -294,85 +251,69 @@ public enum ScaleFunction
      */
     K_3 {
         @Override
-        public double k(double q, double compression, double n)
-        {
+        public double k(double q, double compression, double n) {
             if (q < 0.9 / n) {
                 return 10 * k(1 / n, compression, n);
-            }
-            else if (q > 1 - 0.9 / n) {
+            } else if (q > 1 - 0.9 / n) {
                 return 10 * k((n - 1) / n, compression, n);
-            }
-            else {
+            } else {
                 if (q <= 0.5) {
                     return compression * Math.log(2 * q) / Z(compression, n);
-                }
-                else {
+                } else {
                     return -k(1 - q, compression, n);
                 }
             }
         }
 
         @Override
-        public double k(double q, double normalizer)
-        {
+        public double k(double q, double normalizer) {
             if (q < 1e-15) {
                 return 10 * k(1e-15, normalizer);
-            }
-            else if (q > 1 - 1e-15) {
+            } else if (q > 1 - 1e-15) {
                 return 10 * k(1 - 1e-15, normalizer);
-            }
-            else {
+            } else {
                 if (q <= 0.5) {
                     return Math.log(2 * q) / normalizer;
-                }
-                else {
+                } else {
                     return -k(1 - q, normalizer);
                 }
             }
         }
 
         @Override
-        public double q(double k, double compression, double n)
-        {
+        public double q(double k, double compression, double n) {
             if (k <= 0) {
                 return Math.exp(k * Z(compression, n) / compression) / 2;
-            }
-            else {
+            } else {
                 return 1 - q(-k, compression, n);
             }
         }
 
         @Override
-        public double q(double k, double normalizer)
-        {
+        public double q(double k, double normalizer) {
             if (k <= 0) {
                 return Math.exp(k / normalizer) / 2;
-            }
-            else {
+            } else {
                 return 1 - q(-k, normalizer);
             }
         }
 
         @Override
-        public double max(double q, double compression, double n)
-        {
+        public double max(double q, double compression, double n) {
             return Z(compression, n) * Math.min(q, 1 - q) / compression;
         }
 
         @Override
-        public double max(double q, double normalizer)
-        {
+        public double max(double q, double normalizer) {
             return Math.min(q, 1 - q) / normalizer;
         }
 
         @Override
-        public double normalizer(double compression, double n)
-        {
+        public double normalizer(double compression, double n) {
             return compression / Z(compression, n);
         }
 
-        private double Z(double compression, double n)
-        {
+        private double Z(double compression, double n) {
             return 4 * Math.log(n / compression) + 21;
         }
     },
@@ -385,62 +326,51 @@ public enum ScaleFunction
      */
     K_2_NO_NORM {
         @Override
-        public double k(double q, double compression, double n)
-        {
+        public double k(double q, double compression, double n) {
             if (q == 0) {
                 return 2 * k(1 / n, compression, n);
-            }
-            else if (q == 1) {
+            } else if (q == 1) {
                 return 2 * k((n - 1) / n, compression, n);
-            }
-            else {
+            } else {
                 return compression * Math.log(q / (1 - q));
             }
         }
 
         @Override
-        public double k(double q, double normalizer)
-        {
+        public double k(double q, double normalizer) {
             if (q <= 1e-15) {
                 return 2 * k(1e-15, normalizer);
-            }
-            else if (q >= 1 - 1e-15) {
+            } else if (q >= 1 - 1e-15) {
                 return 2 * k(1 - 1e-15, normalizer);
-            }
-            else {
+            } else {
                 return normalizer * Math.log(q / (1 - q));
             }
         }
 
         @Override
-        public double q(double k, double compression, double n)
-        {
+        public double q(double k, double compression, double n) {
             double w = Math.exp(k / compression);
             return w / (1 + w);
         }
 
         @Override
-        public double q(double k, double normalizer)
-        {
+        public double q(double k, double normalizer) {
             double w = Math.exp(k / normalizer);
             return w / (1 + w);
         }
 
         @Override
-        public double max(double q, double compression, double n)
-        {
+        public double max(double q, double compression, double n) {
             return q * (1 - q) / compression;
         }
 
         @Override
-        public double max(double q, double normalizer)
-        {
+        public double max(double q, double normalizer) {
             return q * (1 - q) / normalizer;
         }
 
         @Override
-        public double normalizer(double compression, double n)
-        {
+        public double normalizer(double compression, double n) {
             return compression;
         }
     },
@@ -453,80 +383,65 @@ public enum ScaleFunction
      */
     K_3_NO_NORM {
         @Override
-        public double k(double q, double compression, double n)
-        {
+        public double k(double q, double compression, double n) {
             if (q < 0.9 / n) {
                 return 10 * k(1 / n, compression, n);
-            }
-            else if (q > 1 - 0.9 / n) {
+            } else if (q > 1 - 0.9 / n) {
                 return 10 * k((n - 1) / n, compression, n);
-            }
-            else {
+            } else {
                 if (q <= 0.5) {
                     return compression * Math.log(2 * q);
-                }
-                else {
+                } else {
                     return -k(1 - q, compression, n);
                 }
             }
         }
 
         @Override
-        public double k(double q, double normalizer)
-        {
+        public double k(double q, double normalizer) {
             if (q <= 1e-15) {
                 return 10 * k(1e-15, normalizer);
-            }
-            else if (q > 1 - 1e-15) {
+            } else if (q > 1 - 1e-15) {
                 return 10 * k(1 - 1e-15, normalizer);
-            }
-            else {
+            } else {
                 if (q <= 0.5) {
                     return normalizer * Math.log(2 * q);
-                }
-                else {
+                } else {
                     return -k(1 - q, normalizer);
                 }
             }
         }
 
         @Override
-        public double q(double k, double compression, double n)
-        {
+        public double q(double k, double compression, double n) {
             if (k <= 0) {
                 return Math.exp(k / compression) / 2;
-            }
-            else {
+            } else {
                 return 1 - q(-k, compression, n);
             }
         }
 
         @Override
-        public double q(double k, double normalizer)
-        {
+        public double q(double k, double normalizer) {
             if (k <= 0) {
                 return Math.exp(k / normalizer) / 2;
-            }
-            else {
+            } else {
                 return 1 - q(-k, normalizer);
             }
         }
 
         @Override
-        public double max(double q, double compression, double n)
-        {
+        public double max(double q, double compression, double n) {
             return Math.min(q, 1 - q) / compression;
         }
 
         @Override
-        public double max(double q, double normalizer)
-        {
+        public double max(double q, double normalizer) {
             return Math.min(q, 1 - q) / normalizer;
         }
 
         @Override
-        public double normalizer(double compression, double n)
-        {
+        public double normalizer(double compression, double n) {
             return compression;
         }
     };                    // max weight is min(q,1-q), should improve tail accuracy even more
@@ -540,7 +455,7 @@ public enum ScaleFunction
      * @param n           The total number of samples
      * @return The corresponding value of k
      */
-    public abstract double k(double q, double compression, double n);
+    abstract public double k(double q, double compression, double n);
 
     /**
      * Converts  a quantile to the k-scale. The normalizer value depends on compression and (possibly) number of points
@@ -551,7 +466,7 @@ public enum ScaleFunction
      *                   digest.
      * @return The corresponding value of k
      */
-    public abstract double k(double q, double normalizer);
+    abstract public double k(double q, double normalizer);
 
     /**
      * Computes q as a function of k. This is often faster than finding k as a function of q for some scales.
@@ -561,7 +476,7 @@ public enum ScaleFunction
      * @param n           The number of samples already in the digest.
      * @return The value of q that corresponds to k
      */
-    public abstract double q(double k, double compression, double n);
+    abstract public double q(double k, double compression, double n);
 
     /**
      * Computes q as a function of k. This is often faster than finding k as a function of q for some scales.
@@ -571,7 +486,7 @@ public enum ScaleFunction
      *                   digest.
      * @return The value of q that corresponds to k
      */
-    public abstract double q(double k, double normalizer);
+    abstract public double q(double k, double normalizer);
 
     /**
      * Computes the maximum relative size a cluster can have at quantile q. Note that exactly where within the range
@@ -586,7 +501,7 @@ public enum ScaleFunction
      * @param n           The number of samples seen so far in the digest
      * @return The maximum number of samples that can be in the cluster
      */
-    public abstract double max(double q, double compression, double n);
+    abstract public double max(double q, double compression, double n);
 
     /**
      * Computes the maximum relative size a cluster can have at quantile q. Note that exactly where within the range
@@ -601,12 +516,12 @@ public enum ScaleFunction
      *                   digest.
      * @return The maximum number of samples that can be in the cluster
      */
-    public abstract double max(double q, double normalizer);
+    abstract public double max(double q, double normalizer);
 
     /**
      * Computes the normalizer given compression and number of points.
      */
-    public abstract double normalizer(double compression, double n);
+    abstract public double normalizer(double compression, double n);
 
     /**
      * Approximates asin to within about 1e-6. This approximation works by breaking the range from 0 to 1 into 5 regions
@@ -617,15 +532,12 @@ public enum ScaleFunction
      * @param x sin(theta)
      * @return theta
      */
-    static double fastAsin(double x)
-    {
+    static double fastAsin(double x) {
         if (x < 0) {
             return -fastAsin(-x);
-        }
-        else if (x > 1) {
+        } else if (x > 1) {
             return Double.NaN;
-        }
-        else {
+        } else {
             // Cutoffs for models. Note that the ranges overlap. In the
             // overlap we do linear interpolation to guarantee the overall
             // result is "nice"
@@ -638,8 +550,7 @@ public enum ScaleFunction
             double c4Low = 0.87;
             if (x > c3High) {
                 return Math.asin(x);
-            }
-            else {
+            } else {
                 // the models
                 double[] m0 = {0.2955302411, 1.2221903614, 0.1488583743, 0.2422015816, -0.3688700895, 0.0733398445};
                 double[] m1 = {-0.0430991920, 0.9594035750, -0.0362312299, 0.1204623351, 0.0457029620, -0.0026025285};
@@ -686,8 +597,7 @@ public enum ScaleFunction
         }
     }
 
-    private static double eval(double[] model, double[] vars)
-    {
+    private static double eval(double[] model, double[] vars) {
         double r = 0;
         for (int i = 0; i < model.length; i++) {
             r += model[i] * vars[i];
@@ -695,15 +605,12 @@ public enum ScaleFunction
         return r;
     }
 
-    private static double bound(double v)
-    {
+    private static double bound(double v) {
         if (v <= 0) {
             return 0;
-        }
-        else if (v >= 1) {
+        } else if (v >= 1) {
             return 1;
-        }
-        else {
+        } else {
             return v;
         }
     }
