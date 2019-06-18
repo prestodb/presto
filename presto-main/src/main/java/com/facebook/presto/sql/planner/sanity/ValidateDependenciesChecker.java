@@ -715,6 +715,9 @@ public final class ValidateDependenciesChecker
 
         private void checkDependencies(Collection<VariableReferenceExpression> inputs, Collection<VariableReferenceExpression> required, String message, Object... parameters)
         {
+            // If a variable can be assigned into another type directly, CAST is usually implicitly removed.
+            // For example, we can assign input VARCHAR(3) to output VARCHAR(5)
+            // the reference variable in the assignment will have type VARCHAR(5) while the input is VARCHAR(3).
             for (VariableReferenceExpression target : required) {
                 checkArgument(
                         inputs.stream()
