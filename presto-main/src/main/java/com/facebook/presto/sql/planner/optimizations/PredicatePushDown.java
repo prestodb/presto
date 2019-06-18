@@ -458,13 +458,11 @@ public class PredicatePushDown
             PlanNode output = node;
 
             // Create identity projections for all existing symbols
-            Assignments.Builder leftProjections = Assignments.builder();
-            leftProjections.putAll(identityAssignmentsAsSymbolReferences(node.getLeft()
-                    .getOutputVariables()));
+            Assignments.Builder leftProjections = Assignments.builder()
+                    .putAll(identityAssignmentsAsSymbolReferences(node.getLeft().getOutputVariables()));
 
-            Assignments.Builder rightProjections = Assignments.builder();
-            rightProjections.putAll(identityAssignmentsAsSymbolReferences(node.getRight()
-                    .getOutputVariables()));
+            Assignments.Builder rightProjections = Assignments.builder()
+                    .putAll(identityAssignmentsAsSymbolReferences(node.getRight().getOutputVariables()));
 
             // Create new projections for the new join clauses
             List<JoinNode.EquiJoinClause> equiJoinClauses = new ArrayList<>();
@@ -626,13 +624,11 @@ public class PredicatePushDown
                     rightSource != node.getRight() ||
                     !areExpressionsEquivalent(newJoinPredicate, joinPredicate)) {
                 // Create identity projections for all existing symbols
-                Assignments.Builder leftProjections = Assignments.builder();
-                leftProjections.putAll(identityAssignmentsAsSymbolReferences(node.getLeft()
-                        .getOutputVariables()));
+                Assignments.Builder leftProjections = Assignments.builder()
+                        .putAll(identityAssignmentsAsSymbolReferences(node.getLeft().getOutputVariables()));
 
-                Assignments.Builder rightProjections = Assignments.builder();
-                rightProjections.putAll(identityAssignmentsAsSymbolReferences(node.getRight()
-                        .getOutputVariables()));
+                Assignments.Builder rightProjections = Assignments.builder()
+                        .putAll(identityAssignmentsAsSymbolReferences(node.getRight().getOutputVariables()));
 
                 leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
                 rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());

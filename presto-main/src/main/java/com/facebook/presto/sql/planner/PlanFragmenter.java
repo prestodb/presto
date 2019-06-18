@@ -109,7 +109,6 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonFragmentPlan;
-import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -566,9 +565,8 @@ public class PlanFragmenter
                 VariableReferenceExpression variable;
                 if (argumentBinding.isConstant()) {
                     ConstantExpression constant = argumentBinding.getConstant();
-                    RowExpression expression = constant(constant.getValue(), constant.getType());
                     variable = symbolAllocator.newVariable("constant_partition", constant.getType());
-                    constants.put(variable, expression);
+                    constants.put(variable, constant);
                 }
                 else {
                     variable = argumentBinding.getVariableReference();
@@ -658,7 +656,7 @@ public class PlanFragmenter
                         .map(source -> {
                             Assignments.Builder assignments = Assignments.builder();
                             source.getOutputVariables().forEach(variable -> assignments.put(variable, new VariableReferenceExpression(variable.getName(), variable.getType())));
-                            constantVariables.forEach(symbol -> assignments.put(symbol, constantExpressions.get(symbol)));
+                            constantVariables.forEach(variable -> assignments.put(variable, constantExpressions.get(variable)));
                             return new ProjectNode(idAllocator.getNextId(), source, assignments.build());
                         })
                         .collect(toImmutableList());
