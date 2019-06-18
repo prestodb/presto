@@ -94,7 +94,6 @@ public class TranslateExpressions
 
     public Set<Rule<?>> rules()
     {
-        // TODO: finish all other PlanNodes that have Expression
         return ImmutableSet.of(
                 new ValuesExpressionTranslation(),
                 new FilterExpressionTranslation(),
