@@ -36,18 +36,8 @@ public final class PlanAssert
 
     public static void assertPlan(Session session, Metadata metadata, StatsCalculator statsCalculator, Plan actual, PlanMatchPattern pattern)
     {
-        assertPlan(session, metadata, statsCalculator, actual, pattern, Function.identity());
-    }
-
-    public static void assertPlan(Session session, Metadata metadata, StatsCalculator statsCalculator, Plan actual, PlanMatchPattern pattern, Function<PlanNode, PlanNode> planSanitizer)
-    {
-        assertPlan(session, metadata, statsCalculator, actual, noLookup(), pattern, planSanitizer);
-    }
-
-    public static void assertPlan(Session session, Metadata metadata, StatsCalculator statsCalculator, Plan actual, Lookup lookup, PlanMatchPattern pattern, Function<PlanNode, PlanNode> planSanitizer)
-    {
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, actual.getTypes());
-        assertPlan(session, metadata, statsProvider, actual, lookup, pattern, planSanitizer);
+        assertPlan(session, metadata, statsProvider, actual, noLookup(), pattern, Function.identity());
     }
 
     public static void assertPlan(Session session, Metadata metadata, StatsProvider statsProvider, Plan actual, Lookup lookup, PlanMatchPattern pattern, Function<PlanNode, PlanNode> planSanitizer)
