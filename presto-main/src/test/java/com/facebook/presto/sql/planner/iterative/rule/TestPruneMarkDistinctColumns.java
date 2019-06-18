@@ -25,6 +25,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expres
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 
 public class TestPruneMarkDistinctColumns
         extends BaseRuleTest
@@ -60,7 +61,7 @@ public class TestPruneMarkDistinctColumns
                     VariableReferenceExpression hash = p.variable("hash");
                     VariableReferenceExpression unused = p.variable("unused");
                     return p.project(
-                            Assignments.identity(mark),
+                            identityAssignmentsAsSymbolReferences(mark),
                             p.markDistinct(
                                     mark,
                                     ImmutableList.of(key),
@@ -87,7 +88,7 @@ public class TestPruneMarkDistinctColumns
                     VariableReferenceExpression key = p.variable("key");
                     VariableReferenceExpression mark = p.variable("mark");
                     return p.project(
-                            Assignments.identity(mark),
+                            identityAssignmentsAsSymbolReferences(mark),
                             p.markDistinct(mark, ImmutableList.of(key), p.values(key)));
                 })
                 .doesNotFire();
@@ -102,7 +103,7 @@ public class TestPruneMarkDistinctColumns
                     VariableReferenceExpression key = p.variable("key");
                     VariableReferenceExpression mark = p.variable("mark");
                     return p.project(
-                            Assignments.identity(key, mark),
+                            identityAssignmentsAsSymbolReferences(key, mark),
                             p.markDistinct(mark, ImmutableList.of(key), p.values(key)));
                 })
                 .doesNotFire();

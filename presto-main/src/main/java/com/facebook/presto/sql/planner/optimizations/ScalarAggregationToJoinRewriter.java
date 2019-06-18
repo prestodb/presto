@@ -46,6 +46,8 @@ import java.util.Set;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -81,7 +83,7 @@ public class ScalarAggregationToJoinRewriter
 
         VariableReferenceExpression nonNull = symbolAllocator.newVariable("non_null", BooleanType.BOOLEAN);
         Assignments scalarAggregationSourceAssignments = Assignments.builder()
-                .putIdentities(source.get().getNode().getOutputVariables())
+                .putAll(identitiesAsSymbolReferences(source.get().getNode().getOutputVariables()))
                 .put(nonNull, TRUE_LITERAL)
                 .build();
         ProjectNode scalarAggregationSourceWithNonNullableVariable = new ProjectNode(
@@ -142,7 +144,7 @@ public class ScalarAggregationToJoinRewriter
 
         if (subqueryProjection.isPresent()) {
             Assignments assignments = Assignments.builder()
-                    .putIdentities(aggregationOutputVariables)
+                    .putAll(identitiesAsSymbolReferences(aggregationOutputVariables))
                     .putAll(subqueryProjection.get().getAssignments())
                     .build();
 
@@ -155,7 +157,7 @@ public class ScalarAggregationToJoinRewriter
             return new ProjectNode(
                     idAllocator.getNextId(),
                     aggregationNode.get(),
-                    Assignments.identity(aggregationOutputVariables));
+                    identityAssignmentsAsSymbolReferences(aggregationOutputVariables));
         }
     }
 
