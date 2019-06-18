@@ -33,6 +33,7 @@ import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
+import com.facebook.presto.sql.planner.plan.AssignmentUtils;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
@@ -85,6 +86,7 @@ import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.toBou
 import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.toWindowType;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.groupingSets;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -411,7 +413,7 @@ class QueryPlanner
 
         Assignments assignments = Assignments.builder()
                 .putAll(coerce(uncoerced, subPlan, translations))
-                .putIdentities(alreadyCoerced)
+                .putAll(identitiesAsSymbolReferences(alreadyCoerced))
                 .build();
 
         return new PlanBuilder(translations, new ProjectNode(
@@ -533,7 +535,7 @@ class QueryPlanner
         }
         else {
             Assignments.Builder assignments = Assignments.builder();
-            aggregationArguments.forEach(assignments::putIdentity);
+            aggregationArguments.stream().map(AssignmentUtils::identityAsSymbolReference).forEach(assignments::put);
             groupingSetMappings.forEach((key, value) -> assignments.put(key, new SymbolReference(value.getName())));
 
             ProjectNode project = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build());
@@ -673,7 +675,7 @@ class QueryPlanner
         TranslationMap newTranslations = subPlan.copyTranslations();
 
         Assignments.Builder projections = Assignments.builder();
-        projections.putIdentities(subPlan.getRoot().getOutputVariables());
+        projections.putAll(identitiesAsSymbolReferences(subPlan.getRoot().getOutputVariables()));
 
         List<Set<Integer>> descriptor = groupingSets.stream()
                 .map(set -> set.stream()

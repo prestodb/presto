@@ -43,6 +43,8 @@ import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUniqueVari
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.transpose;
 import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.dependsOn;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.isIdentity;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.window;
@@ -141,7 +143,7 @@ public class GatherAndMergeWindows
                 // The target node, when hoisted above the projections, will provide the symbols directly.
                 Map<VariableReferenceExpression, Expression> assignmentsWithoutTargetOutputIdentities = Maps.filterKeys(
                         project.getAssignments().getMap(),
-                        output -> !(project.getAssignments().isIdentity(output) && targetOutputs.contains(output)));
+                        output -> !(isIdentity(project.getAssignments(), output) && targetOutputs.contains(output)));
 
                 if (targetInputs.stream().anyMatch(assignmentsWithoutTargetOutputIdentities::containsKey)) {
                     // Redefinition of an input to the target -- can't handle this case.
@@ -150,7 +152,7 @@ public class GatherAndMergeWindows
 
                 Assignments newAssignments = Assignments.builder()
                         .putAll(assignmentsWithoutTargetOutputIdentities)
-                        .putIdentities(targetInputs)
+                        .putAll(identitiesAsSymbolReferences(targetInputs))
                         .build();
 
                 if (!newTargetChildOutputs.containsAll(extractUniqueVariable(newAssignments.getExpressions(), context.getSymbolAllocator().getTypes()))) {

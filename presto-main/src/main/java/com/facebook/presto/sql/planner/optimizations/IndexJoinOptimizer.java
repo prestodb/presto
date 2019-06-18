@@ -30,7 +30,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
@@ -57,6 +56,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
@@ -162,7 +162,7 @@ public class IndexJoinOptimizer
                                 indexJoinNode = new ProjectNode(
                                         idAllocator.getNextId(),
                                         indexJoinNode,
-                                        Assignments.identity(node.getOutputVariables()));
+                                        identityAssignmentsAsSymbolReferences(node.getOutputVariables()));
                             }
 
                             return indexJoinNode;
@@ -211,7 +211,7 @@ public class IndexJoinOptimizer
                 result = new ProjectNode(
                         idAllocator.getNextId(),
                         result,
-                        Assignments.identity(expectedOutputs));
+                        identityAssignmentsAsSymbolReferences(expectedOutputs));
             }
             return result;
         }

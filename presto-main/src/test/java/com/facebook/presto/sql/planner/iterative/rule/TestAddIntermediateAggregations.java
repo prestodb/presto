@@ -17,7 +17,6 @@ import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
@@ -39,6 +38,7 @@ import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.ex
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
@@ -316,7 +316,7 @@ public class TestAddIntermediateAggregations
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE_STREAMING,
                                             p.project(
-                                                    Assignments.identity(p.variable("b")),
+                                                    identityAssignmentsAsSymbolReferences(p.variable("b")),
                                                     p.aggregation(ap -> ap.globalGrouping()
                                                             .step(AggregationNode.Step.PARTIAL)
                                                             .addAggregation(p.variable(p.symbol("b")), expression("count(a)"), ImmutableList.of(BIGINT))
