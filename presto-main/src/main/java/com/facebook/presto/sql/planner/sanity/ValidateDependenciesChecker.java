@@ -279,7 +279,13 @@ public final class ValidateDependenciesChecker
 
             Set<VariableReferenceExpression> inputs = createInputs(source, boundVariables);
             for (RowExpression expression : node.getAssignments().getExpressions()) {
-                Set<VariableReferenceExpression> dependencies = SymbolsExtractor.extractUniqueVariable(expression, types);
+                Set<VariableReferenceExpression> dependencies;
+                if (isExpression(expression)) {
+                    dependencies = SymbolsExtractor.extractUniqueVariable(castToExpression(expression), types);
+                }
+                else {
+                    dependencies = SymbolsExtractor.extractUniqueVariable(expression);
+                }
                 checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
             }
 
@@ -675,7 +681,13 @@ public final class ValidateDependenciesChecker
                     .build();
 
             for (RowExpression expression : node.getSubqueryAssignments().getExpressions()) {
-                Set<VariableReferenceExpression> dependencies = SymbolsExtractor.extractUniqueVariable(expression, types);
+                Set<VariableReferenceExpression> dependencies;
+                if (isExpression(expression)) {
+                    dependencies = SymbolsExtractor.extractUniqueVariable(castToExpression(expression), types);
+                }
+                else {
+                    dependencies = SymbolsExtractor.extractUniqueVariable(expression);
+                }
                 checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
             }
 
