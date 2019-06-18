@@ -69,4 +69,9 @@ public class PlannerUtils
         Streams.forEachPair(orderingSymbols.stream(), sortOrders.stream(), orderings::putIfAbsent);
         return new OrderingScheme(ImmutableList.copyOf(orderings.keySet()), orderings);
     }
+
+    public static VariableReferenceExpression toVariableReference(Symbol symbol, TypeProvider types)
+    {
+        return variable(symbol.getName(), types.get(symbol));
+    }
 }
