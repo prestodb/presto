@@ -194,6 +194,11 @@ public class ConnectorManager
         return createConnection(catalogName, connectorFactory, properties);
     }
 
+    public ConnectorPlanOptimizerManager getConnectorPlanOptimizerManager()
+    {
+        return connectorPlanOptimizerManager;
+    }
+
     private synchronized ConnectorId createConnection(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
@@ -148,7 +149,7 @@ public class PlanOptimizers
             FeaturesConfig featuresConfig,
             MBeanExporter exporter,
             SplitManager splitManager,
-            ConnectorPlanOptimizerManager planOptimizerManager,
+            ConnectorManager connectorManager,
             PageSourceManager pageSourceManager,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
@@ -162,7 +163,7 @@ public class PlanOptimizers
                 false,
                 exporter,
                 splitManager,
-                planOptimizerManager,
+                connectorManager.getConnectorPlanOptimizerManager(),
                 pageSourceManager,
                 statsCalculator,
                 costCalculator,
