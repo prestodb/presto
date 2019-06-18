@@ -84,7 +84,7 @@ public class ScalarAggregationToJoinRewriter
         VariableReferenceExpression nonNull = symbolAllocator.newVariable("non_null", BooleanType.BOOLEAN);
         Assignments scalarAggregationSourceAssignments = Assignments.builder()
                 .putAll(identitiesAsSymbolReferences(source.get().getNode().getOutputVariables()))
-                .put(nonNull, TRUE_LITERAL)
+                .put(nonNull, castToRowExpression(TRUE_LITERAL))
                 .build();
         ProjectNode scalarAggregationSourceWithNonNullableVariable = new ProjectNode(
                 idAllocator.getNextId(),

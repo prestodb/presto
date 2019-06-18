@@ -30,7 +30,10 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
@@ -59,8 +62,10 @@ import java.util.Set;
 import static com.facebook.presto.execution.warnings.WarningCollector.NOOP;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
+import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.spatialJoin;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableFinish;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableWriterNode;
@@ -93,6 +98,8 @@ public class TranslateExpressions
         return ImmutableSet.of(
                 new ValuesExpressionTranslation(),
                 new FilterExpressionTranslation(),
+                new ProjectExpressionTranslation(),
+                new ApplyExpressionTranslation(),
                 new WindowExpressionTranslation(),
                 new JoinExpressionTranslation(),
                 new SpatialJoinExpressionTranslation(),
@@ -214,6 +221,56 @@ public class TranslateExpressions
                         windowNode.getPreSortedOrderPrefix()));
             }
             return Result.empty();
+        }
+    }
+
+    private final class ProjectExpressionTranslation
+            implements Rule<ProjectNode>
+    {
+        @Override
+        public Pattern<ProjectNode> getPattern()
+        {
+            return project();
+        }
+
+        @Override
+        public Result apply(ProjectNode projectNode, Captures captures, Context context)
+        {
+            Assignments assignments = projectNode.getAssignments();
+            Optional<Assignments> rewrittenAssignments = translateAssignments(assignments, context);
+
+            if (!rewrittenAssignments.isPresent()) {
+                return Result.empty();
+            }
+            return Result.ofPlanNode(new ProjectNode(projectNode.getId(), projectNode.getSource(), rewrittenAssignments.get()));
+        }
+    }
+
+    private final class ApplyExpressionTranslation
+            implements Rule<ApplyNode>
+    {
+        @Override
+        public Pattern<ApplyNode> getPattern()
+        {
+            return applyNode();
+        }
+
+        @Override
+        public Result apply(ApplyNode applyNode, Captures captures, Context context)
+        {
+            Assignments assignments = applyNode.getSubqueryAssignments();
+            Optional<Assignments> rewrittenAssignments = translateAssignments(assignments, context);
+
+            if (!rewrittenAssignments.isPresent()) {
+                return Result.empty();
+            }
+            return Result.ofPlanNode(new ApplyNode(
+                    applyNode.getId(),
+                    applyNode.getInput(),
+                    applyNode.getSubquery(),
+                    rewrittenAssignments.get(),
+                    applyNode.getCorrelation(),
+                    applyNode.getOriginSubqueryError()));
         }
     }
 
@@ -522,5 +579,34 @@ public class TranslateExpressions
             return toRowExpression(expression, session, types);
         }
         return rowExpression;
+    }
+
+    /**
+     * Return Optional.empty() to denote unchanged assignments
+     */
+    private Optional<Assignments> translateAssignments(Assignments assignments, Rule.Context context)
+    {
+        Assignments.Builder builder = Assignments.builder();
+        boolean anyRewritten = false;
+        for (Map.Entry<VariableReferenceExpression, RowExpression> entry : assignments.entrySet()) {
+            RowExpression expression = entry.getValue();
+            RowExpression rewritten;
+            if (isExpression(expression)) {
+                rewritten = toRowExpression(
+                        castToExpression(expression),
+                        context.getSession(),
+                        analyze(castToExpression(expression), context.getSession(), context.getSymbolAllocator().getTypes()));
+                anyRewritten = true;
+            }
+            else {
+                rewritten = expression;
+            }
+            builder.put(entry.getKey(), rewritten);
+        }
+        if (!anyRewritten) {
+            return Optional.empty();
+        }
+
+        return Optional.of(builder.build());
     }
 }

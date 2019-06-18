@@ -17,7 +17,6 @@ import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -35,6 +34,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 
 public class TestExpressionRewriteRuleSet
@@ -58,7 +58,7 @@ public class TestExpressionRewriteRuleSet
     {
         tester().assertThat(zeroRewriter.projectExpressionRewrite())
                 .on(p -> p.project(
-                        Assignments.of(p.variable("y"), PlanBuilder.expression("x IS NOT NULL")),
+                        assignment(p.variable("y"), PlanBuilder.expression("x IS NOT NULL")),
                         p.values(p.variable("x"))))
                 .matches(
                         project(ImmutableMap.of("y", expression("0")), values("x")));
@@ -69,7 +69,7 @@ public class TestExpressionRewriteRuleSet
     {
         tester().assertThat(zeroRewriter.projectExpressionRewrite())
                 .on(p -> p.project(
-                        Assignments.of(p.variable("y"), PlanBuilder.expression("0")),
+                        assignment(p.variable("y"), PlanBuilder.expression("0")),
                         p.values(p.variable("x"))))
                 .doesNotFire();
     }
@@ -162,7 +162,7 @@ public class TestExpressionRewriteRuleSet
     {
         tester().assertThat(applyRewriter.applyExpressionRewrite())
                 .on(p -> p.apply(
-                        Assignments.of(
+                        assignment(
                                 p.variable("a", BIGINT),
                                 new InPredicate(
                                         new LongLiteral("1"),
@@ -185,7 +185,7 @@ public class TestExpressionRewriteRuleSet
     {
         tester().assertThat(applyRewriter.applyExpressionRewrite())
                 .on(p -> p.apply(
-                        Assignments.of(
+                        assignment(
                                 p.variable("a", BIGINT),
                                 new InPredicate(
                                         new LongLiteral("0"),

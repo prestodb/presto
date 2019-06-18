@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.sql.planner.plan.Assignments;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -28,7 +29,7 @@ public final class ApplyNodeUtil
     public static void verifySubquerySupported(Assignments assignments)
     {
         checkArgument(
-                assignments.getExpressions().stream().allMatch(ApplyNodeUtil::isSupportedSubqueryExpression),
+                assignments.getExpressions().stream().map(OriginalExpressionUtils::castToExpression).allMatch(ApplyNodeUtil::isSupportedSubqueryExpression),
                 "Unexpected expression used for subquery expression");
     }
 

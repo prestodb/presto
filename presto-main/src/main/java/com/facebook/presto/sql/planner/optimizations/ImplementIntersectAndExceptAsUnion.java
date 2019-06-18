@@ -220,13 +220,13 @@ public class ImplementIntersectAndExceptAsUnion
             // add existing intersect symbols to projection
             for (Map.Entry<VariableReferenceExpression, SymbolReference> entry : projections.entrySet()) {
                 VariableReferenceExpression variable = symbolAllocator.newVariable(entry.getKey().getName(), entry.getKey().getType());
-                assignments.put(variable, entry.getValue());
+                assignments.put(variable, castToRowExpression(entry.getValue()));
             }
 
             // add extra marker fields to the projection
             for (int i = 0; i < markers.size(); ++i) {
                 Expression expression = (i == markerIndex) ? TRUE_LITERAL : new Cast(new NullLiteral(), StandardTypes.BOOLEAN);
-                assignments.put(symbolAllocator.newVariable(markers.get(i).getName(), BOOLEAN), expression);
+                assignments.put(symbolAllocator.newVariable(markers.get(i).getName(), BOOLEAN), castToRowExpression(expression));
             }
 
             return new ProjectNode(idAllocator.getNextId(), source, assignments.build());
