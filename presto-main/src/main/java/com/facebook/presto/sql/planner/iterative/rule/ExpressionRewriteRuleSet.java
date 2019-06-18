@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
@@ -328,6 +329,7 @@ public class ExpressionRewriteRuleSet
             if (applyNode.getSubqueryAssignments().equals(subqueryAssignments)) {
                 return Result.empty();
             }
+            verifySubquerySupported(subqueryAssignments);
             return Result.ofPlanNode(new ApplyNode(
                     applyNode.getId(),
                     applyNode.getInput(),

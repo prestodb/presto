@@ -16,10 +16,7 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.tree.ExistsPredicate;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
+import com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -87,7 +84,7 @@ public class ApplyNode
 
         checkArgument(input.getOutputVariables().containsAll(correlation), "Input does not contain symbols from correlation");
         checkArgument(
-                subqueryAssignments.getExpressions().stream().allMatch(ApplyNode::isSupportedSubqueryExpression),
+                subqueryAssignments.getExpressions().stream().allMatch(ApplyNodeUtil::isSupportedSubqueryExpression),
                 "Unexpected expression used for subquery expression");
 
         this.input = input;
@@ -95,13 +92,6 @@ public class ApplyNode
         this.subqueryAssignments = subqueryAssignments;
         this.correlation = ImmutableList.copyOf(correlation);
         this.originSubqueryError = originSubqueryError;
-    }
-
-    private static boolean isSupportedSubqueryExpression(Expression expression)
-    {
-        return expression instanceof InPredicate ||
-                expression instanceof ExistsPredicate ||
-                expression instanceof QuantifiedComparisonExpression;
     }
 
     @JsonProperty
