@@ -19,7 +19,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;
@@ -34,6 +33,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictTableScan;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 
@@ -51,7 +51,7 @@ public class TestPruneTableScanColumns
                     Symbol totalprice = p.symbol("totalprice", DOUBLE);
                     VariableReferenceExpression totalpriceVariable = new VariableReferenceExpression(totalprice.getName(), DOUBLE);
                     return p.project(
-                            Assignments.of(p.variable("x"), totalprice.toSymbolReference()),
+                            assignment(p.variable("x"), totalprice.toSymbolReference()),
                             p.tableScan(
                                     new TableHandle(
                                             new ConnectorId("local"),
@@ -77,7 +77,7 @@ public class TestPruneTableScanColumns
                     Symbol x = p.symbol("x");
                     VariableReferenceExpression xv = p.variable(x);
                     return p.project(
-                            Assignments.of(p.variable("y"), expression("x")),
+                            assignment(p.variable("y"), expression("x")),
                             p.tableScan(
                                     ImmutableList.of(xv),
                                     ImmutableMap.of(p.variable(p.symbol("x")), new TestingColumnHandle("x"))));

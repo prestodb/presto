@@ -25,6 +25,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.RowType;
@@ -222,9 +223,9 @@ public class PushdownSubfields
         @Override
         public PlanNode visitProject(ProjectNode node, RewriteContext<Context> context)
         {
-            for (Map.Entry<VariableReferenceExpression, Expression> entry : node.getAssignments().entrySet()) {
+            for (Map.Entry<VariableReferenceExpression, RowExpression> entry : node.getAssignments().entrySet()) {
                 VariableReferenceExpression variable = entry.getKey();
-                Expression expression = entry.getValue();
+                Expression expression = castToExpression(entry.getValue());
 
                 if (expression instanceof SymbolReference) {
                     context.get().addAssignment(variable, new VariableReferenceExpression(((SymbolReference) expression).getName(), types.get(Symbol.from(expression))));

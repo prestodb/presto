@@ -99,7 +99,7 @@ public class ImplementFilteredAggregations
                 Expression filter = OriginalExpressionUtils.castToExpression(entry.getValue().getFilter().get());
                 VariableReferenceExpression variable = context.getSymbolAllocator().newVariable(filter, BOOLEAN);
                 verify(!mask.isPresent(), "Expected aggregation without mask symbols, see Rule pattern");
-                newAssignments.put(variable, filter);
+                newAssignments.put(variable, castToRowExpression(filter));
                 mask = Optional.of(variable);
 
                 maskSymbols.add(new SymbolReference(variable.getName()));
