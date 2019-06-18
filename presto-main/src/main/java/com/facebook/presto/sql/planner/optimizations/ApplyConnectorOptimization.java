@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -74,8 +73,6 @@ public class ApplyConnectorOptimization
             return plan;
         }
 
-        ConnectorSession connectorSession = session.toConnectorSession();
-
         // retrieve all the connectors
         ImmutableSet.Builder<ConnectorId> connectorIds = ImmutableSet.builder();
         getAllConnectorIds(plan, connectorIds);
@@ -115,7 +112,7 @@ public class ApplyConnectorOptimization
 
                 // the returned node is still a max closure (only if there is no new connector added, which does happen but ignored here)
                 for (ConnectorPlanOptimizer optimizer : optimizers) {
-                    newNode = optimizer.optimize(newNode, connectorSession, symbolAllocator, idAllocator);
+                    newNode = optimizer.optimize(newNode, session.toConnectorSession(connectorId), symbolAllocator, idAllocator);
                 }
 
                 if (node != newNode) {
