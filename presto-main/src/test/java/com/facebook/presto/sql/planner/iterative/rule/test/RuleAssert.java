@@ -29,14 +29,18 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
+import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.iterative.PlanNodeMatcher;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.optimizations.TranslateExpressions;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
 
@@ -151,7 +155,7 @@ public class RuleAssert
         }
 
         inTransaction(session -> {
-            assertPlan(session, metadata, ruleApplication.statsProvider, new Plan(actual, types, StatsAndCosts.empty()), ruleApplication.lookup, pattern);
+            assertPlan(session, metadata, ruleApplication.statsProvider, new Plan(actual, types, StatsAndCosts.empty()), ruleApplication.lookup, pattern, planNode -> translateExpressions(planNode, types));
             return null;
         });
     }
@@ -187,7 +191,7 @@ public class RuleAssert
     {
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, session, types);
-        return inTransaction(session -> textLogicalPlan(plan, types, metadata.getFunctionManager(), StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false));
+        return inTransaction(session -> textLogicalPlan(translateExpressions(plan, types), types, metadata.getFunctionManager(), StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false));
     }
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
@@ -199,6 +203,12 @@ public class RuleAssert
                     session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
                     return transactionSessionConsumer.apply(session);
                 });
+    }
+
+    private PlanNode translateExpressions(PlanNode node, TypeProvider typeProvider)
+    {
+        IterativeOptimizer optimizer = new IterativeOptimizer(new RuleStatsRecorder(), statsCalculator, costCalculator, new TranslateExpressions(metadata, new SqlParser()).rules());
+        return optimizer.optimize(node, session, typeProvider, new SymbolAllocator(typeProvider.allTypes()), idAllocator, WarningCollector.NOOP);
     }
 
     private Rule.Context ruleContext(StatsCalculator statsCalculator, CostCalculator costCalculator, SymbolAllocator symbolAllocator, Memo memo, Lookup lookup, Session session)
