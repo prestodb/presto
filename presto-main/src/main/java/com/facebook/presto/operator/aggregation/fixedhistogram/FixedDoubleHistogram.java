@@ -198,6 +198,7 @@ public class FixedDoubleHistogram
                         getLeftValuForIndex(bucketCount, min, max, currentIndex),
                         getRightValuForIndex(bucketCount, min, max, currentIndex),
                         weights[currentIndex]);
+
                 ++currentIndex;
                 return value;
             }
