@@ -20,6 +20,7 @@ import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -92,22 +93,24 @@ public final class ValidateDependenciesChecker
     @Override
     public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
     {
-        validate(plan, types);
+        validate(plan, types, metadata.getTypeManager());
     }
 
-    public static void validate(PlanNode plan, TypeProvider types)
+    public static void validate(PlanNode plan, TypeProvider types, TypeManager typeManager)
     {
-        plan.accept(new Visitor(types), ImmutableSet.of());
+        plan.accept(new Visitor(types, typeManager), ImmutableSet.of());
     }
 
     private static class Visitor
             extends InternalPlanVisitor<Void, Set<VariableReferenceExpression>>
     {
         private final TypeProvider types;
+        private final TypeManager typeManager;
 
-        public Visitor(TypeProvider types)
+        public Visitor(TypeProvider types, TypeManager typeManager)
         {
             this.types = requireNonNull(types, "types is null");
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
         }
 
         @Override
@@ -709,10 +712,17 @@ public final class ValidateDependenciesChecker
                     .addAll(boundVariables)
                     .build();
         }
-    }
 
-    private static void checkDependencies(Collection<VariableReferenceExpression> inputs, Collection<VariableReferenceExpression> required, String message, Object... parameters)
-    {
-        checkArgument(ImmutableSet.copyOf(inputs).containsAll(required), message, parameters);
+        private void checkDependencies(Collection<VariableReferenceExpression> inputs, Collection<VariableReferenceExpression> required, String message, Object... parameters)
+        {
+            for (VariableReferenceExpression target : required) {
+                checkArgument(
+                        inputs.stream()
+                                .anyMatch(input -> input.getName().equalsIgnoreCase(target.getName()) &&
+                                        typeManager.isTypeOnlyCoercion(input.getType(), target.getType())),
+                        message,
+                        parameters);
+            }
+        }
     }
 }
