@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.array.ObjectBigArray;
-import com.facebook.presto.operator.aggregation.FixedDoubleHistogram;
+import com.facebook.presto.operator.aggregation.fixedhistogram.FixedDoubleHistogram;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 
 import static java.util.Objects.requireNonNull;

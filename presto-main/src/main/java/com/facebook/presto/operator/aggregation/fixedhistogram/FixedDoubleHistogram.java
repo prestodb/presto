@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation;
+package com.facebook.presto.operator.aggregation.fixedhistogram;
 
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.SliceInput;
@@ -22,26 +22,35 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+import static com.facebook.presto.operator.aggregation.fixedhistogram.FixedHistogramUtils.getIndexForValue;
+import static com.facebook.presto.operator.aggregation.fixedhistogram.FixedHistogramUtils.verifyParams;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class FixedDoubleHistogram
-        implements Cloneable, Iterable<FixedDoubleHistogram.Bin>
+        implements Cloneable, Iterable<FixedDoubleHistogram.Bucket>
 {
-    private static final byte FORMAT_TAG = 0;
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FixedDoubleHistogram.class).instanceSize();
-
-    private final int bucketCount;
-    private final double min;
-    private final double max;
-    private final double[] weights;
-
-    public class Bin
+    public static class Bucket
     {
-        public final double left;
-        public final double right;
-        public final double weight;
+        private final double left;
+        private final double right;
+        private final double weight;
 
-        public Bin(double left, double right, double weight)
+        public double getLeft()
+        {
+            return left;
+        }
+
+        public double getRight()
+        {
+            return right;
+        }
+
+        public double getWeight()
+        {
+            return weight;
+        }
+
+        public Bucket(double left, double right, double weight)
         {
             this.left = left;
             this.right = right;
@@ -49,55 +58,64 @@ public class FixedDoubleHistogram
         }
     }
 
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FixedDoubleHistogram.class).instanceSize();
+
+    protected final double[] weights;
+
+    private int bucketCount;
+    private double min;
+    private double max;
+
     public FixedDoubleHistogram(int bucketCount, double min, double max)
     {
-        checkArgument(bucketCount >= 2, "bucketCount %s must be >= 2", bucketCount);
-        checkArgument(min < max, "min %s must be greater than max %s ", min, max);
-
         this.bucketCount = bucketCount;
         this.min = min;
         this.max = max;
+        verifyParams(bucketCount, min, max);
         this.weights = new double[bucketCount];
     }
 
     public FixedDoubleHistogram(SliceInput input)
     {
-        checkArgument(input.readByte() == FORMAT_TAG, "Unsupported format tag");
-        bucketCount = input.readInt();
-        checkArgument(bucketCount >= 2, "bucketCount %s must be >= 2", bucketCount);
-        min = input.readDouble();
-        max = input.readDouble();
-        checkArgument(min < max, "min %s must be greater than max %s ", min, max);
-        weights = new double[bucketCount];
-        input.readBytes(Slices.wrappedDoubleArray(weights), bucketCount * SizeOf.SIZE_OF_DOUBLE);
+        this.bucketCount = input.readInt();
+        this.min = input.readDouble();
+        this.max = input.readDouble();
+        verifyParams(bucketCount, min, max);
+        this.weights = new double[bucketCount];
+        input.readBytes(
+                Slices.wrappedDoubleArray(weights),
+                bucketCount * SizeOf.SIZE_OF_DOUBLE);
     }
 
-    protected FixedDoubleHistogram(FixedDoubleHistogram other)
-    {
-        this(other.bucketCount, other.min, other.max);
-        for (int i = 0; i < bucketCount; ++i) {
-            weights[i] = other.weights[i];
-        }
-    }
-
-    public FixedDoubleHistogram clone()
-    {
-        return new FixedDoubleHistogram(this);
-    }
-
-    int getBucketCount()
+    public int getBucketCount()
     {
         return bucketCount;
     }
 
-    double getMin()
+    public double getMin()
     {
         return min;
     }
 
-    double getMax()
+    public double getMax()
     {
         return max;
+    }
+
+    public double getWidth()
+    {
+        return (max - min) / bucketCount;
+    }
+
+    protected FixedDoubleHistogram(FixedDoubleHistogram other)
+    {
+        bucketCount = other.bucketCount;
+        min = other.min;
+        max = other.max;
+        weights = new double[bucketCount];
+        for (int i = 0; i < bucketCount; ++i) {
+            weights[i] = other.weights[i];
+        }
     }
 
     public int getRequiredBytesForSerialization()
@@ -111,34 +129,31 @@ public class FixedDoubleHistogram
 
     public void serialize(SliceOutput out)
     {
-        out.appendByte(FORMAT_TAG)
-            .appendInt(bucketCount)
-            .appendDouble(min)
-            .appendDouble(max)
-            .appendBytes(Slices.wrappedDoubleArray(weights, 0, bucketCount));
+        out
+                .appendInt(bucketCount)
+                .appendDouble(min)
+                .appendDouble(max)
+                .appendBytes(Slices.wrappedDoubleArray(weights, 0, bucketCount));
     }
 
     public long estimatedInMemorySize()
     {
-        return INSTANCE_SIZE + SizeOf.sizeOf(weights);
+        return INSTANCE_SIZE + getRequiredBytesForSerialization();
     }
 
     public void set(double value, double weight)
     {
-        checkArgument(
-                value >= min && value <= max,
-                "value must be within range [%s, %s]", min, max);
-        weights[getIndexForValue(value)] = weight;
+        weights[getIndexForValue(bucketCount, min, max, value)] = weight;
     }
 
     public void add(double value)
     {
-        add(value, 1);
+        add(value, 1.0);
     }
 
     public void add(double value, double weight)
     {
-        weights[getIndexForValue(value)] += weight;
+        weights[getIndexForValue(bucketCount, min, max, value)] += weight;
     }
 
     public void mergeWith(FixedDoubleHistogram other)
@@ -148,16 +163,19 @@ public class FixedDoubleHistogram
         checkArgument(
                 bucketCount == other.bucketCount,
                 "bucketCount %s must be equal to other bucketCount %s", bucketCount, other.bucketCount);
-
         for (int i = 0; i < bucketCount; ++i) {
             weights[i] += other.weights[i];
         }
     }
 
     @Override
-    public Iterator<Bin> iterator()
+    public Iterator<Bucket> iterator()
     {
-        return new Iterator<Bin>()
+        final int bucketCount = getBucketCount();
+        final double min = getMin();
+        final double max = getMax();
+
+        return new Iterator<Bucket>()
         {
             private int currentIndex;
 
@@ -168,16 +186,18 @@ public class FixedDoubleHistogram
             }
 
             @Override
-            public Bin next()
+            public Bucket next()
             {
-                if (currentIndex == bucketCount) {
+                if (!hasNext()) {
                     throw new NoSuchElementException();
                 }
 
-                return new Bin(
-                    currentIndex * (max - min) / bucketCount,
-                    (currentIndex + 1) * (max - min) / bucketCount,
-                    weights[currentIndex++]);
+                final Bucket value = new Bucket(
+                        currentIndex * (max - min) / bucketCount,
+                        (currentIndex + 1) * (max - min) / bucketCount,
+                        weights[currentIndex]);
+                ++currentIndex;
+                return value;
             }
 
             @Override
@@ -188,13 +208,8 @@ public class FixedDoubleHistogram
         };
     }
 
-    private int getIndexForValue(double value)
+    public FixedDoubleHistogram clone()
     {
-        checkArgument(
-                value >= min && value <= max,
-                "value must be within range [%s, %s]", min, max);
-        return Math.min(
-                (int) (bucketCount * (value - min) / (max - min)),
-                bucketCount - 1);
+        return new FixedDoubleHistogram(this);
     }
 }

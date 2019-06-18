@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.operator.aggregation.fixedhistogram.FixedDoubleHistogram;
 import com.facebook.presto.operator.aggregation.state.PrecisionRecallState;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AggregationState;
@@ -101,8 +102,8 @@ public abstract class PrecisionRecallAggregation
             @AggregationState PrecisionRecallState otherState)
     {
         if (state.getTrueWeights() == null && otherState.getTrueWeights() != null) {
-            state.setTrueWeights(new FixedDoubleHistogram(otherState.getTrueWeights().clone()));
-            state.setFalseWeights(new FixedDoubleHistogram(otherState.getFalseWeights().clone()));
+            state.setTrueWeights(otherState.getTrueWeights().clone());
+            state.setFalseWeights(otherState.getFalseWeights().clone());
             return;
         }
         if (state.getTrueWeights() != null && otherState.getTrueWeights() != null) {
@@ -144,16 +145,16 @@ public abstract class PrecisionRecallAggregation
         }
 
         final double totalTrueWeight = Streams.stream(state.getTrueWeights().iterator())
-                .mapToDouble(c -> c.weight)
+                .mapToDouble(c -> c.getWeight())
                 .sum();
         final double totalFalseWeight = Streams.stream(state.getFalseWeights().iterator())
-                .mapToDouble(c -> c.weight)
+                .mapToDouble(c -> c.getWeight())
                 .sum();
 
         return new Iterator<BucketResult>()
         {
-            Iterator<FixedDoubleHistogram.Bin> trueIt = state.getTrueWeights().iterator();
-            Iterator<FixedDoubleHistogram.Bin> falseIt = state.getFalseWeights().iterator();
+            Iterator<FixedDoubleHistogram.Bucket> trueIt = state.getTrueWeights().iterator();
+            Iterator<FixedDoubleHistogram.Bucket> falseIt = state.getFalseWeights().iterator();
             double runningFalseWeight;
             double runningTrueWeight;
 
@@ -169,19 +170,19 @@ public abstract class PrecisionRecallAggregation
                 if (!trueIt.hasNext() || !falseIt.hasNext()) {
                     throw new NoSuchElementException();
                 }
-                final FixedDoubleHistogram.Bin trueResult = trueIt.next();
-                final FixedDoubleHistogram.Bin falseResult = falseIt.next();
+                final FixedDoubleHistogram.Bucket trueResult = trueIt.next();
+                final FixedDoubleHistogram.Bucket falseResult = falseIt.next();
 
                 final BucketResult result = new BucketResult(
-                        trueResult.left,
-                        trueResult.right,
+                        trueResult.getLeft(),
+                        trueResult.getRight(),
                         totalTrueWeight,
                         totalFalseWeight,
                         runningTrueWeight,
                         runningFalseWeight);
 
-                runningTrueWeight += trueResult.weight;
-                runningFalseWeight += falseResult.weight;
+                runningTrueWeight += trueResult.getWeight();
+                runningFalseWeight += falseResult.getWeight();
 
                 return result;
             }
