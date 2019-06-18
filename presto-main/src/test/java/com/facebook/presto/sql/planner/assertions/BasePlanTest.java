@@ -23,7 +23,6 @@ import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
-import com.facebook.presto.sql.planner.optimizations.TranslateExpressions;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
@@ -139,7 +138,7 @@ public class BasePlanTest
                     sql,
                     ImmutableList.<PlanOptimizer>builder()
                             .addAll(optimizers)
-                            .add(translateExpressions()).build(),
+                            .add(queryRunner.translateExpressions()).build(), // To avoid assert plan failure not printing out plan (#12885)
                     stage,
                     WarningCollector.NOOP);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
@@ -167,20 +166,9 @@ public class BasePlanTest
                         queryRunner.getStatsCalculator(),
                         queryRunner.getCostCalculator(),
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
-                translateExpressions());
+                queryRunner.translateExpressions()); // To avoid assert plan failure not printing out plan (#12885)
 
         assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
-    }
-
-    private PlanOptimizer translateExpressions()
-    {
-        return new IterativeOptimizer(
-                new RuleStatsRecorder(),
-                queryRunner.getStatsCalculator(),
-                queryRunner.getCostCalculator(),
-                new ImmutableSet.Builder()
-                        .addAll(new TranslateExpressions(queryRunner.getMetadata(), queryRunner.getSqlParser()).rules())
-                        .build());
     }
 
     protected void assertPlanWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, PlanMatchPattern pattern)
