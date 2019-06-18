@@ -39,9 +39,13 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
+import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
+import com.facebook.presto.sql.planner.optimizations.TranslateExpressions;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -81,6 +85,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.replicatedExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.systemPartitionedExchange;
+import static com.facebook.presto.sql.relational.Expressions.variable;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -417,13 +422,14 @@ public class TestCostCalculator
     @Test
     public void testRepartitionedJoinWithExchange()
     {
-        TableScanNode ts1 = tableScan("ts1", ImmutableList.of(new VariableReferenceExpression("orderkey", BIGINT)));
-        TableScanNode ts2 = tableScan("ts2", ImmutableList.of(new VariableReferenceExpression("orderkey_0", BIGINT)));
+        TableScanNode ts1 = tableScan("ts1", "orderkey");
+        TableScanNode ts2 = tableScan("ts2", "orderkey_0");
+        PlanNode p1 = project("p1", ts1, variable("orderkey_1", BIGINT), new SymbolReference("orderkey"));
         ExchangeNode remoteExchange1 = systemPartitionedExchange(
                 new PlanNodeId("re1"),
                 REMOTE_STREAMING,
-                ts1,
-                ImmutableList.of(new VariableReferenceExpression("orderkey", BIGINT)),
+                p1,
+                ImmutableList.of(new VariableReferenceExpression("orderkey_1", BIGINT)),
                 Optional.empty());
         ExchangeNode remoteExchange2 = systemPartitionedExchange(
                 new PlanNodeId("re2"),
@@ -442,7 +448,7 @@ public class TestCostCalculator
                 remoteExchange1,
                 localExchange,
                 JoinNode.DistributionType.PARTITIONED,
-                "orderkey",
+                "orderkey_1",
                 "orderkey_0");
 
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.<String, PlanNodeStatsEstimate>builder()
@@ -450,11 +456,13 @@ public class TestCostCalculator
                 .put("re1", statsEstimate(remoteExchange1, 10000))
                 .put("re2", statsEstimate(remoteExchange2, 10000))
                 .put("le", statsEstimate(localExchange, 6000))
+                .put("p1", statsEstimate(p1, 6000))
                 .put("ts1", statsEstimate(ts1, 6000))
                 .put("ts2", statsEstimate(ts2, 1000))
                 .build();
         Map<String, Type> types = ImmutableMap.of(
                 "orderkey", BIGINT,
+                "orderkey_1", BIGINT,
                 "orderkey_0", BIGINT);
 
         assertFragmentedEqualsUnfragmented(join, stats, types);
@@ -548,12 +556,20 @@ public class TestCostCalculator
             Map<String, PlanNodeStatsEstimate> stats,
             Map<String, Type> types)
     {
-        TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
-                .collect(ImmutableMap.toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue)));
+        Map<Symbol, Type> symbolTypes = types.entrySet().stream()
+                .collect(ImmutableMap.toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue));
+        TypeProvider typeProvider = TypeProvider.copyOf(symbolTypes);
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator(stats), session, typeProvider);
         CostProvider costProvider = new TestingCostProvider(costs, costCalculatorUsingExchanges, statsProvider, session, typeProvider);
-        SubPlan subPlan = fragment(new Plan(node, typeProvider, StatsAndCosts.create(node, statsProvider, costProvider)));
+        PlanNode plan = translateExpression(node, statsCalculator(stats), typeProvider);
+        SubPlan subPlan = fragment(new Plan(plan, typeProvider, StatsAndCosts.create(node, statsProvider, costProvider)));
         return new CostAssertionBuilder(subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown()));
+    }
+
+    private PlanNode translateExpression(PlanNode node, StatsCalculator statsCalculator, TypeProvider typeProvider)
+    {
+        IterativeOptimizer optimizer = new IterativeOptimizer(new RuleStatsRecorder(), statsCalculator, costCalculatorUsingExchanges, new TranslateExpressions(metadata, new SqlParser()).rules());
+        return optimizer.optimize(node, session, typeProvider, new SymbolAllocator(typeProvider.allTypes()), new PlanNodeIdAllocator(), WarningCollector.NOOP);
     }
 
     private static class TestingCostProvider
@@ -684,6 +700,7 @@ public class TestCostCalculator
                 .collect(ImmutableMap.toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue)));
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, typeProvider);
         CostProvider costProvider = new CachingCostProvider(costCalculatorUsingExchanges, statsProvider, Optional.empty(), session, typeProvider);
+        node = translateExpression(node, statsCalculator, typeProvider);
         SubPlan subPlan = fragment(new Plan(node, typeProvider, StatsAndCosts.create(node, statsProvider, costProvider)));
         return subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown());
     }
