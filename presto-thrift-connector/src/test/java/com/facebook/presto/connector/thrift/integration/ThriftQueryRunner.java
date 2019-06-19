@@ -13,6 +13,13 @@
  */
 package com.facebook.presto.connector.thrift.integration;
 
+import com.facebook.drift.codec.ThriftCodecManager;
+import com.facebook.drift.server.DriftServer;
+import com.facebook.drift.server.DriftService;
+import com.facebook.drift.server.stats.NullMethodInvocationStatsFactory;
+import com.facebook.drift.transport.netty.server.DriftNettyServerConfig;
+import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
+import com.facebook.drift.transport.netty.server.DriftNettyServerTransportFactory;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.thrift.ThriftPlugin;
 import com.facebook.presto.connector.thrift.server.ThriftIndexedTpchService;
@@ -34,13 +41,6 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.drift.codec.ThriftCodecManager;
-import io.airlift.drift.server.DriftServer;
-import io.airlift.drift.server.DriftService;
-import io.airlift.drift.server.stats.NullMethodInvocationStatsFactory;
-import io.airlift.drift.transport.netty.server.DriftNettyServerConfig;
-import io.airlift.drift.transport.netty.server.DriftNettyServerTransport;
-import io.airlift.drift.transport.netty.server.DriftNettyServerTransportFactory;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 

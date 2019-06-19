@@ -17,7 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
-import static io.airlift.drift.server.guice.DriftServerBinder.driftServerBinder;
+import static com.facebook.drift.server.guice.DriftServerBinder.driftServerBinder;
 
 public class ThriftTpchServerModule
         implements Module
