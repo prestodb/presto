@@ -839,6 +839,7 @@ if you run ``SELECT t1.*, t2.*``, the join columns are not included in the outpu
 The following two queries are equivalent:
 
 .. code-block:: none 
+
     SELECT *
     FROM (
         VALUES
@@ -852,7 +853,9 @@ The following two queries are equivalent:
     ) AS table_2 (key_A, key_B, y2) 
     USING (key_A, key_B)
 
+
 .. code-block::none
+
     SELECT key_A, key_B, table_1.*, table_2.*
     FROM (
         VALUES
