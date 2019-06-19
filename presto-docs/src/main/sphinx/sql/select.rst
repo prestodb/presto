@@ -853,8 +853,7 @@ The following two queries are equivalent:
     ) AS table_2 (key_A, key_B, y2) 
     USING (key_A, key_B)
 
-
-.. code-block::none
+    -----------------------------
 
     SELECT key_A, key_B, table_1.*, table_2.*
     FROM (
