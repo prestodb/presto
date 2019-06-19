@@ -521,9 +521,15 @@ public class PlanOptimizers
         // After this point, all planNodes should not contain OriginalExpression
 
         // TODO: Do not move other PlanNode to SPI until ApplyConnectorOptimization is moved to the end of logical planning (i.e., where AddExchanges lives)
-        // TODO: Run RemoveRedundantIdentityProjections and PruneUnreferencedOutputs once (1) we can have ProjectNode in SPI and (2) have moved the connector optimization above HashGenerationOptimizer
+        // TODO: Run PruneUnreferencedOutputs and UnaliasSymbolReferences once we have cleaned it up
         // Pass a supplier so that we pickup connector optimizers that are installed later
-        builder.add(new ApplyConnectorOptimization(planOptimizerManager::getOptimizers));
+        builder.add(
+                new ApplyConnectorOptimization(planOptimizerManager::getOptimizers),
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        costCalculator,
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())));
 
         // DO NOT add optimizers that change the plan shape (computations) after this point
 
