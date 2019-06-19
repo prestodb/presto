@@ -2734,12 +2734,12 @@ public class LocalExecutionPlanner
     private static LifespanCommitter createLifespanCommitter(Session session, TableFinishNode node, Metadata metadata)
     {
         WriterTarget target = node.getTarget();
-        return (partitionId, fragments) -> {
+        return fragments -> {
             if (target instanceof CreateHandle) {
-                metadata.commitPartition(session, ((CreateHandle) target).getHandle(), partitionId, fragments);
+                metadata.commitPartition(session, ((CreateHandle) target).getHandle(), fragments);
             }
             else if (target instanceof InsertHandle) {
-                metadata.commitPartition(session, ((InsertHandle) target).getHandle(), partitionId, fragments);
+                metadata.commitPartition(session, ((InsertHandle) target).getHandle(), fragments);
             }
             else {
                 throw new AssertionError("Unhandled target type: " + target.getClass().getName());
