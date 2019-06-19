@@ -783,61 +783,75 @@ The following query will fail with the error ``Column 'name' is ambiguous``::
 
 
 USING
-^^^^^^^^^^^^^^^^^^^^^^^
-Making a join with `USING` helps write shorter code. For example, instead of the following code:
+^^^^^
+The ``USING`` clause allows you to write shorter queries when both tables you 
+are joining have the same name for the join key.
+
+For example:
 
 .. code-block:: none 
 
-    SELECT
-        *
-    FROM t1 
-    JOIN t2
-    ON t1.key_1 = t2.key_1 AND t1.key_2 = t2.key_2
+    SELECT *
+    FROM table_1 
+    JOIN table_2
+    ON table_1.key_A = table_2.key_A AND table_1.key_B = table_2.key_B
 
-You can write:
-
-.. code-block:: none 
-
-    SELECT
-        *
-    FROM t1
-    JOIN t2
-    USING (key_1, key_2)
-
-When using `USING` the column names of `key_1` and `key_2` are no longer part of the original tables (t1 and t2). Thus, using * will NOT add two duplicate key columns from t1 and t2. If we want to get the explicit columns from each of the tables, we'd call them directly without the table prefix (i.e.: key_1), and using `t1.key_1` will return an error. 
-This can be an issue if, for example, we wanted to get t1.key_1 and check it for NULL values (i.e.: in order to detect all the rows in t1 that don't have a match in t2).
-
-The following example shows how to access each of the columns using SELECT:
+Can be rewritten to:
 
 .. code-block:: none 
 
-    SELECT
-        key_1,
-        key_2,
-        table_1.*,
-        table_2.*
-        -- The select here is the same as simply writing: *
-        -- Writing something like: table_1.key_1 will return an error (see explanation above)
+    SELECT *
+    FROM table_1
+    JOIN table_2
+    USING (key_A, key_B)
+
+
+The output of doing ``JOIN`` with ``USING`` will be one copy of the join key 
+columns (key_1 and key_2 in the example above) followed by the remaining columns
+in t1 and then the remaining columns in t2. Note that the join keys are not
+included in the list of columns from the origin tables for the purpose of
+referencing them in the query. You cannot access them with a table prefix and 
+if you run ``SELECT t1.*, t2.*``, the join columns are not included in the output.
+
+The following two queries are equivalent:
+
+.. code-block:: none 
+    SELECT *
     FROM (
         VALUES
             (1, 3, 10),
             (2, 4, 20)
-    ) AS table_1 (key_1, key_2, y1)
+    ) AS table_1 (key_A, key_B, y1)
     LEFT JOIN (
         VALUES
             (1, 3, 100),
             (2, 4, 200)
-    ) AS table_2 (key_1, key_2, y2) 
-    USING (key_1, key_2)
+    ) AS table_2 (key_A, key_B, y2) 
+    USING (key_A, key_B)
 
-The output is:
+.. code-block::none
+    SELECT key_A, key_B, table_1.*, table_2.*
+    FROM (
+        VALUES
+            (1, 3, 10),
+            (2, 4, 20)
+    ) AS table_1 (key_A, key_B, y1)
+    LEFT JOIN (
+        VALUES
+            (1, 3, 100),
+            (2, 4, 200)
+    ) AS table_2 (key_A, key_B, y2) 
+    USING (key_A, key_B)
 
-===== ===== == ===
-key_1 key_2 y1 y2
-===== ===== == ===
-1     2     10 100
-3     4     20 200
-===== ===== == ===
+And produce the output:
+
+.. code-block:: none
+
+ key_A | key_B | y1 | y2  
+-------+-------+----+-----
+     1 |     3 | 10 | 100 
+     2 |     4 | 20 | 200 
+(2 rows)
 
 
 Subqueries
