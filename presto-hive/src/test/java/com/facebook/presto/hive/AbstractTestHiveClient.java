@@ -362,7 +362,6 @@ public abstract class AbstractTestHiveClient
             .build();
 
     private static final JsonCodec<PartitionUpdate> PARTITION_UPDATE_CODEC = jsonCodec(PartitionUpdate.class);
-    private static final int TEST_PARTITION_ID = 0;
 
     private static RowType toRowType(List<ColumnMetadata> columns)
     {
@@ -3283,7 +3282,7 @@ public abstract class AbstractTestHiveClient
 
             if (pageSinkProperties.isPartitionCommitRequired()) {
                 assertValidPartitionCommitFragments(fragments);
-                metadata.commitPartition(session, outputHandle, TEST_PARTITION_ID, fragments);
+                metadata.commitPartition(session, outputHandle, fragments);
             }
 
             // verify all new files start with the unique prefix
@@ -3452,7 +3451,7 @@ public abstract class AbstractTestHiveClient
             Collection<Slice> fragments = getFutureValue(sink.finish());
             if (pageSinkProperties.isPartitionCommitRequired()) {
                 assertValidPartitionCommitFragments(fragments);
-                metadata.commitPartition(session, insertTableHandle, TEST_PARTITION_ID, fragments);
+                metadata.commitPartition(session, insertTableHandle, fragments);
             }
             metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of());
 
@@ -3667,7 +3666,7 @@ public abstract class AbstractTestHiveClient
             Collection<Slice> fragments = getFutureValue(sink.finish());
             if (pageSinkProperties.isPartitionCommitRequired()) {
                 assertValidPartitionCommitFragments(fragments);
-                metadata.commitPartition(session, insertTableHandle, TEST_PARTITION_ID, fragments);
+                metadata.commitPartition(session, insertTableHandle, fragments);
             }
             metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of());
 
@@ -3786,7 +3785,7 @@ public abstract class AbstractTestHiveClient
             Collection<Slice> fragments = getFutureValue(sink.finish());
             if (pageSinkProperties.isPartitionCommitRequired()) {
                 assertValidPartitionCommitFragments(fragments);
-                metadata.commitPartition(session, insertTableHandle, TEST_PARTITION_ID, fragments);
+                metadata.commitPartition(session, insertTableHandle, fragments);
             }
             metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of());
 

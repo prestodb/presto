@@ -364,7 +364,7 @@ public class TableFinishOperator
 
     public interface LifespanCommitter
     {
-        void commitLifespan(int partitionId, Collection<Slice> fragments);
+        void commitLifespan(Collection<Slice> fragments);
     }
 
     // A lifespan in a stage defines the unit for commit and recovery in recoverable grouped execution
@@ -404,7 +404,7 @@ public class TableFinishOperator
                 LifespanAndStageState lifespanAndStageState = lifespanStageStatesPerTask.get(tableCommitContext.getTaskId());
                 committedRecoverableLifespanAndStages.put(lifespanAndStage, lifespanAndStageState);
                 uncommittedRecoverableLifespanAndStageStates.remove(lifespanAndStage);
-                lifespanCommitter.commitLifespan(lifespanAndStage.getLifespan().getId(), lifespanAndStageState.getFragments());
+                lifespanCommitter.commitLifespan(lifespanAndStageState.getFragments());
             }
         }
 

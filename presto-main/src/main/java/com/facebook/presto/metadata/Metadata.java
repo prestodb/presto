@@ -417,13 +417,13 @@ public interface Metadata
      * Commits partition for table creation.
      */
     @Experimental
-    void commitPartition(Session session, OutputTableHandle tableHandle, int partitionId, Collection<Slice> fragments);
+    void commitPartition(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Commits partition for table insertion.
      */
     @Experimental
-    void commitPartition(Session session, InsertTableHandle tableHandle, int partitionId, Collection<Slice> fragments);
+    void commitPartition(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments);
 
     FunctionManager getFunctionManager();
 
