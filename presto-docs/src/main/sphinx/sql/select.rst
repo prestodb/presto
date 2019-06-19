@@ -847,11 +847,11 @@ And produce the output:
 
 .. code-block:: none
 
- key_A | key_B | y1 | y2  
--------+-------+----+-----
-     1 |     3 | 10 | 100 
-     2 |     4 | 20 | 200 
-(2 rows)
+     key_A | key_B | y1 | y2  
+    -------+-------+----+-----
+         1 |     3 | 10 | 100 
+         2 |     4 | 20 | 200 
+    (2 rows)
 
 
 Subqueries
