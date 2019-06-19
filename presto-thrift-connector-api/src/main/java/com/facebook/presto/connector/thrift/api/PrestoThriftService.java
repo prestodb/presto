@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.connector.thrift.api;
 
+import com.facebook.drift.TException;
+import com.facebook.drift.annotations.ThriftException;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftMethod;
+import com.facebook.drift.annotations.ThriftService;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.drift.TException;
-import io.airlift.drift.annotations.ThriftException;
-import io.airlift.drift.annotations.ThriftField;
-import io.airlift.drift.annotations.ThriftMethod;
-import io.airlift.drift.annotations.ThriftService;
 
 import java.util.List;
 

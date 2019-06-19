@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.connector.thrift.location;
 
+import com.facebook.drift.client.address.AddressSelector;
+import com.facebook.drift.client.address.SimpleAddressSelector;
+import com.facebook.drift.client.address.SimpleAddressSelectorConfig;
+import com.facebook.drift.client.guice.AbstractAnnotatedProvider;
+import com.facebook.drift.client.guice.AddressSelectorBinder;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Key;
-import io.airlift.drift.client.address.AddressSelector;
-import io.airlift.drift.client.address.SimpleAddressSelector;
-import io.airlift.drift.client.address.SimpleAddressSelectorConfig;
-import io.airlift.drift.client.guice.AbstractAnnotatedProvider;
-import io.airlift.drift.client.guice.AddressSelectorBinder;
 
 import java.lang.annotation.Annotation;
 
