@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.HiveStorageFormat;
+import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -21,6 +22,8 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -43,7 +46,7 @@ public class StorageFormat
     public String getSerDe()
     {
         if (serDe == null) {
-            throw new IllegalStateException("serDe should not be accessed from a null StorageFormat");
+            throw new PrestoException(HIVE_INVALID_METADATA, "SerDe is not present in StorageFormat");
         }
         return serDe;
     }
@@ -51,7 +54,7 @@ public class StorageFormat
     public String getInputFormat()
     {
         if (inputFormat == null) {
-            throw new IllegalStateException("inputFormat should not be accessed from a null StorageFormat");
+            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "InputFormat is not present in StorageFormat");
         }
         return inputFormat;
     }
@@ -59,7 +62,7 @@ public class StorageFormat
     public String getOutputFormat()
     {
         if (outputFormat == null) {
-            throw new IllegalStateException("outputFormat should not be accessed from a null StorageFormat");
+            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "OutputFormat is not present in StorageFormat");
         }
         return outputFormat;
     }
