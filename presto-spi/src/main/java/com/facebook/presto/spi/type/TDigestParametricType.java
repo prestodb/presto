@@ -14,20 +14,21 @@
 package com.facebook.presto.spi.type;
 
 import java.util.List;
-public class QuantileDigestParametricType
+
+public class TDigestParametricType
         extends StatisticalDigestParametricType
 {
-    public static final QuantileDigestParametricType QDIGEST = new QuantileDigestParametricType();
+    public static final TDigestParametricType TDIGEST = new TDigestParametricType();
 
     @Override
     public String getName()
     {
-        return StandardTypes.QDIGEST;
+        return StandardTypes.TDIGEST;
     }
 
     @Override
     public Type getType(List<TypeParameter> parameters)
     {
-        return new QuantileDigestType(parameters.get(0).getType());
+        return new TDigestType(parameters.get(0).getType());
     }
 }

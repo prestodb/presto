@@ -13,16 +13,18 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.Session.builder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -212,7 +214,7 @@ public abstract class AbstractTestAggregations
                         "  GROUP BY orderkey " +
                         "HAVING COUNT(DISTINCT partkey) != CARDINALITY(ARRAY_DISTINCT(ARRAY_AGG(partkey))))",
                 "VALUES 0");
-        assertQuery(Session.builder(TEST_SESSION)
+        assertQuery(builder(TEST_SESSION)
                         .setSystemProperty("use_mark_distinct", "false")
                         .build(),
                 " SELECT COUNT(*) FROM (SELECT orderkey, COUNT(DISTINCT partkey) FROM lineitem " +
@@ -1284,58 +1286,73 @@ public abstract class AbstractTestAggregations
     }
 
     /**
-     * Comprehensive correctness testing is done in the TestQuantileDigestAggregationFunction
+     * Comprehensive correctness testing is done in the TestQuantileDigestAggregationFunction and TestTDigestAggregationFunction
      */
-    @Test
-    public void testQuantileDigest()
+    @Test(dataProvider = "getType")
+    public void testStatisticalDigest(String type)
     {
-        assertQuery("SELECT value_at_quantile(qdigest_agg(orderkey), 0.5E0) > 0 FROM lineitem", "SELECT true");
-        assertQuery("SELECT value_at_quantile(qdigest_agg(quantity), 0.5E0) > 0 FROM lineitem", "SELECT true");
-        assertQuery("SELECT value_at_quantile(qdigest_agg(CAST(quantity AS REAL)), 0.5E0) > 0 FROM lineitem", "SELECT true");
-        assertQuery("SELECT value_at_quantile(qdigest_agg(orderkey, 2), 0.5E0) > 0 FROM lineitem", "SELECT true");
-        assertQuery("SELECT value_at_quantile(qdigest_agg(quantity, 3), 0.5E0) > 0 FROM lineitem", "SELECT true");
-        assertQuery("SELECT value_at_quantile(qdigest_agg(CAST(quantity AS REAL), 4), 0.5E0) > 0 FROM lineitem", "SELECT true");
-        assertQuery("SELECT value_at_quantile(qdigest_agg(orderkey, 2, 0.0001E0), 0.5E0) > 0 FROM lineitem", "SELECT true");
-        assertQuery("SELECT value_at_quantile(qdigest_agg(quantity, 3, 0.0001E0), 0.5E0) > 0 FROM lineitem", "SELECT true");
-        assertQuery("SELECT value_at_quantile(qdigest_agg(CAST(quantity AS REAL), 4, 0.0001E0), 0.5E0) > 0 FROM lineitem", "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE)), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE)), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE)), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE), 2), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 3), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 4), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE), 2, 0.0001E0), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 3, 0.0001E0), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 4, 0.0001E0), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
     }
 
     /**
-     * Comprehensive correctness testing is done in the TestQuantileDigestAggregationFunction
+     * Comprehensive correctness testing is done in the TestQuantileDigestAggregationFunction and TestTDigestAggregationFunction
      */
-    @Test
-    public void testQuantileDigestGroupBy()
+    @Test(dataProvider = "getType")
+    public void testStatisticalDigestGroupBy(String type)
     {
-        assertQuery("SELECT partkey, value_at_quantile(qdigest_agg(orderkey), 0.5E0) > 0 FROM lineitem GROUP BY partkey", "SELECT partkey, true FROM lineitem GROUP BY partkey");
-        assertQuery("SELECT partkey, value_at_quantile(qdigest_agg(quantity), 0.5E0) > 0 FROM lineitem GROUP BY partkey", "SELECT partkey, true FROM lineitem GROUP BY partkey");
-        assertQuery("SELECT partkey, value_at_quantile(qdigest_agg(CAST(quantity AS REAL)), 0.5E0) > 0 FROM lineitem GROUP BY partkey", "SELECT partkey, true FROM lineitem GROUP BY partkey");
-        assertQuery("SELECT partkey, value_at_quantile(qdigest_agg(orderkey, 2), 0.5E0) > 0 FROM lineitem GROUP BY partkey", "SELECT partkey, true FROM lineitem GROUP BY partkey");
-        assertQuery("SELECT partkey, value_at_quantile(qdigest_agg(quantity, 3), 0.5E0) > 0 FROM lineitem GROUP BY partkey", "SELECT partkey, true FROM lineitem GROUP BY partkey");
-        assertQuery("SELECT partkey, value_at_quantile(qdigest_agg(CAST(quantity AS REAL), 4), 0.5E0) > 0 FROM lineitem GROUP BY partkey", "SELECT partkey, true FROM lineitem GROUP BY partkey");
-        assertQuery("SELECT partkey, value_at_quantile(qdigest_agg(orderkey, 2, 0.0001E0), 0.5E0) > 0 FROM lineitem GROUP BY partkey", "SELECT partkey, true FROM lineitem GROUP BY partkey");
-        assertQuery("SELECT partkey, value_at_quantile(qdigest_agg(quantity, 3, 0.0001E0), 0.5E0) > 0 FROM lineitem GROUP BY partkey", "SELECT partkey, true FROM lineitem GROUP BY partkey");
-        assertQuery("SELECT partkey, value_at_quantile(qdigest_agg(CAST(quantity AS REAL), 4, 0.0001E0), 0.5E0) > 0 FROM lineitem GROUP BY partkey", "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE)), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE)), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE)), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE), 2), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 3), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 4), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE), 2, 0.0001E0), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 3, 0.0001E0), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                "SELECT partkey, true FROM lineitem GROUP BY partkey");
+        assertQuery(format("SELECT partkey, value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 4, 0.0001E0), 0.5E0) > 0 FROM lineitem GROUP BY partkey", type),
+                "SELECT partkey, true FROM lineitem GROUP BY partkey");
     }
 
     /**
-     * Comprehensive correctness testing is done in the TestMergeQuantileDigestFunction
+     * Comprehensive correctness testing is done in the TestMergeQuantileDigestFunction and TestMergeTDigestFunction
      */
-    @Test
-    public void testQuantileDigestMerge()
+    @Test(dataProvider = "getType")
+    public void testStatisticalDigestMerge(String type)
     {
-        assertQuery("SELECT value_at_quantile(merge(qdigest), 0.5E0) > 0 FROM (SELECT partkey, qdigest_agg(orderkey) as qdigest FROM lineitem GROUP BY partkey)", "SELECT true");
+        assertQuery(format("SELECT value_at_quantile(merge(%s), 0.5E0) > 0 FROM (SELECT partkey, %s_agg(CAST(orderkey AS DOUBLE)) as %s FROM lineitem GROUP BY partkey)",
+                type,
+                type,
+                type),
+                "SELECT true");
     }
 
     /**
-     * Comprehensive correctness testing is done in the TestMergeQuantileDigestFunction
+     * Comprehensive correctness testing is done in the TestMergeQuantileDigestFunction and TestMergeTDigestFunction
      */
-    @Test
-    public void testQuantileDigestMergeGroupBy()
+    @Test(dataProvider = "getType")
+    public void testStatisticalDigestMergeGroupBy(String type)
     {
-        assertQuery("" +
-                        "SELECT partkey, value_at_quantile(merge(qdigest), 0.5E0) > 0 " +
-                        "FROM (SELECT partkey, suppkey, qdigest_agg(orderkey) as qdigest FROM lineitem GROUP BY partkey, suppkey)" +
+        assertQuery(format("SELECT partkey, value_at_quantile(merge(%s), 0.5E0) > 0 " +
+                        "FROM (SELECT partkey, suppkey, %s_agg(CAST(orderkey AS DOUBLE)) as %s FROM lineitem GROUP BY partkey, suppkey)" +
                         "GROUP BY partkey",
+                type,
+                type,
+                type),
                 "SELECT partkey, true FROM lineitem GROUP BY partkey");
     }
 
@@ -1350,5 +1367,11 @@ public abstract class AbstractTestAggregations
                         "   GROUP BY orderkey" +
                         ")",
                 "SELECT 15000, 15000");
+    }
+
+    @DataProvider(name = "getType")
+    protected Object[][] getDigests()
+    {
+        return new Object[][] {{"tdigest"}, {"qdigest"}};
     }
 }

@@ -13,56 +13,67 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.airlift.stats.QuantileDigest;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeParameter;
+import com.facebook.presto.tdigest.TDigest;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.function.BiFunction;
 
-import static com.facebook.presto.spi.type.QuantileDigestParametricType.QDIGEST;
+import static com.facebook.presto.spi.type.TDigestParametricType.TDIGEST;
+import static com.facebook.presto.tdigest.TDigest.createTDigest;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.Math.abs;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
-public class TestMergeQuantileDigestFunction
+public class TestMergeTDigestFunction
         extends TestMergeStatisticalDigestFunction
 {
-    public static final BiFunction<Object, Object, Boolean> QDIGEST_EQUALITY = (actualBinary, expectedBinary) -> {
+    private static final double[] quantiles = {0.01, 0.05, 0.1, 0.25, 0.50, 0.75, 0.9, 0.95, 0.99};
+
+    public static final BiFunction<Object, Object, Boolean> TDIGEST_EQUALITY = (actualBinary, expectedBinary) -> {
         if (actualBinary == null && expectedBinary == null) {
             return true;
         }
         requireNonNull(actualBinary, "actual value was null");
         requireNonNull(expectedBinary, "expected value was null");
 
-        QuantileDigest actual = new QuantileDigest(wrappedBuffer(((SqlVarbinary) actualBinary).getBytes()));
-        QuantileDigest expected = new QuantileDigest(wrappedBuffer(((SqlVarbinary) expectedBinary).getBytes()));
-        return actual.getCount() == expected.getCount() &&
+        TDigest actual = createTDigest(wrappedBuffer(((SqlVarbinary) actualBinary).getBytes()));
+        TDigest expected = createTDigest(wrappedBuffer(((SqlVarbinary) expectedBinary).getBytes()));
+
+        for (double quantile : quantiles) {
+            if (abs(actual.getQuantile(quantile) - expected.getQuantile(quantile)) > max(0.5, abs(actual.getQuantile(quantile) * 0.01))) {
+                return false;
+            }
+        }
+
+        return actual.getSize() == expected.getSize() &&
                 actual.getMin() == expected.getMin() &&
                 actual.getMax() == expected.getMax() &&
-                actual.getAlpha() == expected.getAlpha() &&
-                actual.getMaxError() == expected.getMaxError();
+                actual.getCompressionFactor() == expected.getCompressionFactor();
     };
 
     @Override
     protected BiFunction<Object, Object, Boolean> getEquality()
     {
-        return QDIGEST_EQUALITY;
+        return TDIGEST_EQUALITY;
     }
 
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        Type type = QDIGEST.createType(typeRegistry, ImmutableList.of(TypeParameter.of(DoubleType.DOUBLE)));
+        Type type = TDIGEST.createType(typeRegistry, ImmutableList.of(TypeParameter.of(DoubleType.DOUBLE)));
         BlockBuilder blockBuilder = type.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
-            QuantileDigest qdigest = new QuantileDigest(0.0);
-            qdigest.add(i);
-            type.writeSlice(blockBuilder, qdigest.serialize());
+            TDigest tdigest = createTDigest(100);
+            tdigest.add(i);
+            type.writeSlice(blockBuilder, tdigest.serialize());
         }
         return new Block[] {blockBuilder.build()};
     }
@@ -70,7 +81,7 @@ public class TestMergeQuantileDigestFunction
     @Override
     protected List<String> getFunctionParameterTypes()
     {
-        return ImmutableList.of("qdigest(double)");
+        return ImmutableList.of("tdigest(double)");
     }
 
     @Override
@@ -80,10 +91,10 @@ public class TestMergeQuantileDigestFunction
             return null;
         }
 
-        QuantileDigest qdigest = new QuantileDigest(0.00);
+        TDigest tdigest = createTDigest(100);
         for (int i = start; i < start + length; i++) {
-            qdigest.add(i);
+            tdigest.add(i);
         }
-        return new SqlVarbinary(qdigest.serialize().getBytes());
+        return new SqlVarbinary(tdigest.serialize().getBytes());
     }
 }
