@@ -22,13 +22,10 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
-import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.procedure.Procedure;
-import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.collect.ImmutableList;
@@ -65,9 +62,6 @@ public class HiveConnector
     private final List<PropertyMetadata<?>> tableProperties;
     private final List<PropertyMetadata<?>> analyzeProperties;
 
-    private final StandardFunctionResolution standardFunctionResolution;
-    private final RowExpressionService rowExpressionService;
-    private final HivePartitionManager hivePartitionManager;
     private final ConnectorAccessControl accessControl;
     private final ClassLoader classLoader;
 
@@ -88,9 +82,6 @@ public class HiveConnector
             List<PropertyMetadata<?>> tableProperties,
             List<PropertyMetadata<?>> analyzeProperties,
             ConnectorAccessControl accessControl,
-            StandardFunctionResolution standardFunctionResolution,
-            RowExpressionService rowExpressionService,
-            HivePartitionManager hivePartitionManager,
             ClassLoader classLoader)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
@@ -107,9 +98,6 @@ public class HiveConnector
         this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
         this.analyzeProperties = ImmutableList.copyOf(requireNonNull(analyzeProperties, "analyzeProperties is null"));
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
-        this.standardFunctionResolution = requireNonNull(standardFunctionResolution, "standardFunctionResolution is null");
-        this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
-        this.hivePartitionManager = requireNonNull(hivePartitionManager, "rowExpressionService is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
     }
 
@@ -143,12 +131,6 @@ public class HiveConnector
     public ConnectorNodePartitioningProvider getNodePartitioningProvider()
     {
         return nodePartitioningProvider;
-    }
-
-    @Override
-    public ConnectorPlanOptimizerProvider getConnectorPlanOptimizerProvider()
-    {
-        return new HivePlanOptimizerProvider(transactionManager::get, hivePartitionManager, rowExpressionService, standardFunctionResolution);
     }
 
     @Override
