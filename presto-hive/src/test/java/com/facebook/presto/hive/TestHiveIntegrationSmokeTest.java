@@ -4092,15 +4092,15 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(format("CREATE TABLE %s(i int)", tableName));
 
         Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "temporary_staging_directory_enabled", "false")
+                .setCatalogSessionProperty(catalog, "temporary_staging_directory_enabled", "false")
                 .build();
 
         HiveInsertTableHandle hiveInsertTableHandle = getHiveInsertTableHandle(session, tableName);
         assertEquals(hiveInsertTableHandle.getLocationHandle().getWritePath(), hiveInsertTableHandle.getLocationHandle().getTargetPath());
 
         session = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "temporary_staging_directory_enabled", "true")
-                .setCatalogSessionProperty("hive", "temporary_staging_directory_path", "/tmp/custom/temporary-${USER}")
+                .setCatalogSessionProperty(catalog, "temporary_staging_directory_enabled", "true")
+                .setCatalogSessionProperty(catalog, "temporary_staging_directory_path", "/tmp/custom/temporary-${USER}")
                 .build();
 
         hiveInsertTableHandle = getHiveInsertTableHandle(session, tableName);
@@ -4114,7 +4114,7 @@ public class TestHiveIntegrationSmokeTest
     public void testLikeSerializesWithPushdownFilter()
     {
         Session pushdownFilterEnabled = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
+                .setCatalogSessionProperty(catalog, PUSHDOWN_FILTER_ENABLED, "true")
                 .build();
         assertQuerySucceeds(pushdownFilterEnabled, "SELECT comment FROM lineitem WHERE comment LIKE 'abc%'");
     }
