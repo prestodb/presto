@@ -11,17 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.state;
+package com.facebook.presto.spi.type;
 
-import com.facebook.airlift.stats.QuantileDigest;
-import com.facebook.presto.spi.function.AccumulatorState;
+import static com.facebook.presto.spi.type.StandardTypes.TDIGEST;
 
-public interface QuantileDigestState
-        extends AccumulatorState
+class TDigestType
+        extends StatisticalDigestType
 {
-    QuantileDigest getQuantileDigest();
-
-    void setQuantileDigest(QuantileDigest value);
-
-    void addMemoryUsage(int value);
+    TDigestType(Type type)
+    {
+        super(TDIGEST, type);
+    }
 }

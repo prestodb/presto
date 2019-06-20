@@ -11,23 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.type;
+package com.facebook.presto.operator.aggregation.state;
 
-import java.util.List;
-public class QuantileDigestParametricType
-        extends StatisticalDigestParametricType
+import com.facebook.presto.operator.aggregation.StatisticalDigest;
+import com.facebook.presto.spi.function.AccumulatorState;
+import io.airlift.slice.Slice;
+
+public interface StatisticalDigestState<T>
+        extends AccumulatorState
 {
-    public static final QuantileDigestParametricType QDIGEST = new QuantileDigestParametricType();
+    StatisticalDigest<T> getStatisticalDigest();
 
-    @Override
-    public String getName()
-    {
-        return StandardTypes.QDIGEST;
-    }
+    void setStatisticalDigest(StatisticalDigest<T> value);
 
-    @Override
-    public Type getType(List<TypeParameter> parameters)
-    {
-        return new QuantileDigestType(parameters.get(0).getType());
-    }
+    void addMemoryUsage(long value);
+
+    StatisticalDigest<T> deserialize(Slice slice);
 }
