@@ -644,28 +644,27 @@ public class PropertyDerivations
                     Object value = optimizer.optimize(NoOpSymbolResolver.INSTANCE);
 
                     if (value instanceof SymbolReference) {
-                        Symbol symbol = Symbol.from((SymbolReference) value);
-                        ConstantExpression existingConstantValue = constants.get(symbol);
+                        VariableReferenceExpression variable = toVariableReference(Symbol.from((SymbolReference) value), types);
+                        ConstantExpression existingConstantValue = constants.get(variable);
                         if (existingConstantValue != null) {
-                            constants.put(assignment.getKey(), new ConstantExpression(value, type));
+                            constants.put(output, new ConstantExpression(value, type));
                         }
                     }
                     else if (!(value instanceof Expression)) {
-                        constants.put(assignment.getKey(), new ConstantExpression(value, type));
+                        constants.put(output, new ConstantExpression(value, type));
                     }
                 }
                 else {
                     Object value = new RowExpressionInterpreter(expression, metadata, session.toConnectorSession(), true).optimize();
 
                     if (value instanceof VariableReferenceExpression) {
-                        Symbol symbol = new Symbol(((VariableReferenceExpression) value).getName());
-                        ConstantExpression existingConstantValue = constants.get(symbol);
+                        ConstantExpression existingConstantValue = constants.get(value);
                         if (existingConstantValue != null) {
-                            constants.put(assignment.getKey(), new ConstantExpression(value, ((VariableReferenceExpression) value).getType()));
+                            constants.put(output, new ConstantExpression(value, expression.getType()));
                         }
                     }
                     else if (!(value instanceof RowExpression)) {
-                        constants.put(assignment.getKey(), new ConstantExpression(value, expression.getType()));
+                        constants.put(output, new ConstantExpression(value, expression.getType()));
                     }
                 }
             }
@@ -813,17 +812,6 @@ public class PropertyDerivations
             }
             return inputToOutput;
         }
-    }
-
-    private static Map<VariableReferenceExpression, VariableReferenceExpression> computeIdentityTranslations(Map<VariableReferenceExpression, Expression> assignments, TypeProvider types)
-    {
-        Map<VariableReferenceExpression, VariableReferenceExpression> inputToOutput = new HashMap<>();
-        for (Map.Entry<VariableReferenceExpression, Expression> assignment : assignments.entrySet()) {
-            if (assignment.getValue() instanceof SymbolReference) {
-                inputToOutput.put(toVariableReference(Symbol.from(assignment.getValue()), types), assignment.getKey());
-            }
-        }
-        return inputToOutput;
     }
 
     static boolean spillPossible(Session session, JoinNode.Type joinType)
