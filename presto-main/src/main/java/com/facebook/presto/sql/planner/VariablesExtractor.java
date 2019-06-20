@@ -78,6 +78,16 @@ public final class VariablesExtractor
         return ImmutableSet.copyOf(extractAll(expression));
     }
 
+    public static Set<VariableReferenceExpression> extractUnique(Iterable<? extends RowExpression> expressions)
+    {
+        ImmutableSet.Builder<VariableReferenceExpression> unique = ImmutableSet.builder();
+        for (RowExpression expression : expressions) {
+            unique.addAll(extractAll(expression));
+        }
+        return unique.build();
+    }
+
+    @Deprecated
     public static Set<VariableReferenceExpression> extractUnique(Iterable<? extends Expression> expressions, TypeProvider types)
     {
         ImmutableSet.Builder<VariableReferenceExpression> unique = ImmutableSet.builder();

@@ -22,7 +22,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
@@ -65,7 +64,7 @@ public abstract class ProjectOffPushDownRule<N extends PlanNode>
 
         return pruneInputs(
                 targetNode.getOutputVariables(),
-                parent.getAssignments().getExpressions().stream().map(OriginalExpressionUtils::castToExpression).collect(toImmutableList()),
+                parent.getAssignments().getExpressions().stream().collect(toImmutableList()),
                 context.getVariableAllocator().getTypes())
                 .flatMap(prunedOutputs -> this.pushDownProjectOff(context.getIdAllocator(), context.getVariableAllocator(), targetNode, prunedOutputs))
                 .map(newChild -> parent.replaceChildren(ImmutableList.of(newChild)))

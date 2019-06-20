@@ -24,7 +24,6 @@ import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
@@ -114,7 +113,7 @@ public class PushPartialAggregationThroughJoin
     private PlanNode pushPartialToLeftChild(AggregationNode node, JoinNode child, Context context)
     {
         Set<VariableReferenceExpression> joinLeftChildVariables = ImmutableSet.copyOf(child.getLeft().getOutputVariables());
-        List<VariableReferenceExpression> groupingSet = getPushedDownGroupingSet(node, joinLeftChildVariables, intersection(getJoinRequiredVariables(child, context.getVariableAllocator().getTypes()), joinLeftChildVariables));
+        List<VariableReferenceExpression> groupingSet = getPushedDownGroupingSet(node, joinLeftChildVariables, intersection(getJoinRequiredVariables(child), joinLeftChildVariables));
         AggregationNode pushedAggregation = replaceAggregationSource(node, child.getLeft(), groupingSet);
         return pushPartialToJoin(node, child, pushedAggregation, child.getRight(), context);
     }
@@ -122,17 +121,17 @@ public class PushPartialAggregationThroughJoin
     private PlanNode pushPartialToRightChild(AggregationNode node, JoinNode child, Context context)
     {
         Set<VariableReferenceExpression> joinRightChildVariables = ImmutableSet.copyOf(child.getRight().getOutputVariables());
-        List<VariableReferenceExpression> groupingSet = getPushedDownGroupingSet(node, joinRightChildVariables, intersection(getJoinRequiredVariables(child, context.getVariableAllocator().getTypes()), joinRightChildVariables));
+        List<VariableReferenceExpression> groupingSet = getPushedDownGroupingSet(node, joinRightChildVariables, intersection(getJoinRequiredVariables(child), joinRightChildVariables));
         AggregationNode pushedAggregation = replaceAggregationSource(node, child.getRight(), groupingSet);
         return pushPartialToJoin(node, child, child.getLeft(), pushedAggregation, context);
     }
 
-    private Set<VariableReferenceExpression> getJoinRequiredVariables(JoinNode node, TypeProvider types)
+    private Set<VariableReferenceExpression> getJoinRequiredVariables(JoinNode node)
     {
         return Streams.concat(
                 node.getCriteria().stream().map(JoinNode.EquiJoinClause::getLeft),
                 node.getCriteria().stream().map(JoinNode.EquiJoinClause::getRight),
-                node.getFilter().map(OriginalExpressionUtils::castToExpression).map(expression -> VariablesExtractor.extractUnique(expression, types)).orElse(ImmutableSet.of()).stream(),
+                node.getFilter().map(expression -> VariablesExtractor.extractUnique(expression)).orElse(ImmutableSet.of()).stream(),
                 node.getLeftHashVariable().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream(),
                 node.getRightHashVariable().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream())
                 .collect(toImmutableSet());
