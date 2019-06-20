@@ -41,6 +41,7 @@ import org.testng.annotations.Test;
 import java.util.LinkedHashSet;
 import java.util.Optional;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator.generatePartitions;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -90,7 +91,7 @@ public class TestJoinEnumerator
     public void testDoesNotCreateJoinWhenPartitionedOnCrossJoin()
     {
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        PlanBuilder p = new PlanBuilder(idAllocator, queryRunner.getMetadata());
+        PlanBuilder p = new PlanBuilder(TEST_SESSION, idAllocator, queryRunner.getMetadata());
         VariableReferenceExpression a1 = p.variable("A1");
         VariableReferenceExpression b1 = p.variable("B1");
         MultiJoinNode multiJoinNode = new MultiJoinNode(

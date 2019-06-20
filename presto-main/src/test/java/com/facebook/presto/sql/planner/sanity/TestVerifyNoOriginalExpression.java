@@ -56,6 +56,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 
@@ -85,7 +86,7 @@ public class TestVerifyNoOriginalExpression
     public void setup()
     {
         metadata = getQueryRunner().getMetadata();
-        builder = new PlanBuilder(new PlanNodeIdAllocator(), metadata);
+        builder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), metadata);
         valuesNode = builder.values();
     }
 

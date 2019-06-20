@@ -37,6 +37,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -60,7 +61,7 @@ public class TestValidateAggregationsWithDefaultValues
     public void setup()
     {
         metadata = getQueryRunner().getMetadata();
-        builder = new PlanBuilder(new PlanNodeIdAllocator(), metadata);
+        builder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), metadata);
         ConnectorId connectorId = getCurrentConnectorId();
         TpchTableHandle nationTpchTableHandle = new TpchTableHandle("nation", 1.0);
         TableHandle nationTableHandle = new TableHandle(

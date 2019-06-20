@@ -77,7 +77,7 @@ import static org.testng.Assert.assertEquals;
 public class TestConnectorOptimization
 {
     private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
-    private static final PlanBuilder PLAN_BUILDER = new PlanBuilder(new PlanNodeIdAllocator(), METADATA);
+    private static final PlanBuilder PLAN_BUILDER = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), METADATA);
 
     @Test
     public void testSupportedPlanNodes()

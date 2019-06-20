@@ -27,6 +27,7 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.AbstractMockMetadata.dummyMetadata;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.stream.Collectors.toSet;
@@ -34,7 +35,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestRuleIndex
 {
-    private final PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), dummyMetadata());
+    private final PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), dummyMetadata());
 
     @Test
     public void testWithPlanNodeHierarchy()
