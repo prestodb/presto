@@ -59,6 +59,7 @@ import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
+import static com.facebook.presto.sql.relational.Expressions.variable;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
@@ -497,15 +498,13 @@ public class IndexJoinOptimizer
             @Override
             public Map<VariableReferenceExpression, VariableReferenceExpression> visitProject(ProjectNode node, Set<VariableReferenceExpression> lookupVariables)
             {
-                // Map from output Symbols to source Symbols
-                Map<VariableReferenceExpression, Symbol> directSymbolTranslationOutputMap = Maps.transformValues(
-                        Maps.filterValues(
-                                node.getAssignments().getMap(),
-                                IndexKeyTracer::isVariable),
-                        this::extractSymbol);
+                // Map from output Variables to source Variables
+                Map<VariableReferenceExpression, VariableReferenceExpression> directVariableTranslationOutputMap = Maps.transformEntries(
+                        Maps.filterValues(node.getAssignments().getMap(), IndexKeyTracer::isVariable),
+                        IndexKeyTracer::extractVariable);
                 Map<VariableReferenceExpression, VariableReferenceExpression> outputToSourceMap = lookupVariables.stream()
-                        .filter(directSymbolTranslationOutputMap.keySet()::contains)
-                        .collect(toImmutableMap(identity(), variable -> new VariableReferenceExpression(directSymbolTranslationOutputMap.get(variable).getName(), variable.getType())));
+                        .filter(directVariableTranslationOutputMap.keySet()::contains)
+                        .collect(toImmutableMap(identity(), variable -> directVariableTranslationOutputMap.get(variable)));
 
                 checkState(!outputToSourceMap.isEmpty(), "No lookup variables were able to pass through the projection");
 
@@ -565,17 +564,16 @@ public class IndexJoinOptimizer
                 checkState(node.getLookupVariables().equals(lookupVariables), "lookupVariables must be the same as IndexSource lookup variables");
                 return lookupVariables.stream().collect(toImmutableMap(identity(), identity()));
             }
+        }
 
-            private Symbol extractSymbol(RowExpression expression)
-            {
-                // TODO remove isExpression once all optimization rule is using RowExpression.
-                // Handle both expression and rowExpression because ValidateDependenciesChecker used it.
-                if (expression instanceof VariableReferenceExpression) {
-                    return new Symbol(((VariableReferenceExpression) expression).getName());
-                }
-                checkArgument(isExpression(expression), "Must either be VariableReference or SymbolReference");
-                return Symbol.from(castToExpression(expression));
+        private static VariableReferenceExpression extractVariable(VariableReferenceExpression key, RowExpression value)
+        {
+            // TODO remove isExpression once all optimization rule is using RowExpression.
+            // Handle both expression and rowExpression because ValidateDependenciesChecker used it.
+            if (value instanceof VariableReferenceExpression) {
+                return (VariableReferenceExpression) value;
             }
+            return variable(((SymbolReference) castToExpression(value)).getName(), key.getType());
         }
 
         private static boolean isVariable(RowExpression expression)
