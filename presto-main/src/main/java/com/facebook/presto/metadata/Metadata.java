@@ -29,6 +29,7 @@ import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -94,6 +95,20 @@ public interface Metadata
      * as promised by {@link #getCommonPartitioning}.
      */
     TableHandle getAlternativeTableHandle(Session session, TableHandle tableHandle, PartitioningHandle partitioningHandle);
+
+    /**
+     * Experimental: if true, the engine will invoke pushdownFilter instead of getLayout.
+     *
+     * This interface can be replaced with a connector optimizer rule once the engine supports these (#12546).
+     */
+    boolean isPushdownFilterSupported(Session session, TableHandle tableHandle);
+
+    /**
+     * Experimental: returns table layout that encapsulates the given filter.
+     *
+     * This interface can be replaced with a connector optimizer rule once the engine supports these (#12546).
+     */
+    PushdownFilterResult pushdownFilter(Session session, TableHandle tableHandle, RowExpression filter);
 
     /**
      * Return a partitioning handle which the connector can transparently convert both {@code left} and {@code right} into.
