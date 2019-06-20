@@ -13,71 +13,13 @@
  */
 package com.facebook.presto.spi.type;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import io.airlift.slice.Slice;
+import static com.facebook.presto.spi.type.StandardTypes.QDIGEST;
 
-import java.util.List;
-
-import static java.util.Collections.singletonList;
-
-public class QuantileDigestType
-        extends AbstractVariableWidthType
+class QuantileDigestType
+        extends StatisticalDigestType
 {
-    private final Type type;
-
-    @JsonCreator
-    public QuantileDigestType(Type type)
+    QuantileDigestType(Type type)
     {
-        super(new TypeSignature(StandardTypes.QDIGEST, TypeSignatureParameter.of(type.getTypeSignature())), Slice.class);
-        this.type = type;
-    }
-
-    @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            block.writeBytesTo(position, 0, block.getSliceLength(position), blockBuilder);
-            blockBuilder.closeEntry();
-        }
-    }
-
-    @Override
-    public Slice getSlice(Block block, int position)
-    {
-        return block.getSlice(position, 0, block.getSliceLength(position));
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value)
-    {
-        writeSlice(blockBuilder, value, 0, value.length());
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
-    {
-        blockBuilder.writeBytes(value, offset, length).closeEntry();
-    }
-
-    @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
-    {
-        if (block.isNull(position)) {
-            return null;
-        }
-
-        return new SqlVarbinary(block.getSlice(position, 0, block.getSliceLength(position)).getBytes());
-    }
-
-    @Override
-    public List<Type> getTypeParameters()
-    {
-        return singletonList(type);
+        super(QDIGEST, type);
     }
 }

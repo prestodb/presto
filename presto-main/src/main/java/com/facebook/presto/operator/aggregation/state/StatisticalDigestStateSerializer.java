@@ -11,18 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
-import io.airlift.stats.QuantileDigest;
 
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 
-public class QuantileDigestStateSerializer
-        implements AccumulatorStateSerializer<QuantileDigestState>
+public class StatisticalDigestStateSerializer
+        implements AccumulatorStateSerializer<StatisticalDigestState>
 {
     @Override
     public Type getSerializedType()
@@ -31,19 +31,19 @@ public class QuantileDigestStateSerializer
     }
 
     @Override
-    public void serialize(QuantileDigestState state, BlockBuilder out)
+    public void serialize(StatisticalDigestState state, BlockBuilder out)
     {
-        if (state.getQuantileDigest() == null) {
+        if (state.getStatisticalDigest() == null) {
             out.appendNull();
         }
         else {
-            VARBINARY.writeSlice(out, state.getQuantileDigest().serialize());
+            VARBINARY.writeSlice(out, state.getStatisticalDigest().serialize());
         }
     }
 
     @Override
-    public void deserialize(Block block, int index, QuantileDigestState state)
+    public void deserialize(Block block, int index, StatisticalDigestState state)
     {
-        state.setQuantileDigest(new QuantileDigest(VARBINARY.getSlice(block, index)));
+        state.setStatisticalDigest(state.deserialize(VARBINARY.getSlice(block, index)));
     }
 }
