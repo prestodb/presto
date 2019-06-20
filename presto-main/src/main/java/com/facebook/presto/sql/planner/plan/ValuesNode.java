@@ -11,25 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.plan;
+package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import static java.lang.String.format;
-import static java.util.Collections.emptyList;
-import static java.util.Collections.unmodifiableList;
+import static com.facebook.presto.util.MoreLists.listOfListsCopy;
+import static com.google.common.base.Preconditions.checkArgument;
 
 @Immutable
-public final class ValuesNode
-        extends PlanNode
+public class ValuesNode
+        extends InternalPlanNode
 {
     private final List<VariableReferenceExpression> outputVariables;
     private final List<List<RowExpression>> rows;
@@ -40,13 +41,12 @@ public final class ValuesNode
             @JsonProperty("rows") List<List<RowExpression>> rows)
     {
         super(id);
-        this.outputVariables = unmodifiableList(new ArrayList<>(outputVariables));
-        this.rows = unmodifiableList(rows);
+        this.outputVariables = ImmutableList.copyOf(outputVariables);
+        this.rows = listOfListsCopy(rows);
 
         for (List<RowExpression> row : rows) {
-            if (!(row.size() == outputVariables.size() || row.size() == 0)) {
-                throw new IllegalArgumentException(format("Expected row to have %s values, but row has %s values", outputVariables.size(), row.size()));
-            }
+            checkArgument(row.size() == outputVariables.size() || row.size() == 0,
+                    "Expected row to have %s values, but row has %s values", outputVariables.size(), row.size());
         }
     }
 
@@ -66,11 +66,11 @@ public final class ValuesNode
     @Override
     public List<PlanNode> getSources()
     {
-        return unmodifiableList(emptyList());
+        return ImmutableList.of();
     }
 
     @Override
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitValues(this, context);
     }
@@ -78,9 +78,7 @@ public final class ValuesNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        if (!newChildren.isEmpty()) {
-            throw new IllegalArgumentException("newChildren is not empty");
-        }
+        checkArgument(newChildren.isEmpty(), "newChildren is not empty");
         return this;
     }
 }
