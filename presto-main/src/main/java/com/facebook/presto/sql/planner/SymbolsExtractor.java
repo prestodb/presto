@@ -29,7 +29,6 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
@@ -94,23 +93,6 @@ public final class SymbolsExtractor
     public static Set<VariableReferenceExpression> extractUniqueVariable(Expression expression, TypeProvider types)
     {
         return ImmutableSet.copyOf(extractAllVariable(expression, types));
-    }
-
-    public static Set<VariableReferenceExpression> extractUniqueVariable(RowExpression expression, TypeProvider types)
-    {
-        //TODO remove this once we removed all expression from all optimization rules.
-        // This is used in ValidateDependencyChecker
-        if (isExpression(expression)) {
-            return extractUniqueVariable(castToExpression(expression), types);
-        }
-        return ImmutableSet.copyOf(extractAll(expression));
-    }
-
-    public static Set<VariableReferenceExpression> extractUniqueVariable(Collection<RowExpression> expressions, TypeProvider types)
-    {
-        return expressions.stream()
-                .flatMap(expression -> extractUniqueVariable(expression, types).stream())
-                .collect(toImmutableSet());
     }
 
     // TODO: return Set<VariableReferenceExpression>
