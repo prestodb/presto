@@ -16,42 +16,35 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.StatisticalDigestState;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
-import io.airlift.stats.QuantileDigest;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.operator.aggregation.state.StatisticalDigestStateFactory.createQuantileDigestFactory;
-import static com.facebook.presto.spi.type.StandardTypes.QDIGEST;
+import static com.facebook.presto.operator.aggregation.state.StatisticalDigestStateFactory.createTDigestFactory;
+import static com.facebook.presto.spi.type.StandardTypes.TDIGEST;
+import static com.facebook.presto.tdigest.TDigest.createTDigest;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
-public class MergeQuantileDigestFunction
+public class MergeTDigestFunction
         extends MergeStatisticalDigestFunction
 {
-    public static final MergeQuantileDigestFunction MERGE = new MergeQuantileDigestFunction();
+    public static final MergeTDigestFunction MERGE = new MergeTDigestFunction();
     public static final String NAME = "merge";
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(MergeTDigestFunction.class, "input", Type.class, StatisticalDigestState.class, Block.class, int.class);
 
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(
-            MergeQuantileDigestFunction.class,
-            "input",
-            Type.class,
-            StatisticalDigestState.class,
-            Block.class,
-            int.class);
-
-    private MergeQuantileDigestFunction()
+    private MergeTDigestFunction()
     {
-        super(NAME, QDIGEST, createQuantileDigestFactory(), false);
+        super(NAME, TDIGEST, createTDigestFactory(), true);
     }
 
     @Override
     public String getDescription()
     {
-        return "Merges the input quantile digests into a single quantile digest";
+        return "Merges the input t-digests into a single t-digest";
     }
 
     public static void input(Type type, StatisticalDigestState state, Block value, int index)
     {
-        merge(state, new StatisticalQuantileDigest(new QuantileDigest(type.getSlice(value, index))));
+        merge(state, new StatisticalTDigest(createTDigest(type.getSlice(value, index))));
     }
 
     @Override

@@ -34,23 +34,50 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractTestAggregationFunction
 {
     protected TypeRegistry typeRegistry;
     protected FunctionManager functionManager;
     protected Session session;
+    protected FeaturesConfig featuresConfig;
+
+    protected AbstractTestAggregationFunction()
+    {
+        this(TEST_SESSION);
+    }
+
+    protected AbstractTestAggregationFunction(Session session)
+    {
+        this(session, new FeaturesConfig(), new TypeRegistry());
+    }
+
+    protected AbstractTestAggregationFunction(FeaturesConfig config)
+    {
+        this(TEST_SESSION, config, new TypeRegistry());
+    }
+
+    protected AbstractTestAggregationFunction(Session session, FeaturesConfig config)
+    {
+        this(session, config, new TypeRegistry());
+    }
+
+    protected AbstractTestAggregationFunction(Session session, FeaturesConfig config, TypeRegistry typeRegistry)
+    {
+        this.session = requireNonNull(session, "session is null");
+        this.typeRegistry = requireNonNull(typeRegistry, "Type registry is null");
+        this.featuresConfig = requireNonNull(config, "Features configuration is null");
+    }
 
     @BeforeClass
     public final void initTestAggregationFunction()
     {
-        typeRegistry = new TypeRegistry();
-        functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
-        session = testSessionBuilder().build();
+        functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), featuresConfig);
     }
 
     @AfterClass(alwaysRun = true)

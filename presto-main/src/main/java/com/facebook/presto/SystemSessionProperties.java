@@ -130,6 +130,7 @@ public final class SystemSessionProperties
     public static final String PUSH_LIMIT_THROUGH_OUTER_JOIN = "push_limit_through_outer_join";
     public static final String MAX_CONCURRENT_MATERIALIZATIONS = "max_concurrent_materializations";
     public static final String PUSHDOWN_SUBFIELDS_ENABLED = "pushdown_subfields_enabled";
+    public static final String TDIGEST_ENABLED = "tdigest_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -186,6 +187,11 @@ public final class SystemSessionProperties
                         DISTRIBUTED_INDEX_JOIN,
                         "Distribute index joins on join keys instead of executing inline",
                         featuresConfig.isDistributedIndexJoinsEnabled(),
+                        false),
+                booleanProperty(
+                        TDIGEST_ENABLED,
+                        "Currently disables tdigest functions until further testing",
+                        false,
                         false),
                 integerProperty(
                         HASH_PARTITION_COUNT,
@@ -666,6 +672,11 @@ public final class SystemSessionProperties
     public static boolean isDistributedIndexJoinEnabled(Session session)
     {
         return session.getSystemProperty(DISTRIBUTED_INDEX_JOIN, Boolean.class);
+    }
+
+    public static boolean isTDigestEnabled(Session session)
+    {
+        return session.getSystemProperty(TDIGEST_ENABLED, Boolean.class);
     }
 
     public static int getHashPartitionCount(Session session)

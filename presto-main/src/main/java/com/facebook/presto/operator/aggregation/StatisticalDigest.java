@@ -11,17 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.state;
+package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.spi.function.AccumulatorState;
-import io.airlift.stats.QuantileDigest;
+import io.airlift.slice.Slice;
 
-public interface QuantileDigestState
-        extends AccumulatorState
+public interface StatisticalDigest<T>
 {
-    QuantileDigest getQuantileDigest();
+    void add(Number value, long weight);
 
-    void setQuantileDigest(QuantileDigest value);
+    void merge(StatisticalDigest<? extends StatisticalDigest> other);
 
-    void addMemoryUsage(int value);
+    Number getQuantile(double quantile);
+
+    long estimatedInMemorySizeInBytes();
+
+    Slice serialize();
+
+    StatisticalDigest<T> getDigest();
+
+    double getSize();
 }

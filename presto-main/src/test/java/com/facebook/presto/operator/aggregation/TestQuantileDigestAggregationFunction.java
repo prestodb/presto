@@ -14,27 +14,22 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Joiner;
+import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Floats;
 import io.airlift.stats.QuantileDigest;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
 import static com.facebook.presto.block.BlockAssertions.createBlockOfReals;
-import static com.facebook.presto.block.BlockAssertions.createDoubleSequenceBlock;
-import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
@@ -44,55 +39,21 @@ import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverte
 import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.floatToSortableInt;
 import static com.facebook.presto.operator.aggregation.TestMergeQuantileDigestFunction.QDIGEST_EQUALITY;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.StandardTypes.QDIGEST;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Double.NaN;
-import static java.lang.Integer.max;
-import static java.lang.Integer.min;
-import static java.lang.String.format;
 
 public class TestQuantileDigestAggregationFunction
-        extends AbstractTestFunctions
+        extends TestStatisticalDigestAggregationFunction
 {
-    private static final Joiner ARRAY_JOINER = Joiner.on(",");
-    private static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
+    private static final double STANDARD_ERROR = 0.01;
 
-    @Test
-    public void testDoublesWithWeights()
+    protected double getParameter()
     {
-        testAggregationDouble(
-                createDoublesBlock(1.0, null, 2.0, null, 3.0, null, 4.0, null, 5.0, null),
-                createRLEBlock(1, 10),
-                0.01, 1.0, 2.0, 3.0, 4.0, 5.0);
-        testAggregationDouble(
-                createDoublesBlock(null, null, null, null, null),
-                createRLEBlock(1, 5),
-                NaN);
-        testAggregationDouble(
-                createDoublesBlock(-1.0, -2.0, -3.0, -4.0, -5.0, -6.0, -7.0, -8.0, -9.0, -10.0),
-                createRLEBlock(1, 10),
-                0.01, -1.0, -2.0, -3.0, -4.0, -5.0, -6.0, -7.0, -8.0, -9.0, -10.0);
-        testAggregationDouble(
-                createDoublesBlock(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0),
-                createRLEBlock(1, 10),
-                0.01, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0);
-        testAggregationDouble(
-                createDoublesBlock(),
-                createRLEBlock(1, 0),
-                NaN);
-        testAggregationDouble(
-                createDoublesBlock(1.0),
-                createRLEBlock(1, 1),
-                0.01, 1.0);
-        testAggregationDouble(
-                createDoubleSequenceBlock(-1000, 1000),
-                createRLEBlock(1, 2000),
-                0.01,
-                LongStream.range(-1000, 1000).asDoubleStream().toArray());
+        return STANDARD_ERROR;
     }
 
     @Test
@@ -163,7 +124,8 @@ public class TestQuantileDigestAggregationFunction
                 LongStream.range(-1000, 1000).toArray());
     }
 
-    private InternalAggregationFunction getAggregationFunction(Type... type)
+    @Override
+    protected InternalAggregationFunction getAggregationFunction(Type... type)
     {
         FunctionManager functionManager = METADATA.getFunctionManager();
         return functionManager.getAggregateFunctionImplementation(
@@ -215,28 +177,6 @@ public class TestQuantileDigestAggregationFunction
                 inputs);
     }
 
-    private void testAggregationDouble(Block longsBlock, Block weightsBlock, double maxError, double... inputs)
-    {
-        // Test without weights and accuracy
-        testAggregationDoubles(
-                getAggregationFunction(DOUBLE),
-                new Page(longsBlock),
-                maxError,
-                inputs);
-        // Test with weights and without accuracy
-        testAggregationDoubles(
-                getAggregationFunction(DOUBLE, BIGINT),
-                new Page(longsBlock, weightsBlock),
-                maxError,
-                inputs);
-        // Test with weights and accuracy
-        testAggregationDoubles(
-                getAggregationFunction(DOUBLE, BIGINT, DOUBLE),
-                new Page(longsBlock, weightsBlock, createRLEBlock(maxError, longsBlock.getPositionCount())),
-                maxError,
-                inputs);
-    }
-
     private void testAggregationBigints(InternalAggregationFunction function, Page page, double maxError, long... inputs)
     {
         // aggregate level
@@ -250,22 +190,7 @@ public class TestQuantileDigestAggregationFunction
         List<Long> rows = Arrays.stream(inputs).sorted().boxed().collect(Collectors.toList());
 
         SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(function, page);
-        assertPercentileWithinError(StandardTypes.BIGINT, returned, maxError, rows, 0.1, 0.5, 0.9, 0.99);
-    }
-
-    private void testAggregationDoubles(InternalAggregationFunction function, Page page, double maxError, double... inputs)
-    {
-        assertAggregation(function,
-                QDIGEST_EQUALITY,
-                "test multiple positions",
-                page,
-                getExpectedValueDoubles(maxError, inputs));
-
-        // test scalars
-        List<Double> rows = Arrays.stream(inputs).sorted().boxed().collect(Collectors.toList());
-
-        SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(function, page);
-        assertPercentileWithinError(StandardTypes.DOUBLE, returned, maxError, rows, 0.1, 0.5, 0.9, 0.99);
+        assertPercentileWithinError(QDIGEST, StandardTypes.BIGINT, returned, maxError, rows, 0.1, 0.5, 0.9, 0.99);
     }
 
     private void testAggregationReal(InternalAggregationFunction function, Page page, double maxError, float... inputs)
@@ -280,7 +205,23 @@ public class TestQuantileDigestAggregationFunction
         List<Double> rows = Floats.asList(inputs).stream().sorted().map(Float::doubleValue).collect(Collectors.toList());
 
         SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(function, page);
-        assertPercentileWithinError(StandardTypes.REAL, returned, maxError, rows, 0.1, 0.5, 0.9, 0.99);
+        assertPercentileWithinError(QDIGEST, StandardTypes.REAL, returned, maxError, rows, 0.1, 0.5, 0.9, 0.99);
+    }
+
+    @Override
+    protected void testAggregationDoubles(InternalAggregationFunction function, Page page, double maxError, double... inputs)
+    {
+        assertAggregation(function,
+                QDIGEST_EQUALITY,
+                "test multiple positions",
+                page,
+                getExpectedValueDoubles(maxError, inputs));
+
+        // test scalars
+        List<Double> rows = Doubles.asList(inputs).stream().sorted().collect(Collectors.toList());
+
+        SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(function, page);
+        assertPercentileWithinError(QDIGEST, StandardTypes.DOUBLE, returned, maxError, rows, 0.1, 0.5, 0.9, 0.99);
     }
 
     private Object getExpectedValueLongs(double maxError, long... values)
@@ -293,7 +234,8 @@ public class TestQuantileDigestAggregationFunction
         return new SqlVarbinary(qdigest.serialize().getBytes());
     }
 
-    private Object getExpectedValueDoubles(double maxError, double... values)
+    @Override
+    protected Object getExpectedValueDoubles(double maxError, double... values)
     {
         if (values.length == 0) {
             return null;
@@ -311,80 +253,5 @@ public class TestQuantileDigestAggregationFunction
         QuantileDigest qdigest = new QuantileDigest(maxError);
         Floats.asList(values).forEach(value -> qdigest.add(floatToSortableInt(value)));
         return new SqlVarbinary(qdigest.serialize().getBytes());
-    }
-
-    private void assertPercentileWithinError(String type, SqlVarbinary binary, double error, List<? extends Number> rows, double... percentiles)
-    {
-        if (rows.isEmpty()) {
-            // Nothing to assert except that the qdigest is empty
-            return;
-        }
-
-        // Test each quantile individually (value_at_quantile)
-        for (double percentile : percentiles) {
-            assertPercentileWithinError(type, binary, error, rows, percentile);
-        }
-
-        // Test all the quantiles (values_at_quantiles)
-        assertPercentilesWithinError(type, binary, error, rows, percentiles);
-    }
-
-    private void assertPercentileWithinError(String type, SqlVarbinary binary, double error, List<? extends Number> rows, double percentile)
-    {
-        Number lowerBound = getLowerBound(error, rows, percentile);
-        Number upperBound = getUpperBound(error, rows, percentile);
-
-        // Check that the chosen quantile is within the upper and lower bound of the error
-        functionAssertions.assertFunction(
-                format("value_at_quantile(CAST(X'%s' AS qdigest(%s)), %s) >= %s", binary.toString().replaceAll("\\s+", " "), type, percentile, lowerBound),
-                BOOLEAN,
-                true);
-        functionAssertions.assertFunction(
-                format("value_at_quantile(CAST(X'%s' AS qdigest(%s)), %s) <= %s", binary.toString().replaceAll("\\s+", " "), type, percentile, upperBound),
-                BOOLEAN,
-                true);
-    }
-
-    private void assertPercentilesWithinError(String type, SqlVarbinary binary, double error, List<? extends Number> rows, double[] percentiles)
-    {
-        List<Double> boxedPercentiles = Arrays.stream(percentiles).sorted().boxed().collect(toImmutableList());
-        List<Number> lowerBounds = boxedPercentiles.stream().map(percentile -> getLowerBound(error, rows, percentile)).collect(toImmutableList());
-        List<Number> upperBounds = boxedPercentiles.stream().map(percentile -> getUpperBound(error, rows, percentile)).collect(toImmutableList());
-
-        // Ensure that the lower bound of each item in the distribution is not greater than the chosen quantiles
-        functionAssertions.assertFunction(
-                format(
-                        "zip_with(values_at_quantiles(CAST(X'%s' AS qdigest(%s)), ARRAY[%s]), ARRAY[%s], (value, lowerbound) -> value >= lowerbound)",
-                        binary.toString().replaceAll("\\s+", " "),
-                        type,
-                        ARRAY_JOINER.join(boxedPercentiles),
-                        ARRAY_JOINER.join(lowerBounds)),
-                METADATA.getType(parseTypeSignature("array(boolean)")),
-                Collections.nCopies(percentiles.length, true));
-
-        // Ensure that the upper bound of each item in the distribution is not less than the chosen quantiles
-        functionAssertions.assertFunction(
-                format(
-                        "zip_with(values_at_quantiles(CAST(X'%s' AS qdigest(%s)), ARRAY[%s]), ARRAY[%s], (value, upperbound) -> value <= upperbound)",
-                        binary.toString().replaceAll("\\s+", " "),
-                        type,
-                        ARRAY_JOINER.join(boxedPercentiles),
-                        ARRAY_JOINER.join(upperBounds)),
-                METADATA.getType(parseTypeSignature("array(boolean)")),
-                Collections.nCopies(percentiles.length, true));
-    }
-
-    private Number getLowerBound(double error, List<? extends Number> rows, double percentile)
-    {
-        int medianIndex = (int) (rows.size() * percentile);
-        int marginOfError = (int) (rows.size() * error / 2);
-        return rows.get(max(medianIndex - marginOfError, 0));
-    }
-
-    private Number getUpperBound(double error, List<? extends Number> rows, double percentile)
-    {
-        int medianIndex = (int) (rows.size() * percentile);
-        int marginOfError = (int) (rows.size() * error / 2);
-        return rows.get(min(medianIndex + marginOfError, rows.size() - 1));
     }
 }

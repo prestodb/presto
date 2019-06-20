@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -32,6 +33,10 @@ import com.facebook.presto.type.TypeRegistry;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
+
+import static com.facebook.presto.SystemSessionProperties.isTDigestEnabled;
+import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static com.facebook.presto.tdigest.TDigestUtils.isTDigestFunction;
 
 @ThreadSafe
 public class FunctionManager
@@ -71,11 +76,15 @@ public class FunctionManager
      */
     public FunctionHandle resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
-        // TODO Actually use session
         // Session will be used to provide information about the order of function namespaces to through resolving the function.
         // This is likely to be in terms of SQL path. Currently we still don't have support multiple function namespaces, nor
         // SQL path. As a result, session is not used here. We still add this to distinguish the two versions of resolveFunction
         // while the refactoring is on-going.
+
+        if (!isTDigestEnabled(session) && isTDigestFunction(name.toString(), parameterTypes)) {
+            throw new PrestoException(FUNCTION_NOT_FOUND, "Session property for tdigest functions is disabled");
+        }
+
         return staticFunctionNamespace.resolveFunction(name, parameterTypes);
     }
 

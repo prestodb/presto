@@ -24,11 +24,9 @@ import io.airlift.stats.QuantileDigest;
 
 import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.sortableIntToFloat;
 import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.sortableLongToDouble;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.util.Failures.checkCondition;
 import static java.lang.Float.floatToRawIntBits;
 
 public final class QuantileDigestFunctions
@@ -99,17 +97,5 @@ public final class QuantileDigestFunctions
             BIGINT.writeLong(output, digest.getQuantile(DOUBLE.getDouble(percentilesArrayBlock, i)));
         }
         return output.build();
-    }
-
-    public static double verifyAccuracy(double accuracy)
-    {
-        checkCondition(accuracy > 0 && accuracy < 1, INVALID_FUNCTION_ARGUMENT, "Percentile accuracy must be exclusively between 0 and 1, was %s", accuracy);
-        return accuracy;
-    }
-
-    public static long verifyWeight(long weight)
-    {
-        checkCondition(weight > 0, INVALID_FUNCTION_ARGUMENT, "Percentile weight must be > 0, was %s", weight);
-        return weight;
     }
 }

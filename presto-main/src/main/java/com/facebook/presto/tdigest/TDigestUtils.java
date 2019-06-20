@@ -31,13 +31,24 @@
 
 package com.facebook.presto.tdigest;
 
+import com.facebook.presto.operator.aggregation.TDigestAggregationFunction;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeParameter;
+import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
+import com.facebook.presto.type.TypeRegistry;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TDigestParametricType.TDIGEST;
 import static java.lang.String.format;
 
 public final class TDigestUtils
 {
+    private static final Type TDIGEST_TYPE = TDIGEST.createType(new TypeRegistry(), ImmutableList.of(TypeParameter.of(DOUBLE)));
     private TDigestUtils() {}
 
     static double weightedAverage(double x1, double w1, double x2, double w2)
@@ -54,6 +65,20 @@ public final class TDigestUtils
     {
         final double x = (x1 * w1 + x2 * w2) / (w1 + w2);
         return Math.max(x1, Math.min(x, x2));
+    }
+
+    public static boolean isTDigestFunction(String name, List<TypeSignatureProvider> parameters)
+    {
+        if (name.equals(TDigestAggregationFunction.NAME)) {
+            return true;
+        }
+
+        for (TypeSignatureProvider parameter : parameters) {
+            if (!parameter.hasDependency() && TDIGEST_TYPE.getTypeSignature().equals(parameter.getTypeSignature())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Scale Functions
