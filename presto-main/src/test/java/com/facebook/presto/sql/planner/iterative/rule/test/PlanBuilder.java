@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule.test;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.IndexHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
@@ -71,8 +72,10 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
+import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.base.Functions;
@@ -94,6 +97,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.PlannerUtils.toOrderingScheme;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -111,12 +115,14 @@ import static java.util.Collections.emptyList;
 
 public class PlanBuilder
 {
+    private final Session session;
     private final PlanNodeIdAllocator idAllocator;
     private final Metadata metadata;
     private final Map<String, Type> variables = new HashMap<>();
 
-    public PlanBuilder(PlanNodeIdAllocator idAllocator, Metadata metadata)
+    public PlanBuilder(Session session, PlanNodeIdAllocator idAllocator, Metadata metadata)
     {
+        this.session = session;
         this.idAllocator = idAllocator;
         this.metadata = metadata;
     }
@@ -317,6 +323,29 @@ public class PlanBuilder
                     call.getFilter().map(OriginalExpressionUtils::castToRowExpression),
                     call.getOrderBy().map(orderBy -> toOrderingScheme(orderBy, types)),
                     call.isDistinct(),
+                    mask));
+        }
+
+        public AggregationBuilder addAggregation(VariableReferenceExpression output, RowExpression expression)
+        {
+            return addAggregation(output, expression, Optional.empty(), Optional.empty(), false, Optional.empty());
+        }
+
+        public AggregationBuilder addAggregation(
+                VariableReferenceExpression output,
+                RowExpression expression,
+                Optional<RowExpression> filter,
+                Optional<OrderingScheme> orderingScheme,
+                boolean isDistinct,
+                Optional<VariableReferenceExpression> mask)
+        {
+            checkArgument(expression instanceof CallExpression);
+            CallExpression call = (CallExpression) expression;
+            return addAggregation(output, new Aggregation(
+                    call,
+                    filter,
+                    orderingScheme,
+                    isDistinct,
                     mask));
         }
 
@@ -786,6 +815,27 @@ public class PlanBuilder
     public static Expression expression(String sql)
     {
         return ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql));
+    }
+
+    public RowExpression rowExpression(String sql)
+    {
+        Expression expression = expression(sql);
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
+                session,
+                metadata,
+                new SqlParser(),
+                getTypes(),
+                expression,
+                ImmutableList.of(),
+                WarningCollector.NOOP);
+        return SqlToRowExpressionTranslator.translate(
+                expression,
+                expressionTypes,
+                ImmutableMap.of(),
+                metadata.getFunctionManager(),
+                metadata.getTypeManager(),
+                session,
+                false);
     }
 
     public static RowExpression castToRowExpression(String sql)

@@ -68,7 +68,7 @@ public class StatsCalculatorTester
 
     public StatsCalculatorAssertion assertStatsFor(Function<PlanBuilder, PlanNode> planProvider)
     {
-        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), metadata);
+        PlanBuilder planBuilder = new PlanBuilder(session, new PlanNodeIdAllocator(), metadata);
         PlanNode planNode = planProvider.apply(planBuilder);
         return new StatsCalculatorAssertion(statsCalculator, session, planNode, planBuilder.getTypes());
     }

@@ -503,13 +503,6 @@ public class PlanOptimizers
                         new PushPartialAggregationThroughJoin(),
                         new PushPartialAggregationThroughExchange(metadata.getFunctionManager()),
                         new PruneJoinColumns())));
-        builder.add(new IterativeOptimizer(
-                ruleStats,
-                statsCalculator,
-                costCalculator,
-                ImmutableSet.of(
-                        new AddIntermediateAggregations(),
-                        new RemoveRedundantIdentityProjections())));
 
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
@@ -519,6 +512,13 @@ public class PlanOptimizers
                 costCalculator,
                 new TranslateExpressions(metadata, sqlParser).rules()));
         // After this point, all planNodes should not contain OriginalExpression
+        builder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(
+                        new AddIntermediateAggregations(),
+                        new RemoveRedundantIdentityProjections())));
 
         // TODO: Do not move other PlanNode to SPI until ApplyConnectorOptimization is moved to the end of logical planning (i.e., where AddExchanges lives)
         // TODO: Run PruneUnreferencedOutputs and UnaliasSymbolReferences once we have cleaned it up

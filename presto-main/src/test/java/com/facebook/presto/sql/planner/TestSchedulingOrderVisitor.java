@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
@@ -43,7 +44,7 @@ public class TestSchedulingOrderVisitor
     @Test
     public void testJoinOrder()
     {
-        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), METADATA);
+        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), METADATA);
         TableScanNode a = planBuilder.tableScan(emptyList(), emptyMap());
         TableScanNode b = planBuilder.tableScan(emptyList(), emptyMap());
         List<PlanNodeId> order = scheduleOrder(planBuilder.join(JoinNode.Type.INNER, a, b));
@@ -53,7 +54,7 @@ public class TestSchedulingOrderVisitor
     @Test
     public void testIndexJoinOrder()
     {
-        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), METADATA);
+        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), METADATA);
         TableScanNode a = planBuilder.tableScan(emptyList(), emptyMap());
         TableScanNode b = planBuilder.tableScan(emptyList(), emptyMap());
         List<PlanNodeId> order = scheduleOrder(planBuilder.indexJoin(IndexJoinNode.Type.INNER, a, b));
@@ -63,7 +64,7 @@ public class TestSchedulingOrderVisitor
     @Test
     public void testSemiJoinOrder()
     {
-        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), METADATA);
+        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), METADATA);
         VariableReferenceExpression sourceJoin = planBuilder.variable("sourceJoin");
         TableScanNode a = planBuilder.tableScan(ImmutableList.of(sourceJoin), ImmutableMap.of(sourceJoin, new TestingColumnHandle("sourceJoin")));
         VariableReferenceExpression filteringSource = planBuilder.variable("filteringSource");

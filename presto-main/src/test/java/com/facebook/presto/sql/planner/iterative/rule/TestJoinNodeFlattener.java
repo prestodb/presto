@@ -35,6 +35,7 @@ import org.testng.annotations.Test;
 import java.util.LinkedHashSet;
 import java.util.Optional;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.MultiJoinNode.toMultiJoinNode;
@@ -305,6 +306,6 @@ public class TestJoinNodeFlattener
 
     private PlanBuilder planBuilder()
     {
-        return new PlanBuilder(new PlanNodeIdAllocator(), queryRunner.getMetadata());
+        return new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), queryRunner.getMetadata());
     }
 }
