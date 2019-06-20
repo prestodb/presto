@@ -32,7 +32,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collector;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
@@ -136,18 +135,6 @@ public class Assignments
     public RowExpression get(VariableReferenceExpression variable)
     {
         return assignments.get(variable);
-    }
-
-    public RowExpression get(Symbol symbol)
-    {
-        List<RowExpression> candidate = assignments.entrySet().stream()
-                .filter(entry -> entry.getKey().getName().equals(symbol.getName()))
-                .map(Entry::getValue)
-                .collect(toImmutableList());
-        if (candidate.isEmpty()) {
-            return null;
-        }
-        return candidate.get(0);
     }
 
     public int size()
