@@ -2979,7 +2979,7 @@ public abstract class AbstractTestHiveClient
         // to make sure it can still be retrieved instead of throwing exception.
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            Map<SchemaTableName, List<ColumnMetadata>> allColumns = metadata.listTableColumns(newSession(), new SchemaTablePrefix(schemaTableName.getSchemaName()));
+            Map<SchemaTableName, List<ColumnMetadata>> allColumns = metadata.listTableColumns(newSession(), new SchemaTablePrefix(schemaTableName.getSchemaName(), schemaTableName.getTableName()));
             assertTrue(allColumns.containsKey(schemaTableName));
         }
         finally {
