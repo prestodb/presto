@@ -24,6 +24,7 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -53,11 +54,11 @@ public class ApplyConnectorOptimization
     // for a leaf node that does not belong to any connector (e.g., ValuesNode)
     private static final ConnectorId EMPTY_CONNECTOR_ID = new ConnectorId("$internal$" + ApplyConnectorOptimization.class + "_CONNECTOR");
 
-    private final Map<ConnectorId, Set<ConnectorPlanOptimizer>> connectorOptimizers;
+    private final Supplier<Map<ConnectorId, Set<ConnectorPlanOptimizer>>> connectorOptimizersSupplier;
 
-    public ApplyConnectorOptimization(Map<ConnectorId, Set<ConnectorPlanOptimizer>> connectorOptimizers)
+    public ApplyConnectorOptimization(Supplier<Map<ConnectorId, Set<ConnectorPlanOptimizer>>> connectorOptimizersSupplier)
     {
-        this.connectorOptimizers = requireNonNull(connectorOptimizers, "connectorOptimizers is null");
+        this.connectorOptimizersSupplier = requireNonNull(connectorOptimizersSupplier, "connectorOptimizersSupplier is null");
     }
 
     @Override
@@ -69,6 +70,7 @@ public class ApplyConnectorOptimization
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
+        Map<ConnectorId, Set<ConnectorPlanOptimizer>> connectorOptimizers = connectorOptimizersSupplier.get();
         if (connectorOptimizers.isEmpty()) {
             return plan;
         }
