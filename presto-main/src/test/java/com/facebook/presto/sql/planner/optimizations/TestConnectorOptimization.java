@@ -284,7 +284,7 @@ public class TestConnectorOptimization
 
     private static PlanNode optimize(PlanNode plan, Map<ConnectorId, Set<ConnectorPlanOptimizer>> optimizers)
     {
-        ApplyConnectorOptimization optimizer = new ApplyConnectorOptimization(optimizers);
+        ApplyConnectorOptimization optimizer = new ApplyConnectorOptimization(() -> optimizers);
         return optimizer.optimize(plan, TEST_SESSION, TypeProvider.empty(), new SymbolAllocator(), new PlanNodeIdAllocator(), WarningCollector.NOOP);
     }
 

@@ -524,7 +524,8 @@ public class PlanOptimizers
         // TODO: Do not move other PlanNode to SPI until this rule is moved to the end of logical planning (i.e., where AddExchanges lives)
         // TODO: The connector optimizer should not change plan shape (computations) at this point util #12960 is landed. (e.g., connector may pushdown filters to table scan but cannot add a new node)
         // TODO: Run RemoveRedundantIdentityProjections and PruneUnreferencedOutputs once (1) we can have ProjectNode in SPI and (2) have moved the connector optimization above HashGenerationOptimizer
-        builder.add(new ApplyConnectorOptimization(planOptimizerManager.getOptimizers()));
+        // Pass a supplier so that we pickup connector optimizers that are installed later
+        builder.add(new ApplyConnectorOptimization(planOptimizerManager::getOptimizers));
 
         builder.add(new MetadataDeleteOptimizer(metadata));
         builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite
