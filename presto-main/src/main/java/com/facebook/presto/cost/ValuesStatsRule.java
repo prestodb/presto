@@ -17,11 +17,11 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.ComposableStatsCalculator.Rule;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
