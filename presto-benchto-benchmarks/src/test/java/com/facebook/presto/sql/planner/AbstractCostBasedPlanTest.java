@@ -16,12 +16,12 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.tpcds.TpcdsTableHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.base.Strings;
