@@ -84,7 +84,7 @@ public class JoinStatsRule
     {
         PlanNodeStatsEstimate leftStats = sourceStats.getStats(node.getLeft());
         PlanNodeStatsEstimate rightStats = sourceStats.getStats(node.getRight());
-        PlanNodeStatsEstimate crossJoinStats = crossJoinStats(node, leftStats, rightStats, types);
+        PlanNodeStatsEstimate crossJoinStats = crossJoinStats(node, leftStats, rightStats);
 
         switch (node.getType()) {
             case INNER:
@@ -108,7 +108,7 @@ public class JoinStatsRule
             Session session,
             TypeProvider types)
     {
-        PlanNodeStatsEstimate rightJoinComplementStats = calculateJoinComplementStats(node.getFilter(), flippedCriteria(node), rightStats, leftStats, types);
+        PlanNodeStatsEstimate rightJoinComplementStats = calculateJoinComplementStats(node.getFilter(), flippedCriteria(node), rightStats, leftStats);
         return addJoinComplementStats(
                 rightStats,
                 computeLeftJoinStats(node, leftStats, rightStats, crossJoinStats, session, types),
@@ -124,7 +124,7 @@ public class JoinStatsRule
             TypeProvider types)
     {
         PlanNodeStatsEstimate innerJoinStats = computeInnerJoinStats(node, crossJoinStats, session, types);
-        PlanNodeStatsEstimate leftJoinComplementStats = calculateJoinComplementStats(node.getFilter(), node.getCriteria(), leftStats, rightStats, types);
+        PlanNodeStatsEstimate leftJoinComplementStats = calculateJoinComplementStats(node.getFilter(), node.getCriteria(), leftStats, rightStats);
         return addJoinComplementStats(
                 leftStats,
                 innerJoinStats,
@@ -140,7 +140,7 @@ public class JoinStatsRule
             TypeProvider types)
     {
         PlanNodeStatsEstimate innerJoinStats = computeInnerJoinStats(node, crossJoinStats, session, types);
-        PlanNodeStatsEstimate rightJoinComplementStats = calculateJoinComplementStats(node.getFilter(), flippedCriteria(node), rightStats, leftStats, types);
+        PlanNodeStatsEstimate rightJoinComplementStats = calculateJoinComplementStats(node.getFilter(), flippedCriteria(node), rightStats, leftStats);
         return addJoinComplementStats(
                 rightStats,
                 innerJoinStats,
@@ -225,12 +225,12 @@ public class JoinStatsRule
         ComparisonExpression drivingPredicate = new ComparisonExpression(EQUAL, new SymbolReference(drivingClause.getLeft().getName()), new SymbolReference(drivingClause.getRight().getName()));
         PlanNodeStatsEstimate filteredStats = filterStatsCalculator.filterStats(stats, drivingPredicate, session, types);
         for (EquiJoinClause clause : remainingClauses) {
-            filteredStats = filterByAuxiliaryClause(filteredStats, clause, types);
+            filteredStats = filterByAuxiliaryClause(filteredStats, clause);
         }
         return filteredStats;
     }
 
-    private PlanNodeStatsEstimate filterByAuxiliaryClause(PlanNodeStatsEstimate stats, EquiJoinClause clause, TypeProvider types)
+    private PlanNodeStatsEstimate filterByAuxiliaryClause(PlanNodeStatsEstimate stats, EquiJoinClause clause)
     {
         // we just clear null fraction and adjust ranges here
         // selectivity is mostly handled by driving clause. We just scale heuristically by UNKNOWN_FILTER_COEFFICIENT here.
@@ -282,10 +282,9 @@ public class JoinStatsRule
     @VisibleForTesting
     PlanNodeStatsEstimate calculateJoinComplementStats(
             Optional<RowExpression> filter,
-            List<JoinNode.EquiJoinClause> criteria,
+            List<EquiJoinClause> criteria,
             PlanNodeStatsEstimate leftStats,
-            PlanNodeStatsEstimate rightStats,
-            TypeProvider types)
+            PlanNodeStatsEstimate rightStats)
     {
         if (rightStats.getOutputRowCount() == 0) {
             // no left side rows are matched
@@ -420,7 +419,7 @@ public class JoinStatsRule
         return outputStats.build();
     }
 
-    private PlanNodeStatsEstimate crossJoinStats(JoinNode node, PlanNodeStatsEstimate leftStats, PlanNodeStatsEstimate rightStats, TypeProvider types)
+    private PlanNodeStatsEstimate crossJoinStats(JoinNode node, PlanNodeStatsEstimate leftStats, PlanNodeStatsEstimate rightStats)
     {
         PlanNodeStatsEstimate.Builder builder = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(leftStats.getOutputRowCount() * rightStats.getOutputRowCount());

@@ -17,9 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -28,7 +26,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -161,17 +159,17 @@ public class TestComparisonStatsCalculator
                 .setOutputRowCount(1000.0)
                 .build();
 
-        types = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
-                .put(new Symbol("u"), DOUBLE)
-                .put(new Symbol("w"), DOUBLE)
-                .put(new Symbol("x"), DOUBLE)
-                .put(new Symbol("y"), DOUBLE)
-                .put(new Symbol("z"), DOUBLE)
-                .put(new Symbol("leftOpen"), DOUBLE)
-                .put(new Symbol("rightOpen"), DOUBLE)
-                .put(new Symbol("unknownRange"), DOUBLE)
-                .put(new Symbol("emptyRange"), DOUBLE)
-                .put(new Symbol("varchar"), VarcharType.createVarcharType(10))
+        types = TypeProvider.fromVariables(ImmutableList.<VariableReferenceExpression>builder()
+                .add(new VariableReferenceExpression("u", DOUBLE))
+                .add(new VariableReferenceExpression("w", DOUBLE))
+                .add(new VariableReferenceExpression("x", DOUBLE))
+                .add(new VariableReferenceExpression("y", DOUBLE))
+                .add(new VariableReferenceExpression("z", DOUBLE))
+                .add(new VariableReferenceExpression("leftOpen", DOUBLE))
+                .add(new VariableReferenceExpression("rightOpen", DOUBLE))
+                .add(new VariableReferenceExpression("unknownRange", DOUBLE))
+                .add(new VariableReferenceExpression("emptyRange", DOUBLE))
+                .add(new VariableReferenceExpression("varchar", VarcharType.createVarcharType(10)))
                 .build());
     }
 

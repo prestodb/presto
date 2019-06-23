@@ -27,7 +27,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.FunctionType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -509,12 +508,12 @@ public class TranslateExpressions
                 // the same mechanism in project and filter expression should be used here.
                 verify(lambdaExpression.getArguments().size() == functionType.getArgumentTypes().size());
                 Map<NodeRef<Expression>, Type> lambdaArgumentExpressionTypes = new HashMap<>();
-                Map<Symbol, Type> lambdaArgumentSymbolTypes = new HashMap<>();
+                Map<String, Type> lambdaArgumentSymbolTypes = new HashMap<>();
                 for (int j = 0; j < lambdaExpression.getArguments().size(); j++) {
                     LambdaArgumentDeclaration argument = lambdaExpression.getArguments().get(j);
                     Type type = functionType.getArgumentTypes().get(j);
                     lambdaArgumentExpressionTypes.put(NodeRef.of(argument), type);
-                    lambdaArgumentSymbolTypes.put(new Symbol(argument.getName().getValue()), type);
+                    lambdaArgumentSymbolTypes.put(argument.getName().getValue(), type);
                 }
                 // the lambda expression itself
                 builder.put(NodeRef.of(lambdaExpression), functionType)

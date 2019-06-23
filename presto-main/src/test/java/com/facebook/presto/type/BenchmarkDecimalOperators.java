@@ -29,7 +29,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
@@ -546,8 +545,7 @@ public class BenchmarkDecimalOperators
         private final MetadataManager metadata = createTestMetadataManager();
         private final Random random = new Random();
 
-        protected final Map<String, Symbol> symbols = new HashMap<>();
-        protected final Map<Symbol, Type> symbolTypes = new HashMap<>();
+        protected final Map<String, Type> symbolTypes = new HashMap<>();
         private final Map<VariableReferenceExpression, Integer> sourceLayout = new HashMap<>();
         protected final List<Type> types = new LinkedList<>();
 
@@ -567,9 +565,7 @@ public class BenchmarkDecimalOperators
 
         protected void addSymbol(String name, Type type)
         {
-            Symbol symbol = new Symbol(name);
-            symbols.put(name, symbol);
-            symbolTypes.put(symbol, type);
+            symbolTypes.put(name, type);
             sourceLayout.put(new VariableReferenceExpression(name, type), types.size());
             types.add(type);
         }

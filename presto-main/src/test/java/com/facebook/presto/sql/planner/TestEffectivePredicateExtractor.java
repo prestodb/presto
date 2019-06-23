@@ -27,7 +27,6 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
@@ -121,15 +120,7 @@ public class TestEffectivePredicateExtractor
     private static final Expression FE = F.toSymbolReference();
     private static final Expression GE = G.toSymbolReference();
 
-    private static final TypeProvider types = TypeProvider.viewOf(ImmutableMap.<Symbol, Type>builder()
-            .put(A, BIGINT)
-            .put(B, BIGINT)
-            .put(C, BIGINT)
-            .put(D, BIGINT)
-            .put(E, BIGINT)
-            .put(F, BIGINT)
-            .put(G, BIGINT)
-            .build());
+    private static final TypeProvider types = TypeProvider.fromVariables(ImmutableList.of(AV, BV, CV, DV, EV, FV, GV));
     private final Metadata metadata = MetadataManager.createTestMetadataManager();
     private final EffectivePredicateExtractor effectivePredicateExtractor = new EffectivePredicateExtractor(new ExpressionDomainTranslator(new LiteralEncoder(metadata.getBlockEncodingSerde())));
 

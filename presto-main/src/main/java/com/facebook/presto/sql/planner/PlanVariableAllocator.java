@@ -33,7 +33,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -144,9 +143,7 @@ public class PlanVariableAllocator
 
     public TypeProvider getTypes()
     {
-        return TypeProvider.fromVariables(variables.entrySet().stream()
-                .map(entry -> new VariableReferenceExpression(entry.getKey(), entry.getValue()))
-                .collect(toImmutableList()));
+        return TypeProvider.viewOf(variables);
     }
 
     private int nextId()

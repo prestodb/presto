@@ -22,7 +22,6 @@ import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.FunctionType;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -78,7 +77,7 @@ public class TestTranslateExpressions
                 Optional.empty(),
                 false,
                 Optional.empty());
-        Aggregation translated = translator.translateAggregation(aggregation, TEST_SESSION, TypeProvider.viewOf(ImmutableMap.of(new Symbol("input"), INTEGER)));
+        Aggregation translated = translator.translateAggregation(aggregation, TEST_SESSION, TypeProvider.viewOf(ImmutableMap.of("input", INTEGER)));
         assertEquals(translated, new Aggregation(
                 new CallExpression(
                         "reduce_agg",
@@ -119,7 +118,7 @@ public class TestTranslateExpressions
                 Optional.empty(),
                 false,
                 Optional.empty());
-        Aggregation translated = translator.translateAggregation(aggregation, TEST_SESSION, TypeProvider.viewOf(ImmutableMap.of(new Symbol("input"), INTEGER)));
+        Aggregation translated = translator.translateAggregation(aggregation, TEST_SESSION, TypeProvider.viewOf(ImmutableMap.of("input", INTEGER)));
         assertEquals(translated, new Aggregation(
                 new CallExpression(
                         "reduce_agg",

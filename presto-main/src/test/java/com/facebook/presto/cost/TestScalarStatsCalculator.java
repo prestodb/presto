@@ -21,7 +21,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LiteralEncoder;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DecimalLiteral;
@@ -54,15 +53,11 @@ import static org.testng.Assert.assertEquals;
 
 public class TestScalarStatsCalculator
 {
-    private static final Map<Symbol, Type> DEFAULT_SYMBOL_TYPES = ImmutableMap.of(
-            new Symbol("a"),
-            BIGINT,
-            new Symbol("x"),
-            BIGINT,
-            new Symbol("y"),
-            BIGINT,
-            new Symbol("all_null"),
-            BIGINT);
+    private static final Map<String, Type> DEFAULT_SYMBOL_TYPES = ImmutableMap.of(
+            "a", BIGINT,
+            "x", BIGINT,
+            "y", BIGINT,
+            "all_null", BIGINT);
 
     private ScalarStatsCalculator calculator;
     private Session session;
@@ -146,7 +141,7 @@ public class TestScalarStatsCalculator
                         QualifiedName.of("length"),
                         ImmutableList.of(new SymbolReference("x"))),
                 PlanNodeStatsEstimate.unknown(),
-                TypeProvider.viewOf(ImmutableMap.of(new Symbol("x"), createVarcharType(2))))
+                TypeProvider.viewOf(ImmutableMap.of("x", createVarcharType(2))))
                 .distinctValuesCountUnknown()
                 .lowValueUnknown()
                 .highValueUnknown()
@@ -260,7 +255,7 @@ public class TestScalarStatsCalculator
                         .build())
                 .build();
 
-        assertCalculate(new Cast(new SymbolReference("a"), "double"), inputStatistics, TypeProvider.copyOf(ImmutableMap.of(new Symbol("a"), DOUBLE)))
+        assertCalculate(new Cast(new SymbolReference("a"), "double"), inputStatistics, TypeProvider.viewOf(ImmutableMap.of("a", DOUBLE)))
                 .lowValue(2.0)
                 .highValue(10.0)
                 .distinctValuesCount(4)
@@ -286,7 +281,7 @@ public class TestScalarStatsCalculator
 
     private VariableStatsAssertion assertCalculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics)
     {
-        return assertCalculate(scalarExpression, inputStatistics, TypeProvider.copyOf(DEFAULT_SYMBOL_TYPES));
+        return assertCalculate(scalarExpression, inputStatistics, TypeProvider.viewOf(DEFAULT_SYMBOL_TYPES));
     }
 
     private VariableStatsAssertion assertCalculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics, TypeProvider types)

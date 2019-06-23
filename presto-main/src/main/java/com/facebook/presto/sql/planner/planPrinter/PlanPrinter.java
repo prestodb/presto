@@ -47,7 +47,6 @@ import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.optimizations.JoinNodeUtils;
@@ -125,7 +124,6 @@ import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
@@ -182,8 +180,7 @@ public class PlanPrinter
 
     public static String jsonFragmentPlan(PlanNode root, Set<VariableReferenceExpression> variables, FunctionManager functionManager, Session session)
     {
-        TypeProvider typeProvider = TypeProvider.copyOf(variables.stream()
-                .collect(toImmutableMap(variable -> new Symbol(variable.getName()), VariableReferenceExpression::getType)));
+        TypeProvider typeProvider = TypeProvider.fromVariables(variables);
 
         return new PlanPrinter(root, typeProvider, Optional.empty(), functionManager, StatsAndCosts.empty(), session, Optional.empty()).toJson();
     }
@@ -302,10 +299,10 @@ public class PlanPrinter
         }
         builder.append(indentString(1)).append(format("Stage Execution Strategy: %s\n", fragment.getStageExecutionDescriptor().getStageExecutionStrategy()));
 
-        TypeProvider typeProvider = TypeProvider.copyOf(allFragments.stream()
+        TypeProvider typeProvider = TypeProvider.fromVariables(allFragments.stream()
                 .flatMap(f -> f.getVariables().stream())
                 .distinct()
-                .collect(toImmutableMap(variable -> new Symbol(variable.getName()), VariableReferenceExpression::getType)));
+                .collect(toImmutableList()));
         builder.append(textLogicalPlan(fragment.getRoot(), typeProvider, Optional.of(fragment.getStageExecutionDescriptor()), functionManager, fragment.getStatsAndCosts(), session, planNodeStats, 1, verbose))
                 .append("\n");
 

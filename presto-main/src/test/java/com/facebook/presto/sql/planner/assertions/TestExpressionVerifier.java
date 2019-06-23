@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -114,6 +113,6 @@ public class TestExpressionVerifier
 
     private RowExpression translate(Expression expression)
     {
-        return translator.translate(expression, TypeProvider.copyOf(ImmutableMap.of(new Symbol("orderkey"), BIGINT, new Symbol("custkey"), BIGINT)));
+        return translator.translate(expression, TypeProvider.viewOf(ImmutableMap.of("orderkey", BIGINT, "custkey", BIGINT)));
     }
 }

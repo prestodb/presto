@@ -36,7 +36,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.MatchResult;
 import com.facebook.presto.sql.planner.assertions.Matcher;
@@ -203,7 +202,7 @@ public class TestConnectorOptimization
                         PlanMatchPattern.filter(
                                 "a AND b",
                                 SimpleTableScanMatcher.tableScan("cat1", "a", "b"))),
-                TypeProvider.copyOf(ImmutableMap.of(new Symbol("a"), BIGINT, new Symbol("b"), BIGINT)));
+                TypeProvider.viewOf(ImmutableMap.of("a", BIGINT, "b", BIGINT)));
 
         // (2) with filter node case
         RowExpression existingPredicate = or(newBigintVariable("a"), newBigintVariable("b"));
@@ -221,7 +220,7 @@ public class TestConnectorOptimization
                         PlanMatchPattern.filter(
                                 "(a OR b) AND (a AND b)",
                                 SimpleTableScanMatcher.tableScan("cat1", "a", "b"))),
-                TypeProvider.copyOf(ImmutableMap.of(new Symbol("a"), BIGINT, new Symbol("b"), BIGINT)));
+                TypeProvider.viewOf(ImmutableMap.of("a", BIGINT, "b", BIGINT)));
     }
 
     private TableScanNode tableScan(String connectorName, String... columnNames)

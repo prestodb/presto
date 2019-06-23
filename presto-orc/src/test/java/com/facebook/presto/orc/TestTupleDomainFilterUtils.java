@@ -132,31 +132,31 @@ public class TestTupleDomainFilterUtils
     private static final Symbol C_TINYINT = new Symbol("c_tinyint");
     private static final Symbol C_REAL = new Symbol("c_real");
 
-    private static final TypeProvider TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
-            .put(C_BIGINT, BIGINT)
-            .put(C_DOUBLE, DOUBLE)
-            .put(C_VARCHAR, VARCHAR)
-            .put(C_BOOLEAN, BOOLEAN)
-            .put(C_BIGINT_1, BIGINT)
-            .put(C_DOUBLE_1, DOUBLE)
-            .put(C_VARCHAR_1, VARCHAR)
-            .put(C_TIMESTAMP, TIMESTAMP)
-            .put(C_DATE, DATE)
-            .put(C_COLOR, COLOR) // Equatable, but not orderable
-            .put(C_HYPER_LOG_LOG, HYPER_LOG_LOG) // Not Equatable or orderable
-            .put(C_VARBINARY, VARBINARY)
-            .put(C_DECIMAL_26_5, createDecimalType(26, 5))
-            .put(C_DECIMAL_23_4, createDecimalType(23, 4))
-            .put(C_INTEGER, INTEGER)
-            .put(C_CHAR, createCharType(10))
-            .put(C_DECIMAL_21_3, createDecimalType(21, 3))
-            .put(C_DECIMAL_12_2, createDecimalType(12, 2))
-            .put(C_DECIMAL_6_1, createDecimalType(6, 1))
-            .put(C_DECIMAL_3_0, createDecimalType(3, 0))
-            .put(C_DECIMAL_2_0, createDecimalType(2, 0))
-            .put(C_SMALLINT, SMALLINT)
-            .put(C_TINYINT, TINYINT)
-            .put(C_REAL, REAL)
+    private static final TypeProvider TYPES = TypeProvider.viewOf(ImmutableMap.<String, Type>builder()
+            .put(C_BIGINT.getName(), BIGINT)
+            .put(C_DOUBLE.getName(), DOUBLE)
+            .put(C_VARCHAR.getName(), VARCHAR)
+            .put(C_BOOLEAN.getName(), BOOLEAN)
+            .put(C_BIGINT_1.getName(), BIGINT)
+            .put(C_DOUBLE_1.getName(), DOUBLE)
+            .put(C_VARCHAR_1.getName(), VARCHAR)
+            .put(C_TIMESTAMP.getName(), TIMESTAMP)
+            .put(C_DATE.getName(), DATE)
+            .put(C_COLOR.getName(), COLOR) // Equatable, but not orderable
+            .put(C_HYPER_LOG_LOG.getName(), HYPER_LOG_LOG) // Not Equatable or orderable
+            .put(C_VARBINARY.getName(), VARBINARY)
+            .put(C_DECIMAL_26_5.getName(), createDecimalType(26, 5))
+            .put(C_DECIMAL_23_4.getName(), createDecimalType(23, 4))
+            .put(C_INTEGER.getName(), INTEGER)
+            .put(C_CHAR.getName(), createCharType(10))
+            .put(C_DECIMAL_21_3.getName(), createDecimalType(21, 3))
+            .put(C_DECIMAL_12_2.getName(), createDecimalType(12, 2))
+            .put(C_DECIMAL_6_1.getName(), createDecimalType(6, 1))
+            .put(C_DECIMAL_3_0.getName(), createDecimalType(3, 0))
+            .put(C_DECIMAL_2_0.getName(), createDecimalType(2, 0))
+            .put(C_SMALLINT.getName(), SMALLINT)
+            .put(C_TINYINT.getName(), TINYINT)
+            .put(C_REAL.getName(), REAL)
             .build());
 
     private Metadata metadata;
@@ -259,7 +259,7 @@ public class TestTupleDomainFilterUtils
     @Test
     public void testFloat()
     {
-        Expression realLiteral = toExpression(realValue(1.2f), TYPES.get(C_REAL));
+        Expression realLiteral = toExpression(realValue(1.2f), TYPES.get(C_REAL.toSymbolReference()));
         assertEquals(toFilter(equal(C_REAL, realLiteral)), FloatRange.of(1.2f, false, false, 1.2f, false, false, false));
         assertEquals(toFilter(not(equal(C_REAL, realLiteral))), MultiRange.of(ImmutableList.of(
                 FloatRange.of(Float.MIN_VALUE, true, true, 1.2f, false, true, false),
@@ -275,7 +275,7 @@ public class TestTupleDomainFilterUtils
     public void testDecimal()
     {
         Slice decimal = longDecimal("-999999999999999999.999");
-        Expression decimalLiteral = toExpression(decimal, TYPES.get(C_DECIMAL_21_3));
+        Expression decimalLiteral = toExpression(decimal, TYPES.get(C_DECIMAL_21_3.toSymbolReference()));
         assertEquals(toFilter(equal(C_DECIMAL_21_3, decimalLiteral)), LongDecimalRange.of(decimal.getLong(0), decimal.getLong(SIZE_OF_LONG), false, false, decimal.getLong(0), decimal.getLong(SIZE_OF_LONG), false, false, false));
         assertEquals(toFilter(not(equal(C_DECIMAL_21_3, decimalLiteral))), MultiRange.of(ImmutableList.of(
                 LongDecimalRange.of(Long.MIN_VALUE, Long.MIN_VALUE, true, true, decimal.getLong(0), decimal.getLong(SIZE_OF_LONG), false, true, false),
@@ -391,7 +391,7 @@ public class TestTupleDomainFilterUtils
 
     private InPredicate in(Symbol symbol, List<?> values)
     {
-        return in(symbol.toSymbolReference(), TYPES.get(symbol), values);
+        return in(symbol.toSymbolReference(), TYPES.get(symbol.toSymbolReference()), values);
     }
 
     private static BetweenPredicate between(Symbol symbol, Expression min, Expression max)

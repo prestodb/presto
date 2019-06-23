@@ -19,7 +19,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
@@ -41,7 +41,11 @@ public class TestSortExpressionExtractor
     private static final Set<VariableReferenceExpression> BUILD_VARIABLES = ImmutableSet.of(
             new VariableReferenceExpression("b1", BIGINT),
             new VariableReferenceExpression("b2", BIGINT));
-    private static final TypeProvider TYPES = TypeProvider.viewOf(ImmutableMap.of(new Symbol("b1"), BIGINT, new Symbol("b2"), BIGINT, new Symbol("p1"), BIGINT, new Symbol("p2"), BIGINT));
+    private static final TypeProvider TYPES = TypeProvider.fromVariables(ImmutableList.of(
+            new VariableReferenceExpression("b1", BIGINT),
+            new VariableReferenceExpression("b2", BIGINT),
+            new VariableReferenceExpression("p1", BIGINT),
+            new VariableReferenceExpression("p2", BIGINT)));
 
     @Test
     public void testGetSortExpression()

@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -47,7 +46,6 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -56,9 +54,8 @@ import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static com.google.common.base.Predicates.not;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.util.function.Function.identity;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -484,7 +481,8 @@ public class TestEqualityInference
 
     private static TypeProvider types(String... variables)
     {
-        Map<Symbol, Type> types = Arrays.asList(variables).stream().map(Symbol::new).collect(toImmutableMap(identity(), ignore -> BIGINT));
-        return TypeProvider.copyOf(types);
+        return TypeProvider.fromVariables(Arrays.asList(variables).stream()
+                .map(variable -> new VariableReferenceExpression(variable, BIGINT))
+                .collect(toImmutableList()));
     }
 }

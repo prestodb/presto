@@ -19,7 +19,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 
@@ -30,14 +29,14 @@ import static java.util.Objects.requireNonNull;
 
 public class TypeProvider
 {
-    private final Map<Symbol, Type> types;
+    private final Map<String, Type> types;
 
-    public static TypeProvider viewOf(Map<Symbol, Type> types)
+    public static TypeProvider viewOf(Map<String, Type> types)
     {
         return new TypeProvider(types);
     }
 
-    public static TypeProvider copyOf(Map<Symbol, Type> types)
+    public static TypeProvider copyOf(Map<String, Type> types)
     {
         return new TypeProvider(ImmutableMap.copyOf(types));
     }
@@ -49,10 +48,10 @@ public class TypeProvider
 
     public static TypeProvider fromVariables(Collection<VariableReferenceExpression> variables)
     {
-        return new TypeProvider(variables.stream().collect(toImmutableMap(variable -> new Symbol(variable.getName()), VariableReferenceExpression::getType)));
+        return new TypeProvider(variables.stream().collect(toImmutableMap(VariableReferenceExpression::getName, VariableReferenceExpression::getType)));
     }
 
-    private TypeProvider(Map<Symbol, Type> types)
+    private TypeProvider(Map<String, Type> types)
     {
         this.types = types;
     }
@@ -61,22 +60,16 @@ public class TypeProvider
     {
         requireNonNull(expression, "expression is null");
         Symbol symbol = Symbol.from(expression);
-        Type type = types.get(symbol);
+        Type type = types.get(symbol.getName());
         checkArgument(type != null, "no type found found for symbol '%s'", symbol);
 
         return type;
     }
 
-    public Map<Symbol, Type> allTypes()
-    {
-        // types may be a HashMap, so creating an ImmutableMap here would add extra cost when allTypes gets called frequently
-        return Collections.unmodifiableMap(types);
-    }
-
     public Set<VariableReferenceExpression> allVariables()
     {
         return types.entrySet().stream()
-                .map(entry -> new VariableReferenceExpression(entry.getKey().getName(), entry.getValue()))
+                .map(entry -> new VariableReferenceExpression(entry.getKey(), entry.getValue()))
                 .collect(toImmutableSet());
     }
 }

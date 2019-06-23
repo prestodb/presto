@@ -33,8 +33,7 @@ import java.util.Set;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toMap;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -108,8 +107,8 @@ public class TestExpressionEquivalence
         Expression rightExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(right, parsingOptions));
 
         Set<Symbol> symbols = extractUnique(ImmutableList.of(leftExpression, rightExpression));
-        TypeProvider types = TypeProvider.copyOf(symbols.stream()
-                .collect(toMap(identity(), TestExpressionEquivalence::generateType)));
+        TypeProvider types = TypeProvider.viewOf(symbols.stream()
+                .collect(toImmutableMap(Symbol::getName, TestExpressionEquivalence::generateType)));
 
         assertTrue(
                 EQUIVALENCE.areExpressionsEquivalent(TEST_SESSION, leftExpression, rightExpression, types),
@@ -160,8 +159,8 @@ public class TestExpressionEquivalence
         Expression rightExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(right, parsingOptions));
 
         Set<Symbol> symbols = extractUnique(ImmutableList.of(leftExpression, rightExpression));
-        TypeProvider types = TypeProvider.copyOf(symbols.stream()
-                .collect(toMap(identity(), TestExpressionEquivalence::generateType)));
+        TypeProvider types = TypeProvider.viewOf(symbols.stream()
+                .collect(toImmutableMap(Symbol::getName, TestExpressionEquivalence::generateType)));
 
         assertFalse(
                 EQUIVALENCE.areExpressionsEquivalent(TEST_SESSION, leftExpression, rightExpression, types),

@@ -47,7 +47,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.transaction.TransactionId;
@@ -210,13 +209,11 @@ public abstract class AbstractOperatorBenchmark
 
     protected final OperatorFactory createHashProjectOperator(int operatorId, PlanNodeId planNodeId, List<Type> types)
     {
-        ImmutableMap.Builder<Symbol, Type> symbolTypes = ImmutableMap.builder();
         ImmutableList.Builder<VariableReferenceExpression> variables = ImmutableList.builder();
         ImmutableMap.Builder<VariableReferenceExpression, Integer> variableToInputMapping = ImmutableMap.builder();
         ImmutableList.Builder<PageProjection> projections = ImmutableList.builder();
         for (int channel = 0; channel < types.size(); channel++) {
             VariableReferenceExpression variable = new VariableReferenceExpression("h" + channel, types.get(channel));
-            symbolTypes.put(new Symbol(variable.getName()), types.get(channel));
             variables.add(variable);
             variableToInputMapping.put(variable, channel);
             projections.add(new InputPageProjection(channel, types.get(channel)));

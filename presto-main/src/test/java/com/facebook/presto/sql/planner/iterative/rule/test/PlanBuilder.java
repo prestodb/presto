@@ -114,7 +114,7 @@ public class PlanBuilder
 {
     private final PlanNodeIdAllocator idAllocator;
     private final Metadata metadata;
-    private final Map<Symbol, Type> symbols = new HashMap<>();
+    private final Map<String, Type> symbols = new HashMap<>();
 
     public PlanBuilder(PlanNodeIdAllocator idAllocator, Metadata metadata)
     {
@@ -723,7 +723,7 @@ public class PlanBuilder
 
     public VariableReferenceExpression variable(Symbol symbol)
     {
-        return new VariableReferenceExpression(symbol.getName(), symbols.get(symbol));
+        return new VariableReferenceExpression(symbol.getName(), symbols.get(symbol.getName()));
     }
 
     public VariableReferenceExpression variable(VariableReferenceExpression variable)
@@ -744,18 +744,16 @@ public class PlanBuilder
 
     public Symbol symbol(String name, Type type)
     {
-        Symbol symbol = new Symbol(name);
-
-        Type old = symbols.put(symbol, type);
+        Type old = symbols.put(name, type);
         if (old != null && !old.equals(type)) {
             throw new IllegalArgumentException(format("Symbol '%s' already registered with type '%s'", name, old));
         }
 
         if (old == null) {
-            symbols.put(symbol, type);
+            symbols.put(name, type);
         }
 
-        return symbol;
+        return new Symbol(name);
     }
 
     public WindowNode window(WindowNode.Specification specification, Map<VariableReferenceExpression, WindowNode.Function> functions, PlanNode source)

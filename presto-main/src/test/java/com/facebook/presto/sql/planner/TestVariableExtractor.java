@@ -16,11 +16,12 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -34,7 +35,10 @@ public class TestVariableExtractor
 {
     private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
     private static final TestingRowExpressionTranslator TRANSLATOR = new TestingRowExpressionTranslator(METADATA);
-    private static final TypeProvider SYMBOL_TYPES = TypeProvider.viewOf(ImmutableMap.of(new Symbol("a"), BIGINT, new Symbol("b"), BIGINT, new Symbol("c"), BIGINT));
+    private static final TypeProvider SYMBOL_TYPES = TypeProvider.fromVariables(ImmutableList.of(
+            new VariableReferenceExpression("a", BIGINT),
+            new VariableReferenceExpression("b", BIGINT),
+            new VariableReferenceExpression("c", BIGINT)));
 
     @Test
     public void testSimple()

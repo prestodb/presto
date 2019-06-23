@@ -42,7 +42,6 @@ import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.SubPlan;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.optimizations.TranslateExpressions;
@@ -556,9 +555,7 @@ public class TestCostCalculator
             Map<String, PlanNodeStatsEstimate> stats,
             Map<String, Type> types)
     {
-        Map<Symbol, Type> symbolTypes = types.entrySet().stream()
-                .collect(ImmutableMap.toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue));
-        TypeProvider typeProvider = TypeProvider.copyOf(symbolTypes);
+        TypeProvider typeProvider = TypeProvider.copyOf(types);
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator(stats), session, typeProvider);
         CostProvider costProvider = new TestingCostProvider(costs, costCalculatorUsingExchanges, statsProvider, session, typeProvider);
         PlanNode plan = translateExpression(node, statsCalculator(stats), typeProvider);
@@ -681,14 +678,12 @@ public class TestCostCalculator
                 planNode -> requireNonNull(stats.apply(planNode), "no stats for node"),
                 source -> requireNonNull(costs.apply(source), format("no cost for source: %s", source.getId())),
                 session,
-                TypeProvider.copyOf(types.entrySet().stream()
-                        .collect(ImmutableMap.toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue))));
+                TypeProvider.copyOf(types));
     }
 
     private PlanCostEstimate calculateCost(PlanNode node, CostCalculator costCalculator, StatsCalculator statsCalculator, Map<String, Type> types)
     {
-        TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
-                .collect(ImmutableMap.toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue)));
+        TypeProvider typeProvider = TypeProvider.copyOf(types);
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, typeProvider);
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, typeProvider);
         return costProvider.getCost(node);
@@ -696,8 +691,7 @@ public class TestCostCalculator
 
     private PlanCostEstimate calculateCostFragmentedPlan(PlanNode node, StatsCalculator statsCalculator, Map<String, Type> types)
     {
-        TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
-                .collect(ImmutableMap.toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue)));
+        TypeProvider typeProvider = TypeProvider.copyOf(types);
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, typeProvider);
         CostProvider costProvider = new CachingCostProvider(costCalculatorUsingExchanges, statsProvider, Optional.empty(), session, typeProvider);
         node = translateExpression(node, statsCalculator, typeProvider);

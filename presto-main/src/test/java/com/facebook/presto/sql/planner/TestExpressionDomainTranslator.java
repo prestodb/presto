@@ -121,31 +121,31 @@ public class TestExpressionDomainTranslator
     private static final Symbol C_TINYINT = new Symbol("c_tinyint");
     private static final Symbol C_REAL = new Symbol("c_real");
 
-    private static final TypeProvider TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
-            .put(C_BIGINT, BIGINT)
-            .put(C_DOUBLE, DOUBLE)
-            .put(C_VARCHAR, VARCHAR)
-            .put(C_BOOLEAN, BOOLEAN)
-            .put(C_BIGINT_1, BIGINT)
-            .put(C_DOUBLE_1, DOUBLE)
-            .put(C_VARCHAR_1, VARCHAR)
-            .put(C_TIMESTAMP, TIMESTAMP)
-            .put(C_DATE, DATE)
-            .put(C_COLOR, COLOR) // Equatable, but not orderable
-            .put(C_HYPER_LOG_LOG, HYPER_LOG_LOG) // Not Equatable or orderable
-            .put(C_VARBINARY, VARBINARY)
-            .put(C_DECIMAL_26_5, createDecimalType(26, 5))
-            .put(C_DECIMAL_23_4, createDecimalType(23, 4))
-            .put(C_INTEGER, INTEGER)
-            .put(C_CHAR, createCharType(10))
-            .put(C_DECIMAL_21_3, createDecimalType(21, 3))
-            .put(C_DECIMAL_12_2, createDecimalType(12, 2))
-            .put(C_DECIMAL_6_1, createDecimalType(6, 1))
-            .put(C_DECIMAL_3_0, createDecimalType(3, 0))
-            .put(C_DECIMAL_2_0, createDecimalType(2, 0))
-            .put(C_SMALLINT, SMALLINT)
-            .put(C_TINYINT, TINYINT)
-            .put(C_REAL, REAL)
+    private static final TypeProvider TYPES = TypeProvider.viewOf(ImmutableMap.<String, Type>builder()
+            .put(C_BIGINT.getName(), BIGINT)
+            .put(C_DOUBLE.getName(), DOUBLE)
+            .put(C_VARCHAR.getName(), VARCHAR)
+            .put(C_BOOLEAN.getName(), BOOLEAN)
+            .put(C_BIGINT_1.getName(), BIGINT)
+            .put(C_DOUBLE_1.getName(), DOUBLE)
+            .put(C_VARCHAR_1.getName(), VARCHAR)
+            .put(C_TIMESTAMP.getName(), TIMESTAMP)
+            .put(C_DATE.getName(), DATE)
+            .put(C_COLOR.getName(), COLOR) // Equatable, but not orderable
+            .put(C_HYPER_LOG_LOG.getName(), HYPER_LOG_LOG) // Not Equatable or orderable
+            .put(C_VARBINARY.getName(), VARBINARY)
+            .put(C_DECIMAL_26_5.getName(), createDecimalType(26, 5))
+            .put(C_DECIMAL_23_4.getName(), createDecimalType(23, 4))
+            .put(C_INTEGER.getName(), INTEGER)
+            .put(C_CHAR.getName(), createCharType(10))
+            .put(C_DECIMAL_21_3.getName(), createDecimalType(21, 3))
+            .put(C_DECIMAL_12_2.getName(), createDecimalType(12, 2))
+            .put(C_DECIMAL_6_1.getName(), createDecimalType(6, 1))
+            .put(C_DECIMAL_3_0.getName(), createDecimalType(3, 0))
+            .put(C_DECIMAL_2_0.getName(), createDecimalType(2, 0))
+            .put(C_SMALLINT.getName(), SMALLINT)
+            .put(C_TINYINT.getName(), TINYINT)
+            .put(C_REAL.getName(), REAL)
             .build());
 
     private static final long TIMESTAMP_VALUE = new DateTime(2013, 3, 30, 1, 5, 0, 0, DateTimeZone.UTC).getMillis();
@@ -1488,11 +1488,6 @@ public class TestExpressionDomainTranslator
     private Expression toExpression(Object object, Type type)
     {
         return literalEncoder.toExpression(object, type);
-    }
-
-    private List<Expression> toExpressions(List<?> objects, List<? extends Type> types)
-    {
-        return literalEncoder.toExpressions(objects, types);
     }
 
     private static class NumericValues<T>

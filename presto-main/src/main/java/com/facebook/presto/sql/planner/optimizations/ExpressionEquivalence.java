@@ -29,7 +29,6 @@ import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
@@ -44,7 +43,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
@@ -85,8 +83,8 @@ public class ExpressionEquivalence
     {
         Map<VariableReferenceExpression, Integer> variableInput = new HashMap<>();
         int inputId = 0;
-        for (Entry<Symbol, Type> entry : types.allTypes().entrySet()) {
-            variableInput.put(new VariableReferenceExpression(entry.getKey().getName(), entry.getValue()), inputId);
+        for (VariableReferenceExpression variable : types.allVariables()) {
+            variableInput.put(variable, inputId);
             inputId++;
         }
         RowExpression leftRowExpression = toRowExpression(session, leftExpression, variableInput, types);
