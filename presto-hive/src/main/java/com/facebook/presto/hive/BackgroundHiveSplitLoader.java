@@ -30,7 +30,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.Domain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
-import com.google.common.collect.Streams;
 import com.google.common.io.CharStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.hadoop.conf.Configuration;
@@ -84,7 +83,9 @@ import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPoli
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Streams.stream;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.common.FileUtils.HIDDEN_FILES_PATH_FILTER;
@@ -404,7 +405,7 @@ public class BackgroundHiveSplitLoader
 
     private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable)
     {
-        return Streams.stream(new HiveFileIterator(path, fileSystem, directoryLister, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED))
+        return stream(new HiveFileIterator(path, fileSystem, directoryLister, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED))
                 .map(status -> splitFactory.createInternalHiveSplit(status, splittable))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
@@ -456,7 +457,7 @@ public class BackgroundHiveSplitLoader
 
         // convert files internal splits
         List<InternalHiveSplit> splitList = new ArrayList<>();
-        for (int bucketNumber = 0; bucketNumber < Math.max(readBucketCount, partitionBucketCount); bucketNumber++) {
+        for (int bucketNumber = 0; bucketNumber < max(readBucketCount, partitionBucketCount); bucketNumber++) {
             // Physical bucket #. This determine file name. It also determines the order of splits in the result.
             int partitionBucketNumber = bucketNumber % partitionBucketCount;
             // Logical bucket #. Each logical bucket corresponds to a "bucket" from engine's perspective.
@@ -464,7 +465,7 @@ public class BackgroundHiveSplitLoader
 
             boolean containsIneligibleTableBucket = false;
             List<Integer> eligibleTableBucketNumbers = new ArrayList<>();
-            for (int tableBucketNumber = bucketNumber % tableBucketCount; tableBucketNumber < tableBucketCount; tableBucketNumber += Math.max(readBucketCount, partitionBucketCount)) {
+            for (int tableBucketNumber = bucketNumber % tableBucketCount; tableBucketNumber < tableBucketCount; tableBucketNumber += max(readBucketCount, partitionBucketCount)) {
                 // table bucket number: this is used for evaluating "$bucket" filters.
                 if (bucketSplitInfo.isTableBucketEnabled(tableBucketNumber)) {
                     eligibleTableBucketNumbers.add(tableBucketNumber);
