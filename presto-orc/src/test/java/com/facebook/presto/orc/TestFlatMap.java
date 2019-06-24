@@ -355,6 +355,18 @@ public class TestFlatMap
                 ExpectedValuesBuilder.get(Function.identity()).setMixedEncodings());
     }
 
+    @Test
+    public void testIntegerWithMissingSequences()
+            throws Exception
+    {
+        // A test case where the additional sequences IDs for a flat map aren't a consecutive range [1,N], the odd
+        // sequence IDs have been removed.  This is to simulate the case where a file has been modified to delete
+        // certain keys from the map by dropping the ColumnEncodings and the associated data.
+        runTest("test_flat_map/flat_map_int_missing_sequences.dwrf",
+                IntegerType.INTEGER,
+                ExpectedValuesBuilder.get(Function.identity()).setMissingSequences());
+    }
+
     private <K, V> void runTest(String testOrcFileName, Type type, ExpectedValuesBuilder<K, V> expectedValuesBuilder)
             throws Exception
     {
@@ -460,6 +472,7 @@ public class TestFlatMap
         private Frequency nullRowsFrequency = NONE;
         private Frequency emptyMapsFrequency = NONE;
         private boolean mixedEncodings;
+        private boolean missingSequences;
 
         private ExpectedValuesBuilder(Function<Integer, K> keyConverter, Function<Integer, V> valueConverter)
         {
@@ -505,6 +518,13 @@ public class TestFlatMap
             return this;
         }
 
+        public ExpectedValuesBuilder<K, V> setMissingSequences()
+        {
+            this.missingSequences = true;
+
+            return this;
+        }
+
         public List<Map<K, V>> build()
         {
             List<Map<K, V>> result = new ArrayList<>(NUM_ROWS);
@@ -522,6 +542,10 @@ public class TestFlatMap
                     for (int j = 0; j < 3; j++) {
                         V value;
                         int key = (i * 3 + j) % 32;
+
+                        if (missingSequences && key % 2 == 1) {
+                            continue;
+                        }
 
                         if (j == 0 && passesFrequencyCheck(nullValuesFrequency, i)) {
                             value = null;

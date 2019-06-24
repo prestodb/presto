@@ -42,8 +42,10 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_MAP;
@@ -234,9 +236,9 @@ public class MapFlatStreamReader
 
         ColumnEncoding encoding = encodings.get(baseValueStreamDescriptor.getStreamId());
         // encoding.getAdditionalSequenceEncodings() may not be present when every map is empty or null
-        List<DwrfSequenceEncoding> additionalSequenceEncodings = encoding.getAdditionalSequenceEncodings().orElse(Collections.emptyList());
+        Map<Integer, DwrfSequenceEncoding> additionalSequenceEncodings = encoding.getAdditionalSequenceEncodings().orElse(Collections.emptySortedMap());
         // The ColumnEncoding with sequence ID 0 doesn't have any data associated with it
-        for (int sequence = 1; sequence <= additionalSequenceEncodings.size(); sequence++) {
+        for (int sequence : additionalSequenceEncodings.keySet()) {
             inMapStreamSources.add(missingStreamSource(BooleanInputStream.class));
 
             StreamDescriptor valueStreamDescriptor = copyStreamDescriptorWithSequence(baseValueStreamDescriptor, sequence);
@@ -247,7 +249,7 @@ public class MapFlatStreamReader
             valueStreamReaders.add(valueStreamReader);
         }
 
-        keyBlockTemplate = getKeyBlockTemplate(additionalSequenceEncodings);
+        keyBlockTemplate = getKeyBlockTemplate(additionalSequenceEncodings.values());
         readOffset = 0;
         nextBatchSize = 0;
 
@@ -276,7 +278,7 @@ public class MapFlatStreamReader
                 sequence);
     }
 
-    private Block getKeyBlockTemplate(List<DwrfSequenceEncoding> sequenceEncodings)
+    private Block getKeyBlockTemplate(Collection<DwrfSequenceEncoding> sequenceEncodings)
     {
         switch (keyOrcType) {
             case BYTE:
@@ -292,7 +294,7 @@ public class MapFlatStreamReader
         }
     }
 
-    private Block getIntegerKeyBlockTemplate(List<DwrfSequenceEncoding> sequenceEncodings)
+    private Block getIntegerKeyBlockTemplate(Collection<DwrfSequenceEncoding> sequenceEncodings)
     {
         Type keyType;
 
@@ -322,7 +324,7 @@ public class MapFlatStreamReader
         return blockBuilder.build();
     }
 
-    private Block getSliceKeysBlockTemplate(List<DwrfSequenceEncoding> sequenceEncodings)
+    private Block getSliceKeysBlockTemplate(Collection<DwrfSequenceEncoding> sequenceEncodings)
     {
         int bytes = 0;
 
