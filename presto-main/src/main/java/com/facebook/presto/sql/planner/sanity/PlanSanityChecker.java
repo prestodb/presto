@@ -49,7 +49,8 @@ public final class PlanSanityChecker
                         new TypeValidator(),
                         new NoSubqueryExpressionLeftChecker(),
                         new NoIdentifierLeftChecker(),
-                        new VerifyNoFilteredAggregations())
+                        new VerifyNoFilteredAggregations(),
+                        new VerifyNoOriginalExpression())
                 .putAll(
                         Stage.FINAL,
                         new ValidateDependenciesChecker(),
@@ -60,7 +61,8 @@ public final class PlanSanityChecker
                         new VerifyOnlyOneOutputNode(),
                         new VerifyNoFilteredAggregations(),
                         new ValidateAggregationsWithDefaultValues(forceSingleNode),
-                        new ValidateStreamingAggregations())
+                        new ValidateStreamingAggregations(),
+                        new VerifyNoOriginalExpression())
                 .build();
     }
 
