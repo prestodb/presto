@@ -111,7 +111,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Collections.emptyList;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
 public class PropertyDerivations
@@ -639,7 +638,6 @@ public class PropertyDerivations
                 // ("ROW comparison not supported for fields with null elements", etc)
                 if (isExpression(expression)) {
                     Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, parser, types, castToExpression(expression), emptyList(), WarningCollector.NOOP);
-                    Type type = requireNonNull(expressionTypes.get(NodeRef.of(castToExpression(expression))));
                     ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(castToExpression(expression), metadata, session, expressionTypes);
                     Object value = optimizer.optimize(NoOpSymbolResolver.INSTANCE);
 
@@ -647,11 +645,11 @@ public class PropertyDerivations
                         VariableReferenceExpression variable = toVariableReference(Symbol.from((SymbolReference) value), types);
                         ConstantExpression existingConstantValue = constants.get(variable);
                         if (existingConstantValue != null) {
-                            constants.put(output, new ConstantExpression(value, type));
+                            constants.put(output, new ConstantExpression(existingConstantValue.getValue(), output.getType()));
                         }
                     }
                     else if (!(value instanceof Expression)) {
-                        constants.put(output, new ConstantExpression(value, type));
+                        constants.put(output, new ConstantExpression(value, output.getType()));
                     }
                 }
                 else {
@@ -660,11 +658,11 @@ public class PropertyDerivations
                     if (value instanceof VariableReferenceExpression) {
                         ConstantExpression existingConstantValue = constants.get(value);
                         if (existingConstantValue != null) {
-                            constants.put(output, new ConstantExpression(value, expression.getType()));
+                            constants.put(output, new ConstantExpression(existingConstantValue.getValue(), output.getType()));
                         }
                     }
                     else if (!(value instanceof RowExpression)) {
-                        constants.put(output, new ConstantExpression(value, expression.getType()));
+                        constants.put(output, new ConstantExpression(value, output.getType()));
                     }
                 }
             }
