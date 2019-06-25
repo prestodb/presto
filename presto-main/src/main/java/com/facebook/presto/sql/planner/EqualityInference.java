@@ -120,6 +120,16 @@ public class EqualityInference
             subExpressions = filter(subExpressions, not(equalTo(expression)));
         }
 
+        if (!variableToExpressionPredicate(variableScope, types).apply(expression)) {
+            // We enforce that the expression complies with variableScope before rewriting. If an expression contains variables that are not in
+            // in variableScope, rewriting it to an expression that's only contains variable within variableScope could enable optimizations
+            // like push down that would be inaccurate. For example, for the following expression IF (v1 = 1, v2 > 1), with variableScope in({v2}),
+            // if we know that v1 = 1, and do a rewrite, we would conclude that the expression can be rewritten to IF (1 = 1, v2 > 1), which
+            // satisfies the variableScope. This could cause us conclude that it's safe to push to rewritten expression down to a scope that
+            // does not know about v1, thus always evaluate v2 > 1.
+            return null;
+        }
+
         ImmutableMap.Builder<Expression, Expression> expressionRemap = ImmutableMap.builder();
         for (Expression subExpression : subExpressions) {
             Expression canonical = getScopedCanonical(subExpression, variableScope, types);
@@ -131,12 +141,7 @@ public class EqualityInference
         // Perform a naive single-pass traversal to try to rewrite non-compliant portions of the tree. Prefers to replace
         // larger subtrees over smaller subtrees
         // TODO: this rewrite can probably be made more sophisticated
-        Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ExpressionNodeInliner(expressionRemap.build()), expression);
-        if (!variableToExpressionPredicate(variableScope, types).apply(rewritten)) {
-            // If the rewritten is still not compliant with the symbol scope, just give up
-            return null;
-        }
-        return rewritten;
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionNodeInliner(expressionRemap.build()), expression);
     }
 
     /**

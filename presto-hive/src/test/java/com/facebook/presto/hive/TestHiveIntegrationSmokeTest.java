@@ -4135,6 +4135,33 @@ public class TestHiveIntegrationSmokeTest
                 "      linenumber");
     }
 
+    @Test
+    public void testDoNotPushDownPredicateReferencingBothSidesOfJoin()
+    {
+        assertQuerySucceeds(getQueryRunner().getDefaultSession(),
+                "CREATE TABLE test AS " +
+                        "SELECT\n" +
+                        "    l.linenumber,\n" +
+                        "    o.orderkey,\n" +
+                        "    o.orderstatus,\n" +
+                        "    IF (o.orderstatus = 'P', ARRAY[1, 2, 4], ARRAY[1]) AS x\n" +
+                        "FROM lineitem l, orders o\n" +
+                        "WHERE l.orderkey = o.orderkey");
+
+        assertQuerySucceeds(getQueryRunner().getDefaultSession(),
+                "SELECT *\n" +
+                        "FROM (\n" +
+                        "    SELECT\n" +
+                        "        o.orderstatus,\n" +
+                        "        IF (o.orderstatus = 'P', x[3], NULL) AS y\n" +
+                        "    FROM test t, orders o\n" +
+                        "    WHERE t.orderkey = o.orderkey\n" +
+                        ")\n" +
+                        "WHERE orderstatus = 'P' AND y IS NOT NULL");
+
+        assertUpdate("DROP TABLE test");
+    }
+
     private HiveInsertTableHandle getHiveInsertTableHandle(Session session, String tableName)
     {
         Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
