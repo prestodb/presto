@@ -294,7 +294,7 @@ public class PickTableLayout
                     .collect(toImmutableBiMap(
                             entry -> new VariableReferenceExpression(entry.getKey().getName(), types.get(new Symbol(entry.getKey().getName()))),
                             entry -> new VariableReferenceExpression(getColumnName(session, metadata, node.getTable(), entry.getValue()), types.get(new Symbol(entry.getKey().getName())))));
-            RowExpression translatedPredicate = replaceExpression(SqlToRowExpressionTranslator.translate(predicate, predicateTypes, ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), session, false), symbolToColumnMapping);
+            RowExpression translatedPredicate = replaceExpression(SqlToRowExpressionTranslator.translate(predicate, predicateTypes, ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), session), symbolToColumnMapping);
 
             PushdownFilterResult pushdownFilterResult = metadata.pushdownFilter(session, node.getTable(), translatedPredicate);
 
