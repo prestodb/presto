@@ -66,7 +66,7 @@ public class TestExpressionOptimizer
     {
         TypeManager typeManager = new TypeRegistry();
         functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-        optimizer = new ExpressionOptimizer(functionManager, SESSION);
+        optimizer = new ExpressionOptimizer(typeManager, functionManager, SESSION);
     }
 
     @AfterClass(alwaysRun = true)

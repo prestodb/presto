@@ -27,6 +27,8 @@ import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -50,6 +52,7 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
+import static com.facebook.presto.sql.relational.RowExpressionTypeChanger.changeType;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -59,15 +62,17 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 @Deprecated
 public class ExpressionOptimizer
 {
+    private final TypeManager typeManager;
     private final FunctionManager functionManager;
     private final ConnectorSession session;
 
-    public ExpressionOptimizer(FunctionManager functionManager, ConnectorSession session)
+    public ExpressionOptimizer(TypeManager typeManager, FunctionManager functionManager, ConnectorSession session)
     {
+        this.typeManager = typeManager;
         this.functionManager = functionManager;
         this.session = session;
     }
-    
+
     // TODO replace ExpressionOptimizer with RowExpressionInterpreter
     public RowExpression optimize(RowExpression expression)
     {
@@ -101,6 +106,11 @@ public class ExpressionOptimizer
                 return call(call.getDisplayName(), functionHandle, call.getType(), arguments);
             }
             if (functionMetadata.getName().equals(CAST.getCastName())) {
+                Type target = call.getType();
+                Type input = call.getArguments().get(0).getType();
+                if (typeManager.isTypeOnlyCoercion(input, target)) {
+                    return changeType(call.getArguments().get(0), target).accept(this, null);
+                }
                 call = rewriteCast(call);
                 functionHandle = call.getFunctionHandle();
             }

@@ -1587,7 +1587,7 @@ public class TestExpressionInterpreter
             // It is tricky to check the equivalence of an expression and a row expression.
             // We rely on the optimized translator to fill the gap.
             RowExpression translated = TRANSLATOR.translateAndOptimize((Expression) expressionResult, SYMBOL_TYPES);
-            assertRowExpressionEvaluationEquals(translated, new ExpressionOptimizer(METADATA.getFunctionManager(), SESSION).optimize((RowExpression) rowExpressionResult));
+            assertRowExpressionEvaluationEquals(translated, new ExpressionOptimizer(METADATA.getTypeManager(), METADATA.getFunctionManager(), SESSION).optimize((RowExpression) rowExpressionResult));
         }
         else {
             // We have constants; directly compare
