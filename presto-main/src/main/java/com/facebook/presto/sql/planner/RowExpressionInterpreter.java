@@ -96,6 +96,7 @@ import static com.facebook.presto.sql.planner.LiteralEncoder.toRowExpression;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.SpecialCallResult.changed;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.SpecialCallResult.notChanged;
 import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.facebook.presto.sql.relational.RowExpressionTypeChanger.changeType;
 import static com.facebook.presto.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.LikeFunctions.isLikePattern;
@@ -184,7 +185,7 @@ public class RowExpressionInterpreter
             return result;
         }
         // TODO deprecate ExpressionOptimizer since it overlaps with RowExpressionInterpreter and is less efficient.
-        return new ExpressionOptimizer(metadata.getFunctionManager(), session).optimize((RowExpression) result);
+        return new ExpressionOptimizer(metadata.getTypeManager(), metadata.getFunctionManager(), session).optimize((RowExpression) result);
     }
 
     private class Visitor
@@ -733,6 +734,11 @@ public class RowExpressionInterpreter
                 if (targetType.equals(sourceType)) {
                     return changed(value);
                 }
+
+                if (optimizationLevel.ordinal() > Level.SERIALIZABLE.ordinal() && metadata.getTypeManager().isTypeOnlyCoercion(sourceType, targetType)) {
+                    return changed(changeType((RowExpression) value, targetType));
+                }
+
                 if (callExpression.getArguments().get(0) instanceof CallExpression) {
                     // Optimization for CAST(JSON_PARSE(...) AS ARRAY/MAP/ROW)
                     CallExpression innerCall = (CallExpression) callExpression.getArguments().get(0);

@@ -73,7 +73,6 @@ public class ExpressionOptimizer
         this.session = session;
     }
 
-    // TODO replace ExpressionOptimizer with RowExpressionInterpreter
     public RowExpression optimize(RowExpression expression)
     {
         return expression.accept(new Visitor(), null);

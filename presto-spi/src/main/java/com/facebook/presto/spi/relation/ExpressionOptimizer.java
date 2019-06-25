@@ -30,6 +30,7 @@ public interface ExpressionOptimizer
         SERIALIZABLE,
         /**
          * MOST_OPTIMIZED removes all redundancy in a RowExpression but can end up with non-serializable objects (e.g., Regex).
+         * It also removes type only coercion. Only use it after row expression is sent to worker and ready to execute.
          */
         MOST_OPTIMIZED,
         /**
