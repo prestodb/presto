@@ -722,9 +722,14 @@ public final class ValidateDependenciesChecker
                     .build();
         }
 
-        private void checkDependencies(Collection<VariableReferenceExpression> inputs, Collection<VariableReferenceExpression> required, String message, Object... parameters)
+        private void checkDependencies(List<VariableReferenceExpression> inputs, Collection<VariableReferenceExpression> required, String message, Object... parameters)
         {
-            checkArgument(ImmutableSet.copyOf(inputs).containsAll(required), message, parameters);
+            checkDependencies(ImmutableSet.copyOf(inputs), required, message, parameters);
+        }
+
+        private void checkDependencies(Set<VariableReferenceExpression> inputs, Collection<VariableReferenceExpression> required, String message, Object... parameters)
+        {
+            checkArgument(inputs.containsAll(required), message, parameters);
         }
     }
 }
