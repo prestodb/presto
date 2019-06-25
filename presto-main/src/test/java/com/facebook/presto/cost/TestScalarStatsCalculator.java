@@ -39,6 +39,7 @@ import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
@@ -189,7 +190,7 @@ public class TestScalarStatsCalculator
     public void testCastDoubleToBigint()
     {
         PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
-                .addVariableStatistics(new VariableReferenceExpression("a", BIGINT), VariableStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression("a", DOUBLE), VariableStatsEstimate.builder()
                         .setNullsFraction(0.3)
                         .setLowValue(1.6)
                         .setHighValue(17.3)
@@ -210,7 +211,7 @@ public class TestScalarStatsCalculator
     public void testCastDoubleToShortRange()
     {
         PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
-                .addVariableStatistics(new VariableReferenceExpression("a", BIGINT), VariableStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression("a", DOUBLE), VariableStatsEstimate.builder()
                         .setNullsFraction(0.3)
                         .setLowValue(1.6)
                         .setHighValue(3.3)
@@ -231,7 +232,7 @@ public class TestScalarStatsCalculator
     public void testCastDoubleToShortRangeUnknownDistinctValuesCount()
     {
         PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
-                .addVariableStatistics(new VariableReferenceExpression("a", BIGINT), VariableStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression("a", DOUBLE), VariableStatsEstimate.builder()
                         .setNullsFraction(0.3)
                         .setLowValue(1.6)
                         .setHighValue(3.3)
@@ -251,7 +252,7 @@ public class TestScalarStatsCalculator
     public void testCastBigintToDouble()
     {
         PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
-                .addVariableStatistics(new VariableReferenceExpression("a", DOUBLE), VariableStatsEstimate.builder()
+                .addVariableStatistics(new VariableReferenceExpression("a", BIGINT), VariableStatsEstimate.builder()
                         .setNullsFraction(0.3)
                         .setLowValue(2.0)
                         .setHighValue(10.0)
@@ -260,7 +261,7 @@ public class TestScalarStatsCalculator
                         .build())
                 .build();
 
-        assertCalculate(new Cast(new SymbolReference("a"), "double"), inputStatistics, TypeProvider.copyOf(ImmutableMap.of(new Symbol("a"), DOUBLE)))
+        assertCalculate(new Cast(new SymbolReference("a"), "double"), inputStatistics, TypeProvider.copyOf(ImmutableMap.of(new Symbol("a"), BIGINT)))
                 .lowValue(2.0)
                 .highValue(10.0)
                 .distinctValuesCount(4)
@@ -286,7 +287,9 @@ public class TestScalarStatsCalculator
 
     private VariableStatsAssertion assertCalculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics)
     {
-        return assertCalculate(scalarExpression, inputStatistics, TypeProvider.copyOf(DEFAULT_SYMBOL_TYPES));
+        Map<Symbol, Type> types = new HashMap<>(DEFAULT_SYMBOL_TYPES);
+        inputStatistics.getVariablesWithKnownStatistics().forEach(variable -> types.put(new Symbol(variable.getName()), variable.getType()));
+        return assertCalculate(scalarExpression, inputStatistics, TypeProvider.copyOf(types));
     }
 
     private VariableStatsAssertion assertCalculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics, TypeProvider types)
