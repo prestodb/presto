@@ -419,12 +419,6 @@ public class OrcRecordReader
         return block;
     }
 
-    public StreamReader getStreamReader(int index)
-    {
-        checkArgument(index < streamReaders.length, "index does not exist");
-        return streamReaders[index];
-    }
-
     public Map<String, Slice> getUserMetadata()
     {
         return ImmutableMap.copyOf(Maps.transformValues(userMetadata, Slices::copyOf));
