@@ -33,7 +33,6 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -51,6 +50,7 @@ import static com.facebook.presto.orc.OrcTester.writeOrcFileColumnHive;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
@@ -70,13 +70,13 @@ public class TestCachingOrcDataSource
     {
         tempFile = new TempFile();
         Random random = new Random();
-        Iterator<String> iterator = Stream.generate(() -> Long.toHexString(random.nextLong())).limit(POSITION_COUNT).iterator();
+        List<String> values = Stream.generate(() -> Long.toHexString(random.nextLong())).limit(POSITION_COUNT).collect(toImmutableList());
         writeOrcFileColumnHive(
                 tempFile.getFile(),
                 ORC_12,
                 createOrcRecordWriter(tempFile.getFile(), ORC_12, ZLIB, javaStringObjectInspector),
                 VARCHAR,
-                iterator);
+                values);
     }
 
     @AfterClass(alwaysRun = true)

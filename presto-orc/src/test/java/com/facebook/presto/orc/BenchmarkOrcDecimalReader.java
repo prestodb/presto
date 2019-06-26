@@ -104,7 +104,7 @@ public class BenchmarkOrcDecimalReader
             temporary = createTempDir();
             dataPath = new File(temporary, randomUUID().toString());
 
-            writeOrcColumnHive(dataPath, ORC_12, NONE, DECIMAL_TYPE, createDecimalValues().iterator());
+            writeOrcColumnHive(dataPath, ORC_12, NONE, DECIMAL_TYPE, createDecimalValues());
         }
 
         @TearDown
