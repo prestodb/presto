@@ -18,6 +18,7 @@ import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanInputStream;
+import com.facebook.presto.orc.stream.ByteInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.block.Block;
@@ -37,10 +38,10 @@ import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStr
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class BooleanStreamReader
-        implements StreamReader
+public class ByteBatchStreamReader
+        implements BatchStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BooleanStreamReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteBatchStreamReader.class).instanceSize();
 
     private final StreamDescriptor streamDescriptor;
 
@@ -51,15 +52,15 @@ public class BooleanStreamReader
     @Nullable
     private BooleanInputStream presentStream;
 
-    private InputStreamSource<BooleanInputStream> dataStreamSource = missingStreamSource(BooleanInputStream.class);
+    private InputStreamSource<ByteInputStream> dataStreamSource = missingStreamSource(ByteInputStream.class);
     @Nullable
-    private BooleanInputStream dataStream;
+    private ByteInputStream dataStream;
 
     private boolean rowGroupOpen;
 
     private LocalMemoryContext systemMemoryContext;
 
-    public BooleanStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
+    public ByteBatchStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
@@ -109,12 +110,12 @@ public class BooleanStreamReader
             if (dataStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
             }
-            dataStream.getSetBits(type, nextBatchSize, builder);
+            dataStream.nextVector(type, nextBatchSize, builder);
         }
         else {
             for (int i = 0; i < nextBatchSize; i++) {
                 if (presentStream.nextBit()) {
-                    type.writeBoolean(builder, dataStream.nextBit());
+                    type.writeLong(builder, dataStream.next());
                 }
                 else {
                     builder.appendNull();
@@ -133,6 +134,7 @@ public class BooleanStreamReader
     {
         presentStream = presentStreamSource.openStream();
         dataStream = dataStreamSource.openStream();
+
         rowGroupOpen = true;
     }
 
@@ -140,7 +142,7 @@ public class BooleanStreamReader
     public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
-        dataStreamSource = missingStreamSource(BooleanInputStream.class);
+        dataStreamSource = missingStreamSource(ByteInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -155,7 +157,7 @@ public class BooleanStreamReader
     public void startRowGroup(InputStreamSources dataStreamSources)
     {
         presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
-        dataStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, DATA, BooleanInputStream.class);
+        dataStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, DATA, ByteInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;

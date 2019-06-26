@@ -79,7 +79,7 @@ import static org.joda.time.DateTimeZone.UTC;
 @Warmup(iterations = 20, time = 500, timeUnit = MILLISECONDS)
 @Measurement(iterations = 20, time = 500, timeUnit = MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
-public class BenchmarkStreamReaders
+public class BenchmarkBatchStreamReaders
 {
     public static final DecimalType DECIMAL_TYPE = createDecimalType(10, 5);
     public static final int ROWS = 10_000_000;
@@ -796,7 +796,7 @@ public class BenchmarkStreamReaders
     {
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkStreamReaders.class.getSimpleName() + ".*")
+                .include(".*" + BenchmarkBatchStreamReaders.class.getSimpleName() + ".*")
                 .build();
 
         new Runner(options).run();

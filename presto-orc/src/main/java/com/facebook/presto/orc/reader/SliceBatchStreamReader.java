@@ -19,8 +19,11 @@ import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.io.Closer;
+import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
@@ -28,33 +31,33 @@ import java.io.UncheckedIOException;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
+import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
+import static com.facebook.presto.spi.type.Chars.byteCountWithoutTrailingSpace;
+import static com.facebook.presto.spi.type.Chars.isCharType;
+import static com.facebook.presto.spi.type.VarbinaryType.isVarbinaryType;
+import static com.facebook.presto.spi.type.Varchars.byteCount;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class LongStreamReader
-        implements StreamReader
+public class SliceBatchStreamReader
+        implements BatchStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongStreamReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceBatchStreamReader.class).instanceSize();
 
     private final StreamDescriptor streamDescriptor;
-    private final LongDirectStreamReader directReader;
-    private final LongDictionaryStreamReader dictionaryReader;
-    private StreamReader currentReader;
+    private final SliceDirectBatchStreamReader directReader;
+    private final SliceDictionaryBatchStreamReader dictionaryReader;
+    private BatchStreamReader currentReader;
 
-    public LongStreamReader(StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
+    public SliceBatchStreamReader(StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        directReader = new LongDirectStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(LongStreamReader.class.getSimpleName()));
-        dictionaryReader = new LongDictionaryStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(LongStreamReader.class.getSimpleName()));
-    }
-
-    @Override
-    public void prepareNextRead(int batchSize)
-    {
-        currentReader.prepareNextRead(batchSize);
+        directReader = new SliceDirectBatchStreamReader(streamDescriptor);
+        dictionaryReader = new SliceDictionaryBatchStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(SliceBatchStreamReader.class.getSimpleName()));
     }
 
     @Override
@@ -65,20 +68,26 @@ public class LongStreamReader
     }
 
     @Override
+    public void prepareNextRead(int batchSize)
+    {
+        currentReader.prepareNextRead(batchSize);
+    }
+
+    @Override
     public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
-        ColumnEncodingKind kind = encoding.get(streamDescriptor.getStreamId())
+        ColumnEncodingKind columnEncodingKind = encoding.get(streamDescriptor.getStreamId())
                 .getColumnEncoding(streamDescriptor.getSequence())
                 .getColumnEncodingKind();
-        if (kind == DIRECT || kind == DIRECT_V2 || kind == DWRF_DIRECT) {
+        if (columnEncodingKind == DIRECT || columnEncodingKind == DIRECT_V2 || columnEncodingKind == DWRF_DIRECT) {
             currentReader = directReader;
         }
-        else if (kind == DICTIONARY) {
+        else if (columnEncodingKind == DICTIONARY || columnEncodingKind == DICTIONARY_V2) {
             currentReader = dictionaryReader;
         }
         else {
-            throw new IllegalArgumentException("Unsupported encoding " + kind);
+            throw new IllegalArgumentException("Unsupported encoding " + columnEncodingKind);
         }
 
         currentReader.startStripe(dictionaryStreamSources, encoding);
@@ -97,6 +106,33 @@ public class LongStreamReader
         return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
+    }
+
+    public static int getMaxCodePointCount(Type type)
+    {
+        if (isVarcharType(type)) {
+            VarcharType varcharType = (VarcharType) type;
+            return varcharType.isUnbounded() ? -1 : varcharType.getLengthSafe();
+        }
+        if (isCharType(type)) {
+            return ((CharType) type).getLength();
+        }
+        if (isVarbinaryType(type)) {
+            return -1;
+        }
+        throw new IllegalArgumentException("Unsupported encoding " + type.getDisplayName());
+    }
+
+    public static int computeTruncatedLength(Slice slice, int offset, int length, int maxCodePointCount, boolean isCharType)
+    {
+        if (isCharType) {
+            // truncate the characters and then remove the trailing white spaces
+            return byteCountWithoutTrailingSpace(slice, offset, length, maxCodePointCount);
+        }
+        if (maxCodePointCount >= 0 && length > maxCodePointCount) {
+            return byteCount(slice, offset, length, maxCodePointCount);
+        }
+        return length;
     }
 
     @Override
