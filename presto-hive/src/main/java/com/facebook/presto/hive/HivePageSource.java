@@ -29,7 +29,6 @@ import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.RowBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -58,46 +57,25 @@ import static com.facebook.presto.hive.HiveType.HIVE_FLOAT;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
-import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.charPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
-import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.extractStructFieldTypes;
-import static com.facebook.presto.hive.HiveUtil.floatPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.integerPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.isArrayType;
-import static com.facebook.presto.hive.HiveUtil.isHiveNull;
 import static com.facebook.presto.hive.HiveUtil.isMapType;
 import static com.facebook.presto.hive.HiveUtil.isRowType;
-import static com.facebook.presto.hive.HiveUtil.longDecimalPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.shortDecimalPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.smallintPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.tinyintPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.varcharPartitionKey;
+import static com.facebook.presto.hive.HiveUtil.typedPartitionKey;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.block.ColumnarArray.toColumnarArray;
 import static com.facebook.presto.spi.block.ColumnarMap.toColumnarMap;
 import static com.facebook.presto.spi.block.ColumnarRow.toColumnarRow;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.Chars.isCharType;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
-import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
-import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class HivePageSource
@@ -145,57 +123,7 @@ public class HivePageSource
             }
 
             if (columnMapping.getKind() == PREFILLED) {
-                String columnValue = columnMapping.getPrefilledValue();
-                byte[] bytes = columnValue.getBytes(UTF_8);
-
-                Object prefilledValue;
-                if (isHiveNull(bytes)) {
-                    prefilledValue = null;
-                }
-                else if (type.equals(BOOLEAN)) {
-                    prefilledValue = booleanPartitionKey(columnValue, name);
-                }
-                else if (type.equals(BIGINT)) {
-                    prefilledValue = bigintPartitionKey(columnValue, name);
-                }
-                else if (type.equals(INTEGER)) {
-                    prefilledValue = integerPartitionKey(columnValue, name);
-                }
-                else if (type.equals(SMALLINT)) {
-                    prefilledValue = smallintPartitionKey(columnValue, name);
-                }
-                else if (type.equals(TINYINT)) {
-                    prefilledValue = tinyintPartitionKey(columnValue, name);
-                }
-                else if (type.equals(REAL)) {
-                    prefilledValue = floatPartitionKey(columnValue, name);
-                }
-                else if (type.equals(DOUBLE)) {
-                    prefilledValue = doublePartitionKey(columnValue, name);
-                }
-                else if (isVarcharType(type)) {
-                    prefilledValue = varcharPartitionKey(columnValue, name, type);
-                }
-                else if (isCharType(type)) {
-                    prefilledValue = charPartitionKey(columnValue, name, type);
-                }
-                else if (type.equals(DATE)) {
-                    prefilledValue = datePartitionKey(columnValue, name);
-                }
-                else if (type.equals(TIMESTAMP)) {
-                    prefilledValue = timestampPartitionKey(columnValue, hiveStorageTimeZone, name);
-                }
-                else if (isShortDecimal(type)) {
-                    prefilledValue = shortDecimalPartitionKey(columnValue, (DecimalType) type, name);
-                }
-                else if (isLongDecimal(type)) {
-                    prefilledValue = longDecimalPartitionKey(columnValue, (DecimalType) type, name);
-                }
-                else {
-                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for prefilled column: %s", type.getDisplayName(), name));
-                }
-
-                prefilledValues[columnIndex] = prefilledValue;
+                prefilledValues[columnIndex] = typedPartitionKey(columnMapping.getPrefilledValue(), type, name, hiveStorageTimeZone);
             }
         }
     }
