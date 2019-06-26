@@ -405,7 +405,7 @@ public class TestFlatMap
                         TypeSignatureParameter.of(keyType.getTypeSignature()),
                         TypeSignatureParameter.of(valueType.getTypeSignature())));
 
-        try (OrcRecordReader recordReader = orcReader.createRecordReader(ImmutableMap.of(0, mapType), createOrcPredicate(mapType, expectedValues, OrcTester.Format.DWRF, true), HIVE_STORAGE_TIME_ZONE, newSimpleAggregatedMemoryContext(), 1024)) {
+        try (OrcRecordReader recordReader = orcReader.createRecordReader(ImmutableMap.of(0, mapType), createOrcPredicate(0, mapType, expectedValues, OrcTester.Format.DWRF, true), HIVE_STORAGE_TIME_ZONE, newSimpleAggregatedMemoryContext(), 1024)) {
             Iterator<?> expectedValuesIterator = expectedValues.iterator();
 
             boolean isFirst = true;

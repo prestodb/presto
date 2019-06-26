@@ -44,9 +44,7 @@ import java.io.File;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
@@ -85,7 +83,7 @@ public class BenchmarkStreamReaders
 {
     public static final DecimalType DECIMAL_TYPE = createDecimalType(10, 5);
     public static final int ROWS = 10_000_000;
-    public static final Collection<?> NULL_VALUES = Collections.nCopies(ROWS, null);
+    public static final List<?> NULL_VALUES = Collections.nCopies(ROWS, null);
 
     @Benchmark
     public Object readBooleanNoNull(BooleanNoNullBenchmarkData data)
@@ -336,7 +334,7 @@ public class BenchmarkStreamReaders
             return type;
         }
 
-        protected abstract Iterator<?> createValues();
+        protected abstract List<?> createValues();
 
         OrcRecordReader createRecordReader()
                 throws IOException
@@ -384,9 +382,9 @@ public class BenchmarkStreamReaders
         }
 
         @Override
-        protected final Iterator<?> createValues()
+        protected final List<?> createValues()
         {
-            return NULL_VALUES.iterator();
+            return NULL_VALUES;
         }
     }
 
@@ -403,13 +401,13 @@ public class BenchmarkStreamReaders
         }
 
         @Override
-        protected Iterator<?> createValues()
+        protected List<?> createValues()
         {
             List<Boolean> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 values.add(random.nextBoolean());
             }
-            return values.iterator();
+            return values;
         }
     }
 
@@ -426,13 +424,13 @@ public class BenchmarkStreamReaders
         }
 
         @Override
-        protected Iterator<?> createValues()
+        protected List<?> createValues()
         {
             List<Boolean> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 values.add(random.nextBoolean() ? random.nextBoolean() : null);
             }
-            return values.iterator();
+            return values;
         }
     }
 
@@ -449,13 +447,13 @@ public class BenchmarkStreamReaders
         }
 
         @Override
-        protected Iterator<?> createValues()
+        protected List<?> createValues()
         {
             List<Byte> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 values.add(Long.valueOf(random.nextLong()).byteValue());
             }
-            return values.iterator();
+            return values;
         }
     }
 
@@ -472,7 +470,7 @@ public class BenchmarkStreamReaders
         }
 
         @Override
-        protected Iterator<?> createValues()
+        protected List<?> createValues()
         {
             List<Byte> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -483,7 +481,7 @@ public class BenchmarkStreamReaders
                     values.add(null);
                 }
             }
-            return values.iterator();
+            return values;
         }
     }
 
@@ -500,13 +498,13 @@ public class BenchmarkStreamReaders
         }
 
         @Override
-        protected Iterator<?> createValues()
+        protected List<?> createValues()
         {
             List<SqlDecimal> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 values.add(new SqlDecimal(BigInteger.valueOf(random.nextLong() % 10000000000L), 10, 5));
             }
-            return values.iterator();
+            return values;
         }
     }
 
@@ -523,7 +521,7 @@ public class BenchmarkStreamReaders
         }
 
         @Override
-        protected Iterator<?> createValues()
+        protected List<?> createValues()
         {
             List<SqlDecimal> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -534,7 +532,7 @@ public class BenchmarkStreamReaders
                     values.add(null);
                 }
             }
-            return values.iterator();
+            return values;
         }
     }
 
@@ -551,13 +549,13 @@ public class BenchmarkStreamReaders
         }
 
         @Override
-        protected Iterator<?> createValues()
+        protected List<?> createValues()
         {
             List<Double> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 values.add(random.nextDouble());
             }
-            return values.iterator();
+            return values;
         }
     }
 
@@ -574,7 +572,7 @@ public class BenchmarkStreamReaders
         }
 
         @Override
-        protected Iterator<?> createValues()
+        protected List<?> createValues()
         {
             List<Double> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -585,7 +583,7 @@ public class BenchmarkStreamReaders
                     values.add(null);
                 }
             }
-            return values.iterator();
+            return values;
         }
     }
 
@@ -602,13 +600,13 @@ public class BenchmarkStreamReaders
         }
 
         @Override
-        protected Iterator<?> createValues()
+        protected List<?> createValues()
         {
             List<Float> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 values.add(random.nextFloat());
             }
-            return values.iterator();
+            return values;
         }
     }
 
@@ -625,7 +623,7 @@ public class BenchmarkStreamReaders
         }
 
         @Override
-        protected Iterator<?> createValues()
+        protected List<?> createValues()
         {
             List<Float> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -636,7 +634,7 @@ public class BenchmarkStreamReaders
                     values.add(null);
                 }
             }
-            return values.iterator();
+            return values;
         }
     }
 
@@ -653,13 +651,13 @@ public class BenchmarkStreamReaders
         }
 
         @Override
-        protected Iterator<?> createValues()
+        protected List<?> createValues()
         {
             List<Long> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 values.add(random.nextLong());
             }
-            return values.iterator();
+            return values;
         }
     }
 
@@ -676,7 +674,7 @@ public class BenchmarkStreamReaders
         }
 
         @Override
-        protected Iterator<?> createValues()
+        protected List<?> createValues()
         {
             List<Long> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -687,7 +685,7 @@ public class BenchmarkStreamReaders
                     values.add(null);
                 }
             }
-            return values.iterator();
+            return values;
         }
     }
 
@@ -704,13 +702,13 @@ public class BenchmarkStreamReaders
         }
 
         @Override
-        protected Iterator<?> createValues()
+        protected List<?> createValues()
         {
             List<String> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 values.add(Strings.repeat("0", 4));
             }
-            return values.iterator();
+            return values;
         }
     }
 
@@ -727,7 +725,7 @@ public class BenchmarkStreamReaders
         }
 
         @Override
-        protected Iterator<?> createValues()
+        protected List<?> createValues()
         {
             List<String> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -738,7 +736,7 @@ public class BenchmarkStreamReaders
                     values.add(null);
                 }
             }
-            return values.iterator();
+            return values;
         }
     }
 
@@ -755,13 +753,13 @@ public class BenchmarkStreamReaders
         }
 
         @Override
-        protected Iterator<?> createValues()
+        protected List<?> createValues()
         {
             List<SqlTimestamp> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 values.add(new SqlTimestamp((random.nextLong()), UTC_KEY));
             }
-            return values.iterator();
+            return values;
         }
     }
 
@@ -778,7 +776,7 @@ public class BenchmarkStreamReaders
         }
 
         @Override
-        protected Iterator<?> createValues()
+        protected List<?> createValues()
         {
             List<SqlTimestamp> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -789,7 +787,7 @@ public class BenchmarkStreamReaders
                     values.add(null);
                 }
             }
-            return values.iterator();
+            return values;
         }
     }
 
