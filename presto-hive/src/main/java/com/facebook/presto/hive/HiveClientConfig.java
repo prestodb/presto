@@ -158,6 +158,8 @@ public class HiveClientConfig
     private HiveStorageFormat temporaryTableStorageFormat = ORC;
     private HiveCompressionCodec temporaryTableCompressionCodec = HiveCompressionCodec.SNAPPY;
 
+    private boolean pushdownFilterEnabled;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -1292,6 +1294,19 @@ public class HiveClientConfig
     public HiveClientConfig setTemporaryTableCompressionCodec(HiveCompressionCodec temporaryTableCompressionCodec)
     {
         this.temporaryTableCompressionCodec = temporaryTableCompressionCodec;
+        return this;
+    }
+
+    public boolean isPushdownFilterEnabled()
+    {
+        return pushdownFilterEnabled;
+    }
+
+    @Config("hive.pushdown-filter-enabled")
+    @ConfigDescription("Experimental: enable complex filter pushdown")
+    public HiveClientConfig setPushdownFilterEnabled(boolean pushdownFilterEnabled)
+    {
+        this.pushdownFilterEnabled = pushdownFilterEnabled;
         return this;
     }
 }
