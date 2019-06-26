@@ -49,6 +49,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
@@ -328,7 +329,7 @@ public class TestReorderJoins
                                 p.values(new PlanNodeId("valuesB"), p.variable("B1")),
                                 ImmutableList.of(new EquiJoinClause(p.variable("A1"), p.variable("B1"))),
                                 ImmutableList.of(p.variable("A1"), p.variable("B1")),
-                                Optional.of(new ComparisonExpression(LESS_THAN, p.symbol("A1").toSymbolReference(), new FunctionCall(QualifiedName.of("random"), ImmutableList.of())))))
+                                Optional.of(castToRowExpression(new ComparisonExpression(LESS_THAN, p.symbol("A1").toSymbolReference(), new FunctionCall(QualifiedName.of("random"), ImmutableList.of()))))))
                 .doesNotFire();
     }
 
@@ -350,7 +351,7 @@ public class TestReorderJoins
                                 ImmutableList.of(
                                         new EquiJoinClause(p.variable("B2"), p.variable("C1"))),
                                 ImmutableList.of(p.variable("A1")),
-                                Optional.of(new ComparisonExpression(EQUAL, p.symbol("A1").toSymbolReference(), p.symbol("B1").toSymbolReference()))))
+                                Optional.of(castToRowExpression(new ComparisonExpression(EQUAL, p.symbol("A1").toSymbolReference(), p.symbol("B1").toSymbolReference())))))
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
                         .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 10)))
@@ -395,7 +396,7 @@ public class TestReorderJoins
                                 ImmutableList.of(
                                         new EquiJoinClause(p.variable("B2"), p.variable("C1"))),
                                 ImmutableList.of(p.variable("A1")),
-                                Optional.of(new ComparisonExpression(EQUAL, p.symbol("A1").toSymbolReference(), p.symbol("B1").toSymbolReference()))))
+                                Optional.of(castToRowExpression(new ComparisonExpression(EQUAL, p.symbol("A1").toSymbolReference(), p.symbol("B1").toSymbolReference())))))
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(40)
                         .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 10)))
