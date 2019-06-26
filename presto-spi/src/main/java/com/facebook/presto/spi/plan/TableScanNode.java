@@ -72,15 +72,6 @@ public final class TableScanNode
             PlanNodeId id,
             TableHandle table,
             List<VariableReferenceExpression> outputVariables,
-            Map<VariableReferenceExpression, ColumnHandle> assignments)
-    {
-        this(id, table, outputVariables, assignments, TupleDomain.all(), TupleDomain.all(), false);
-    }
-
-    public TableScanNode(
-            PlanNodeId id,
-            TableHandle table,
-            List<VariableReferenceExpression> outputVariables,
             Map<VariableReferenceExpression, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> currentConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint)

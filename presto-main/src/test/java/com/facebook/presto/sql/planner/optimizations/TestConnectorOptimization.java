@@ -31,6 +31,7 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.PlanVisitor;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Plan;
@@ -334,7 +335,9 @@ public class TestConnectorOptimization
                                 handle.getTransaction(),
                                 Optional.of(new TestConnectorTableLayoutHandle(node.getPredicate()))),
                         tableScanNode.getOutputVariables(),
-                        tableScanNode.getAssignments());
+                        tableScanNode.getAssignments(),
+                        TupleDomain.all(),
+                        TupleDomain.all());
             }
             return node;
         }
