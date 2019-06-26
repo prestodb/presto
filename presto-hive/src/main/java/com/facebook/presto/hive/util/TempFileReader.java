@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.hive.util;
 
+import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
-import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -43,7 +43,7 @@ public class TempFileReader
         extends AbstractIterator<Page>
 {
     private final List<Type> types;
-    private final OrcRecordReader reader;
+    private final OrcBatchRecordReader reader;
 
     public TempFileReader(List<Type> types, OrcDataSource dataSource)
     {
@@ -63,7 +63,7 @@ public class TempFileReader
                 includedColumns.put(i, types.get(i));
             }
 
-            reader = orcReader.createRecordReader(
+            reader = orcReader.createBatchRecordReader(
                     includedColumns,
                     OrcPredicate.TRUE,
                     UTC,

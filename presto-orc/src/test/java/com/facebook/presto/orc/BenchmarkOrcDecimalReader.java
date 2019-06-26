@@ -72,7 +72,7 @@ public class BenchmarkOrcDecimalReader
     public Object readDecimal(BenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
+        OrcBatchRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
             Block block = recordReader.readBlock(DECIMAL_TYPE, 0);
@@ -114,12 +114,12 @@ public class BenchmarkOrcDecimalReader
             deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
         }
 
-        private OrcRecordReader createRecordReader()
+        private OrcBatchRecordReader createRecordReader()
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(dataPath, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
             OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
-            return orcReader.createRecordReader(
+            return orcReader.createBatchRecordReader(
                     ImmutableMap.of(0, DECIMAL_TYPE),
                     OrcPredicate.TRUE,
                     DateTimeZone.UTC, // arbitrary

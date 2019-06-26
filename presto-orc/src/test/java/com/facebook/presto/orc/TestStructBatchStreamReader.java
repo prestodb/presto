@@ -268,7 +268,7 @@ public class TestStructBatchStreamReader
         Map<Integer, Type> includedColumns = new HashMap<>();
         includedColumns.put(0, readerType);
 
-        OrcRecordReader recordReader = orcReader.createRecordReader(includedColumns, OrcPredicate.TRUE, UTC, newSimpleAggregatedMemoryContext(), OrcReader.INITIAL_BATCH_SIZE);
+        OrcBatchRecordReader recordReader = orcReader.createBatchRecordReader(includedColumns, OrcPredicate.TRUE, UTC, newSimpleAggregatedMemoryContext(), OrcReader.INITIAL_BATCH_SIZE);
 
         recordReader.nextBatch();
         RowBlock block = (RowBlock) recordReader.readBlock(readerType, 0);

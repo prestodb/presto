@@ -222,12 +222,12 @@ public class OrcReader
         return compressionKind;
     }
 
-    public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryUsage, int initialBatchSize)
+    public OrcBatchRecordReader createBatchRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryUsage, int initialBatchSize)
     {
-        return createRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize);
+        return createBatchRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize);
     }
 
-    public OrcRecordReader createRecordReader(
+    public OrcBatchRecordReader createBatchRecordReader(
             Map<Integer, Type> includedColumns,
             OrcPredicate predicate,
             long offset,
@@ -236,7 +236,7 @@ public class OrcReader
             AggregatedMemoryContext systemMemoryUsage,
             int initialBatchSize)
     {
-        return new OrcRecordReader(
+        return new OrcBatchRecordReader(
                 requireNonNull(includedColumns, "includedColumns is null"),
                 requireNonNull(predicate, "predicate is null"),
                 footer.getNumberOfRows(),
@@ -331,7 +331,7 @@ public class OrcReader
         }
         try {
             OrcReader orcReader = new OrcReader(input, orcEncoding, new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(16, MEGABYTE), Optional.of(writeValidation));
-            try (OrcRecordReader orcRecordReader = orcReader.createRecordReader(readTypes.build(), OrcPredicate.TRUE, hiveStorageTimeZone, newSimpleAggregatedMemoryContext(), INITIAL_BATCH_SIZE)) {
+            try (OrcBatchRecordReader orcRecordReader = orcReader.createBatchRecordReader(readTypes.build(), OrcPredicate.TRUE, hiveStorageTimeZone, newSimpleAggregatedMemoryContext(), INITIAL_BATCH_SIZE)) {
                 while (orcRecordReader.nextBatch() >= 0) {
                     // ignored
                 }

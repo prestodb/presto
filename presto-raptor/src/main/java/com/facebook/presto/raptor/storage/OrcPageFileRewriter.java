@@ -14,8 +14,8 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.orc.FileOrcDataSource;
+import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcReader;
-import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.OutputStreamOrcDataSink;
@@ -156,7 +156,7 @@ public final class OrcPageFileRewriter
                 }
                 userMetadata = ImmutableMap.of(OrcFileMetadata.KEY, METADATA_CODEC.toJson(new OrcFileMetadata(metadataBuilder.build())));
             }
-            try (Closer<OrcRecordReader, IOException> recordReader = closer(reader.createRecordReader(readerColumns, TRUE, DEFAULT_STORAGE_TIMEZONE, newSimpleAggregatedMemoryContext(), INITIAL_BATCH_SIZE), OrcRecordReader::close);
+            try (Closer<OrcBatchRecordReader, IOException> recordReader = closer(reader.createBatchRecordReader(readerColumns, TRUE, DEFAULT_STORAGE_TIMEZONE, newSimpleAggregatedMemoryContext(), INITIAL_BATCH_SIZE), OrcBatchRecordReader::close);
                     Closer<OrcWriter, IOException> writer = closer(new OrcWriter(
                             new OutputStreamOrcDataSink(new FileOutputStream(output)),
                             writerColumnIds,
@@ -178,7 +178,7 @@ public final class OrcPageFileRewriter
     }
 
     private static OrcFileInfo rewrite(
-            OrcRecordReader reader,
+            OrcBatchRecordReader reader,
             OrcWriter writer,
             BitSet rowsToDelete,
             List<Type> types,

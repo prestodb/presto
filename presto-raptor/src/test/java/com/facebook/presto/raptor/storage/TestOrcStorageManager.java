@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
-import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.backup.BackupManager;
 import com.facebook.presto.raptor.backup.BackupStore;
@@ -234,7 +234,7 @@ public class TestOrcStorageManager
         recoveryManager.restoreFromBackup(shardUuid, shardInfo.getCompressedSize(), OptionalLong.of(shardInfo.getXxhash64()));
 
         try (OrcDataSource dataSource = manager.openShard(shardUuid, READER_ATTRIBUTES)) {
-            OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
+            OrcBatchRecordReader reader = createReader(dataSource, columnIds, columnTypes);
 
             assertEquals(reader.nextBatch(), 2);
 

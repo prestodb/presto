@@ -89,7 +89,7 @@ public class BenchmarkBatchStreamReaders
     public Object readBooleanNoNull(BooleanNoNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
+        OrcBatchRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
             Block block = recordReader.readBlock(BOOLEAN, 0);
@@ -102,7 +102,7 @@ public class BenchmarkBatchStreamReaders
     public Object readBooleanWithNull(BooleanWithNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
+        OrcBatchRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
             Block block = recordReader.readBlock(BOOLEAN, 0);
@@ -115,7 +115,7 @@ public class BenchmarkBatchStreamReaders
     public Object readAllNull(AllNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
+        OrcBatchRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
             Block block = recordReader.readBlock(data.getType(), 0);
@@ -128,7 +128,7 @@ public class BenchmarkBatchStreamReaders
     public Object readByteNoNull(TinyIntNoNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
+        OrcBatchRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
             Block block = recordReader.readBlock(TINYINT, 0);
@@ -141,7 +141,7 @@ public class BenchmarkBatchStreamReaders
     public Object readByteWithNull(TinyIntWithNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
+        OrcBatchRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
             Block block = recordReader.readBlock(TINYINT, 0);
@@ -154,7 +154,7 @@ public class BenchmarkBatchStreamReaders
     public Object readDecimalNoNull(DecimalNoNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
+        OrcBatchRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
             Block block = recordReader.readBlock(DECIMAL_TYPE, 0);
@@ -167,7 +167,7 @@ public class BenchmarkBatchStreamReaders
     public Object readDecimalWithNull(DecimalWithNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
+        OrcBatchRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
             Block block = recordReader.readBlock(DECIMAL_TYPE, 0);
@@ -180,7 +180,7 @@ public class BenchmarkBatchStreamReaders
     public Object readDoubleNoNull(DoubleNoNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
+        OrcBatchRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
             Block block = recordReader.readBlock(DOUBLE, 0);
@@ -193,7 +193,7 @@ public class BenchmarkBatchStreamReaders
     public Object readDoubleWithNull(DoubleWithNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
+        OrcBatchRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
             Block block = recordReader.readBlock(DOUBLE, 0);
@@ -206,7 +206,7 @@ public class BenchmarkBatchStreamReaders
     public Object readFloatNoNull(FloatNoNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
+        OrcBatchRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
             Block block = recordReader.readBlock(REAL, 0);
@@ -219,7 +219,7 @@ public class BenchmarkBatchStreamReaders
     public Object readFloatWithNull(FloatWithNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
+        OrcBatchRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
             Block block = recordReader.readBlock(REAL, 0);
@@ -232,7 +232,7 @@ public class BenchmarkBatchStreamReaders
     public Object readLongDirectNoNull(BigintNoNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
+        OrcBatchRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
             Block block = recordReader.readBlock(BIGINT, 0);
@@ -245,7 +245,7 @@ public class BenchmarkBatchStreamReaders
     public Object readLongDirectWithNull(BigintWithNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
+        OrcBatchRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
             Block block = recordReader.readBlock(BIGINT, 0);
@@ -258,7 +258,7 @@ public class BenchmarkBatchStreamReaders
     public Object readSliceDictionaryNoNull(VarcharNoNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
+        OrcBatchRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
             Block block = recordReader.readBlock(VARCHAR, 0);
@@ -271,7 +271,7 @@ public class BenchmarkBatchStreamReaders
     public Object readSliceDictionaryWithNull(VarcharWithNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
+        OrcBatchRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
             Block block = recordReader.readBlock(VARCHAR, 0);
@@ -284,7 +284,7 @@ public class BenchmarkBatchStreamReaders
     public Object readTimestampNoNull(TimestampNoNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
+        OrcBatchRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
             Block block = recordReader.readBlock(TIMESTAMP, 0);
@@ -297,7 +297,7 @@ public class BenchmarkBatchStreamReaders
     public Object readTimestampWithNull(TimestampWithNullBenchmarkData data)
             throws Throwable
     {
-        OrcRecordReader recordReader = data.createRecordReader();
+        OrcBatchRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
             Block block = recordReader.readBlock(TIMESTAMP, 0);
@@ -336,12 +336,12 @@ public class BenchmarkBatchStreamReaders
 
         protected abstract List<?> createValues();
 
-        OrcRecordReader createRecordReader()
+        OrcBatchRecordReader createRecordReader()
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(orcFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
             OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
-            return orcReader.createRecordReader(
+            return orcReader.createBatchRecordReader(
                     ImmutableMap.of(0, type),
                     OrcPredicate.TRUE,
                     UTC, // arbitrary

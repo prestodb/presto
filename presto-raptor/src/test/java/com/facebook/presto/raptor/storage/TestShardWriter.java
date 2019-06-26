@@ -16,8 +16,8 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
-import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
@@ -141,7 +141,7 @@ public class TestShardWriter
         }
 
         try (OrcDataSource dataSource = fileOrcDataSource(file)) {
-            OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
+            OrcBatchRecordReader reader = createReader(dataSource, columnIds, columnTypes);
             assertEquals(reader.getReaderRowCount(), 3);
             assertEquals(reader.getReaderPosition(), 0);
             assertEquals(reader.getFileRowCount(), reader.getReaderRowCount());
@@ -271,7 +271,7 @@ public class TestShardWriter
         }
 
         try (OrcDataSource dataSource = fileOrcDataSource(file)) {
-            OrcRecordReader reader = createReaderNoRows(dataSource);
+            OrcBatchRecordReader reader = createReaderNoRows(dataSource);
             assertEquals(reader.getReaderRowCount(), 0);
             assertEquals(reader.getReaderPosition(), 0);
 
@@ -284,7 +284,7 @@ public class TestShardWriter
         }
 
         try (OrcDataSource dataSource = fileOrcDataSource(file)) {
-            OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
+            OrcBatchRecordReader reader = createReader(dataSource, columnIds, columnTypes);
             assertEquals(reader.getReaderRowCount(), 0);
             assertEquals(reader.getReaderPosition(), 0);
 

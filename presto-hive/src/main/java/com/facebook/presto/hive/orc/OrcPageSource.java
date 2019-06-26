@@ -16,9 +16,9 @@ package com.facebook.presto.hive.orc;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
-import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
@@ -47,7 +47,7 @@ public class OrcPageSource
         implements ConnectorPageSource
 {
     private static final int NULL_ENTRY_SIZE = 0;
-    private final OrcRecordReader recordReader;
+    private final OrcBatchRecordReader recordReader;
     private final OrcDataSource orcDataSource;
 
     private final List<String> columnNames;
@@ -64,7 +64,7 @@ public class OrcPageSource
     private final FileFormatDataSourceStats stats;
 
     public OrcPageSource(
-            OrcRecordReader recordReader,
+            OrcBatchRecordReader recordReader,
             OrcDataSource orcDataSource,
             List<HiveColumnHandle> columns,
             TypeManager typeManager,
