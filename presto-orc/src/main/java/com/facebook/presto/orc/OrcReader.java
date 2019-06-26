@@ -21,6 +21,7 @@ import com.facebook.presto.orc.metadata.Metadata;
 import com.facebook.presto.orc.metadata.PostScript;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.stream.OrcInputStream;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
@@ -256,7 +257,50 @@ public class OrcReader
                 tinyStripeThreshold,
                 maxBlockSize,
                 footer.getUserMetadata(),
-                systemMemoryUsage,
+                systemMemoryUsage.newAggregatedMemoryContext(),
+                writeValidation,
+                initialBatchSize);
+    }
+
+    public OrcSelectiveRecordReader createSelectiveRecordReader(
+            Map<Integer, Type> includedColumns,
+            List<Integer> outputColumns,
+            Map<Integer, TupleDomainFilter> filters,
+            Map<Integer, List<Subfield>> requiredSubfields,
+            Map<Integer, Object> constantValues,
+            OrcPredicate predicate,
+            long offset,
+            long length,
+            DateTimeZone hiveStorageTimeZone,
+            AggregatedMemoryContext systemMemoryUsage,
+            Optional<OrcWriteValidation> writeValidation,
+            int initialBatchSize)
+    {
+        return new OrcSelectiveRecordReader(
+                includedColumns,
+                outputColumns,
+                filters,
+                requiredSubfields,
+                constantValues,
+                predicate,
+                footer.getNumberOfRows(),
+                footer.getStripes(),
+                footer.getFileStats(),
+                metadata.getStripeStatsList(),
+                orcDataSource,
+                offset,
+                length,
+                footer.getTypes(),
+                decompressor,
+                footer.getRowsInRowGroup(),
+                hiveStorageTimeZone,
+                hiveWriterVersion,
+                metadataReader,
+                maxMergeDistance,
+                tinyStripeThreshold,
+                maxBlockSize,
+                footer.getUserMetadata(),
+                systemMemoryUsage.newAggregatedMemoryContext(),
                 writeValidation,
                 initialBatchSize);
     }

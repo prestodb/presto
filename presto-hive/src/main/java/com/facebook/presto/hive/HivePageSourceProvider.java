@@ -47,10 +47,13 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
+import static com.facebook.presto.hive.HiveSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -61,9 +64,9 @@ public class HivePageSourceProvider
     private final DateTimeZone hiveStorageTimeZone;
     private final HdfsEnvironment hdfsEnvironment;
     private final Set<HiveRecordCursorProvider> cursorProviders;
-    private final TypeManager typeManager;
-
     private final Set<HiveBatchPageSourceFactory> pageSourceFactories;
+    private final Set<HiveSelectivePageSourceFactory> selectivePageSourceFactories;
+    private final TypeManager typeManager;
 
     @Inject
     public HivePageSourceProvider(
@@ -71,6 +74,7 @@ public class HivePageSourceProvider
             HdfsEnvironment hdfsEnvironment,
             Set<HiveRecordCursorProvider> cursorProviders,
             Set<HiveBatchPageSourceFactory> pageSourceFactories,
+            Set<HiveSelectivePageSourceFactory> selectivePageSourceFactories,
             TypeManager typeManager)
     {
         requireNonNull(hiveClientConfig, "hiveClientConfig is null");
@@ -78,6 +82,7 @@ public class HivePageSourceProvider
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.cursorProviders = ImmutableSet.copyOf(requireNonNull(cursorProviders, "cursorProviders is null"));
         this.pageSourceFactories = ImmutableSet.copyOf(requireNonNull(pageSourceFactories, "pageSourceFactories is null"));
+        this.selectivePageSourceFactories = ImmutableSet.copyOf(requireNonNull(selectivePageSourceFactories, "selectivePageSourceFactories is null"));
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
@@ -92,6 +97,10 @@ public class HivePageSourceProvider
         Path path = new Path(hiveSplit.getPath());
 
         Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session, hiveSplit.getDatabase(), hiveSplit.getTable()), path);
+
+        if (isPushdownFilterEnabled(session)) {
+            return createSelectivePageSource(selectivePageSourceFactories, configuration, session, hiveSplit, hiveColumns, hiveStorageTimeZone);
+        }
 
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
                 cursorProviders,
@@ -117,7 +126,64 @@ public class HivePageSourceProvider
         if (pageSource.isPresent()) {
             return pageSource.get();
         }
-        throw new RuntimeException("Could not find a file reader for split " + hiveSplit);
+        throw new IllegalStateException("Could not find a file reader for split " + hiveSplit);
+    }
+
+    private static ConnectorPageSource createSelectivePageSource(
+            Set<HiveSelectivePageSourceFactory> selectivePageSourceFactories,
+            Configuration configuration,
+            ConnectorSession session,
+            HiveSplit split,
+            List<HiveColumnHandle> columns,
+            DateTimeZone hiveStorageTimeZone)
+    {
+        Set<HiveColumnHandle> interimColumns = ImmutableSet.<HiveColumnHandle>builder()
+                .addAll(split.getPredicateColumns().values())
+                .addAll(split.getBucketConversion().map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()))
+                .build();
+
+        Path path = new Path(split.getPath());
+        List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(
+                split.getPartitionKeys(),
+                columns,
+                ImmutableList.copyOf(interimColumns),
+                split.getColumnCoercions(), // TODO Include predicateColumns
+                path,
+                split.getTableBucketNumber());
+
+        Optional<BucketAdaptation> bucketAdaptation = split.getBucketConversion().map(conversion -> toBucketAdaptation(conversion, columnMappings, split.getTableBucketNumber()));
+        checkArgument(!bucketAdaptation.isPresent(), "Bucket conversion is not supported yet");
+
+        checkArgument(TRUE_CONSTANT.equals(split.getRemainingPredicate()), "Complex predicate pushdown is not supported yet");
+
+        Map<Integer, String> prefilledValues = columnMappings.stream()
+                .filter(mapping -> mapping.getKind() == ColumnMappingKind.PREFILLED)
+                .collect(toImmutableMap(mapping -> mapping.getHiveColumnHandle().getHiveColumnIndex(), ColumnMapping::getPrefilledValue));
+
+        List<Integer> outputColumns = columns.stream()
+                .map(HiveColumnHandle::getHiveColumnIndex)
+                .collect(toImmutableList());
+
+        for (HiveSelectivePageSourceFactory pageSourceFactory : selectivePageSourceFactories) {
+            Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
+                    configuration,
+                    session,
+                    path,
+                    split.getStart(),
+                    split.getLength(),
+                    split.getFileSize(),
+                    split.getSchema(),
+                    toColumnHandles(columnMappings, true),
+                    prefilledValues,
+                    outputColumns,
+                    split.getDomainPredicate(),
+                    hiveStorageTimeZone);
+            if (pageSource.isPresent()) {
+                return pageSource.get();
+            }
+        }
+
+        throw new IllegalStateException("Could not find a file reader for split " + split);
     }
 
     public static Optional<ConnectorPageSource> createHivePageSource(
