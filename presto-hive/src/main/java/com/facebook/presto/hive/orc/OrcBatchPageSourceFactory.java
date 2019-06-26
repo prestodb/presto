@@ -51,11 +51,9 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.regex.Pattern;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_MISSING_COLUMN_NAMES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcLazyReadSmallRanges;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
@@ -64,6 +62,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockS
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
+import static com.facebook.presto.hive.HiveUtil.getPhysicalHiveColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
@@ -76,7 +75,6 @@ import static java.util.Objects.requireNonNull;
 public class OrcBatchPageSourceFactory
         implements HiveBatchPageSourceFactory
 {
-    private static final Pattern DEFAULT_HIVE_COLUMN_NAME_PATTERN = Pattern.compile("_col\\d+");
     private final TypeManager typeManager;
     private final boolean useOrcColumnNames;
     private final HdfsEnvironment hdfsEnvironment;
@@ -247,52 +245,5 @@ public class OrcBatchPageSourceFactory
     private static String splitError(Throwable t, Path path, long start, long length)
     {
         return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
-    }
-
-    private static List<HiveColumnHandle> getPhysicalHiveColumnHandles(List<HiveColumnHandle> columns, boolean useOrcColumnNames, OrcReader reader, Path path)
-    {
-        if (!useOrcColumnNames) {
-            return columns;
-        }
-
-        verifyFileHasColumnNames(reader.getColumnNames(), path);
-
-        Map<String, Integer> physicalNameOrdinalMap = buildPhysicalNameOrdinalMap(reader);
-        int nextMissingColumnIndex = physicalNameOrdinalMap.size();
-
-        ImmutableList.Builder<HiveColumnHandle> physicalColumns = ImmutableList.builder();
-        for (HiveColumnHandle column : columns) {
-            Integer physicalOrdinal = physicalNameOrdinalMap.get(column.getName());
-            if (physicalOrdinal == null) {
-                // if the column is missing from the file, assign it a column number larger
-                // than the number of columns in the file so the reader will fill it with nulls
-                physicalOrdinal = nextMissingColumnIndex;
-                nextMissingColumnIndex++;
-            }
-            physicalColumns.add(new HiveColumnHandle(column.getName(), column.getHiveType(), column.getTypeSignature(), physicalOrdinal, column.getColumnType(), column.getComment(), column.getRequiredSubfields()));
-        }
-        return physicalColumns.build();
-    }
-
-    private static void verifyFileHasColumnNames(List<String> physicalColumnNames, Path path)
-    {
-        if (!physicalColumnNames.isEmpty() && physicalColumnNames.stream().allMatch(physicalColumnName -> DEFAULT_HIVE_COLUMN_NAME_PATTERN.matcher(physicalColumnName).matches())) {
-            throw new PrestoException(
-                    HIVE_FILE_MISSING_COLUMN_NAMES,
-                    "ORC file does not contain column names in the footer: " + path);
-        }
-    }
-
-    private static Map<String, Integer> buildPhysicalNameOrdinalMap(OrcReader reader)
-    {
-        ImmutableMap.Builder<String, Integer> physicalNameOrdinalMap = ImmutableMap.builder();
-
-        int ordinal = 0;
-        for (String physicalColumnName : reader.getColumnNames()) {
-            physicalNameOrdinalMap.put(physicalColumnName, ordinal);
-            ordinal++;
-        }
-
-        return physicalNameOrdinalMap.build();
     }
 }
