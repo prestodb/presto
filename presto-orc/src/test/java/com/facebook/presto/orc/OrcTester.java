@@ -107,6 +107,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -168,6 +169,7 @@ import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharType
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class OrcTester
 {
@@ -175,6 +177,7 @@ public class OrcTester
     public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
+    private static final List<Integer> PRIME_NUMBERS = ImmutableList.of(5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97);
 
     static {
         // associate TYPE_MANAGER with a function manager
@@ -247,6 +250,7 @@ public class OrcTester
     private boolean skipStripeTestsEnabled;
     private Set<Format> formats = ImmutableSet.of();
     private Set<CompressionKind> compressions = ImmutableSet.of();
+    private boolean useSelectiveOrcReader;
 
     public static OrcTester quickOrcTester()
     {
@@ -280,11 +284,28 @@ public class OrcTester
         return orcTester;
     }
 
+    public static OrcTester quickSelectiveOrcTester()
+    {
+        OrcTester orcTester = new OrcTester();
+        orcTester.nullTestsEnabled = true;
+        orcTester.skipBatchTestsEnabled = true;
+        orcTester.formats = ImmutableSet.of(ORC_12, ORC_11, DWRF);
+        orcTester.compressions = ImmutableSet.of(ZLIB);
+        orcTester.useSelectiveOrcReader = true;
+        return orcTester;
+    }
+
     public void testRoundTrip(Type type, List<?> readValues)
             throws Exception
     {
+        testRoundTrip(type, readValues, ImmutableList.of());
+    }
+
+    public void testRoundTrip(Type type, List<?> readValues, List<Map<Integer, TupleDomainFilter>> filters)
+            throws Exception
+    {
         // just the values
-        testRoundTripType(type, readValues);
+        testRoundTripTypes(ImmutableList.of(type), ImmutableList.of(readValues), filters);
 
         // all nulls
         if (nullTestsEnabled) {
@@ -292,7 +313,8 @@ public class OrcTester
                     type,
                     readValues.stream()
                             .map(value -> null)
-                            .collect(toList()));
+                            .collect(toList()),
+                    filters);
         }
 
         // values wrapped in struct
@@ -368,7 +390,7 @@ public class OrcTester
                     .map(OrcTester::toHiveStructWithNull)
                     .collect(toList());
 
-            assertRoundTrip(writeType, readType, writeValues, readValues, true);
+            assertRoundTrip(writeType, readType, writeValues, readValues, true, ImmutableList.of());
         }
     }
 
@@ -435,44 +457,73 @@ public class OrcTester
     private void testRoundTripType(Type type, List<?> readValues)
             throws Exception
     {
+        testRoundTripTypes(ImmutableList.of(type), ImmutableList.of(readValues), ImmutableList.of());
+    }
+
+    public void testRoundTripTypes(List<Type> types, List<List<?>> readValues, List<Map<Integer, TupleDomainFilter>> filters)
+            throws Exception
+    {
+        assertEquals(types.size(), readValues.size());
+
         // forward order
-        assertRoundTrip(type, readValues);
+        assertRoundTrip(types, readValues, filters);
 
         // reverse order
         if (reverseTestsEnabled) {
-            assertRoundTrip(type, reverse(readValues));
+            assertRoundTrip(types, Lists.transform(readValues, OrcTester::reverse), filters);
         }
 
         if (nullTestsEnabled) {
             // forward order with nulls
-            assertRoundTrip(type, insertNullEvery(5, readValues));
+            assertRoundTrip(types, insertNulls(types, readValues), filters);
 
             // reverse order with nulls
             if (reverseTestsEnabled) {
-                assertRoundTrip(type, insertNullEvery(5, reverse(readValues)));
+                assertRoundTrip(types, insertNulls(types, Lists.transform(readValues, OrcTester::reverse)), filters);
             }
         }
+    }
+
+    private List<List<?>> insertNulls(List<Type> types, List<List<?>> values)
+    {
+        assertTrue(types.size() <= PRIME_NUMBERS.size());
+
+        return IntStream.range(0, types.size())
+                .mapToObj(i -> insertNullEvery(PRIME_NUMBERS.get(i), values.get(i)))
+                .collect(toList());
     }
 
     public void assertRoundTrip(Type type, List<?> readValues)
             throws Exception
     {
-        assertRoundTrip(type, type, readValues, readValues, true);
+        assertRoundTrip(type, type, readValues, readValues, true, ImmutableList.of());
+    }
+
+    public void assertRoundTrip(Type type, List<?> readValues, List<Map<Integer, TupleDomainFilter>> filters)
+            throws Exception
+    {
+        assertRoundTrip(type, type, readValues, readValues, true, filters);
     }
 
     public void assertRoundTrip(Type type, List<?> readValues, boolean verifyWithHiveReader)
             throws Exception
     {
-        assertRoundTrip(type, type, readValues, readValues, verifyWithHiveReader);
+        assertRoundTrip(type, type, readValues, readValues, verifyWithHiveReader, ImmutableList.of());
     }
 
-    private void assertRoundTrip(Type writeType, Type readType, List<?> writeValues, List<?> readValues, boolean verifyWithHiveReader)
+    public void assertRoundTrip(List<Type> types, List<List<?>> readValues, List<Map<Integer, TupleDomainFilter>> filters)
             throws Exception
     {
-        assertRoundTrip(ImmutableList.of(writeType), ImmutableList.of(readType), ImmutableList.of(writeValues), ImmutableList.of(readValues), verifyWithHiveReader);
+        assertRoundTrip(types, types, readValues, readValues, true, filters);
     }
 
-    private void assertRoundTrip(List<Type> writeTypes, List<Type> readTypes, List<List<?>> writeValues, List<List<?>> readValues, boolean verifyWithHiveReader)
+    private void assertRoundTrip(Type writeType, Type readType, List<?> writeValues, List<?> readValues, boolean verifyWithHiveReader, List<Map<Integer, TupleDomainFilter>> filters)
+            throws Exception
+    {
+        assertRoundTrip(ImmutableList.of(writeType), ImmutableList.of(readType), ImmutableList.of(writeValues), ImmutableList.of(readValues), verifyWithHiveReader, filters);
+    }
+
+    private void assertRoundTrip(List<Type> writeTypes, List<Type> readTypes, List<List<?>> writeValues, List<List<?>> readValues, boolean verifyWithHiveReader, List<Map<Integer, TupleDomainFilter>> filters)
             throws Exception
     {
         assertEquals(writeTypes.size(), readTypes.size());
@@ -493,7 +544,7 @@ public class OrcTester
                 if (hiveSupported) {
                     try (TempFile tempFile = new TempFile()) {
                         writeOrcColumnsHive(tempFile.getFile(), format, compression, writeTypes, writeValues);
-                        assertFileContentsPresto(readTypes, tempFile, readValues, false, false, orcEncoding, format, true);
+                        assertFileContentsPresto(readTypes, tempFile, readValues, false, false, orcEncoding, format, true, useSelectiveOrcReader, filters);
                     }
                 }
 
@@ -505,14 +556,14 @@ public class OrcTester
                         assertFileContentsHive(readTypes, tempFile, format, readValues);
                     }
 
-                    assertFileContentsPresto(readTypes, tempFile, readValues, false, false, orcEncoding, format, false);
+                    assertFileContentsPresto(readTypes, tempFile, readValues, false, false, orcEncoding, format, false, useSelectiveOrcReader, filters);
 
                     if (skipBatchTestsEnabled) {
-                        assertFileContentsPresto(readTypes, tempFile, readValues, true, false, orcEncoding, format, false);
+                        assertFileContentsPresto(readTypes, tempFile, readValues, true, false, orcEncoding, format, false, useSelectiveOrcReader, filters);
                     }
 
                     if (skipStripeTestsEnabled) {
-                        assertFileContentsPresto(readTypes, tempFile, readValues, false, true, orcEncoding, format, false);
+                        assertFileContentsPresto(readTypes, tempFile, readValues, false, true, orcEncoding, format, false, useSelectiveOrcReader, filters);
                     }
                 }
             }
@@ -525,14 +576,71 @@ public class OrcTester
             List<Type> types,
             TempFile tempFile,
             List<List<?>> expectedValues,
+            OrcEncoding orcEncoding,
+            OrcPredicate orcPredicate,
+            Optional<Map<Integer, TupleDomainFilter>> filters)
+            throws IOException
+    {
+        try (OrcSelectiveRecordReader recordReader = createCustomOrcSelectiveRecordReader(tempFile, orcEncoding, orcPredicate, types, MAX_BATCH_SIZE, filters.orElse(ImmutableMap.of()))) {
+            assertEquals(recordReader.getReaderPosition(), 0);
+            assertEquals(recordReader.getFilePosition(), 0);
+
+            int rowsProcessed = 0;
+            while (true) {
+                Page page = recordReader.getNextPage();
+                if (page == null) {
+                    break;
+                }
+
+                if (page.getPositionCount() == 0) {
+                    continue;
+                }
+
+                for (int i = 0; i < types.size(); i++) {
+                    Type type = types.get(i);
+                    Block block = page.getBlock(i);
+
+                    List<Object> data = new ArrayList<>(block.getPositionCount());
+                    for (int position = 0; position < block.getPositionCount(); position++) {
+                        data.add(type.getObjectValue(SESSION, block, position));
+                    }
+
+                    for (int j = 0; j < block.getPositionCount(); j++) {
+                        assertColumnValueEquals(type, data.get(j), expectedValues.get(i).get(rowsProcessed + j));
+                    }
+                }
+
+                rowsProcessed += page.getPositionCount();
+            }
+
+            assertEquals(rowsProcessed, expectedValues.get(0).size());
+        }
+    }
+
+    private static void assertFileContentsPresto(
+            List<Type> types,
+            TempFile tempFile,
+            List<List<?>> expectedValues,
             boolean skipFirstBatch,
             boolean skipStripe,
             OrcEncoding orcEncoding,
             Format format,
-            boolean isHiveWriter)
+            boolean isHiveWriter,
+            boolean useSelectiveOrcReader,
+            List<Map<Integer, TupleDomainFilter>> filters)
             throws IOException
     {
         OrcPredicate orcPredicate = createOrcPredicate(types, expectedValues, format, isHiveWriter);
+        if (useSelectiveOrcReader) {
+            assertFileContentsPresto(types, tempFile, expectedValues, orcEncoding, orcPredicate, Optional.empty());
+
+            for (Map<Integer, TupleDomainFilter> columnFilters : filters) {
+                assertFileContentsPresto(types, tempFile, filterRows(types, expectedValues, columnFilters), orcEncoding, orcPredicate, Optional.of(columnFilters));
+            }
+
+            return;
+        }
+
         try (OrcBatchRecordReader recordReader = createCustomOrcRecordReader(tempFile, orcEncoding, orcPredicate, types, MAX_BATCH_SIZE)) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
@@ -572,6 +680,47 @@ public class OrcTester
             assertEquals(recordReader.getReaderPosition(), rowsProcessed);
             assertEquals(recordReader.getFilePosition(), rowsProcessed);
         }
+    }
+
+    private static List<List<?>> filterRows(List<Type> types, List<List<?>> values, Map<Integer, TupleDomainFilter> columnFilters)
+    {
+        List<Integer> passingRows = IntStream.range(0, values.get(0).size())
+                .filter(row -> testRow(types, values, row, columnFilters))
+                .boxed()
+                .collect(toList());
+        return IntStream.range(0, values.size())
+                .mapToObj(column -> passingRows.stream().map(values.get(column)::get).collect(toList()))
+                .collect(toList());
+    }
+
+    private static boolean testRow(List<Type> types, List<List<?>> values, int row, Map<Integer, TupleDomainFilter> columnFilters)
+    {
+        for (int column = 0; column < types.size(); column++) {
+            TupleDomainFilter filter = columnFilters.get(column);
+            if (filter == null) {
+                continue;
+            }
+
+            Object value = values.get(column).get(row);
+            if (value == null) {
+                if (!filter.testNull()) {
+                    return false;
+                }
+            }
+            else {
+                Type type = types.get(column);
+                if (type == BOOLEAN) {
+                    if (!filter.testBoolean((Boolean) value)) {
+                        return false;
+                    }
+                }
+                else {
+                    fail("Unsupported type: " + type);
+                }
+            }
+        }
+
+        return true;
     }
 
     private static void assertColumnValueEquals(Type type, Object actual, Object expected)
@@ -703,6 +852,40 @@ public class OrcTester
         writer.write(new Page(blocks));
         writer.close();
         writer.validate(new FileOrcDataSource(outputFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true));
+    }
+
+    static OrcSelectiveRecordReader createCustomOrcSelectiveRecordReader(
+            TempFile tempFile,
+            OrcEncoding orcEncoding,
+            OrcPredicate predicate,
+            List<Type> types,
+            int initialBatchSize,
+            Map<Integer, TupleDomainFilter> filters)
+            throws IOException
+    {
+        OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
+        OrcReader orcReader = new OrcReader(orcDataSource, orcEncoding, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), MAX_BLOCK_SIZE);
+
+        assertEquals(orcReader.getColumnNames(), makeColumnNames(types.size()));
+        assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
+
+        Map<Integer, Type> columnTypes = IntStream.range(0, types.size())
+                .boxed()
+                .collect(toImmutableMap(Function.identity(), types::get));
+
+        return orcReader.createSelectiveRecordReader(
+                columnTypes,
+                IntStream.range(0, types.size()).boxed().collect(toList()),
+                filters,
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                predicate,
+                0,
+                orcDataSource.getSize(),
+                HIVE_STORAGE_TIME_ZONE,
+                newSimpleAggregatedMemoryContext(),
+                Optional.empty(),
+                initialBatchSize);
     }
 
     private static void writeValue(Type type, BlockBuilder blockBuilder, Object value)
@@ -1315,10 +1498,16 @@ public class OrcTester
         {
             private final Iterator<T> delegate = iterable.iterator();
             private int position;
+            private int totalCount;
 
             @Override
             protected T computeNext()
             {
+                if (totalCount >= iterable.size()) {
+                    return endOfData();
+                }
+
+                totalCount++;
                 position++;
                 if (position > n) {
                     position = 0;
