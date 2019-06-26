@@ -17,6 +17,7 @@ import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 
 public class TestCanonicalizeExpressions
@@ -44,7 +45,7 @@ public class TestCanonicalizeExpressions
     public void testDoesNotFireForCanonicalExpressions()
     {
         tester().assertThat(canonicalizeExpressions.joinExpressionRewrite())
-                .on(p -> p.join(INNER, p.values(), p.values(), FALSE_LITERAL))
+                .on(p -> p.join(INNER, p.values(), p.values(), castToRowExpression(FALSE_LITERAL)))
                 .doesNotFire();
     }
 }

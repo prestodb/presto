@@ -38,6 +38,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static java.lang.Double.NaN;
 import static org.testng.Assert.assertEquals;
 
@@ -188,7 +189,7 @@ public class TestJoinStatsRule
                             pb.values(rightJoinColumn, rightJoinColumn2),
                             ImmutableList.of(new EquiJoinClause(leftJoinColumn2, rightJoinColumn2), new EquiJoinClause(leftJoinColumn, rightJoinColumn)),
                             ImmutableList.of(leftJoinColumn, leftJoinColumn2, rightJoinColumn, rightJoinColumn2),
-                            Optional.of(leftJoinColumnLessThanTen));
+                            Optional.of(castToRowExpression(leftJoinColumnLessThanTen)));
         }).withSourceStats(0, planNodeStats(LEFT_ROWS_COUNT, LEFT_JOIN_COLUMN_STATS, LEFT_JOIN_COLUMN_2_STATS))
                 .withSourceStats(1, planNodeStats(RIGHT_ROWS_COUNT, RIGHT_JOIN_COLUMN_STATS, RIGHT_JOIN_COLUMN_2_STATS))
                 .check(stats -> stats.equalTo(innerJoinStats));
