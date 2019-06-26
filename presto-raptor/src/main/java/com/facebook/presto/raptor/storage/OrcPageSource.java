@@ -14,8 +14,8 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
-import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.UpdatablePageSource;
@@ -58,7 +58,7 @@ public class OrcPageSource
 
     private final Optional<ShardRewriter> shardRewriter;
 
-    private final OrcRecordReader recordReader;
+    private final OrcBatchRecordReader recordReader;
     private final OrcDataSource orcDataSource;
 
     private final BitSet rowsToDelete;
@@ -76,7 +76,7 @@ public class OrcPageSource
 
     public OrcPageSource(
             Optional<ShardRewriter> shardRewriter,
-            OrcRecordReader recordReader,
+            OrcBatchRecordReader recordReader,
             OrcDataSource orcDataSource,
             List<Long> columnIds,
             List<Type> columnTypes,

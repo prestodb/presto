@@ -36,14 +36,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-public class OrcRecordReader
+public class OrcBatchRecordReader
         extends AbstractOrcRecordReader<BatchStreamReader>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcRecordReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcBatchRecordReader.class).instanceSize();
 
     private final Map<Integer, Type> includedColumns;
 
-    public OrcRecordReader(
+    public OrcBatchRecordReader(
             Map<Integer, Type> includedColumns,
             OrcPredicate predicate,
             long numberOfRows,

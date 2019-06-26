@@ -15,10 +15,10 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.FileOrcDataSource;
+import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
-import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
@@ -287,7 +287,7 @@ public class OrcStorageManager
 
             OrcPredicate predicate = getPredicate(effectivePredicate, indexMap);
 
-            OrcRecordReader recordReader = reader.createRecordReader(includedColumns.build(), predicate, DEFAULT_STORAGE_TIMEZONE, systemMemoryUsage, INITIAL_BATCH_SIZE);
+            OrcBatchRecordReader recordReader = reader.createBatchRecordReader(includedColumns.build(), predicate, DEFAULT_STORAGE_TIMEZONE, systemMemoryUsage, INITIAL_BATCH_SIZE);
 
             Optional<ShardRewriter> shardRewriter = Optional.empty();
             if (transactionId.isPresent()) {

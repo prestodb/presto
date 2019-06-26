@@ -67,7 +67,7 @@ public class TestOrcReaderMemoryUsage
             throws Exception
     {
         int rows = 5000;
-        OrcRecordReader reader = null;
+        OrcBatchRecordReader reader = null;
         try (TempFile tempFile = createSingleColumnVarcharFile(rows, 10)) {
             reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, VARCHAR, INITIAL_BATCH_SIZE);
             assertInitialRetainedSizes(reader, rows);
@@ -114,7 +114,7 @@ public class TestOrcReaderMemoryUsage
             throws Exception
     {
         int rows = 10000;
-        OrcRecordReader reader = null;
+        OrcBatchRecordReader reader = null;
         try (TempFile tempFile = createSingleColumnFileWithNullValues(rows)) {
             reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, BIGINT, INITIAL_BATCH_SIZE);
             assertInitialRetainedSizes(reader, rows);
@@ -178,7 +178,7 @@ public class TestOrcReaderMemoryUsage
                 keyBlockHashCode);
 
         int rows = 10000;
-        OrcRecordReader reader = null;
+        OrcBatchRecordReader reader = null;
         try (TempFile tempFile = createSingleColumnMapFileWithNullValues(mapType, rows)) {
             reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, mapType, INITIAL_BATCH_SIZE);
             assertInitialRetainedSizes(reader, rows);
@@ -306,7 +306,7 @@ public class TestOrcReaderMemoryUsage
         return tempFile;
     }
 
-    private static void assertInitialRetainedSizes(OrcRecordReader reader, int rows)
+    private static void assertInitialRetainedSizes(OrcBatchRecordReader reader, int rows)
     {
         assertEquals(reader.getReaderRowCount(), rows);
         assertEquals(reader.getReaderPosition(), 0);
@@ -318,7 +318,7 @@ public class TestOrcReaderMemoryUsage
         assertEquals(reader.getSystemMemoryUsage(), 0);
     }
 
-    private static void assertClosedRetainedSizes(OrcRecordReader reader)
+    private static void assertClosedRetainedSizes(OrcBatchRecordReader reader)
     {
         assertEquals(reader.getCurrentStripeRetainedSizeInBytes(), 0);
         // after close() we still account for the StreamReader instance sizes.

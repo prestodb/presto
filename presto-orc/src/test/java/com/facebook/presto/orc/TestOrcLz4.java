@@ -57,7 +57,7 @@ public class TestOrcLz4
                 .put(2, BIGINT)
                 .build();
 
-        OrcRecordReader reader = orcReader.createRecordReader(
+        OrcBatchRecordReader reader = orcReader.createBatchRecordReader(
                 includedColumns,
                 OrcPredicate.TRUE,
                 DateTimeZone.UTC,

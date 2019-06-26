@@ -15,9 +15,9 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcReader;
-import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -145,7 +145,7 @@ public class TestOrcFileRewriter
         }
 
         try (OrcDataSource dataSource = fileOrcDataSource(file)) {
-            OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
+            OrcBatchRecordReader reader = createReader(dataSource, columnIds, columnTypes);
 
             assertEquals(reader.getReaderRowCount(), 5);
             assertEquals(reader.getFileRowCount(), 5);
@@ -232,7 +232,7 @@ public class TestOrcFileRewriter
         assertBetweenInclusive(info.getUncompressedSize(), 94L, 118L * 2);
 
         try (OrcDataSource dataSource = fileOrcDataSource(newFile)) {
-            OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
+            OrcBatchRecordReader reader = createReader(dataSource, columnIds, columnTypes);
 
             assertEquals(reader.getReaderRowCount(), 2);
             assertEquals(reader.getFileRowCount(), 2);
@@ -311,7 +311,7 @@ public class TestOrcFileRewriter
         }
 
         try (OrcDataSource dataSource = fileOrcDataSource(file)) {
-            OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
+            OrcBatchRecordReader reader = createReader(dataSource, columnIds, columnTypes);
 
             assertEquals(reader.getReaderRowCount(), 2);
             assertEquals(reader.getFileRowCount(), 2);
@@ -347,7 +347,7 @@ public class TestOrcFileRewriter
         assertBetweenInclusive(info.getUncompressedSize(), 13L, 13L * 2);
 
         try (OrcDataSource dataSource = fileOrcDataSource(newFile)) {
-            OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
+            OrcBatchRecordReader reader = createReader(dataSource, columnIds, columnTypes);
 
             assertEquals(reader.getReaderRowCount(), 1);
             assertEquals(reader.getFileRowCount(), 1);

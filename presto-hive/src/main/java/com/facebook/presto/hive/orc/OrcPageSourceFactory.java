@@ -19,12 +19,12 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
-import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -214,7 +214,7 @@ public class OrcPageSourceFactory
             TupleDomain<HiveColumnHandle> compactEffectivePredicate = toCompactTupleDomain(effectivePredicate, domainCompactionThreshold);
             OrcPredicate predicate = new TupleDomainOrcPredicate<>(compactEffectivePredicate, columnReferences.build(), orcBloomFiltersEnabled);
 
-            OrcRecordReader recordReader = reader.createRecordReader(
+            OrcBatchRecordReader recordReader = reader.createBatchRecordReader(
                     includedColumns.build(),
                     predicate,
                     start,

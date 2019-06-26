@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
-import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.raptor.metadata.ColumnStats;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -68,7 +68,7 @@ public final class ShardStats
             throws IOException
     {
         int columnIndex = columnIndex(orcReader.getColumnNames(), columnId);
-        OrcRecordReader reader = orcReader.createRecordReader(ImmutableMap.of(columnIndex, type), OrcPredicate.TRUE, UTC, newSimpleAggregatedMemoryContext(), INITIAL_BATCH_SIZE);
+        OrcBatchRecordReader reader = orcReader.createBatchRecordReader(ImmutableMap.of(columnIndex, type), OrcPredicate.TRUE, UTC, newSimpleAggregatedMemoryContext(), INITIAL_BATCH_SIZE);
 
         if (type.equals(BooleanType.BOOLEAN)) {
             return indexBoolean(type, reader, columnIndex, columnId);
@@ -97,7 +97,7 @@ public final class ShardStats
         return index;
     }
 
-    private static ColumnStats indexBoolean(Type type, OrcRecordReader reader, int columnIndex, long columnId)
+    private static ColumnStats indexBoolean(Type type, OrcBatchRecordReader reader, int columnIndex, long columnId)
             throws IOException
     {
         boolean minSet = false;
@@ -133,7 +133,7 @@ public final class ShardStats
                 maxSet ? max : null);
     }
 
-    private static ColumnStats indexLong(Type type, OrcRecordReader reader, int columnIndex, long columnId)
+    private static ColumnStats indexLong(Type type, OrcBatchRecordReader reader, int columnIndex, long columnId)
             throws IOException
     {
         boolean minSet = false;
@@ -169,7 +169,7 @@ public final class ShardStats
                 maxSet ? max : null);
     }
 
-    private static ColumnStats indexDouble(Type type, OrcRecordReader reader, int columnIndex, long columnId)
+    private static ColumnStats indexDouble(Type type, OrcBatchRecordReader reader, int columnIndex, long columnId)
             throws IOException
     {
         boolean minSet = false;
@@ -218,7 +218,7 @@ public final class ShardStats
                 maxSet ? max : null);
     }
 
-    private static ColumnStats indexString(Type type, OrcRecordReader reader, int columnIndex, long columnId)
+    private static ColumnStats indexString(Type type, OrcBatchRecordReader reader, int columnIndex, long columnId)
             throws IOException
     {
         boolean minSet = false;

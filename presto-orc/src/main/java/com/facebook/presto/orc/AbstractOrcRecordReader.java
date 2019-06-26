@@ -674,10 +674,10 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
             throw new IllegalArgumentException("Invalid desiredOffset " + desiredOffset);
         }
 
-        public static OrcRecordReader.LinearProbeRangeFinder createTinyStripesRangeFinder(List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize tinyStripeThreshold)
+        public static OrcBatchRecordReader.LinearProbeRangeFinder createTinyStripesRangeFinder(List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize tinyStripeThreshold)
         {
             if (stripes.size() == 0) {
-                return new OrcRecordReader.LinearProbeRangeFinder(ImmutableList.of());
+                return new OrcBatchRecordReader.LinearProbeRangeFinder(ImmutableList.of());
             }
 
             List<DiskRange> scratchDiskRanges = stripes.stream()
@@ -685,7 +685,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
                     .collect(Collectors.toList());
             List<DiskRange> diskRanges = mergeAdjacentDiskRanges(scratchDiskRanges, maxMergeDistance, tinyStripeThreshold);
 
-            return new OrcRecordReader.LinearProbeRangeFinder(diskRanges);
+            return new OrcBatchRecordReader.LinearProbeRangeFinder(diskRanges);
         }
     }
 }
