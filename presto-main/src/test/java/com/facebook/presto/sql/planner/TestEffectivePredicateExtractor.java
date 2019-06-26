@@ -154,7 +154,9 @@ public class TestEffectivePredicateExtractor
                 newId(),
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
-                assignments);
+                assignments,
+                TupleDomain.all(),
+                TupleDomain.all());
 
         expressionNormalizer = new ExpressionIdentityNormalizer();
     }
@@ -349,7 +351,9 @@ public class TestEffectivePredicateExtractor
                 newId(),
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
-                assignments);
+                assignments,
+                TupleDomain.all(),
+                TupleDomain.all());
         Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
         assertEquals(effectivePredicate, BooleanLiteral.TRUE_LITERAL);
 

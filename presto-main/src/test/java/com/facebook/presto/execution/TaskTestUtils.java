@@ -35,6 +35,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.TestingTypeManager;
 import com.facebook.presto.spiller.GenericSpillerFactory;
@@ -100,7 +101,9 @@ public final class TaskTestUtils
                     TABLE_SCAN_NODE_ID,
                     new TableHandle(CONNECTOR_ID, new TestingTableHandle(), TRANSACTION_HANDLE, Optional.empty()),
                     ImmutableList.of(VARIABLE),
-                    ImmutableMap.of(VARIABLE, new TestingColumnHandle("column", 0, BIGINT))),
+                    ImmutableMap.of(VARIABLE, new TestingColumnHandle("column", 0, BIGINT)),
+                    TupleDomain.all(),
+                    TupleDomain.all()),
             ImmutableSet.of(VARIABLE),
             SOURCE_DISTRIBUTION,
             ImmutableList.of(TABLE_SCAN_NODE_ID),
