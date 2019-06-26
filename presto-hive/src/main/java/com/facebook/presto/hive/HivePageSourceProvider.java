@@ -149,16 +149,7 @@ public class HivePageSourceProvider
                 tableBucketNumber);
         List<ColumnMapping> regularAndInterimColumnMappings = ColumnMapping.extractRegularAndInterimColumnMappings(columnMappings);
 
-        Optional<BucketAdaptation> bucketAdaptation = bucketConversion.map(conversion -> {
-            Map<Integer, ColumnMapping> hiveIndexToBlockIndex = uniqueIndex(regularAndInterimColumnMappings, columnMapping -> columnMapping.getHiveColumnHandle().getHiveColumnIndex());
-            int[] bucketColumnIndices = conversion.getBucketColumnHandles().stream()
-                    .mapToInt(columnHandle -> hiveIndexToBlockIndex.get(columnHandle.getHiveColumnIndex()).getIndex())
-                    .toArray();
-            List<HiveType> bucketColumnHiveTypes = conversion.getBucketColumnHandles().stream()
-                    .map(columnHandle -> hiveIndexToBlockIndex.get(columnHandle.getHiveColumnIndex()).getHiveColumnHandle().getHiveType())
-                    .collect(toImmutableList());
-            return new BucketAdaptation(bucketColumnIndices, bucketColumnHiveTypes, conversion.getTableBucketCount(), conversion.getPartitionBucketCount(), tableBucketNumber.getAsInt());
-        });
+        Optional<BucketAdaptation> bucketAdaptation = bucketConversion.map(conversion -> toBucketAdaptation(conversion, regularAndInterimColumnMappings, tableBucketNumber));
 
         for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
@@ -234,6 +225,23 @@ public class HivePageSourceProvider
         }
 
         return Optional.empty();
+    }
+
+    private static BucketAdaptation toBucketAdaptation(BucketConversion conversion, List<ColumnMapping> columnMappings, OptionalInt tableBucketNumber)
+    {
+        Map<Integer, ColumnMapping> hiveIndexToBlockIndex = uniqueIndex(columnMappings, columnMapping -> columnMapping.getHiveColumnHandle().getHiveColumnIndex());
+        int[] bucketColumnIndices = conversion.getBucketColumnHandles().stream()
+                .map(HiveColumnHandle::getHiveColumnIndex)
+                .map(hiveIndexToBlockIndex::get)
+                .mapToInt(ColumnMapping::getIndex)
+                .toArray();
+        List<HiveType> bucketColumnHiveTypes = conversion.getBucketColumnHandles().stream()
+                .map(HiveColumnHandle::getHiveColumnIndex)
+                .map(hiveIndexToBlockIndex::get)
+                .map(ColumnMapping::getHiveColumnHandle)
+                .map(HiveColumnHandle::getHiveType)
+                .collect(toImmutableList());
+        return new BucketAdaptation(bucketColumnIndices, bucketColumnHiveTypes, conversion.getTableBucketCount(), conversion.getPartitionBucketCount(), tableBucketNumber.getAsInt());
     }
 
     public static class ColumnMapping
