@@ -39,8 +39,8 @@ import java.util.Optional;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.orc.reader.SliceStreamReader.computeTruncatedLength;
-import static com.facebook.presto.orc.reader.SliceStreamReader.getMaxCodePointCount;
+import static com.facebook.presto.orc.reader.SliceBatchStreamReader.computeTruncatedLength;
+import static com.facebook.presto.orc.reader.SliceBatchStreamReader.getMaxCodePointCount;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.Chars.isCharType;
@@ -53,10 +53,10 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class SliceDirectStreamReader
-        implements StreamReader
+public class SliceDirectBatchStreamReader
+        implements BatchStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDirectStreamReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDirectBatchStreamReader.class).instanceSize();
     private static final int ONE_GIGABYTE = toIntExact(new DataSize(1, GIGABYTE).toBytes());
 
     private final StreamDescriptor streamDescriptor;
@@ -78,7 +78,7 @@ public class SliceDirectStreamReader
 
     private boolean rowGroupOpen;
 
-    public SliceDirectStreamReader(StreamDescriptor streamDescriptor)
+    public SliceDirectBatchStreamReader(StreamDescriptor streamDescriptor)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
     }

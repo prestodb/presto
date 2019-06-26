@@ -44,8 +44,8 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
-import static com.facebook.presto.orc.reader.SliceStreamReader.computeTruncatedLength;
-import static com.facebook.presto.orc.reader.SliceStreamReader.getMaxCodePointCount;
+import static com.facebook.presto.orc.reader.SliceBatchStreamReader.computeTruncatedLength;
+import static com.facebook.presto.orc.reader.SliceBatchStreamReader.getMaxCodePointCount;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -54,10 +54,10 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
-public class SliceDictionaryStreamReader
-        implements StreamReader
+public class SliceDictionaryBatchStreamReader
+        implements BatchStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryStreamReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryBatchStreamReader.class).instanceSize();
 
     private static final byte[] EMPTY_DICTIONARY_DATA = new byte[0];
     // add one extra entry for null after strip/rowGroup dictionary
@@ -101,7 +101,7 @@ public class SliceDictionaryStreamReader
 
     private LocalMemoryContext systemMemoryContext;
 
-    public SliceDictionaryStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
+    public SliceDictionaryBatchStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");

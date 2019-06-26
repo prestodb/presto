@@ -42,10 +42,10 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
-public class TimestampStreamReader
-        implements StreamReader
+public class TimestampBatchStreamReader
+        implements BatchStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampStreamReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampBatchStreamReader.class).instanceSize();
 
     private static final int MILLIS_PER_SECOND = 1000;
 
@@ -71,7 +71,7 @@ public class TimestampStreamReader
 
     private LocalMemoryContext systemMemoryContext;
 
-    public TimestampStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, LocalMemoryContext systemMemoryContext)
+    public TimestampBatchStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, LocalMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.baseTimestampInSeconds = new DateTime(2015, 1, 1, 0, 0, requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null")).getMillis() / MILLIS_PER_SECOND;

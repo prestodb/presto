@@ -21,7 +21,7 @@ import com.facebook.presto.spi.type.Type;
 import java.io.IOException;
 import java.util.List;
 
-public interface StreamReader
+public interface BatchStreamReader
 {
     Block readBlock(Type type)
             throws IOException;

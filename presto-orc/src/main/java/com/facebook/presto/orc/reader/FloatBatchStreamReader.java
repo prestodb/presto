@@ -18,7 +18,7 @@ import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanInputStream;
-import com.facebook.presto.orc.stream.ByteInputStream;
+import com.facebook.presto.orc.stream.FloatInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.block.Block;
@@ -36,12 +36,13 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 
-public class ByteStreamReader
-        implements StreamReader
+public class FloatBatchStreamReader
+        implements BatchStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteStreamReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FloatBatchStreamReader.class).instanceSize();
 
     private final StreamDescriptor streamDescriptor;
 
@@ -52,15 +53,15 @@ public class ByteStreamReader
     @Nullable
     private BooleanInputStream presentStream;
 
-    private InputStreamSource<ByteInputStream> dataStreamSource = missingStreamSource(ByteInputStream.class);
+    private InputStreamSource<FloatInputStream> dataStreamSource = missingStreamSource(FloatInputStream.class);
     @Nullable
-    private ByteInputStream dataStream;
+    private FloatInputStream dataStream;
 
     private boolean rowGroupOpen;
 
     private LocalMemoryContext systemMemoryContext;
 
-    public ByteStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
+    public FloatBatchStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
@@ -115,7 +116,7 @@ public class ByteStreamReader
         else {
             for (int i = 0; i < nextBatchSize; i++) {
                 if (presentStream.nextBit()) {
-                    type.writeLong(builder, dataStream.next());
+                    type.writeLong(builder, floatToRawIntBits(dataStream.next()));
                 }
                 else {
                     builder.appendNull();
@@ -142,7 +143,7 @@ public class ByteStreamReader
     public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
-        dataStreamSource = missingStreamSource(ByteInputStream.class);
+        dataStreamSource = missingStreamSource(FloatInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -157,7 +158,7 @@ public class ByteStreamReader
     public void startRowGroup(InputStreamSources dataStreamSources)
     {
         presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
-        dataStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, DATA, ByteInputStream.class);
+        dataStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, DATA, FloatInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;

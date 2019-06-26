@@ -35,21 +35,21 @@ import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class MapStreamReader
-        implements StreamReader
+public class MapBatchStreamReader
+        implements BatchStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapStreamReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapBatchStreamReader.class).instanceSize();
 
     private final StreamDescriptor streamDescriptor;
-    private final MapDirectStreamReader directReader;
-    private final MapFlatStreamReader flatReader;
-    private StreamReader currentReader;
+    private final MapDirectBatchStreamReader directReader;
+    private final MapFlatBatchStreamReader flatReader;
+    private BatchStreamReader currentReader;
 
-    public MapStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
+    public MapBatchStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        directReader = new MapDirectStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
-        flatReader = new MapFlatStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+        directReader = new MapDirectBatchStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+        flatReader = new MapFlatBatchStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
     }
 
     @Override

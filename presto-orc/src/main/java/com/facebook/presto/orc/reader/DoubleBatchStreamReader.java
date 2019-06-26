@@ -38,10 +38,10 @@ import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStr
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class DoubleStreamReader
-        implements StreamReader
+public class DoubleBatchStreamReader
+        implements BatchStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleStreamReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleBatchStreamReader.class).instanceSize();
 
     private final StreamDescriptor streamDescriptor;
 
@@ -60,7 +60,7 @@ public class DoubleStreamReader
 
     private LocalMemoryContext systemMemoryContext;
 
-    public DoubleStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
+    public DoubleBatchStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");

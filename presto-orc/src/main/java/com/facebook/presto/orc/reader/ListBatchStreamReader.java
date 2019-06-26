@@ -21,11 +21,10 @@ import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
+import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.io.Closer;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -38,21 +37,20 @@ import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.orc.reader.StreamReaders.createStreamReader;
+import static com.facebook.presto.orc.reader.BatchStreamReaders.createStreamReader;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
-public class MapDirectStreamReader
-        implements StreamReader
+public class ListBatchStreamReader
+        implements BatchStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapDirectStreamReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ListBatchStreamReader.class).instanceSize();
 
     private final StreamDescriptor streamDescriptor;
 
-    private final StreamReader keyStreamReader;
-    private final StreamReader valueStreamReader;
+    private final BatchStreamReader elementStreamReader;
 
     private int readOffset;
     private int nextBatchSize;
@@ -67,11 +65,10 @@ public class MapDirectStreamReader
 
     private boolean rowGroupOpen;
 
-    public MapDirectStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
+    public ListBatchStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        this.keyStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone, systemMemoryContext);
-        this.valueStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(1), hiveStorageTimeZone, systemMemoryContext);
+        this.elementStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone, systemMemoryContext);
     }
 
     @Override
@@ -99,9 +96,8 @@ public class MapDirectStreamReader
                 if (lengthStream == null) {
                     throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
                 }
-                long entrySkipSize = lengthStream.sum(readOffset);
-                keyStreamReader.prepareNextRead(toIntExact(entrySkipSize));
-                valueStreamReader.prepareNextRead(toIntExact(entrySkipSize));
+                long elementSkipSize = lengthStream.sum(readOffset);
+                elementStreamReader.prepareNextRead(toIntExact(elementSkipSize));
             }
         }
 
@@ -109,7 +105,6 @@ public class MapDirectStreamReader
         // and the length values will be converted in-place to an offset vector.
         int[] offsetVector = new int[nextBatchSize + 1];
         boolean[] nullVector = null;
-
         if (presentStream == null) {
             if (lengthStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
@@ -127,86 +122,32 @@ public class MapDirectStreamReader
             }
         }
 
-        MapType mapType = (MapType) type;
-        Type keyType = mapType.getKeyType();
-        Type valueType = mapType.getValueType();
-
-        // Calculate the entryCount. Note that the values in the offsetVector are still length values now.
-        int entryCount = 0;
-        for (int i = 0; i < offsetVector.length - 1; i++) {
-            entryCount += offsetVector[i];
-        }
-
-        Block keys;
-        Block values;
-        if (entryCount > 0) {
-            keyStreamReader.prepareNextRead(entryCount);
-            valueStreamReader.prepareNextRead(entryCount);
-            keys = keyStreamReader.readBlock(keyType);
-            values = valueStreamReader.readBlock(valueType);
-        }
-        else {
-            keys = keyType.createBlockBuilder(null, 0).build();
-            values = valueType.createBlockBuilder(null, 1).build();
-        }
-
-        Block[] keyValueBlock = createKeyValueBlock(nextBatchSize, keys, values, offsetVector);
-
-        // Convert the length values in the offsetVector to offset values in-place
+        // Convert the length values in the offsetVector to offset values in place
         int currentLength = offsetVector[0];
         offsetVector[0] = 0;
         for (int i = 1; i < offsetVector.length; i++) {
-            int lastLength = offsetVector[i];
+            int nextLength = offsetVector[i];
             offsetVector[i] = offsetVector[i - 1] + currentLength;
-            currentLength = lastLength;
+            currentLength = nextLength;
         }
+
+        Type elementType = type.getTypeParameters().get(0);
+        int elementCount = offsetVector[offsetVector.length - 1];
+
+        Block elements;
+        if (elementCount > 0) {
+            elementStreamReader.prepareNextRead(elementCount);
+            elements = elementStreamReader.readBlock(elementType);
+        }
+        else {
+            elements = elementType.createBlockBuilder(null, 0).build();
+        }
+        Block arrayBlock = ArrayBlock.fromElementBlock(nextBatchSize, Optional.ofNullable(nullVector), offsetVector, elements);
 
         readOffset = 0;
         nextBatchSize = 0;
 
-        return mapType.createBlockFromKeyValue(Optional.ofNullable(nullVector), offsetVector, keyValueBlock[0], keyValueBlock[1]);
-    }
-
-    private static Block[] createKeyValueBlock(int positionCount, Block keys, Block values, int[] lengths)
-    {
-        if (!hasNull(keys)) {
-            return new Block[] {keys, values};
-        }
-
-        //
-        // Map entries with a null key are skipped in the Hive ORC reader, so skip them here also
-        //
-
-        IntArrayList nonNullPositions = new IntArrayList(keys.getPositionCount());
-
-        int position = 0;
-        for (int mapIndex = 0; mapIndex < positionCount; mapIndex++) {
-            int length = lengths[mapIndex];
-            for (int entryIndex = 0; entryIndex < length; entryIndex++) {
-                if (keys.isNull(position)) {
-                    // key is null, so remove this entry from the map
-                    lengths[mapIndex]--;
-                }
-                else {
-                    nonNullPositions.add(position);
-                }
-                position++;
-            }
-        }
-
-        Block newKeys = keys.copyPositions(nonNullPositions.elements(), 0, nonNullPositions.size());
-        Block newValues = values.copyPositions(nonNullPositions.elements(), 0, nonNullPositions.size());
-        return new Block[] {newKeys, newValues};
-    }
-
-    private static boolean hasNull(Block keys)
-    {
-        for (int position = 0; position < keys.getPositionCount(); position++) {
-            if (keys.isNull(position)) {
-                return true;
-            }
-        }
-        return false;
+        return arrayBlock;
     }
 
     private void openRowGroup()
@@ -233,8 +174,7 @@ public class MapDirectStreamReader
 
         rowGroupOpen = false;
 
-        keyStreamReader.startStripe(dictionaryStreamSources, encoding);
-        valueStreamReader.startStripe(dictionaryStreamSources, encoding);
+        elementStreamReader.startStripe(dictionaryStreamSources, encoding);
     }
 
     @Override
@@ -252,8 +192,7 @@ public class MapDirectStreamReader
 
         rowGroupOpen = false;
 
-        keyStreamReader.startRowGroup(dataStreamSources);
-        valueStreamReader.startRowGroup(dataStreamSources);
+        elementStreamReader.startRowGroup(dataStreamSources);
     }
 
     @Override
@@ -268,8 +207,7 @@ public class MapDirectStreamReader
     public void close()
     {
         try (Closer closer = Closer.create()) {
-            closer.register(keyStreamReader::close);
-            closer.register(valueStreamReader::close);
+            closer.register(() -> elementStreamReader.close());
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -279,6 +217,6 @@ public class MapDirectStreamReader
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + keyStreamReader.getRetainedSizeInBytes() + valueStreamReader.getRetainedSizeInBytes();
+        return INSTANCE_SIZE + elementStreamReader.getRetainedSizeInBytes();
     }
 }

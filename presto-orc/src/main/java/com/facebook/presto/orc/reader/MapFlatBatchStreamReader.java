@@ -66,10 +66,10 @@ import static java.util.Objects.requireNonNull;
  * Note that the ColumnEncoding with sequenceId 0 for the values has no data associated with it, only statistics.  Similarly there
  * is a ColumnEncoding for the key stream which has no data associated with it, only statistics, so it is not used in this class.
  */
-public class MapFlatStreamReader
-        implements StreamReader
+public class MapFlatBatchStreamReader
+        implements BatchStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapFlatStreamReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapFlatBatchStreamReader.class).instanceSize();
 
     private final StreamDescriptor streamDescriptor;
     private final DateTimeZone hiveStorageTimeZone;
@@ -82,7 +82,7 @@ public class MapFlatStreamReader
 
     private final List<InputStreamSource<BooleanInputStream>> inMapStreamSources = new ArrayList<>();
     private final List<BooleanInputStream> inMapStreams = new ArrayList<>();
-    private final List<StreamReader> valueStreamReaders = new ArrayList<>();
+    private final List<BatchStreamReader> valueStreamReaders = new ArrayList<>();
     private final List<StreamDescriptor> valueStreamDescriptors = new ArrayList<>();
 
     private Block keyBlockTemplate;
@@ -95,7 +95,7 @@ public class MapFlatStreamReader
 
     private boolean rowGroupOpen;
 
-    public MapFlatStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
+    public MapFlatBatchStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
@@ -175,7 +175,7 @@ public class MapFlatStreamReader
             }
 
             if (mapsContainingKey > 0) {
-                StreamReader streamReader = valueStreamReaders.get(keyIndex);
+                BatchStreamReader streamReader = valueStreamReaders.get(keyIndex);
                 streamReader.prepareNextRead(mapsContainingKey);
                 valueBlocks[keyIndex] = streamReader.readBlock(valueType);
             }
@@ -244,7 +244,7 @@ public class MapFlatStreamReader
             StreamDescriptor valueStreamDescriptor = copyStreamDescriptorWithSequence(baseValueStreamDescriptor, sequence);
             valueStreamDescriptors.add(valueStreamDescriptor);
 
-            StreamReader valueStreamReader = StreamReaders.createStreamReader(valueStreamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+            BatchStreamReader valueStreamReader = BatchStreamReaders.createStreamReader(valueStreamDescriptor, hiveStorageTimeZone, systemMemoryContext);
             valueStreamReader.startStripe(dictionaryStreamSources, encodings);
             valueStreamReaders.add(valueStreamReader);
         }
@@ -362,7 +362,7 @@ public class MapFlatStreamReader
 
         rowGroupOpen = false;
 
-        for (StreamReader valueStreamReader : valueStreamReaders) {
+        for (BatchStreamReader valueStreamReader : valueStreamReaders) {
             valueStreamReader.startRowGroup(dataStreamSources);
         }
     }
@@ -379,7 +379,7 @@ public class MapFlatStreamReader
     public void close()
     {
         try (Closer closer = Closer.create()) {
-            for (StreamReader valueStreamReader : valueStreamReaders) {
+            for (BatchStreamReader valueStreamReader : valueStreamReaders) {
                 closer.register(valueStreamReader::close);
             }
         }
@@ -393,7 +393,7 @@ public class MapFlatStreamReader
     {
         long retainedSize = INSTANCE_SIZE;
 
-        for (StreamReader valueStreamReader : valueStreamReaders) {
+        for (BatchStreamReader valueStreamReader : valueStreamReaders) {
             retainedSize += valueStreamReader.getRetainedSizeInBytes();
         }
 

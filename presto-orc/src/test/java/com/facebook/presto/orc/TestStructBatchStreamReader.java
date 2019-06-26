@@ -58,7 +58,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
 @Test(singleThreaded = true)
-public class TestStructStreamReader
+public class TestStructBatchStreamReader
 {
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
 

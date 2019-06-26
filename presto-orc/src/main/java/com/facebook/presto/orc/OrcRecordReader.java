@@ -25,8 +25,8 @@ import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
-import com.facebook.presto.orc.reader.StreamReader;
-import com.facebook.presto.orc.reader.StreamReaders;
+import com.facebook.presto.orc.reader.BatchStreamReader;
+import com.facebook.presto.orc.reader.BatchStreamReaders;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -74,7 +74,7 @@ public class OrcRecordReader
 
     private final OrcDataSource orcDataSource;
 
-    private final StreamReader[] streamReaders;
+    private final BatchStreamReader[] streamReaders;
     private final long[] maxBytesPerCell;
     private long maxCombinedBytesPerRow;
 
@@ -334,7 +334,7 @@ public class OrcRecordReader
     {
         try (Closer closer = Closer.create()) {
             closer.register(orcDataSource);
-            for (StreamReader column : streamReaders) {
+            for (BatchStreamReader column : streamReaders) {
                 if (column != null) {
                     closer.register(() -> column.close());
                 }
@@ -393,7 +393,7 @@ public class OrcRecordReader
         nextBatchSize = min(currentBatchSize * BATCH_SIZE_GROWTH_FACTOR, MAX_BATCH_SIZE);
         currentBatchSize = toIntExact(min(currentBatchSize, currentGroupRowCount - nextRowInGroup));
 
-        for (StreamReader column : streamReaders) {
+        for (BatchStreamReader column : streamReaders) {
             if (column != null) {
                 column.prepareNextRead(currentBatchSize);
             }
@@ -459,7 +459,7 @@ public class OrcRecordReader
 
         // give reader data streams from row group
         InputStreamSources rowGroupStreamSources = currentRowGroup.getStreamSources();
-        for (StreamReader column : streamReaders) {
+        for (BatchStreamReader column : streamReaders) {
             if (column != null) {
                 column.startRowGroup(rowGroupStreamSources);
             }
@@ -501,7 +501,7 @@ public class OrcRecordReader
             // Give readers access to dictionary streams
             InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
             List<ColumnEncoding> columnEncodings = stripe.getColumnEncodings();
-            for (StreamReader column : streamReaders) {
+            for (BatchStreamReader column : streamReaders) {
                 if (column != null) {
                     column.startStripe(dictionaryStreamSources, columnEncodings);
                 }
@@ -542,7 +542,7 @@ public class OrcRecordReader
         }
     }
 
-    private static StreamReader[] createStreamReaders(
+    private static BatchStreamReader[] createStreamReaders(
             OrcDataSource orcDataSource,
             List<OrcType> types,
             DateTimeZone hiveStorageTimeZone,
@@ -552,11 +552,11 @@ public class OrcRecordReader
         List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
 
         OrcType rowType = types.get(0);
-        StreamReader[] streamReaders = new StreamReader[rowType.getFieldCount()];
+        BatchStreamReader[] streamReaders = new BatchStreamReader[rowType.getFieldCount()];
         for (int columnId = 0; columnId < rowType.getFieldCount(); columnId++) {
             if (includedColumns.containsKey(columnId)) {
                 StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
-                streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+                streamReaders[columnId] = BatchStreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
             }
         }
         return streamReaders;
@@ -611,7 +611,7 @@ public class OrcRecordReader
     long getStreamReaderRetainedSizeInBytes()
     {
         long totalRetainedSizeInBytes = 0;
-        for (StreamReader column : streamReaders) {
+        for (BatchStreamReader column : streamReaders) {
             if (column != null) {
                 totalRetainedSizeInBytes += column.getRetainedSizeInBytes();
             }

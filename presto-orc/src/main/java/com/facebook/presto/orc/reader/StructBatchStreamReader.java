@@ -39,21 +39,21 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.orc.reader.StreamReaders.createStreamReader;
+import static com.facebook.presto.orc.reader.BatchStreamReaders.createStreamReader;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
-public class StructStreamReader
-        implements StreamReader
+public class StructBatchStreamReader
+        implements BatchStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StructStreamReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StructBatchStreamReader.class).instanceSize();
 
     private final StreamDescriptor streamDescriptor;
 
-    private final Map<String, StreamReader> structFields;
+    private final Map<String, BatchStreamReader> structFields;
 
     private int readOffset;
     private int nextBatchSize;
@@ -64,7 +64,7 @@ public class StructStreamReader
 
     private boolean rowGroupOpen;
 
-    StructStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
+    StructBatchStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.structFields = streamDescriptor.getNestedStreams().stream()
@@ -92,7 +92,7 @@ public class StructStreamReader
                 // and use this as the skip size for the field readers
                 readOffset = presentStream.countBitsSet(readOffset);
             }
-            for (StreamReader structField : structFields.values()) {
+            for (BatchStreamReader structField : structFields.values()) {
                 structField.prepareNextRead(readOffset);
             }
         }
@@ -153,7 +153,7 @@ public class StructStreamReader
 
         rowGroupOpen = false;
 
-        for (StreamReader structField : structFields.values()) {
+        for (BatchStreamReader structField : structFields.values()) {
             structField.startStripe(dictionaryStreamSources, encoding);
         }
     }
@@ -171,7 +171,7 @@ public class StructStreamReader
 
         rowGroupOpen = false;
 
-        for (StreamReader structField : structFields.values()) {
+        for (BatchStreamReader structField : structFields.values()) {
             structField.startRowGroup(dataStreamSources);
         }
     }
@@ -200,7 +200,7 @@ public class StructStreamReader
             }
 
             String lowerCaseFieldName = fieldName.get().toLowerCase(Locale.ENGLISH);
-            StreamReader streamReader = structFields.get(lowerCaseFieldName);
+            BatchStreamReader streamReader = structFields.get(lowerCaseFieldName);
             if (streamReader != null) {
                 streamReader.prepareNextRead(positionCount);
                 blocks[i] = streamReader.readBlock(fieldType);
@@ -224,7 +224,7 @@ public class StructStreamReader
     public void close()
     {
         try (Closer closer = Closer.create()) {
-            for (StreamReader structField : structFields.values()) {
+            for (BatchStreamReader structField : structFields.values()) {
                 closer.register(() -> structField.close());
             }
         }
@@ -237,7 +237,7 @@ public class StructStreamReader
     public long getRetainedSizeInBytes()
     {
         long retainedSizeInBytes = INSTANCE_SIZE;
-        for (StreamReader structField : structFields.values()) {
+        for (BatchStreamReader structField : structFields.values()) {
             retainedSizeInBytes += structField.getRetainedSizeInBytes();
         }
         return retainedSizeInBytes;
