@@ -82,6 +82,7 @@ import static org.joda.time.DateTimeZone.UTC;
 public class BenchmarkBatchStreamReaders
 {
     public static final DecimalType SHORT_DECIMAL_TYPE = createDecimalType(10, 5);
+    public static final DecimalType LONG_DECIMAL_TYPE = createDecimalType(30, 10);
     public static final int ROWS = 10_000_000;
     public static final List<?> NULL_VALUES = Collections.nCopies(ROWS, null);
 
@@ -129,6 +130,20 @@ public class BenchmarkBatchStreamReaders
 
     @Benchmark
     public Object readShortDecimalWithNull(ShortDecimalWithNullBenchmarkData data)
+            throws Throwable
+    {
+        return readAllBlocks(data.createRecordReader(), data.getType());
+    }
+
+    @Benchmark
+    public Object readLongDecimalNoNull(LongDecimalNoNullBenchmarkData data)
+            throws Throwable
+    {
+        return readAllBlocks(data.createRecordReader(), data.getType());
+    }
+
+    @Benchmark
+    public Object readLongDecimalWithNull(LongDecimalWithNullBenchmarkData data)
             throws Throwable
     {
         return readAllBlocks(data.createRecordReader(), data.getType());
@@ -271,6 +286,7 @@ public class BenchmarkBatchStreamReaders
                 "integer",
                 "bigint",
                 "decimal(10,5)",
+                "decimal(30,10)",
 
                 "timestamp",
 
@@ -411,7 +427,7 @@ public class BenchmarkBatchStreamReaders
         {
             List<SqlDecimal> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
-                values.add(new SqlDecimal(BigInteger.valueOf(random.nextLong() % 10000000000L), 10, 5));
+                values.add(new SqlDecimal(BigInteger.valueOf(random.nextLong() % 10_000_000_000L), SHORT_DECIMAL_TYPE.getPrecision(), SHORT_DECIMAL_TYPE.getScale()));
             }
             return values;
         }
@@ -435,7 +451,58 @@ public class BenchmarkBatchStreamReaders
             List<SqlDecimal> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 if (random.nextBoolean()) {
-                    values.add(new SqlDecimal(BigInteger.valueOf(random.nextLong() % 10000000000L), 10, 5));
+                    values.add(new SqlDecimal(BigInteger.valueOf(random.nextLong() % 10_000_000_000L), SHORT_DECIMAL_TYPE.getPrecision(), SHORT_DECIMAL_TYPE.getScale()));
+                }
+                else {
+                    values.add(null);
+                }
+            }
+            return values;
+        }
+    }
+
+    @SuppressWarnings("FieldMayBeFinal")
+    @State(Scope.Thread)
+    public static class LongDecimalNoNullBenchmarkData
+            extends BenchmarkData
+    {
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(LONG_DECIMAL_TYPE);
+        }
+
+        @Override
+        protected List<?> createValues()
+        {
+            List<SqlDecimal> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                values.add(new SqlDecimal(BigInteger.valueOf(random.nextLong() % 10_000_000_000L), LONG_DECIMAL_TYPE.getPrecision(), LONG_DECIMAL_TYPE.getScale()));
+            }
+            return values;
+        }
+    }
+
+    @SuppressWarnings("FieldMayBeFinal")
+    @State(Scope.Thread)
+    public static class LongDecimalWithNullBenchmarkData
+            extends BenchmarkData
+    {
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(LONG_DECIMAL_TYPE);
+        }
+
+        @Override
+        protected List<?> createValues()
+        {
+            List<SqlDecimal> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                if (random.nextBoolean()) {
+                    values.add(new SqlDecimal(BigInteger.valueOf(random.nextLong() % 10_000_000_000L), LONG_DECIMAL_TYPE.getPrecision(), LONG_DECIMAL_TYPE.getScale()));
                 }
                 else {
                     values.add(null);
