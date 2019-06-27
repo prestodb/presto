@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
-public interface HivePageSourceFactory
+public interface HiveBatchPageSourceFactory
 {
     Optional<? extends ConnectorPageSource> createPageSource(
             Configuration configuration,

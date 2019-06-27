@@ -63,14 +63,14 @@ public class HivePageSourceProvider
     private final Set<HiveRecordCursorProvider> cursorProviders;
     private final TypeManager typeManager;
 
-    private final Set<HivePageSourceFactory> pageSourceFactories;
+    private final Set<HiveBatchPageSourceFactory> pageSourceFactories;
 
     @Inject
     public HivePageSourceProvider(
             HiveClientConfig hiveClientConfig,
             HdfsEnvironment hdfsEnvironment,
             Set<HiveRecordCursorProvider> cursorProviders,
-            Set<HivePageSourceFactory> pageSourceFactories,
+            Set<HiveBatchPageSourceFactory> pageSourceFactories,
             TypeManager typeManager)
     {
         requireNonNull(hiveClientConfig, "hiveClientConfig is null");
@@ -122,7 +122,7 @@ public class HivePageSourceProvider
 
     public static Optional<ConnectorPageSource> createHivePageSource(
             Set<HiveRecordCursorProvider> cursorProviders,
-            Set<HivePageSourceFactory> pageSourceFactories,
+            Set<HiveBatchPageSourceFactory> pageSourceFactories,
             Configuration configuration,
             ConnectorSession session,
             Path path,
@@ -151,7 +151,7 @@ public class HivePageSourceProvider
 
         Optional<BucketAdaptation> bucketAdaptation = bucketConversion.map(conversion -> toBucketAdaptation(conversion, regularAndInterimColumnMappings, tableBucketNumber));
 
-        for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
+        for (HiveBatchPageSourceFactory pageSourceFactory : pageSourceFactories) {
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
                     configuration,
                     session,
