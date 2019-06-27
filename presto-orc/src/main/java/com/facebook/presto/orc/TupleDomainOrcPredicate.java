@@ -28,6 +28,7 @@ import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.apache.hive.common.util.BloomFilter;
 
@@ -64,11 +65,32 @@ public class TupleDomainOrcPredicate<C>
 
     private final boolean orcBloomFiltersEnabled;
 
-    public TupleDomainOrcPredicate(TupleDomain<C> effectivePredicate, List<ColumnReference<C>> columnReferences, boolean orcBloomFiltersEnabled)
+    public TupleDomainOrcPredicate(TupleDomain<C> effectivePredicate, List<ColumnReference<C>> columnReferences, boolean orcBloomFiltersEnabled, Optional<Integer> domainCompactionThreshold)
     {
-        this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
+        requireNonNull(effectivePredicate, "effectivePredicate is null");
+        this.effectivePredicate = domainCompactionThreshold.map(threshold -> toCompactTupleDomain(effectivePredicate, threshold)).orElse(effectivePredicate);
         this.columnReferences = ImmutableList.copyOf(requireNonNull(columnReferences, "columnReferences is null"));
         this.orcBloomFiltersEnabled = orcBloomFiltersEnabled;
+    }
+
+    private static <C> TupleDomain<C> toCompactTupleDomain(TupleDomain<C> effectivePredicate, int threshold)
+    {
+        ImmutableMap.Builder<C, Domain> builder = ImmutableMap.builder();
+        effectivePredicate.getDomains().ifPresent(domains -> {
+            for (Map.Entry<C, Domain> entry : domains.entrySet()) {
+                C hiveColumnHandle = entry.getKey();
+                Domain domain = entry.getValue();
+
+                ValueSet values = domain.getValues();
+                ValueSet compactValueSet = values.getValuesProcessor().<Optional<ValueSet>>transform(
+                        ranges -> ranges.getRangeCount() > threshold ? Optional.of(ValueSet.ofRanges(ranges.getSpan())) : Optional.empty(),
+                        discreteValues -> discreteValues.getValues().size() > threshold ? Optional.of(ValueSet.all(values.getType())) : Optional.empty(),
+                        allOrNone -> Optional.empty())
+                        .orElse(values);
+                builder.put(hiveColumnHandle, Domain.create(compactValueSet, domain.isNullAllowed()));
+            }
+        });
+        return TupleDomain.withColumnDomains(builder.build());
     }
 
     @Override
