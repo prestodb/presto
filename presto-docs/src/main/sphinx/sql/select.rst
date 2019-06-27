@@ -831,10 +831,10 @@ Can be rewritten to:
 
 The output of doing ``JOIN`` with ``USING`` will be one copy of the join key 
 columns (key_1 and key_2 in the example above) followed by the remaining columns
-in t1 and then the remaining columns in t2. Note that the join keys are not
+in table_1 and then the remaining columns in table_2. Note that the join keys are not
 included in the list of columns from the origin tables for the purpose of
 referencing them in the query. You cannot access them with a table prefix and 
-if you run ``SELECT t1.*, t2.*``, the join columns are not included in the output.
+if you run ``SELECT table_1.*, table_2.*``, the join columns are not included in the output.
 
 The following two queries are equivalent:
 
