@@ -21,50 +21,50 @@ import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class SymbolStatsAssertion
+public class VariableStatsAssertion
 {
-    private final SymbolStatsEstimate statistics;
+    private final VariableStatsEstimate statistics;
 
-    private SymbolStatsAssertion(SymbolStatsEstimate statistics)
+    private VariableStatsAssertion(VariableStatsEstimate statistics)
     {
         this.statistics = requireNonNull(statistics, "statistics is null");
     }
 
-    public static SymbolStatsAssertion assertThat(SymbolStatsEstimate actual)
+    public static VariableStatsAssertion assertThat(VariableStatsEstimate actual)
     {
-        return new SymbolStatsAssertion(actual);
+        return new VariableStatsAssertion(actual);
     }
 
-    public SymbolStatsAssertion nullsFraction(double expected)
+    public VariableStatsAssertion nullsFraction(double expected)
     {
         assertEstimateEquals(statistics.getNullsFraction(), expected, "nullsFraction mismatch");
         return this;
     }
 
-    public SymbolStatsAssertion nullsFractionUnknown()
+    public VariableStatsAssertion nullsFractionUnknown()
     {
         assertTrue(isNaN(statistics.getNullsFraction()), "expected unknown nullsFraction but got " + statistics.getNullsFraction());
         return this;
     }
 
-    public SymbolStatsAssertion lowValue(double expected)
+    public VariableStatsAssertion lowValue(double expected)
     {
         assertEstimateEquals(statistics.getLowValue(), expected, "lowValue mismatch");
         return this;
     }
 
-    public SymbolStatsAssertion lowValueUnknown()
+    public VariableStatsAssertion lowValueUnknown()
     {
         return lowValue(NEGATIVE_INFINITY);
     }
 
-    public SymbolStatsAssertion highValue(double expected)
+    public VariableStatsAssertion highValue(double expected)
     {
         assertEstimateEquals(statistics.getHighValue(), expected, "highValue mismatch");
         return this;
     }
 
-    public SymbolStatsAssertion highValueUnknown()
+    public VariableStatsAssertion highValueUnknown()
     {
         return highValue(POSITIVE_INFINITY);
     }
@@ -76,7 +76,7 @@ public class SymbolStatsAssertion
                 .nullsFraction(1);
     }
 
-    public SymbolStatsAssertion emptyRange()
+    public VariableStatsAssertion emptyRange()
     {
         assertTrue(isNaN(statistics.getLowValue()) && isNaN(statistics.getHighValue()),
                 "expected empty range (NaN, NaN) but got (" + statistics.getLowValue() + ", " + statistics.getHighValue() + ") instead");
@@ -86,37 +86,37 @@ public class SymbolStatsAssertion
         return this;
     }
 
-    public SymbolStatsAssertion unknownRange()
+    public VariableStatsAssertion unknownRange()
     {
         return lowValueUnknown()
                 .highValueUnknown();
     }
 
-    public SymbolStatsAssertion distinctValuesCount(double expected)
+    public VariableStatsAssertion distinctValuesCount(double expected)
     {
         assertEstimateEquals(statistics.getDistinctValuesCount(), expected, "distinctValuesCount mismatch");
         return this;
     }
 
-    public SymbolStatsAssertion distinctValuesCountUnknown()
+    public VariableStatsAssertion distinctValuesCountUnknown()
     {
         assertTrue(isNaN(statistics.getDistinctValuesCount()), "expected unknown distinctValuesCount but got " + statistics.getDistinctValuesCount());
         return this;
     }
 
-    public SymbolStatsAssertion averageRowSize(double expected)
+    public VariableStatsAssertion averageRowSize(double expected)
     {
         assertEstimateEquals(statistics.getAverageRowSize(), expected, "average row size mismatch");
         return this;
     }
 
-    public SymbolStatsAssertion dataSizeUnknown()
+    public VariableStatsAssertion dataSizeUnknown()
     {
         assertTrue(isNaN(statistics.getAverageRowSize()), "expected unknown dataSize but got " + statistics.getAverageRowSize());
         return this;
     }
 
-    public SymbolStatsAssertion isEqualTo(SymbolStatsEstimate expected)
+    public VariableStatsAssertion isEqualTo(VariableStatsEstimate expected)
     {
         return nullsFraction(expected.getNullsFraction())
                 .lowValue(expected.getLowValue())

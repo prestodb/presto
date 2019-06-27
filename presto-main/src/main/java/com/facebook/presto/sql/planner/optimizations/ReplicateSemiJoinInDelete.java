@@ -15,11 +15,11 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 
@@ -51,11 +51,11 @@ public class ReplicateSemiJoinInDelete
                     node.getId(),
                     sourceRewritten,
                     filteringSourceRewritten,
-                    node.getSourceJoinSymbol(),
-                    node.getFilteringSourceJoinSymbol(),
+                    node.getSourceJoinVariable(),
+                    node.getFilteringSourceJoinVariable(),
                     node.getSemiJoinOutput(),
-                    node.getSourceHashSymbol(),
-                    node.getFilteringSourceHashSymbol(),
+                    node.getSourceHashVariable(),
+                    node.getFilteringSourceHashVariable(),
                     node.getDistributionType());
 
             if (isDeleteQuery) {
@@ -77,7 +77,7 @@ public class ReplicateSemiJoinInDelete
                     rewrittenSource,
                     node.getTarget(),
                     node.getRowId(),
-                    node.getOutputSymbols());
+                    node.getOutputVariables());
         }
     }
 }

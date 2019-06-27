@@ -26,7 +26,6 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.CharType;
@@ -85,7 +84,6 @@ public class HivePartitionManager
 
     private final DateTimeZone timeZone;
     private final boolean assumeCanonicalPartitionKeys;
-    private final int domainCompactionThreshold;
     private final TypeManager typeManager;
 
     @Inject
@@ -96,20 +94,16 @@ public class HivePartitionManager
         this(
                 typeManager,
                 hiveClientConfig.getDateTimeZone(),
-                hiveClientConfig.isAssumeCanonicalPartitionKeys(),
-                hiveClientConfig.getDomainCompactionThreshold());
+                hiveClientConfig.isAssumeCanonicalPartitionKeys());
     }
 
     public HivePartitionManager(
             TypeManager typeManager,
             DateTimeZone timeZone,
-            boolean assumeCanonicalPartitionKeys,
-            int domainCompactionThreshold)
+            boolean assumeCanonicalPartitionKeys)
     {
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
-        checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
-        this.domainCompactionThreshold = domainCompactionThreshold;
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
@@ -129,13 +123,12 @@ public class HivePartitionManager
         }
 
         Optional<HiveBucketFilter> bucketFilter = shouldIgnoreTableBucketing(session) ? Optional.empty() : getHiveBucketFilter(table, effectivePredicate);
-        TupleDomain<HiveColumnHandle> compactEffectivePredicate = toCompactTupleDomain(effectivePredicate, domainCompactionThreshold);
 
         if (partitionColumns.isEmpty()) {
             return new HivePartitionResult(
                     partitionColumns,
                     ImmutableList.of(new HivePartition(tableName)),
-                    compactEffectivePredicate,
+                    effectivePredicate,
                     effectivePredicate,
                     TupleDomain.none(),
                     hiveBucketHandle,
@@ -158,7 +151,7 @@ public class HivePartitionManager
         // All partition key domains will be fully evaluated, so we don't need to include those
         TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), not(Predicates.in(partitionColumns))));
         TupleDomain<ColumnHandle> enforcedTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), Predicates.in(partitionColumns)));
-        return new HivePartitionResult(partitionColumns, partitionsIterable, compactEffectivePredicate, remainingTupleDomain, enforcedTupleDomain, hiveBucketHandle, bucketFilter);
+        return new HivePartitionResult(partitionColumns, partitionsIterable, effectivePredicate, remainingTupleDomain, enforcedTupleDomain, hiveBucketHandle, bucketFilter);
     }
 
     public HivePartitionResult getPartitions(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, List<List<String>> partitionValuesList, ConnectorSession session)
@@ -181,25 +174,6 @@ public class HivePartitionManager
 
         Optional<HiveBucketHandle> bucketHandle = shouldIgnoreTableBucketing(session) ? Optional.empty() : getHiveBucketHandle(table);
         return new HivePartitionResult(partitionColumns, partitionList, TupleDomain.all(), TupleDomain.all(), TupleDomain.none(), bucketHandle, Optional.empty());
-    }
-
-    private static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<ColumnHandle> effectivePredicate, int threshold)
-    {
-        ImmutableMap.Builder<HiveColumnHandle, Domain> builder = ImmutableMap.builder();
-        effectivePredicate.getDomains().ifPresent(domains -> {
-            for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
-                HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) entry.getKey();
-
-                ValueSet values = entry.getValue().getValues();
-                ValueSet compactValueSet = values.getValuesProcessor().<Optional<ValueSet>>transform(
-                        ranges -> ranges.getRangeCount() > threshold ? Optional.of(ValueSet.ofRanges(ranges.getSpan())) : Optional.empty(),
-                        discreteValues -> discreteValues.getValues().size() > threshold ? Optional.of(ValueSet.all(values.getType())) : Optional.empty(),
-                        allOrNone -> Optional.empty())
-                        .orElse(values);
-                builder.put(hiveColumnHandle, Domain.create(compactValueSet, entry.getValue().isNullAllowed()));
-            }
-        });
-        return TupleDomain.withColumnDomains(builder.build());
     }
 
     private Optional<HivePartition> parseValuesAndFilterPartition(

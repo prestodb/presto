@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -33,6 +33,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJo
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class TestPruneJoinColumns
@@ -42,7 +43,7 @@ public class TestPruneJoinColumns
     public void testNotAllOutputsReferenced()
     {
         tester().assertThat(new PruneJoinColumns())
-                .on(p -> buildProjectedJoin(p, symbol -> symbol.getName().equals("rightValue")))
+                .on(p -> buildProjectedJoin(p, variable -> variable.getName().equals("rightValue")))
                 .matches(
                         strictProject(
                                 ImmutableMap.of("rightValue", PlanMatchPattern.expression("rightValue")),
@@ -68,8 +69,8 @@ public class TestPruneJoinColumns
     {
         tester().assertThat(new PruneJoinColumns())
                 .on(p -> {
-                    Symbol leftValue = p.symbol("leftValue");
-                    Symbol rightValue = p.symbol("rightValue");
+                    VariableReferenceExpression leftValue = p.variable("leftValue");
+                    VariableReferenceExpression rightValue = p.variable("rightValue");
                     return p.project(
                             Assignments.of(),
                             p.join(
@@ -85,15 +86,15 @@ public class TestPruneJoinColumns
                 .doesNotFire();
     }
 
-    private static PlanNode buildProjectedJoin(PlanBuilder p, Predicate<Symbol> projectionFilter)
+    private static PlanNode buildProjectedJoin(PlanBuilder p, Predicate<VariableReferenceExpression> projectionFilter)
     {
-        Symbol leftKey = p.symbol("leftKey");
-        Symbol leftValue = p.symbol("leftValue");
-        Symbol rightKey = p.symbol("rightKey");
-        Symbol rightValue = p.symbol("rightValue");
-        List<Symbol> outputs = ImmutableList.of(leftKey, leftValue, rightKey, rightValue);
+        VariableReferenceExpression leftKey = p.variable("leftKey");
+        VariableReferenceExpression leftValue = p.variable("leftValue");
+        VariableReferenceExpression rightKey = p.variable("rightKey");
+        VariableReferenceExpression rightValue = p.variable("rightValue");
+        List<VariableReferenceExpression> outputs = ImmutableList.of(leftKey, leftValue, rightKey, rightValue);
         return p.project(
-                Assignments.identity(
+                identityAssignmentsAsSymbolReferences(
                         outputs.stream()
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),

@@ -31,7 +31,7 @@ public class TestMergeFilters
                 .on(p ->
                         p.filter(expression("b > 44"),
                                 p.filter(expression("a < 42"),
-                                        p.values(p.symbol("a"), p.symbol("b")))))
+                                        p.values(p.variable("a"), p.variable("b")))))
                 .matches(filter("(a < 42) AND (b > 44)", values(ImmutableMap.of("a", 0, "b", 1))));
     }
 }

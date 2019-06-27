@@ -20,11 +20,12 @@ import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
@@ -41,7 +42,6 @@ import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
@@ -55,7 +55,6 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -126,7 +125,7 @@ public class AddLocalExchanges
         }
 
         @Override
-        protected PlanWithProperties visitPlan(PlanNode node, StreamPreferredProperties parentPreferences)
+        public PlanWithProperties visitPlan(PlanNode node, StreamPreferredProperties parentPreferences)
         {
             return planAndEnforceChildren(
                     node,
@@ -283,7 +282,7 @@ public class AddLocalExchanges
                 return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
             }
 
-            List<Symbol> groupingKeys = node.getGroupingKeys();
+            List<VariableReferenceExpression> groupingKeys = node.getGroupingKeys();
             if (node.hasDefaultOutput()) {
                 checkState(node.isDecomposable(metadata.getFunctionManager()));
 
@@ -302,13 +301,13 @@ public class AddLocalExchanges
             }
 
             StreamPreferredProperties childRequirements = parentPreferences
-                    .constrainTo(node.getSource().getOutputSymbols())
+                    .constrainTo(node.getSource().getOutputVariables())
                     .withDefaultParallelism(session)
                     .withPartitioning(groupingKeys);
 
             PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
 
-            List<Symbol> preGroupedSymbols = ImmutableList.of();
+            List<VariableReferenceExpression> preGroupedSymbols = ImmutableList.of();
             if (!LocalProperties.match(child.getProperties().getLocalProperties(), LocalProperties.grouped(groupingKeys)).get(0).isPresent()) {
                 // !isPresent() indicates the property was satisfied completely
                 preGroupedSymbols = groupingKeys;
@@ -321,8 +320,8 @@ public class AddLocalExchanges
                     node.getGroupingSets(),
                     preGroupedSymbols,
                     node.getStep(),
-                    node.getHashSymbol(),
-                    node.getGroupIdSymbol());
+                    node.getHashVariable(),
+                    node.getGroupIdVariable());
 
             return deriveProperties(result, child.getProperties());
         }
@@ -331,28 +330,28 @@ public class AddLocalExchanges
         public PlanWithProperties visitWindow(WindowNode node, StreamPreferredProperties parentPreferences)
         {
             StreamPreferredProperties childRequirements = parentPreferences
-                    .constrainTo(node.getSource().getOutputSymbols())
+                    .constrainTo(node.getSource().getOutputVariables())
                     .withDefaultParallelism(session)
                     .withPartitioning(node.getPartitionBy());
 
             PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
 
-            List<LocalProperty<Symbol>> desiredProperties = new ArrayList<>();
+            List<LocalProperty<VariableReferenceExpression>> desiredProperties = new ArrayList<>();
             if (!node.getPartitionBy().isEmpty()) {
                 desiredProperties.add(new GroupingProperty<>(node.getPartitionBy()));
             }
             node.getOrderingScheme().ifPresent(orderingScheme ->
                     orderingScheme.getOrderBy().stream()
-                            .map(symbol -> new SortingProperty<>(symbol, orderingScheme.getOrdering(symbol)))
+                            .map(variable -> new SortingProperty<>(variable, orderingScheme.getOrdering(variable)))
                             .forEach(desiredProperties::add));
-            Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).iterator();
+            Iterator<Optional<LocalProperty<VariableReferenceExpression>>> matchIterator = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).iterator();
 
-            Set<Symbol> prePartitionedInputs = ImmutableSet.of();
+            Set<VariableReferenceExpression> prePartitionedInputs = ImmutableSet.of();
             if (!node.getPartitionBy().isEmpty()) {
-                Optional<LocalProperty<Symbol>> groupingRequirement = matchIterator.next();
-                Set<Symbol> unPartitionedInputs = groupingRequirement.map(LocalProperty::getColumns).orElse(ImmutableSet.of());
+                Optional<LocalProperty<VariableReferenceExpression>> groupingRequirement = matchIterator.next();
+                Set<VariableReferenceExpression> unPartitionedInputs = groupingRequirement.map(LocalProperty::getColumns).orElse(ImmutableSet.of());
                 prePartitionedInputs = node.getPartitionBy().stream()
-                        .filter(symbol -> !unPartitionedInputs.contains(symbol))
+                        .filter(variable -> !unPartitionedInputs.contains(variable))
                         .collect(toImmutableSet());
             }
 
@@ -368,7 +367,7 @@ public class AddLocalExchanges
                     child.getNode(),
                     node.getSpecification(),
                     node.getWindowFunctions(),
-                    node.getHashSymbol(),
+                    node.getHashVariable(),
                     prePartitionedInputs,
                     preSortedOrderPrefix);
 
@@ -380,18 +379,18 @@ public class AddLocalExchanges
         {
             // mark distinct requires that all data partitioned
             StreamPreferredProperties childRequirements = parentPreferences
-                    .constrainTo(node.getSource().getOutputSymbols())
+                    .constrainTo(node.getSource().getOutputVariables())
                     .withDefaultParallelism(session)
-                    .withPartitioning(node.getDistinctSymbols());
+                    .withPartitioning(node.getDistinctVariables());
 
             PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
 
             MarkDistinctNode result = new MarkDistinctNode(
                     node.getId(),
                     child.getNode(),
-                    node.getMarkerSymbol(),
-                    pruneMarkDistinctSymbols(node, child.getProperties().getLocalProperties()),
-                    node.getHashSymbol());
+                    node.getMarkerVariable(),
+                    pruneMarkDistinctVariables(node, child.getProperties().getLocalProperties()),
+                    node.getHashVariable());
 
             return deriveProperties(result, child.getProperties());
         }
@@ -417,33 +416,33 @@ public class AddLocalExchanges
          * Ideally, this logic would be encapsulated in a separate rule, but currently no rule other
          * than AddLocalExchanges can reason about local properties.
          */
-        private List<Symbol> pruneMarkDistinctSymbols(MarkDistinctNode node, List<LocalProperty<Symbol>> localProperties)
+        private List<VariableReferenceExpression> pruneMarkDistinctVariables(MarkDistinctNode node, List<LocalProperty<VariableReferenceExpression>> localProperties)
         {
             if (localProperties.isEmpty()) {
-                return node.getDistinctSymbols();
+                return node.getDistinctVariables();
             }
 
             // Identify functional dependencies between distinct symbols: in the list of local properties any constant
             // symbol is functionally dependent on the set of symbols that appears earlier.
-            ImmutableSet.Builder<Symbol> redundantSymbolsBuilder = ImmutableSet.builder();
-            for (LocalProperty<Symbol> property : localProperties) {
+            ImmutableSet.Builder<VariableReferenceExpression> redundantVariablesBuilder = ImmutableSet.builder();
+            for (LocalProperty<VariableReferenceExpression> property : localProperties) {
                 if (property instanceof ConstantProperty) {
-                    redundantSymbolsBuilder.add(((ConstantProperty<Symbol>) property).getColumn());
+                    redundantVariablesBuilder.add(((ConstantProperty<VariableReferenceExpression>) property).getColumn());
                 }
-                else if (!node.getDistinctSymbols().containsAll(property.getColumns())) {
+                else if (!node.getDistinctVariables().containsAll(property.getColumns())) {
                     // Ran into a non-distinct symbol. There will be no more symbols that are functionally dependent on distinct symbols exclusively.
                     break;
                 }
             }
 
-            Set<Symbol> redundantSymbols = redundantSymbolsBuilder.build();
-            List<Symbol> remainingSymbols = node.getDistinctSymbols().stream()
-                    .filter(symbol -> !redundantSymbols.contains(symbol))
+            Set<VariableReferenceExpression> redundantVariables = redundantVariablesBuilder.build();
+            List<VariableReferenceExpression> remainingSymbols = node.getDistinctVariables().stream()
+                    .filter(variable -> !redundantVariables.contains(variable))
                     .collect(toImmutableList());
             if (remainingSymbols.isEmpty()) {
                 // This happens when all distinct symbols are constants.
                 // In that case, keep the first symbol (don't drop them all).
-                return ImmutableList.of(node.getDistinctSymbols().get(0));
+                return ImmutableList.of(node.getDistinctVariables().get(0));
             }
             return remainingSymbols;
         }
@@ -523,7 +522,7 @@ public class AddLocalExchanges
                     .map(PlanWithProperties::getProperties)
                     .collect(toImmutableList());
 
-            List<List<Symbol>> inputLayouts = new ArrayList<>(sources.size());
+            List<List<VariableReferenceExpression>> inputLayouts = new ArrayList<>(sources.size());
             for (int i = 0; i < sources.size(); i++) {
                 inputLayouts.add(node.sourceOutputLayout(i));
             }
@@ -533,14 +532,14 @@ public class AddLocalExchanges
                         idAllocator.getNextId(),
                         GATHER,
                         LOCAL,
-                        new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
+                        new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), node.getOutputVariables()),
                         sources,
                         inputLayouts,
                         Optional.empty());
                 return deriveProperties(exchangeNode, inputProperties);
             }
 
-            Optional<List<Symbol>> preferredPartitionColumns = preferredProperties.getPartitioningColumns();
+            Optional<List<VariableReferenceExpression>> preferredPartitionColumns = preferredProperties.getPartitioningColumns();
             if (preferredPartitionColumns.isPresent()) {
                 ExchangeNode exchangeNode = new ExchangeNode(
                         idAllocator.getNextId(),
@@ -548,8 +547,7 @@ public class AddLocalExchanges
                         LOCAL,
                         new PartitioningScheme(
                                 Partitioning.create(FIXED_HASH_DISTRIBUTION, preferredPartitionColumns.get()),
-                                node.getOutputSymbols(),
-                                Optional.empty()),
+                                node.getOutputVariables()),
                         sources,
                         inputLayouts,
                         Optional.empty());
@@ -561,7 +559,7 @@ public class AddLocalExchanges
                     idAllocator.getNextId(),
                     REPARTITION,
                     LOCAL,
-                    new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
+                    new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputVariables()),
                     sources,
                     inputLayouts,
                     Optional.empty());
@@ -582,20 +580,22 @@ public class AddLocalExchanges
                 probe = planAndEnforce(
                         node.getLeft(),
                         fixedParallelism(),
-                        parentPreferences.constrainTo(node.getLeft().getOutputSymbols()).withFixedParallelism());
+                        parentPreferences.constrainTo(node.getLeft().getOutputVariables()).withFixedParallelism());
             }
             else {
                 probe = planAndEnforce(
                         node.getLeft(),
                         defaultParallelism(session),
-                        parentPreferences.constrainTo(node.getLeft().getOutputSymbols()).withDefaultParallelism(session));
+                        parentPreferences.constrainTo(node.getLeft().getOutputVariables()).withDefaultParallelism(session));
             }
 
             // this build consumes the input completely, so we do not pass through parent preferences
-            List<Symbol> buildHashSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight);
+            List<VariableReferenceExpression> buildHashVariables = node.getCriteria().stream()
+                    .map(JoinNode.EquiJoinClause::getRight)
+                    .collect(toImmutableList());
             StreamPreferredProperties buildPreference;
             if (getTaskConcurrency(session) > 1) {
-                buildPreference = exactlyPartitionedOn(buildHashSymbols);
+                buildPreference = exactlyPartitionedOn(buildHashVariables);
             }
             else {
                 buildPreference = singleStream();
@@ -611,7 +611,7 @@ public class AddLocalExchanges
             PlanWithProperties source = planAndEnforce(
                     node.getSource(),
                     defaultParallelism(session),
-                    parentPreferences.constrainTo(node.getSource().getOutputSymbols()).withDefaultParallelism(session));
+                    parentPreferences.constrainTo(node.getSource().getOutputVariables()).withDefaultParallelism(session));
 
             // this filter source consumes the input completely, so we do not pass through parent preferences
             PlanWithProperties filteringSource = planAndEnforce(node.getFilteringSource(), singleStream(), singleStream());
@@ -625,7 +625,7 @@ public class AddLocalExchanges
             PlanWithProperties probe = planAndEnforce(
                     node.getLeft(),
                     defaultParallelism(session),
-                    parentPreferences.constrainTo(node.getLeft().getOutputSymbols())
+                    parentPreferences.constrainTo(node.getLeft().getOutputVariables())
                             .withDefaultParallelism(session));
 
             PlanWithProperties build = planAndEnforce(node.getRight(), singleStream(), singleStream());
@@ -639,7 +639,7 @@ public class AddLocalExchanges
             PlanWithProperties probe = planAndEnforce(
                     node.getProbeSource(),
                     defaultParallelism(session),
-                    parentPreferences.constrainTo(node.getProbeSource().getOutputSymbols()).withDefaultParallelism(session));
+                    parentPreferences.constrainTo(node.getProbeSource().getOutputVariables()).withDefaultParallelism(session));
 
             // index source does not support local parallel and must produce a single stream
             StreamProperties indexStreamProperties = derivePropertiesRecursively(node.getIndexSource(), metadata, session, types, parser);
@@ -660,8 +660,8 @@ public class AddLocalExchanges
             List<PlanWithProperties> children = node.getSources().stream()
                     .map(source -> planAndEnforce(
                             source,
-                            requiredProperties.constrainTo(source.getOutputSymbols()),
-                            preferredProperties.constrainTo(source.getOutputSymbols())))
+                            requiredProperties.constrainTo(source.getOutputVariables()),
+                            preferredProperties.constrainTo(source.getOutputVariables())))
                     .collect(toImmutableList());
 
             return rebaseAndDeriveProperties(node, children);
@@ -670,9 +670,8 @@ public class AddLocalExchanges
         private PlanWithProperties planAndEnforce(PlanNode node, StreamPreferredProperties requiredProperties, StreamPreferredProperties preferredProperties)
         {
             // verify properties are in terms of symbols produced by the node
-            List<Symbol> outputSymbols = node.getOutputSymbols();
-            checkArgument(requiredProperties.getPartitioningColumns().map(outputSymbols::containsAll).orElse(true));
-            checkArgument(preferredProperties.getPartitioningColumns().map(outputSymbols::containsAll).orElse(true));
+            checkArgument(requiredProperties.getPartitioningColumns().map(node.getOutputVariables()::containsAll).orElse(true));
+            checkArgument(preferredProperties.getPartitioningColumns().map(node.getOutputVariables()::containsAll).orElse(true));
 
             // plan the node using the preferred properties
             PlanWithProperties result = node.accept(this, preferredProperties);
@@ -695,7 +694,7 @@ public class AddLocalExchanges
                 return deriveProperties(exchangeNode, planWithProperties.getProperties());
             }
 
-            Optional<List<Symbol>> requiredPartitionColumns = requiredProperties.getPartitioningColumns();
+            Optional<List<VariableReferenceExpression>> requiredPartitionColumns = requiredProperties.getPartitioningColumns();
             if (!requiredPartitionColumns.isPresent()) {
                 // unpartitioned parallel streams required
                 return deriveProperties(

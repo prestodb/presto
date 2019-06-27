@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -23,6 +22,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
@@ -35,9 +35,9 @@ public class TestPruneValuesColumns
         tester().assertThat(new PruneValuesColumns())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("y"), expression("x")),
+                                assignment(p.variable("y"), expression("x")),
                                 p.values(
-                                        ImmutableList.of(p.symbol("unused"), p.symbol("x")),
+                                        ImmutableList.of(p.variable("unused"), p.variable("x")),
                                         ImmutableList.of(
                                                 constantExpressions(BIGINT, 1, 2),
                                                 constantExpressions(BIGINT, 3, 4)))))
@@ -57,8 +57,8 @@ public class TestPruneValuesColumns
         tester().assertThat(new PruneValuesColumns())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("y"), expression("x")),
-                                p.values(p.symbol("x"))))
+                                assignment(p.variable("y"), expression("x")),
+                                p.values(p.variable("x"))))
                 .doesNotFire();
     }
 }

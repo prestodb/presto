@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
@@ -37,7 +38,7 @@ public class PruneCrossJoinColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, JoinNode joinNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, JoinNode joinNode, Set<VariableReferenceExpression> referencedOutputs)
     {
         Optional<PlanNode> newLeft = restrictOutputs(idAllocator, joinNode.getLeft(), referencedOutputs);
         Optional<PlanNode> newRight = restrictOutputs(idAllocator, joinNode.getRight(), referencedOutputs);
@@ -46,9 +47,9 @@ public class PruneCrossJoinColumns
             return Optional.empty();
         }
 
-        ImmutableList.Builder<Symbol> outputSymbolBuilder = ImmutableList.builder();
-        outputSymbolBuilder.addAll(newLeft.orElse(joinNode.getLeft()).getOutputSymbols());
-        outputSymbolBuilder.addAll(newRight.orElse(joinNode.getRight()).getOutputSymbols());
+        ImmutableList.Builder<VariableReferenceExpression> outputVariableBuilder = ImmutableList.builder();
+        outputVariableBuilder.addAll(newLeft.orElse(joinNode.getLeft()).getOutputVariables());
+        outputVariableBuilder.addAll(newRight.orElse(joinNode.getRight()).getOutputVariables());
 
         return Optional.of(new JoinNode(
                 idAllocator.getNextId(),
@@ -56,10 +57,10 @@ public class PruneCrossJoinColumns
                 newLeft.orElse(joinNode.getLeft()),
                 newRight.orElse(joinNode.getRight()),
                 joinNode.getCriteria(),
-                outputSymbolBuilder.build(),
+                outputVariableBuilder.build(),
                 joinNode.getFilter(),
-                joinNode.getLeftHashSymbol(),
-                joinNode.getRightHashSymbol(),
+                joinNode.getLeftHashVariable(),
+                joinNode.getRightHashVariable(),
                 joinNode.getDistributionType()));
     }
 }

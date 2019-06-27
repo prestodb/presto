@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
@@ -21,8 +22,6 @@ import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Collection;
@@ -35,24 +34,23 @@ import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.floor;
 import static java.lang.Math.pow;
-import static java.util.Objects.requireNonNull;
 
 /**
  * Makes stats consistent
  */
 public class StatsNormalizer
 {
-    public PlanNodeStatsEstimate normalize(PlanNodeStatsEstimate stats, TypeProvider types)
+    public PlanNodeStatsEstimate normalize(PlanNodeStatsEstimate stats)
     {
-        return normalize(stats, Optional.empty(), types);
+        return normalize(stats, Optional.empty());
     }
 
-    public PlanNodeStatsEstimate normalize(PlanNodeStatsEstimate stats, Collection<Symbol> outputSymbols, TypeProvider types)
+    public PlanNodeStatsEstimate normalize(PlanNodeStatsEstimate stats, Collection<VariableReferenceExpression> outputVariables)
     {
-        return normalize(stats, Optional.of(outputSymbols), types);
+        return normalize(stats, Optional.of(outputVariables));
     }
 
-    private PlanNodeStatsEstimate normalize(PlanNodeStatsEstimate stats, Optional<Collection<Symbol>> outputSymbols, TypeProvider types)
+    private PlanNodeStatsEstimate normalize(PlanNodeStatsEstimate stats, Optional<Collection<VariableReferenceExpression>> outputVariables)
     {
         if (stats.isOutputRowCountUnknown()) {
             return PlanNodeStatsEstimate.unknown();
@@ -60,25 +58,25 @@ public class StatsNormalizer
 
         PlanNodeStatsEstimate.Builder normalized = PlanNodeStatsEstimate.buildFrom(stats);
 
-        Predicate<Symbol> symbolFilter = outputSymbols
+        Predicate<VariableReferenceExpression> variableFilter = outputVariables
                 .map(ImmutableSet::copyOf)
-                .map(set -> (Predicate<Symbol>) set::contains)
-                .orElse(symbol -> true);
+                .map(set -> (Predicate<VariableReferenceExpression>) set::contains)
+                .orElse(variable -> true);
 
-        for (Symbol symbol : stats.getSymbolsWithKnownStatistics()) {
-            if (!symbolFilter.test(symbol)) {
-                normalized.removeSymbolStatistics(symbol);
+        for (VariableReferenceExpression variable : stats.getVariablesWithKnownStatistics()) {
+            if (!variableFilter.test(variable)) {
+                normalized.removeVariableStatistics(variable);
                 continue;
             }
 
-            SymbolStatsEstimate symbolStats = stats.getSymbolStatistics(symbol);
-            SymbolStatsEstimate normalizedSymbolStats = stats.getOutputRowCount() == 0 ? SymbolStatsEstimate.zero() : normalizeSymbolStats(symbol, symbolStats, stats, types);
+            VariableStatsEstimate variableStats = stats.getVariableStatistics(variable);
+            VariableStatsEstimate normalizedSymbolStats = stats.getOutputRowCount() == 0 ? VariableStatsEstimate.zero() : normalizeVariableStats(variable, variableStats, stats);
             if (normalizedSymbolStats.isUnknown()) {
-                normalized.removeSymbolStatistics(symbol);
+                normalized.removeVariableStatistics(variable);
                 continue;
             }
-            if (!Objects.equals(normalizedSymbolStats, symbolStats)) {
-                normalized.addSymbolStatistics(symbol, normalizedSymbolStats);
+            if (!Objects.equals(normalizedSymbolStats, variableStats)) {
+                normalized.addVariableStatistics(variable, normalizedSymbolStats);
             }
         }
 
@@ -88,20 +86,20 @@ public class StatsNormalizer
     /**
      * Calculates consistent stats for a symbol.
      */
-    private SymbolStatsEstimate normalizeSymbolStats(Symbol symbol, SymbolStatsEstimate symbolStats, PlanNodeStatsEstimate stats, TypeProvider types)
+    private VariableStatsEstimate normalizeVariableStats(VariableReferenceExpression variable, VariableStatsEstimate variableStats, PlanNodeStatsEstimate stats)
     {
-        if (symbolStats.isUnknown()) {
-            return SymbolStatsEstimate.unknown();
+        if (variableStats.isUnknown()) {
+            return VariableStatsEstimate.unknown();
         }
 
         double outputRowCount = stats.getOutputRowCount();
         checkArgument(outputRowCount > 0, "outputRowCount must be greater than zero: %s", outputRowCount);
-        double distinctValuesCount = symbolStats.getDistinctValuesCount();
-        double nullsFraction = symbolStats.getNullsFraction();
+        double distinctValuesCount = variableStats.getDistinctValuesCount();
+        double nullsFraction = variableStats.getNullsFraction();
 
         if (!isNaN(distinctValuesCount)) {
-            Type type = requireNonNull(types.get(symbol), () -> "type is missing for symbol " + symbol);
-            double maxDistinctValuesByLowHigh = maxDistinctValuesByLowHigh(symbolStats, type);
+            Type type = variable.getType();
+            double maxDistinctValuesByLowHigh = maxDistinctValuesByLowHigh(variableStats, type);
             if (distinctValuesCount > maxDistinctValuesByLowHigh) {
                 distinctValuesCount = maxDistinctValuesByLowHigh;
             }
@@ -120,18 +118,18 @@ public class StatsNormalizer
         }
 
         if (distinctValuesCount == 0.0) {
-            return SymbolStatsEstimate.zero();
+            return VariableStatsEstimate.zero();
         }
 
-        return SymbolStatsEstimate.buildFrom(symbolStats)
+        return VariableStatsEstimate.buildFrom(variableStats)
                 .setDistinctValuesCount(distinctValuesCount)
                 .setNullsFraction(nullsFraction)
                 .build();
     }
 
-    private double maxDistinctValuesByLowHigh(SymbolStatsEstimate symbolStats, Type type)
+    private double maxDistinctValuesByLowHigh(VariableStatsEstimate variableStats, Type type)
     {
-        if (symbolStats.statisticRange().length() == 0.0) {
+        if (variableStats.statisticRange().length() == 0.0) {
             return 1;
         }
 
@@ -139,7 +137,7 @@ public class StatsNormalizer
             return NaN;
         }
 
-        double length = symbolStats.getHighValue() - symbolStats.getLowValue();
+        double length = variableStats.getHighValue() - variableStats.getLowValue();
         if (isNaN(length)) {
             return NaN;
         }

@@ -14,12 +14,13 @@
 package com.facebook.presto.spi.function;
 
 import com.facebook.presto.spi.CatalogSchemaName;
+import com.facebook.presto.spi.api.Experimental;
 
 /**
- * @apiNote FunctionHandle is a unique handle to identify the function implementation from namespaces.
- *          However, currently it is still under changes, so please don't assume it is backward compatible.
+ * FunctionHandle is a unique handle to identify the function implementation from namespaces.
+ * However, currently it is still under changes, so please don't assume it is backward compatible.
  */
-
+@Experimental
 public interface FunctionHandle
 {
     CatalogSchemaName getCatalogSchemaName();

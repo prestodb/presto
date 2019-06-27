@@ -17,10 +17,10 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 
@@ -57,11 +57,11 @@ public class PruneCountAggregationOverScalar
     @Override
     public Result apply(AggregationNode parent, Captures captures, Context context)
     {
-        if (!parent.hasDefaultOutput() || parent.getOutputSymbols().size() != 1) {
+        if (!parent.hasDefaultOutput() || parent.getOutputVariables().size() != 1) {
             return Result.empty();
         }
-        Map<Symbol, AggregationNode.Aggregation> assignments = parent.getAggregations();
-        for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
+        Map<VariableReferenceExpression, AggregationNode.Aggregation> assignments = parent.getAggregations();
+        for (Map.Entry<VariableReferenceExpression, AggregationNode.Aggregation> entry : assignments.entrySet()) {
             AggregationNode.Aggregation aggregation = entry.getValue();
             requireNonNull(aggregation, "aggregation is null");
             if (!functionResolution.isCountFunction(aggregation.getFunctionHandle()) || !aggregation.getArguments().isEmpty()) {
@@ -71,7 +71,7 @@ public class PruneCountAggregationOverScalar
         if (!assignments.isEmpty() && isScalar(parent.getSource(), context.getLookup())) {
             return Result.ofPlanNode(new ValuesNode(
                     parent.getId(),
-                    parent.getOutputSymbols(),
+                    parent.getOutputVariables(),
                     ImmutableList.of(ImmutableList.of(constant(1L, BIGINT)))));
         }
         return Result.empty();

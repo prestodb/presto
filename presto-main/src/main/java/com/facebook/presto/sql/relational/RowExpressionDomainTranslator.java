@@ -69,8 +69,8 @@ import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
-import static com.facebook.presto.spi.relation.LogicalRowExpressions.FALSE;
-import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.FALSE_CONSTANT;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.spi.relation.LogicalRowExpressions.and;
 import static com.facebook.presto.spi.relation.LogicalRowExpressions.or;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
@@ -112,7 +112,7 @@ public final class RowExpressionDomainTranslator
     public RowExpression toPredicate(TupleDomain<VariableReferenceExpression> tupleDomain)
     {
         if (tupleDomain.isNone()) {
-            return FALSE;
+            return FALSE_CONSTANT;
         }
 
         Map<VariableReferenceExpression, Domain> domains = tupleDomain.getDomains().get();
@@ -131,11 +131,11 @@ public final class RowExpressionDomainTranslator
     private RowExpression toPredicate(Domain domain, VariableReferenceExpression reference)
     {
         if (domain.getValues().isNone()) {
-            return domain.isNullAllowed() ? isNull(reference) : FALSE;
+            return domain.isNullAllowed() ? isNull(reference) : FALSE_CONSTANT;
         }
 
         if (domain.getValues().isAll()) {
-            return domain.isNullAllowed() ? TRUE : not(functionResolution, isNull(reference));
+            return domain.isNullAllowed() ? TRUE_CONSTANT : not(functionResolution, isNull(reference));
         }
 
         List<RowExpression> disjuncts = new ArrayList<>();
@@ -152,13 +152,13 @@ public final class RowExpressionDomainTranslator
             disjuncts.add(isNull(reference));
         }
 
-        return logicalRowExpressions.combineDisjunctsWithDefault(disjuncts, TRUE);
+        return logicalRowExpressions.combineDisjunctsWithDefault(disjuncts, TRUE_CONSTANT);
     }
 
     private RowExpression processRange(Type type, Range range, VariableReferenceExpression reference)
     {
         if (range.isAll()) {
-            return TRUE;
+            return TRUE_CONSTANT;
         }
 
         if (isBetween(range)) {
@@ -353,7 +353,7 @@ public final class RowExpressionDomainTranslator
                     }
 
                     Domain domain = complementIfNecessary(Domain.onlyNull(value.getType()), complement);
-                    return new ExtractionResult<>(TupleDomain.withColumnDomains(ImmutableMap.of(column.get(), domain)), TRUE);
+                    return new ExtractionResult<>(TupleDomain.withColumnDomains(ImmutableMap.of(column.get(), domain)), TRUE_CONSTANT);
                 }
                 default:
                     return visitRowExpression(node, complement);
@@ -364,11 +364,11 @@ public final class RowExpressionDomainTranslator
         public ExtractionResult<T> visitConstant(ConstantExpression node, Boolean complement)
         {
             if (node.getValue() == null) {
-                return new ExtractionResult<>(TupleDomain.none(), TRUE);
+                return new ExtractionResult<>(TupleDomain.none(), TRUE_CONSTANT);
             }
             if (node.getType() == BOOLEAN) {
                 boolean value = complement != (boolean) node.getValue();
-                return new ExtractionResult<>(value ? TupleDomain.all() : TupleDomain.none(), TRUE);
+                return new ExtractionResult<>(value ? TupleDomain.all() : TupleDomain.none(), TRUE_CONSTANT);
             }
             throw new IllegalStateException("Can not extract predicate from constant type: " + node.getType());
         }
@@ -536,7 +536,7 @@ public final class RowExpressionDomainTranslator
                     if (coercedValueIsEqualToOriginal) {
                         return binaryOperator(comparisonOperator, expression, coercedLiteral);
                     }
-                    return TRUE;
+                    return TRUE_CONSTANT;
                 }
             }
 
@@ -678,13 +678,13 @@ public final class RowExpressionDomainTranslator
                     case LESS_THAN:
                     case LESS_THAN_OR_EQUAL:
                     case NOT_EQUAL:
-                        return new ExtractionResult<>(TupleDomain.none(), TRUE);
+                        return new ExtractionResult<>(TupleDomain.none(), TRUE_CONSTANT);
 
                     case IS_DISTINCT_FROM:
                         Domain domain = complementIfNecessary(Domain.notNull(type), complement);
                         return new ExtractionResult<>(
                                 TupleDomain.withColumnDomains(ImmutableMap.of(column, domain)),
-                                TRUE);
+                                TRUE_CONSTANT);
 
                     default:
                         throw new AssertionError("Unhandled operator: " + comparisonOperator);
@@ -702,7 +702,7 @@ public final class RowExpressionDomainTranslator
                 throw new AssertionError("Type cannot be used in a comparison expression (should have been caught in analysis): " + type);
             }
 
-            return new ExtractionResult<>(TupleDomain.withColumnDomains(ImmutableMap.of(column, domain)), TRUE);
+            return new ExtractionResult<>(TupleDomain.withColumnDomains(ImmutableMap.of(column, domain)), TRUE_CONSTANT);
         }
 
         private static OperatorType flip(OperatorType operatorType)

@@ -21,6 +21,7 @@ import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.RemoteSplit;
@@ -33,6 +34,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -57,13 +59,21 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.SystemSessionProperties.getMaxFailedTaskPercentage;
 import static com.facebook.presto.failureDetector.FailureDetector.State.GONE;
 import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_RECOVERY_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
+import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
+import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static java.lang.String.format;
@@ -72,12 +82,21 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 public final class SqlStageExecution
 {
+    private static final Logger log = Logger.get(SqlStageExecution.class);
+    private static final Set<ErrorCode> RECOVERABLE_ERROR_CODES = ImmutableSet.of(
+            TOO_MANY_REQUESTS_FAILED.toErrorCode(),
+            PAGE_TRANSPORT_ERROR.toErrorCode(),
+            PAGE_TRANSPORT_TIMEOUT.toErrorCode(),
+            REMOTE_TASK_MISMATCH.toErrorCode(),
+            REMOTE_TASK_ERROR.toErrorCode());
+
     private final StageStateMachine stateMachine;
     private final RemoteTaskFactory remoteTaskFactory;
     private final NodeTaskMap nodeTaskMap;
     private final boolean summarizeTaskInfo;
     private final Executor executor;
     private final FailureDetector failureDetector;
+    private final double maxFailedTaskPercentage;
 
     private final Map<PlanFragmentId, RemoteSourceNode> exchangeSources;
 
@@ -89,6 +108,8 @@ public final class SqlStageExecution
     private final Set<TaskId> allTasks = newConcurrentHashSet();
     @GuardedBy("this")
     private final Set<TaskId> finishedTasks = newConcurrentHashSet();
+    @GuardedBy("this")
+    private final Set<TaskId> failedTasks = newConcurrentHashSet();
     @GuardedBy("this")
     private final Set<TaskId> tasksWithFinalInfo = newConcurrentHashSet();
 
@@ -108,6 +129,9 @@ public final class SqlStageExecution
     private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>();
 
     private final ListenerManager<Set<Lifespan>> completedLifespansChangeListeners = new ListenerManager<>();
+
+    @GuardedBy("this")
+    private Optional<StageTaskRecoveryCallback> stageTaskRecoveryCallback = Optional.empty();
 
     public static SqlStageExecution createSqlStageExecution(
             StageId stageId,
@@ -137,12 +161,20 @@ public final class SqlStageExecution
                 nodeTaskMap,
                 summarizeTaskInfo,
                 executor,
-                failureDetector);
+                failureDetector,
+                getMaxFailedTaskPercentage(session));
         sqlStageExecution.initialize();
         return sqlStageExecution;
     }
 
-    private SqlStageExecution(StageStateMachine stateMachine, RemoteTaskFactory remoteTaskFactory, NodeTaskMap nodeTaskMap, boolean summarizeTaskInfo, Executor executor, FailureDetector failureDetector)
+    private SqlStageExecution(
+            StageStateMachine stateMachine,
+            RemoteTaskFactory remoteTaskFactory,
+            NodeTaskMap nodeTaskMap,
+            boolean summarizeTaskInfo,
+            Executor executor,
+            FailureDetector failureDetector,
+            double maxFailedTaskPercentage)
     {
         this.stateMachine = stateMachine;
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
@@ -150,6 +182,7 @@ public final class SqlStageExecution
         this.summarizeTaskInfo = summarizeTaskInfo;
         this.executor = requireNonNull(executor, "executor is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
+        this.maxFailedTaskPercentage = maxFailedTaskPercentage;
 
         ImmutableMap.Builder<PlanFragmentId, RemoteSourceNode> fragmentToExchangeSource = ImmutableMap.builder();
         for (RemoteSourceNode remoteSourceNode : stateMachine.getFragment().getRemoteSourceNodes()) {
@@ -203,6 +236,12 @@ public final class SqlStageExecution
         completedLifespansChangeListeners.addListener(newlyCompletedDriverGroupConsumer);
     }
 
+    public synchronized void registerStageTaskRecoveryCallback(StageTaskRecoveryCallback stageTaskRecoveryCallback)
+    {
+        checkState(!this.stageTaskRecoveryCallback.isPresent(), "stageTaskRecoveryCallback should be registered only once");
+        this.stageTaskRecoveryCallback = Optional.of(requireNonNull(stageTaskRecoveryCallback, "stageTaskRecoveryCallback is null"));
+    }
+
     public PlanFragment getFragment()
     {
         return stateMachine.getFragment();
@@ -232,7 +271,7 @@ public final class SqlStageExecution
         if (getAllTasks().stream().anyMatch(task -> getState() == StageState.RUNNING)) {
             stateMachine.transitionToRunning();
         }
-        if (finishedTasks.containsAll(allTasks)) {
+        if (finishedTasks.size() == allTasks.size()) {
             stateMachine.transitionToFinished();
         }
 
@@ -366,6 +405,17 @@ public final class SqlStageExecution
                 .collect(toImmutableList());
     }
 
+    // We only support removeRemoteSource for single task stage because stages with many tasks introduce coordinator to worker HTTP requests in bursty manner.
+    // See https://github.com/prestodb/presto/pull/11065 for a similar issue.
+    public void removeRemoteSourceIfSingleTaskStage(TaskId remoteSourceTaskId)
+    {
+        List<RemoteTask> allTasks = getAllTasks();
+        if (allTasks.size() > 1) {
+            return;
+        }
+        getOnlyElement(allTasks).removeRemoteSource(remoteSourceTaskId);
+    }
+
     public synchronized Optional<RemoteTask> scheduleTask(InternalNode node, int partition, OptionalInt totalPartitions)
     {
         requireNonNull(node, "node is null");
@@ -495,7 +545,23 @@ public final class SqlStageExecution
                         .map(this::rewriteTransportFailure)
                         .map(ExecutionFailureInfo::toException)
                         .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
-                stateMachine.transitionToFailed(failure);
+                if (isRecoverable(taskStatus.getFailures())) {
+                    try {
+                        stageTaskRecoveryCallback.get().recover(taskStatus.getTaskId());
+                        finishedTasks.add(taskStatus.getTaskId());
+                        failedTasks.add(taskStatus.getTaskId());
+                    }
+                    catch (Throwable t) {
+                        // In an ideal world, this exception is not supposed to happen.
+                        // However, it could happen, for example, if connector throws exception.
+                        // We need to handle the exception in order to fail the query properly, otherwise the failed task will hang in RUNNING/SCHEDULING state.
+                        failure.addSuppressed(new PrestoException(GENERIC_RECOVERY_ERROR, format("Encountered error when trying to recover task %s", taskStatus.getTaskId()), t));
+                        stateMachine.transitionToFailed(failure);
+                    }
+                }
+                else {
+                    stateMachine.transitionToFailed(failure);
+                }
             }
             else if (taskState == TaskState.ABORTED) {
                 // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
@@ -509,7 +575,7 @@ public final class SqlStageExecution
                 if (taskState == TaskState.RUNNING) {
                     stateMachine.transitionToRunning();
                 }
-                if (finishedTasks.containsAll(allTasks)) {
+                if (finishedTasks.size() == allTasks.size()) {
                     stateMachine.transitionToFinished();
                 }
             }
@@ -518,6 +584,17 @@ public final class SqlStageExecution
             // after updating state, check if all tasks have final status information
             checkAllTaskFinal();
         }
+    }
+
+    private boolean isRecoverable(List<ExecutionFailureInfo> failures)
+    {
+        for (ExecutionFailureInfo failure : failures) {
+            if (!RECOVERABLE_ERROR_CODES.contains(failure.getErrorCode())) {
+                return false;
+            }
+        }
+        return stageTaskRecoveryCallback.isPresent() &&
+                failedTasks.size() + 1 < allTasks.size() * maxFailedTaskPercentage;
     }
 
     private synchronized void updateFinalTaskInfo(TaskInfo finalTaskInfo)
@@ -614,6 +691,12 @@ public final class SqlStageExecution
             // Making changes to completedDriverGroups will change newlyCompletedDriverGroups.
             completedDriverGroups.addAll(newlyCompletedDriverGroups);
         }
+    }
+
+    @FunctionalInterface
+    public interface StageTaskRecoveryCallback
+    {
+        void recover(TaskId taskId);
     }
 
     private static class ListenerManager<T>

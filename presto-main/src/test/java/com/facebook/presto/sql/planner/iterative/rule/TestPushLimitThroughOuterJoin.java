@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.google.common.collect.ImmutableList;
@@ -34,8 +34,8 @@ public class TestPushLimitThroughOuterJoin
     {
         tester().assertThat(new PushLimitThroughOuterJoin())
                 .on(p -> {
-                    Symbol leftKey = p.symbol("leftKey");
-                    Symbol rightKey = p.symbol("rightKey");
+                    VariableReferenceExpression leftKey = p.variable("leftKey");
+                    VariableReferenceExpression rightKey = p.variable("rightKey");
                     return p.limit(1,
                             p.join(
                                     LEFT,
@@ -57,8 +57,8 @@ public class TestPushLimitThroughOuterJoin
     {
         tester().assertThat(new PushLimitThroughOuterJoin())
                 .on(p -> {
-                    Symbol leftKey = p.symbol("leftKey");
-                    Symbol rightKey = p.symbol("rightKey");
+                    VariableReferenceExpression leftKey = p.variable("leftKey");
+                    VariableReferenceExpression rightKey = p.variable("rightKey");
                     return p.limit(1,
                             p.join(
                                     FULL,
@@ -74,8 +74,8 @@ public class TestPushLimitThroughOuterJoin
     {
         tester().assertThat(new PushLimitThroughOuterJoin())
                 .on(p -> {
-                    Symbol leftKey = p.symbol("leftKey");
-                    Symbol rightKey = p.symbol("rightKey");
+                    VariableReferenceExpression leftKey = p.variable("leftKey");
+                    VariableReferenceExpression rightKey = p.variable("rightKey");
                     return p.limit(1,
                             p.join(
                                     LEFT,

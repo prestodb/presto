@@ -44,7 +44,6 @@ import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStr
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.rescale;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
-import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class DecimalStreamReader
@@ -56,9 +55,6 @@ public class DecimalStreamReader
 
     private int readOffset;
     private int nextBatchSize;
-
-    private boolean[] nullVector = new boolean[0];
-    private long[] scaleVector = new long[0];
 
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
@@ -248,13 +244,11 @@ public class DecimalStreamReader
     public void close()
     {
         systemMemoryContext.close();
-        nullVector = null;
-        scaleVector = null;
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + sizeOf(nullVector) + sizeOf(scaleVector);
+        return INSTANCE_SIZE;
     }
 }

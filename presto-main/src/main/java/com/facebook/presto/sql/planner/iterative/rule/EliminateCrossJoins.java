@@ -16,17 +16,18 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.Session;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.joins.JoinGraph;
 import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -48,6 +49,7 @@ import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToR
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Maps.transformValues;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
@@ -83,7 +85,7 @@ public class EliminateCrossJoins
             return Result.empty();
         }
 
-        PlanNode replacement = buildJoinTree(node.getOutputSymbols(), joinGraph, joinOrder, context.getIdAllocator());
+        PlanNode replacement = buildJoinTree(node.getOutputVariables(), joinGraph, joinOrder, context.getIdAllocator());
         return Result.ofPlanNode(replacement);
     }
 
@@ -147,9 +149,9 @@ public class EliminateCrossJoins
                 .collect(toImmutableList());
     }
 
-    public static PlanNode buildJoinTree(List<Symbol> expectedOutputSymbols, JoinGraph graph, List<Integer> joinOrder, PlanNodeIdAllocator idAllocator)
+    public static PlanNode buildJoinTree(List<VariableReferenceExpression> expectedOutputVariables, JoinGraph graph, List<Integer> joinOrder, PlanNodeIdAllocator idAllocator)
     {
-        requireNonNull(expectedOutputSymbols, "expectedOutputSymbols is null");
+        requireNonNull(expectedOutputVariables, "expectedOutputVariables is null");
         requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(graph, "graph is null");
         joinOrder = ImmutableList.copyOf(requireNonNull(joinOrder, "joinOrder is null"));
@@ -169,8 +171,8 @@ public class EliminateCrossJoins
                 PlanNode targetNode = edge.getTargetNode();
                 if (alreadyJoinedNodes.contains(targetNode.getId())) {
                     criteria.add(new JoinNode.EquiJoinClause(
-                            edge.getTargetSymbol(),
-                            edge.getSourceSymbol()));
+                            edge.getTargetVariable(),
+                            edge.getSourceVariable()));
                 }
             }
 
@@ -180,9 +182,9 @@ public class EliminateCrossJoins
                     result,
                     rightNode,
                     criteria.build(),
-                    ImmutableList.<Symbol>builder()
-                            .addAll(result.getOutputSymbols())
-                            .addAll(rightNode.getOutputSymbols())
+                    ImmutableList.<VariableReferenceExpression>builder()
+                            .addAll(result.getOutputVariables())
+                            .addAll(rightNode.getOutputVariables())
                             .build(),
                     Optional.empty(),
                     Optional.empty(),
@@ -203,11 +205,11 @@ public class EliminateCrossJoins
             result = new ProjectNode(
                     idAllocator.getNextId(),
                     result,
-                    Assignments.copyOf(graph.getAssignments().get()));
+                    Assignments.copyOf(transformValues(graph.getAssignments().get(), OriginalExpressionUtils::castToRowExpression)));
         }
 
         // If needed, introduce a projection to constrain the outputs to what was originally expected
         // Some nodes are sensitive to what's produced (e.g., DistinctLimit node)
-        return restrictOutputs(idAllocator, result, ImmutableSet.copyOf(expectedOutputSymbols)).orElse(result);
+        return restrictOutputs(idAllocator, result, ImmutableSet.copyOf(expectedOutputVariables)).orElse(result);
     }
 }

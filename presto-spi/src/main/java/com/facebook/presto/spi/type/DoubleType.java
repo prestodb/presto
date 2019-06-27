@@ -19,6 +19,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.LongArrayBlockBuilder;
 import com.facebook.presto.spi.block.PageBuilderStatus;
+import com.facebook.presto.spi.block.UncheckedBlock;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Double.doubleToLongBits;
@@ -103,6 +104,12 @@ public final class DoubleType
     public double getDouble(Block block, int position)
     {
         return longBitsToDouble(block.getLong(position));
+    }
+
+    @Override
+    public double getDoubleUnchecked(UncheckedBlock block, int internalPosition)
+    {
+        return longBitsToDouble(block.getLongUnchecked(internalPosition));
     }
 
     @Override

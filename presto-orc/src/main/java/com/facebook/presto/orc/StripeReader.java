@@ -53,6 +53,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.SortedMap;
 
 import static com.facebook.presto.orc.checkpoint.Checkpoints.getDictionaryStreamCheckpoint;
 import static com.facebook.presto.orc.checkpoint.Checkpoints.getStreamCheckpoints;
@@ -126,9 +127,9 @@ public class StripeReader
                         hasRowGroupDictionary = true;
                     }
 
-                    Optional<List<DwrfSequenceEncoding>> additionalSequenceEncodings = columnEncoding.getAdditionalSequenceEncodings();
+                    Optional<SortedMap<Integer, DwrfSequenceEncoding>> additionalSequenceEncodings = columnEncoding.getAdditionalSequenceEncodings();
                     if (additionalSequenceEncodings.isPresent()
-                            && additionalSequenceEncodings.get().stream()
+                            && additionalSequenceEncodings.get().values().stream()
                             .map(DwrfSequenceEncoding::getValueEncoding)
                             .anyMatch(encoding -> encoding.getColumnEncodingKind() == DICTIONARY)) {
                         hasRowGroupDictionary = true;

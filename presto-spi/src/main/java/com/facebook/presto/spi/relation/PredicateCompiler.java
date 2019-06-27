@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.spi.relation;
 
+import com.facebook.presto.spi.api.Experimental;
+
 import java.util.function.Supplier;
 
 /**
- * @apiNote An experimental API to allow Hive connector to implement smart
+ * An experimental API to allow Hive connector to implement smart
  * filtering on the encoded data to avoid materializing data unnecessarily.
  */
+@Experimental
 public interface PredicateCompiler
 {
     /**

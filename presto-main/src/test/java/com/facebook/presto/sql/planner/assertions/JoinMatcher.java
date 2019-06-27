@@ -16,12 +16,12 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.DistributionType;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
@@ -103,10 +103,11 @@ final class JoinMatcher
          * Have to use order-independent comparison; there are no guarantees what order
          * the equi criteria will have after planning and optimizing.
          */
-        Set<JoinNode.EquiJoinClause> actual = ImmutableSet.copyOf(joinNode.getCriteria());
-        Set<JoinNode.EquiJoinClause> expected =
+        Set<List<String>> actual = joinNode.getCriteria().stream().map(criteria -> ImmutableList.of(criteria.getLeft().getName(), criteria.getRight().getName())).collect(toImmutableSet());
+        Set<List<String>> expected =
                 equiCriteria.stream()
                         .map(maker -> maker.getExpectedValue(symbolAliases))
+                        .map(criteria -> ImmutableList.of(criteria.getLeft().getName(), criteria.getRight().getName()))
                         .collect(toImmutableSet());
 
         return new MatchResult(expected.equals(actual));

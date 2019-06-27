@@ -13,16 +13,15 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
@@ -41,6 +40,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.constrainedIndexSource;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
@@ -51,7 +51,7 @@ public class TestPruneIndexSourceColumns
     public void testNotAllOutputsReferenced()
     {
         tester().assertThat(new PruneIndexSourceColumns())
-                .on(p -> buildProjectedIndexSource(p, symbol -> symbol.getName().equals("orderkey")))
+                .on(p -> buildProjectedIndexSource(p, variable -> variable.getName().equals("orderkey")))
                 .matches(
                         strictProject(
                                 ImmutableMap.of("x", expression("orderkey")),
@@ -71,16 +71,16 @@ public class TestPruneIndexSourceColumns
                 .doesNotFire();
     }
 
-    private static PlanNode buildProjectedIndexSource(PlanBuilder p, Predicate<Symbol> projectionFilter)
+    private static PlanNode buildProjectedIndexSource(PlanBuilder p, Predicate<VariableReferenceExpression> projectionFilter)
     {
-        Symbol orderkey = p.symbol("orderkey", INTEGER);
-        Symbol custkey = p.symbol("custkey", INTEGER);
-        Symbol totalprice = p.symbol("totalprice", DOUBLE);
+        VariableReferenceExpression orderkey = p.variable("orderkey", INTEGER);
+        VariableReferenceExpression custkey = p.variable("custkey", INTEGER);
+        VariableReferenceExpression totalprice = p.variable("totalprice", DOUBLE);
         ColumnHandle orderkeyHandle = new TpchColumnHandle(orderkey.getName(), INTEGER);
         ColumnHandle custkeyHandle = new TpchColumnHandle(custkey.getName(), INTEGER);
         ColumnHandle totalpriceHandle = new TpchColumnHandle(totalprice.getName(), DOUBLE);
         return p.project(
-                Assignments.identity(
+                identityAssignmentsAsSymbolReferences(
                         ImmutableList.of(orderkey, custkey, totalprice).stream()
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),

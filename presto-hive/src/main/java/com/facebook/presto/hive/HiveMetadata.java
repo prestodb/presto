@@ -35,6 +35,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorPushdownFilterResult;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
@@ -51,6 +52,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
@@ -59,9 +61,15 @@ import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.DefaultRowExpressionTraversalVisitor;
+import com.facebook.presto.spi.relation.DomainTranslator.ExtractionResult;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.RowExpressionService;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -76,6 +84,7 @@ import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Suppliers;
@@ -102,6 +111,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -207,6 +217,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -249,6 +260,8 @@ public class HiveMetadata
     private final DateTimeZone timeZone;
     private final TypeManager typeManager;
     private final LocationService locationService;
+    private final StandardFunctionResolution functionResolution;
+    private final RowExpressionService rowExpressionService;
     private final TableParameterCodec tableParameterCodec;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final boolean writesToNonManagedTablesEnabled;
@@ -269,6 +282,8 @@ public class HiveMetadata
             boolean createsOfNonManagedTablesEnabled,
             TypeManager typeManager,
             LocationService locationService,
+            StandardFunctionResolution functionResolution,
+            RowExpressionService rowExpressionService,
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             TypeTranslator typeTranslator,
@@ -285,6 +300,8 @@ public class HiveMetadata
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
+        this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
+        this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.tableParameterCodec = requireNonNull(tableParameterCodec, "tableParameterCodec is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
@@ -1704,9 +1721,9 @@ public class HiveMetadata
             return layoutHandle.getPartitions().get();
         }
         else {
-            TupleDomain<ColumnHandle> promisedPredicate = layoutHandle.getPromisedPredicate();
-            Predicate<Map<ColumnHandle, NullableValue>> predicate = convertToPredicate(promisedPredicate);
-            List<ConnectorTableLayoutResult> tableLayoutResults = getTableLayouts(session, tableHandle, new Constraint<>(promisedPredicate, predicate), Optional.empty());
+            TupleDomain<ColumnHandle> partitionColumnPredicate = layoutHandle.getPartitionColumnPredicate();
+            Predicate<Map<ColumnHandle, NullableValue>> predicate = convertToPredicate(partitionColumnPredicate);
+            List<ConnectorTableLayoutResult> tableLayoutResults = getTableLayouts(session, tableHandle, new Constraint<>(partitionColumnPredicate, predicate), Optional.empty());
             return ((HiveTableLayoutHandle) Iterables.getOnlyElement(tableLayoutResults).getTableLayout().getHandle()).getPartitions().get();
         }
     }
@@ -1724,6 +1741,99 @@ public class HiveMetadata
     }
 
     @Override
+    public boolean isPushdownFilterSupported(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        if (((HiveTableHandle) tableHandle).getAnalyzePartitionValues().isPresent()) {
+            return false;
+        }
+
+        return isPushdownFilterEnabled(session, tableHandle);
+    }
+
+    @Override
+    public ConnectorPushdownFilterResult pushdownFilter(ConnectorSession session, ConnectorTableHandle tableHandle, RowExpression filter, Optional<ConnectorTableLayoutHandle> currentLayoutHandle)
+    {
+        if (TRUE_CONSTANT.equals(filter) && currentLayoutHandle.isPresent()) {
+            return new ConnectorPushdownFilterResult(getTableLayout(session, currentLayoutHandle.get()), TRUE_CONSTANT);
+        }
+
+        if (currentLayoutHandle.isPresent()) {
+            throw new UnsupportedOperationException("Partial filter pushdown is not supported");
+        }
+
+        // Split the filter into 3 groups of conjuncts:
+        //  - range filters that apply to entire columns,
+        //  - range filters that apply to subfields,
+        //  - the rest
+        ExtractionResult<Subfield> decomposedFilter = rowExpressionService.getDomainTranslator()
+                .fromPredicate(session, filter, new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(), session));
+
+        Map<String, ColumnHandle> columnHandles = getColumnHandles(session, tableHandle);
+        TupleDomain<ColumnHandle> entireColumnDomain = decomposedFilter.getTupleDomain()
+                .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
+                .transform(columnHandles::get);
+        // TODO Extract deterministic conjuncts that apply to partition columns and specify these as Contraint#predicate
+        HivePartitionResult hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, new Constraint<>(entireColumnDomain), session);
+
+        TupleDomain<Subfield> domainPredicate = withColumnDomains(ImmutableMap.<Subfield, Domain>builder()
+                .putAll(hivePartitionResult.getUnenforcedConstraint()
+                        .transform(HiveMetadata::toSubfield)
+                        .getDomains()
+                        .orElse(ImmutableMap.of()))
+                .putAll(decomposedFilter.getTupleDomain()
+                        .transform(subfield -> !isEntireColumn(subfield) ? subfield : null)
+                        .getDomains()
+                        .orElse(ImmutableMap.of()))
+                .build());
+
+        Set<String> predicateColumnNames = new HashSet<>();
+        domainPredicate.getDomains().get().keySet().stream()
+                .map(Subfield::getRootName)
+                .forEach(predicateColumnNames::add);
+        extractAll(decomposedFilter.getRemainingExpression()).stream()
+                .map(VariableReferenceExpression::getName)
+                .forEach(predicateColumnNames::add);
+
+        Map<String, HiveColumnHandle> predicateColumns = predicateColumnNames.stream()
+                .map(columnHandles::get)
+                .map(HiveColumnHandle.class::cast)
+                .collect(toImmutableMap(HiveColumnHandle::getName, Functions.identity()));
+
+        return new ConnectorPushdownFilterResult(
+                getTableLayout(
+                        session,
+                        new HiveTableLayoutHandle(
+                                ((HiveTableHandle) tableHandle).getSchemaTableName(),
+                                ImmutableList.copyOf(hivePartitionResult.getPartitionColumns()),
+                                getPartitionsAsList(hivePartitionResult),
+                                domainPredicate,
+                                decomposedFilter.getRemainingExpression(),
+                                predicateColumns,
+                                hivePartitionResult.getEnforcedConstraint(),
+                                hivePartitionResult.getBucketHandle(),
+                                hivePartitionResult.getBucketFilter())),
+                TRUE_CONSTANT);
+    }
+
+    private static Set<VariableReferenceExpression> extractAll(RowExpression expression)
+    {
+        ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
+        expression.accept(new VariableReferenceBuilderVisitor(), builder);
+        return builder.build();
+    }
+
+    private static class VariableReferenceBuilderVisitor
+            extends DefaultRowExpressionTraversalVisitor<ImmutableSet.Builder<VariableReferenceExpression>>
+    {
+        @Override
+        public Void visitVariableReference(VariableReferenceExpression variable, ImmutableSet.Builder<VariableReferenceExpression> builder)
+        {
+            builder.add(variable);
+            return null;
+        }
+    }
+
+    @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
@@ -1736,6 +1846,10 @@ public class HiveMetadata
             hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, constraint, session);
         }
 
+        Map<String, HiveColumnHandle> predicateColumns = hivePartitionResult.getEffectivePredicate().getDomains().get().keySet().stream()
+                .map(HiveColumnHandle.class::cast)
+                .collect(toImmutableMap(HiveColumnHandle::getName, Functions.identity()));
+
         return ImmutableList.of(new ConnectorTableLayoutResult(
                 getTableLayout(
                         session,
@@ -1743,11 +1857,35 @@ public class HiveMetadata
                                 handle.getSchemaTableName(),
                                 ImmutableList.copyOf(hivePartitionResult.getPartitionColumns()),
                                 getPartitionsAsList(hivePartitionResult),
-                                hivePartitionResult.getCompactEffectivePredicate(),
+                                hivePartitionResult.getEffectivePredicate().transform(HiveMetadata::toSubfield),
+                                TRUE_CONSTANT,
+                                predicateColumns,
                                 hivePartitionResult.getEnforcedConstraint(),
                                 hivePartitionResult.getBucketHandle(),
                                 hivePartitionResult.getBucketFilter())),
-                hivePartitionResult.getUnenforcedConstraint()));
+                                hivePartitionResult.getUnenforcedConstraint()));
+    }
+
+    private static Subfield toSubfield(ColumnHandle columnHandle)
+    {
+        return new Subfield(((HiveColumnHandle) columnHandle).getName(), ImmutableList.of());
+    }
+
+    private static boolean isEntireColumn(Subfield subfield)
+    {
+        return subfield.getPath().isEmpty();
+    }
+
+    private boolean isPushdownFilterEnabled(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        boolean pushdownFilterEnabled = HiveSessionProperties.isPushdownFilterEnabled(session);
+        if (pushdownFilterEnabled) {
+            HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(getTableMetadata(session, tableHandle).getProperties());
+            if (hiveStorageFormat == HiveStorageFormat.ORC || hiveStorageFormat == HiveStorageFormat.DWRF) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -1886,8 +2024,10 @@ public class HiveMetadata
                 hiveLayoutHandle.getSchemaTableName(),
                 hiveLayoutHandle.getPartitionColumns(),
                 hiveLayoutHandle.getPartitions().get(),
-                hiveLayoutHandle.getCompactEffectivePredicate(),
-                hiveLayoutHandle.getPromisedPredicate(),
+                hiveLayoutHandle.getDomainPredicate(),
+                hiveLayoutHandle.getRemainingPredicate(),
+                hiveLayoutHandle.getPredicateColumns(),
+                hiveLayoutHandle.getPartitionColumnPredicate(),
                 Optional.of(new HiveBucketHandle(bucketHandle.getColumns(), bucketHandle.getTableBucketCount(), hivePartitioningHandle.getBucketCount())),
                 hiveLayoutHandle.getBucketFilter());
     }
@@ -2154,14 +2294,14 @@ public class HiveMetadata
     }
 
     @Override
-    public void commitPartition(ConnectorSession session, ConnectorOutputTableHandle tableHandle, int partitionId, Collection<Slice> fragments)
+    public void commitPartition(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         HiveOutputTableHandle handle = (HiveOutputTableHandle) tableHandle;
         stagingFileCommitter.commitFiles(session, handle.getSchemaName(), handle.getTableName(), getPartitionUpdates(fragments));
     }
 
     @Override
-    public void commitPartition(ConnectorSession session, ConnectorInsertTableHandle tableHandle, int partitionId, Collection<Slice> fragments)
+    public void commitPartition(ConnectorSession session, ConnectorInsertTableHandle tableHandle, Collection<Slice> fragments)
     {
         HiveInsertTableHandle handle = (HiveInsertTableHandle) tableHandle;
         stagingFileCommitter.commitFiles(session, handle.getSchemaName(), handle.getTableName(), getPartitionUpdates(fragments));

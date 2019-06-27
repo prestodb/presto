@@ -16,12 +16,14 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -112,42 +114,43 @@ public class MultipleDistinctAggregationToMarkDistinct
         }
 
         // the distinct marker for the given set of input columns
-        Map<Set<Symbol>, Symbol> markers = new HashMap<>();
+        Map<Set<VariableReferenceExpression>, VariableReferenceExpression> markers = new HashMap<>();
 
-        Map<Symbol, Aggregation> newAggregations = new HashMap<>();
+        Map<VariableReferenceExpression, Aggregation> newAggregations = new HashMap<>();
         PlanNode subPlan = parent.getSource();
 
-        for (Map.Entry<Symbol, Aggregation> entry : parent.getAggregations().entrySet()) {
+        for (Map.Entry<VariableReferenceExpression, Aggregation> entry : parent.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
 
             if (aggregation.isDistinct() && !aggregation.getFilter().isPresent() && !aggregation.getMask().isPresent()) {
-                Set<Symbol> inputs = aggregation.getArguments().stream()
+                Set<VariableReferenceExpression> inputs = aggregation.getArguments().stream()
+                        .map(OriginalExpressionUtils::castToExpression)
                         .map(Symbol::from)
+                        .map(context.getSymbolAllocator()::toVariableReference)
                         .collect(toSet());
 
-                Symbol marker = markers.get(inputs);
+                VariableReferenceExpression marker = markers.get(inputs);
                 if (marker == null) {
-                    marker = context.getSymbolAllocator().newSymbol(Iterables.getLast(inputs).getName(), BOOLEAN, "distinct");
+                    marker = context.getSymbolAllocator().newVariable(Iterables.getLast(inputs).getName(), BOOLEAN, "distinct");
                     markers.put(inputs, marker);
 
-                    ImmutableSet.Builder<Symbol> distinctSymbols = ImmutableSet.<Symbol>builder()
+                    ImmutableSet.Builder<VariableReferenceExpression> distinctVariables = ImmutableSet.<VariableReferenceExpression>builder()
                             .addAll(parent.getGroupingKeys())
                             .addAll(inputs);
-                    parent.getGroupIdSymbol().ifPresent(distinctSymbols::add);
+                    parent.getGroupIdVariable().ifPresent(distinctVariables::add);
 
                     subPlan = new MarkDistinctNode(
                             context.getIdAllocator().getNextId(),
                             subPlan,
                             marker,
-                            ImmutableList.copyOf(distinctSymbols.build()),
+                            ImmutableList.copyOf(distinctVariables.build()),
                             Optional.empty());
                 }
 
                 // remove the distinct flag and set the distinct marker
                 newAggregations.put(entry.getKey(),
                         new Aggregation(
-                                aggregation.getFunctionHandle(),
-                                aggregation.getArguments(),
+                                aggregation.getCall(),
                                 aggregation.getFilter(),
                                 aggregation.getOrderBy(),
                                 false,
@@ -166,7 +169,7 @@ public class MultipleDistinctAggregationToMarkDistinct
                         parent.getGroupingSets(),
                         ImmutableList.of(),
                         parent.getStep(),
-                        parent.getHashSymbol(),
-                        parent.getGroupIdSymbol()));
+                        parent.getHashVariable(),
+                        parent.getGroupIdVariable()));
     }
 }

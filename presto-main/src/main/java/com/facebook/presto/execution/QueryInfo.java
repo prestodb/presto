@@ -80,6 +80,8 @@ public class QueryInfo
     private final boolean completeInfo;
     private final Optional<ResourceGroupId> resourceGroupId;
     private final Optional<QueryType> queryType;
+    // failedTasks is only available for final query info because the construction is expensive.
+    private final Optional<List<TaskId>> failedTasks;
 
     @JsonCreator
     public QueryInfo(
@@ -111,7 +113,8 @@ public class QueryInfo
             @JsonProperty("output") Optional<Output> output,
             @JsonProperty("completeInfo") boolean completeInfo,
             @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId,
-            @JsonProperty("queryType") Optional<QueryType> queryType)
+            @JsonProperty("queryType") Optional<QueryType> queryType,
+            @JsonProperty("failedTasks") Optional<List<TaskId>> failedTasks)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -134,6 +137,7 @@ public class QueryInfo
         requireNonNull(resourceGroupId, "resourceGroupId is null");
         requireNonNull(warnings, "warnings is null");
         requireNonNull(queryType, "queryType is null");
+        requireNonNull(failedTasks, "failedTasks is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -165,6 +169,7 @@ public class QueryInfo
         this.completeInfo = completeInfo;
         this.resourceGroupId = resourceGroupId;
         this.queryType = queryType;
+        this.failedTasks = failedTasks;
     }
 
     public static QueryInfo immediateFailureQueryInfo(
@@ -205,7 +210,8 @@ public class QueryInfo
                 Optional.empty(),
                 true,
                 resourceGroupId,
-                queryType);
+                queryType,
+                Optional.empty());
 
         return queryInfo;
     }
@@ -392,6 +398,12 @@ public class QueryInfo
     public Optional<QueryType> getQueryType()
     {
         return queryType;
+    }
+
+    @JsonProperty
+    public Optional<List<TaskId>> getFailedTasks()
+    {
+        return failedTasks;
     }
 
     @Override

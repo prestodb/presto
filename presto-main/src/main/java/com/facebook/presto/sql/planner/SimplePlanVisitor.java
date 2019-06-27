@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 
 public class SimplePlanVisitor<C>
         extends InternalPlanVisitor<Void, C>
 {
     @Override
-    protected Void visitPlan(PlanNode node, C context)
+    public Void visitPlan(PlanNode node, C context)
     {
         for (PlanNode source : node.getSources()) {
             source.accept(this, context);

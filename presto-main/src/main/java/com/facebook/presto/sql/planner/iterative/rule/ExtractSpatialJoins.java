@@ -24,14 +24,17 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -40,14 +43,11 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.split.SplitSource.SplitBatch;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.Rule.Context;
 import com.facebook.presto.sql.planner.iterative.Rule.Result;
 import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
@@ -87,7 +87,8 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;
-import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUnique;
+import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUniqueVariable;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAsSymbolReference;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
@@ -219,7 +220,7 @@ public class ExtractSpatialJoins
             Expression filter = OriginalExpressionUtils.castToExpression(node.getPredicate());
             List<FunctionCall> spatialFunctions = extractSupportedSpatialFunctions(filter);
             for (FunctionCall spatialFunction : spatialFunctions) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputSymbols(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager, sqlParser);
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputVariables(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager, sqlParser);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -227,7 +228,7 @@ public class ExtractSpatialJoins
 
             List<ComparisonExpression> spatialComparisons = extractSupportedSpatialComparisons(filter);
             for (ComparisonExpression spatialComparison : spatialComparisons) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputSymbols(), spatialComparison, metadata, splitManager, pageSourceManager, sqlParser);
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputVariables(), spatialComparison, metadata, splitManager, pageSourceManager, sqlParser);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -274,7 +275,7 @@ public class ExtractSpatialJoins
             Expression filter = OriginalExpressionUtils.castToExpression(joinNode.getFilter().get());
             List<FunctionCall> spatialFunctions = extractSupportedSpatialFunctions(filter);
             for (FunctionCall spatialFunction : spatialFunctions) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputSymbols(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager, sqlParser);
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputVariables(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager, sqlParser);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -282,7 +283,7 @@ public class ExtractSpatialJoins
 
             List<ComparisonExpression> spatialComparisons = extractSupportedSpatialComparisons(filter);
             for (ComparisonExpression spatialComparison : spatialComparisons) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputSymbols(), spatialComparison, metadata, splitManager, pageSourceManager, sqlParser);
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputVariables(), spatialComparison, metadata, splitManager, pageSourceManager, sqlParser);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -297,7 +298,7 @@ public class ExtractSpatialJoins
             JoinNode joinNode,
             Expression filter,
             PlanNodeId nodeId,
-            List<Symbol> outputSymbols,
+            List<VariableReferenceExpression> outputVariables,
             ComparisonExpression spatialComparison,
             Metadata metadata,
             SplitManager splitManager,
@@ -307,19 +308,19 @@ public class ExtractSpatialJoins
         PlanNode leftNode = joinNode.getLeft();
         PlanNode rightNode = joinNode.getRight();
 
-        List<Symbol> leftSymbols = leftNode.getOutputSymbols();
-        List<Symbol> rightSymbols = rightNode.getOutputSymbols();
+        List<VariableReferenceExpression> leftVariables = leftNode.getOutputVariables();
+        List<VariableReferenceExpression> rightVariables = rightNode.getOutputVariables();
 
         Expression radius;
-        Optional<Symbol> newRadiusSymbol;
+        Optional<VariableReferenceExpression> newRadiusVariable;
         ComparisonExpression newComparison;
         if (spatialComparison.getOperator() == LESS_THAN || spatialComparison.getOperator() == LESS_THAN_OR_EQUAL) {
             // ST_Distance(a, b) <= r
             radius = spatialComparison.getRight();
-            Set<Symbol> radiusSymbols = extractUnique(radius);
-            if (radiusSymbols.isEmpty() || (rightSymbols.containsAll(radiusSymbols) && containsNone(leftSymbols, radiusSymbols))) {
-                newRadiusSymbol = newRadiusSymbol(context, radius);
-                newComparison = new ComparisonExpression(spatialComparison.getOperator(), spatialComparison.getLeft(), toExpression(newRadiusSymbol, radius));
+            Set<VariableReferenceExpression> radiusVariables = extractUniqueVariable(radius, context.getSymbolAllocator().getTypes());
+            if (radiusVariables.isEmpty() || (rightVariables.containsAll(radiusVariables) && containsNone(leftVariables, radiusVariables))) {
+                newRadiusVariable = newRadiusVariable(context, radius);
+                newComparison = new ComparisonExpression(spatialComparison.getOperator(), spatialComparison.getLeft(), toExpression(newRadiusVariable, radius));
             }
             else {
                 return Result.empty();
@@ -328,10 +329,10 @@ public class ExtractSpatialJoins
         else {
             // r >= ST_Distance(a, b)
             radius = spatialComparison.getLeft();
-            Set<Symbol> radiusSymbols = extractUnique(radius);
-            if (radiusSymbols.isEmpty() || (rightSymbols.containsAll(radiusSymbols) && containsNone(leftSymbols, radiusSymbols))) {
-                newRadiusSymbol = newRadiusSymbol(context, radius);
-                newComparison = new ComparisonExpression(spatialComparison.getOperator().flip(), spatialComparison.getRight(), toExpression(newRadiusSymbol, radius));
+            Set<VariableReferenceExpression> radiusVariables = extractUniqueVariable(radius, context.getSymbolAllocator().getTypes());
+            if (radiusVariables.isEmpty() || (rightVariables.containsAll(radiusVariables) && containsNone(leftVariables, radiusVariables))) {
+                newRadiusVariable = newRadiusVariable(context, radius);
+                newComparison = new ComparisonExpression(spatialComparison.getOperator().flip(), spatialComparison.getRight(), toExpression(newRadiusVariable, radius));
             }
             else {
                 return Result.empty();
@@ -339,7 +340,7 @@ public class ExtractSpatialJoins
         }
 
         Expression newFilter = replaceExpression(filter, ImmutableMap.of(spatialComparison, newComparison));
-        PlanNode newRightNode = newRadiusSymbol.map(symbol -> addProjection(context, rightNode, symbol, radius)).orElse(rightNode);
+        PlanNode newRightNode = newRadiusVariable.map(variable -> addProjection(context, rightNode, variable, radius)).orElse(rightNode);
 
         JoinNode newJoinNode = new JoinNode(
                 joinNode.getId(),
@@ -347,13 +348,13 @@ public class ExtractSpatialJoins
                 leftNode,
                 newRightNode,
                 joinNode.getCriteria(),
-                joinNode.getOutputSymbols(),
+                joinNode.getOutputVariables(),
                 Optional.of(castToRowExpression(newFilter)),
-                joinNode.getLeftHashSymbol(),
-                joinNode.getRightHashSymbol(),
+                joinNode.getLeftHashVariable(),
+                joinNode.getRightHashVariable(),
                 joinNode.getDistributionType());
 
-        return tryCreateSpatialJoin(context, newJoinNode, newFilter, nodeId, outputSymbols, (FunctionCall) newComparison.getLeft(), Optional.of(newComparison.getRight()), metadata, splitManager, pageSourceManager, sqlParser);
+        return tryCreateSpatialJoin(context, newJoinNode, newFilter, nodeId, outputVariables, (FunctionCall) newComparison.getLeft(), Optional.of(newComparison.getRight()), metadata, splitManager, pageSourceManager, sqlParser);
     }
 
     private static Result tryCreateSpatialJoin(
@@ -361,7 +362,7 @@ public class ExtractSpatialJoins
             JoinNode joinNode,
             Expression filter,
             PlanNodeId nodeId,
-            List<Symbol> outputSymbols,
+            List<VariableReferenceExpression> outputVariables,
             FunctionCall spatialFunction,
             Optional<Expression> radius,
             Metadata metadata,
@@ -385,15 +386,15 @@ public class ExtractSpatialJoins
             return Result.empty();
         }
 
-        Set<Symbol> firstSymbols = extractUnique(firstArgument);
-        Set<Symbol> secondSymbols = extractUnique(secondArgument);
+        Set<VariableReferenceExpression> firstVariables = extractUniqueVariable(firstArgument, context.getSymbolAllocator().getTypes());
+        Set<VariableReferenceExpression> secondVariables = extractUniqueVariable(secondArgument, context.getSymbolAllocator().getTypes());
 
-        if (firstSymbols.isEmpty() || secondSymbols.isEmpty()) {
+        if (firstVariables.isEmpty() || secondVariables.isEmpty()) {
             return Result.empty();
         }
 
-        Optional<Symbol> newFirstSymbol = newGeometrySymbol(context, firstArgument, metadata);
-        Optional<Symbol> newSecondSymbol = newGeometrySymbol(context, secondArgument, metadata);
+        Optional<VariableReferenceExpression> newFirstVariable = newGeometryVariable(context, firstArgument, metadata);
+        Optional<VariableReferenceExpression> newSecondVariable = newGeometryVariable(context, secondArgument, metadata);
 
         PlanNode leftNode = joinNode.getLeft();
         PlanNode rightNode = joinNode.getRight();
@@ -402,35 +403,35 @@ public class ExtractSpatialJoins
         PlanNode newRightNode;
 
         // Check if the order of arguments of the spatial function matches the order of join sides
-        int alignment = checkAlignment(joinNode, firstSymbols, secondSymbols);
+        int alignment = checkAlignment(joinNode, firstVariables, secondVariables);
         if (alignment > 0) {
-            newLeftNode = newFirstSymbol.map(symbol -> addProjection(context, leftNode, symbol, firstArgument)).orElse(leftNode);
-            newRightNode = newSecondSymbol.map(symbol -> addProjection(context, rightNode, symbol, secondArgument)).orElse(rightNode);
+            newLeftNode = newFirstVariable.map(variable -> addProjection(context, leftNode, variable, firstArgument)).orElse(leftNode);
+            newRightNode = newSecondVariable.map(variable -> addProjection(context, rightNode, variable, secondArgument)).orElse(rightNode);
         }
         else if (alignment < 0) {
-            newLeftNode = newSecondSymbol.map(symbol -> addProjection(context, leftNode, symbol, secondArgument)).orElse(leftNode);
-            newRightNode = newFirstSymbol.map(symbol -> addProjection(context, rightNode, symbol, firstArgument)).orElse(rightNode);
+            newLeftNode = newSecondVariable.map(variable -> addProjection(context, leftNode, variable, secondArgument)).orElse(leftNode);
+            newRightNode = newFirstVariable.map(variable -> addProjection(context, rightNode, variable, firstArgument)).orElse(rightNode);
         }
         else {
             return Result.empty();
         }
 
-        Expression newFirstArgument = toExpression(newFirstSymbol, firstArgument);
-        Expression newSecondArgument = toExpression(newSecondSymbol, secondArgument);
+        Expression newFirstArgument = toExpression(newFirstVariable, firstArgument);
+        Expression newSecondArgument = toExpression(newSecondVariable, secondArgument);
 
-        Optional<Symbol> leftPartitionSymbol = Optional.empty();
-        Optional<Symbol> rightPartitionSymbol = Optional.empty();
+        Optional<VariableReferenceExpression> leftPartitionVariable = Optional.empty();
+        Optional<VariableReferenceExpression> rightPartitionVariable = Optional.empty();
         if (kdbTree.isPresent()) {
-            leftPartitionSymbol = Optional.of(context.getSymbolAllocator().newSymbol("pid", INTEGER));
-            rightPartitionSymbol = Optional.of(context.getSymbolAllocator().newSymbol("pid", INTEGER));
+            leftPartitionVariable = Optional.of(context.getSymbolAllocator().newVariable("pid", INTEGER));
+            rightPartitionVariable = Optional.of(context.getSymbolAllocator().newVariable("pid", INTEGER));
 
             if (alignment > 0) {
-                newLeftNode = addPartitioningNodes(context, newLeftNode, leftPartitionSymbol.get(), kdbTree.get(), newFirstArgument, Optional.empty());
-                newRightNode = addPartitioningNodes(context, newRightNode, rightPartitionSymbol.get(), kdbTree.get(), newSecondArgument, radius);
+                newLeftNode = addPartitioningNodes(context, newLeftNode, leftPartitionVariable.get(), kdbTree.get(), newFirstArgument, Optional.empty());
+                newRightNode = addPartitioningNodes(context, newRightNode, rightPartitionVariable.get(), kdbTree.get(), newSecondArgument, radius);
             }
             else {
-                newLeftNode = addPartitioningNodes(context, newLeftNode, leftPartitionSymbol.get(), kdbTree.get(), newSecondArgument, Optional.empty());
-                newRightNode = addPartitioningNodes(context, newRightNode, rightPartitionSymbol.get(), kdbTree.get(), newFirstArgument, radius);
+                newLeftNode = addPartitioningNodes(context, newLeftNode, leftPartitionVariable.get(), kdbTree.get(), newSecondArgument, Optional.empty());
+                newRightNode = addPartitioningNodes(context, newRightNode, rightPartitionVariable.get(), kdbTree.get(), newFirstArgument, radius);
             }
         }
 
@@ -442,10 +443,10 @@ public class ExtractSpatialJoins
                 SpatialJoinNode.Type.fromJoinNodeType(joinNode.getType()),
                 newLeftNode,
                 newRightNode,
-                outputSymbols,
+                outputVariables,
                 castToRowExpression(newFilter),
-                leftPartitionSymbol,
-                rightPartitionSymbol,
+                leftPartitionVariable,
+                rightPartitionVariable,
                 kdbTree.map(KdbTreeUtils::toJson)));
     }
 
@@ -538,67 +539,67 @@ public class ExtractSpatialJoins
         throw new PrestoException(INVALID_SPATIAL_PARTITIONING, format("Invalid name: %s", name));
     }
 
-    private static int checkAlignment(JoinNode joinNode, Set<Symbol> maybeLeftSymbols, Set<Symbol> maybeRightSymbols)
+    private static int checkAlignment(JoinNode joinNode, Set<VariableReferenceExpression> maybeLeftVariables, Set<VariableReferenceExpression> maybeRightVariables)
     {
-        List<Symbol> leftSymbols = joinNode.getLeft().getOutputSymbols();
-        List<Symbol> rightSymbols = joinNode.getRight().getOutputSymbols();
+        List<VariableReferenceExpression> leftVariables = joinNode.getLeft().getOutputVariables();
+        List<VariableReferenceExpression> rightVariables = joinNode.getRight().getOutputVariables();
 
-        if (leftSymbols.containsAll(maybeLeftSymbols)
-                && containsNone(leftSymbols, maybeRightSymbols)
-                && rightSymbols.containsAll(maybeRightSymbols)
-                && containsNone(rightSymbols, maybeLeftSymbols)) {
+        if (leftVariables.containsAll(maybeLeftVariables)
+                && containsNone(leftVariables, maybeRightVariables)
+                && rightVariables.containsAll(maybeRightVariables)
+                && containsNone(rightVariables, maybeLeftVariables)) {
             return 1;
         }
 
-        if (leftSymbols.containsAll(maybeRightSymbols)
-                && containsNone(leftSymbols, maybeLeftSymbols)
-                && rightSymbols.containsAll(maybeLeftSymbols)
-                && containsNone(rightSymbols, maybeRightSymbols)) {
+        if (leftVariables.containsAll(maybeRightVariables)
+                && containsNone(leftVariables, maybeLeftVariables)
+                && rightVariables.containsAll(maybeLeftVariables)
+                && containsNone(rightVariables, maybeRightVariables)) {
             return -1;
         }
 
         return 0;
     }
 
-    private static Expression toExpression(Optional<Symbol> optionalSymbol, Expression defaultExpression)
+    private static Expression toExpression(Optional<VariableReferenceExpression> optionalVariable, Expression defaultExpression)
     {
-        return optionalSymbol.map(symbol -> (Expression) symbol.toSymbolReference()).orElse(defaultExpression);
+        return optionalVariable.map(variable -> (Expression) new SymbolReference(variable.getName())).orElse(defaultExpression);
     }
 
-    private static Optional<Symbol> newGeometrySymbol(Context context, Expression expression, Metadata metadata)
-    {
-        if (expression instanceof SymbolReference) {
-            return Optional.empty();
-        }
-
-        return Optional.of(context.getSymbolAllocator().newSymbol(expression, metadata.getType(GEOMETRY_TYPE_SIGNATURE)));
-    }
-
-    private static Optional<Symbol> newRadiusSymbol(Context context, Expression expression)
+    private static Optional<VariableReferenceExpression> newGeometryVariable(Context context, Expression expression, Metadata metadata)
     {
         if (expression instanceof SymbolReference) {
             return Optional.empty();
         }
 
-        return Optional.of(context.getSymbolAllocator().newSymbol(expression, DOUBLE));
+        return Optional.of(context.getSymbolAllocator().newVariable(expression, metadata.getType(GEOMETRY_TYPE_SIGNATURE)));
     }
 
-    private static PlanNode addProjection(Context context, PlanNode node, Symbol symbol, Expression expression)
+    private static Optional<VariableReferenceExpression> newRadiusVariable(Context context, Expression expression)
+    {
+        if (expression instanceof SymbolReference) {
+            return Optional.empty();
+        }
+
+        return Optional.of(context.getSymbolAllocator().newVariable(expression, DOUBLE));
+    }
+
+    private static PlanNode addProjection(Context context, PlanNode node, VariableReferenceExpression variable, Expression expression)
     {
         Assignments.Builder projections = Assignments.builder();
-        for (Symbol outputSymbol : node.getOutputSymbols()) {
-            projections.putIdentity(outputSymbol);
+        for (VariableReferenceExpression outputVariable : node.getOutputVariables()) {
+            projections.put(identityAsSymbolReference(outputVariable));
         }
 
-        projections.put(symbol, expression);
+        projections.put(variable, castToRowExpression(expression));
         return new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build());
     }
 
-    private static PlanNode addPartitioningNodes(Context context, PlanNode node, Symbol partitionSymbol, KdbTree kdbTree, Expression geometry, Optional<Expression> radius)
+    private static PlanNode addPartitioningNodes(Context context, PlanNode node, VariableReferenceExpression partitionVariable, KdbTree kdbTree, Expression geometry, Optional<Expression> radius)
     {
         Assignments.Builder projections = Assignments.builder();
-        for (Symbol outputSymbol : node.getOutputSymbols()) {
-            projections.putIdentity(outputSymbol);
+        for (VariableReferenceExpression outputVariable : node.getOutputVariables()) {
+            projections.put(identityAsSymbolReference(outputVariable));
         }
 
         ImmutableList.Builder<Expression> partitioningArguments = ImmutableList.<Expression>builder()
@@ -607,18 +608,18 @@ public class ExtractSpatialJoins
         radius.map(partitioningArguments::add);
 
         FunctionCall partitioningFunction = new FunctionCall(QualifiedName.of("spatial_partitions"), partitioningArguments.build());
-        Symbol partitionsSymbol = context.getSymbolAllocator().newSymbol(partitioningFunction, new ArrayType(INTEGER));
-        projections.put(partitionsSymbol, partitioningFunction);
+        VariableReferenceExpression partitionsVariable = context.getSymbolAllocator().newVariable(partitioningFunction, new ArrayType(INTEGER));
+        projections.put(partitionsVariable, castToRowExpression(partitioningFunction));
 
         return new UnnestNode(
                 context.getIdAllocator().getNextId(),
                 new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build()),
-                node.getOutputSymbols(),
-                ImmutableMap.of(partitionsSymbol, ImmutableList.of(partitionSymbol)),
+                node.getOutputVariables(),
+                ImmutableMap.of(partitionsVariable, ImmutableList.of(partitionVariable)),
                 Optional.empty());
     }
 
-    private static boolean containsNone(Collection<Symbol> values, Collection<Symbol> testValues)
+    private static boolean containsNone(Collection<VariableReferenceExpression> values, Collection<VariableReferenceExpression> testValues)
     {
         return values.stream().noneMatch(ImmutableSet.copyOf(testValues)::contains);
     }

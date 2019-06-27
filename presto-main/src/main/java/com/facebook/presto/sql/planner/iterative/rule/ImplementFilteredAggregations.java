@@ -15,14 +15,16 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -31,6 +33,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.ExpressionUtils.combineDisjunctsWithDefault;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -81,32 +84,32 @@ public class ImplementFilteredAggregations
     public Result apply(AggregationNode aggregation, Captures captures, Context context)
     {
         Assignments.Builder newAssignments = Assignments.builder();
-        ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregations = ImmutableMap.builder();
         ImmutableList.Builder<Expression> maskSymbols = ImmutableList.builder();
         boolean aggregateWithoutFilterPresent = false;
 
-        for (Map.Entry<Symbol, Aggregation> entry : aggregation.getAggregations().entrySet()) {
-            Symbol output = entry.getKey();
+        for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregation.getAggregations().entrySet()) {
+            VariableReferenceExpression output = entry.getKey();
 
             // strip the filters
-            Optional<Symbol> mask = entry.getValue().getMask();
+            Optional<VariableReferenceExpression> mask = entry.getValue().getMask();
 
             if (entry.getValue().getFilter().isPresent()) {
-                Expression filter = entry.getValue().getFilter().get();
-                Symbol symbol = context.getSymbolAllocator().newSymbol(filter, BOOLEAN);
+                // TODO remove cast once assignment can be RowExpression
+                Expression filter = OriginalExpressionUtils.castToExpression(entry.getValue().getFilter().get());
+                VariableReferenceExpression variable = context.getSymbolAllocator().newVariable(filter, BOOLEAN);
                 verify(!mask.isPresent(), "Expected aggregation without mask symbols, see Rule pattern");
-                newAssignments.put(symbol, filter);
-                mask = Optional.of(symbol);
+                newAssignments.put(variable, castToRowExpression(filter));
+                mask = Optional.of(variable);
 
-                maskSymbols.add(symbol.toSymbolReference());
+                maskSymbols.add(new SymbolReference(variable.getName()));
             }
             else {
                 aggregateWithoutFilterPresent = true;
             }
 
             aggregations.put(output, new Aggregation(
-                    entry.getValue().getFunctionHandle(),
-                    entry.getValue().getArguments(),
+                    entry.getValue().getCall(),
                     Optional.empty(),
                     entry.getValue().getOrderBy(),
                     entry.getValue().isDistinct(),
@@ -119,7 +122,7 @@ public class ImplementFilteredAggregations
         }
 
         // identity projection for all existing inputs
-        newAssignments.putIdentities(aggregation.getSource().getOutputSymbols());
+        newAssignments.putAll(identitiesAsSymbolReferences(aggregation.getSource().getOutputVariables()));
 
         return Result.ofPlanNode(
                 new AggregationNode(
@@ -135,7 +138,7 @@ public class ImplementFilteredAggregations
                         aggregation.getGroupingSets(),
                         ImmutableList.of(),
                         aggregation.getStep(),
-                        aggregation.getHashSymbol(),
-                        aggregation.getGroupIdSymbol()));
+                        aggregation.getHashVariable(),
+                        aggregation.getGroupIdVariable()));
     }
 }

@@ -13,11 +13,10 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
@@ -30,6 +29,7 @@ import java.util.Optional;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 
@@ -40,7 +40,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
     public void testDoesNotFire()
     {
         tester().assertThat(new TransformCorrelatedSingleRowSubqueryToProject())
-                .on(p -> p.values(p.symbol("a")))
+                .on(p -> p.values(p.variable("a")))
                 .doesNotFire();
     }
 
@@ -50,17 +50,17 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
         tester().assertThat(new TransformCorrelatedSingleRowSubqueryToProject())
                 .on(p ->
                         p.lateral(
-                                ImmutableList.of(p.symbol("l_nationkey")),
+                                ImmutableList.of(p.variable(p.symbol("l_nationkey"))),
                                 p.tableScan(new TableHandle(
                                                 new ConnectorId("local"),
                                                 new TpchTableHandle("nation", TINY_SCALE_FACTOR),
                                                 TestingTransactionHandle.create(),
                                                 Optional.empty()),
-                                        ImmutableList.of(p.symbol("l_nationkey")),
-                                        ImmutableMap.of(p.symbol("l_nationkey"), new TpchColumnHandle("nationkey",
+                                        ImmutableList.of(p.variable(p.symbol("l_nationkey"))),
+                                        ImmutableMap.of(p.variable(p.symbol("l_nationkey")), new TpchColumnHandle("nationkey",
                                                 BIGINT))),
                                 p.project(
-                                        Assignments.of(p.symbol("l_expr2"), expression("l_nationkey + 1")),
+                                        assignment(p.variable("l_expr2"), expression("l_nationkey + 1")),
                                         p.values(
                                                 ImmutableList.of(),
                                                 ImmutableList.of(ImmutableList.of())))))
@@ -77,9 +77,9 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
         tester().assertThat(new TransformCorrelatedSingleRowSubqueryToProject())
                 .on(p ->
                         p.lateral(
-                                ImmutableList.of(p.symbol("a")),
-                                p.values(p.symbol("a")),
-                                p.values(p.symbol("a"))))
+                                ImmutableList.of(p.variable(p.symbol("a"))),
+                                p.values(p.variable("a")),
+                                p.values(p.variable("a"))))
                 .doesNotFire();
     }
 }

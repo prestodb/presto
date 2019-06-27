@@ -19,10 +19,11 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.TestingColumnHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -63,14 +64,14 @@ public class TestSchedulingOrderVisitor
     public void testSemiJoinOrder()
     {
         PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), METADATA);
-        Symbol sourceJoin = planBuilder.symbol("sourceJoin");
+        VariableReferenceExpression sourceJoin = planBuilder.variable("sourceJoin");
         TableScanNode a = planBuilder.tableScan(ImmutableList.of(sourceJoin), ImmutableMap.of(sourceJoin, new TestingColumnHandle("sourceJoin")));
-        Symbol filteringSource = planBuilder.symbol("filteringSource");
+        VariableReferenceExpression filteringSource = planBuilder.variable("filteringSource");
         TableScanNode b = planBuilder.tableScan(ImmutableList.of(filteringSource), ImmutableMap.of(filteringSource, new TestingColumnHandle("filteringSource")));
         List<PlanNodeId> order = scheduleOrder(planBuilder.semiJoin(
                 sourceJoin,
                 filteringSource,
-                planBuilder.symbol("semiJoinOutput"),
+                planBuilder.variable("semiJoinOutput"),
                 Optional.empty(),
                 Optional.empty(),
                 a,

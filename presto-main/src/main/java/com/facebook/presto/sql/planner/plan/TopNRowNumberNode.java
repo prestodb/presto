@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.WindowNode.Specification;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -28,7 +29,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.concat;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -37,36 +37,36 @@ public final class TopNRowNumberNode
 {
     private final PlanNode source;
     private final Specification specification;
-    private final Symbol rowNumberSymbol;
+    private final VariableReferenceExpression rowNumberVariable;
     private final int maxRowCountPerPartition;
     private final boolean partial;
-    private final Optional<Symbol> hashSymbol;
+    private final Optional<VariableReferenceExpression> hashVariable;
 
     @JsonCreator
     public TopNRowNumberNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("specification") Specification specification,
-            @JsonProperty("rowNumberSymbol") Symbol rowNumberSymbol,
+            @JsonProperty("rowNumberVariable") VariableReferenceExpression rowNumberVariable,
             @JsonProperty("maxRowCountPerPartition") int maxRowCountPerPartition,
             @JsonProperty("partial") boolean partial,
-            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
+            @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable)
     {
         super(id);
 
         requireNonNull(source, "source is null");
         requireNonNull(specification, "specification is null");
         checkArgument(specification.getOrderingScheme().isPresent(), "specification orderingScheme is absent");
-        requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
+        requireNonNull(rowNumberVariable, "rowNumberVariable is null");
         checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
-        requireNonNull(hashSymbol, "hashSymbol is null");
+        requireNonNull(hashVariable, "hashVariable is null");
 
         this.source = source;
         this.specification = specification;
-        this.rowNumberSymbol = rowNumberSymbol;
+        this.rowNumberVariable = rowNumberVariable;
         this.maxRowCountPerPartition = maxRowCountPerPartition;
         this.partial = partial;
-        this.hashSymbol = hashSymbol;
+        this.hashVariable = hashVariable;
     }
 
     @Override
@@ -76,12 +76,14 @@ public final class TopNRowNumberNode
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<VariableReferenceExpression> getOutputVariables()
     {
+        ImmutableList.Builder<VariableReferenceExpression> builder = ImmutableList.<VariableReferenceExpression>builder().addAll(source.getOutputVariables());
+
         if (!partial) {
-            return ImmutableList.copyOf(concat(source.getOutputSymbols(), ImmutableList.of(rowNumberSymbol)));
+            builder.add(rowNumberVariable);
         }
-        return ImmutableList.copyOf(source.getOutputSymbols());
+        return builder.build();
     }
 
     @JsonProperty
@@ -96,7 +98,7 @@ public final class TopNRowNumberNode
         return specification;
     }
 
-    public List<Symbol> getPartitionBy()
+    public List<VariableReferenceExpression> getPartitionBy()
     {
         return specification.getPartitionBy();
     }
@@ -107,9 +109,9 @@ public final class TopNRowNumberNode
     }
 
     @JsonProperty
-    public Symbol getRowNumberSymbol()
+    public VariableReferenceExpression getRowNumberVariable()
     {
-        return rowNumberSymbol;
+        return rowNumberVariable;
     }
 
     @JsonProperty
@@ -125,9 +127,9 @@ public final class TopNRowNumberNode
     }
 
     @JsonProperty
-    public Optional<Symbol> getHashSymbol()
+    public Optional<VariableReferenceExpression> getHashVariable()
     {
-        return hashSymbol;
+        return hashVariable;
     }
 
     @Override
@@ -139,6 +141,6 @@ public final class TopNRowNumberNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TopNRowNumberNode(getId(), Iterables.getOnlyElement(newChildren), specification, rowNumberSymbol, maxRowCountPerPartition, partial, hashSymbol);
+        return new TopNRowNumberNode(getId(), Iterables.getOnlyElement(newChildren), specification, rowNumberVariable, maxRowCountPerPartition, partial, hashVariable);
     }
 }

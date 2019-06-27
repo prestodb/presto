@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.sanity;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties;
@@ -25,7 +26,6 @@ import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.S
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.sanity.PlanSanityChecker.Checker;
 
 import java.util.List;
@@ -81,7 +81,7 @@ public class ValidateAggregationsWithDefaultValues
         }
 
         @Override
-        protected Optional<SeenExchanges> visitPlan(PlanNode node, Void context)
+        public Optional<SeenExchanges> visitPlan(PlanNode node, Void context)
         {
             return aggregatedSeenExchanges(node.getSources());
         }

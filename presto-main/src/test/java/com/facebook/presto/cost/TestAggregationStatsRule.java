@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.cost;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -30,19 +30,19 @@ public class TestAggregationStatsRule
     {
         Consumer<PlanNodeStatsAssertion> outputRowCountAndZStatsAreCalculated = check -> check
                 .outputRowsCount(15)
-                .symbolStats("z", symbolStatsAssertion -> symbolStatsAssertion
+                .variableStats(new VariableReferenceExpression("z", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
                         .lowValue(10)
                         .highValue(15)
                         .distinctValuesCount(4)
                         .nullsFraction(0.2))
-                .symbolStats("y", symbolStatsAssertion -> symbolStatsAssertion
+                .variableStats(new VariableReferenceExpression("y", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
                         .lowValue(0)
                         .highValue(3)
                         .distinctValuesCount(3)
                         .nullsFraction(0));
 
         testAggregation(
-                SymbolStatsEstimate.builder()
+                VariableStatsEstimate.builder()
                         .setLowValue(10)
                         .setHighValue(15)
                         .setDistinctValuesCount(4)
@@ -51,7 +51,7 @@ public class TestAggregationStatsRule
                 .check(outputRowCountAndZStatsAreCalculated);
 
         testAggregation(
-                SymbolStatsEstimate.builder()
+                VariableStatsEstimate.builder()
                         .setLowValue(10)
                         .setHighValue(15)
                         .setDistinctValuesCount(4)
@@ -60,17 +60,17 @@ public class TestAggregationStatsRule
 
         Consumer<PlanNodeStatsAssertion> outputRowsCountAndZStatsAreNotFullyCalculated = check -> check
                 .outputRowsCountUnknown()
-                .symbolStats("z", symbolStatsAssertion -> symbolStatsAssertion
+                .variableStats(new VariableReferenceExpression("z", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
                         .unknownRange()
                         .distinctValuesCountUnknown()
                         .nullsFractionUnknown())
-                .symbolStats("y", symbolStatsAssertion -> symbolStatsAssertion
+                .variableStats(new VariableReferenceExpression("y", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
                         .unknownRange()
                         .nullsFractionUnknown()
                         .distinctValuesCountUnknown());
 
         testAggregation(
-                SymbolStatsEstimate.builder()
+                VariableStatsEstimate.builder()
                         .setLowValue(10)
                         .setHighValue(15)
                         .setNullsFraction(0.1)
@@ -78,55 +78,55 @@ public class TestAggregationStatsRule
                 .check(outputRowsCountAndZStatsAreNotFullyCalculated);
 
         testAggregation(
-                SymbolStatsEstimate.builder()
+                VariableStatsEstimate.builder()
                         .setLowValue(10)
                         .setHighValue(15)
                         .build())
                 .check(outputRowsCountAndZStatsAreNotFullyCalculated);
     }
 
-    private StatsCalculatorAssertion testAggregation(SymbolStatsEstimate zStats)
+    private StatsCalculatorAssertion testAggregation(VariableStatsEstimate zStats)
     {
         return tester().assertStatsFor(pb -> pb
                 .aggregation(ab -> ab
-                        .addAggregation(pb.symbol("sum", BIGINT), expression("sum(x)"), ImmutableList.of(BIGINT))
-                        .addAggregation(pb.symbol("count", BIGINT), expression("count()"), ImmutableList.of())
-                        .addAggregation(pb.symbol("count_on_x", BIGINT), expression("count(x)"), ImmutableList.of(BIGINT))
-                        .singleGroupingSet(pb.symbol("y", BIGINT), pb.symbol("z", BIGINT))
-                        .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT), pb.symbol("z", BIGINT)))))
+                        .addAggregation(pb.variable(pb.symbol("sum", BIGINT)), expression("sum(x)"), ImmutableList.of(BIGINT))
+                        .addAggregation(pb.variable(pb.symbol("count", BIGINT)), expression("count()"), ImmutableList.of())
+                        .addAggregation(pb.variable(pb.symbol("count_on_x", BIGINT)), expression("count(x)"), ImmutableList.of(BIGINT))
+                        .singleGroupingSet(pb.variable("y", BIGINT), pb.variable("z", BIGINT))
+                        .source(pb.values(pb.variable("x", BIGINT), pb.variable("y", BIGINT), pb.variable("z", BIGINT)))))
                 .withSourceStats(PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addSymbolStatistics(new Symbol("x"), SymbolStatsEstimate.builder()
+                        .addVariableStatistics(new VariableReferenceExpression("x", BIGINT), VariableStatsEstimate.builder()
                                 .setLowValue(1)
                                 .setHighValue(10)
                                 .setDistinctValuesCount(5)
                                 .setNullsFraction(0.3)
                                 .build())
-                        .addSymbolStatistics(new Symbol("y"), SymbolStatsEstimate.builder()
+                        .addVariableStatistics(new VariableReferenceExpression("y", BIGINT), VariableStatsEstimate.builder()
                                 .setLowValue(0)
                                 .setHighValue(3)
                                 .setDistinctValuesCount(3)
                                 .setNullsFraction(0)
                                 .build())
-                        .addSymbolStatistics(new Symbol("z"), zStats)
+                        .addVariableStatistics(new VariableReferenceExpression("z", BIGINT), zStats)
                         .build())
                 .check(check -> check
-                        .symbolStats("sum", symbolStatsAssertion -> symbolStatsAssertion
+                        .variableStats(new VariableReferenceExpression("sum", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
                                 .lowValueUnknown()
                                 .highValueUnknown()
                                 .distinctValuesCountUnknown()
                                 .nullsFractionUnknown())
-                        .symbolStats("count", symbolStatsAssertion -> symbolStatsAssertion
+                        .variableStats(new VariableReferenceExpression("count", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
                                 .lowValueUnknown()
                                 .highValueUnknown()
                                 .distinctValuesCountUnknown()
                                 .nullsFractionUnknown())
-                        .symbolStats("count_on_x", symbolStatsAssertion -> symbolStatsAssertion
+                        .variableStats(new VariableReferenceExpression("count_on_x", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
                                 .lowValueUnknown()
                                 .highValueUnknown()
                                 .distinctValuesCountUnknown()
                                 .nullsFractionUnknown())
-                        .symbolStats("x", symbolStatsAssertion -> symbolStatsAssertion
+                        .variableStats(new VariableReferenceExpression("x", BIGINT), symbolStatsAssertion -> symbolStatsAssertion
                                 .lowValueUnknown()
                                 .highValueUnknown()
                                 .distinctValuesCountUnknown()
@@ -138,13 +138,13 @@ public class TestAggregationStatsRule
     {
         tester().assertStatsFor(pb -> pb
                 .aggregation(ab -> ab
-                        .addAggregation(pb.symbol("count_on_x", BIGINT), expression("count(x)"), ImmutableList.of(BIGINT))
-                        .singleGroupingSet(pb.symbol("y", BIGINT), pb.symbol("z", BIGINT))
-                        .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT), pb.symbol("z", BIGINT)))))
+                        .addAggregation(pb.variable(pb.symbol("count_on_x", BIGINT)), expression("count(x)"), ImmutableList.of(BIGINT))
+                        .singleGroupingSet(pb.variable("y", BIGINT), pb.variable("z", BIGINT))
+                        .source(pb.values(pb.variable("x", BIGINT), pb.variable("y", BIGINT), pb.variable("z", BIGINT)))))
                 .withSourceStats(PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addSymbolStatistics(new Symbol("y"), SymbolStatsEstimate.builder().setDistinctValuesCount(50).build())
-                        .addSymbolStatistics(new Symbol("z"), SymbolStatsEstimate.builder().setDistinctValuesCount(50).build())
+                        .addVariableStatistics(new VariableReferenceExpression("y", BIGINT), VariableStatsEstimate.builder().setDistinctValuesCount(50).build())
+                        .addVariableStatistics(new VariableReferenceExpression("z", BIGINT), VariableStatsEstimate.builder().setDistinctValuesCount(50).build())
                         .build())
                 .check(check -> check.outputRowsCount(100));
     }

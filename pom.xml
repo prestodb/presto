@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.222-SNAPSHOT</version>
+    <version>0.223-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -51,7 +51,7 @@
         <dep.aws-sdk.version>1.11.445</dep.aws-sdk.version>
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
-        <dep.drift.version>1.18</dep.drift.version>
+        <dep.drift.version>1.19</dep.drift.version>
         <dep.joda.version>2.10</dep.joda.version>
         <dep.tempto.version>1.50</dep.tempto.version>
         <dep.testng.version>6.10</dep.testng.version>
@@ -623,37 +623,37 @@
             </dependency>
 
             <dependency>
-                <groupId>io.airlift.drift</groupId>
+                <groupId>com.facebook.drift</groupId>
                 <artifactId>drift-api</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift.drift</groupId>
+                <groupId>com.facebook.drift</groupId>
                 <artifactId>drift-client</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift.drift</groupId>
+                <groupId>com.facebook.drift</groupId>
                 <artifactId>drift-codec</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift.drift</groupId>
+                <groupId>com.facebook.drift</groupId>
                 <artifactId>drift-protocol</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift.drift</groupId>
+                <groupId>com.facebook.drift</groupId>
                 <artifactId>drift-server</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift.drift</groupId>
+                <groupId>com.facebook.drift</groupId>
                 <artifactId>drift-transport-netty</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
@@ -1185,7 +1185,7 @@
                 </plugin>
 
                 <plugin>
-                    <groupId>io.airlift.drift</groupId>
+                    <groupId>com.facebook.drift</groupId>
                     <artifactId>drift-maven-plugin</artifactId>
                     <version>${dep.drift.version}</version>
                 </plugin>

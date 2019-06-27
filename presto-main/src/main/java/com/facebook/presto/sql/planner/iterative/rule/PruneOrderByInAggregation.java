@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.google.common.collect.ImmutableMap;
@@ -53,8 +53,8 @@ public class PruneOrderByInAggregation
         }
 
         boolean anyRewritten = false;
-        ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
+        ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregations = ImmutableMap.builder();
+        for (Map.Entry<VariableReferenceExpression, Aggregation> entry : node.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
             if (!aggregation.getOrderBy().isPresent()) {
                 aggregations.put(entry);
@@ -67,8 +67,7 @@ public class PruneOrderByInAggregation
                 anyRewritten = true;
 
                 aggregations.put(entry.getKey(), new Aggregation(
-                        aggregation.getFunctionHandle(),
-                        aggregation.getArguments(),
+                        aggregation.getCall(),
                         aggregation.getFilter(),
                         Optional.empty(),
                         aggregation.isDistinct(),
@@ -84,9 +83,9 @@ public class PruneOrderByInAggregation
                 node.getSource(),
                 aggregations.build(),
                 node.getGroupingSets(),
-                node.getPreGroupedSymbols(),
+                node.getPreGroupedVariables(),
                 node.getStep(),
-                node.getHashSymbol(),
-                node.getGroupIdSymbol()));
+                node.getHashVariable(),
+                node.getGroupIdVariable()));
     }
 }

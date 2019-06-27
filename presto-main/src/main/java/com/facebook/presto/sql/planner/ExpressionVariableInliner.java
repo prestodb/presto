@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -28,28 +29,33 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
-public final class ExpressionSymbolInliner
+/*
+ * TODO Eventually we should only need to inline VariableReferenceExpression to RowExpression. We should remove this once https://github.com/prestodb/presto/issues/12828 is done.
+ */
+public class ExpressionVariableInliner
 {
-    public static Expression inlineSymbols(Map<Symbol, ? extends Expression> mapping, Expression expression)
+    public static Expression inlineVariables(Map<VariableReferenceExpression, ? extends Expression> mapping, Expression expression, TypeProvider types)
     {
-        return inlineSymbols(mapping::get, expression);
+        return inlineVariables(mapping::get, expression, types);
     }
 
-    public static Expression inlineSymbols(Function<Symbol, Expression> mapping, Expression expression)
+    public static Expression inlineVariables(Function<VariableReferenceExpression, Expression> mapping, Expression expression, TypeProvider types)
     {
-        return new ExpressionSymbolInliner(mapping).rewrite(expression);
+        return new ExpressionVariableInliner(mapping, types).rewrite(expression);
     }
 
-    private final Function<Symbol, Expression> mapping;
+    private final Function<VariableReferenceExpression, Expression> mapping;
+    private final TypeProvider types;
 
-    private ExpressionSymbolInliner(Function<Symbol, Expression> mapping)
+    private ExpressionVariableInliner(Function<VariableReferenceExpression, Expression> mapping, TypeProvider types)
     {
         this.mapping = mapping;
+        this.types = types;
     }
 
     private Expression rewrite(Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(), expression);
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionVariableInliner.Visitor(), expression);
     }
 
     private class Visitor
@@ -64,7 +70,7 @@ public final class ExpressionSymbolInliner
                 return node;
             }
 
-            Expression expression = mapping.apply(Symbol.from(node));
+            Expression expression = mapping.apply(new VariableReferenceExpression(node.getName(), types.get(new Symbol(node.getName()))));
             checkState(expression != null, "Cannot resolve symbol %s", node.getName());
             return expression;
         }
@@ -74,7 +80,7 @@ public final class ExpressionSymbolInliner
         {
             for (LambdaArgumentDeclaration argument : node.getArguments()) {
                 String argumentName = argument.getName().getValue();
-                // Symbol names are unique. As a result, a symbol should never be excluded multiple times.
+                // Variable names are unique. As a result, a variable should never be excluded multiple times.
                 checkArgument(!excludedNames.contains(argumentName));
                 excludedNames.add(argumentName);
             }

@@ -15,9 +15,8 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.ApplyNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.google.common.collect.ImmutableSet;
 
@@ -34,18 +33,18 @@ public class StrictAssignedSymbolsMatcher
 {
     private final Collection<? extends RvalueMatcher> getExpected;
 
-    public StrictAssignedSymbolsMatcher(Function<PlanNode, Set<Symbol>> getActual, Collection<? extends RvalueMatcher> getExpected)
+    public StrictAssignedSymbolsMatcher(Function<PlanNode, Set<VariableReferenceExpression>> getActual, Collection<? extends RvalueMatcher> getExpected)
     {
         super(getActual);
         this.getExpected = requireNonNull(getExpected, "getExpected is null");
     }
 
     @Override
-    protected Set<Symbol> getExpectedSymbols(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    protected Set<VariableReferenceExpression> getExpectedVariables(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        ImmutableSet.Builder<Symbol> expected = ImmutableSet.builder();
+        ImmutableSet.Builder<VariableReferenceExpression> expected = ImmutableSet.builder();
         for (RvalueMatcher matcher : getExpected) {
-            Optional<Symbol> assigned = matcher.getAssignedSymbol(node, session, metadata, symbolAliases);
+            Optional<VariableReferenceExpression> assigned = matcher.getAssignedVariable(node, session, metadata, symbolAliases);
             if (!assigned.isPresent()) {
                 return null;
             }
@@ -56,14 +55,9 @@ public class StrictAssignedSymbolsMatcher
         return expected.build();
     }
 
-    public static Function<PlanNode, Set<Symbol>> actualAssignments()
+    public static Function<PlanNode, Set<VariableReferenceExpression>> actualAssignments()
     {
-        return node -> ((ProjectNode) node).getAssignments().getSymbols();
-    }
-
-    public static Function<PlanNode, Set<Symbol>> actualSubqueryAssignments()
-    {
-        return node -> ((ApplyNode) node).getSubqueryAssignments().getSymbols();
+        return node -> ((ProjectNode) node).getAssignments().getVariables();
     }
 
     @Override

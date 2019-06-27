@@ -24,7 +24,9 @@ import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.countUsedPositions;
+import static com.facebook.presto.spi.block.BlockUtil.internalPositionInRange;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Integer.bitCount;
 
 public class Int128ArrayBlock
         implements Block
@@ -121,13 +123,10 @@ public class Int128ArrayBlock
     public long getLong(int position, int offset)
     {
         checkReadablePosition(position);
-        if (offset == 0) {
-            return values[(position + positionOffset) * 2];
+        if (offset != 0 && offset != 8) {
+            throw new IllegalArgumentException("offset must be 0 or 8");
         }
-        if (offset == 8) {
-            return values[((position + positionOffset) * 2) + 1];
-        }
-        throw new IllegalArgumentException("offset must be 0 or 8");
+        return getLongUnchecked(position + positionOffset, offset);
     }
 
     @Override
@@ -140,7 +139,7 @@ public class Int128ArrayBlock
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
-        return valueIsNull != null && valueIsNull[position + positionOffset];
+        return valueIsNull != null && isNullUnchecked(position + positionOffset);
     }
 
     @Override
@@ -230,5 +229,27 @@ public class Int128ArrayBlock
         if (position < 0 || position >= getPositionCount()) {
             throw new IllegalArgumentException("position is not valid");
         }
+    }
+
+    @Override
+    public long getLongUnchecked(int internalPosition, int offset)
+    {
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        assert offset == 0 || offset == 8 : "offset must be 0 or 8";
+        return values[internalPosition * 2 + bitCount(offset)];
+    }
+
+    @Override
+    public int getOffsetBase()
+    {
+        return positionOffset;
+    }
+
+    @Override
+    public boolean isNullUnchecked(int internalPosition)
+    {
+        assert mayHaveNull() : "no nulls present";
+        assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
+        return valueIsNull[internalPosition];
     }
 }

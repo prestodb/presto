@@ -16,15 +16,16 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -38,7 +39,11 @@ import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -87,26 +92,31 @@ public class RewriteSpatialPartitioningAggregation
     @Override
     public Result apply(AggregationNode node, Captures captures, Context context)
     {
-        ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
-        Symbol partitionCountSymbol = context.getSymbolAllocator().newSymbol("partition_count", INTEGER);
-        ImmutableMap.Builder<Symbol, Expression> envelopeAssignments = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
+        ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregations = ImmutableMap.builder();
+        VariableReferenceExpression partitionCountVariable = context.getSymbolAllocator().newVariable("partition_count", INTEGER);
+        ImmutableMap.Builder<VariableReferenceExpression, RowExpression> envelopeAssignments = ImmutableMap.builder();
+        for (Map.Entry<VariableReferenceExpression, Aggregation> entry : node.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
             String name = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName();
             Type geometryType = metadata.getType(GEOMETRY_TYPE_SIGNATURE);
             if (name.equals(NAME) && aggregation.getArguments().size() == 1) {
-                Expression geometry = getOnlyElement(aggregation.getArguments());
-                Symbol envelopeSymbol = context.getSymbolAllocator().newSymbol("envelope", geometryType);
-                if (geometry instanceof FunctionCall && ((FunctionCall) geometry).getName().toString().equalsIgnoreCase("ST_Envelope")) {
-                    envelopeAssignments.put(envelopeSymbol, geometry);
+                RowExpression geometry = getOnlyElement(aggregation.getArguments());
+                VariableReferenceExpression envelopeVariable = context.getSymbolAllocator().newVariable("envelope", geometryType);
+                if (isFunctionNameMatch(geometry, "ST_Envelope")) {
+                    envelopeAssignments.put(envelopeVariable, geometry);
                 }
                 else {
-                    envelopeAssignments.put(envelopeSymbol, new FunctionCall(QualifiedName.of("ST_Envelope"), ImmutableList.of(geometry)));
+                    envelopeAssignments.put(envelopeVariable, castToRowExpression(new FunctionCall(QualifiedName.of("ST_Envelope"), ImmutableList.of(castToExpression(geometry)))));
                 }
                 aggregations.put(entry.getKey(),
                         new Aggregation(
-                                metadata.getFunctionManager().lookupFunction(NAME, fromTypes(geometryType, INTEGER)),
-                                ImmutableList.of(envelopeSymbol.toSymbolReference(), partitionCountSymbol.toSymbolReference()),
+                                new CallExpression(
+                                        name,
+                                        metadata.getFunctionManager().lookupFunction(NAME, fromTypes(geometryType, INTEGER)),
+                                        entry.getKey().getType(),
+                                        ImmutableList.of(
+                                                castToRowExpression(asSymbolReference(envelopeVariable)),
+                                                castToRowExpression(asSymbolReference(partitionCountVariable)))),
                                 Optional.empty(),
                                 Optional.empty(),
                                 false,
@@ -124,15 +134,23 @@ public class RewriteSpatialPartitioningAggregation
                                 context.getIdAllocator().getNextId(),
                                 node.getSource(),
                                 Assignments.builder()
-                                        .putIdentities(node.getSource().getOutputSymbols())
-                                        .put(partitionCountSymbol, new LongLiteral(Integer.toString(getHashPartitionCount(context.getSession()))))
+                                        .putAll(identitiesAsSymbolReferences(node.getSource().getOutputVariables()))
+                                        .put(partitionCountVariable, castToRowExpression(new LongLiteral(Integer.toString(getHashPartitionCount(context.getSession())))))
                                         .putAll(envelopeAssignments.build())
                                         .build()),
                         aggregations.build(),
                         node.getGroupingSets(),
-                        node.getPreGroupedSymbols(),
+                        node.getPreGroupedVariables(),
                         node.getStep(),
-                        node.getHashSymbol(),
-                        node.getGroupIdSymbol()));
+                        node.getHashVariable(),
+                        node.getGroupIdVariable()));
+    }
+
+    private static boolean isFunctionNameMatch(RowExpression rowExpression, String expectedName)
+    {
+        if (castToExpression(rowExpression) instanceof FunctionCall) {
+            return ((FunctionCall) castToExpression(rowExpression)).getName().toString().equalsIgnoreCase(expectedName);
+        }
+        return false;
     }
 }

@@ -29,12 +29,12 @@ public class TestMultipleDistinctAggregationToMarkDistinct
         tester().assertThat(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("output1"), expression("count(input1)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("output2"), expression("count(input2)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.variable(p.symbol("output1")), expression("count(input1)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.variable(p.symbol("output2")), expression("count(input2)"), ImmutableList.of(BIGINT))
                         .source(
                                 p.values(
-                                        p.symbol("input1"),
-                                        p.symbol("input2")))))
+                                        p.variable("input1"),
+                                        p.variable("input2")))))
                 .doesNotFire();
     }
 
@@ -44,11 +44,11 @@ public class TestMultipleDistinctAggregationToMarkDistinct
         tester().assertThat(new MultipleDistinctAggregationToMarkDistinct())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("output1"), expression("count(DISTINCT input1)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.variable(p.symbol("output1")), expression("count(DISTINCT input1)"), ImmutableList.of(BIGINT))
                         .source(
                                 p.values(
-                                        p.symbol("input1"),
-                                        p.symbol("input2")))))
+                                        p.variable("input1"),
+                                        p.variable("input2")))))
                 .doesNotFire();
     }
 
@@ -58,10 +58,10 @@ public class TestMultipleDistinctAggregationToMarkDistinct
         tester().assertThat(new MultipleDistinctAggregationToMarkDistinct())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("output1"), expression("count(DISTINCT input)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("output2"), expression("sum(DISTINCT input)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.variable(p.symbol("output1")), expression("count(DISTINCT input)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.variable(p.symbol("output2")), expression("sum(DISTINCT input)"), ImmutableList.of(BIGINT))
                         .source(
-                                p.values(p.symbol("input")))))
+                                p.values(p.variable("input")))))
                 .doesNotFire();
     }
 
@@ -71,23 +71,23 @@ public class TestMultipleDistinctAggregationToMarkDistinct
         tester().assertThat(new MultipleDistinctAggregationToMarkDistinct())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("output1"), expression("count(DISTINCT input1) filter (where input2 > 0)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("output2"), expression("count(DISTINCT input2) filter (where input1 > 0)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.variable(p.symbol("output1")), expression("count(DISTINCT input1) filter (where input2 > 0)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.variable(p.symbol("output2")), expression("count(DISTINCT input2) filter (where input1 > 0)"), ImmutableList.of(BIGINT))
                         .source(
                                 p.values(
-                                        p.symbol("input1"),
-                                        p.symbol("input2")))))
+                                        p.variable("input1"),
+                                        p.variable("input2")))))
                 .doesNotFire();
 
         tester().assertThat(new MultipleDistinctAggregationToMarkDistinct())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("output1"), expression("count(DISTINCT input1) filter (where input2 > 0)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("output2"), expression("count(DISTINCT input2)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.variable(p.symbol("output1")), expression("count(DISTINCT input1) filter (where input2 > 0)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.variable(p.symbol("output2")), expression("count(DISTINCT input2)"), ImmutableList.of(BIGINT))
                         .source(
                                 p.values(
-                                        p.symbol("input1"),
-                                        p.symbol("input2")))))
+                                        p.variable("input1"),
+                                        p.variable("input2")))))
                 .doesNotFire();
     }
 }

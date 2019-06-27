@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -31,13 +32,13 @@ public class MetadataDeleteNode
         extends InternalPlanNode
 {
     private final DeleteHandle target;
-    private final Symbol output;
+    private final VariableReferenceExpression output;
 
     @JsonCreator
     public MetadataDeleteNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("target") DeleteHandle target,
-            @JsonProperty("output") Symbol output)
+            @JsonProperty("output") VariableReferenceExpression output)
     {
         super(id);
 
@@ -52,13 +53,13 @@ public class MetadataDeleteNode
     }
 
     @JsonProperty
-    public Symbol getOutput()
+    public VariableReferenceExpression getOutput()
     {
         return output;
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<VariableReferenceExpression> getOutputVariables()
     {
         return ImmutableList.of(output);
     }

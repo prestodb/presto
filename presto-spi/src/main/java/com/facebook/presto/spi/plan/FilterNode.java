@@ -11,11 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -27,7 +26,7 @@ import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableList;
 
 @Immutable
-public class FilterNode
+public final class FilterNode
         extends PlanNode
 {
     private final PlanNode source;
@@ -48,7 +47,7 @@ public class FilterNode
      * Get the predicate (a RowExpression of boolean type) of the FilterNode.
      * It serves as the criteria to determine whether the incoming rows should be filtered out or not.
      */
-    @JsonProperty("predicate")
+    @JsonProperty
     public RowExpression getPredicate()
     {
         return predicate;
@@ -64,9 +63,9 @@ public class FilterNode
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<VariableReferenceExpression> getOutputVariables()
     {
-        return source.getOutputSymbols();
+        return source.getOutputVariables();
     }
 
     @Override

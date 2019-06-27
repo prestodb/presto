@@ -30,6 +30,8 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
+import com.facebook.presto.sql.planner.assertions.PlanAssert;
+import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.testing.MaterializedResult;
@@ -336,6 +338,29 @@ public abstract class AbstractTestQueryFramework
                 });
     }
 
+    protected void assertPlan(@Language("SQL") String query, PlanMatchPattern pattern)
+    {
+        assertPlan(queryRunner.getDefaultSession(), query, pattern);
+    }
+
+    protected void assertPlan(Session session, @Language("SQL") String query, PlanMatchPattern pattern)
+    {
+        assertPlan(session, query, pattern, plan -> {});
+    }
+
+    protected void assertPlan(Session session, @Language("SQL") String query, PlanMatchPattern pattern, Consumer<Plan> planValidator)
+    {
+        QueryExplainer explainer = getQueryExplainer();
+        transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+                .singleStatement()
+                .execute(session, transactionSession -> {
+                    Plan actualPlan = explainer.getLogicalPlan(transactionSession, sqlParser.createStatement(query, createParsingOptions(transactionSession)), emptyList(), WarningCollector.NOOP);
+                    PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
+                    planValidator.accept(actualPlan);
+                    return null;
+                });
+    }
+
     private QueryExplainer getQueryExplainer()
     {
         Metadata metadata = queryRunner.getMetadata();
@@ -350,6 +375,7 @@ public abstract class AbstractTestQueryFramework
                 forceSingleNode,
                 new MBeanExporter(new TestingMBeanServer()),
                 queryRunner.getSplitManager(),
+                queryRunner.getPlanOptimizerManager(),
                 queryRunner.getPageSourceManager(),
                 queryRunner.getStatsCalculator(),
                 costCalculator,

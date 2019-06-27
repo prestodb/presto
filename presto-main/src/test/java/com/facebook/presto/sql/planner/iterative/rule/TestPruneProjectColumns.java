@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 
 public class TestPruneProjectColumns
         extends BaseRuleTest
@@ -31,12 +31,12 @@ public class TestPruneProjectColumns
     {
         tester().assertThat(new PruneProjectColumns())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression b = p.variable("b");
                     return p.project(
-                            Assignments.identity(b),
+                            identityAssignmentsAsSymbolReferences(b),
                             p.project(
-                                    Assignments.identity(a, b),
+                                    identityAssignmentsAsSymbolReferences(a, b),
                                     p.values(a, b)));
                 })
                 .matches(
@@ -52,12 +52,12 @@ public class TestPruneProjectColumns
     {
         tester().assertThat(new PruneProjectColumns())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression b = p.variable("b");
                     return p.project(
-                            Assignments.identity(b),
+                            identityAssignmentsAsSymbolReferences(b),
                             p.project(
-                                    Assignments.identity(b),
+                                    identityAssignmentsAsSymbolReferences(b),
                                     p.values(a, b)));
                 })
                 .doesNotFire();

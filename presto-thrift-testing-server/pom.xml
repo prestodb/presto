@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.222-SNAPSHOT</version>
+        <version>0.223-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-thrift-testing-server</artifactId>
@@ -24,12 +24,12 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift.drift</groupId>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-server</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift.drift</groupId>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-transport-netty</artifactId>
         </dependency>
 

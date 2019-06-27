@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;
@@ -33,6 +33,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictTableScan;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 
@@ -46,19 +47,21 @@ public class TestPruneTableScanColumns
                 .on(p ->
                 {
                     Symbol orderdate = p.symbol("orderdate", DATE);
+                    VariableReferenceExpression orderdateVariable = new VariableReferenceExpression(orderdate.getName(), DATE);
                     Symbol totalprice = p.symbol("totalprice", DOUBLE);
+                    VariableReferenceExpression totalpriceVariable = new VariableReferenceExpression(totalprice.getName(), DOUBLE);
                     return p.project(
-                            Assignments.of(p.symbol("x"), totalprice.toSymbolReference()),
+                            assignment(p.variable("x"), totalprice.toSymbolReference()),
                             p.tableScan(
                                     new TableHandle(
                                             new ConnectorId("local"),
                                             new TpchTableHandle("orders", TINY_SCALE_FACTOR),
                                             TestingTransactionHandle.create(),
                                             Optional.empty()),
-                                    ImmutableList.of(orderdate, totalprice),
+                                    ImmutableList.of(orderdateVariable, totalpriceVariable),
                                     ImmutableMap.of(
-                                            orderdate, new TpchColumnHandle(orderdate.getName(), DATE),
-                                            totalprice, new TpchColumnHandle(totalprice.getName(), DOUBLE))));
+                                            orderdateVariable, new TpchColumnHandle(orderdate.getName(), DATE),
+                                            totalpriceVariable, new TpchColumnHandle(totalprice.getName(), DOUBLE))));
                 })
                 .matches(
                         strictProject(
@@ -70,12 +73,15 @@ public class TestPruneTableScanColumns
     public void testAllOutputsReferenced()
     {
         tester().assertThat(new PruneTableScanColumns())
-                .on(p ->
-                        p.project(
-                                Assignments.of(p.symbol("y"), expression("x")),
-                                p.tableScan(
-                                        ImmutableList.of(p.symbol("x")),
-                                        ImmutableMap.of(p.symbol("x"), new TestingColumnHandle("x")))))
+                .on(p -> {
+                    Symbol x = p.symbol("x");
+                    VariableReferenceExpression xv = p.variable(x);
+                    return p.project(
+                            assignment(p.variable("y"), expression("x")),
+                            p.tableScan(
+                                    ImmutableList.of(xv),
+                                    ImmutableMap.of(p.variable(p.symbol("x")), new TestingColumnHandle("x"))));
+                })
                 .doesNotFire();
     }
 }

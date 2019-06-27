@@ -14,7 +14,7 @@
 
 package com.facebook.presto.cost;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -35,34 +35,34 @@ public class TestExchangeStatsRule
 
         tester().assertStatsFor(pb -> pb
                 .exchange(exchangeBuilder -> exchangeBuilder
-                        .addInputsSet(pb.symbol("i11", BIGINT), pb.symbol("i12", BIGINT), pb.symbol("i13", BIGINT), pb.symbol("i14", BIGINT))
-                        .addInputsSet(pb.symbol("i21", BIGINT), pb.symbol("i22", BIGINT), pb.symbol("i23", BIGINT), pb.symbol("i24", BIGINT))
+                        .addInputsSet(pb.variable("i11", BIGINT), pb.variable("i12", BIGINT), pb.variable("i13", BIGINT), pb.variable("i14", BIGINT))
+                        .addInputsSet(pb.variable("i21", BIGINT), pb.variable("i22", BIGINT), pb.variable("i23", BIGINT), pb.variable("i24", BIGINT))
                         .fixedHashDistributionParitioningScheme(
-                                ImmutableList.of(pb.symbol("o1", BIGINT), pb.symbol("o2", BIGINT), pb.symbol("o3", BIGINT), pb.symbol("o4", BIGINT)),
+                                ImmutableList.of(pb.variable("o1", BIGINT), pb.variable("o2", BIGINT), pb.variable("o3", BIGINT), pb.variable("o4", BIGINT)),
                                 emptyList())
-                        .addSource(pb.values(pb.symbol("i11", BIGINT), pb.symbol("i12", BIGINT), pb.symbol("i13", BIGINT), pb.symbol("i14", BIGINT)))
-                        .addSource(pb.values(pb.symbol("i21", BIGINT), pb.symbol("i22", BIGINT), pb.symbol("i23", BIGINT), pb.symbol("i24", BIGINT)))))
+                        .addSource(pb.values(pb.variable("i11", BIGINT), pb.variable("i12", BIGINT), pb.variable("i13", BIGINT), pb.variable("i14", BIGINT)))
+                        .addSource(pb.values(pb.variable("i21", BIGINT), pb.variable("i22", BIGINT), pb.variable("i23", BIGINT), pb.variable("i24", BIGINT)))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
-                        .addSymbolStatistics(new Symbol("i11"), SymbolStatsEstimate.builder()
+                        .addVariableStatistics(new VariableReferenceExpression("i11", BIGINT), VariableStatsEstimate.builder()
                                 .setLowValue(1)
                                 .setHighValue(10)
                                 .setDistinctValuesCount(5)
                                 .setNullsFraction(0.3)
                                 .build())
-                        .addSymbolStatistics(new Symbol("i12"), SymbolStatsEstimate.builder()
+                        .addVariableStatistics(new VariableReferenceExpression("i12", BIGINT), VariableStatsEstimate.builder()
                                 .setLowValue(0)
                                 .setHighValue(3)
                                 .setDistinctValuesCount(4)
                                 .setNullsFraction(0)
                                 .build())
-                        .addSymbolStatistics(new Symbol("i13"), SymbolStatsEstimate.builder()
+                        .addVariableStatistics(new VariableReferenceExpression("i13", BIGINT), VariableStatsEstimate.builder()
                                 .setLowValue(10)
                                 .setHighValue(15)
                                 .setDistinctValuesCount(4)
                                 .setNullsFraction(0.1)
                                 .build())
-                        .addSymbolStatistics(new Symbol("i14"), SymbolStatsEstimate.builder()
+                        .addVariableStatistics(new VariableReferenceExpression("i14", BIGINT), VariableStatsEstimate.builder()
                                 .setLowValue(10)
                                 .setHighValue(15)
                                 .setDistinctValuesCount(4)
@@ -71,21 +71,21 @@ public class TestExchangeStatsRule
                         .build())
                 .withSourceStats(1, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(20)
-                        .addSymbolStatistics(new Symbol("i21"), SymbolStatsEstimate.builder()
+                        .addVariableStatistics(new VariableReferenceExpression("i21", BIGINT), VariableStatsEstimate.builder()
                                 .setLowValue(11)
                                 .setHighValue(20)
                                 .setNullsFraction(0.4)
                                 .build())
-                        .addSymbolStatistics(new Symbol("i22"), SymbolStatsEstimate.builder()
+                        .addVariableStatistics(new VariableReferenceExpression("i22", BIGINT), VariableStatsEstimate.builder()
                                 .setLowValue(2)
                                 .setHighValue(7)
                                 .setDistinctValuesCount(3)
                                 .build())
-                        .addSymbolStatistics(new Symbol("i23"), SymbolStatsEstimate.builder()
+                        .addVariableStatistics(new VariableReferenceExpression("i23", BIGINT), VariableStatsEstimate.builder()
                                 .setDistinctValuesCount(6)
                                 .setNullsFraction(0.2)
                                 .build())
-                        .addSymbolStatistics(new Symbol("i24"), SymbolStatsEstimate.builder()
+                        .addVariableStatistics(new VariableReferenceExpression("i24", BIGINT), VariableStatsEstimate.builder()
                                 .setLowValue(10)
                                 .setHighValue(15)
                                 .setDistinctValuesCount(4)
@@ -94,22 +94,22 @@ public class TestExchangeStatsRule
                         .build())
                 .check(check -> check
                         .outputRowsCount(30)
-                        .symbolStats("o1", assertion -> assertion
+                        .variableStats(new VariableReferenceExpression("o1", BIGINT), assertion -> assertion
                                 .lowValue(1)
                                 .highValue(20)
                                 .distinctValuesCountUnknown()
                                 .nullsFraction(0.3666666))
-                        .symbolStats("o2", assertion -> assertion
+                        .variableStats(new VariableReferenceExpression("o2", BIGINT), assertion -> assertion
                                 .lowValue(0)
                                 .highValue(7)
                                 .distinctValuesCount(4)
                                 .nullsFractionUnknown())
-                        .symbolStats("o3", assertion -> assertion
+                        .variableStats(new VariableReferenceExpression("o3", BIGINT), assertion -> assertion
                                 .lowValueUnknown()
                                 .highValueUnknown()
                                 .distinctValuesCount(6)
                                 .nullsFraction(0.1666667))
-                        .symbolStats("o4", assertion -> assertion
+                        .variableStats(new VariableReferenceExpression("o4", BIGINT), assertion -> assertion
                                 .lowValue(10)
                                 .highValue(15)
                                 .distinctValuesCount(4)

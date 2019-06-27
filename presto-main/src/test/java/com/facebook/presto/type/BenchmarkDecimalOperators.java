@@ -14,13 +14,13 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.RowPagesBuilder;
-import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.DoubleType;
@@ -70,7 +70,6 @@ import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.math.BigInteger.ONE;
 import static java.math.BigInteger.ZERO;
@@ -545,12 +544,11 @@ public class BenchmarkDecimalOperators
     private static class BaseState
     {
         private final MetadataManager metadata = createTestMetadataManager();
-        private final Session session = testSessionBuilder().build();
         private final Random random = new Random();
 
         protected final Map<String, Symbol> symbols = new HashMap<>();
         protected final Map<Symbol, Type> symbolTypes = new HashMap<>();
-        private final Map<Symbol, Integer> sourceLayout = new HashMap<>();
+        private final Map<VariableReferenceExpression, Integer> sourceLayout = new HashMap<>();
         protected final List<Type> types = new LinkedList<>();
 
         protected Page inputPage;
@@ -572,7 +570,7 @@ public class BenchmarkDecimalOperators
             Symbol symbol = new Symbol(name);
             symbols.put(name, symbol);
             symbolTypes.put(symbol, type);
-            sourceLayout.put(symbol, types.size());
+            sourceLayout.put(new VariableReferenceExpression(name, type), types.size());
             types.add(type);
         }
 

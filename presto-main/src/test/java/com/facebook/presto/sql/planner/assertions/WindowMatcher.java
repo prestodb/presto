@@ -18,7 +18,9 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.FunctionCall;
 
@@ -31,6 +33,7 @@ import java.util.Set;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
+import static com.facebook.presto.sql.planner.assertions.SpecificationProvider.matchSpecification;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -76,15 +79,13 @@ public final class WindowMatcher
                 .map(expectedInputs -> expectedInputs.stream()
                         .map(alias -> alias.toSymbol(symbolAliases))
                         .collect(toImmutableSet())
-                        .equals(windowNode.getPrePartitionedInputs()))
+                        .equals(windowNode.getPrePartitionedInputs().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet())))
                 .orElse(true)) {
             return NO_MATCH;
         }
 
         if (!specification
-                .map(expectedSpecification ->
-                        expectedSpecification.getExpectedValue(symbolAliases)
-                                .equals(windowNode.getSpecification()))
+                .map(expectedSpecification -> matchSpecification(windowNode.getSpecification(), expectedSpecification.getExpectedValue(symbolAliases)))
                 .orElse(true)) {
             return NO_MATCH;
         }
@@ -98,7 +99,8 @@ public final class WindowMatcher
         if (!hashSymbol
                 .map(expectedHashSymbol -> expectedHashSymbol
                         .map(alias -> alias.toSymbol(symbolAliases))
-                        .equals(windowNode.getHashSymbol()))
+                        .map(Symbol::getName)
+                        .equals(windowNode.getHashVariable().map(VariableReferenceExpression::getName)))
                 .orElse(true)) {
             return NO_MATCH;
         }
@@ -204,16 +206,7 @@ public final class WindowMatcher
         }
 
         /**
-         * Matches only if WindowNode.getHashSymbol() is an empty option.
-         */
-        public Builder hashSymbol()
-        {
-            this.hashSymbol = Optional.of(Optional.empty());
-            return this;
-        }
-
-        /**
-         * Matches only if WindowNode.getHashSymbol() is a non-empty option containing hashSymbol.
+         * Matches only if WindowNode.getHashVariable() is a non-empty option containing hashVariable.
          */
         public Builder hashSymbol(String hashSymbol)
         {

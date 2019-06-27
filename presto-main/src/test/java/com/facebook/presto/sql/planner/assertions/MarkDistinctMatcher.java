@@ -16,10 +16,12 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Optional;
@@ -42,7 +44,7 @@ public class MarkDistinctMatcher
     {
         this.markerSymbol = requireNonNull(markerSymbol, "markerSymbol is null");
         this.distinctSymbols = ImmutableList.copyOf(distinctSymbols);
-        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
+        this.hashSymbol = requireNonNull(hashSymbol, "hashVariable is null");
     }
 
     @Override
@@ -57,16 +59,20 @@ public class MarkDistinctMatcher
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
         MarkDistinctNode markDistinctNode = (MarkDistinctNode) node;
 
-        if (!markDistinctNode.getHashSymbol().equals(hashSymbol.map(alias -> alias.toSymbol(symbolAliases)))) {
+        if (!markDistinctNode.getHashVariable().map(variable -> new Symbol(variable.getName())).equals(hashSymbol.map(alias -> alias.toSymbol(symbolAliases)))) {
             return NO_MATCH;
         }
 
-        if (!ImmutableSet.copyOf(markDistinctNode.getDistinctSymbols())
+        if (!markDistinctNode.getDistinctVariables()
+                .stream()
+                .map(VariableReferenceExpression::getName)
+                .map(Symbol::new)
+                .collect(toImmutableSet())
                 .equals(distinctSymbols.stream().map(alias -> alias.toSymbol(symbolAliases)).collect(toImmutableSet()))) {
             return NO_MATCH;
         }
 
-        return match(markerSymbol.toString(), markDistinctNode.getMarkerSymbol().toSymbolReference());
+        return match(markerSymbol.toString(), new SymbolReference(markDistinctNode.getMarkerVariable().getName()));
     }
 
     @Override
@@ -75,7 +81,7 @@ public class MarkDistinctMatcher
         return toStringHelper(this)
                 .add("markerSymbol", markerSymbol)
                 .add("distinctSymbols", distinctSymbols)
-                .add("hashSymbol", hashSymbol)
+                .add("hashVariable", hashSymbol)
                 .toString();
     }
 }

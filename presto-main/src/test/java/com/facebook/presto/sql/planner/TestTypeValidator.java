@@ -13,14 +13,17 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.VarcharType;
@@ -28,9 +31,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.sanity.TypeValidator;
@@ -65,6 +66,8 @@ import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UN
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
 import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.facebook.presto.sql.relational.Expressions.variable;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 
 @Test(singleThreaded = true)
 public class TestTypeValidator
@@ -77,6 +80,7 @@ public class TestTypeValidator
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final TypeValidator TYPE_VALIDATOR = new TypeValidator();
     private static final FunctionManager FUNCTION_MANAGER = createTestMetadataManager().getFunctionManager();
+    private static final FunctionHandle SUM = FUNCTION_MANAGER.lookupFunction("sum", fromTypes(DOUBLE));
 
     private SymbolAllocator symbolAllocator;
     private TableScanNode baseTableScan;
@@ -85,6 +89,11 @@ public class TestTypeValidator
     private Symbol columnC;
     private Symbol columnD;
     private Symbol columnE;
+    private VariableReferenceExpression variableA;
+    private VariableReferenceExpression variableB;
+    private VariableReferenceExpression variableC;
+    private VariableReferenceExpression variableD;
+    private VariableReferenceExpression variableE;
 
     @BeforeMethod
     public void setUp()
@@ -96,12 +105,18 @@ public class TestTypeValidator
         columnD = symbolAllocator.newSymbol("d", DATE);
         columnE = symbolAllocator.newSymbol("e", VarcharType.createVarcharType(3));  // varchar(3), to test type only coercion
 
-        Map<Symbol, ColumnHandle> assignments = ImmutableMap.<Symbol, ColumnHandle>builder()
-                .put(columnA, new TestingColumnHandle("a"))
-                .put(columnB, new TestingColumnHandle("b"))
-                .put(columnC, new TestingColumnHandle("c"))
-                .put(columnD, new TestingColumnHandle("d"))
-                .put(columnE, new TestingColumnHandle("e"))
+        variableA = new VariableReferenceExpression(columnA.getName(), BIGINT);
+        variableB = new VariableReferenceExpression(columnB.getName(), INTEGER);
+        variableC = new VariableReferenceExpression(columnC.getName(), DOUBLE);
+        variableD = new VariableReferenceExpression(columnD.getName(), DATE);
+        variableE = new VariableReferenceExpression(columnE.getName(), VarcharType.createVarcharType(3));
+
+        Map<VariableReferenceExpression, ColumnHandle> assignments = ImmutableMap.<VariableReferenceExpression, ColumnHandle>builder()
+                .put(variableA, new TestingColumnHandle("a"))
+                .put(variableB, new TestingColumnHandle("b"))
+                .put(variableC, new TestingColumnHandle("c"))
+                .put(variableD, new TestingColumnHandle("d"))
+                .put(variableE, new TestingColumnHandle("e"))
                 .build();
 
         baseTableScan = new TableScanNode(
@@ -119,8 +134,8 @@ public class TestTypeValidator
         Expression expression1 = new Cast(columnB.toSymbolReference(), StandardTypes.BIGINT);
         Expression expression2 = new Cast(columnC.toSymbolReference(), StandardTypes.BIGINT);
         Assignments assignments = Assignments.builder()
-                .put(symbolAllocator.newSymbol(expression1, BIGINT), expression1)
-                .put(symbolAllocator.newSymbol(expression2, BIGINT), expression2)
+                .put(symbolAllocator.newVariable(expression1, BIGINT), castToRowExpression(expression1))
+                .put(symbolAllocator.newVariable(expression2, BIGINT), castToRowExpression(expression2))
                 .build();
         PlanNode node = new ProjectNode(
                 newId(),
@@ -133,17 +148,16 @@ public class TestTypeValidator
     @Test
     public void testValidUnion()
     {
-        Symbol outputSymbol = symbolAllocator.newSymbol("output", DATE);
-        ListMultimap<Symbol, Symbol> mappings = ImmutableListMultimap.<Symbol, Symbol>builder()
-                .put(outputSymbol, columnD)
-                .put(outputSymbol, columnD)
+        VariableReferenceExpression output = symbolAllocator.newVariable("output", DATE);
+        ListMultimap<VariableReferenceExpression, VariableReferenceExpression> mappings = ImmutableListMultimap.<VariableReferenceExpression, VariableReferenceExpression>builder()
+                .put(output, variableD)
+                .put(output, variableD)
                 .build();
 
         PlanNode node = new UnionNode(
                 newId(),
                 ImmutableList.of(baseTableScan, baseTableScan),
-                mappings,
-                ImmutableList.copyOf(mappings.keySet()));
+                mappings);
 
         assertTypesValid(node);
     }
@@ -152,6 +166,7 @@ public class TestTypeValidator
     public void testValidWindow()
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
+        VariableReferenceExpression windowVariable = new VariableReferenceExpression(windowSymbol.getName(), DOUBLE);
         FunctionHandle functionHandle = FUNCTION_MANAGER.lookupFunction("sum", fromTypes(DOUBLE));
 
         WindowNode.Frame frame = new WindowNode.Frame(
@@ -163,7 +178,7 @@ public class TestTypeValidator
                 Optional.empty(),
                 Optional.empty());
 
-        WindowNode.Function function = new WindowNode.Function(call("sum", functionHandle, DOUBLE, new VariableReferenceExpression(columnC.getName(), DOUBLE)), frame);
+        WindowNode.Function function = new WindowNode.Function(call("sum", functionHandle, DOUBLE, variable(columnC.getName(), DOUBLE)), frame);
 
         WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), Optional.empty());
 
@@ -171,7 +186,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 specification,
-                ImmutableMap.of(windowSymbol, function),
+                ImmutableMap.of(windowVariable, function),
                 Optional.empty(),
                 ImmutableSet.of(),
                 0);
@@ -182,19 +197,21 @@ public class TestTypeValidator
     @Test
     public void testValidAggregation()
     {
-        Symbol aggregationSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
+        VariableReferenceExpression aggregationVariable = symbolAllocator.newVariable("sum", DOUBLE);
 
         PlanNode node = new AggregationNode(
                 newId(),
                 baseTableScan,
-                ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        FUNCTION_MANAGER.lookupFunction("sum", fromTypes(DOUBLE)),
-                        ImmutableList.of(columnC.toSymbolReference()),
+                ImmutableMap.of(aggregationVariable, new Aggregation(
+                        new CallExpression("sum",
+                                SUM,
+                                DOUBLE,
+                                ImmutableList.of(variable(columnC.getName(), DOUBLE))),
                         Optional.empty(),
                         Optional.empty(),
                         false,
                         Optional.empty())),
-                singleGroupingSet(ImmutableList.of(columnA, columnB)),
+                singleGroupingSet(ImmutableList.of(variableA, variableB)),
                 ImmutableList.of(),
                 SINGLE,
                 Optional.empty(),
@@ -208,22 +225,22 @@ public class TestTypeValidator
     {
         Expression expression = new Cast(columnB.toSymbolReference(), StandardTypes.BIGINT);
         Assignments assignments = Assignments.builder()
-                .put(symbolAllocator.newSymbol(expression, BIGINT), expression)
-                .put(symbolAllocator.newSymbol(columnE.toSymbolReference(), VARCHAR), columnE.toSymbolReference()) // implicit coercion from varchar(3) to varchar
+                .put(symbolAllocator.newVariable(expression, BIGINT), castToRowExpression(expression))
+                .put(symbolAllocator.newVariable(columnE.toSymbolReference(), VARCHAR), castToRowExpression(columnE.toSymbolReference())) // implicit coercion from varchar(3) to varchar
                 .build();
         PlanNode node = new ProjectNode(newId(), baseTableScan, assignments);
 
         assertTypesValid(node);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'expr(_[0-9]+)?' is expected to be bigint, but the actual type is integer")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of variable 'expr(_[0-9]+)?' is expected to be bigint, but the actual type is integer")
     public void testInvalidProject()
     {
         Expression expression1 = new Cast(columnB.toSymbolReference(), StandardTypes.INTEGER);
         Expression expression2 = new Cast(columnA.toSymbolReference(), StandardTypes.INTEGER);
         Assignments assignments = Assignments.builder()
-                .put(symbolAllocator.newSymbol(expression1, BIGINT), expression1) // should be INTEGER
-                .put(symbolAllocator.newSymbol(expression1, INTEGER), expression2)
+                .put(symbolAllocator.newVariable(expression1, BIGINT), castToRowExpression(expression1)) // should be INTEGER
+                .put(symbolAllocator.newVariable(expression1, INTEGER), castToRowExpression(expression2))
                 .build();
         PlanNode node = new ProjectNode(
                 newId(),
@@ -233,23 +250,25 @@ public class TestTypeValidator
         assertTypesValid(node);
     }
 
-    // This test will be disable temporarily until we converted Aggregation to use CallExpression
-    @Test(enabled = false, expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Expected input types are \\[double\\] but getting \\[bigint\\]")
     public void testInvalidAggregationFunctionCall()
     {
-        Symbol aggregationSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
+        VariableReferenceExpression aggregationVariable = symbolAllocator.newVariable("sum", DOUBLE);
 
         PlanNode node = new AggregationNode(
                 newId(),
                 baseTableScan,
-                ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        FUNCTION_MANAGER.lookupFunction("sum", fromTypes(DOUBLE)),
-                        ImmutableList.of(columnA.toSymbolReference()),
+                ImmutableMap.of(aggregationVariable, new Aggregation(
+                        new CallExpression(
+                                "sum",
+                                SUM,
+                                DOUBLE,
+                                ImmutableList.of(variable(columnA.getName(), BIGINT))),
                         Optional.empty(),
                         Optional.empty(),
                         false,
                         Optional.empty())),
-                singleGroupingSet(ImmutableList.of(columnA, columnB)),
+                singleGroupingSet(ImmutableList.of(variableA, variableB)),
                 ImmutableList.of(),
                 SINGLE,
                 Optional.empty(),
@@ -258,22 +277,25 @@ public class TestTypeValidator
         assertTypesValid(node);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of variable 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint")
     public void testInvalidAggregationFunctionSignature()
     {
-        Symbol aggregationSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
+        VariableReferenceExpression aggregationVariable = symbolAllocator.newVariable("sum", DOUBLE);
 
         PlanNode node = new AggregationNode(
                 newId(),
                 baseTableScan,
-                ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        FUNCTION_MANAGER.lookupFunction("sum", fromTypes(BIGINT)), // should be DOUBLE
-                        ImmutableList.of(columnC.toSymbolReference()),
+                ImmutableMap.of(aggregationVariable, new Aggregation(
+                        new CallExpression(
+                                "sum",
+                                FUNCTION_MANAGER.lookupFunction("sum", fromTypes(BIGINT)), // should be DOUBLE
+                                DOUBLE,
+                                ImmutableList.of(variable(columnC.getName(), BIGINT))),
                         Optional.empty(),
                         Optional.empty(),
                         false,
                         Optional.empty())),
-                singleGroupingSet(ImmutableList.of(columnA, columnB)),
+                singleGroupingSet(ImmutableList.of(variableA, variableB)),
                 ImmutableList.of(),
                 SINGLE,
                 Optional.empty(),
@@ -282,10 +304,11 @@ public class TestTypeValidator
         assertTypesValid(node);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of variable 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint")
     public void testInvalidWindowFunctionCall()
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
+        VariableReferenceExpression windowVariable = new VariableReferenceExpression(windowSymbol.getName(), DOUBLE);
         FunctionHandle functionHandle = FUNCTION_MANAGER.lookupFunction("sum", fromTypes(DOUBLE));
 
         WindowNode.Frame frame = new WindowNode.Frame(
@@ -305,7 +328,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 specification,
-                ImmutableMap.of(windowSymbol, function),
+                ImmutableMap.of(windowVariable, function),
                 Optional.empty(),
                 ImmutableSet.of(),
                 0);
@@ -313,10 +336,11 @@ public class TestTypeValidator
         assertTypesValid(node);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of variable 'sum(_[0-9]+)?' is expected to be double, but the actual type is bigint")
     public void testInvalidWindowFunctionSignature()
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
+        VariableReferenceExpression windowVariable = new VariableReferenceExpression(windowSymbol.getName(), DOUBLE);
         FunctionHandle functionHandle = FUNCTION_MANAGER.lookupFunction("sum", fromTypes(BIGINT)); // should be DOUBLE
 
         WindowNode.Frame frame = new WindowNode.Frame(
@@ -336,7 +360,7 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 specification,
-                ImmutableMap.of(windowSymbol, function),
+                ImmutableMap.of(windowVariable, function),
                 Optional.empty(),
                 ImmutableSet.of(),
                 0);
@@ -344,20 +368,19 @@ public class TestTypeValidator
         assertTypesValid(node);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of symbol 'output(_[0-9]+)?' is expected to be date, but the actual type is bigint")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "type of variable 'output(_[0-9]+)?' is expected to be date, but the actual type is bigint")
     public void testInvalidUnion()
     {
-        Symbol outputSymbol = symbolAllocator.newSymbol("output", DATE);
-        ListMultimap<Symbol, Symbol> mappings = ImmutableListMultimap.<Symbol, Symbol>builder()
-                .put(outputSymbol, columnD)
-                .put(outputSymbol, columnA) // should be a symbol with DATE type
+        VariableReferenceExpression output = symbolAllocator.newVariable("output", DATE);
+        ListMultimap<VariableReferenceExpression, VariableReferenceExpression> mappings = ImmutableListMultimap.<VariableReferenceExpression, VariableReferenceExpression>builder()
+                .put(output, variableD)
+                .put(output, variableA) // should be a symbol with DATE type
                 .build();
 
         PlanNode node = new UnionNode(
                 newId(),
                 ImmutableList.of(baseTableScan, baseTableScan),
-                mappings,
-                ImmutableList.copyOf(mappings.keySet()));
+                mappings);
 
         assertTypesValid(node);
     }

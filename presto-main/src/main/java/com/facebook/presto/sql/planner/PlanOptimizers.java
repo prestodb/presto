@@ -102,6 +102,7 @@ import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPre
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
+import com.facebook.presto.sql.planner.optimizations.ApplyConnectorOptimization;
 import com.facebook.presto.sql.planner.optimizations.BeginTableWrite;
 import com.facebook.presto.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
@@ -114,6 +115,7 @@ import com.facebook.presto.sql.planner.optimizations.OptimizeMixedDistinctAggreg
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
+import com.facebook.presto.sql.planner.optimizations.PushdownSubfields;
 import com.facebook.presto.sql.planner.optimizations.ReplicateSemiJoinInDelete;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.StatsRecordingPlanOptimizer;
@@ -146,6 +148,7 @@ public class PlanOptimizers
             FeaturesConfig featuresConfig,
             MBeanExporter exporter,
             SplitManager splitManager,
+            ConnectorPlanOptimizerManager planOptimizerManager,
             PageSourceManager pageSourceManager,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
@@ -159,6 +162,7 @@ public class PlanOptimizers
                 false,
                 exporter,
                 splitManager,
+                planOptimizerManager,
                 pageSourceManager,
                 statsCalculator,
                 costCalculator,
@@ -188,6 +192,7 @@ public class PlanOptimizers
             boolean forceSingleNode,
             MBeanExporter exporter,
             SplitManager splitManager,
+            ConnectorPlanOptimizerManager planOptimizerManager,
             PageSourceManager pageSourceManager,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
@@ -407,6 +412,7 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
+                new PushdownSubfields(metadata),
 
                 // Because ReorderJoins runs only once,
                 // PredicatePushDown, PruneUnreferenedOutputpus and RemoveRedundantIdentityProjections
@@ -507,12 +513,6 @@ public class PlanOptimizers
         // Precomputed hashes - this assumes that partitioning will not change
         builder.add(new HashGenerationOptimizer());
 
-        builder.add(new MetadataDeleteOptimizer(metadata));
-        builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite
-
-        // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging
-        // TODO: figure out how to improve the set flattening optimizer so that it can run at any point
-
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
         builder.add(new IterativeOptimizer(
@@ -521,6 +521,17 @@ public class PlanOptimizers
                 costCalculator,
                 new TranslateExpressions(metadata, sqlParser).rules()));
 
+        // TODO: Do not move other PlanNode to SPI until this rule is moved to the end of logical planning (i.e., where AddExchanges lives)
+        // TODO: The connector optimizer should not change plan shape (computations) at this point util #12960 is landed. (e.g., connector may pushdown filters to table scan but cannot add a new node)
+        // TODO: Run RemoveRedundantIdentityProjections and PruneUnreferencedOutputs once (1) we can have ProjectNode in SPI and (2) have moved the connector optimization above HashGenerationOptimizer
+        // Pass a supplier so that we pickup connector optimizers that are installed later
+        builder.add(new ApplyConnectorOptimization(planOptimizerManager::getOptimizers));
+
+        builder.add(new MetadataDeleteOptimizer(metadata));
+        builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite
+
+        // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging
+        // TODO: figure out how to improve the set flattening optimizer so that it can run at any point
         this.optimizers = builder.build();
     }
 

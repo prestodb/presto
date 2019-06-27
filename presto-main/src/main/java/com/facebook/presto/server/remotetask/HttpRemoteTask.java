@@ -35,9 +35,9 @@ import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.server.smile.Codec;
 import com.facebook.presto.server.smile.SmileCodec;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.base.Ticker;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -193,6 +193,7 @@ public final class HttpRemoteTask
             ScheduledExecutorService errorScheduledExecutor,
             Duration maxErrorDuration,
             Duration taskStatusRefreshMaxWait,
+            Duration taskInfoRefreshMaxWait,
             Duration taskInfoUpdateInterval,
             boolean summarizeTaskInfo,
             Codec<TaskStatus> taskStatusCodec,
@@ -217,6 +218,7 @@ public final class HttpRemoteTask
         requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
         requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         requireNonNull(stats, "stats is null");
+        requireNonNull(taskInfoRefreshMaxWait, "taskInfoRefreshMaxWait is null");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             this.taskId = taskId;
@@ -276,6 +278,7 @@ public final class HttpRemoteTask
                     initialTask,
                     httpClient,
                     taskInfoUpdateInterval,
+                    taskInfoRefreshMaxWait,
                     taskInfoCodec,
                     maxErrorDuration,
                     summarizeTaskInfo,
@@ -731,6 +734,10 @@ public final class HttpRemoteTask
         checkState(status.getState().isDone(), "cannot abort task with an incomplete status");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+            // With recoverable grouped execution, failed task does not necessarily fail the whole query.
+            // Not updating task info makes query unable to finish in tests because failed task is stuck in RUNNING state.
+            // TODO: Investigate why this only happens in TestHiveRecoverableGroupedExecution when worker is closed, but not in production test via cli.
+            taskInfoFetcher.updateTaskInfo(getTaskInfo().withTaskStatus(status));
             taskStatusFetcher.updateTaskStatus(status);
 
             // send abort to task

@@ -177,6 +177,7 @@ public class MockQueryExecution
                 Optional.empty(),
                 state.isDone(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 

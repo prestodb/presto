@@ -26,6 +26,7 @@ import static java.util.Objects.requireNonNull;
 
 public class RowBlock
         extends AbstractRowBlock
+        implements Block
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(RowBlock.class).instanceSize();
 
@@ -129,7 +130,7 @@ public class RowBlock
     }
 
     @Override
-    protected int getOffsetBase()
+    public int getOffsetBase()
     {
         return startOffset;
     }

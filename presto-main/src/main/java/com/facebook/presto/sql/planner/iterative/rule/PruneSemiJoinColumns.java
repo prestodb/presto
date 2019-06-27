@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
@@ -37,17 +38,17 @@ public class PruneSemiJoinColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SemiJoinNode semiJoinNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, SemiJoinNode semiJoinNode, Set<VariableReferenceExpression> referencedOutputs)
     {
         if (!referencedOutputs.contains(semiJoinNode.getSemiJoinOutput())) {
             return Optional.of(semiJoinNode.getSource());
         }
 
-        Set<Symbol> requiredSourceInputs = Streams.concat(
+        Set<VariableReferenceExpression> requiredSourceInputs = Streams.concat(
                 referencedOutputs.stream()
-                        .filter(symbol -> !symbol.equals(semiJoinNode.getSemiJoinOutput())),
-                Stream.of(semiJoinNode.getSourceJoinSymbol()),
-                semiJoinNode.getSourceHashSymbol().map(Stream::of).orElse(Stream.empty()))
+                        .filter(variable -> !variable.equals(semiJoinNode.getSemiJoinOutput())),
+                Stream.of(semiJoinNode.getSourceJoinVariable()),
+                semiJoinNode.getSourceHashVariable().map(Stream::of).orElse(Stream.empty()))
                 .collect(toImmutableSet());
 
         return restrictOutputs(idAllocator, semiJoinNode.getSource(), requiredSourceInputs)

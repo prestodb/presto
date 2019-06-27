@@ -14,10 +14,11 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.SortExpressionContext;
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -52,10 +53,10 @@ public class JoinNode
     private final PlanNode left;
     private final PlanNode right;
     private final List<EquiJoinClause> criteria;
-    private final List<Symbol> outputSymbols;
+    private final List<VariableReferenceExpression> outputVariables;
     private final Optional<RowExpression> filter;
-    private final Optional<Symbol> leftHashSymbol;
-    private final Optional<Symbol> rightHashSymbol;
+    private final Optional<VariableReferenceExpression> leftHashVariable;
+    private final Optional<VariableReferenceExpression> rightHashVariable;
     private final Optional<DistributionType> distributionType;
 
     @JsonCreator
@@ -64,10 +65,10 @@ public class JoinNode
             @JsonProperty("left") PlanNode left,
             @JsonProperty("right") PlanNode right,
             @JsonProperty("criteria") List<EquiJoinClause> criteria,
-            @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
+            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("filter") Optional<RowExpression> filter,
-            @JsonProperty("leftHashSymbol") Optional<Symbol> leftHashSymbol,
-            @JsonProperty("rightHashSymbol") Optional<Symbol> rightHashSymbol,
+            @JsonProperty("leftHashVariable") Optional<VariableReferenceExpression> leftHashVariable,
+            @JsonProperty("rightHashVariable") Optional<VariableReferenceExpression> rightHashVariable,
             @JsonProperty("distributionType") Optional<DistributionType> distributionType)
     {
         super(id);
@@ -75,42 +76,42 @@ public class JoinNode
         requireNonNull(left, "left is null");
         requireNonNull(right, "right is null");
         requireNonNull(criteria, "criteria is null");
-        requireNonNull(outputSymbols, "outputSymbols is null");
+        requireNonNull(outputVariables, "outputVariables is null");
         requireNonNull(filter, "filter is null");
-        requireNonNull(leftHashSymbol, "leftHashSymbol is null");
-        requireNonNull(rightHashSymbol, "rightHashSymbol is null");
+        requireNonNull(leftHashVariable, "leftHashVariable is null");
+        requireNonNull(rightHashVariable, "rightHashVariable is null");
         requireNonNull(distributionType, "distributionType is null");
 
         this.type = type;
         this.left = left;
         this.right = right;
         this.criteria = ImmutableList.copyOf(criteria);
-        this.outputSymbols = ImmutableList.copyOf(outputSymbols);
+        this.outputVariables = ImmutableList.copyOf(outputVariables);
         this.filter = filter;
-        this.leftHashSymbol = leftHashSymbol;
-        this.rightHashSymbol = rightHashSymbol;
+        this.leftHashVariable = leftHashVariable;
+        this.rightHashVariable = rightHashVariable;
         this.distributionType = distributionType;
 
-        Set<Symbol> inputSymbols = ImmutableSet.<Symbol>builder()
-                .addAll(left.getOutputSymbols())
-                .addAll(right.getOutputSymbols())
+        Set<VariableReferenceExpression> inputVariables = ImmutableSet.<VariableReferenceExpression>builder()
+                .addAll(left.getOutputVariables())
+                .addAll(right.getOutputVariables())
                 .build();
-        checkArgument(new HashSet<>(inputSymbols).containsAll(outputSymbols), "Left and right join inputs do not contain all output symbols");
-        checkArgument(!isCrossJoin() || inputSymbols.size() == outputSymbols.size(), "Cross join does not support output symbols pruning or reordering");
+        checkArgument(new HashSet<>(inputVariables).containsAll(outputVariables), "Left and right join inputs do not contain all output variables");
+        checkArgument(!isCrossJoin() || inputVariables.size() == outputVariables.size(), "Cross join does not support output variables pruning or reordering");
 
-        checkArgument(!(criteria.isEmpty() && leftHashSymbol.isPresent()), "Left hash symbol is only valid in an equijoin");
-        checkArgument(!(criteria.isEmpty() && rightHashSymbol.isPresent()), "Right hash symbol is only valid in an equijoin");
+        checkArgument(!(criteria.isEmpty() && leftHashVariable.isPresent()), "Left hash variable is only valid in an equijoin");
+        checkArgument(!(criteria.isEmpty() && rightHashVariable.isPresent()), "Right hash variable is only valid in an equijoin");
 
         if (distributionType.isPresent()) {
             // The implementation of full outer join only works if the data is hash partitioned.
             checkArgument(
-                    !(distributionType.get() == REPLICATED && (type == RIGHT || type == FULL)),
+                    !(distributionType.get() == REPLICATED && type.mustPartition()),
                     "%s join do not work with %s distribution type",
                     type,
                     distributionType.get());
             // It does not make sense to PARTITION when there is nothing to partition on
             checkArgument(
-                    !(distributionType.get() == PARTITIONED && criteria.isEmpty() && type != RIGHT && type != FULL),
+                    !(distributionType.get() == PARTITIONED && type.mustReplicate(criteria)),
                     "Equi criteria are empty, so %s join should not have %s distribution type",
                     type,
                     distributionType.get());
@@ -125,10 +126,10 @@ public class JoinNode
                 right,
                 left,
                 flipJoinCriteria(criteria),
-                flipOutputSymbols(getOutputSymbols(), left, right),
+                flipOutputVariables(getOutputVariables(), left, right),
                 filter,
-                rightHashSymbol,
-                leftHashSymbol,
+                rightHashVariable,
+                leftHashVariable,
                 distributionType);
     }
 
@@ -155,17 +156,17 @@ public class JoinNode
                 .collect(toImmutableList());
     }
 
-    private static List<Symbol> flipOutputSymbols(List<Symbol> outputSymbols, PlanNode left, PlanNode right)
+    private static List<VariableReferenceExpression> flipOutputVariables(List<VariableReferenceExpression> outputVariables, PlanNode left, PlanNode right)
     {
-        List<Symbol> leftSymbols = outputSymbols.stream()
-                .filter(symbol -> left.getOutputSymbols().contains(symbol))
+        List<VariableReferenceExpression> leftVariables = outputVariables.stream()
+                .filter(variable -> left.getOutputVariables().contains(variable))
                 .collect(Collectors.toList());
-        List<Symbol> rightSymbols = outputSymbols.stream()
-                .filter(symbol -> right.getOutputSymbols().contains(symbol))
+        List<VariableReferenceExpression> rightVariables = outputVariables.stream()
+                .filter(variable -> right.getOutputVariables().contains(variable))
                 .collect(Collectors.toList());
-        return ImmutableList.<Symbol>builder()
-                .addAll(rightSymbols)
-                .addAll(leftSymbols)
+        return ImmutableList.<VariableReferenceExpression>builder()
+                .addAll(rightVariables)
+                .addAll(leftVariables)
                 .build();
     }
 
@@ -193,33 +194,45 @@ public class JoinNode
         {
             return joinLabel;
         }
+
+        public boolean mustPartition()
+        {
+            // With REPLICATED, the unmatched rows from right-side would be duplicated.
+            return this == RIGHT || this == FULL;
+        }
+
+        public boolean mustReplicate(List<JoinNode.EquiJoinClause> criteria)
+        {
+            // There is nothing to partition on
+            return criteria.isEmpty() && (this == INNER || this == LEFT);
+        }
     }
 
-    @JsonProperty("type")
+    @JsonProperty
     public Type getType()
     {
         return type;
     }
 
-    @JsonProperty("left")
+    @JsonProperty
     public PlanNode getLeft()
     {
         return left;
     }
 
-    @JsonProperty("right")
+    @JsonProperty
     public PlanNode getRight()
     {
         return right;
     }
 
-    @JsonProperty("criteria")
+    @JsonProperty
     public List<EquiJoinClause> getCriteria()
     {
         return criteria;
     }
 
-    @JsonProperty("filter")
+    @JsonProperty
     public Optional<RowExpression> getFilter()
     {
         return filter;
@@ -228,19 +241,19 @@ public class JoinNode
     public Optional<SortExpressionContext> getSortExpressionContext(FunctionManager functionManager)
     {
         return filter
-                .flatMap(filter -> extractSortExpression(ImmutableSet.copyOf(right.getOutputSymbols()), filter, functionManager));
+                .flatMap(filter -> extractSortExpression(ImmutableSet.copyOf(right.getOutputVariables()), filter, functionManager));
     }
 
-    @JsonProperty("leftHashSymbol")
-    public Optional<Symbol> getLeftHashSymbol()
+    @JsonProperty
+    public Optional<VariableReferenceExpression> getLeftHashVariable()
     {
-        return leftHashSymbol;
+        return leftHashVariable;
     }
 
-    @JsonProperty("rightHashSymbol")
-    public Optional<Symbol> getRightHashSymbol()
+    @JsonProperty
+    public Optional<VariableReferenceExpression> getRightHashVariable()
     {
-        return rightHashSymbol;
+        return rightHashVariable;
     }
 
     @Override
@@ -250,13 +263,13 @@ public class JoinNode
     }
 
     @Override
-    @JsonProperty("outputSymbols")
-    public List<Symbol> getOutputSymbols()
+    @JsonProperty
+    public List<VariableReferenceExpression> getOutputVariables()
     {
-        return outputSymbols;
+        return outputVariables;
     }
 
-    @JsonProperty("distributionType")
+    @JsonProperty
     public Optional<DistributionType> getDistributionType()
     {
         return distributionType;
@@ -272,12 +285,12 @@ public class JoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new JoinNode(getId(), type, newChildren.get(0), newChildren.get(1), criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType);
+        return new JoinNode(getId(), type, newChildren.get(0), newChildren.get(1), criteria, outputVariables, filter, leftHashVariable, rightHashVariable, distributionType);
     }
 
     public JoinNode withDistributionType(DistributionType distributionType)
     {
-        return new JoinNode(getId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.of(distributionType));
+        return new JoinNode(getId(), type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, Optional.of(distributionType));
     }
 
     public boolean isCrossJoin()
@@ -287,24 +300,24 @@ public class JoinNode
 
     public static class EquiJoinClause
     {
-        private final Symbol left;
-        private final Symbol right;
+        private final VariableReferenceExpression left;
+        private final VariableReferenceExpression right;
 
         @JsonCreator
-        public EquiJoinClause(@JsonProperty("left") Symbol left, @JsonProperty("right") Symbol right)
+        public EquiJoinClause(@JsonProperty("left") VariableReferenceExpression left, @JsonProperty("right") VariableReferenceExpression right)
         {
             this.left = requireNonNull(left, "left is null");
             this.right = requireNonNull(right, "right is null");
         }
 
-        @JsonProperty("left")
-        public Symbol getLeft()
+        @JsonProperty
+        public VariableReferenceExpression getLeft()
         {
             return left;
         }
 
-        @JsonProperty("right")
-        public Symbol getRight()
+        @JsonProperty
+        public VariableReferenceExpression getRight()
         {
             return right;
         }

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.plan.PlanNode;
+
 import java.util.List;
 
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
@@ -33,7 +35,7 @@ public abstract class SimplePlanRewriter<C>
     }
 
     @Override
-    protected PlanNode visitPlan(PlanNode node, RewriteContext<C> context)
+    public PlanNode visitPlan(PlanNode node, RewriteContext<C> context)
     {
         return context.defaultRewrite(node, context.get());
     }

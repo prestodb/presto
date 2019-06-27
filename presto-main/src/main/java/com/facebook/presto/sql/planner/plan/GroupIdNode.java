@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -43,43 +44,43 @@ public class GroupIdNode
 {
     private final PlanNode source;
 
-    // in terms of output symbols
-    private final List<List<Symbol>> groupingSets;
+    // in terms of output variables
+    private final List<List<VariableReferenceExpression>> groupingSets;
 
     // tracks how each grouping set column is derived from an input column
-    private final Map<Symbol, Symbol> groupingColumns;
-    private final List<Symbol> aggregationArguments;
+    private final Map<VariableReferenceExpression, VariableReferenceExpression> groupingColumns;
+    private final List<VariableReferenceExpression> aggregationArguments;
 
-    private final Symbol groupIdSymbol;
+    private final VariableReferenceExpression groupIdVariable;
 
     @JsonCreator
     public GroupIdNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("groupingSets") List<List<Symbol>> groupingSets,
-            @JsonProperty("groupingColumns") Map<Symbol, Symbol> groupingColumns,
-            @JsonProperty("aggregationArguments") List<Symbol> aggregationArguments,
-            @JsonProperty("groupIdSymbol") Symbol groupIdSymbol)
+            @JsonProperty("groupingSets") List<List<VariableReferenceExpression>> groupingSets,
+            @JsonProperty("groupingColumns") Map<VariableReferenceExpression, VariableReferenceExpression> groupingColumns,
+            @JsonProperty("aggregationArguments") List<VariableReferenceExpression> aggregationArguments,
+            @JsonProperty("groupIdVariable") VariableReferenceExpression groupIdVariable)
     {
         super(id);
         this.source = requireNonNull(source);
         this.groupingSets = listOfListsCopy(requireNonNull(groupingSets, "groupingSets is null"));
         this.groupingColumns = ImmutableMap.copyOf(requireNonNull(groupingColumns));
         this.aggregationArguments = ImmutableList.copyOf(aggregationArguments);
-        this.groupIdSymbol = requireNonNull(groupIdSymbol);
+        this.groupIdVariable = requireNonNull(groupIdVariable);
 
         checkArgument(Sets.intersection(groupingColumns.keySet(), ImmutableSet.copyOf(aggregationArguments)).isEmpty(), "aggregation columns and grouping set columns must be a disjoint set");
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<VariableReferenceExpression> getOutputVariables()
     {
-        return ImmutableList.<Symbol>builder()
+        return ImmutableList.<VariableReferenceExpression>builder()
                 .addAll(groupingSets.stream()
                         .flatMap(Collection::stream)
                         .collect(toSet()))
                 .addAll(aggregationArguments)
-                .add(groupIdSymbol)
+                .add(groupIdVariable)
                 .build();
     }
 
@@ -96,27 +97,27 @@ public class GroupIdNode
     }
 
     @JsonProperty
-    public List<List<Symbol>> getGroupingSets()
+    public List<List<VariableReferenceExpression>> getGroupingSets()
     {
         return groupingSets;
     }
 
     @JsonProperty
-    public Map<Symbol, Symbol> getGroupingColumns()
+    public Map<VariableReferenceExpression, VariableReferenceExpression> getGroupingColumns()
     {
         return groupingColumns;
     }
 
     @JsonProperty
-    public List<Symbol> getAggregationArguments()
+    public List<VariableReferenceExpression> getAggregationArguments()
     {
         return aggregationArguments;
     }
 
     @JsonProperty
-    public Symbol getGroupIdSymbol()
+    public VariableReferenceExpression getGroupIdVariable()
     {
-        return groupIdSymbol;
+        return groupIdVariable;
     }
 
     @Override
@@ -125,9 +126,9 @@ public class GroupIdNode
         return visitor.visitGroupId(this, context);
     }
 
-    public Set<Symbol> getInputSymbols()
+    public Set<VariableReferenceExpression> getInputVariables()
     {
-        return ImmutableSet.<Symbol>builder()
+        return ImmutableSet.<VariableReferenceExpression>builder()
                 .addAll(aggregationArguments)
                 .addAll(groupingSets.stream()
                         .map(set -> set.stream()
@@ -138,9 +139,9 @@ public class GroupIdNode
     }
 
     // returns the common grouping columns in terms of output symbols
-    public Set<Symbol> getCommonGroupingColumns()
+    public Set<VariableReferenceExpression> getCommonGroupingColumns()
     {
-        Set<Symbol> intersection = new HashSet<>(groupingSets.get(0));
+        Set<VariableReferenceExpression> intersection = new HashSet<>(groupingSets.get(0));
         for (int i = 1; i < groupingSets.size(); i++) {
             intersection.retainAll(groupingSets.get(i));
         }
@@ -150,6 +151,6 @@ public class GroupIdNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new GroupIdNode(getId(), Iterables.getOnlyElement(newChildren), groupingSets, groupingColumns, aggregationArguments, groupIdSymbol);
+        return new GroupIdNode(getId(), Iterables.getOnlyElement(newChildren), groupingSets, groupingColumns, aggregationArguments, groupIdVariable);
     }
 }

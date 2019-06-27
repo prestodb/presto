@@ -16,16 +16,16 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.collect.Iterables;
 
 import java.util.List;
@@ -97,7 +97,7 @@ public class MetadataDeleteOptimizer
             return new MetadataDeleteNode(
                     idAllocator.getNextId(),
                     new DeleteHandle(tableScanNode.getTable(), delete.get().getTarget().getSchemaTableName()),
-                    Iterables.getOnlyElement(node.getOutputSymbols()));
+                    Iterables.getOnlyElement(node.getOutputVariables()));
         }
 
         private static <T> Optional<T> findNode(PlanNode source, Class<T> clazz)

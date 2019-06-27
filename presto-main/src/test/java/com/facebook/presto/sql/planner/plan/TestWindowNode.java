@@ -19,11 +19,13 @@ import com.facebook.presto.server.SliceSerializer;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.Serialization;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
@@ -57,6 +59,8 @@ import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UN
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
 import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static org.testng.Assert.assertEquals;
@@ -68,6 +72,9 @@ public class TestWindowNode
     private Symbol columnA;
     private Symbol columnB;
     private Symbol columnC;
+    private VariableReferenceExpression variableA;
+    private VariableReferenceExpression variableB;
+    private VariableReferenceExpression variableC;
 
     private final JsonCodec<WindowNode> codec;
 
@@ -85,16 +92,20 @@ public class TestWindowNode
         columnB = symbolAllocator.newSymbol("b", BIGINT);
         columnC = symbolAllocator.newSymbol("c", BIGINT);
 
+        variableA = new VariableReferenceExpression(columnA.getName(), BIGINT);
+        variableB = new VariableReferenceExpression(columnB.getName(), BIGINT);
+        variableC = new VariableReferenceExpression(columnC.getName(), BIGINT);
+
         sourceNode = new ValuesNode(
                 newId(),
-                ImmutableList.of(columnA, columnB, columnC),
+                ImmutableList.of(variableA, variableB, variableC),
                 ImmutableList.of());
     }
 
     @Test
     public void testSerializationRoundtrip()
     {
-        Symbol windowSymbol = symbolAllocator.newSymbol("sum", BIGINT);
+        VariableReferenceExpression windowVariable = symbolAllocator.newVariable("sum", BIGINT);
         FunctionHandle functionHandle = createTestMetadataManager().getFunctionManager().lookupFunction("sum", fromTypes(BIGINT));
         WindowNode.Frame frame = new WindowNode.Frame(
                 RANGE,
@@ -107,20 +118,20 @@ public class TestWindowNode
 
         PlanNodeId id = newId();
         WindowNode.Specification specification = new WindowNode.Specification(
-                ImmutableList.of(columnA),
+                ImmutableList.of(variableA),
                 Optional.of(new OrderingScheme(
-                        ImmutableList.of(columnB),
-                        ImmutableMap.of(columnB, SortOrder.ASC_NULLS_FIRST))));
+                        ImmutableList.of(variableB),
+                        ImmutableMap.of(variableB, SortOrder.ASC_NULLS_FIRST))));
         CallExpression call = call("sum", functionHandle, BIGINT, new VariableReferenceExpression(columnC.getName(), BIGINT));
-        Map<Symbol, WindowNode.Function> functions = ImmutableMap.of(windowSymbol, new WindowNode.Function(call, frame));
-        Optional<Symbol> hashSymbol = Optional.of(columnB);
-        Set<Symbol> prePartitionedInputs = ImmutableSet.of(columnA);
+        Map<VariableReferenceExpression, WindowNode.Function> functions = ImmutableMap.of(windowVariable, new WindowNode.Function(call, frame));
+        Optional<VariableReferenceExpression> hashVariable = Optional.of(variableB);
+        Set<VariableReferenceExpression> prePartitionedInputs = ImmutableSet.of(variableA);
         WindowNode windowNode = new WindowNode(
                 id,
                 sourceNode,
                 specification,
                 functions,
-                hashSymbol,
+                hashVariable,
                 prePartitionedInputs,
                 0);
 
@@ -132,7 +143,7 @@ public class TestWindowNode
         assertEquals(actualNode.getSpecification(), windowNode.getSpecification());
         assertEquals(actualNode.getWindowFunctions(), windowNode.getWindowFunctions());
         assertEquals(actualNode.getFrames(), windowNode.getFrames());
-        assertEquals(actualNode.getHashSymbol(), windowNode.getHashSymbol());
+        assertEquals(actualNode.getHashVariable(), windowNode.getHashVariable());
         assertEquals(actualNode.getPrePartitionedInputs(), windowNode.getPrePartitionedInputs());
         assertEquals(actualNode.getPreSortedOrderPrefix(), windowNode.getPreSortedOrderPrefix());
     }
@@ -152,12 +163,17 @@ public class TestWindowNode
             binder.install(new HandleJsonModule());
             binder.bind(SqlParser.class).toInstance(sqlParser);
             binder.bind(TypeManager.class).toInstance(typeManager);
+            configBinder(binder).bindConfig(FeaturesConfig.class);
+            jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
+            newSetBinder(binder, Type.class);
             jsonBinder(binder).addSerializerBinding(Slice.class).to(SliceSerializer.class);
             jsonBinder(binder).addDeserializerBinding(Slice.class).to(SliceDeserializer.class);
             jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
             jsonBinder(binder).addSerializerBinding(Expression.class).to(Serialization.ExpressionSerializer.class);
             jsonBinder(binder).addDeserializerBinding(Expression.class).to(Serialization.ExpressionDeserializer.class);
             jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(Serialization.FunctionCallDeserializer.class);
+            jsonBinder(binder).addKeySerializerBinding(VariableReferenceExpression.class).to(Serialization.VariableReferenceExpressionSerializer.class);
+            jsonBinder(binder).addKeyDeserializerBinding(VariableReferenceExpression.class).to(Serialization.VariableReferenceExpressionDeserializer.class);
             jsonCodecBinder(binder).bindJsonCodec(WindowNode.class);
         };
         Bootstrap app = new Bootstrap(ImmutableList.of(module));

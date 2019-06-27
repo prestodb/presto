@@ -14,11 +14,12 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.metadata.IndexHandle;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -37,9 +38,9 @@ public class IndexSourceNode
 {
     private final IndexHandle indexHandle;
     private final TableHandle tableHandle;
-    private final Set<Symbol> lookupSymbols;
-    private final List<Symbol> outputSymbols;
-    private final Map<Symbol, ColumnHandle> assignments; // symbol -> column
+    private final Set<VariableReferenceExpression> lookupVariables;
+    private final List<VariableReferenceExpression> outputVariables;
+    private final Map<VariableReferenceExpression, ColumnHandle> assignments; // symbol -> column
     private final TupleDomain<ColumnHandle> currentConstraint; // constraint over the input data the operator will guarantee
 
     @JsonCreator
@@ -47,22 +48,22 @@ public class IndexSourceNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("indexHandle") IndexHandle indexHandle,
             @JsonProperty("tableHandle") TableHandle tableHandle,
-            @JsonProperty("lookupSymbols") Set<Symbol> lookupSymbols,
-            @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
-            @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
+            @JsonProperty("lookupVariables") Set<VariableReferenceExpression> lookupVariables,
+            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
+            @JsonProperty("assignments") Map<VariableReferenceExpression, ColumnHandle> assignments,
             @JsonProperty("currentConstraint") TupleDomain<ColumnHandle> currentConstraint)
     {
         super(id);
         this.indexHandle = requireNonNull(indexHandle, "indexHandle is null");
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-        this.lookupSymbols = ImmutableSet.copyOf(requireNonNull(lookupSymbols, "lookupSymbols is null"));
-        this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputSymbols, "outputSymbols is null"));
+        this.lookupVariables = ImmutableSet.copyOf(requireNonNull(lookupVariables, "lookupVariables is null"));
+        this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
         this.currentConstraint = requireNonNull(currentConstraint, "effectiveTupleDomain is null");
-        checkArgument(!lookupSymbols.isEmpty(), "lookupSymbols is empty");
-        checkArgument(!outputSymbols.isEmpty(), "outputSymbols is empty");
-        checkArgument(assignments.keySet().containsAll(lookupSymbols), "Assignments do not include all lookup symbols");
-        checkArgument(outputSymbols.containsAll(lookupSymbols), "Lookup symbols need to be part of the output symbols");
+        checkArgument(!lookupVariables.isEmpty(), "lookupVariables is empty");
+        checkArgument(!outputVariables.isEmpty(), "outputVariables is empty");
+        checkArgument(assignments.keySet().containsAll(lookupVariables), "Assignments do not include all lookup variables");
+        checkArgument(outputVariables.containsAll(lookupVariables), "Lookup variables need to be part of the output variables");
     }
 
     @JsonProperty
@@ -78,20 +79,20 @@ public class IndexSourceNode
     }
 
     @JsonProperty
-    public Set<Symbol> getLookupSymbols()
+    public Set<VariableReferenceExpression> getLookupVariables()
     {
-        return lookupSymbols;
+        return lookupVariables;
     }
 
     @Override
     @JsonProperty
-    public List<Symbol> getOutputSymbols()
+    public List<VariableReferenceExpression> getOutputVariables()
     {
-        return outputSymbols;
+        return outputVariables;
     }
 
     @JsonProperty
-    public Map<Symbol, ColumnHandle> getAssignments()
+    public Map<VariableReferenceExpression, ColumnHandle> getAssignments()
     {
         return assignments;
     }

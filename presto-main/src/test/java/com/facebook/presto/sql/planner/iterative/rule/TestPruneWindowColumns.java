@@ -15,17 +15,16 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -47,6 +46,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strict
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.windowFrame;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.CURRENT_ROW;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
@@ -184,26 +184,28 @@ public class TestPruneWindowColumns
 
     private static PlanNode buildProjectedWindow(
             PlanBuilder p,
-            Predicate<Symbol> projectionFilter,
-            Predicate<Symbol> sourceFilter)
+            Predicate<VariableReferenceExpression> projectionFilter,
+            Predicate<VariableReferenceExpression> sourceFilter)
     {
-        Symbol orderKey = p.symbol("orderKey");
-        Symbol partitionKey = p.symbol("partitionKey");
-        Symbol hash = p.symbol("hash");
-        Symbol startValue1 = p.symbol("startValue1");
-        Symbol startValue2 = p.symbol("startValue2");
-        Symbol endValue1 = p.symbol("endValue1");
-        Symbol endValue2 = p.symbol("endValue2");
-        Symbol input1 = p.symbol("input1");
-        Symbol input2 = p.symbol("input2");
-        Symbol unused = p.symbol("unused");
-        Symbol output1 = p.symbol("output1");
-        Symbol output2 = p.symbol("output2");
-        List<Symbol> inputs = ImmutableList.of(orderKey, partitionKey, hash, startValue1, startValue2, endValue1, endValue2, input1, input2, unused);
-        List<Symbol> outputs = ImmutableList.<Symbol>builder().addAll(inputs).add(output1, output2).build();
+        VariableReferenceExpression orderKey = p.variable("orderKey");
+        VariableReferenceExpression partitionKey = p.variable("partitionKey");
+        VariableReferenceExpression hash = p.variable("hash");
+        VariableReferenceExpression startValue1 = p.variable("startValue1");
+        VariableReferenceExpression startValue2 = p.variable("startValue2");
+        VariableReferenceExpression endValue1 = p.variable("endValue1");
+        VariableReferenceExpression endValue2 = p.variable("endValue2");
+        VariableReferenceExpression input1 = p.variable("input1");
+        VariableReferenceExpression input2 = p.variable("input2");
+        VariableReferenceExpression unused = p.variable("unused");
+        VariableReferenceExpression output1 = p.variable("output1");
+        VariableReferenceExpression output2 = p.variable("output2");
+        List<VariableReferenceExpression> inputs = ImmutableList.of(orderKey, partitionKey, hash, startValue1, startValue2, endValue1, endValue2, input1, input2, unused);
+        List<VariableReferenceExpression> outputs = ImmutableList.<VariableReferenceExpression>builder().addAll(inputs).add(output1, output2).build();
+
+        List<VariableReferenceExpression> filteredInputs = inputs.stream().filter(sourceFilter).collect(toImmutableList());
 
         return p.project(
-                Assignments.identity(
+                identityAssignmentsAsSymbolReferences(
                         outputs.stream()
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),
@@ -216,31 +218,29 @@ public class TestPruneWindowColumns
                         ImmutableMap.of(
                                 output1,
                                 new WindowNode.Function(
-                                        call(FUNCTION_NAME, FUNCTION_HANDLE, BIGINT, new VariableReferenceExpression(input1.getName(), BIGINT)),
+                                        call(FUNCTION_NAME, FUNCTION_HANDLE, BIGINT, input1),
                                         new WindowNode.Frame(
                                                 RANGE,
                                                 UNBOUNDED_PRECEDING,
                                                 Optional.of(startValue1),
                                                 CURRENT_ROW,
                                                 Optional.of(endValue1),
-                                                Optional.of(startValue1.toSymbolReference()).map(Expression::toString),
-                                                Optional.of(endValue2.toSymbolReference()).map(Expression::toString))),
+                                                Optional.of(new SymbolReference(startValue1.getName())).map(Expression::toString),
+                                                Optional.of(new SymbolReference(endValue2.getName())).map(Expression::toString))),
                                 output2,
                                 new WindowNode.Function(
-                                        call(FUNCTION_NAME, FUNCTION_HANDLE, BIGINT, new VariableReferenceExpression(input2.getName(), BIGINT)),
+                                        call(FUNCTION_NAME, FUNCTION_HANDLE, BIGINT, input2),
                                         new WindowNode.Frame(
                                                 RANGE,
                                                 UNBOUNDED_PRECEDING,
                                                 Optional.of(startValue2),
                                                 CURRENT_ROW,
                                                 Optional.of(endValue2),
-                                                Optional.of(startValue2.toSymbolReference()).map(Expression::toString),
-                                                Optional.of(endValue2.toSymbolReference()).map(Expression::toString)))),
+                                                Optional.of(new SymbolReference(startValue2.getName())).map(Expression::toString),
+                                                Optional.of(new SymbolReference(endValue2.getName())).map(Expression::toString)))),
                         hash,
                         p.values(
-                                inputs.stream()
-                                        .filter(sourceFilter)
-                                        .collect(toImmutableList()),
+                                filteredInputs,
                                 ImmutableList.of())));
     }
 }

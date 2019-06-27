@@ -24,7 +24,7 @@ import com.facebook.presto.spi.type.DoubleType;
 import java.util.Iterator;
 
 @AggregationFunction("classification_thresholds")
-@Description("Computes thresholds for precision-recall curves")
+@Description("Computes thresholds for metrics of binary classification")
 public final class ClassificationThresholdsAggregation
         extends PrecisionRecallAggregation
 {
@@ -37,10 +37,10 @@ public final class ClassificationThresholdsAggregation
 
         BlockBuilder entryBuilder = out.beginBlockEntry();
         while (resultsIterator.hasNext()) {
-            final BucketResult result = resultsIterator.next();
+            BucketResult result = resultsIterator.next();
             DoubleType.DOUBLE.writeDouble(
                     entryBuilder,
-                    (result.left + result.right) / 2);
+                    result.getThreshold());
         }
         out.closeEntry();
     }

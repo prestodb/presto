@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.google.common.collect.ImmutableList;
@@ -42,9 +42,9 @@ public class PruneSemiJoinFilteringSourceColumns
     @Override
     public Result apply(SemiJoinNode semiJoinNode, Captures captures, Context context)
     {
-        Set<Symbol> requiredFilteringSourceInputs = Streams.concat(
-                Stream.of(semiJoinNode.getFilteringSourceJoinSymbol()),
-                semiJoinNode.getFilteringSourceHashSymbol().map(Stream::of).orElse(Stream.empty()))
+        Set<VariableReferenceExpression> requiredFilteringSourceInputs = Streams.concat(
+                Stream.of(semiJoinNode.getFilteringSourceJoinVariable()),
+                semiJoinNode.getFilteringSourceHashVariable().map(Stream::of).orElse(Stream.empty()))
                 .collect(toImmutableSet());
 
         return restrictOutputs(context.getIdAllocator(), semiJoinNode.getFilteringSource(), requiredFilteringSourceInputs)

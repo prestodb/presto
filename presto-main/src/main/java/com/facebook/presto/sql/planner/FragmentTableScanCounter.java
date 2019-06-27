@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
 
 import java.util.Collection;
 
@@ -68,7 +68,7 @@ public final class FragmentTableScanCounter
         }
 
         @Override
-        protected Integer visitPlan(PlanNode node, Void context)
+        public Integer visitPlan(PlanNode node, Void context)
         {
             int count = 0;
             for (PlanNode source : node.getSources()) {

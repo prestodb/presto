@@ -87,7 +87,7 @@ public class SqlTaskExecutionFactory
                 localExecutionPlan = planner.plan(
                         taskContext,
                         fragment.getRoot(),
-                        TypeProvider.copyOf(fragment.getSymbols()),
+                        TypeProvider.fromVariables(fragment.getVariables()),
                         fragment.getPartitioningScheme(),
                         fragment.getStageExecutionDescriptor(),
                         fragment.getTableScanSchedulingOrder(),

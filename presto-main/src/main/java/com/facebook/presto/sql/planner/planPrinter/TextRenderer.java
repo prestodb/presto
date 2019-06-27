@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
-import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 
@@ -61,7 +60,7 @@ public class TextRenderer
                 .append(node.getIdentifier())
                 .append(" => [")
                 .append(node.getOutputs().stream()
-                        .map(s -> s.getSymbol() + ":" + s.getType())
+                        .map(s -> s.getName() + ":" + s.getType().getDisplayName())
                         .collect(joining(", ")))
                 .append("]\n");
 
@@ -219,13 +218,9 @@ public class TextRenderer
             PlanNodeStatsEstimate stats = node.getEstimatedStats().get(i);
             PlanCostEstimate cost = node.getEstimatedCost().get(i);
 
-            List<Symbol> outputSymbols = node.getOutputs().stream()
-                    .map(NodeRepresentation.OutputSymbol::getSymbol)
-                    .collect(toList());
-
             output.append(format("{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
                     formatAsLong(stats.getOutputRowCount()),
-                    formatEstimateAsDataSize(stats.getOutputSizeInBytes(outputSymbols, plan.getTypes())),
+                    formatEstimateAsDataSize(stats.getOutputSizeInBytes(node.getOutputs())),
                     formatDouble(cost.getCpuCost()),
                     formatDouble(cost.getMaxMemory()),
                     formatDouble(cost.getNetworkCost())));

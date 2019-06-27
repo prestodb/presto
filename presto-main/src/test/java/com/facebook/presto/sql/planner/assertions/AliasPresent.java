@@ -15,11 +15,12 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 
 import java.util.Optional;
 
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -36,10 +37,10 @@ class AliasPresent
     }
 
     @Override
-    public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public Optional<VariableReferenceExpression> getAssignedVariable(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         return symbolAliases.getOptional(alias)
-                .map(Symbol::from);
+                .map(alias -> new VariableReferenceExpression(alias.getName(), UNKNOWN));
     }
 
     @Override

@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
@@ -23,9 +24,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class SpecificationProvider
@@ -53,18 +56,18 @@ public class SpecificationProvider
             orderingScheme = Optional.of(new OrderingScheme(
                     orderBy
                             .stream()
-                            .map(alias -> alias.toSymbol(aliases))
+                            .map(alias -> new VariableReferenceExpression(alias.toSymbol(aliases).getName(), UNKNOWN))
                             .collect(toImmutableList()),
                     orderings
                             .entrySet()
                             .stream()
-                            .collect(toImmutableMap(entry -> entry.getKey().toSymbol(aliases), Map.Entry::getValue))));
+                            .collect(toImmutableMap(entry -> new VariableReferenceExpression(entry.getKey().toSymbol(aliases).getName(), UNKNOWN), Map.Entry::getValue))));
         }
 
         return new WindowNode.Specification(
                 partitionBy
                         .stream()
-                        .map(alias -> alias.toSymbol(aliases))
+                        .map(alias -> new VariableReferenceExpression(alias.toSymbol(aliases).getName(), UNKNOWN))
                         .collect(toImmutableList()),
                 orderingScheme);
     }
@@ -77,5 +80,27 @@ public class SpecificationProvider
                 .add("orderBy", this.orderBy)
                 .add("orderings", this.orderings)
                 .toString();
+    }
+
+    /*
+     * Since plan matching is done through SymbolAlias, which does not include type information, we cannot directly use
+     * VariableReferenceExpression::equals to check whether two specification are equivalent once they include VariableReferenceExpression.
+     * TODO Directly use equals once SymbolAlias is converted to something with type information.
+     */
+    public static boolean matchSpecification(WindowNode.Specification actual, WindowNode.Specification expected)
+    {
+        return actual.getPartitionBy().stream().map(VariableReferenceExpression::getName).collect(toImmutableList())
+                .equals(expected.getPartitionBy().stream().map(VariableReferenceExpression::getName).collect(toImmutableList())) &&
+                actual.getOrderingScheme().map(orderingScheme -> orderingScheme.getOrderBy().stream()
+                        .map(VariableReferenceExpression::getName)
+                        .collect(toImmutableSet())
+                        .equals(expected.getOrderingScheme().get().getOrderBy().stream()
+                                .map(VariableReferenceExpression::getName)
+                                .collect(toImmutableSet())) &&
+                        orderingScheme.getOrderings().entrySet().stream()
+                                .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue))
+                                .equals(expected.getOrderingScheme().get().getOrderings().entrySet().stream()
+                                        .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue))))
+                        .orElse(true);
     }
 }

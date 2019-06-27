@@ -59,6 +59,11 @@ public final class ConstantExpression
         return value;
     }
 
+    public boolean isNull()
+    {
+        return value == null;
+    }
+
     @Override
     @JsonProperty
     public Type getType()

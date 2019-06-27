@@ -18,6 +18,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.IntArrayBlockBuilder;
 import com.facebook.presto.spi.block.PageBuilderStatus;
+import com.facebook.presto.spi.block.UncheckedBlock;
 import io.airlift.slice.Slice;
 
 import static java.lang.Long.rotateLeft;
@@ -53,6 +54,12 @@ public abstract class AbstractIntType
     public final long getLong(Block block, int position)
     {
         return block.getInt(position);
+    }
+
+    @Override
+    public final long getLongUnchecked(UncheckedBlock block, int internalPosition)
+    {
+        return block.getIntUnchecked(internalPosition);
     }
 
     @Override

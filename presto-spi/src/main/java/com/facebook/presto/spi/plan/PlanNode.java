@@ -11,10 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
-import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
@@ -52,7 +51,7 @@ public abstract class PlanNode
      * The output from the upstream PlanNodes.
      * It should serve as the input for the current PlanNode.
      */
-    public abstract List<Symbol> getOutputSymbols();
+    public abstract List<VariableReferenceExpression> getOutputVariables();
 
     /**
      * Alter the upstream PlanNodes of the current PlanNode.

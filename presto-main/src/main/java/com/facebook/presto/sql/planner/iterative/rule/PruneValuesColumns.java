@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Arrays;
@@ -38,14 +39,16 @@ public class PruneValuesColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, ValuesNode valuesNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, ValuesNode valuesNode, Set<VariableReferenceExpression> referencedOutputs)
     {
-        List<Symbol> newOutputs = filteredCopy(valuesNode.getOutputSymbols(), referencedOutputs::contains);
+        List<VariableReferenceExpression> newOutputs = filteredCopy(valuesNode.getOutputVariables(), referencedOutputs::contains);
+
+        List<VariableReferenceExpression> newOutputVariables = filteredCopy(valuesNode.getOutputVariables(), referencedOutputs::contains);
 
         // for each output of project, the corresponding column in the values node
         int[] mapping = new int[newOutputs.size()];
         for (int i = 0; i < mapping.length; i++) {
-            mapping[i] = valuesNode.getOutputSymbols().indexOf(newOutputs.get(i));
+            mapping[i] = valuesNode.getOutputVariables().indexOf(newOutputs.get(i));
         }
 
         ImmutableList.Builder<List<RowExpression>> rowsBuilder = ImmutableList.builder();
@@ -55,6 +58,6 @@ public class PruneValuesColumns
                     .collect(Collectors.toList()));
         }
 
-        return Optional.of(new ValuesNode(valuesNode.getId(), newOutputs, rowsBuilder.build()));
+        return Optional.of(new ValuesNode(valuesNode.getId(), newOutputVariables, rowsBuilder.build()));
     }
 }

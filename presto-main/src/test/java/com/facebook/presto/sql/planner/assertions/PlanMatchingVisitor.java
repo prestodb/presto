@@ -16,19 +16,21 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 
 import java.util.List;
 
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -52,8 +54,8 @@ final class PlanMatchingVisitor
     @Override
     public MatchResult visitExchange(ExchangeNode node, PlanMatchPattern pattern)
     {
-        List<List<Symbol>> allInputs = node.getInputs();
-        List<Symbol> outputs = node.getOutputSymbols();
+        List<List<VariableReferenceExpression>> allInputs = node.getInputs();
+        List<VariableReferenceExpression> outputs = node.getOutputVariables();
 
         MatchResult result = super.visitExchange(node, pattern);
 
@@ -62,10 +64,10 @@ final class PlanMatchingVisitor
         }
 
         SymbolAliases newAliases = result.getAliases();
-        for (List<Symbol> inputs : allInputs) {
+        for (List<VariableReferenceExpression> inputs : allInputs) {
             Assignments.Builder assignments = Assignments.builder();
             for (int i = 0; i < inputs.size(); ++i) {
-                assignments.put(outputs.get(i), inputs.get(i).toSymbolReference());
+                assignments.put(outputs.get(i), castToRowExpression(asSymbolReference(inputs.get(i))));
             }
             newAliases = newAliases.updateAssignments(assignments.build());
         }
@@ -96,7 +98,7 @@ final class PlanMatchingVisitor
     }
 
     @Override
-    protected MatchResult visitPlan(PlanNode node, PlanMatchPattern pattern)
+    public MatchResult visitPlan(PlanNode node, PlanMatchPattern pattern)
     {
         List<PlanMatchingState> states = pattern.shapeMatches(node);
 

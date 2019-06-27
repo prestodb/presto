@@ -15,7 +15,9 @@ package com.facebook.presto.operator.scalar;
 
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static java.lang.String.format;
 
 public class TestBitwiseFunctions
         extends AbstractTestFunctions
@@ -33,6 +35,7 @@ public class TestBitwiseFunctions
         assertFunction("bit_count(-" + Long.MAX_VALUE + "-1, 64)", BIGINT, 1L); // bit_count(MIN_VALUE, 64)
 
         assertFunction("bit_count(0, 32)", BIGINT, 0L);
+        assertFunction("bit_count(CAST (-8 AS SMALLINT), 6)", BIGINT, 3L);
         assertFunction("bit_count(7, 32)", BIGINT, 3L);
         assertFunction("bit_count(24, 32)", BIGINT, 2L);
         assertFunction("bit_count(-8, 32)", BIGINT, 29L);
@@ -89,5 +92,43 @@ public class TestBitwiseFunctions
         assertFunction("bitwise_xor(3, 8)", BIGINT, 3L ^ 8L);
         assertFunction("bitwise_xor(-4, 12)", BIGINT, -4L ^ 12L);
         assertFunction("bitwise_xor(60, 21)", BIGINT, 60L ^ 21L);
+    }
+
+    @Test
+    public void testBitwiseSll()
+    {
+        assertFunction("bitwise_shift_left(7, 2, 4)", BIGINT, 12L);
+        assertFunction("bitwise_shift_left(7, 2, 64)", BIGINT, 7L << 2L);
+        assertFunction("bitwise_shift_left(-4, 6, 64)", BIGINT, -4L << 6L);
+        assertFunction("bitwise_shift_left(-4, 6, 5)", BIGINT, 0L);
+        assertFunction("bitwise_shift_left(-4, 6, 9)", BIGINT, 256L);
+
+        assertInvalidFunction("bitwise_shift_left(7, -3, 2)", INVALID_FUNCTION_ARGUMENT);
+    }
+
+    @Test
+    public void testBitwiseSrl()
+    {
+        assertFunction("bitwise_logical_shift_right(7, 2, 4)", BIGINT, 1L);
+        assertFunction("bitwise_logical_shift_right(7, 2, 64)", BIGINT, 7L >>> 2L);
+        assertFunction("bitwise_logical_shift_right(-4, 6, 64)", BIGINT, -4L >>> 6L);
+        assertFunction("bitwise_logical_shift_right(-8, 2, 5)", BIGINT, 6L);
+        assertFunction(format("bitwise_logical_shift_right(%s, 62, 64)", 0xF0000F0000F00000L), BIGINT, 3L);
+        assertFunction(format("bitwise_logical_shift_right(%s, 62, 4)", 0xF0000F0000F00000L), BIGINT, 0L);
+        assertFunction(format("bitwise_logical_shift_right(%s, 1, 4)", 0xF0000F0000F00000L), BIGINT, 0L);
+
+        assertInvalidFunction("bitwise_logical_shift_right(7, -3, 2)", INVALID_FUNCTION_ARGUMENT);
+    }
+
+    @Test
+    public void testBitwiseSra()
+    {
+        assertFunction("bitwise_arithmetic_shift_right(7, 2)", BIGINT, 7L >> 2L);
+        assertFunction("bitwise_arithmetic_shift_right(-4, 6)", BIGINT, -4L >> 6L);
+        assertFunction("bitwise_arithmetic_shift_right(-256, 3)", BIGINT, -32L);
+        assertFunction("bitwise_arithmetic_shift_right(-8, 2)", BIGINT, -2L);
+        assertFunction(format("bitwise_arithmetic_shift_right(%s, 62)", 0xF0000F0000F00000L), BIGINT, -1L);
+
+        assertInvalidFunction("bitwise_arithmetic_shift_right(7, -3)", INVALID_FUNCTION_ARGUMENT);
     }
 }

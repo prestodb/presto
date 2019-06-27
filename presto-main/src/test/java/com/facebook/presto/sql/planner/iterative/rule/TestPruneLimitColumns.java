@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -28,6 +27,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expres
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.limit;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
@@ -38,7 +38,7 @@ public class TestPruneLimitColumns
     public void testNotAllInputsReferenced()
     {
         tester().assertThat(new PruneLimitColumns())
-                .on(p -> buildProjectedLimit(p, symbol -> symbol.getName().equals("b")))
+                .on(p -> buildProjectedLimit(p, variable -> variable.getName().equals("b")))
                 .matches(
                         strictProject(
                                 ImmutableMap.of("b", expression("b")),
@@ -57,12 +57,12 @@ public class TestPruneLimitColumns
                 .doesNotFire();
     }
 
-    private ProjectNode buildProjectedLimit(PlanBuilder planBuilder, Predicate<Symbol> projectionFilter)
+    private ProjectNode buildProjectedLimit(PlanBuilder planBuilder, Predicate<VariableReferenceExpression> projectionFilter)
     {
-        Symbol a = planBuilder.symbol("a");
-        Symbol b = planBuilder.symbol("b");
+        VariableReferenceExpression a = planBuilder.variable("a");
+        VariableReferenceExpression b = planBuilder.variable("b");
         return planBuilder.project(
-                Assignments.identity(Stream.of(a, b).filter(projectionFilter).collect(toImmutableSet())),
+                identityAssignmentsAsSymbolReferences(Stream.of(a, b).filter(projectionFilter).collect(toImmutableSet())),
                 planBuilder.limit(1, planBuilder.values(a, b)));
     }
 }

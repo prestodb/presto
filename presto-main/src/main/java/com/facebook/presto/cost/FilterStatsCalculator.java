@@ -195,7 +195,7 @@ public class FilterStatsCalculator
         @Override
         public PlanNodeStatsEstimate process(Node node, @Nullable Void context)
         {
-            return normalizer.normalize(super.process(node, context), types);
+            return normalizer.normalize(super.process(node, context));
         }
 
         @Override
@@ -289,7 +289,7 @@ public class FilterStatsCalculator
 
             PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
             result.setOutputRowCount(0.0);
-            input.getSymbolsWithKnownStatistics().forEach(symbol -> result.addSymbolStatistics(symbol, SymbolStatsEstimate.zero()));
+            input.getVariablesWithKnownStatistics().forEach(variable -> result.addVariableStatistics(variable, VariableStatsEstimate.zero()));
             return result.build();
         }
 
@@ -297,11 +297,11 @@ public class FilterStatsCalculator
         protected PlanNodeStatsEstimate visitIsNotNullPredicate(IsNotNullPredicate node, Void context)
         {
             if (node.getValue() instanceof SymbolReference) {
-                Symbol symbol = Symbol.from(node.getValue());
-                SymbolStatsEstimate symbolStats = input.getSymbolStatistics(symbol);
+                VariableReferenceExpression variable = toVariable(Symbol.from(node.getValue()));
+                VariableStatsEstimate variableStats = input.getVariableStatistics(variable);
                 PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
-                result.setOutputRowCount(input.getOutputRowCount() * (1 - symbolStats.getNullsFraction()));
-                result.addSymbolStatistics(symbol, symbolStats.mapNullsFraction(x -> 0.0));
+                result.setOutputRowCount(input.getOutputRowCount() * (1 - variableStats.getNullsFraction()));
+                result.addVariableStatistics(variable, variableStats.mapNullsFraction(x -> 0.0));
                 return result.build();
             }
             return PlanNodeStatsEstimate.unknown();
@@ -311,11 +311,11 @@ public class FilterStatsCalculator
         protected PlanNodeStatsEstimate visitIsNullPredicate(IsNullPredicate node, Void context)
         {
             if (node.getValue() instanceof SymbolReference) {
-                Symbol symbol = Symbol.from(node.getValue());
-                SymbolStatsEstimate symbolStats = input.getSymbolStatistics(symbol);
+                VariableReferenceExpression variable = toVariable(Symbol.from(node.getValue()));
+                VariableStatsEstimate variableStats = input.getVariableStatistics(variable);
                 PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
-                result.setOutputRowCount(input.getOutputRowCount() * symbolStats.getNullsFraction());
-                result.addSymbolStatistics(symbol, SymbolStatsEstimate.builder()
+                result.setOutputRowCount(input.getOutputRowCount() * variableStats.getNullsFraction());
+                result.addVariableStatistics(variable, VariableStatsEstimate.builder()
                         .setNullsFraction(1.0)
                         .setLowValue(NaN)
                         .setHighValue(NaN)
@@ -339,7 +339,7 @@ public class FilterStatsCalculator
                 return PlanNodeStatsEstimate.unknown();
             }
 
-            SymbolStatsEstimate valueStats = input.getSymbolStatistics(Symbol.from(node.getValue()));
+            VariableStatsEstimate valueStats = input.getVariableStatistics(toVariable(Symbol.from(node.getValue())));
             Expression lowerBound = new ComparisonExpression(GREATER_THAN_OR_EQUAL, node.getValue(), node.getMin());
             Expression upperBound = new ComparisonExpression(LESS_THAN_OR_EQUAL, node.getValue(), node.getMax());
 
@@ -379,7 +379,7 @@ public class FilterStatsCalculator
                 return PlanNodeStatsEstimate.unknown();
             }
 
-            SymbolStatsEstimate valueStats = getExpressionStats(node.getValue());
+            VariableStatsEstimate valueStats = getExpressionStats(node.getValue());
             if (valueStats.isUnknown()) {
                 return PlanNodeStatsEstimate.unknown();
             }
@@ -390,10 +390,10 @@ public class FilterStatsCalculator
             result.setOutputRowCount(min(inEstimate.getOutputRowCount(), notNullValuesBeforeIn));
 
             if (node.getValue() instanceof SymbolReference) {
-                Symbol valueSymbol = Symbol.from(node.getValue());
-                SymbolStatsEstimate newSymbolStats = inEstimate.getSymbolStatistics(valueSymbol)
+                VariableReferenceExpression valueVariable = toVariable(Symbol.from(node.getValue()));
+                VariableStatsEstimate newvariableStats = inEstimate.getVariableStatistics(valueVariable)
                         .mapDistinctValuesCount(newDistinctValuesCount -> min(newDistinctValuesCount, valueStats.getDistinctValuesCount()));
-                result.addSymbolStatistics(valueSymbol, newSymbolStats);
+                result.addVariableStatistics(valueVariable, newvariableStats);
             }
             return result.build();
         }
@@ -421,25 +421,25 @@ public class FilterStatsCalculator
                 return process(new IsNotNullPredicate(left));
             }
 
-            SymbolStatsEstimate leftStats = getExpressionStats(left);
-            Optional<Symbol> leftSymbol = left instanceof SymbolReference ? Optional.of(Symbol.from(left)) : Optional.empty();
+            VariableStatsEstimate leftStats = getExpressionStats(left);
+            Optional<VariableReferenceExpression> leftVariable = left instanceof SymbolReference ? Optional.of(toVariable(Symbol.from(left))) : Optional.empty();
             if (right instanceof Literal) {
                 Object literalValue = LiteralInterpreter.evaluate(metadata, session.toConnectorSession(), right);
                 if (literalValue == null) {
                     return visitBooleanLiteral(FALSE_LITERAL, null);
                 }
                 OptionalDouble literal = toStatsRepresentation(metadata, session, getType(left), literalValue);
-                return estimateExpressionToLiteralComparison(input, leftStats, leftSymbol, literal, operator);
+                return estimateExpressionToLiteralComparison(input, leftStats, leftVariable, literal, operator);
             }
 
-            SymbolStatsEstimate rightStats = getExpressionStats(right);
+            VariableStatsEstimate rightStats = getExpressionStats(right);
             if (rightStats.isSingleValue()) {
                 OptionalDouble value = isNaN(rightStats.getLowValue()) ? OptionalDouble.empty() : OptionalDouble.of(rightStats.getLowValue());
-                return estimateExpressionToLiteralComparison(input, leftStats, leftSymbol, value, operator);
+                return estimateExpressionToLiteralComparison(input, leftStats, leftVariable, value, operator);
             }
 
-            Optional<Symbol> rightSymbol = right instanceof SymbolReference ? Optional.of(Symbol.from(right)) : Optional.empty();
-            return estimateExpressionToExpressionComparison(input, leftStats, leftSymbol, rightStats, rightSymbol, operator);
+            Optional<VariableReferenceExpression> rightVariable = right instanceof SymbolReference ? Optional.of(toVariable(Symbol.from(right))) : Optional.empty();
+            return estimateExpressionToExpressionComparison(input, leftStats, leftVariable, rightStats, rightVariable, operator);
         }
 
         private Type getType(Expression expression)
@@ -462,13 +462,18 @@ public class FilterStatsCalculator
             return expressionAnalyzer.analyze(expression, Scope.create());
         }
 
-        private SymbolStatsEstimate getExpressionStats(Expression expression)
+        private VariableStatsEstimate getExpressionStats(Expression expression)
         {
             if (expression instanceof SymbolReference) {
-                Symbol symbol = Symbol.from(expression);
-                return requireNonNull(input.getSymbolStatistics(symbol), () -> format("No statistics for symbol %s", symbol));
+                VariableReferenceExpression variable = toVariable(Symbol.from(expression));
+                return requireNonNull(input.getVariableStatistics(variable), () -> format("No statistics for variable %s", variable));
             }
             return scalarStatsCalculator.calculate(expression, input, session, types);
+        }
+
+        private VariableReferenceExpression toVariable(Symbol symbol)
+        {
+            return new VariableReferenceExpression(symbol.getName(), types.get(symbol));
         }
     }
 
@@ -518,7 +523,7 @@ public class FilterStatsCalculator
                 }
                 PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
                 result.setOutputRowCount(0.0);
-                input.getSymbolsWithKnownStatistics().forEach(symbol -> result.addSymbolStatistics(symbol, SymbolStatsEstimate.zero()));
+                input.getVariablesWithKnownStatistics().forEach(variable -> result.addVariableStatistics(variable, VariableStatsEstimate.zero()));
                 return result.build();
             }
             return PlanNodeStatsEstimate.unknown();
@@ -549,7 +554,7 @@ public class FilterStatsCalculator
                 checkArgument(!(left instanceof ConstantExpression && right instanceof ConstantExpression), "Literal-to-literal not supported here, should be eliminated earlier");
 
                 if (!(left instanceof VariableReferenceExpression) && right instanceof VariableReferenceExpression) {
-                    // normalize so that symbol is on the left
+                    // normalize so that variable is on the left
                     OperatorType flippedOperator = flip(operatorType);
                     return process(call(flippedOperator.name(), metadata.getFunctionManager().resolveOperator(flippedOperator, fromTypes(right.getType(), left.getType())), BOOLEAN, right, left));
                 }
@@ -564,25 +569,25 @@ public class FilterStatsCalculator
                     return process(not(isNull(left)));
                 }
 
-                SymbolStatsEstimate leftStats = getRowExpressionStats(left);
-                Optional<Symbol> leftSymbol = left instanceof VariableReferenceExpression ? Optional.of(new Symbol(((VariableReferenceExpression) left).getName())) : Optional.empty();
+                VariableStatsEstimate leftStats = getRowExpressionStats(left);
+                Optional<VariableReferenceExpression> leftVariable = left instanceof VariableReferenceExpression ? Optional.of((VariableReferenceExpression) left) : Optional.empty();
                 if (right instanceof ConstantExpression) {
                     Object rightValue = ((ConstantExpression) right).getValue();
                     if (rightValue == null) {
                         return visitConstant(constantNull(BOOLEAN), null);
                     }
                     OptionalDouble literal = toStatsRepresentation(metadata, session, right.getType(), rightValue);
-                    return estimateExpressionToLiteralComparison(input, leftStats, leftSymbol, literal, getComparisonOperator(operatorType));
+                    return estimateExpressionToLiteralComparison(input, leftStats, leftVariable, literal, getComparisonOperator(operatorType));
                 }
 
-                SymbolStatsEstimate rightStats = getRowExpressionStats(right);
+                VariableStatsEstimate rightStats = getRowExpressionStats(right);
                 if (rightStats.isSingleValue()) {
                     OptionalDouble value = isNaN(rightStats.getLowValue()) ? OptionalDouble.empty() : OptionalDouble.of(rightStats.getLowValue());
-                    return estimateExpressionToLiteralComparison(input, leftStats, leftSymbol, value, getComparisonOperator(operatorType));
+                    return estimateExpressionToLiteralComparison(input, leftStats, leftVariable, value, getComparisonOperator(operatorType));
                 }
 
-                Optional<Symbol> rightSymbol = right instanceof VariableReferenceExpression ? Optional.of(new Symbol(((VariableReferenceExpression) right).getName())) : Optional.empty();
-                return estimateExpressionToExpressionComparison(input, leftStats, leftSymbol, rightStats, rightSymbol, getComparisonOperator(operatorType));
+                Optional<VariableReferenceExpression> rightVariable = right instanceof VariableReferenceExpression ? Optional.of((VariableReferenceExpression) right) : Optional.empty();
+                return estimateExpressionToExpressionComparison(input, leftStats, leftVariable, rightStats, rightVariable, getComparisonOperator(operatorType));
             }
 
             // NOT case
@@ -592,11 +597,11 @@ public class FilterStatsCalculator
                     // IS NOT NULL case
                     RowExpression innerArugment = ((SpecialFormExpression) arguemnt).getArguments().get(0);
                     if (innerArugment instanceof VariableReferenceExpression) {
-                        Symbol symbol = new Symbol(((VariableReferenceExpression) innerArugment).getName());
-                        SymbolStatsEstimate symbolStats = input.getSymbolStatistics(symbol);
+                        VariableReferenceExpression variable = (VariableReferenceExpression) innerArugment;
+                        VariableStatsEstimate variableStats = input.getVariableStatistics(variable);
                         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
-                        result.setOutputRowCount(input.getOutputRowCount() * (1 - symbolStats.getNullsFraction()));
-                        result.addSymbolStatistics(symbol, symbolStats.mapNullsFraction(x -> 0.0));
+                        result.setOutputRowCount(input.getOutputRowCount() * (1 - variableStats.getNullsFraction()));
+                        result.addVariableStatistics(variable, variableStats.mapNullsFraction(x -> 0.0));
                         return result.build();
                     }
                     return PlanNodeStatsEstimate.unknown();
@@ -619,7 +624,7 @@ public class FilterStatsCalculator
                     return PlanNodeStatsEstimate.unknown();
                 }
 
-                SymbolStatsEstimate valueStats = input.getSymbolStatistics(new Symbol(((VariableReferenceExpression) value).getName()));
+                VariableStatsEstimate valueStats = input.getVariableStatistics((VariableReferenceExpression) value);
                 RowExpression lowerBound = call(
                         OperatorType.GREATER_THAN_OR_EQUAL.name(),
                         metadata.getFunctionManager().resolveOperator(OperatorType.GREATER_THAN_OR_EQUAL, fromTypes(value.getType(), min.getType())),
@@ -661,7 +666,7 @@ public class FilterStatsCalculator
 
         private PlanNodeStatsEstimate process(RowExpression rowExpression)
         {
-            return normalizer.normalize(rowExpression.accept(this, null), types);
+            return normalizer.normalize(rowExpression.accept(this, null));
         }
 
         private PlanNodeStatsEstimate estimateLogicalAnd(RowExpression left, RowExpression right)
@@ -736,7 +741,7 @@ public class FilterStatsCalculator
                 return PlanNodeStatsEstimate.unknown();
             }
 
-            SymbolStatsEstimate valueStats = getRowExpressionStats(value);
+            VariableStatsEstimate valueStats = getRowExpressionStats(value);
             if (valueStats.isUnknown()) {
                 return PlanNodeStatsEstimate.unknown();
             }
@@ -747,10 +752,10 @@ public class FilterStatsCalculator
             result.setOutputRowCount(min(inEstimate.getOutputRowCount(), notNullValuesBeforeIn));
 
             if (value instanceof VariableReferenceExpression) {
-                Symbol valueSymbol = new Symbol(((VariableReferenceExpression) value).getName());
-                SymbolStatsEstimate newSymbolStats = inEstimate.getSymbolStatistics(valueSymbol)
+                VariableReferenceExpression valueVariable = (VariableReferenceExpression) value;
+                VariableStatsEstimate newVariableStats = inEstimate.getVariableStatistics(valueVariable)
                         .mapDistinctValuesCount(newDistinctValuesCount -> min(newDistinctValuesCount, valueStats.getDistinctValuesCount()));
-                result.addSymbolStatistics(valueSymbol, newSymbolStats);
+                result.addVariableStatistics(valueVariable, newVariableStats);
             }
             return result.build();
         }
@@ -758,11 +763,11 @@ public class FilterStatsCalculator
         private PlanNodeStatsEstimate estimateIsNull(RowExpression expression)
         {
             if (expression instanceof VariableReferenceExpression) {
-                Symbol symbol = new Symbol(((VariableReferenceExpression) expression).getName());
-                SymbolStatsEstimate symbolStats = input.getSymbolStatistics(symbol);
+                VariableReferenceExpression variable = (VariableReferenceExpression) expression;
+                VariableStatsEstimate variableStats = input.getVariableStatistics(variable);
                 PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
-                result.setOutputRowCount(input.getOutputRowCount() * symbolStats.getNullsFraction());
-                result.addSymbolStatistics(symbol, SymbolStatsEstimate.builder()
+                result.setOutputRowCount(input.getOutputRowCount() * variableStats.getNullsFraction());
+                result.addVariableStatistics(variable, VariableStatsEstimate.builder()
                         .setNullsFraction(1.0)
                         .setLowValue(NaN)
                         .setHighValue(NaN)
@@ -827,11 +832,11 @@ public class FilterStatsCalculator
             }
         }
 
-        private SymbolStatsEstimate getRowExpressionStats(RowExpression expression)
+        private VariableStatsEstimate getRowExpressionStats(RowExpression expression)
         {
             if (expression instanceof VariableReferenceExpression) {
-                Symbol symbol = new Symbol(((VariableReferenceExpression) expression).getName());
-                return requireNonNull(input.getSymbolStatistics(symbol), () -> format("No statistics for symbol %s", symbol));
+                VariableReferenceExpression variable = (VariableReferenceExpression) expression;
+                return requireNonNull(input.getVariableStatistics(variable), () -> format("No statistics for variable %s", variable));
             }
             return scalarStatsCalculator.calculate(expression, input, session);
         }

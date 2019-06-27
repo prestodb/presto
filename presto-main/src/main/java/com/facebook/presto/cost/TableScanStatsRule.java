@@ -18,12 +18,12 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -58,26 +58,25 @@ public class TableScanStatsRule
         Constraint<ColumnHandle> constraint = new Constraint<>(node.getCurrentConstraint());
 
         TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), constraint);
-        Map<Symbol, SymbolStatsEstimate> outputSymbolStats = new HashMap<>();
+        Map<VariableReferenceExpression, VariableStatsEstimate> outputVariableStats = new HashMap<>();
 
-        for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
-            Symbol symbol = entry.getKey();
+        for (Map.Entry<VariableReferenceExpression, ColumnHandle> entry : node.getAssignments().entrySet()) {
             Optional<ColumnStatistics> columnStatistics = Optional.ofNullable(tableStatistics.getColumnStatistics().get(entry.getValue()));
-            outputSymbolStats.put(symbol, columnStatistics.map(statistics -> toSymbolStatistics(tableStatistics, statistics)).orElse(SymbolStatsEstimate.unknown()));
+            outputVariableStats.put(entry.getKey(), columnStatistics.map(statistics -> toSymbolStatistics(tableStatistics, statistics)).orElse(VariableStatsEstimate.unknown()));
         }
 
         return Optional.of(PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(tableStatistics.getRowCount().getValue())
-                .addSymbolStatistics(outputSymbolStats)
+                .addVariableStatistics(outputVariableStats)
                 .build());
     }
 
-    private SymbolStatsEstimate toSymbolStatistics(TableStatistics tableStatistics, ColumnStatistics columnStatistics)
+    private VariableStatsEstimate toSymbolStatistics(TableStatistics tableStatistics, ColumnStatistics columnStatistics)
     {
         double nullsFraction = columnStatistics.getNullsFraction().getValue();
         double nonNullRowsCount = tableStatistics.getRowCount().getValue() * (1.0 - nullsFraction);
         double averageRowSize = nonNullRowsCount == 0 ? 0 : columnStatistics.getDataSize().getValue() / nonNullRowsCount;
-        SymbolStatsEstimate.Builder result = SymbolStatsEstimate.builder();
+        VariableStatsEstimate.Builder result = VariableStatsEstimate.builder();
         result.setNullsFraction(nullsFraction);
         result.setDistinctValuesCount(columnStatistics.getDistinctValuesCount().getValue());
         result.setAverageRowSize(averageRowSize);

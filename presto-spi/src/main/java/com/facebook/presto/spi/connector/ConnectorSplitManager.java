@@ -31,6 +31,7 @@ public interface ConnectorSplitManager
     {
         UNGROUPED_SCHEDULING,
         GROUPED_SCHEDULING,
+        REWINDABLE_GROUPED_SCHEDULING,
     }
 
     class SplitSchedulingContext

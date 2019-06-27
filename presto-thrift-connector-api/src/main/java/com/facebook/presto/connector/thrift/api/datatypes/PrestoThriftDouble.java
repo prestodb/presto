@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.connector.thrift.api.datatypes;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.connector.thrift.api.PrestoThriftBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.LongArrayBlock;
 import com.facebook.presto.spi.type.Type;
-import io.airlift.drift.annotations.ThriftConstructor;
-import io.airlift.drift.annotations.ThriftField;
-import io.airlift.drift.annotations.ThriftStruct;
 
 import javax.annotation.Nullable;
 
@@ -27,12 +27,12 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.booleanData;
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.doubleData;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 import static java.lang.Double.doubleToLongBits;
 
 /**

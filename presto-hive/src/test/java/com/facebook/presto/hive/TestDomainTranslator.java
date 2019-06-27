@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.Subfield;
+import com.facebook.presto.spi.block.TestingSession;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.predicate.Domain;
@@ -33,6 +34,7 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -43,7 +45,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
-import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IN;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -80,7 +82,10 @@ public class TestDomainTranslator
     {
         metadata = createTestMetadataManager();
         domainTranslator = new RowExpressionDomainTranslator(metadata);
-        columnExtractor = new SubfieldExtractor(new FunctionResolution(metadata.getFunctionManager()));
+        columnExtractor = new SubfieldExtractor(
+                new FunctionResolution(metadata.getFunctionManager()),
+                (rowExpression, level, session) -> rowExpression,
+                TestingSession.SESSION);
     }
 
     @Test
@@ -90,12 +95,12 @@ public class TestDomainTranslator
                 .put("c_bigint", C_BIGINT)
                 .put("c_bigint_array[5]", arraySubscript(C_BIGINT_ARRAY, 5))
                 .put("c_bigint_to_bigint_map[5]", mapSubscript(C_BIGINT_TO_BIGINT_MAP, constant(5, BIGINT)))
-                .put("c_varchar_to_bigint_map[\"foo\"]", mapSubscript(C_VARCHAR_TO_BIGINT_MAP, constant("foo", VARCHAR)))
+                .put("c_varchar_to_bigint_map[\"foo\"]", mapSubscript(C_VARCHAR_TO_BIGINT_MAP, constant(Slices.utf8Slice("foo"), VARCHAR)))
                 .put("c_struct.a", dereference(C_STRUCT, 0))
                 .put("c_struct.b.x", dereference(dereference(C_STRUCT, 1), 0))
                 .put("c_struct.c[5]", arraySubscript(dereference(C_STRUCT, 2), 5))
                 .put("c_struct.d[5]", mapSubscript(dereference(C_STRUCT, 3), constant(5, BIGINT)))
-                .put("c_struct.e[\"foo\"]", mapSubscript(dereference(C_STRUCT, 4), constant("foo", VARCHAR)))
+                .put("c_struct.e[\"foo\"]", mapSubscript(dereference(C_STRUCT, 4), constant(Slices.utf8Slice("foo"), VARCHAR)))
                 .build();
 
         for (Map.Entry<String, RowExpression> entry : expressions.entrySet()) {
@@ -163,7 +168,7 @@ public class TestDomainTranslator
     private void assertPredicateTranslates(RowExpression predicate, String subfield, Domain domain)
     {
         ExtractionResult<Subfield> result = domainTranslator.fromPredicate(TEST_SESSION.toConnectorSession(), predicate, columnExtractor);
-        assertEquals(result.getRemainingExpression(), TRUE);
+        assertEquals(result.getRemainingExpression(), TRUE_CONSTANT);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(new Subfield(subfield), domain)));
     }
 

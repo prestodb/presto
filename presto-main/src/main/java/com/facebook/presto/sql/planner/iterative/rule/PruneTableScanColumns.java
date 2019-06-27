@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.SymbolAllocator;
 
 import java.util.Optional;
 import java.util.Set;
@@ -34,13 +35,13 @@ public class PruneTableScanColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, TableScanNode tableScanNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, TableScanNode tableScanNode, Set<VariableReferenceExpression> referencedOutputs)
     {
         return Optional.of(
                 new TableScanNode(
                         tableScanNode.getId(),
                         tableScanNode.getTable(),
-                        filteredCopy(tableScanNode.getOutputSymbols(), referencedOutputs::contains),
+                        filteredCopy(tableScanNode.getOutputVariables(), referencedOutputs::contains),
                         filterKeys(tableScanNode.getAssignments(), referencedOutputs::contains),
                         tableScanNode.getCurrentConstraint(),
                         tableScanNode.getEnforcedConstraint()));

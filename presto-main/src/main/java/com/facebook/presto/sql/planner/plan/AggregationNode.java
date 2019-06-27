@@ -16,10 +16,12 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.Expression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -44,24 +46,24 @@ public class AggregationNode
         extends InternalPlanNode
 {
     private final PlanNode source;
-    private final Map<Symbol, Aggregation> aggregations;
+    private final Map<VariableReferenceExpression, Aggregation> aggregations;
     private final GroupingSetDescriptor groupingSets;
-    private final List<Symbol> preGroupedSymbols;
+    private final List<VariableReferenceExpression> preGroupedVariables;
     private final Step step;
-    private final Optional<Symbol> hashSymbol;
-    private final Optional<Symbol> groupIdSymbol;
-    private final List<Symbol> outputs;
+    private final Optional<VariableReferenceExpression> hashVariable;
+    private final Optional<VariableReferenceExpression> groupIdVariable;
+    private final List<VariableReferenceExpression> outputs;
 
     @JsonCreator
     public AggregationNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("aggregations") Map<Symbol, Aggregation> aggregations,
+            @JsonProperty("aggregations") Map<VariableReferenceExpression, Aggregation> aggregations,
             @JsonProperty("groupingSets") GroupingSetDescriptor groupingSets,
-            @JsonProperty("preGroupedSymbols") List<Symbol> preGroupedSymbols,
+            @JsonProperty("preGroupedVariables") List<VariableReferenceExpression> preGroupedVariables,
             @JsonProperty("step") Step step,
-            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
-            @JsonProperty("groupIdSymbol") Optional<Symbol> groupIdSymbol)
+            @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable,
+            @JsonProperty("groupIdVariable") Optional<VariableReferenceExpression> groupIdVariable)
     {
         super(id);
 
@@ -69,10 +71,10 @@ public class AggregationNode
         this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
 
         requireNonNull(groupingSets, "groupingSets is null");
-        groupIdSymbol.ifPresent(symbol -> checkArgument(groupingSets.getGroupingKeys().contains(symbol), "Grouping columns does not contain groupId column"));
+        groupIdVariable.ifPresent(variable -> checkArgument(groupingSets.getGroupingKeys().contains(variable), "Grouping columns does not contain groupId column"));
         this.groupingSets = groupingSets;
 
-        this.groupIdSymbol = requireNonNull(groupIdSymbol);
+        this.groupIdVariable = requireNonNull(groupIdVariable);
 
         boolean noOrderBy = aggregations.values().stream()
                 .map(Aggregation::getOrderBy)
@@ -80,26 +82,26 @@ public class AggregationNode
         checkArgument(noOrderBy || step == SINGLE, "ORDER BY does not support distributed aggregation");
 
         this.step = step;
-        this.hashSymbol = hashSymbol;
+        this.hashVariable = hashVariable;
 
-        requireNonNull(preGroupedSymbols, "preGroupedSymbols is null");
-        checkArgument(preGroupedSymbols.isEmpty() || groupingSets.getGroupingKeys().containsAll(preGroupedSymbols), "Pre-grouped symbols must be a subset of the grouping keys");
-        this.preGroupedSymbols = ImmutableList.copyOf(preGroupedSymbols);
+        requireNonNull(preGroupedVariables, "preGroupedVariables is null");
+        checkArgument(preGroupedVariables.isEmpty() || groupingSets.getGroupingKeys().containsAll(preGroupedVariables), "Pre-grouped variables must be a subset of the grouping keys");
+        this.preGroupedVariables = ImmutableList.copyOf(preGroupedVariables);
 
-        ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
+        ImmutableList.Builder<VariableReferenceExpression> outputs = ImmutableList.builder();
         outputs.addAll(groupingSets.getGroupingKeys());
-        hashSymbol.ifPresent(outputs::add);
+        hashVariable.ifPresent(outputs::add);
         outputs.addAll(aggregations.keySet());
 
         this.outputs = outputs.build();
     }
 
-    public List<Symbol> getGroupingKeys()
+    public List<VariableReferenceExpression> getGroupingKeys()
     {
         return groupingSets.getGroupingKeys();
     }
 
-    @JsonProperty("groupingSets")
+    @JsonProperty
     public GroupingSetDescriptor getGroupingSets()
     {
         return groupingSets;
@@ -135,21 +137,21 @@ public class AggregationNode
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<VariableReferenceExpression> getOutputVariables()
     {
         return outputs;
     }
 
     @JsonProperty
-    public Map<Symbol, Aggregation> getAggregations()
+    public Map<VariableReferenceExpression, Aggregation> getAggregations()
     {
         return aggregations;
     }
 
-    @JsonProperty("preGroupedSymbols")
-    public List<Symbol> getPreGroupedSymbols()
+    @JsonProperty
+    public List<VariableReferenceExpression> getPreGroupedVariables()
     {
-        return preGroupedSymbols;
+        return preGroupedVariables;
     }
 
     public int getGroupingSetCount()
@@ -162,28 +164,28 @@ public class AggregationNode
         return groupingSets.getGlobalGroupingSets();
     }
 
-    @JsonProperty("source")
+    @JsonProperty
     public PlanNode getSource()
     {
         return source;
     }
 
-    @JsonProperty("step")
+    @JsonProperty
     public Step getStep()
     {
         return step;
     }
 
-    @JsonProperty("hashSymbol")
-    public Optional<Symbol> getHashSymbol()
+    @JsonProperty
+    public Optional<VariableReferenceExpression> getHashVariable()
     {
-        return hashSymbol;
+        return hashVariable;
     }
 
-    @JsonProperty("groupIdSymbol")
-    public Optional<Symbol> getGroupIdSymbol()
+    @JsonProperty
+    public Optional<VariableReferenceExpression> getGroupIdVariable()
     {
-        return groupIdSymbol;
+        return groupIdVariable;
     }
 
     public boolean hasOrderings()
@@ -202,7 +204,7 @@ public class AggregationNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, preGroupedSymbols, step, hashSymbol, groupIdSymbol);
+        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, preGroupedVariables, step, hashVariable, groupIdVariable);
     }
 
     public boolean isDecomposable(FunctionManager functionManager)
@@ -239,7 +241,7 @@ public class AggregationNode
 
     public boolean isStreamable()
     {
-        return !preGroupedSymbols.isEmpty() && groupingSets.getGroupingSetCount() == 1 && groupingSets.getGlobalGroupingSets().isEmpty();
+        return !preGroupedVariables.isEmpty() && groupingSets.getGroupingSetCount() == 1 && groupingSets.getGlobalGroupingSets().isEmpty();
     }
 
     public static GroupingSetDescriptor globalAggregation()
@@ -247,7 +249,7 @@ public class AggregationNode
         return singleGroupingSet(ImmutableList.of());
     }
 
-    public static GroupingSetDescriptor singleGroupingSet(List<Symbol> groupingKeys)
+    public static GroupingSetDescriptor singleGroupingSet(List<VariableReferenceExpression> groupingKeys)
     {
         Set<Integer> globalGroupingSets;
         if (groupingKeys.isEmpty()) {
@@ -260,20 +262,20 @@ public class AggregationNode
         return new GroupingSetDescriptor(groupingKeys, 1, globalGroupingSets);
     }
 
-    public static GroupingSetDescriptor groupingSets(List<Symbol> groupingKeys, int groupingSetCount, Set<Integer> globalGroupingSets)
+    public static GroupingSetDescriptor groupingSets(List<VariableReferenceExpression> groupingKeys, int groupingSetCount, Set<Integer> globalGroupingSets)
     {
         return new GroupingSetDescriptor(groupingKeys, groupingSetCount, globalGroupingSets);
     }
 
     public static class GroupingSetDescriptor
     {
-        private final List<Symbol> groupingKeys;
+        private final List<VariableReferenceExpression> groupingKeys;
         private final int groupingSetCount;
         private final Set<Integer> globalGroupingSets;
 
         @JsonCreator
         public GroupingSetDescriptor(
-                @JsonProperty("groupingKeys") List<Symbol> groupingKeys,
+                @JsonProperty("groupingKeys") List<VariableReferenceExpression> groupingKeys,
                 @JsonProperty("groupingSetCount") int groupingSetCount,
                 @JsonProperty("globalGroupingSets") Set<Integer> globalGroupingSets)
         {
@@ -290,7 +292,7 @@ public class AggregationNode
         }
 
         @JsonProperty
-        public List<Symbol> getGroupingKeys()
+        public List<VariableReferenceExpression> getGroupingKeys()
         {
             return groupingKeys;
         }
@@ -357,24 +359,21 @@ public class AggregationNode
 
     public static class Aggregation
     {
-        private final FunctionHandle functionHandle;
-        private final List<Expression> arguments;
-        private final Optional<Expression> filter;
+        private final CallExpression call;
+        private final Optional<RowExpression> filter;
         private final Optional<OrderingScheme> orderingScheme;
         private final boolean isDistinct;
-        private final Optional<Symbol> mask;
+        private final Optional<VariableReferenceExpression> mask;
 
         @JsonCreator
         public Aggregation(
-                @JsonProperty("functionHandle") FunctionHandle functionHandle,
-                @JsonProperty("arguments") List<Expression> arguments,
-                @JsonProperty("filter") Optional<Expression> filter,
+                @JsonProperty("call") CallExpression call,
+                @JsonProperty("filter") Optional<RowExpression> filter,
                 @JsonProperty("orderBy") Optional<OrderingScheme> orderingScheme,
                 @JsonProperty("distinct") boolean isDistinct,
-                @JsonProperty("mask") Optional<Symbol> mask)
+                @JsonProperty("mask") Optional<VariableReferenceExpression> mask)
         {
-            this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
-            this.arguments = requireNonNull(arguments, "arguments is null");
+            this.call = requireNonNull(call, "call is null");
             this.filter = requireNonNull(filter, "filter is null");
             this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
             this.isDistinct = isDistinct;
@@ -382,15 +381,21 @@ public class AggregationNode
         }
 
         @JsonProperty
-        public FunctionHandle getFunctionHandle()
+        public CallExpression getCall()
         {
-            return functionHandle;
+            return call;
         }
 
         @JsonProperty
-        public List<Expression> getArguments()
+        public FunctionHandle getFunctionHandle()
         {
-            return arguments;
+            return call.getFunctionHandle();
+        }
+
+        @JsonProperty
+        public List<RowExpression> getArguments()
+        {
+            return call.getArguments();
         }
 
         @JsonProperty
@@ -400,7 +405,7 @@ public class AggregationNode
         }
 
         @JsonProperty
-        public Optional<Expression> getFilter()
+        public Optional<RowExpression> getFilter()
         {
             return filter;
         }
@@ -412,7 +417,7 @@ public class AggregationNode
         }
 
         @JsonProperty
-        public Optional<Symbol> getMask()
+        public Optional<VariableReferenceExpression> getMask()
         {
             return mask;
         }
@@ -428,17 +433,28 @@ public class AggregationNode
             }
             Aggregation that = (Aggregation) o;
             return isDistinct == that.isDistinct &&
-                    Objects.equals(functionHandle, that.functionHandle) &&
-                    Objects.equals(arguments, that.arguments) &&
+                    Objects.equals(call, that.call) &&
                     Objects.equals(filter, that.filter) &&
                     Objects.equals(orderingScheme, that.orderingScheme) &&
                     Objects.equals(mask, that.mask);
         }
 
         @Override
+        public String toString()
+        {
+            return "Aggregation{" +
+                    "call=" + call +
+                    ", filter=" + filter +
+                    ", orderingScheme=" + orderingScheme +
+                    ", isDistinct=" + isDistinct +
+                    ", mask=" + mask +
+                    '}';
+        }
+
+        @Override
         public int hashCode()
         {
-            return Objects.hash(functionHandle, arguments, filter, orderingScheme, isDistinct, mask);
+            return Objects.hash(call, filter, orderingScheme, isDistinct, mask);
         }
     }
 }

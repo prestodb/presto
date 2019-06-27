@@ -35,6 +35,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Fail.fail;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -142,13 +143,23 @@ public class TestRowBlock
     }
 
     @Override
-    protected <T> void assertPositionValue(Block block, int position, T expectedValue)
+    protected <T> void assertCheckedPositionValue(Block block, int position, T expectedValue)
     {
         if (expectedValue instanceof List) {
             assertValue(block, position, (List<Object>) expectedValue);
             return;
         }
-        super.assertPositionValue(block, position, expectedValue);
+        super.assertCheckedPositionValue(block, position, expectedValue);
+    }
+
+    @Override
+    protected <T> void assertPositionValueUnchecked(Block block, int internalPosition, T expectedValue)
+    {
+        if (expectedValue instanceof List) {
+            assertValueUnchecked(block, internalPosition, (List<Object>) expectedValue);
+            return;
+        }
+        super.assertPositionValueUnchecked(block, internalPosition, expectedValue);
     }
 
     private void assertValue(Block rowBlock, int position, List<Object> row)
@@ -174,6 +185,34 @@ public class TestRowBlock
                 }
                 else {
                     throw new IllegalArgumentException();
+                }
+            }
+        }
+    }
+
+    private void assertValueUnchecked(Block rowBlock, int internalPosition, List<Object> row)
+    {
+        // null rows are handled by assertPositionValue
+        requireNonNull(row, "row is null");
+
+        assertFalse(rowBlock.isNullUnchecked(internalPosition));
+        SingleRowBlock singleRowBlock = (SingleRowBlock) rowBlock.getBlockUnchecked(internalPosition);
+        assertEquals(singleRowBlock.getPositionCount(), row.size());
+
+        for (int i = 0; i < row.size(); i++) {
+            Object fieldValue = row.get(i);
+            if (fieldValue == null) {
+                assertTrue(singleRowBlock.isNullUnchecked(i + singleRowBlock.getOffsetBase()));
+            }
+            else {
+                if (fieldValue instanceof Long) {
+                    assertEquals(BIGINT.getLongUnchecked(singleRowBlock, i + singleRowBlock.getOffsetBase()), ((Long) fieldValue).longValue());
+                }
+                else if (fieldValue instanceof String) {
+                    assertEquals(VARCHAR.getSliceUnchecked(singleRowBlock, i + singleRowBlock.getOffsetBase()), utf8Slice((String) fieldValue));
+                }
+                else {
+                    fail("Unexpected type: " + fieldValue.getClass().getSimpleName());
                 }
             }
         }

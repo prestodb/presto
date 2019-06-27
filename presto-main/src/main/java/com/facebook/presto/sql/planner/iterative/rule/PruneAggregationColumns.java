@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.Maps;
 
 import java.util.Map;
@@ -36,12 +37,11 @@ public class PruneAggregationColumns
     @Override
     protected Optional<PlanNode> pushDownProjectOff(
             PlanNodeIdAllocator idAllocator,
+            SymbolAllocator symbolAllocator,
             AggregationNode aggregationNode,
-            Set<Symbol> referencedOutputs)
+            Set<VariableReferenceExpression> referencedOutputs)
     {
-        Map<Symbol, AggregationNode.Aggregation> prunedAggregations = Maps.filterKeys(
-                aggregationNode.getAggregations(),
-                referencedOutputs::contains);
+        Map<VariableReferenceExpression, AggregationNode.Aggregation> prunedAggregations = Maps.filterKeys(aggregationNode.getAggregations(), referencedOutputs::contains);
 
         if (prunedAggregations.size() == aggregationNode.getAggregations().size()) {
             return Optional.empty();
@@ -54,9 +54,9 @@ public class PruneAggregationColumns
                         aggregationNode.getSource(),
                         prunedAggregations,
                         aggregationNode.getGroupingSets(),
-                        aggregationNode.getPreGroupedSymbols(),
+                        aggregationNode.getPreGroupedVariables(),
                         aggregationNode.getStep(),
-                        aggregationNode.getHashSymbol(),
-                        aggregationNode.getGroupIdSymbol()));
+                        aggregationNode.getHashVariable(),
+                        aggregationNode.getGroupIdVariable()));
     }
 }

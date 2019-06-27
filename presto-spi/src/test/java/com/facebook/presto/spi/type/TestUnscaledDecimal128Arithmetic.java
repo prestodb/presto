@@ -291,6 +291,7 @@ public class TestUnscaledDecimal128Arithmetic
         // single int divisor
         assertDivideAllSigns(new int[] {1423957378, -1444436990, -925263858, 1106345725}, new int[] {2042457708, 0, 0, 0});
         assertDivideAllSigns(new int[] {0, 0xF7000000, 0, 0x39000000}, new int[] {-1765820914, 0, 0, 0});
+        assertDivideAllSigns(new int[] {-1981284352, -1966660860, 0, 0}, new int[] {-1794967296, 0, 0, 0});
 
         // normalization scale = 1
         assertDivideAllSigns(new int[] {0x0FF00210, 0xF7001230, 0xFB00AC00, 0x39003500}, new int[] {-1765820914, 2042457708, 0xFFFFFFFF, 0});

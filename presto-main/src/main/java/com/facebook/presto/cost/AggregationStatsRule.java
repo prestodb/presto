@@ -15,7 +15,7 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -63,12 +63,12 @@ public class AggregationStatsRule
                 node.getAggregations()));
     }
 
-    public static PlanNodeStatsEstimate groupBy(PlanNodeStatsEstimate sourceStats, Collection<Symbol> groupBySymbols, Map<Symbol, Aggregation> aggregations)
+    public static PlanNodeStatsEstimate groupBy(PlanNodeStatsEstimate sourceStats, Collection<VariableReferenceExpression> groupByVariables, Map<VariableReferenceExpression, Aggregation> aggregations)
     {
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
-        for (Symbol groupBySymbol : groupBySymbols) {
-            SymbolStatsEstimate symbolStatistics = sourceStats.getSymbolStatistics(groupBySymbol);
-            result.addSymbolStatistics(groupBySymbol, symbolStatistics.mapNullsFraction(nullsFraction -> {
+        for (VariableReferenceExpression groupByVariable : groupByVariables) {
+            VariableStatsEstimate symbolStatistics = sourceStats.getVariableStatistics(groupByVariable);
+            result.addVariableStatistics(groupByVariable, symbolStatistics.mapNullsFraction(nullsFraction -> {
                 if (nullsFraction == 0.0) {
                     return 0.0;
                 }
@@ -77,26 +77,26 @@ public class AggregationStatsRule
         }
 
         double rowsCount = 1;
-        for (Symbol groupBySymbol : groupBySymbols) {
-            SymbolStatsEstimate symbolStatistics = sourceStats.getSymbolStatistics(groupBySymbol);
+        for (VariableReferenceExpression groupByVariable : groupByVariables) {
+            VariableStatsEstimate symbolStatistics = sourceStats.getVariableStatistics(groupByVariable);
             int nullRow = (symbolStatistics.getNullsFraction() == 0.0) ? 0 : 1;
             rowsCount *= symbolStatistics.getDistinctValuesCount() + nullRow;
         }
         result.setOutputRowCount(min(rowsCount, sourceStats.getOutputRowCount()));
 
-        for (Map.Entry<Symbol, Aggregation> aggregationEntry : aggregations.entrySet()) {
-            result.addSymbolStatistics(aggregationEntry.getKey(), estimateAggregationStats(aggregationEntry.getValue(), sourceStats));
+        for (Map.Entry<VariableReferenceExpression, Aggregation> aggregationEntry : aggregations.entrySet()) {
+            result.addVariableStatistics(aggregationEntry.getKey(), estimateAggregationStats(aggregationEntry.getValue(), sourceStats));
         }
 
         return result.build();
     }
 
-    private static SymbolStatsEstimate estimateAggregationStats(Aggregation aggregation, PlanNodeStatsEstimate sourceStats)
+    private static VariableStatsEstimate estimateAggregationStats(Aggregation aggregation, PlanNodeStatsEstimate sourceStats)
     {
         requireNonNull(aggregation, "aggregation is null");
         requireNonNull(sourceStats, "sourceStats is null");
 
         // TODO implement simple aggregations like: min, max, count, sum
-        return SymbolStatsEstimate.unknown();
+        return VariableStatsEstimate.unknown();
     }
 }

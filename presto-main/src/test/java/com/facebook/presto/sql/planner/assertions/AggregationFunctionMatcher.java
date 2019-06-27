@@ -16,18 +16,25 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.OrderBy;
+import com.facebook.presto.sql.tree.SymbolReference;
+import com.google.common.collect.Streams;
 
 import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.PlannerUtils.toSortOrder;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -42,9 +49,9 @@ public class AggregationFunctionMatcher
     }
 
     @Override
-    public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public Optional<VariableReferenceExpression> getAssignedVariable(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        Optional<Symbol> result = Optional.empty();
+        Optional<VariableReferenceExpression> result = Optional.empty();
         if (!(node instanceof AggregationNode)) {
             return result;
         }
@@ -52,7 +59,7 @@ public class AggregationFunctionMatcher
         AggregationNode aggregationNode = (AggregationNode) node;
 
         FunctionCall expectedCall = callMaker.getExpectedValue(symbolAliases);
-        for (Map.Entry<Symbol, Aggregation> assignment : aggregationNode.getAggregations().entrySet()) {
+        for (Map.Entry<VariableReferenceExpression, Aggregation> assignment : aggregationNode.getAggregations().entrySet()) {
             if (verifyAggregation(metadata.getFunctionManager(), assignment.getValue(), expectedCall)) {
                 checkState(!result.isPresent(), "Ambiguous function calls in %s", aggregationNode);
                 result = Optional.of(assignment.getKey());
@@ -64,9 +71,13 @@ public class AggregationFunctionMatcher
 
     private static boolean verifyAggregation(FunctionManager functionManager, Aggregation aggregation, FunctionCall expectedCall)
     {
-        return expectedCall.getName().getSuffix().equalsIgnoreCase(functionManager.getFunctionMetadata(aggregation.getFunctionHandle()).getName()) &&
-                expectedCall.getArguments().equals(aggregation.getArguments()) &&
-                expectedCall.getFilter().equals(aggregation.getFilter()) &&
+        return functionManager.getFunctionMetadata(aggregation.getFunctionHandle()).getName().equalsIgnoreCase(expectedCall.getName().getSuffix()) &&
+                aggregation.getArguments().size() == expectedCall.getArguments().size() &&
+                Streams.zip(
+                        aggregation.getArguments().stream(),
+                        expectedCall.getArguments().stream(),
+                        (actualArgument, expectedArgument) -> isEquivalent(Optional.of(expectedArgument), Optional.of(actualArgument))).allMatch(Boolean::booleanValue) &&
+                isEquivalent(expectedCall.getFilter(), aggregation.getFilter()) &&
                 expectedCall.isDistinct() == aggregation.isDistinct() &&
                 verifyAggregationOrderBy(aggregation.getOrderBy(), expectedCall.getOrderBy());
     }
@@ -85,14 +96,27 @@ public class AggregationFunctionMatcher
             return false;
         }
         for (int i = 0; i < expectedSortOrder.getSortItems().size(); i++) {
-            Symbol orderingSymbol = orderingScheme.getOrderBy().get(i);
-            if (expectedSortOrder.getSortItems().get(i).getSortKey().equals(orderingSymbol.toSymbolReference()) &&
-                    toSortOrder(expectedSortOrder.getSortItems().get(i)).equals(orderingScheme.getOrdering(orderingSymbol))) {
+            VariableReferenceExpression orderingVariable = orderingScheme.getOrderBy().get(i);
+            if (expectedSortOrder.getSortItems().get(i).getSortKey().equals(new SymbolReference(orderingVariable.getName())) &&
+                    toSortOrder(expectedSortOrder.getSortItems().get(i)).equals(orderingScheme.getOrdering(orderingVariable))) {
                 continue;
             }
             return false;
         }
         return true;
+    }
+
+    private static boolean isEquivalent(Optional<Expression> expression, Optional<RowExpression> rowExpression)
+    {
+        // Function's argument provided by FunctionCallProvider is SymbolReference that already resolved from symbolAliases.
+        if (rowExpression.isPresent() && expression.isPresent()) {
+            if (isExpression(rowExpression.get())) {
+                return expression.get().equals(castToExpression(rowExpression.get()));
+            }
+            checkArgument(rowExpression.get() instanceof VariableReferenceExpression, "can only process variableReference");
+            return expression.get().equals(new SymbolReference(((VariableReferenceExpression) rowExpression.get()).getName()));
+        }
+        return rowExpression.isPresent() == expression.isPresent();
     }
 
     @Override

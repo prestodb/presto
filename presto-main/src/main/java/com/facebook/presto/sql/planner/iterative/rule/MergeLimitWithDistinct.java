@@ -41,8 +41,8 @@ public class MergeLimitWithDistinct
     private static boolean isDistinct(AggregationNode node)
     {
         return node.getAggregations().isEmpty() &&
-                node.getOutputSymbols().size() == node.getGroupingKeys().size() &&
-                node.getOutputSymbols().containsAll(node.getGroupingKeys());
+                node.getOutputVariables().size() == node.getGroupingKeys().size() &&
+                node.getOutputVariables().containsAll(node.getGroupingKeys());
     }
 
     @Override
@@ -63,6 +63,6 @@ public class MergeLimitWithDistinct
                         parent.getCount(),
                         false,
                         child.getGroupingKeys(),
-                        child.getHashSymbol()));
+                        child.getHashVariable()));
     }
 }

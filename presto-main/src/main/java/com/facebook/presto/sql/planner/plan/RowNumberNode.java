@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -25,7 +26,6 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.collect.Iterables.concat;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -33,33 +33,33 @@ public final class RowNumberNode
         extends InternalPlanNode
 {
     private final PlanNode source;
-    private final List<Symbol> partitionBy;
+    private final List<VariableReferenceExpression> partitionBy;
     private final Optional<Integer> maxRowCountPerPartition;
-    private final Symbol rowNumberSymbol;
-    private final Optional<Symbol> hashSymbol;
+    private final VariableReferenceExpression rowNumberVariable;
+    private final Optional<VariableReferenceExpression> hashVariable;
 
     @JsonCreator
     public RowNumberNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("partitionBy") List<Symbol> partitionBy,
-            @JsonProperty("rowNumberSymbol") Symbol rowNumberSymbol,
+            @JsonProperty("partitionBy") List<VariableReferenceExpression> partitionBy,
+            @JsonProperty("rowNumberVariable") VariableReferenceExpression rowNumberVariable,
             @JsonProperty("maxRowCountPerPartition") Optional<Integer> maxRowCountPerPartition,
-            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
+            @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable)
     {
         super(id);
 
         requireNonNull(source, "source is null");
         requireNonNull(partitionBy, "partitionBy is null");
-        requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
+        requireNonNull(rowNumberVariable, "rowNumberVariable is null");
         requireNonNull(maxRowCountPerPartition, "maxRowCountPerPartition is null");
-        requireNonNull(hashSymbol, "hashSymbol is null");
+        requireNonNull(hashVariable, "hashVariable is null");
 
         this.source = source;
         this.partitionBy = ImmutableList.copyOf(partitionBy);
-        this.rowNumberSymbol = rowNumberSymbol;
+        this.rowNumberVariable = rowNumberVariable;
         this.maxRowCountPerPartition = maxRowCountPerPartition;
-        this.hashSymbol = hashSymbol;
+        this.hashVariable = hashVariable;
     }
 
     @Override
@@ -69,9 +69,12 @@ public final class RowNumberNode
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<VariableReferenceExpression> getOutputVariables()
     {
-        return ImmutableList.copyOf(concat(source.getOutputSymbols(), ImmutableList.of(rowNumberSymbol)));
+        return ImmutableList.<VariableReferenceExpression>builder()
+                .addAll(source.getOutputVariables())
+                .add(rowNumberVariable)
+                .build();
     }
 
     @JsonProperty
@@ -81,15 +84,15 @@ public final class RowNumberNode
     }
 
     @JsonProperty
-    public List<Symbol> getPartitionBy()
+    public List<VariableReferenceExpression> getPartitionBy()
     {
         return partitionBy;
     }
 
     @JsonProperty
-    public Symbol getRowNumberSymbol()
+    public VariableReferenceExpression getRowNumberVariable()
     {
-        return rowNumberSymbol;
+        return rowNumberVariable;
     }
 
     @JsonProperty
@@ -99,9 +102,9 @@ public final class RowNumberNode
     }
 
     @JsonProperty
-    public Optional<Symbol> getHashSymbol()
+    public Optional<VariableReferenceExpression> getHashVariable()
     {
-        return hashSymbol;
+        return hashVariable;
     }
 
     @Override
@@ -113,6 +116,6 @@ public final class RowNumberNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new RowNumberNode(getId(), Iterables.getOnlyElement(newChildren), partitionBy, rowNumberSymbol, maxRowCountPerPartition, hashSymbol);
+        return new RowNumberNode(getId(), Iterables.getOnlyElement(newChildren), partitionBy, rowNumberVariable, maxRowCountPerPartition, hashVariable);
     }
 }

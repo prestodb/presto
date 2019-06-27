@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -23,6 +22,8 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expres
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.limit;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 public class TestPushLimitThroughProject
@@ -33,10 +34,10 @@ public class TestPushLimitThroughProject
     {
         tester().assertThat(new PushLimitThroughProject())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
+                    VariableReferenceExpression a = p.variable("a");
                     return p.limit(1,
                             p.project(
-                                    Assignments.of(a, TRUE_LITERAL),
+                                    assignment(a, TRUE_LITERAL),
                                     p.values()));
                 })
                 .matches(
@@ -50,10 +51,10 @@ public class TestPushLimitThroughProject
     {
         tester().assertThat(new PushLimitThroughProject())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
+                    VariableReferenceExpression a = p.variable("a");
                     return p.limit(1,
                             p.project(
-                                    Assignments.of(a, a.toSymbolReference()),
+                                    assignment(a, asSymbolReference(a)),
                                     p.values(a)));
                 }).doesNotFire();
     }

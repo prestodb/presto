@@ -185,6 +185,14 @@ public class SourcePartitionedScheduler
     }
 
     @Override
+    public synchronized void rewindLifespan(Lifespan lifespan, ConnectorPartitionHandle partitionHandle)
+    {
+        checkState(state == State.INITIALIZED || state == State.SPLITS_ADDED, "Current state %s is not rewindable", state);
+        scheduleGroups.remove(lifespan);
+        splitSource.rewind(partitionHandle);
+    }
+
+    @Override
     public synchronized ScheduleResult schedule()
     {
         dropListenersFromWhenFinishedOrNewLifespansAdded();

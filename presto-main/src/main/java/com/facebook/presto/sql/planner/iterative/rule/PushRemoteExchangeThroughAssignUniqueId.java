@@ -16,8 +16,8 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PartitioningScheme;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -62,7 +62,7 @@ public final class PushRemoteExchangeThroughAssignUniqueId
 
         AssignUniqueId assignUniqueId = captures.get(ASSIGN_UNIQUE_ID);
         PartitioningScheme partitioningScheme = node.getPartitioningScheme();
-        if (partitioningScheme.getPartitioning().getColumns().contains(assignUniqueId.getIdColumn())) {
+        if (partitioningScheme.getPartitioning().getVariableReferences().contains(assignUniqueId.getIdVariable())) {
             // The column produced by the AssignUniqueId is used in the partitioning scheme of the exchange.
             // Hence, AssignUniqueId node has to stay below the exchange node.
             return Result.empty();
@@ -76,20 +76,20 @@ public final class PushRemoteExchangeThroughAssignUniqueId
                         node.getScope(),
                         new PartitioningScheme(
                                 partitioningScheme.getPartitioning(),
-                                removeSymbol(partitioningScheme.getOutputLayout(), assignUniqueId.getIdColumn()),
+                                removeVariable(partitioningScheme.getOutputLayout(), assignUniqueId.getIdVariable()),
                                 partitioningScheme.getHashColumn(),
                                 partitioningScheme.isReplicateNullsAndAny(),
                                 partitioningScheme.getBucketToPartition()),
                         ImmutableList.of(assignUniqueId.getSource()),
-                        ImmutableList.of(removeSymbol(getOnlyElement(node.getInputs()), assignUniqueId.getIdColumn())),
+                        ImmutableList.of(removeVariable(getOnlyElement(node.getInputs()), assignUniqueId.getIdVariable())),
                         Optional.empty()),
-                assignUniqueId.getIdColumn()));
+                assignUniqueId.getIdVariable()));
     }
 
-    private static List<Symbol> removeSymbol(List<Symbol> symbols, Symbol symbolToRemove)
+    private static List<VariableReferenceExpression> removeVariable(List<VariableReferenceExpression> variables, VariableReferenceExpression variableToRemove)
     {
-        return symbols.stream()
-                .filter(symbol -> !symbolToRemove.equals(symbol))
+        return variables.stream()
+                .filter(variable -> !variableToRemove.equals(variable))
                 .collect(toImmutableList());
     }
 }

@@ -15,8 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
@@ -24,12 +23,13 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUniqueVariable;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.google.common.base.Predicates.not;
 
 /**
- * Non-Cross joins support output symbol selection, so make any project-off of child columns explicit in project nodes.
+ * Non-Cross joins support output variable selection, so make any project-off of child columns explicit in project nodes.
  */
 public class PruneJoinChildrenColumns
         implements Rule<JoinNode>
@@ -46,31 +46,31 @@ public class PruneJoinChildrenColumns
     @Override
     public Result apply(JoinNode joinNode, Captures captures, Context context)
     {
-        Set<Symbol> globallyUsableInputs = ImmutableSet.<Symbol>builder()
-                .addAll(joinNode.getOutputSymbols())
+        Set<VariableReferenceExpression> globallyUsableInputs = ImmutableSet.<VariableReferenceExpression>builder()
+                .addAll(joinNode.getOutputVariables())
                 .addAll(
                         joinNode.getFilter()
                                 .map(OriginalExpressionUtils::castToExpression)
-                                .map(SymbolsExtractor::extractUnique)
+                                .map(expression -> extractUniqueVariable(expression, context.getSymbolAllocator().getTypes()))
                                 .orElse(ImmutableSet.of()))
                 .build();
 
-        Set<Symbol> leftUsableInputs = ImmutableSet.<Symbol>builder()
+        Set<VariableReferenceExpression> leftUsableInputs = ImmutableSet.<VariableReferenceExpression>builder()
                 .addAll(globallyUsableInputs)
                 .addAll(
                         joinNode.getCriteria().stream()
                                 .map(JoinNode.EquiJoinClause::getLeft)
                                 .iterator())
-                .addAll(joinNode.getLeftHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()))
+                .addAll(joinNode.getLeftHashVariable().map(ImmutableSet::of).orElse(ImmutableSet.of()))
                 .build();
 
-        Set<Symbol> rightUsableInputs = ImmutableSet.<Symbol>builder()
+        Set<VariableReferenceExpression> rightUsableInputs = ImmutableSet.<VariableReferenceExpression>builder()
                 .addAll(globallyUsableInputs)
                 .addAll(
                         joinNode.getCriteria().stream()
                                 .map(JoinNode.EquiJoinClause::getRight)
                                 .iterator())
-                .addAll(joinNode.getRightHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()))
+                .addAll(joinNode.getRightHashVariable().map(ImmutableSet::of).orElse(ImmutableSet.of()))
                 .build();
 
         return restrictChildOutputs(context.getIdAllocator(), joinNode, leftUsableInputs, rightUsableInputs)

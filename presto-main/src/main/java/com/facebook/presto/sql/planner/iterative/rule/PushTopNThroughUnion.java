@@ -16,10 +16,10 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.SymbolMapper;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.collect.ImmutableList;
@@ -60,11 +60,12 @@ public class PushTopNThroughUnion
 
         for (PlanNode source : unionNode.getSources()) {
             SymbolMapper.Builder symbolMapper = SymbolMapper.builder();
-            Set<Symbol> sourceOutputSymbols = ImmutableSet.copyOf(source.getOutputSymbols());
 
-            for (Symbol unionOutput : unionNode.getOutputSymbols()) {
-                Set<Symbol> inputSymbols = ImmutableSet.copyOf(unionNode.getSymbolMapping().get(unionOutput));
-                Symbol unionInput = getLast(intersection(inputSymbols, sourceOutputSymbols));
+            Set<VariableReferenceExpression> sourceOutputVariables = ImmutableSet.copyOf(source.getOutputVariables());
+
+            for (VariableReferenceExpression unionOutput : unionNode.getOutputVariables()) {
+                Set<VariableReferenceExpression> inputVariables = ImmutableSet.copyOf(unionNode.getVariableMapping().get(unionOutput));
+                VariableReferenceExpression unionInput = getLast(intersection(inputVariables, sourceOutputVariables));
                 symbolMapper.put(unionOutput, unionInput);
             }
             sources.add(symbolMapper.build().map(topNNode, source, context.getIdAllocator().getNextId()));
@@ -73,7 +74,6 @@ public class PushTopNThroughUnion
         return Result.ofPlanNode(new UnionNode(
                 unionNode.getId(),
                 sources.build(),
-                unionNode.getSymbolMapping(),
-                unionNode.getOutputSymbols()));
+                unionNode.getVariableMapping()));
     }
 }

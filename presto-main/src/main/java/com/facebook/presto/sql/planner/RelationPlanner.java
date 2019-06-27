@@ -16,10 +16,15 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
@@ -35,17 +40,13 @@ import com.facebook.presto.sql.planner.optimizations.SampleNodeUtil;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
-import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
@@ -92,6 +93,8 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.Join.Type.INNER;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -106,7 +109,7 @@ class RelationPlanner
     private final Analysis analysis;
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
-    private final Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap;
+    private final Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> lambdaDeclarationToVariableMap;
     private final Metadata metadata;
     private final Session session;
     private final SubqueryPlanner subqueryPlanner;
@@ -115,24 +118,24 @@ class RelationPlanner
             Analysis analysis,
             SymbolAllocator symbolAllocator,
             PlanNodeIdAllocator idAllocator,
-            Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap,
+            Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> lambdaDeclarationToVariableMap,
             Metadata metadata,
             Session session)
     {
         requireNonNull(analysis, "analysis is null");
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
-        requireNonNull(lambdaDeclarationToSymbolMap, "lambdaDeclarationToSymbolMap is null");
+        requireNonNull(lambdaDeclarationToVariableMap, "lambdaDeclarationToVariableMap is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(session, "session is null");
 
         this.analysis = analysis;
         this.symbolAllocator = symbolAllocator;
         this.idAllocator = idAllocator;
-        this.lambdaDeclarationToSymbolMap = lambdaDeclarationToSymbolMap;
+        this.lambdaDeclarationToVariableMap = lambdaDeclarationToVariableMap;
         this.metadata = metadata;
         this.session = session;
-        this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session);
+        this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session);
     }
 
     @Override
@@ -153,18 +156,17 @@ class RelationPlanner
 
         TableHandle handle = analysis.getTableHandle(node);
 
-        ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
-        ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
+        ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> columns = ImmutableMap.builder();
         for (Field field : scope.getRelationType().getAllFields()) {
-            Symbol symbol = symbolAllocator.newSymbol(field.getName().get(), field.getType());
-
-            outputSymbolsBuilder.add(symbol);
-            columns.put(symbol, analysis.getColumn(field));
+            VariableReferenceExpression variable = symbolAllocator.newVariable(field.getName().get(), field.getType());
+            outputVariablesBuilder.add(variable);
+            columns.put(variable, analysis.getColumn(field));
         }
 
-        List<Symbol> outputSymbols = outputSymbolsBuilder.build();
-        PlanNode root = new TableScanNode(idAllocator.getNextId(), handle, outputSymbols, columns.build());
-        return new RelationPlan(root, scope, outputSymbols);
+        List<VariableReferenceExpression> outputVariables = outputVariablesBuilder.build();
+        PlanNode root = new TableScanNode(idAllocator.getNextId(), handle, outputVariables, columns.build());
+        return new RelationPlan(root, scope, outputVariables);
     }
 
     @Override
@@ -173,18 +175,18 @@ class RelationPlanner
         RelationPlan subPlan = process(node.getRelation(), context);
 
         PlanNode root = subPlan.getRoot();
-        List<Symbol> mappings = subPlan.getFieldMappings();
+        List<VariableReferenceExpression> mappings = subPlan.getFieldMappings();
 
         if (node.getColumnNames() != null) {
-            ImmutableList.Builder<Symbol> newMappings = ImmutableList.<Symbol>builder();
+            ImmutableList.Builder<VariableReferenceExpression> newMappings = ImmutableList.builder();
             Assignments.Builder assignments = Assignments.builder();
 
             // project only the visible columns from the underlying relation
             for (int i = 0; i < subPlan.getDescriptor().getAllFieldCount(); i++) {
                 Field field = subPlan.getDescriptor().getFieldByIndex(i);
                 if (!field.isHidden()) {
-                    Symbol aliasedColumn = symbolAllocator.newSymbol(field);
-                    assignments.put(aliasedColumn, subPlan.getFieldMappings().get(i).toSymbolReference());
+                    VariableReferenceExpression aliasedColumn = symbolAllocator.newVariable(field);
+                    assignments.put(aliasedColumn, castToRowExpression(asSymbolReference(subPlan.getFieldMappings().get(i))));
                     newMappings.add(aliasedColumn);
                 }
             }
@@ -241,7 +243,7 @@ class RelationPlanner
         PlanBuilder rightPlanBuilder = initializePlanBuilder(rightPlan);
 
         // NOTE: symbols must be in the same order as the outputDescriptor
-        List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
+        List<VariableReferenceExpression> outputs = ImmutableList.<VariableReferenceExpression>builder()
                 .addAll(leftPlan.getFieldMappings())
                 .addAll(rightPlan.getFieldMappings())
                 .build();
@@ -311,10 +313,10 @@ class RelationPlanner
 
             for (int i = 0; i < leftComparisonExpressions.size(); i++) {
                 if (joinConditionComparisonOperators.get(i) == ComparisonExpression.Operator.EQUAL) {
-                    Symbol leftSymbol = leftPlanBuilder.translate(leftComparisonExpressions.get(i));
-                    Symbol rightSymbol = rightPlanBuilder.translate(rightComparisonExpressions.get(i));
+                    VariableReferenceExpression leftVariable = leftPlanBuilder.translateToVariable(leftComparisonExpressions.get(i));
+                    VariableReferenceExpression righVariable = rightPlanBuilder.translateToVariable(rightComparisonExpressions.get(i));
 
-                    equiClauses.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
+                    equiClauses.add(new JoinNode.EquiJoinClause(leftVariable, righVariable));
                 }
                 else {
                     Expression leftExpression = leftPlanBuilder.rewrite(leftComparisonExpressions.get(i));
@@ -329,9 +331,9 @@ class RelationPlanner
                 leftPlanBuilder.getRoot(),
                 rightPlanBuilder.getRoot(),
                 equiClauses.build(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(leftPlanBuilder.getRoot().getOutputSymbols())
-                        .addAll(rightPlanBuilder.getRoot().getOutputSymbols())
+                ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(leftPlanBuilder.getRoot().getOutputVariables())
+                        .addAll(rightPlanBuilder.getRoot().getOutputVariables())
                         .build(),
                 Optional.empty(),
                 Optional.empty(),
@@ -351,9 +353,9 @@ class RelationPlanner
             leftPlanBuilder = subqueryPlanner.handleUncorrelatedSubqueries(leftPlanBuilder, complexJoinExpressions, node);
         }
 
-        RelationPlan intermediateRootRelationPlan = new RelationPlan(root, analysis.getScope(node), outputSymbols);
-        TranslationMap translationMap = new TranslationMap(intermediateRootRelationPlan, analysis, lambdaDeclarationToSymbolMap);
-        translationMap.setFieldMappings(outputSymbols);
+        RelationPlan intermediateRootRelationPlan = new RelationPlan(root, analysis.getScope(node), outputs);
+        TranslationMap translationMap = new TranslationMap(intermediateRootRelationPlan, analysis, lambdaDeclarationToVariableMap);
+        translationMap.setFieldMappings(outputs);
         translationMap.putExpressionMappingsFrom(leftPlanBuilder.getTranslations());
         translationMap.putExpressionMappingsFrom(rightPlanBuilder.getTranslations());
 
@@ -365,9 +367,9 @@ class RelationPlanner
                     leftPlanBuilder.getRoot(),
                     rightPlanBuilder.getRoot(),
                     equiClauses.build(),
-                    ImmutableList.<Symbol>builder()
-                            .addAll(leftPlanBuilder.getRoot().getOutputSymbols())
-                            .addAll(rightPlanBuilder.getRoot().getOutputSymbols())
+                    ImmutableList.<VariableReferenceExpression>builder()
+                            .addAll(leftPlanBuilder.getRoot().getOutputVariables())
+                            .addAll(rightPlanBuilder.getRoot().getOutputVariables())
                             .build(),
                     Optional.of(castToRowExpression(rewrittenFilterCondition)),
                     Optional.empty(),
@@ -392,7 +394,7 @@ class RelationPlanner
             }
         }
 
-        return new RelationPlan(root, analysis.getScope(node), outputSymbols);
+        return new RelationPlan(root, analysis.getScope(node), outputs);
     }
 
     private RelationPlan planJoinUsing(Join node, RelationPlan left, RelationPlan right)
@@ -428,36 +430,36 @@ class RelationPlanner
 
         ImmutableList.Builder<JoinNode.EquiJoinClause> clauses = ImmutableList.builder();
 
-        Map<Identifier, Symbol> leftJoinColumns = new HashMap<>();
-        Map<Identifier, Symbol> rightJoinColumns = new HashMap<>();
+        Map<Identifier, VariableReferenceExpression> leftJoinColumns = new HashMap<>();
+        Map<Identifier, VariableReferenceExpression> rightJoinColumns = new HashMap<>();
 
         Assignments.Builder leftCoercions = Assignments.builder();
         Assignments.Builder rightCoercions = Assignments.builder();
 
-        leftCoercions.putIdentities(left.getRoot().getOutputSymbols());
-        rightCoercions.putIdentities(right.getRoot().getOutputSymbols());
+        leftCoercions.putAll(identitiesAsSymbolReferences(left.getRoot().getOutputVariables()));
+        rightCoercions.putAll(identitiesAsSymbolReferences(right.getRoot().getOutputVariables()));
         for (int i = 0; i < joinColumns.size(); i++) {
             Identifier identifier = joinColumns.get(i);
             Type type = analysis.getType(identifier);
 
             // compute the coercion for the field on the left to the common supertype of left & right
-            Symbol leftOutput = symbolAllocator.newSymbol(identifier, type);
+            VariableReferenceExpression leftOutput = symbolAllocator.newVariable(identifier, type);
             int leftField = joinAnalysis.getLeftJoinFields().get(i);
-            leftCoercions.put(leftOutput, new Cast(
+            leftCoercions.put(leftOutput, castToRowExpression(new Cast(
                     left.getSymbol(leftField).toSymbolReference(),
                     type.getTypeSignature().toString(),
                     false,
-                    metadata.getTypeManager().isTypeOnlyCoercion(left.getDescriptor().getFieldByIndex(leftField).getType(), type)));
+                    metadata.getTypeManager().isTypeOnlyCoercion(left.getDescriptor().getFieldByIndex(leftField).getType(), type))));
             leftJoinColumns.put(identifier, leftOutput);
 
             // compute the coercion for the field on the right to the common supertype of left & right
-            Symbol rightOutput = symbolAllocator.newSymbol(identifier, type);
+            VariableReferenceExpression rightOutput = symbolAllocator.newVariable(identifier, type);
             int rightField = joinAnalysis.getRightJoinFields().get(i);
-            rightCoercions.put(rightOutput, new Cast(
+            rightCoercions.put(rightOutput, castToRowExpression(new Cast(
                     right.getSymbol(rightField).toSymbolReference(),
                     type.getTypeSignature().toString(),
                     false,
-                    metadata.getTypeManager().isTypeOnlyCoercion(right.getDescriptor().getFieldByIndex(rightField).getType(), type)));
+                    metadata.getTypeManager().isTypeOnlyCoercion(right.getDescriptor().getFieldByIndex(rightField).getType(), type))));
             rightJoinColumns.put(identifier, rightOutput);
 
             clauses.add(new JoinNode.EquiJoinClause(leftOutput, rightOutput));
@@ -472,9 +474,9 @@ class RelationPlanner
                 leftCoercion,
                 rightCoercion,
                 clauses.build(),
-                ImmutableList.<Symbol>builder()
-                        .addAll(leftCoercion.getOutputSymbols())
-                        .addAll(rightCoercion.getOutputSymbols())
+                ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(leftCoercion.getOutputVariables())
+                        .addAll(rightCoercion.getOutputVariables())
                         .build(),
                 Optional.empty(),
                 Optional.empty(),
@@ -485,25 +487,25 @@ class RelationPlanner
         // which are defined as coalesce(l.k, r.k)
         Assignments.Builder assignments = Assignments.builder();
 
-        ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
+        ImmutableList.Builder<VariableReferenceExpression> outputs = ImmutableList.builder();
         for (Identifier column : joinColumns) {
-            Symbol output = symbolAllocator.newSymbol(column, analysis.getType(column));
+            VariableReferenceExpression output = symbolAllocator.newVariable(column, analysis.getType(column));
             outputs.add(output);
-            assignments.put(output, new CoalesceExpression(
-                    leftJoinColumns.get(column).toSymbolReference(),
-                    rightJoinColumns.get(column).toSymbolReference()));
+            assignments.put(output, castToRowExpression(new CoalesceExpression(
+                    new SymbolReference(leftJoinColumns.get(column).getName()),
+                    new SymbolReference(rightJoinColumns.get(column).getName()))));
         }
 
         for (int field : joinAnalysis.getOtherLeftFields()) {
-            Symbol symbol = left.getFieldMappings().get(field);
-            outputs.add(symbol);
-            assignments.put(symbol, symbol.toSymbolReference());
+            VariableReferenceExpression variable = left.getFieldMappings().get(field);
+            outputs.add(variable);
+            assignments.put(variable, castToRowExpression(new SymbolReference(variable.getName())));
         }
 
         for (int field : joinAnalysis.getOtherRightFields()) {
-            Symbol symbol = right.getFieldMappings().get(field);
-            outputs.add(symbol);
-            assignments.put(symbol, symbol.toSymbolReference());
+            VariableReferenceExpression variable = right.getFieldMappings().get(field);
+            outputs.add(variable);
+            assignments.put(variable, castToRowExpression(new SymbolReference(variable.getName())));
         }
 
         return new RelationPlan(
@@ -542,11 +544,11 @@ class RelationPlanner
 
         PlanBuilder planBuilder = subqueryPlanner.appendLateralJoin(leftPlanBuilder, rightPlanBuilder, lateral.getQuery(), true, LateralJoinNode.Type.INNER);
 
-        List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
-                .addAll(leftPlan.getRoot().getOutputSymbols())
-                .addAll(rightPlan.getRoot().getOutputSymbols())
+        List<VariableReferenceExpression> outputVariables = ImmutableList.<VariableReferenceExpression>builder()
+                .addAll(leftPlan.getRoot().getOutputVariables())
+                .addAll(rightPlan.getRoot().getOutputVariables())
                 .build();
-        return new RelationPlan(planBuilder.getRoot(), analysis.getScope(join), outputSymbols);
+        return new RelationPlan(planBuilder.getRoot(), analysis.getScope(join), outputVariables);
     }
 
     private static boolean isEqualComparisonExpression(Expression conjunct)
@@ -558,12 +560,12 @@ class RelationPlanner
     {
         RelationType unnestOutputDescriptor = analysis.getOutputDescriptor(node);
         // Create symbols for the result of unnesting
-        ImmutableList.Builder<Symbol> unnestedSymbolsBuilder = ImmutableList.builder();
+        ImmutableList.Builder<VariableReferenceExpression> unnestedVariablesBuilder = ImmutableList.builder();
         for (Field field : unnestOutputDescriptor.getVisibleFields()) {
-            Symbol symbol = symbolAllocator.newSymbol(field);
-            unnestedSymbolsBuilder.add(symbol);
+            VariableReferenceExpression variable = symbolAllocator.newVariable(field);
+            unnestedVariablesBuilder.add(variable);
         }
-        ImmutableList<Symbol> unnestedSymbols = unnestedSymbolsBuilder.build();
+        ImmutableList<VariableReferenceExpression> unnestedVariables = unnestedVariablesBuilder.build();
 
         // Add a projection for all the unnest arguments
         PlanBuilder planBuilder = initializePlanBuilder(leftPlan);
@@ -571,36 +573,36 @@ class RelationPlanner
         TranslationMap translations = planBuilder.getTranslations();
         ProjectNode projectNode = (ProjectNode) planBuilder.getRoot();
 
-        ImmutableMap.Builder<Symbol, List<Symbol>> unnestSymbols = ImmutableMap.builder();
-        UnmodifiableIterator<Symbol> unnestedSymbolsIterator = unnestedSymbols.iterator();
+        ImmutableMap.Builder<VariableReferenceExpression, List<VariableReferenceExpression>> unnestVariables = ImmutableMap.builder();
+        UnmodifiableIterator<VariableReferenceExpression> unnestedVariablesIterator = unnestedVariables.iterator();
         for (Expression expression : node.getExpressions()) {
             Type type = analysis.getType(expression);
-            Symbol inputSymbol = translations.get(expression);
+            VariableReferenceExpression inputVariable = new VariableReferenceExpression(translations.get(expression).getName(), type);
             if (type instanceof ArrayType) {
                 Type elementType = ((ArrayType) type).getElementType();
                 if (!SystemSessionProperties.isLegacyUnnest(session) && elementType instanceof RowType) {
-                    ImmutableList.Builder<Symbol> unnestSymbolBuilder = ImmutableList.builder();
+                    ImmutableList.Builder<VariableReferenceExpression> unnestVariableBuilder = ImmutableList.builder();
                     for (int i = 0; i < ((RowType) elementType).getFields().size(); i++) {
-                        unnestSymbolBuilder.add(unnestedSymbolsIterator.next());
+                        unnestVariableBuilder.add(unnestedVariablesIterator.next());
                     }
-                    unnestSymbols.put(inputSymbol, unnestSymbolBuilder.build());
+                    unnestVariables.put(inputVariable, unnestVariableBuilder.build());
                 }
                 else {
-                    unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next()));
+                    unnestVariables.put(inputVariable, ImmutableList.of(unnestedVariablesIterator.next()));
                 }
             }
             else if (type instanceof MapType) {
-                unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next(), unnestedSymbolsIterator.next()));
+                unnestVariables.put(inputVariable, ImmutableList.of(unnestedVariablesIterator.next(), unnestedVariablesIterator.next()));
             }
             else {
                 throw new IllegalArgumentException("Unsupported type for UNNEST: " + type);
             }
         }
-        Optional<Symbol> ordinalitySymbol = node.isWithOrdinality() ? Optional.of(unnestedSymbolsIterator.next()) : Optional.empty();
-        checkState(!unnestedSymbolsIterator.hasNext(), "Not all output symbols were matched with input symbols");
+        Optional<VariableReferenceExpression> ordinalityVariable = node.isWithOrdinality() ? Optional.of(unnestedVariablesIterator.next()) : Optional.empty();
+        checkState(!unnestedVariablesIterator.hasNext(), "Not all output symbols were matched with input symbols");
 
-        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), projectNode, leftPlan.getFieldMappings(), unnestSymbols.build(), ordinalitySymbol);
-        return new RelationPlan(unnestNode, analysis.getScope(joinNode), unnestNode.getOutputSymbols());
+        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), projectNode, leftPlan.getFieldMappings(), unnestVariables.build(), ordinalityVariable);
+        return new RelationPlan(unnestNode, analysis.getScope(joinNode), unnestNode.getOutputVariables());
     }
 
     @Override
@@ -612,14 +614,14 @@ class RelationPlanner
     @Override
     protected RelationPlan visitQuery(Query node, Void context)
     {
-        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session)
+        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session)
                 .plan(node);
     }
 
     @Override
     protected RelationPlan visitQuerySpecification(QuerySpecification node, Void context)
     {
-        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session)
+        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session)
                 .plan(node);
     }
 
@@ -628,9 +630,11 @@ class RelationPlanner
     {
         Scope scope = analysis.getScope(node);
         ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
+        ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
         for (Field field : scope.getRelationType().getVisibleFields()) {
             Symbol symbol = symbolAllocator.newSymbol(field);
             outputSymbolsBuilder.add(symbol);
+            outputVariablesBuilder.add(new VariableReferenceExpression(symbol.getName(), field.getType()));
         }
 
         ImmutableList.Builder<List<RowExpression>> rowsBuilder = ImmutableList.builder();
@@ -650,59 +654,61 @@ class RelationPlanner
             rowsBuilder.add(values.build());
         }
 
-        ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), outputSymbolsBuilder.build(), rowsBuilder.build());
-        return new RelationPlan(valuesNode, scope, outputSymbolsBuilder.build());
+        ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), outputVariablesBuilder.build(), rowsBuilder.build());
+        return new RelationPlan(valuesNode, scope, outputVariablesBuilder.build());
     }
 
     @Override
     protected RelationPlan visitUnnest(Unnest node, Void context)
     {
         Scope scope = analysis.getScope(node);
-        ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
+        ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
         for (Field field : scope.getRelationType().getVisibleFields()) {
-            Symbol symbol = symbolAllocator.newSymbol(field);
-            outputSymbolsBuilder.add(symbol);
+            VariableReferenceExpression variable = symbolAllocator.newVariable(field);
+            outputVariablesBuilder.add(variable);
         }
-        List<Symbol> unnestedSymbols = outputSymbolsBuilder.build();
+        List<VariableReferenceExpression> unnestedVariables = outputVariablesBuilder.build();
 
         // If we got here, then we must be unnesting a constant, and not be in a join (where there could be column references)
-        ImmutableList.Builder<Symbol> argumentSymbols = ImmutableList.builder();
+        ImmutableList.Builder<VariableReferenceExpression> argumentVariables = ImmutableList.builder();
         ImmutableList.Builder<RowExpression> values = ImmutableList.builder();
-        ImmutableMap.Builder<Symbol, List<Symbol>> unnestSymbols = ImmutableMap.builder();
-        Iterator<Symbol> unnestedSymbolsIterator = unnestedSymbols.iterator();
+        ImmutableMap.Builder<VariableReferenceExpression, List<VariableReferenceExpression>> unnestVariables = ImmutableMap.builder();
+        Iterator<VariableReferenceExpression> unnestedVariablesIterator = unnestedVariables.iterator();
         for (Expression expression : node.getExpressions()) {
             Type type = analysis.getType(expression);
             Expression rewritten = Coercer.addCoercions(expression, analysis);
             rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), rewritten);
             values.add(castToRowExpression(rewritten));
-            Symbol inputSymbol = symbolAllocator.newSymbol(rewritten, type);
-            argumentSymbols.add(inputSymbol);
+            VariableReferenceExpression input = symbolAllocator.newVariable(rewritten, type);
+            argumentVariables.add(new VariableReferenceExpression(input.getName(), type));
             if (type instanceof ArrayType) {
                 Type elementType = ((ArrayType) type).getElementType();
                 if (!SystemSessionProperties.isLegacyUnnest(session) && elementType instanceof RowType) {
-                    ImmutableList.Builder<Symbol> unnestSymbolBuilder = ImmutableList.builder();
+                    ImmutableList.Builder<VariableReferenceExpression> unnestVariableBuilder = ImmutableList.builder();
                     for (int i = 0; i < ((RowType) elementType).getFields().size(); i++) {
-                        unnestSymbolBuilder.add(unnestedSymbolsIterator.next());
+                        unnestVariableBuilder.add(unnestedVariablesIterator.next());
                     }
-                    unnestSymbols.put(inputSymbol, unnestSymbolBuilder.build());
+                    unnestVariables.put(input, unnestVariableBuilder.build());
                 }
                 else {
-                    unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next()));
+                    unnestVariables.put(input, ImmutableList.of(unnestedVariablesIterator.next()));
                 }
             }
             else if (type instanceof MapType) {
-                unnestSymbols.put(inputSymbol, ImmutableList.of(unnestedSymbolsIterator.next(), unnestedSymbolsIterator.next()));
+                unnestVariables.put(input, ImmutableList.of(unnestedVariablesIterator.next(), unnestedVariablesIterator.next()));
             }
             else {
                 throw new IllegalArgumentException("Unsupported type for UNNEST: " + type);
             }
         }
-        Optional<Symbol> ordinalitySymbol = node.isWithOrdinality() ? Optional.of(unnestedSymbolsIterator.next()) : Optional.empty();
-        checkState(!unnestedSymbolsIterator.hasNext(), "Not all output symbols were matched with input symbols");
-        ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), argumentSymbols.build(), ImmutableList.of(values.build()));
+        Optional<VariableReferenceExpression> ordinalityVariable = node.isWithOrdinality() ? Optional.of(unnestedVariablesIterator.next()) : Optional.empty();
+        checkState(!unnestedVariablesIterator.hasNext(), "Not all output symbols were matched with input symbols");
+        ValuesNode valuesNode = new ValuesNode(
+                idAllocator.getNextId(),
+                argumentVariables.build(), ImmutableList.of(values.build()));
 
-        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), valuesNode, ImmutableList.of(), unnestSymbols.build(), ordinalitySymbol);
-        return new RelationPlan(unnestNode, scope, unnestedSymbols);
+        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), valuesNode, ImmutableList.of(), unnestVariables.build(), ordinalityVariable);
+        return new RelationPlan(unnestNode, scope, unnestedVariables);
     }
 
     private RelationPlan processAndCoerceIfNecessary(Relation node, Void context)
@@ -720,27 +726,27 @@ class RelationPlanner
 
     private RelationPlan addCoercions(RelationPlan plan, Type[] targetColumnTypes)
     {
-        List<Symbol> oldSymbols = plan.getFieldMappings();
+        List<VariableReferenceExpression> oldVariables = plan.getFieldMappings();
         RelationType oldDescriptor = plan.getDescriptor().withOnlyVisibleFields();
-        verify(targetColumnTypes.length == oldSymbols.size());
-        ImmutableList.Builder<Symbol> newSymbols = new ImmutableList.Builder<>();
+        verify(targetColumnTypes.length == oldVariables.size());
+        ImmutableList.Builder<VariableReferenceExpression> newVariables = new ImmutableList.Builder<>();
         Field[] newFields = new Field[targetColumnTypes.length];
         Assignments.Builder assignments = Assignments.builder();
         for (int i = 0; i < targetColumnTypes.length; i++) {
-            Symbol inputSymbol = oldSymbols.get(i);
-            Type inputType = symbolAllocator.getTypes().get(inputSymbol);
+            VariableReferenceExpression inputVariable = oldVariables.get(i);
+            Symbol inputSymbol = new Symbol(inputVariable.getName());
             Type outputType = targetColumnTypes[i];
-            if (!outputType.equals(inputType)) {
+            if (!outputType.equals(inputVariable.getType())) {
                 Expression cast = new Cast(inputSymbol.toSymbolReference(), outputType.getTypeSignature().toString());
-                Symbol outputSymbol = symbolAllocator.newSymbol(cast, outputType);
-                assignments.put(outputSymbol, cast);
-                newSymbols.add(outputSymbol);
+                VariableReferenceExpression outputVariable = symbolAllocator.newVariable(cast, outputType);
+                assignments.put(outputVariable, castToRowExpression(cast));
+                newVariables.add(outputVariable);
             }
             else {
                 SymbolReference symbolReference = inputSymbol.toSymbolReference();
-                Symbol outputSymbol = symbolAllocator.newSymbol(symbolReference, outputType);
-                assignments.put(outputSymbol, symbolReference);
-                newSymbols.add(outputSymbol);
+                VariableReferenceExpression outputVariable = symbolAllocator.newVariable(symbolReference, outputType);
+                assignments.put(outputVariable, castToRowExpression(symbolReference));
+                newVariables.add(outputVariable);
             }
             Field oldField = oldDescriptor.getFieldByIndex(i);
             newFields[i] = new Field(
@@ -753,7 +759,7 @@ class RelationPlanner
                     oldField.isAliased());
         }
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());
-        return new RelationPlan(projectNode, Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(newFields)).build(), newSymbols.build());
+        return new RelationPlan(projectNode, Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(newFields)).build(), newVariables.build());
     }
 
     @Override
@@ -763,11 +769,11 @@ class RelationPlanner
 
         SetOperationPlan setOperationPlan = process(node);
 
-        PlanNode planNode = new UnionNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()));
+        PlanNode planNode = new UnionNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getVariableMapping());
         if (node.isDistinct()) {
             planNode = distinct(planNode);
         }
-        return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols());
+        return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputVariables());
     }
 
     @Override
@@ -777,8 +783,8 @@ class RelationPlanner
 
         SetOperationPlan setOperationPlan = process(node);
 
-        PlanNode planNode = new IntersectNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()));
-        return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols());
+        PlanNode planNode = new IntersectNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getVariableMapping());
+        return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputVariables());
     }
 
     @Override
@@ -788,56 +794,56 @@ class RelationPlanner
 
         SetOperationPlan setOperationPlan = process(node);
 
-        PlanNode planNode = new ExceptNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()));
-        return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols());
+        PlanNode planNode = new ExceptNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getVariableMapping());
+        return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputVariables());
     }
 
     private SetOperationPlan process(SetOperation node)
     {
-        List<Symbol> outputs = null;
+        List<VariableReferenceExpression> outputs = null;
         ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
-        ImmutableListMultimap.Builder<Symbol, Symbol> symbolMapping = ImmutableListMultimap.builder();
+        ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> variableMapping = ImmutableListMultimap.builder();
 
         List<RelationPlan> subPlans = node.getRelations().stream()
                 .map(relation -> processAndCoerceIfNecessary(relation, null))
                 .collect(toImmutableList());
 
         for (RelationPlan relationPlan : subPlans) {
-            List<Symbol> childOutputSymbols = relationPlan.getFieldMappings();
+            List<VariableReferenceExpression> childOutputVariables = relationPlan.getFieldMappings();
             if (outputs == null) {
                 // Use the first Relation to derive output symbol names
                 RelationType descriptor = relationPlan.getDescriptor();
-                ImmutableList.Builder<Symbol> outputSymbolBuilder = ImmutableList.builder();
+                ImmutableList.Builder<VariableReferenceExpression> outputVariableBuilder = ImmutableList.builder();
                 for (Field field : descriptor.getVisibleFields()) {
                     int fieldIndex = descriptor.indexOf(field);
-                    Symbol symbol = childOutputSymbols.get(fieldIndex);
-                    outputSymbolBuilder.add(symbolAllocator.newSymbol(symbol.getName(), symbolAllocator.getTypes().get(symbol)));
+                    VariableReferenceExpression variable = childOutputVariables.get(fieldIndex);
+                    outputVariableBuilder.add(symbolAllocator.newVariable(variable));
                 }
-                outputs = outputSymbolBuilder.build();
+                outputs = outputVariableBuilder.build();
             }
 
             RelationType descriptor = relationPlan.getDescriptor();
             checkArgument(descriptor.getVisibleFieldCount() == outputs.size(),
-                    "Expected relation to have %s symbols but has %s symbols",
+                    "Expected relation to have %s variables but has %s variables",
                     descriptor.getVisibleFieldCount(),
                     outputs.size());
 
             int fieldId = 0;
             for (Field field : descriptor.getVisibleFields()) {
                 int fieldIndex = descriptor.indexOf(field);
-                symbolMapping.put(outputs.get(fieldId), childOutputSymbols.get(fieldIndex));
+                variableMapping.put(outputs.get(fieldId), childOutputVariables.get(fieldIndex));
                 fieldId++;
             }
 
             sources.add(relationPlan.getRoot());
         }
 
-        return new SetOperationPlan(sources.build(), symbolMapping.build());
+        return new SetOperationPlan(sources.build(), variableMapping.build());
     }
 
     private PlanBuilder initializePlanBuilder(RelationPlan relationPlan)
     {
-        TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToSymbolMap);
+        TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToVariableMap);
 
         // Make field->symbol mapping from underlying relation plan available for translations
         // This makes it possible to rewrite FieldOrExpressions that reference fields from the underlying tuple directly
@@ -851,7 +857,7 @@ class RelationPlanner
         return new AggregationNode(idAllocator.getNextId(),
                 node,
                 ImmutableMap.of(),
-                singleGroupingSet(node.getOutputSymbols()),
+                singleGroupingSet(node.getOutputVariables()),
                 ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
@@ -861,12 +867,12 @@ class RelationPlanner
     private static class SetOperationPlan
     {
         private final List<PlanNode> sources;
-        private final ListMultimap<Symbol, Symbol> symbolMapping;
+        private final ListMultimap<VariableReferenceExpression, VariableReferenceExpression> variableMapping;
 
-        private SetOperationPlan(List<PlanNode> sources, ListMultimap<Symbol, Symbol> symbolMapping)
+        private SetOperationPlan(List<PlanNode> sources, ListMultimap<VariableReferenceExpression, VariableReferenceExpression> variableMapping)
         {
             this.sources = sources;
-            this.symbolMapping = symbolMapping;
+            this.variableMapping = variableMapping;
         }
 
         public List<PlanNode> getSources()
@@ -874,9 +880,22 @@ class RelationPlanner
             return sources;
         }
 
+        public ListMultimap<VariableReferenceExpression, VariableReferenceExpression> getVariableMapping()
+        {
+            return variableMapping;
+        }
+
         public ListMultimap<Symbol, Symbol> getSymbolMapping()
         {
-            return symbolMapping;
+            ImmutableListMultimap.Builder<Symbol, Symbol> builder = ImmutableListMultimap.builder();
+            variableMapping.asMap().entrySet().stream()
+                    .forEach(entry -> builder.putAll(
+                            new Symbol(entry.getKey().getName()),
+                            entry.getValue().stream()
+                                    .map(VariableReferenceExpression::getName)
+                                    .map(Symbol::new)
+                                    .collect(toImmutableList())));
+            return builder.build();
         }
     }
 }

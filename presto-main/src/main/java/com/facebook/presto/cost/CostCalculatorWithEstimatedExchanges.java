@@ -15,6 +15,7 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType;
@@ -22,7 +23,6 @@ import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
@@ -98,7 +98,7 @@ public class CostCalculatorWithEstimatedExchanges
         }
 
         @Override
-        protected LocalCostEstimate visitPlan(PlanNode node, Void context)
+        public LocalCostEstimate visitPlan(PlanNode node, Void context)
         {
             // TODO implement logic for other node types and return LocalCostEstimate.unknown() here (or throw)
             return LocalCostEstimate.zero();
@@ -114,7 +114,7 @@ public class CostCalculatorWithEstimatedExchanges
         public LocalCostEstimate visitAggregation(AggregationNode node, Void context)
         {
             PlanNode source = node.getSource();
-            double inputSizeInBytes = getStats(source).getOutputSizeInBytes(source.getOutputSymbols(), types);
+            double inputSizeInBytes = getStats(source).getOutputSizeInBytes(source.getOutputVariables());
 
             LocalCostEstimate remoteRepartitionCost = calculateRemoteRepartitionCost(inputSizeInBytes);
             LocalCostEstimate localRepartitionCost = calculateLocalRepartitionCost(inputSizeInBytes);
@@ -166,7 +166,7 @@ public class CostCalculatorWithEstimatedExchanges
             // that is not aways true
             // but this estimate is better that returning UNKNOWN, as it sets
             // cumulative cost to unknown
-            double inputSizeInBytes = getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types);
+            double inputSizeInBytes = getStats(node).getOutputSizeInBytes(node.getOutputVariables());
             return calculateRemoteGatherCost(inputSizeInBytes);
         }
 
@@ -229,8 +229,8 @@ public class CostCalculatorWithEstimatedExchanges
             boolean replicated,
             int estimatedSourceDistributedTaskCount)
     {
-        double probeSizeInBytes = stats.getStats(probe).getOutputSizeInBytes(probe.getOutputSymbols(), types);
-        double buildSizeInBytes = stats.getStats(build).getOutputSizeInBytes(build.getOutputSymbols(), types);
+        double probeSizeInBytes = stats.getStats(probe).getOutputSizeInBytes(probe.getOutputVariables());
+        double buildSizeInBytes = stats.getStats(build).getOutputSizeInBytes(build.getOutputVariables());
         if (replicated) {
             // assuming the probe side of a replicated join is always source distributed
             LocalCostEstimate replicateCost = calculateRemoteReplicateCost(buildSizeInBytes, estimatedSourceDistributedTaskCount);
@@ -259,8 +259,8 @@ public class CostCalculatorWithEstimatedExchanges
         PlanNodeStatsEstimate probeStats = stats.getStats(probe);
         PlanNodeStatsEstimate buildStats = stats.getStats(build);
 
-        double buildSideSize = buildStats.getOutputSizeInBytes(build.getOutputSymbols(), types);
-        double probeSideSize = probeStats.getOutputSizeInBytes(probe.getOutputSymbols(), types);
+        double buildSideSize = buildStats.getOutputSizeInBytes(build.getOutputVariables());
+        double probeSideSize = probeStats.getOutputSizeInBytes(probe.getOutputVariables());
 
         double cpuCost = probeSideSize + buildSideSize * buildSizeMultiplier;
 

@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
@@ -32,6 +31,7 @@ import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.operator.project.PageProjection;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ErrorCodeSupplier;
@@ -48,6 +48,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.predicate.Utils;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceProvider;
@@ -128,6 +129,7 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.SqlToRowExpressionTranslator.translate;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -165,31 +167,21 @@ public final class FunctionAssertions
 
     private static final Page ZERO_CHANNEL_PAGE = new Page(1);
 
-    private static final Map<Symbol, Integer> INPUT_MAPPING = ImmutableMap.<Symbol, Integer>builder()
-            .put(new Symbol("bound_long"), 0)
-            .put(new Symbol("bound_string"), 1)
-            .put(new Symbol("bound_double"), 2)
-            .put(new Symbol("bound_boolean"), 3)
-            .put(new Symbol("bound_timestamp"), 4)
-            .put(new Symbol("bound_pattern"), 5)
-            .put(new Symbol("bound_null_string"), 6)
-            .put(new Symbol("bound_timestamp_with_timezone"), 7)
-            .put(new Symbol("bound_binary_literal"), 8)
-            .put(new Symbol("bound_integer"), 9)
+    private static final Map<VariableReferenceExpression, Integer> INPUT_MAPPING = ImmutableMap.<VariableReferenceExpression, Integer>builder()
+            .put(new VariableReferenceExpression("bound_long", BIGINT), 0)
+            .put(new VariableReferenceExpression("bound_string", VARCHAR), 1)
+            .put(new VariableReferenceExpression("bound_double", DOUBLE), 2)
+            .put(new VariableReferenceExpression("bound_boolean", BOOLEAN), 3)
+            .put(new VariableReferenceExpression("bound_timestamp", BIGINT), 4)
+            .put(new VariableReferenceExpression("bound_pattern", VARCHAR), 5)
+            .put(new VariableReferenceExpression("bound_null_string", VARCHAR), 6)
+            .put(new VariableReferenceExpression("bound_timestamp_with_timezone", TIMESTAMP_WITH_TIME_ZONE), 7)
+            .put(new VariableReferenceExpression("bound_binary_literal", VARBINARY), 8)
+            .put(new VariableReferenceExpression("bound_integer", INTEGER), 9)
             .build();
 
-    private static final TypeProvider SYMBOL_TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
-            .put(new Symbol("bound_long"), BIGINT)
-            .put(new Symbol("bound_string"), VARCHAR)
-            .put(new Symbol("bound_double"), DOUBLE)
-            .put(new Symbol("bound_boolean"), BOOLEAN)
-            .put(new Symbol("bound_timestamp"), BIGINT)
-            .put(new Symbol("bound_pattern"), VARCHAR)
-            .put(new Symbol("bound_null_string"), VARCHAR)
-            .put(new Symbol("bound_timestamp_with_timezone"), TIMESTAMP_WITH_TIME_ZONE)
-            .put(new Symbol("bound_binary_literal"), VARBINARY)
-            .put(new Symbol("bound_integer"), INTEGER)
-            .build());
+    private static final TypeProvider SYMBOL_TYPES = TypeProvider.copyOf(INPUT_MAPPING.keySet().stream()
+            .collect(toImmutableMap(variable -> new Symbol(variable.getName()), VariableReferenceExpression::getType)));
 
     private static final PageSourceProvider PAGE_SOURCE_PROVIDER = new TestPageSourceProvider();
     private static final PlanNodeId SOURCE_ID = new PlanNodeId("scan");
@@ -247,6 +239,12 @@ public final class FunctionAssertions
 
         Object actual = selectSingleValue(projection, expectedType, compiler);
         assertEquals(actual, expected);
+    }
+
+    public void assertFunctionWithError(String projection, Type expectedType, double expected, double delta)
+    {
+        Number actual = (Number) selectSingleValue(projection, expectedType, compiler);
+        assertEquals(actual.doubleValue(), expected, delta);
     }
 
     public void assertFunctionString(String projection, Type expectedType, String expected)
@@ -861,7 +859,7 @@ public final class FunctionAssertions
 
         Object result = evaluator.evaluate(symbol -> {
             int position = 0;
-            int channel = INPUT_MAPPING.get(symbol);
+            int channel = INPUT_MAPPING.get(new VariableReferenceExpression(symbol.getName(), SYMBOL_TYPES.get(symbol)));
             Type type = SYMBOL_TYPES.get(symbol);
 
             Block block = SOURCE_PAGE.getBlock(channel);
@@ -958,7 +956,7 @@ public final class FunctionAssertions
         }
     }
 
-    private RowExpression toRowExpression(Expression projection, Map<NodeRef<Expression>, Type> expressionTypes, Map<Symbol, Integer> layout)
+    private RowExpression toRowExpression(Expression projection, Map<NodeRef<Expression>, Type> expressionTypes, Map<VariableReferenceExpression, Integer> layout)
     {
         return translate(projection, expressionTypes, layout, metadata.getFunctionManager(), metadata.getTypeManager(), session, false);
     }

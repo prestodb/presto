@@ -15,7 +15,8 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -42,11 +43,11 @@ public class PruneAggregationSourceColumns
     @Override
     public Result apply(AggregationNode aggregationNode, Captures captures, Context context)
     {
-        Set<Symbol> requiredInputs = Streams.concat(
+        Set<VariableReferenceExpression> requiredInputs = Streams.concat(
                 aggregationNode.getGroupingKeys().stream(),
-                aggregationNode.getHashSymbol().map(Stream::of).orElse(Stream.empty()),
+                aggregationNode.getHashVariable().map(Stream::of).orElse(Stream.empty()),
                 aggregationNode.getAggregations().values().stream()
-                        .flatMap(PruneAggregationSourceColumns::getAggregationInputs))
+                        .flatMap(aggregation -> getAggregationInputs(aggregation, context.getSymbolAllocator().getTypes())))
                 .collect(toImmutableSet());
 
         return restrictChildOutputs(context.getIdAllocator(), aggregationNode, requiredInputs)
@@ -54,10 +55,10 @@ public class PruneAggregationSourceColumns
                 .orElse(Result.empty());
     }
 
-    private static Stream<Symbol> getAggregationInputs(AggregationNode.Aggregation aggregation)
+    private static Stream<VariableReferenceExpression> getAggregationInputs(AggregationNode.Aggregation aggregation, TypeProvider types)
     {
         return Streams.concat(
-                AggregationNodeUtils.extractUnique(aggregation).stream(),
+                AggregationNodeUtils.extractAggregationUniqueVariables(aggregation, types).stream(),
                 aggregation.getMask().map(Stream::of).orElse(Stream.empty()));
     }
 }

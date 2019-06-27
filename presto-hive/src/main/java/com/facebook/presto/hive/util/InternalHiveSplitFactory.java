@@ -75,9 +75,9 @@ public class InternalHiveSplitFactory
         return createInternalHiveSplit(status, OptionalInt.empty(), OptionalInt.empty(), splittable);
     }
 
-    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, int readBucketNumber, int tableBucketNumber)
+    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, int readBucketNumber, int tableBucketNumber, boolean splittable)
     {
-        return createInternalHiveSplit(status, OptionalInt.of(readBucketNumber), OptionalInt.of(tableBucketNumber), false);
+        return createInternalHiveSplit(status, OptionalInt.of(readBucketNumber), OptionalInt.of(tableBucketNumber), splittable);
     }
 
     private Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, OptionalInt readBucketNumber, OptionalInt tableBucketNumber, boolean splittable)

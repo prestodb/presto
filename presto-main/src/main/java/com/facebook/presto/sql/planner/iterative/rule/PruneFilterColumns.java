@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
-import com.facebook.presto.sql.planner.plan.FilterNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.Streams;
 
 import java.util.Optional;
@@ -37,11 +38,11 @@ public class PruneFilterColumns
     }
 
     @Override
-    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, FilterNode filterNode, Set<Symbol> referencedOutputs)
+    protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, FilterNode filterNode, Set<VariableReferenceExpression> referencedOutputs)
     {
-        Set<Symbol> prunedFilterInputs = Streams.concat(
+        Set<VariableReferenceExpression> prunedFilterInputs = Streams.concat(
                 referencedOutputs.stream(),
-                SymbolsExtractor.extractUnique(castToExpression(filterNode.getPredicate())).stream())
+                SymbolsExtractor.extractUniqueVariable(castToExpression(filterNode.getPredicate()), symbolAllocator.getTypes()).stream())
                 .collect(toImmutableSet());
 
         return restrictChildOutputs(idAllocator, filterNode, prunedFilterInputs);

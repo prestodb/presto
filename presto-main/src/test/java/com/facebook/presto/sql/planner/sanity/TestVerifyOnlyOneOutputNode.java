@@ -14,16 +14,18 @@
 package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
+
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestVerifyOnlyOneOutputNode
 {
@@ -56,7 +58,7 @@ public class TestVerifyOnlyOneOutputNode
                                                         idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of()),
                                                 Assignments.of()
                                         ), ImmutableList.of(), ImmutableList.of()
-                                ), new Symbol("a"),
+                                ), new VariableReferenceExpression("a", BIGINT),
                                 false),
                         ImmutableList.of(), ImmutableList.of());
         new VerifyOnlyOneOutputNode().validate(root, null, null, null, null, WarningCollector.NOOP);

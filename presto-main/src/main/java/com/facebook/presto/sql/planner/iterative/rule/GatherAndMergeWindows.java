@@ -17,20 +17,23 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.matching.PropertyPattern;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +46,8 @@ import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.transpose;
 import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.dependsOn;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.isIdentity;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.window;
@@ -103,7 +108,7 @@ public class GatherAndMergeWindows
                     .map(captures::get)
                     .collect(toImmutableList());
 
-            return pullWindowNodeAboveProjects(captures.get(childCapture), projects)
+            return pullWindowNodeAboveProjects(captures.get(childCapture), projects, context)
                     .flatMap(newChild -> manipulateAdjacentWindowNodes(parent, newChild, context))
                     .map(Result::ofPlanNode)
                     .orElse(Result.empty());
@@ -120,7 +125,8 @@ public class GatherAndMergeWindows
          */
         protected static Optional<WindowNode> pullWindowNodeAboveProjects(
                 WindowNode target,
-                List<ProjectNode> projects)
+                List<ProjectNode> projects,
+                Context context)
         {
             if (projects.isEmpty()) {
                 return Optional.of(target);
@@ -128,19 +134,19 @@ public class GatherAndMergeWindows
 
             PlanNode targetChild = target.getSource();
 
-            Set<Symbol> targetInputs = ImmutableSet.copyOf(targetChild.getOutputSymbols());
-            Set<Symbol> targetOutputs = ImmutableSet.copyOf(target.getOutputSymbols());
+            Set<VariableReferenceExpression> targetInputs = ImmutableSet.copyOf(targetChild.getOutputVariables());
+            Set<VariableReferenceExpression> targetOutputs = ImmutableSet.copyOf(target.getOutputVariables());
 
             PlanNode newTargetChild = targetChild;
 
             for (ProjectNode project : projects) {
-                Set<Symbol> newTargetChildOutputs = ImmutableSet.copyOf(newTargetChild.getOutputSymbols());
+                Set<VariableReferenceExpression> newTargetChildOutputs = ImmutableSet.copyOf(newTargetChild.getOutputVariables());
 
                 // The only kind of use of the output of the target that we can safely ignore is a simple identity propagation.
                 // The target node, when hoisted above the projections, will provide the symbols directly.
-                Map<Symbol, Expression> assignmentsWithoutTargetOutputIdentities = Maps.filterKeys(
+                Map<VariableReferenceExpression, RowExpression> assignmentsWithoutTargetOutputIdentities = Maps.filterKeys(
                         project.getAssignments().getMap(),
-                        output -> !(project.getAssignments().isIdentity(output) && targetOutputs.contains(output)));
+                        output -> !(isIdentity(project.getAssignments(), output) && targetOutputs.contains(output)));
 
                 if (targetInputs.stream().anyMatch(assignmentsWithoutTargetOutputIdentities::containsKey)) {
                     // Redefinition of an input to the target -- can't handle this case.
@@ -149,10 +155,10 @@ public class GatherAndMergeWindows
 
                 Assignments newAssignments = Assignments.builder()
                         .putAll(assignmentsWithoutTargetOutputIdentities)
-                        .putIdentities(targetInputs)
+                        .putAll(identitiesAsSymbolReferences(targetInputs))
                         .build();
 
-                if (!newTargetChildOutputs.containsAll(SymbolsExtractor.extractUnique(newAssignments.getExpressions()))) {
+                if (!newTargetChildOutputs.containsAll(extractUniqueVariable(newAssignments, context.getSymbolAllocator().getTypes()))) {
                     // Projection uses an output of the target -- can't move the target above this projection.
                     return Optional.empty();
                 }
@@ -161,13 +167,19 @@ public class GatherAndMergeWindows
             }
 
             WindowNode newTarget = (WindowNode) target.replaceChildren(ImmutableList.of(newTargetChild));
-            Set<Symbol> newTargetOutputs = ImmutableSet.copyOf(newTarget.getOutputSymbols());
-            if (!newTargetOutputs.containsAll(projects.get(projects.size() - 1).getOutputSymbols())) {
+            Set<VariableReferenceExpression> newTargetOutputs = ImmutableSet.copyOf(newTarget.getOutputVariables());
+            if (!newTargetOutputs.containsAll(projects.get(projects.size() - 1).getOutputVariables())) {
                 // The new target node is hiding some of the projections, which makes this rewrite incorrect.
                 return Optional.empty();
             }
             return Optional.of(newTarget);
         }
+    }
+
+    private static Set<VariableReferenceExpression> extractUniqueVariable(Assignments assignments, TypeProvider types)
+    {
+        Collection<RowExpression> expressions = assignments.getExpressions();
+        return SymbolsExtractor.extractUniqueVariable(expressions.stream().map(OriginalExpressionUtils::castToExpression).collect(toImmutableList()), types);
     }
 
     public static class MergeAdjacentWindowsOverProjects
@@ -181,11 +193,11 @@ public class GatherAndMergeWindows
         @Override
         protected Optional<PlanNode> manipulateAdjacentWindowNodes(WindowNode parent, WindowNode child, Context context)
         {
-            if (!child.getSpecification().equals(parent.getSpecification()) || dependsOn(parent, child)) {
+            if (!child.getSpecification().equals(parent.getSpecification()) || dependsOn(parent, child, context.getSymbolAllocator().getTypes())) {
                 return Optional.empty();
             }
 
-            ImmutableMap.Builder<Symbol, WindowNode.Function> functionsBuilder = ImmutableMap.builder();
+            ImmutableMap.Builder<VariableReferenceExpression, WindowNode.Function> functionsBuilder = ImmutableMap.builder();
             functionsBuilder.putAll(parent.getWindowFunctions());
             functionsBuilder.putAll(child.getWindowFunctions());
 
@@ -194,12 +206,12 @@ public class GatherAndMergeWindows
                     child.getSource(),
                     parent.getSpecification(),
                     functionsBuilder.build(),
-                    parent.getHashSymbol(),
+                    parent.getHashVariable(),
                     parent.getPrePartitionedInputs(),
                     parent.getPreSortedOrderPrefix());
 
             return Optional.of(
-                    restrictOutputs(context.getIdAllocator(), mergedWindowNode, ImmutableSet.copyOf(parent.getOutputSymbols()))
+                    restrictOutputs(context.getIdAllocator(), mergedWindowNode, ImmutableSet.copyOf(parent.getOutputVariables()))
                             .orElse(mergedWindowNode));
         }
     }
@@ -215,10 +227,10 @@ public class GatherAndMergeWindows
         @Override
         protected Optional<PlanNode> manipulateAdjacentWindowNodes(WindowNode parent, WindowNode child, Context context)
         {
-            if ((compare(parent, child) < 0) && (!dependsOn(parent, child))) {
+            if ((compare(parent, child) < 0) && (!dependsOn(parent, child, context.getSymbolAllocator().getTypes()))) {
                 PlanNode transposedWindows = transpose(parent, child);
                 return Optional.of(
-                        restrictOutputs(context.getIdAllocator(), transposedWindows, ImmutableSet.copyOf(parent.getOutputSymbols()))
+                        restrictOutputs(context.getIdAllocator(), transposedWindows, ImmutableSet.copyOf(parent.getOutputVariables()))
                                 .orElse(transposedWindows));
             }
             else {
@@ -244,14 +256,14 @@ public class GatherAndMergeWindows
 
         private static int comparePartitionBy(WindowNode o1, WindowNode o2)
         {
-            Iterator<Symbol> iterator1 = o1.getPartitionBy().iterator();
-            Iterator<Symbol> iterator2 = o2.getPartitionBy().iterator();
+            Iterator<VariableReferenceExpression> iterator1 = o1.getPartitionBy().iterator();
+            Iterator<VariableReferenceExpression> iterator2 = o2.getPartitionBy().iterator();
 
             while (iterator1.hasNext() && iterator2.hasNext()) {
-                Symbol symbol1 = iterator1.next();
-                Symbol symbol2 = iterator2.next();
+                VariableReferenceExpression variable1 = iterator1.next();
+                VariableReferenceExpression variable2 = iterator2.next();
 
-                int partitionByComparison = symbol1.compareTo(symbol2);
+                int partitionByComparison = variable1.compareTo(variable2);
                 if (partitionByComparison != 0) {
                     return partitionByComparison;
                 }
@@ -280,19 +292,19 @@ public class GatherAndMergeWindows
 
             OrderingScheme o1OrderingScheme = o1.getOrderingScheme().get();
             OrderingScheme o2OrderingScheme = o2.getOrderingScheme().get();
-            Iterator<Symbol> iterator1 = o1OrderingScheme.getOrderBy().iterator();
-            Iterator<Symbol> iterator2 = o2OrderingScheme.getOrderBy().iterator();
+            Iterator<VariableReferenceExpression> iterator1 = o1OrderingScheme.getOrderBy().iterator();
+            Iterator<VariableReferenceExpression> iterator2 = o2OrderingScheme.getOrderBy().iterator();
 
             while (iterator1.hasNext() && iterator2.hasNext()) {
-                Symbol symbol1 = iterator1.next();
-                Symbol symbol2 = iterator2.next();
+                VariableReferenceExpression variable1 = iterator1.next();
+                VariableReferenceExpression variable2 = iterator2.next();
 
-                int orderByComparison = symbol1.compareTo(symbol2);
+                int orderByComparison = variable1.compareTo(variable2);
                 if (orderByComparison != 0) {
                     return orderByComparison;
                 }
                 else {
-                    int sortOrderComparison = o1OrderingScheme.getOrdering(symbol1).compareTo(o2OrderingScheme.getOrdering(symbol2));
+                    int sortOrderComparison = o1OrderingScheme.getOrdering(variable1).compareTo(o2OrderingScheme.getOrdering(variable2));
                     if (sortOrderComparison != 0) {
                         return sortOrderComparison;
                     }

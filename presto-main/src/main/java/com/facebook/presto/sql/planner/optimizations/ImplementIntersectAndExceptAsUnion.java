@@ -17,20 +17,21 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
-import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SetOperationNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -55,6 +56,8 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
@@ -150,19 +153,19 @@ public class ImplementIntersectAndExceptAsUnion
                     .map(rewriteContext::rewrite)
                     .collect(toList());
 
-            List<Symbol> markers = allocateSymbols(sources.size(), MARKER, BOOLEAN);
+            List<VariableReferenceExpression> markers = allocateVariables(sources.size(), MARKER, BOOLEAN);
 
             // identity projection for all the fields in each of the sources plus marker columns
             List<PlanNode> withMarkers = appendMarkers(markers, sources, node);
 
             // add a union over all the rewritten sources. The outputs of the union have the same name as the
             // original intersect node
-            List<Symbol> outputs = node.getOutputSymbols();
+            List<VariableReferenceExpression> outputs = node.getOutputVariables();
             UnionNode union = union(withMarkers, ImmutableList.copyOf(concat(outputs, markers)));
 
             // add count aggregations and filter rows where any of the counts is >= 1
-            List<Symbol> aggregationOutputs = allocateSymbols(markers.size(), "count", BIGINT);
-            AggregationNode aggregation = computeCounts(union, outputs, markers, aggregationOutputs);
+            List<VariableReferenceExpression> aggregationOutputs = allocateVariables(markers.size(), "count", BIGINT);
+            AggregationNode aggregation = computeCounts(union, node.getOutputVariables(), markers, aggregationOutputs);
             FilterNode filterNode = addFilterForIntersect(aggregation);
 
             return project(filterNode, outputs);
@@ -175,81 +178,84 @@ public class ImplementIntersectAndExceptAsUnion
                     .map(rewriteContext::rewrite)
                     .collect(toList());
 
-            List<Symbol> markers = allocateSymbols(sources.size(), MARKER, BOOLEAN);
+            List<VariableReferenceExpression> markers = allocateVariables(sources.size(), MARKER, BOOLEAN);
 
             // identity projection for all the fields in each of the sources plus marker columns
             List<PlanNode> withMarkers = appendMarkers(markers, sources, node);
 
             // add a union over all the rewritten sources. The outputs of the union have the same name as the
             // original except node
-            List<Symbol> outputs = node.getOutputSymbols();
+            List<VariableReferenceExpression> outputs = node.getOutputVariables();
             UnionNode union = union(withMarkers, ImmutableList.copyOf(concat(outputs, markers)));
 
             // add count aggregations and filter rows where count for the first source is >= 1 and all others are 0
-            List<Symbol> aggregationOutputs = allocateSymbols(markers.size(), "count", BIGINT);
-            AggregationNode aggregation = computeCounts(union, outputs, markers, aggregationOutputs);
+            List<VariableReferenceExpression> aggregationOutputs = allocateVariables(markers.size(), "count", BIGINT);
+            AggregationNode aggregation = computeCounts(union, node.getOutputVariables(), markers, aggregationOutputs);
             FilterNode filterNode = addFilterForExcept(aggregation, aggregationOutputs.get(0), aggregationOutputs.subList(1, aggregationOutputs.size()));
 
             return project(filterNode, outputs);
         }
 
-        private List<Symbol> allocateSymbols(int count, String nameHint, Type type)
+        private List<VariableReferenceExpression> allocateVariables(int count, String nameHint, Type type)
         {
-            ImmutableList.Builder<Symbol> symbolsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<VariableReferenceExpression> variablesBuilder = ImmutableList.builder();
             for (int i = 0; i < count; i++) {
-                symbolsBuilder.add(symbolAllocator.newSymbol(nameHint, type));
+                variablesBuilder.add(symbolAllocator.newVariable(nameHint, type));
             }
-            return symbolsBuilder.build();
+            return variablesBuilder.build();
         }
 
-        private List<PlanNode> appendMarkers(List<Symbol> markers, List<PlanNode> nodes, SetOperationNode node)
+        private List<PlanNode> appendMarkers(List<VariableReferenceExpression> markers, List<PlanNode> nodes, SetOperationNode node)
         {
             ImmutableList.Builder<PlanNode> result = ImmutableList.builder();
             for (int i = 0; i < nodes.size(); i++) {
-                result.add(appendMarkers(nodes.get(i), i, markers, Maps.transformValues(node.sourceSymbolMap(i), Symbol::toSymbolReference)));
+                result.add(appendMarkers(nodes.get(i), i, markers, Maps.transformValues(node.sourceVariableMap(i), variable -> new SymbolReference(variable.getName()))));
             }
             return result.build();
         }
 
-        private PlanNode appendMarkers(PlanNode source, int markerIndex, List<Symbol> markers, Map<Symbol, SymbolReference> projections)
+        private PlanNode appendMarkers(PlanNode source, int markerIndex, List<VariableReferenceExpression> markers, Map<VariableReferenceExpression, SymbolReference> projections)
         {
             Assignments.Builder assignments = Assignments.builder();
             // add existing intersect symbols to projection
-            for (Map.Entry<Symbol, SymbolReference> entry : projections.entrySet()) {
-                Symbol symbol = symbolAllocator.newSymbol(entry.getKey().getName(), symbolAllocator.getTypes().get(entry.getKey()));
-                assignments.put(symbol, entry.getValue());
+            for (Map.Entry<VariableReferenceExpression, SymbolReference> entry : projections.entrySet()) {
+                VariableReferenceExpression variable = symbolAllocator.newVariable(entry.getKey().getName(), entry.getKey().getType());
+                assignments.put(variable, castToRowExpression(entry.getValue()));
             }
 
             // add extra marker fields to the projection
             for (int i = 0; i < markers.size(); ++i) {
                 Expression expression = (i == markerIndex) ? TRUE_LITERAL : new Cast(new NullLiteral(), StandardTypes.BOOLEAN);
-                assignments.put(symbolAllocator.newSymbol(markers.get(i).getName(), BOOLEAN), expression);
+                assignments.put(symbolAllocator.newVariable(markers.get(i).getName(), BOOLEAN), castToRowExpression(expression));
             }
 
             return new ProjectNode(idAllocator.getNextId(), source, assignments.build());
         }
 
-        private UnionNode union(List<PlanNode> nodes, List<Symbol> outputs)
+        private UnionNode union(List<PlanNode> nodes, List<VariableReferenceExpression> outputs)
         {
-            ImmutableListMultimap.Builder<Symbol, Symbol> outputsToInputs = ImmutableListMultimap.builder();
+            ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs = ImmutableListMultimap.builder();
             for (PlanNode source : nodes) {
-                for (int i = 0; i < source.getOutputSymbols().size(); i++) {
-                    outputsToInputs.put(outputs.get(i), source.getOutputSymbols().get(i));
+                for (int i = 0; i < source.getOutputVariables().size(); i++) {
+                    outputsToInputs.put(outputs.get(i), source.getOutputVariables().get(i));
                 }
             }
 
-            return new UnionNode(idAllocator.getNextId(), nodes, outputsToInputs.build(), outputs);
+            return new UnionNode(idAllocator.getNextId(), nodes, outputsToInputs.build());
         }
 
-        private AggregationNode computeCounts(UnionNode sourceNode, List<Symbol> originalColumns, List<Symbol> markers, List<Symbol> aggregationOutputs)
+        private AggregationNode computeCounts(UnionNode sourceNode, List<VariableReferenceExpression> originalColumns, List<VariableReferenceExpression> markers, List<VariableReferenceExpression> aggregationOutputs)
         {
-            ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
+            ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregations = ImmutableMap.builder();
 
             for (int i = 0; i < markers.size(); i++) {
-                Symbol output = aggregationOutputs.get(i);
+                VariableReferenceExpression output = aggregationOutputs.get(i);
                 aggregations.put(output, new Aggregation(
-                        functionResolution.countFunction(BIGINT),
-                        ImmutableList.of(markers.get(i).toSymbolReference()),
+                        new CallExpression(
+                                "count",
+                                functionResolution.countFunction(markers.get(i).getType()),
+                                BIGINT,
+                                ImmutableList.of(castToRowExpression(asSymbolReference(markers.get(i))))),
                         Optional.empty(),
                         Optional.empty(),
                         false,
@@ -269,28 +275,28 @@ public class ImplementIntersectAndExceptAsUnion
         private FilterNode addFilterForIntersect(AggregationNode aggregation)
         {
             ImmutableList<Expression> predicates = aggregation.getAggregations().keySet().stream()
-                    .map(column -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, column.toSymbolReference(), new GenericLiteral("BIGINT", "1")))
+                    .map(column -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(column.getName()), new GenericLiteral("BIGINT", "1")))
                     .collect(toImmutableList());
             return new FilterNode(idAllocator.getNextId(), aggregation, castToRowExpression(ExpressionUtils.and(predicates)));
         }
 
-        private FilterNode addFilterForExcept(AggregationNode aggregation, Symbol firstSource, List<Symbol> remainingSources)
+        private FilterNode addFilterForExcept(AggregationNode aggregation, VariableReferenceExpression firstSource, List<VariableReferenceExpression> remainingSources)
         {
             ImmutableList.Builder<Expression> predicatesBuilder = ImmutableList.builder();
-            predicatesBuilder.add(new ComparisonExpression(GREATER_THAN_OR_EQUAL, firstSource.toSymbolReference(), new GenericLiteral("BIGINT", "1")));
-            for (Symbol symbol : remainingSources) {
-                predicatesBuilder.add(new ComparisonExpression(EQUAL, symbol.toSymbolReference(), new GenericLiteral("BIGINT", "0")));
+            predicatesBuilder.add(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(firstSource.getName()), new GenericLiteral("BIGINT", "1")));
+            for (VariableReferenceExpression variable : remainingSources) {
+                predicatesBuilder.add(new ComparisonExpression(EQUAL, new SymbolReference(variable.getName()), new GenericLiteral("BIGINT", "0")));
             }
 
             return new FilterNode(idAllocator.getNextId(), aggregation, castToRowExpression(ExpressionUtils.and(predicatesBuilder.build())));
         }
 
-        private ProjectNode project(PlanNode node, List<Symbol> columns)
+        private ProjectNode project(PlanNode node, List<VariableReferenceExpression> columns)
         {
             return new ProjectNode(
                     idAllocator.getNextId(),
                     node,
-                    Assignments.identity(columns));
+                    identityAssignmentsAsSymbolReferences(columns));
         }
     }
 }

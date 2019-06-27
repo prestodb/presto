@@ -31,7 +31,9 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -69,6 +71,7 @@ import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -81,19 +84,21 @@ public class OrcPageSourceFactory
     private final boolean useOrcColumnNames;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
+    private final int domainCompactionThreshold;
 
     @Inject
     public OrcPageSourceFactory(TypeManager typeManager, HiveClientConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
     {
-        this(typeManager, requireNonNull(config, "hiveClientConfig is null").isUseOrcColumnNames(), hdfsEnvironment, stats);
+        this(typeManager, requireNonNull(config, "hiveClientConfig is null").isUseOrcColumnNames(), hdfsEnvironment, stats, config.getDomainCompactionThreshold());
     }
 
-    public OrcPageSourceFactory(TypeManager typeManager, boolean useOrcColumnNames, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
+    public OrcPageSourceFactory(TypeManager typeManager, boolean useOrcColumnNames, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, int domainCompactionThreshold)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.useOrcColumnNames = useOrcColumnNames;
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
+        this.domainCompactionThreshold = domainCompactionThreshold;
     }
 
     @Override
@@ -139,7 +144,8 @@ public class OrcPageSourceFactory
                 getOrcMaxReadBlockSize(session),
                 getOrcLazyReadSmallRanges(session),
                 isOrcBloomFiltersEnabled(session),
-                stats));
+                stats,
+                domainCompactionThreshold));
     }
 
     public static OrcPageSource createOrcPageSource(
@@ -163,8 +169,11 @@ public class OrcPageSourceFactory
             DataSize maxReadBlockSize,
             boolean lazyReadSmallRanges,
             boolean orcBloomFiltersEnabled,
-            FileFormatDataSourceStats stats)
+            FileFormatDataSourceStats stats,
+            int domainCompactionThreshold)
     {
+        checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
+
         OrcDataSource orcDataSource;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
@@ -202,7 +211,8 @@ public class OrcPageSourceFactory
                 }
             }
 
-            OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build(), orcBloomFiltersEnabled);
+            TupleDomain<HiveColumnHandle> compactEffectivePredicate = toCompactTupleDomain(effectivePredicate, domainCompactionThreshold);
+            OrcPredicate predicate = new TupleDomainOrcPredicate<>(compactEffectivePredicate, columnReferences.build(), orcBloomFiltersEnabled);
 
             OrcRecordReader recordReader = reader.createRecordReader(
                     includedColumns.build(),
@@ -238,6 +248,26 @@ public class OrcPageSourceFactory
         }
     }
 
+    private static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<HiveColumnHandle> effectivePredicate, int threshold)
+    {
+        ImmutableMap.Builder<HiveColumnHandle, Domain> builder = ImmutableMap.builder();
+        effectivePredicate.getDomains().ifPresent(domains -> {
+            for (Map.Entry<HiveColumnHandle, Domain> entry : domains.entrySet()) {
+                HiveColumnHandle hiveColumnHandle = entry.getKey();
+                Domain domain = entry.getValue();
+
+                ValueSet values = domain.getValues();
+                ValueSet compactValueSet = values.getValuesProcessor().<Optional<ValueSet>>transform(
+                        ranges -> ranges.getRangeCount() > threshold ? Optional.of(ValueSet.ofRanges(ranges.getSpan())) : Optional.empty(),
+                        discreteValues -> discreteValues.getValues().size() > threshold ? Optional.of(ValueSet.all(values.getType())) : Optional.empty(),
+                        allOrNone -> Optional.empty())
+                        .orElse(values);
+                builder.put(hiveColumnHandle, Domain.create(compactValueSet, domain.isNullAllowed()));
+            }
+        });
+        return TupleDomain.withColumnDomains(builder.build());
+    }
+
     private static String splitError(Throwable t, Path path, long start, long length)
     {
         return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
@@ -263,7 +293,7 @@ public class OrcPageSourceFactory
                 physicalOrdinal = nextMissingColumnIndex;
                 nextMissingColumnIndex++;
             }
-            physicalColumns.add(new HiveColumnHandle(column.getName(), column.getHiveType(), column.getTypeSignature(), physicalOrdinal, column.getColumnType(), column.getComment()));
+            physicalColumns.add(new HiveColumnHandle(column.getName(), column.getHiveType(), column.getTypeSignature(), physicalOrdinal, column.getColumnType(), column.getComment(), column.getRequiredSubfields()));
         }
         return physicalColumns.build();
     }

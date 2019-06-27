@@ -17,12 +17,13 @@ import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.relation.LogicalRowExpressions;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.util.MoreMath;
 import com.google.common.annotations.VisibleForTesting;
 
@@ -33,7 +34,7 @@ import java.util.Optional;
 import java.util.Queue;
 
 import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
-import static com.facebook.presto.cost.SymbolStatsEstimate.buildFrom;
+import static com.facebook.presto.cost.VariableStatsEstimate.buildFrom;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
@@ -182,7 +183,7 @@ public class JoinStatsRule
         }
 
         if (filteredEquiJoinEstimate.isOutputRowCountUnknown()) {
-            return normalizer.normalize(equiJoinEstimate.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT), types);
+            return normalizer.normalize(equiJoinEstimate.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT));
         }
 
         return filteredEquiJoinEstimate;
@@ -221,7 +222,7 @@ public class JoinStatsRule
             Session session,
             TypeProvider types)
     {
-        ComparisonExpression drivingPredicate = new ComparisonExpression(EQUAL, drivingClause.getLeft().toSymbolReference(), drivingClause.getRight().toSymbolReference());
+        ComparisonExpression drivingPredicate = new ComparisonExpression(EQUAL, new SymbolReference(drivingClause.getLeft().getName()), new SymbolReference(drivingClause.getRight().getName()));
         PlanNodeStatsEstimate filteredStats = filterStatsCalculator.filterStats(stats, drivingPredicate, session, types);
         for (EquiJoinClause clause : remainingClauses) {
             filteredStats = filterByAuxiliaryClause(filteredStats, clause, types);
@@ -234,8 +235,8 @@ public class JoinStatsRule
         // we just clear null fraction and adjust ranges here
         // selectivity is mostly handled by driving clause. We just scale heuristically by UNKNOWN_FILTER_COEFFICIENT here.
 
-        SymbolStatsEstimate leftStats = stats.getSymbolStatistics(clause.getLeft());
-        SymbolStatsEstimate rightStats = stats.getSymbolStatistics(clause.getRight());
+        VariableStatsEstimate leftStats = stats.getVariableStatistics(clause.getLeft());
+        VariableStatsEstimate rightStats = stats.getVariableStatistics(clause.getRight());
         StatisticRange leftRange = StatisticRange.from(leftStats);
         StatisticRange rightRange = StatisticRange.from(rightStats);
 
@@ -246,13 +247,13 @@ public class JoinStatsRule
         double rightNdvInRange = rightFilterValue * rightRange.getDistinctValuesCount();
         double retainedNdv = MoreMath.min(leftNdvInRange, rightNdvInRange);
 
-        SymbolStatsEstimate newLeftStats = buildFrom(leftStats)
+        VariableStatsEstimate newLeftStats = buildFrom(leftStats)
                 .setNullsFraction(0)
                 .setStatisticsRange(intersect)
                 .setDistinctValuesCount(retainedNdv)
                 .build();
 
-        SymbolStatsEstimate newRightStats = buildFrom(rightStats)
+        VariableStatsEstimate newRightStats = buildFrom(rightStats)
                 .setNullsFraction(0)
                 .setStatisticsRange(intersect)
                 .setDistinctValuesCount(retainedNdv)
@@ -260,9 +261,9 @@ public class JoinStatsRule
 
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(stats)
                 .setOutputRowCount(stats.getOutputRowCount() * UNKNOWN_FILTER_COEFFICIENT)
-                .addSymbolStatistics(clause.getLeft(), newLeftStats)
-                .addSymbolStatistics(clause.getRight(), newRightStats);
-        return normalizer.normalize(result.build(), types);
+                .addVariableStatistics(clause.getLeft(), newLeftStats)
+                .addVariableStatistics(clause.getRight(), newRightStats);
+        return normalizer.normalize(result.build());
     }
 
     private static double firstNonNaN(double... values)
@@ -297,7 +298,7 @@ public class JoinStatsRule
                 return PlanNodeStatsEstimate.unknown();
             }
 
-            return normalizer.normalize(leftStats.mapOutputRowCount(rowCount -> 0.0), types);
+            return normalizer.normalize(leftStats.mapOutputRowCount(rowCount -> 0.0));
         }
 
         // TODO: add support for non-equality conditions (e.g: <=, !=, >)
@@ -321,7 +322,7 @@ public class JoinStatsRule
                 .map(drivingClause -> calculateJoinComplementStats(leftStats, rightStats, drivingClause, criteria.size() - 1 + numberOfFilterClauses))
                 .filter(estimate -> !estimate.isOutputRowCountUnknown())
                 .max(comparingDouble(PlanNodeStatsEstimate::getOutputRowCount))
-                .map(estimate -> normalizer.normalize(estimate, types))
+                .map(estimate -> normalizer.normalize(estimate))
                 .orElse(PlanNodeStatsEstimate.unknown());
     }
 
@@ -333,8 +334,8 @@ public class JoinStatsRule
     {
         PlanNodeStatsEstimate result = leftStats;
 
-        SymbolStatsEstimate leftColumnStats = leftStats.getSymbolStatistics(drivingClause.getLeft());
-        SymbolStatsEstimate rightColumnStats = rightStats.getSymbolStatistics(drivingClause.getRight());
+        VariableStatsEstimate leftColumnStats = leftStats.getVariableStatistics(drivingClause.getLeft());
+        VariableStatsEstimate rightColumnStats = rightStats.getVariableStatistics(drivingClause.getRight());
 
         // TODO: use range methods when they have defined (and consistent) semantics
         double leftNDV = leftColumnStats.getDistinctValuesCount();
@@ -345,8 +346,8 @@ public class JoinStatsRule
             double nonMatchingLeftValuesFraction = leftColumnStats.getValuesFraction() * (leftNDV - matchingRightNDV) / leftNDV;
             double scaleFactor = nonMatchingLeftValuesFraction + leftColumnStats.getNullsFraction();
             double newLeftNullsFraction = leftColumnStats.getNullsFraction() / scaleFactor;
-            result = result.mapSymbolColumnStatistics(drivingClause.getLeft(), columnStats ->
-                    SymbolStatsEstimate.buildFrom(columnStats)
+            result = result.mapVariableColumnStatistics(drivingClause.getLeft(), columnStats ->
+                    VariableStatsEstimate.buildFrom(columnStats)
                             .setLowValue(leftColumnStats.getLowValue())
                             .setHighValue(leftColumnStats.getHighValue())
                             .setNullsFraction(newLeftNullsFraction)
@@ -356,8 +357,8 @@ public class JoinStatsRule
         }
         else if (leftNDV <= matchingRightNDV) {
             // Assume all non-null left rows are matched. Therefore only null left rows are unmatched.
-            result = result.mapSymbolColumnStatistics(drivingClause.getLeft(), columnStats ->
-                    SymbolStatsEstimate.buildFrom(columnStats)
+            result = result.mapVariableColumnStatistics(drivingClause.getLeft(), columnStats ->
+                    VariableStatsEstimate.buildFrom(columnStats)
                             .setLowValue(NaN)
                             .setHighValue(NaN)
                             .setNullsFraction(1.0)
@@ -393,14 +394,14 @@ public class JoinStatsRule
         PlanNodeStatsEstimate.Builder outputStats = PlanNodeStatsEstimate.buildFrom(innerJoinStats);
         outputStats.setOutputRowCount(outputRowCount);
 
-        for (Symbol symbol : joinComplementStats.getSymbolsWithKnownStatistics()) {
-            SymbolStatsEstimate leftSymbolStats = sourceStats.getSymbolStatistics(symbol);
-            SymbolStatsEstimate innerJoinSymbolStats = innerJoinStats.getSymbolStatistics(symbol);
-            SymbolStatsEstimate joinComplementSymbolStats = joinComplementStats.getSymbolStatistics(symbol);
+        for (VariableReferenceExpression variable : joinComplementStats.getVariablesWithKnownStatistics()) {
+            VariableStatsEstimate leftSymbolStats = sourceStats.getVariableStatistics(variable);
+            VariableStatsEstimate innerJoinSymbolStats = innerJoinStats.getVariableStatistics(variable);
+            VariableStatsEstimate joinComplementSymbolStats = joinComplementStats.getVariableStatistics(variable);
 
             // weighted average
             double newNullsFraction = (innerJoinSymbolStats.getNullsFraction() * innerJoinRowCount + joinComplementSymbolStats.getNullsFraction() * joinComplementRowCount) / outputRowCount;
-            outputStats.addSymbolStatistics(symbol, SymbolStatsEstimate.buildFrom(innerJoinSymbolStats)
+            outputStats.addVariableStatistics(variable, VariableStatsEstimate.buildFrom(innerJoinSymbolStats)
                     // in outer join low value, high value and NDVs of outer side columns are preserved
                     .setLowValue(leftSymbolStats.getLowValue())
                     .setHighValue(leftSymbolStats.getHighValue())
@@ -410,10 +411,10 @@ public class JoinStatsRule
         }
 
         // add nulls to columns that don't exist in right stats
-        for (Symbol symbol : difference(innerJoinStats.getSymbolsWithKnownStatistics(), joinComplementStats.getSymbolsWithKnownStatistics())) {
-            SymbolStatsEstimate innerJoinSymbolStats = innerJoinStats.getSymbolStatistics(symbol);
+        for (VariableReferenceExpression variable : difference(innerJoinStats.getVariablesWithKnownStatistics(), joinComplementStats.getVariablesWithKnownStatistics())) {
+            VariableStatsEstimate innerJoinSymbolStats = innerJoinStats.getVariableStatistics(variable);
             double newNullsFraction = (innerJoinSymbolStats.getNullsFraction() * innerJoinRowCount + joinComplementRowCount) / outputRowCount;
-            outputStats.addSymbolStatistics(symbol, innerJoinSymbolStats.mapNullsFraction(nullsFraction -> newNullsFraction));
+            outputStats.addVariableStatistics(variable, innerJoinSymbolStats.mapNullsFraction(nullsFraction -> newNullsFraction));
         }
 
         return outputStats.build();
@@ -424,10 +425,10 @@ public class JoinStatsRule
         PlanNodeStatsEstimate.Builder builder = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(leftStats.getOutputRowCount() * rightStats.getOutputRowCount());
 
-        node.getLeft().getOutputSymbols().forEach(symbol -> builder.addSymbolStatistics(symbol, leftStats.getSymbolStatistics(symbol)));
-        node.getRight().getOutputSymbols().forEach(symbol -> builder.addSymbolStatistics(symbol, rightStats.getSymbolStatistics(symbol)));
+        node.getLeft().getOutputVariables().forEach(variable -> builder.addVariableStatistics(variable, leftStats.getVariableStatistics(variable)));
+        node.getRight().getOutputVariables().forEach(variable -> builder.addVariableStatistics(variable, rightStats.getVariableStatistics(variable)));
 
-        return normalizer.normalize(builder.build(), types);
+        return normalizer.normalize(builder.build());
     }
 
     private List<JoinNode.EquiJoinClause> flippedCriteria(JoinNode node)

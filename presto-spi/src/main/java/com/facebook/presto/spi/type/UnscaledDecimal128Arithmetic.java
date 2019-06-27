@@ -1338,7 +1338,7 @@ public final class UnscaledDecimal128Arithmetic
             qhat = u21 / (v1 & LONG_MASK);
         }
         else {
-            qhat = divideUnsignedLong(u21, v1);
+            qhat = divideUnsignedLong(u21, v1 & LONG_MASK);
         }
 
         if (qhat == 0) {
@@ -1371,20 +1371,22 @@ public final class UnscaledDecimal128Arithmetic
         return (int) qhat;
     }
 
-    private static long divideUnsignedLong(long dividend, int divisor)
+    /**
+     * See Hacker's Delight, Section 9.3
+     */
+    private static long divideUnsignedLong(long dividend, long divisor)
     {
-        if (divisor == 1) {
-            return dividend;
+        if (divisor < 0L) {
+            return Long.compareUnsigned(dividend, divisor) < 0 ? 0L : 1L;
         }
-        long unsignedDivisor = divisor & LONG_MASK;
-        long quotient = (dividend >>> 1) / (unsignedDivisor >>> 1);
-        long remainder = dividend - quotient * unsignedDivisor;
-        while (remainder < 0) {
-            remainder += unsignedDivisor;
-            quotient--;
+
+        if (dividend > 0) {
+            return dividend / divisor;
         }
-        while (remainder >= unsignedDivisor) {
-            remainder -= unsignedDivisor;
+
+        long quotient = ((dividend >>> 1) / divisor) << 1;
+        long remainder = dividend - quotient * divisor;
+        if (Long.compareUnsigned(remainder, divisor) >= 0) {
             quotient++;
         }
         return quotient;
@@ -1501,7 +1503,7 @@ public final class UnscaledDecimal128Arithmetic
         long remainder = 0;
         for (int dividendIndex = dividendLength - 1; dividendIndex >= 0; dividendIndex--) {
             remainder = (remainder << 32) + (dividend[dividendIndex] & LONG_MASK);
-            long quotient = remainder / divisorUnsigned;
+            long quotient = divideUnsignedLong(remainder, divisorUnsigned);
             dividend[dividendIndex] = (int) quotient;
             remainder = remainder - (quotient * divisorUnsigned);
         }

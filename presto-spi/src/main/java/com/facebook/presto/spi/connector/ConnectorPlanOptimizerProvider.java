@@ -11,22 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.connector;
 
-public abstract class PlanVisitor<R, C>
+import com.facebook.presto.spi.ConnectorPlanOptimizer;
+
+import java.util.Set;
+
+public interface ConnectorPlanOptimizerProvider
 {
-    /**
-     * The default behavior to perform when visiting a PlanNode
-     */
-    protected abstract R visitPlan(PlanNode node, C context);
-
-    public R visitFilter(FilterNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
-    public R visitTableScan(TableScanNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
+    Set<ConnectorPlanOptimizer> getConnectorPlanOptimizers();
 }

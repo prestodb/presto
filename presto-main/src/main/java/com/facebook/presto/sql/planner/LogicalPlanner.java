@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.cost.CachingCostProvider;
 import com.facebook.presto.cost.CachingStatsProvider;
 import com.facebook.presto.cost.CostCalculator;
@@ -26,13 +25,18 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
@@ -51,15 +55,12 @@ import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.sanity.PlanSanityChecker;
 import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.Cast;
@@ -98,6 +99,7 @@ import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReferen
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.facebook.presto.sql.planner.sanity.PlanSanityChecker.DISTRIBUTED_PLAN_SANITY_CHECKER;
 import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -159,7 +161,7 @@ public class LogicalPlanner
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(session, symbolAllocator, metadata);
+        this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(symbolAllocator, metadata);
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -209,11 +211,12 @@ public class LogicalPlanner
         if (statement instanceof CreateTableAsSelect && analysis.isCreateTableAsSelectNoOp()) {
             checkState(analysis.getCreateTableDestination().isPresent(), "Table destination is missing");
             Symbol symbol = symbolAllocator.newSymbol("rows", BIGINT);
+            VariableReferenceExpression variable = new VariableReferenceExpression(symbol.getName(), BIGINT);
             PlanNode source = new ValuesNode(
                     idAllocator.getNextId(),
-                    ImmutableList.of(symbol),
+                    ImmutableList.of(variable),
                     ImmutableList.of(ImmutableList.of(constant(0L, BIGINT))));
-            return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of("rows"), ImmutableList.of(symbol));
+            return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of("rows"), ImmutableList.of(variable));
         }
         return createOutputPlan(planStatementWithoutOutput(analysis, statement), analysis);
     }
@@ -252,9 +255,9 @@ public class LogicalPlanner
         RelationPlan underlyingPlan = planStatementWithoutOutput(analysis, statement.getStatement());
         PlanNode root = underlyingPlan.getRoot();
         Scope scope = analysis.getScope(statement);
-        Symbol outputSymbol = symbolAllocator.newSymbol(scope.getRelationType().getFieldByIndex(0));
-        root = new ExplainAnalyzeNode(idAllocator.getNextId(), root, outputSymbol, statement.isVerbose());
-        return new RelationPlan(root, scope, ImmutableList.of(outputSymbol));
+        VariableReferenceExpression outputVariable = symbolAllocator.newVariable(scope.getRelationType().getFieldByIndex(0));
+        root = new ExplainAnalyzeNode(idAllocator.getNextId(), root, outputVariable, statement.isVerbose());
+        return new RelationPlan(root, scope, ImmutableList.of(outputVariable));
     }
 
     private RelationPlan createAnalyzePlan(Analysis analysis, Analyze analyzeStatement)
@@ -263,42 +266,42 @@ public class LogicalPlanner
 
         // Plan table scan
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTable);
-        ImmutableList.Builder<Symbol> tableScanOutputs = ImmutableList.builder();
-        ImmutableMap.Builder<Symbol, ColumnHandle> symbolToColumnHandle = ImmutableMap.builder();
-        ImmutableMap.Builder<String, Symbol> columnNameToSymbol = ImmutableMap.builder();
+        ImmutableList.Builder<VariableReferenceExpression> tableScanOutputsBuilder = ImmutableList.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> variableToColumnHandle = ImmutableMap.builder();
+        ImmutableMap.Builder<String, VariableReferenceExpression> columnNameToVariable = ImmutableMap.builder();
         TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTable);
         for (ColumnMetadata column : tableMetadata.getColumns()) {
-            Symbol symbol = symbolAllocator.newSymbol(column.getName(), column.getType());
-            tableScanOutputs.add(symbol);
-            symbolToColumnHandle.put(symbol, columnHandles.get(column.getName()));
-            columnNameToSymbol.put(column.getName(), symbol);
+            VariableReferenceExpression variable = symbolAllocator.newVariable(column.getName(), column.getType());
+            tableScanOutputsBuilder.add(variable);
+            variableToColumnHandle.put(variable, columnHandles.get(column.getName()));
+            columnNameToVariable.put(column.getName(), variable);
         }
 
+        List<VariableReferenceExpression> tableScanOutputs = tableScanOutputsBuilder.build();
         TableStatisticsMetadata tableStatisticsMetadata = metadata.getStatisticsCollectionMetadata(
                 session,
                 targetTable.getConnectorId().getCatalogName(),
                 tableMetadata.getMetadata());
 
-        TableStatisticAggregation tableStatisticAggregation = statisticsAggregationPlanner.createStatisticsAggregation(tableStatisticsMetadata, columnNameToSymbol.build());
+        TableStatisticAggregation tableStatisticAggregation = statisticsAggregationPlanner.createStatisticsAggregation(tableStatisticsMetadata, columnNameToVariable.build());
         StatisticAggregations statisticAggregations = tableStatisticAggregation.getAggregations();
-        List<Symbol> groupingSymbols = statisticAggregations.getGroupingSymbols();
 
         PlanNode planNode = new StatisticsWriterNode(
                 idAllocator.getNextId(),
                 new AggregationNode(
                         idAllocator.getNextId(),
-                        new TableScanNode(idAllocator.getNextId(), targetTable, tableScanOutputs.build(), symbolToColumnHandle.build()),
+                        new TableScanNode(idAllocator.getNextId(), targetTable, tableScanOutputs, variableToColumnHandle.build()),
                         statisticAggregations.getAggregations(),
-                        singleGroupingSet(groupingSymbols),
+                        singleGroupingSet(statisticAggregations.getGroupingVariables()),
                         ImmutableList.of(),
                         AggregationNode.Step.SINGLE,
                         Optional.empty(),
                         Optional.empty()),
                 new StatisticsWriterNode.WriteStatisticsReference(targetTable),
-                symbolAllocator.newSymbol("rows", BIGINT),
+                symbolAllocator.newVariable("rows", BIGINT),
                 tableStatisticsMetadata.getTableStatistics().contains(ROW_COUNT),
                 tableStatisticAggregation.getDescriptor());
-        return new RelationPlan(planNode, analysis.getScope(analyzeStatement), planNode.getOutputSymbols());
+        return new RelationPlan(planNode, analysis.getScope(analyzeStatement), planNode.getOutputVariables());
     }
 
     private RelationPlan createTableCreationPlan(Analysis analysis, Query query)
@@ -352,11 +355,11 @@ public class LogicalPlanner
             if (column.isHidden()) {
                 continue;
             }
-            Symbol output = symbolAllocator.newSymbol(column.getName(), column.getType());
+            VariableReferenceExpression output = symbolAllocator.newVariable(column.getName(), column.getType());
             int index = insert.getColumns().indexOf(columns.get(column.getName()));
             if (index < 0) {
                 Expression cast = new Cast(new NullLiteral(), column.getType().getTypeSignature().toString());
-                assignments.put(output, cast);
+                assignments.put(output, castToRowExpression(cast));
             }
             else {
                 Symbol input = plan.getSymbol(index);
@@ -364,11 +367,11 @@ public class LogicalPlanner
                 Type queryType = symbolAllocator.getTypes().get(input);
 
                 if (queryType.equals(tableType) || metadata.getTypeManager().isTypeOnlyCoercion(queryType, tableType)) {
-                    assignments.put(output, input.toSymbolReference());
+                    assignments.put(output, castToRowExpression(input.toSymbolReference()));
                 }
                 else {
                     Expression cast = new Cast(input.toSymbolReference(), tableType.getTypeSignature().toString());
-                    assignments.put(output, cast);
+                    assignments.put(output, castToRowExpression(cast));
                 }
             }
         }
@@ -379,7 +382,7 @@ public class LogicalPlanner
                 .collect(toImmutableList());
         Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields)).build();
 
-        plan = new RelationPlan(projectNode, scope, projectNode.getOutputSymbols());
+        plan = new RelationPlan(projectNode, scope, projectNode.getOutputVariables());
 
         Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, insert.getTarget());
         String catalogName = insert.getTarget().getConnectorId().getCatalogName();
@@ -415,17 +418,17 @@ public class LogicalPlanner
             }
         });
 
-        List<Symbol> symbols = plan.getFieldMappings();
+        List<VariableReferenceExpression> variables = plan.getFieldMappings();
 
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
         if (writeTableLayout.isPresent()) {
-            List<Symbol> partitionFunctionArguments = new ArrayList<>();
+            List<VariableReferenceExpression> partitionFunctionArguments = new ArrayList<>();
             writeTableLayout.get().getPartitionColumns().stream()
                     .mapToInt(columnNames::indexOf)
-                    .mapToObj(symbols::get)
+                    .mapToObj(variables::get)
                     .forEach(partitionFunctionArguments::add);
 
-            List<Symbol> outputLayout = new ArrayList<>(symbols);
+            List<VariableReferenceExpression> outputLayout = new ArrayList<>(variables);
 
             partitioningScheme = Optional.of(new PartitioningScheme(
                     Partitioning.create(writeTableLayout.get().getPartitioning(), partitionFunctionArguments),
@@ -433,11 +436,11 @@ public class LogicalPlanner
         }
 
         if (!statisticsMetadata.isEmpty()) {
-            verify(columnNames.size() == symbols.size(), "columnNames.size() != symbols.size(): %s and %s", columnNames, symbols);
-            Map<String, Symbol> columnToSymbolMap = zip(columnNames.stream(), symbols.stream(), SimpleImmutableEntry::new)
+            verify(columnNames.size() == variables.size(), "columnNames.size() != variables.size(): %s and %s", columnNames, variables);
+            Map<String, VariableReferenceExpression> columnToVariableMap = zip(columnNames.stream(), plan.getFieldMappings().stream(), SimpleImmutableEntry::new)
                     .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
-            TableStatisticAggregation result = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnToSymbolMap);
+            TableStatisticAggregation result = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnToVariableMap);
 
             StatisticAggregations.Parts aggregations = result.getAggregations().createPartialAggregations(symbolAllocator, metadata.getFunctionManager());
 
@@ -451,10 +454,10 @@ public class LogicalPlanner
                     idAllocator.getNextId(),
                     source,
                     target,
-                    symbolAllocator.newSymbol("partialrows", BIGINT),
-                    symbolAllocator.newSymbol("fragment", VARBINARY),
-                    symbolAllocator.newSymbol("tablecommitcontext", VARBINARY),
-                    symbols,
+                    symbolAllocator.newVariable("partialrows", BIGINT),
+                    symbolAllocator.newVariable("fragment", VARBINARY),
+                    symbolAllocator.newVariable("tablecommitcontext", VARBINARY),
+                    plan.getFieldMappings(),
                     columnNames,
                     partitioningScheme,
                     Optional.of(partialAggregation),
@@ -464,11 +467,11 @@ public class LogicalPlanner
                     idAllocator.getNextId(),
                     writerNode,
                     target,
-                    symbolAllocator.newSymbol("rows", BIGINT),
+                    symbolAllocator.newVariable("rows", BIGINT),
                     Optional.of(aggregations.getFinalAggregation()),
                     Optional.of(result.getDescriptor()));
 
-            return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputSymbols());
+            return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputVariables());
         }
 
         TableFinishNode commitNode = new TableFinishNode(
@@ -477,40 +480,41 @@ public class LogicalPlanner
                         idAllocator.getNextId(),
                         source,
                         target,
-                        symbolAllocator.newSymbol("partialrows", BIGINT),
-                        symbolAllocator.newSymbol("fragment", VARBINARY),
-                        symbolAllocator.newSymbol("tablecommitcontext", VARBINARY),
-                        symbols,
+                        symbolAllocator.newVariable("partialrows", BIGINT),
+                        symbolAllocator.newVariable("fragment", VARBINARY),
+                        symbolAllocator.newVariable("tablecommitcontext", VARBINARY),
+                        plan.getFieldMappings(),
                         columnNames,
                         partitioningScheme,
                         Optional.empty(),
                         Optional.empty()),
                 target,
-                symbolAllocator.newSymbol("rows", BIGINT),
+                symbolAllocator.newVariable("rows", BIGINT),
                 Optional.empty(),
                 Optional.empty());
-        return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputSymbols());
+        return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputVariables());
     }
 
     private RelationPlan createDeletePlan(Analysis analysis, Delete node)
     {
-        DeleteNode deleteNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, session)
+        DeleteNode deleteNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToVariableMap(analysis, symbolAllocator), metadata, session)
                 .plan(node);
 
         TableFinishNode commitNode = new TableFinishNode(
                 idAllocator.getNextId(),
                 deleteNode,
                 deleteNode.getTarget(),
-                symbolAllocator.newSymbol("rows", BIGINT),
+                symbolAllocator.newVariable("rows", BIGINT),
                 Optional.empty(),
                 Optional.empty());
 
-        return new RelationPlan(commitNode, analysis.getScope(node), commitNode.getOutputSymbols());
+        return new RelationPlan(commitNode, analysis.getScope(node), commitNode.getOutputVariables());
     }
 
     private PlanNode createOutputPlan(RelationPlan plan, Analysis analysis)
     {
         ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
+        ImmutableList.Builder<VariableReferenceExpression> outputVariables = ImmutableList.builder();
         ImmutableList.Builder<String> names = ImmutableList.builder();
 
         int columnNumber = 0;
@@ -522,16 +526,17 @@ public class LogicalPlanner
             int fieldIndex = outputDescriptor.indexOf(field);
             Symbol symbol = plan.getSymbol(fieldIndex);
             outputs.add(symbol);
+            outputVariables.add(new VariableReferenceExpression(symbol.getName(), field.getType()));
 
             columnNumber++;
         }
 
-        return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names.build(), outputs.build());
+        return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names.build(), outputVariables.build());
     }
 
     private RelationPlan createRelationPlan(Analysis analysis, Query query)
     {
-        return new RelationPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, session)
+        return new RelationPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToVariableMap(analysis, symbolAllocator), metadata, session)
                 .process(query, null);
     }
 
@@ -563,9 +568,9 @@ public class LogicalPlanner
         return columns.build();
     }
 
-    private static Map<NodeRef<LambdaArgumentDeclaration>, Symbol> buildLambdaDeclarationToSymbolMap(Analysis analysis, SymbolAllocator symbolAllocator)
+    private static Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> buildLambdaDeclarationToVariableMap(Analysis analysis, SymbolAllocator symbolAllocator)
     {
-        Map<NodeRef<LambdaArgumentDeclaration>, Symbol> resultMap = new LinkedHashMap<>();
+        Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> resultMap = new LinkedHashMap<>();
         for (Entry<NodeRef<Expression>, Type> entry : analysis.getTypes().entrySet()) {
             if (!(entry.getKey().getNode() instanceof LambdaArgumentDeclaration)) {
                 continue;
@@ -574,7 +579,7 @@ public class LogicalPlanner
             if (resultMap.containsKey(lambdaArgumentDeclaration)) {
                 continue;
             }
-            resultMap.put(lambdaArgumentDeclaration, symbolAllocator.newSymbol(lambdaArgumentDeclaration.getNode(), entry.getValue()));
+            resultMap.put(lambdaArgumentDeclaration, symbolAllocator.newVariable(lambdaArgumentDeclaration.getNode(), entry.getValue()));
         }
         return resultMap;
     }

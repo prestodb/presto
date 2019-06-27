@@ -137,7 +137,7 @@ final class RowExpressionVerifier
             return false;
         }
 
-        if (!expected.getType().equals(actual.getType().toString())) {
+        if (!expected.getType().equalsIgnoreCase(actual.getType().toString())) {
             return false;
         }
 

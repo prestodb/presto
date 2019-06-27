@@ -83,14 +83,14 @@ public class ExpressionEquivalence
 
     public boolean areExpressionsEquivalent(Session session, Expression leftExpression, Expression rightExpression, TypeProvider types)
     {
-        Map<Symbol, Integer> symbolInput = new HashMap<>();
+        Map<VariableReferenceExpression, Integer> variableInput = new HashMap<>();
         int inputId = 0;
         for (Entry<Symbol, Type> entry : types.allTypes().entrySet()) {
-            symbolInput.put(entry.getKey(), inputId);
+            variableInput.put(new VariableReferenceExpression(entry.getKey().getName(), entry.getValue()), inputId);
             inputId++;
         }
-        RowExpression leftRowExpression = toRowExpression(session, leftExpression, symbolInput, types);
-        RowExpression rightRowExpression = toRowExpression(session, rightExpression, symbolInput, types);
+        RowExpression leftRowExpression = toRowExpression(session, leftExpression, variableInput, types);
+        RowExpression rightRowExpression = toRowExpression(session, rightExpression, variableInput, types);
 
         RowExpression canonicalizedLeft = leftRowExpression.accept(canonicalizationVisitor, null);
         RowExpression canonicalizedRight = rightRowExpression.accept(canonicalizationVisitor, null);
@@ -98,7 +98,7 @@ public class ExpressionEquivalence
         return canonicalizedLeft.equals(canonicalizedRight);
     }
 
-    private RowExpression toRowExpression(Session session, Expression expression, Map<Symbol, Integer> symbolInput, TypeProvider types)
+    private RowExpression toRowExpression(Session session, Expression expression, Map<VariableReferenceExpression, Integer> variableInput, TypeProvider types)
     {
         // replace qualified names with input references since row expressions do not support these
 
@@ -113,7 +113,7 @@ public class ExpressionEquivalence
                 WarningCollector.NOOP);
 
         // convert to row expression
-        return translate(expression, expressionTypes, symbolInput, metadata.getFunctionManager(), metadata.getTypeManager(), session, false);
+        return translate(expression, expressionTypes, variableInput, metadata.getFunctionManager(), metadata.getTypeManager(), session, false);
     }
 
     private static class CanonicalizationVisitor

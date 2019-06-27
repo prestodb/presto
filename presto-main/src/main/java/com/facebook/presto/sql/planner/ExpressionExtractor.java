@@ -13,17 +13,16 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
-import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
-import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -73,7 +72,7 @@ public class ExpressionExtractor
         }
 
         @Override
-        protected Void visitPlan(PlanNode node, ImmutableList.Builder<RowExpression> context)
+        public Void visitPlan(PlanNode node, ImmutableList.Builder<RowExpression> context)
         {
             if (recursive) {
                 return super.visitPlan(node, context);
@@ -92,17 +91,11 @@ public class ExpressionExtractor
         {
             node.getAggregations().values()
                     .forEach(aggregation -> {
-                        aggregation.getArguments()
-                                .stream()
-                                .map(OriginalExpressionUtils::castToRowExpression)
-                                .forEach(context::add);
-                        aggregation.getFilter().map(OriginalExpressionUtils::castToRowExpression).ifPresent(context::add);
+                        aggregation.getArguments().forEach(context::add);
+                        aggregation.getFilter().ifPresent(context::add);
                         aggregation.getOrderBy()
                                 .map(OrderingScheme::getOrderBy)
                                 .orElse(ImmutableList.of())
-                                .stream()
-                                .map(Symbol::toSymbolReference)
-                                .map(OriginalExpressionUtils::castToRowExpression)
                                 .forEach(context::add);
                     });
             return super.visitAggregation(node, context);
@@ -118,7 +111,7 @@ public class ExpressionExtractor
         @Override
         public Void visitProject(ProjectNode node, ImmutableList.Builder<RowExpression> context)
         {
-            context.addAll(node.getAssignments().getExpressions().stream().map(OriginalExpressionUtils::castToRowExpression).collect(toImmutableList()));
+            context.addAll(node.getAssignments().getExpressions().stream().collect(toImmutableList()));
             return super.visitProject(node, context);
         }
 
@@ -142,7 +135,6 @@ public class ExpressionExtractor
             context.addAll(node.getSubqueryAssignments()
                     .getExpressions()
                     .stream()
-                    .map(OriginalExpressionUtils::castToRowExpression)
                     .collect(toImmutableList()));
             return super.visitApply(node, context);
         }

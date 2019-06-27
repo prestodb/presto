@@ -16,14 +16,14 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.List;
 
@@ -54,7 +54,7 @@ public class CheckSubqueryNodesAreRewritten
         return plan;
     }
 
-    private SemanticException error(List<Symbol> correlation, String originSubqueryError)
+    private SemanticException error(List<VariableReferenceExpression> correlation, String originSubqueryError)
     {
         checkState(!correlation.isEmpty(), "All the non correlated subqueries should be rewritten at this point");
         throw new RuntimeException(format(originSubqueryError, "Given correlated subquery is not supported"));

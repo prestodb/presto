@@ -14,8 +14,10 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType;
 import com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType;
@@ -42,14 +44,15 @@ public final class WindowNodeUtil
 {
     private WindowNodeUtil() {}
 
-    public static boolean dependsOn(WindowNode parent, WindowNode child)
+    public static boolean dependsOn(WindowNode parent, WindowNode child, TypeProvider types)
     {
-        return parent.getPartitionBy().stream().anyMatch(child.getCreatedSymbols()::contains)
-                || (parent.getOrderingScheme().isPresent() && parent.getOrderingScheme().get().getOrderBy().stream().anyMatch(child.getCreatedSymbols()::contains))
+        return parent.getPartitionBy().stream().anyMatch(child.getCreatedVariable()::contains)
+                || (parent.getOrderingScheme().isPresent() && parent.getOrderingScheme().get().getOrderBy().stream()
+                .anyMatch(child.getCreatedVariable()::contains))
                 || parent.getWindowFunctions().values().stream()
-                .map(WindowNodeUtil::extractWindowFunctionUnique)
+                .map(function -> extractWindowFunctionUniqueVariables(function, types))
                 .flatMap(Collection::stream)
-                .anyMatch(child.getCreatedSymbols()::contains);
+                .anyMatch(child.getCreatedVariable()::contains);
     }
 
     public static WindowType toWindowType(WindowFrame.Type type)
@@ -93,6 +96,20 @@ public final class WindowNodeUtil
             }
             else {
                 builder.addAll(SymbolsExtractor.extractAll(argument).stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableSet()));
+            }
+        }
+        return builder.build();
+    }
+
+    public static Set<VariableReferenceExpression> extractWindowFunctionUniqueVariables(WindowNode.Function function, TypeProvider types)
+    {
+        ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
+        for (RowExpression argument : function.getFunctionCall().getArguments()) {
+            if (isExpression(argument)) {
+                builder.addAll(SymbolsExtractor.extractAllVariable(castToExpression(argument), types));
+            }
+            else {
+                builder.addAll(SymbolsExtractor.extractAll(argument));
             }
         }
         return builder.build();

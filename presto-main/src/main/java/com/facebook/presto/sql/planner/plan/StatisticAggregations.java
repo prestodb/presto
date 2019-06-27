@@ -16,6 +16,8 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -28,65 +30,82 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class StatisticAggregations
 {
-    private final Map<Symbol, Aggregation> aggregations;
-    private final List<Symbol> groupingSymbols;
+    private final Map<VariableReferenceExpression, Aggregation> aggregations;
+    private final List<VariableReferenceExpression> groupingVariables;
 
     @JsonCreator
     public StatisticAggregations(
-            @JsonProperty("aggregations") Map<Symbol, Aggregation> aggregations,
-            @JsonProperty("groupingSymbols") List<Symbol> groupingSymbols)
+            @JsonProperty("aggregations") Map<VariableReferenceExpression, Aggregation> aggregations,
+            @JsonProperty("groupingVariables") List<VariableReferenceExpression> groupingVariables)
     {
         this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
-        this.groupingSymbols = ImmutableList.copyOf(requireNonNull(groupingSymbols, "groupingSymbols is null"));
+        this.groupingVariables = ImmutableList.copyOf(requireNonNull(groupingVariables, "groupingVariables is null"));
     }
 
     @JsonProperty
-    public Map<Symbol, Aggregation> getAggregations()
+    public Map<VariableReferenceExpression, Aggregation> getAggregations()
     {
         return aggregations;
     }
 
     @JsonProperty
+    public List<VariableReferenceExpression> getGroupingVariables()
+    {
+        return groupingVariables;
+    }
+
     public List<Symbol> getGroupingSymbols()
     {
-        return groupingSymbols;
+        return groupingVariables.stream()
+                .map(VariableReferenceExpression::getName)
+                .map(Symbol::new)
+                .collect(toImmutableList());
     }
 
     public Parts createPartialAggregations(SymbolAllocator symbolAllocator, FunctionManager functionManager)
     {
-        ImmutableMap.Builder<Symbol, Aggregation> partialAggregation = ImmutableMap.builder();
-        ImmutableMap.Builder<Symbol, Aggregation> finalAggregation = ImmutableMap.builder();
-        ImmutableMap.Builder<Symbol, Symbol> mappings = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
+        ImmutableMap.Builder<VariableReferenceExpression, Aggregation> partialAggregation = ImmutableMap.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, Aggregation> finalAggregation = ImmutableMap.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> mappings = ImmutableMap.builder();
+        for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
             Aggregation originalAggregation = entry.getValue();
             FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
             InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
-            Symbol partialSymbol = symbolAllocator.newSymbol(functionManager.getFunctionMetadata(functionHandle).getName(), function.getIntermediateType());
-            mappings.put(entry.getKey(), partialSymbol);
-            partialAggregation.put(partialSymbol, new Aggregation(
-                    functionHandle,
-                    originalAggregation.getArguments(),
+            VariableReferenceExpression partialVariable = symbolAllocator.newVariable(functionManager.getFunctionMetadata(functionHandle).getName(), function.getIntermediateType());
+            mappings.put(entry.getKey(), partialVariable);
+            partialAggregation.put(partialVariable, new Aggregation(
+                    new CallExpression(
+                            originalAggregation.getCall().getDisplayName(),
+                            functionHandle,
+                            function.getIntermediateType(),
+                            originalAggregation.getArguments()),
                     originalAggregation.getFilter(),
                     originalAggregation.getOrderBy(),
                     originalAggregation.isDistinct(),
                     originalAggregation.getMask()));
             finalAggregation.put(entry.getKey(),
                     new Aggregation(
-                            functionHandle,
-                            ImmutableList.of(partialSymbol.toSymbolReference()),
+                            new CallExpression(
+                                    originalAggregation.getCall().getDisplayName(),
+                                    functionHandle,
+                                    function.getFinalType(),
+                                    ImmutableList.of(castToRowExpression(asSymbolReference(partialVariable)))),
                             Optional.empty(),
                             Optional.empty(),
                             false,
                             Optional.empty()));
         }
-        groupingSymbols.forEach(symbol -> mappings.put(symbol, symbol));
+        groupingVariables.forEach(symbol -> mappings.put(symbol, symbol));
         return new Parts(
-                new StatisticAggregations(partialAggregation.build(), groupingSymbols),
-                new StatisticAggregations(finalAggregation.build(), groupingSymbols),
+                new StatisticAggregations(partialAggregation.build(), groupingVariables),
+                new StatisticAggregations(finalAggregation.build(), groupingVariables),
                 mappings.build());
     }
 
@@ -94,9 +113,9 @@ public class StatisticAggregations
     {
         private final StatisticAggregations partialAggregation;
         private final StatisticAggregations finalAggregation;
-        private final Map<Symbol, Symbol> mappings;
+        private final Map<VariableReferenceExpression, VariableReferenceExpression> mappings;
 
-        public Parts(StatisticAggregations partialAggregation, StatisticAggregations finalAggregation, Map<Symbol, Symbol> mappings)
+        public Parts(StatisticAggregations partialAggregation, StatisticAggregations finalAggregation, Map<VariableReferenceExpression, VariableReferenceExpression> mappings)
         {
             this.partialAggregation = requireNonNull(partialAggregation, "partialAggregation is null");
             this.finalAggregation = requireNonNull(finalAggregation, "finalAggregation is null");
@@ -113,7 +132,7 @@ public class StatisticAggregations
             return finalAggregation;
         }
 
-        public Map<Symbol, Symbol> getMappings()
+        public Map<VariableReferenceExpression, VariableReferenceExpression> getMappings()
         {
             return mappings;
         }

@@ -43,7 +43,6 @@ import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATI
 import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION_FOR_AGGREGATION;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
-import static com.facebook.presto.hive.HiveSessionProperties.USE_REWINDABLE_SPLIT_SOURCE;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
@@ -66,7 +65,7 @@ public final class HiveQueryRunner
     public static final String HIVE_CATALOG = "hive";
     public static final String HIVE_BUCKETED_CATALOG = "hive_bucketed";
     public static final String TPCH_SCHEMA = "tpch";
-    private static final String TPCH_BUCKETED_SCHEMA = "tpch_bucketed";
+    public static final String TPCH_BUCKETED_SCHEMA = "tpch_bucketed";
     private static final String TEMPORARY_TABLE_SCHEMA = "__temporary_tables__";
     private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
@@ -225,22 +224,6 @@ public final class HiveQueryRunner
                 .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
                 .setCatalog(HIVE_CATALOG)
                 .setSchema(TPCH_SCHEMA)
-                .build();
-    }
-
-    public static Session createRewindableSplitSourceSession(Optional<SelectedRole> role)
-    {
-        return testSessionBuilder()
-                .setIdentity(new Identity(
-                        "hive",
-                        Optional.empty(),
-                        role.map(selectedRole -> ImmutableMap.of("hive", selectedRole))
-                                .orElse(ImmutableMap.of())))
-                .setSystemProperty(COLOCATED_JOIN, "true")
-                .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
-                .setCatalogSessionProperty(HIVE_CATALOG, USE_REWINDABLE_SPLIT_SOURCE, "true")
-                .setCatalog(HIVE_CATALOG)
-                .setSchema(TPCH_BUCKETED_SCHEMA)
                 .build();
     }
 

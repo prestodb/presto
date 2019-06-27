@@ -16,25 +16,25 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.collect.ImmutableList;
@@ -94,9 +94,9 @@ public class BeginTableWrite
                     node.getId(),
                     node.getSource().accept(this, context),
                     writerTarget,
-                    node.getRowCountSymbol(),
-                    node.getFragmentSymbol(),
-                    node.getTableCommitContextSymbol(),
+                    node.getRowCountVariable(),
+                    node.getFragmentVariable(),
+                    node.getTableCommitContextVariable(),
                     node.getColumns(),
                     node.getColumnNames(),
                     node.getPartitioningScheme(),
@@ -113,7 +113,7 @@ public class BeginTableWrite
                     rewriteDeleteTableScan(node.getSource(), deleteHandle.getHandle()),
                     deleteHandle,
                     node.getRowId(),
-                    node.getOutputSymbols());
+                    node.getOutputVariables());
         }
 
         @Override
@@ -129,7 +129,7 @@ public class BeginTableWrite
                     node.getId(),
                     child,
                     analyzeHandle,
-                    node.getRowCountSymbol(),
+                    node.getRowCountVariable(),
                     node.isRowCountEnabled(),
                     node.getDescriptor());
         }
@@ -149,7 +149,7 @@ public class BeginTableWrite
                     node.getId(),
                     child,
                     newTarget,
-                    node.getRowCountSymbol(),
+                    node.getRowCountVariable(),
                     node.getStatisticsAggregation(),
                     node.getStatisticsAggregationDescriptor());
         }
@@ -205,7 +205,7 @@ public class BeginTableWrite
                 return new TableScanNode(
                         scan.getId(),
                         layoutResult.getLayout().getNewTableHandle(),
-                        scan.getOutputSymbols(),
+                        scan.getOutputVariables(),
                         scan.getAssignments(),
                         layoutResult.getLayout().getPredicate(),
                         computeEnforced(originalEnforcedConstraint, layoutResult.getUnenforcedConstraint()));

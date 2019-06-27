@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorPushdownFilterResult;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -31,7 +32,9 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.api.Experimental;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -120,6 +123,28 @@ public interface ConnectorMetadata
     default ConnectorTableLayoutHandle getAlternativeLayoutHandle(ConnectorSession session, ConnectorTableLayoutHandle tableLayoutHandle, ConnectorPartitioningHandle partitioningHandle)
     {
         throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getCommonPartitioningHandle() is implemented without getAlternativeLayout()");
+    }
+
+    /**
+     * Experimental: if true, the engine will invoke pushdownFilter instead of getTableLayouts.
+     *
+     * This interface can be replaced with a connector optimizer rule once the engine supports these (#12546).
+     */
+    @Experimental
+    default boolean isPushdownFilterSupported(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return false;
+    }
+
+    /**
+     * Experimental: returns table layout that encapsulates the given filter.
+     *
+     * This interface can be replaced with a connector optimizer rule once the engine supports these (#12546).
+     */
+    @Experimental
+    default ConnectorPushdownFilterResult pushdownFilter(ConnectorSession session, ConnectorTableHandle tableHandle, RowExpression filter, Optional<ConnectorTableLayoutHandle> currentLayoutHandle)
+    {
+        throw new UnsupportedOperationException();
     }
 
     /**
@@ -633,9 +658,10 @@ public interface ConnectorMetadata
     /**
      * Commits partition for table creation.
      * To enable recoverable grouped execution, it is required that output connector supports partition commit.
-     * @apiNote This method is unstable and subject to change in the future.
+     * This method is unstable and subject to change in the future.
      */
-    default void commitPartition(ConnectorSession session, ConnectorOutputTableHandle tableHandle, int partitionId, Collection<Slice> fragments)
+    @Experimental
+    default void commitPartition(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support partition commit");
     }
@@ -643,9 +669,10 @@ public interface ConnectorMetadata
     /**
      * Commits partition for table insertion.
      * To enable recoverable grouped execution, it is required that output connector supports partition commit.
-     * @apiNote This method is unstable and subject to change in the future.
+     * This method is unstable and subject to change in the future.
      */
-    default void commitPartition(ConnectorSession session, ConnectorInsertTableHandle tableHandle, int partitionId, Collection<Slice> fragments)
+    @Experimental
+    default void commitPartition(ConnectorSession session, ConnectorInsertTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support partition commit");
     }

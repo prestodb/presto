@@ -21,11 +21,11 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
 
@@ -40,10 +40,6 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionTy
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static java.util.Objects.requireNonNull;
 
@@ -86,7 +82,7 @@ public class DetermineJoinDistributionType
 
         PlanNode buildSide = joinNode.getRight();
         PlanNodeStatsEstimate buildSideStatsEstimate = context.getStatsProvider().getStats(buildSide);
-        double buildSideSizeInBytes = buildSideStatsEstimate.getOutputSizeInBytes(buildSide.getOutputSymbols(), context.getSymbolAllocator().getTypes());
+        double buildSideSizeInBytes = buildSideStatsEstimate.getOutputSizeInBytes(buildSide.getOutputVariables());
         return buildSideSizeInBytes <= joinMaxBroadcastTableSize.get().toBytes();
     }
 
@@ -131,18 +127,14 @@ public class DetermineJoinDistributionType
         return joinNode.withDistributionType(REPLICATED);
     }
 
-    private static boolean mustPartition(JoinNode joinNode)
+    private boolean mustPartition(JoinNode joinNode)
     {
-        JoinNode.Type type = joinNode.getType();
-        // With REPLICATED, the unmatched rows from right-side would be duplicated.
-        return type == RIGHT || type == FULL;
+        return joinNode.getType().mustPartition();
     }
 
     private static boolean mustReplicate(JoinNode joinNode, Context context)
     {
-        JoinNode.Type type = joinNode.getType();
-        if (joinNode.getCriteria().isEmpty() && (type == INNER || type == LEFT)) {
-            // There is nothing to partition on
+        if (joinNode.getType().mustReplicate(joinNode.getCriteria())) {
             return true;
         }
         return isAtMostScalar(joinNode.getRight(), context.getLookup());

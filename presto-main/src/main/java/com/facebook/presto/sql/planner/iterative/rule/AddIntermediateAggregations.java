@@ -16,14 +16,16 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.Session;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -34,7 +36,7 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.isEnableIntermediateAggregations;
 import static com.facebook.presto.matching.Pattern.empty;
-import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.extractUnique;
+import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.extractAggregationUniqueVariables;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -44,6 +46,8 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.roundRobinExchan
 import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.groupingColumns;
 import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.step;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -100,8 +104,9 @@ public class AddIntermediateAggregations
         Lookup lookup = context.getLookup();
         PlanNodeIdAllocator idAllocator = context.getIdAllocator();
         Session session = context.getSession();
+        TypeProvider types = context.getSymbolAllocator().getTypes();
 
-        Optional<PlanNode> rewrittenSource = recurseToPartial(lookup.resolve(aggregation.getSource()), lookup, idAllocator);
+        Optional<PlanNode> rewrittenSource = recurseToPartial(lookup.resolve(aggregation.getSource()), lookup, idAllocator, types);
 
         if (!rewrittenSource.isPresent()) {
             return Result.empty();
@@ -114,12 +119,12 @@ public class AddIntermediateAggregations
             source = new AggregationNode(
                     idAllocator.getNextId(),
                     source,
-                    inputsAsOutputs(aggregation.getAggregations()),
+                    inputsAsOutputs(aggregation.getAggregations(), types),
                     aggregation.getGroupingSets(),
-                    aggregation.getPreGroupedSymbols(),
+                    aggregation.getPreGroupedVariables(),
                     INTERMEDIATE,
-                    aggregation.getHashSymbol(),
-                    aggregation.getGroupIdSymbol());
+                    aggregation.getHashVariable(),
+                    aggregation.getGroupIdVariable());
             source = gatheringExchange(idAllocator.getNextId(), LOCAL, source);
         }
 
@@ -129,10 +134,10 @@ public class AddIntermediateAggregations
     /**
      * Recurse through a series of preceding ExchangeNodes and ProjectNodes to find the preceding PARTIAL aggregation
      */
-    private Optional<PlanNode> recurseToPartial(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator)
+    private Optional<PlanNode> recurseToPartial(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, TypeProvider types)
     {
         if (node instanceof AggregationNode && ((AggregationNode) node).getStep() == PARTIAL) {
-            return Optional.of(addGatheringIntermediate((AggregationNode) node, idAllocator));
+            return Optional.of(addGatheringIntermediate((AggregationNode) node, idAllocator, types));
         }
 
         if (!(node instanceof ExchangeNode) && !(node instanceof ProjectNode)) {
@@ -141,7 +146,7 @@ public class AddIntermediateAggregations
 
         ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
         for (PlanNode source : node.getSources()) {
-            Optional<PlanNode> planNode = recurseToPartial(lookup.resolve(source), lookup, idAllocator);
+            Optional<PlanNode> planNode = recurseToPartial(lookup.resolve(source), lookup, idAllocator, types);
             if (!planNode.isPresent()) {
                 return Optional.empty();
             }
@@ -150,7 +155,7 @@ public class AddIntermediateAggregations
         return Optional.of(node.replaceChildren(builder.build()));
     }
 
-    private PlanNode addGatheringIntermediate(AggregationNode aggregation, PlanNodeIdAllocator idAllocator)
+    private PlanNode addGatheringIntermediate(AggregationNode aggregation, PlanNodeIdAllocator idAllocator, TypeProvider types)
     {
         verify(aggregation.getGroupingKeys().isEmpty(), "Should be an un-grouped aggregation");
         ExchangeNode gatheringExchange = gatheringExchange(idAllocator.getNextId(), LOCAL, aggregation);
@@ -159,10 +164,10 @@ public class AddIntermediateAggregations
                 gatheringExchange,
                 outputsAsInputs(aggregation.getAggregations()),
                 aggregation.getGroupingSets(),
-                aggregation.getPreGroupedSymbols(),
+                aggregation.getPreGroupedVariables(),
                 INTERMEDIATE,
-                aggregation.getHashSymbol(),
-                aggregation.getGroupIdSymbol());
+                aggregation.getHashVariable(),
+                aggregation.getGroupIdVariable());
     }
 
     /**
@@ -172,18 +177,21 @@ public class AddIntermediateAggregations
      * 'a' := sum('b') => 'a' := sum('a')
      * 'a' := count(*) => 'a' := count('a')
      */
-    private static Map<Symbol, Aggregation> outputsAsInputs(Map<Symbol, Aggregation> assignments)
+    private static Map<VariableReferenceExpression, Aggregation> outputsAsInputs(Map<VariableReferenceExpression, Aggregation> assignments)
     {
-        ImmutableMap.Builder<Symbol, Aggregation> builder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Aggregation> entry : assignments.entrySet()) {
-            Symbol output = entry.getKey();
+        ImmutableMap.Builder<VariableReferenceExpression, Aggregation> builder = ImmutableMap.builder();
+        for (Map.Entry<VariableReferenceExpression, Aggregation> entry : assignments.entrySet()) {
+            VariableReferenceExpression output = entry.getKey();
             Aggregation aggregation = entry.getValue();
             checkState(!aggregation.getOrderBy().isPresent(), "Intermediate aggregation does not support ORDER BY");
             builder.put(
                     output,
                     new Aggregation(
-                            aggregation.getFunctionHandle(),
-                            ImmutableList.of(output.toSymbolReference()),
+                            new CallExpression(
+                                    aggregation.getCall().getDisplayName(),
+                                    aggregation.getCall().getFunctionHandle(),
+                                    aggregation.getCall().getType(),
+                                    ImmutableList.of(castToRowExpression(asSymbolReference(output)))),
                             Optional.empty(),
                             Optional.empty(),
                             false,
@@ -200,16 +208,16 @@ public class AddIntermediateAggregations
      * Example:
      * 'a' := sum('b') => 'b' := sum('b')
      */
-    private static Map<Symbol, Aggregation> inputsAsOutputs(Map<Symbol, Aggregation> assignments)
+    private static Map<VariableReferenceExpression, Aggregation> inputsAsOutputs(Map<VariableReferenceExpression, Aggregation> assignments, TypeProvider types)
     {
-        ImmutableMap.Builder<Symbol, Aggregation> builder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Aggregation> entry : assignments.entrySet()) {
+        ImmutableMap.Builder<VariableReferenceExpression, Aggregation> builder = ImmutableMap.builder();
+        for (Map.Entry<VariableReferenceExpression, Aggregation> entry : assignments.entrySet()) {
             // Should only have one input symbol
             Aggregation aggregation = entry.getValue();
             checkArgument(
                     aggregation.getArguments().size() == 1 && !aggregation.getOrderBy().isPresent() && !aggregation.getFilter().isPresent(),
                     "Aggregation should only have one argument and should have no order by  or filter to be able to rewritten to intermediate form");
-            Symbol input = getOnlyElement(extractUnique(entry.getValue()));
+            VariableReferenceExpression input = getOnlyElement(extractAggregationUniqueVariables(entry.getValue(), types));
             builder.put(input, entry.getValue());
         }
         return builder.build();

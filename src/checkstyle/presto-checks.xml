@@ -204,10 +204,6 @@
             <property name="allowLineBreaks" value="false" />
         </module>
 
-        <module name="IllegalToken">
-            <property name="tokens" value="LITERAL_ASSERT" />
-        </module>
-
         <module name="IllegalImport">
             <property name="illegalPkgs" value="org.weakref.jmx.internal" />
             <property name="illegalPkgs" value="jersey.repackaged" />

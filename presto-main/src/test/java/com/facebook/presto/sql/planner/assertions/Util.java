@@ -15,8 +15,8 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.sql.planner.OrderingScheme;
@@ -77,7 +77,7 @@ final class Util
         for (int i = 0; i < expectedOrderBy.size(); ++i) {
             Ordering ordering = expectedOrderBy.get(i);
             Symbol symbol = Symbol.from(symbolAliases.get(ordering.getField()));
-            if (!symbol.equals(orderingScheme.getOrderBy().get(i))) {
+            if (!symbol.equals(new Symbol(orderingScheme.getOrderBy().get(i).getName()))) {
                 return false;
             }
             if (!ordering.getSortOrder().equals(orderingScheme.getOrdering(symbol))) {

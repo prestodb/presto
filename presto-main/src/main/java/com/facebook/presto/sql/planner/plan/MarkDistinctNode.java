@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -33,33 +34,33 @@ public class MarkDistinctNode
         extends InternalPlanNode
 {
     private final PlanNode source;
-    private final Symbol markerSymbol;
+    private final VariableReferenceExpression markerVariable;
 
-    private final Optional<Symbol> hashSymbol;
-    private final List<Symbol> distinctSymbols;
+    private final Optional<VariableReferenceExpression> hashVariable;
+    private final List<VariableReferenceExpression> distinctVariables;
 
     @JsonCreator
     public MarkDistinctNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("markerSymbol") Symbol markerSymbol,
-            @JsonProperty("distinctSymbols") List<Symbol> distinctSymbols,
-            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
+            @JsonProperty("markerVariable") VariableReferenceExpression markerVariable,
+            @JsonProperty("distinctVariables") List<VariableReferenceExpression> distinctVariables,
+            @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable)
     {
         super(id);
         this.source = source;
-        this.markerSymbol = markerSymbol;
-        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
-        requireNonNull(distinctSymbols, "distinctSymbols is null");
-        checkArgument(!distinctSymbols.isEmpty(), "distinctSymbols cannot be empty");
-        this.distinctSymbols = ImmutableList.copyOf(distinctSymbols);
+        this.markerVariable = markerVariable;
+        this.hashVariable = requireNonNull(hashVariable, "hashVariable is null");
+        requireNonNull(distinctVariables, "distinctVariables is null");
+        checkArgument(!distinctVariables.isEmpty(), "distinctVariables cannot be empty");
+        this.distinctVariables = ImmutableList.copyOf(distinctVariables);
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<VariableReferenceExpression> getOutputVariables()
     {
-        return ImmutableList.<Symbol>builder()
-                .addAll(source.getOutputSymbols())
-                .add(markerSymbol)
+        return ImmutableList.<VariableReferenceExpression>builder()
+                .addAll(source.getOutputVariables())
+                .add(markerVariable)
                 .build();
     }
 
@@ -76,21 +77,21 @@ public class MarkDistinctNode
     }
 
     @JsonProperty
-    public Symbol getMarkerSymbol()
+    public VariableReferenceExpression getMarkerVariable()
     {
-        return markerSymbol;
+        return markerVariable;
     }
 
     @JsonProperty
-    public List<Symbol> getDistinctSymbols()
+    public List<VariableReferenceExpression> getDistinctVariables()
     {
-        return distinctSymbols;
+        return distinctVariables;
     }
 
     @JsonProperty
-    public Optional<Symbol> getHashSymbol()
+    public Optional<VariableReferenceExpression> getHashVariable()
     {
-        return hashSymbol;
+        return hashVariable;
     }
 
     @Override
@@ -102,6 +103,6 @@ public class MarkDistinctNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new MarkDistinctNode(getId(), Iterables.getOnlyElement(newChildren), markerSymbol, distinctSymbols, hashSymbol);
+        return new MarkDistinctNode(getId(), Iterables.getOnlyElement(newChildren), markerVariable, distinctVariables, hashVariable);
     }
 }

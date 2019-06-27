@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.FluentIterable;
@@ -40,88 +41,84 @@ public abstract class SetOperationNode
         extends InternalPlanNode
 {
     private final List<PlanNode> sources;
-    private final ListMultimap<Symbol, Symbol> outputToInputs;
-    private final List<Symbol> outputs;
+    private final ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputToInputs;
+    private final List<VariableReferenceExpression> outputVariables;
 
     @JsonCreator
     protected SetOperationNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("sources") List<PlanNode> sources,
-            @JsonProperty("outputToInputs") ListMultimap<Symbol, Symbol> outputToInputs,
-            @JsonProperty("outputs") List<Symbol> outputs)
+            @JsonProperty("outputToInputs") ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputToInputs)
     {
         super(id);
 
         requireNonNull(sources, "sources is null");
         checkArgument(!sources.isEmpty(), "Must have at least one source");
         requireNonNull(outputToInputs, "outputToInputs is null");
-        requireNonNull(outputs, "outputs is null");
 
         this.sources = ImmutableList.copyOf(sources);
         this.outputToInputs = ImmutableListMultimap.copyOf(outputToInputs);
-        this.outputs = ImmutableList.copyOf(outputs);
+        this.outputVariables = ImmutableList.copyOf(outputToInputs.keySet());
 
-        for (Collection<Symbol> inputs : this.outputToInputs.asMap().values()) {
+        for (Collection<VariableReferenceExpression> inputs : this.outputToInputs.asMap().values()) {
             checkArgument(inputs.size() == this.sources.size(), "Every source needs to map its symbols to an output %s operation symbol", this.getClass().getSimpleName());
         }
 
         // Make sure each source positionally corresponds to their Symbol values in the Multimap
         for (int i = 0; i < sources.size(); i++) {
-            for (Collection<Symbol> expectedInputs : this.outputToInputs.asMap().values()) {
-                checkArgument(sources.get(i).getOutputSymbols().contains(Iterables.get(expectedInputs, i)), "Source does not provide required symbols");
+            for (Collection<VariableReferenceExpression> expectedInputs : this.outputToInputs.asMap().values()) {
+                checkArgument(sources.get(i).getOutputVariables().contains(Iterables.get(expectedInputs, i)), "Source does not provide required symbols");
             }
         }
     }
 
     @Override
-    @JsonProperty("sources")
+    @JsonProperty
     public List<PlanNode> getSources()
     {
         return sources;
     }
 
-    @Override
-    @JsonProperty("outputs")
-    public List<Symbol> getOutputSymbols()
-    {
-        return outputs;
-    }
-
-    @JsonProperty("outputToInputs")
-    public ListMultimap<Symbol, Symbol> getSymbolMapping()
+    @JsonProperty
+    public ListMultimap<VariableReferenceExpression, VariableReferenceExpression> getVariableMapping()
     {
         return outputToInputs;
     }
 
-    public List<Symbol> sourceOutputLayout(int sourceIndex)
+    @Override
+    public List<VariableReferenceExpression> getOutputVariables()
     {
-        // Make sure the sourceOutputLayout symbols are listed in the same order as the corresponding output symbols
-        return getOutputSymbols().stream()
-                .map(symbol -> outputToInputs.get(symbol).get(sourceIndex))
+        return outputVariables;
+    }
+
+    public List<VariableReferenceExpression> sourceOutputLayout(int sourceIndex)
+    {
+        // Make sure the sourceOutputSymbolLayout symbols are listed in the same order as the corresponding output symbols
+        return getOutputVariables().stream()
+                .map(variable -> outputToInputs.get(variable).get(sourceIndex))
                 .collect(toImmutableList());
     }
 
     /**
-     * Returns the output to input symbol mapping for the given source channel
+     * Returns the output to input variable mapping for the given source channel
      */
-    public Map<Symbol, Symbol> sourceSymbolMap(int sourceIndex)
+    public Map<VariableReferenceExpression, VariableReferenceExpression> sourceVariableMap(int sourceIndex)
     {
-        ImmutableMap.Builder<Symbol, Symbol> builder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Collection<Symbol>> entry : outputToInputs.asMap().entrySet()) {
+        ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> builder = ImmutableMap.builder();
+        for (Map.Entry<VariableReferenceExpression, Collection<VariableReferenceExpression>> entry : outputToInputs.asMap().entrySet()) {
             builder.put(entry.getKey(), Iterables.get(entry.getValue(), sourceIndex));
         }
 
         return builder.build();
     }
-
     /**
      * Returns the input to output symbol mapping for the given source channel.
      * A single input symbol can map to multiple output symbols, thus requiring a Multimap.
      */
-    public Multimap<Symbol, Symbol> outputSymbolMap(int sourceIndex)
+    public Multimap<VariableReferenceExpression, VariableReferenceExpression> outputMap(int sourceIndex)
     {
-        return FluentIterable.from(getOutputSymbols())
-                .toMap(outputSymbol -> outputToInputs.get(outputSymbol).get(sourceIndex))
+        return FluentIterable.from(getOutputVariables())
+                .toMap(output -> outputToInputs.get(output).get(sourceIndex))
                 .asMultimap()
                 .inverse();
     }

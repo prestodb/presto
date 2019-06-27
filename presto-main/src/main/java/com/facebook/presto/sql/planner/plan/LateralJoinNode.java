@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -59,9 +60,9 @@ public class LateralJoinNode
     private final PlanNode subquery;
 
     /**
-     * Correlation symbols, returned from input (outer plan) used in subquery (inner plan)
+     * Correlation variables, returned from input (outer plan) used in subquery (inner plan)
      */
-    private final List<Symbol> correlation;
+    private final List<VariableReferenceExpression> correlation;
     private final Type type;
 
     /**
@@ -74,7 +75,7 @@ public class LateralJoinNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("input") PlanNode input,
             @JsonProperty("subquery") PlanNode subquery,
-            @JsonProperty("correlation") List<Symbol> correlation,
+            @JsonProperty("correlation") List<VariableReferenceExpression> correlation,
             @JsonProperty("type") Type type,
             @JsonProperty("originSubqueryError") String originSubqueryError)
     {
@@ -84,7 +85,7 @@ public class LateralJoinNode
         requireNonNull(correlation, "correlation is null");
         requireNonNull(originSubqueryError, "originSubqueryError is null");
 
-        checkArgument(input.getOutputSymbols().containsAll(correlation), "Input does not contain symbols from correlation");
+        checkArgument(input.getOutputVariables().containsAll(correlation), "Input does not contain symbols from correlation");
 
         this.input = input;
         this.subquery = subquery;
@@ -93,31 +94,31 @@ public class LateralJoinNode
         this.originSubqueryError = originSubqueryError;
     }
 
-    @JsonProperty("input")
+    @JsonProperty
     public PlanNode getInput()
     {
         return input;
     }
 
-    @JsonProperty("subquery")
+    @JsonProperty
     public PlanNode getSubquery()
     {
         return subquery;
     }
 
-    @JsonProperty("correlation")
-    public List<Symbol> getCorrelation()
+    @JsonProperty
+    public List<VariableReferenceExpression> getCorrelation()
     {
         return correlation;
     }
 
-    @JsonProperty("type")
+    @JsonProperty
     public Type getType()
     {
         return type;
     }
 
-    @JsonProperty("originSubqueryError")
+    @JsonProperty
     public String getOriginSubqueryError()
     {
         return originSubqueryError;
@@ -130,12 +131,11 @@ public class LateralJoinNode
     }
 
     @Override
-    @JsonProperty("outputSymbols")
-    public List<Symbol> getOutputSymbols()
+    public List<VariableReferenceExpression> getOutputVariables()
     {
-        return ImmutableList.<Symbol>builder()
-                .addAll(input.getOutputSymbols())
-                .addAll(subquery.getOutputSymbols())
+        return ImmutableList.<VariableReferenceExpression>builder()
+                .addAll(input.getOutputVariables())
+                .addAll(subquery.getOutputVariables())
                 .build();
     }
 

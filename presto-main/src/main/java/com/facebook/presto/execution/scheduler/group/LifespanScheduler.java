@@ -17,6 +17,8 @@ import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.scheduler.SourceScheduler;
 import com.google.common.util.concurrent.SettableFuture;
 
+import java.util.List;
+
 public interface LifespanScheduler
 {
     // Thread Safety:
@@ -29,6 +31,8 @@ public interface LifespanScheduler
     void scheduleInitial(SourceScheduler scheduler);
 
     void onLifespanExecutionFinished(Iterable<Lifespan> newlyCompletelyExecutedDriverGroups);
+
+    void onTaskFailed(int taskId, List<SourceScheduler> sourceSchedulers);
 
     SettableFuture schedule(SourceScheduler scheduler);
 

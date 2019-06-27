@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -45,14 +47,18 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static com.google.common.base.Predicates.not;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.function.Function.identity;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -77,26 +83,26 @@ public class TestEqualityInference
         EqualityInference inference = builder.build();
 
         assertEquals(
-                inference.rewriteExpression(someExpression("a1", "a2"), matchesSymbols("d1", "d2")),
+                inference.rewriteExpression(someExpression("a1", "a2"), matchesVariables("d1", "d2"), types("a1", "a2", "b1", "b2", "c1", "c2", "d1", "d2")),
                 someExpression("d1", "d2"));
 
         assertEquals(
-                inference.rewriteExpression(someExpression("a1", "c1"), matchesSymbols("b1")),
+                inference.rewriteExpression(someExpression("a1", "c1"), matchesVariables("b1"), types("a1", "a2", "b1", "b2", "c1", "c2", "d1", "d2")),
                 someExpression("b1", "b1"));
 
         assertEquals(
-                inference.rewriteExpression(someExpression("a1", "a2"), matchesSymbols("b1", "d2", "c3")),
+                inference.rewriteExpression(someExpression("a1", "a2"), matchesVariables("b1", "d2", "c3"), types("a1", "a2", "b1", "b2", "c1", "c2", "c3", "d1", "d2")),
                 someExpression("b1", "d2"));
 
         // Both starting expressions should canonicalize to the same expression
         assertEquals(
-                inference.getScopedCanonical(nameReference("a2"), matchesSymbols("c2", "d2")),
-                inference.getScopedCanonical(nameReference("b2"), matchesSymbols("c2", "d2")));
-        Expression canonical = inference.getScopedCanonical(nameReference("a2"), matchesSymbols("c2", "d2"));
+                inference.getScopedCanonical(nameReference("a2"), matchesVariables("c2", "d2"), types("a2", "b2", "c2", "d2")),
+                inference.getScopedCanonical(nameReference("b2"), matchesVariables("c2", "d2"), types("a2", "b2", "c2", "d2")));
+        Expression canonical = inference.getScopedCanonical(nameReference("a2"), matchesVariables("c2", "d2"), types("a2", "b2", "c2", "d2"));
 
         // Given multiple translatable candidates, should choose the canonical
         assertEquals(
-                inference.rewriteExpression(someExpression("a2", "b2"), matchesSymbols("c2", "d2")),
+                inference.rewriteExpression(someExpression("a2", "b2"), matchesVariables("c2", "d2"), types("a2", "b2", "c2", "d2")),
                 someExpression(canonical, canonical));
     }
 
@@ -105,7 +111,7 @@ public class TestEqualityInference
     {
         EqualityInference.Builder builder = new EqualityInference.Builder();
         Expression expression = builder.build()
-                .rewriteExpression(someExpression("a1", "a2"), matchesSymbols("a1", "a2"));
+                .rewriteExpression(someExpression("a1", "a2"), matchesVariables("a1", "a2"), types("a1", "a2"));
 
         assertEquals(expression, someExpression("a1", "a2"));
     }
@@ -118,8 +124,8 @@ public class TestEqualityInference
         addEquality("a2", "b2", builder);
         EqualityInference inference = builder.build();
 
-        assertNull(inference.rewriteExpression(someExpression("a1", "a2"), matchesSymbols("b1", "c1")));
-        assertNull(inference.rewriteExpression(someExpression("c1", "c2"), matchesSymbols("a1", "a2")));
+        assertNull(inference.rewriteExpression(someExpression("a1", "a2"), matchesVariables("b1", "c1"), types("a1", "a2", "b1", "b2")));
+        assertNull(inference.rewriteExpression(someExpression("c1", "c2"), matchesVariables("a1", "a2"), types("a1", "a2", "c1", "c2")));
     }
 
     @Test
@@ -131,7 +137,7 @@ public class TestEqualityInference
                 .addEquality(equals("c1", "a1"))
                 .build();
 
-        Expression expression = inference.rewriteExpression(someExpression("a1", "b1"), matchesSymbols("c1"));
+        Expression expression = inference.rewriteExpression(someExpression("a1", "b1"), matchesVariables("c1"), types("a1", "b1", "c1"));
         assertEquals(expression, someExpression("c1", "c1"));
     }
 
@@ -164,10 +170,10 @@ public class TestEqualityInference
                 .build();
 
         // Able to rewrite to c1 due to equalities
-        assertEquals(nameReference("c1"), inference.rewriteExpression(nameReference("a1"), matchesSymbols("c1")));
+        assertEquals(nameReference("c1"), inference.rewriteExpression(nameReference("a1"), matchesVariables("c1"), types("a1", "b1", "c1", "d1")));
 
         // But not be able to rewrite to d1 which is not connected via equality
-        assertNull(inference.rewriteExpression(nameReference("a1"), matchesSymbols("d1")));
+        assertNull(inference.rewriteExpression(nameReference("a1"), matchesVariables("d1"), types("a1", "b1", "c1", "d1")));
     }
 
     @Test
@@ -182,7 +188,7 @@ public class TestEqualityInference
 
         EqualityInference inference = builder.build();
 
-        EqualityInference.EqualityPartition emptyScopePartition = inference.generateEqualitiesPartitionedBy(Predicates.alwaysFalse());
+        EqualityInference.EqualityPartition emptyScopePartition = inference.generateEqualitiesPartitionedBy(Predicates.alwaysFalse(), types("a1", "b1", "c1"));
         // Cannot generate any scope equalities with no matching symbols
         assertTrue(emptyScopePartition.getScopeEqualities().isEmpty());
         // All equalities should be represented in the inverse scope
@@ -190,21 +196,21 @@ public class TestEqualityInference
         // There should be no equalities straddling the scope
         assertTrue(emptyScopePartition.getScopeStraddlingEqualities().isEmpty());
 
-        EqualityInference.EqualityPartition equalityPartition = inference.generateEqualitiesPartitionedBy(matchesSymbols("c1"));
+        EqualityInference.EqualityPartition equalityPartition = inference.generateEqualitiesPartitionedBy(matchesVariables("c1"), types("a1", "b1", "c1"));
 
         // There should be equalities in the scope, that only use c1 and are all inferrable equalities
         assertFalse(equalityPartition.getScopeEqualities().isEmpty());
-        assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), matchesSymbolScope(matchesSymbols("c1"))));
+        assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), matchesVariableScope(matchesVariables("c1"), types("a1", "b1", "c1"))));
         assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), EqualityInference.isInferenceCandidate()));
 
         // There should be equalities in the inverse scope, that never use c1 and are all inferrable equalities
         assertFalse(equalityPartition.getScopeComplementEqualities().isEmpty());
-        assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), matchesSymbolScope(not(matchesSymbols("c1")))));
+        assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), matchesVariableScope(not(matchesVariables("c1")), types("a1", "b1", "c1"))));
         assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), EqualityInference.isInferenceCandidate()));
 
         // There should be equalities in the straddling scope, that should use both c1 and not c1 symbols
         assertFalse(equalityPartition.getScopeStraddlingEqualities().isEmpty());
-        assertTrue(Iterables.any(equalityPartition.getScopeStraddlingEqualities(), matchesStraddlingScope(matchesSymbols("c1"))));
+        assertTrue(Iterables.any(equalityPartition.getScopeStraddlingEqualities(), matchesStraddlingScope(matchesVariables("c1"), types("a1", "b1", "c1"))));
         assertTrue(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), EqualityInference.isInferenceCandidate()));
 
         // There should be a "full cover" of all of the equalities used
@@ -215,7 +221,7 @@ public class TestEqualityInference
                 .addAllEqualities(equalityPartition.getScopeStraddlingEqualities())
                 .build();
 
-        EqualityInference.EqualityPartition newEqualityPartition = newInference.generateEqualitiesPartitionedBy(matchesSymbols("c1"));
+        EqualityInference.EqualityPartition newEqualityPartition = newInference.generateEqualitiesPartitionedBy(matchesVariables("c1"), types("a1", "b1", "c1"));
 
         assertEquals(setCopy(equalityPartition.getScopeEqualities()), setCopy(newEqualityPartition.getScopeEqualities()));
         assertEquals(setCopy(equalityPartition.getScopeComplementEqualities()), setCopy(newEqualityPartition.getScopeComplementEqualities()));
@@ -237,21 +243,21 @@ public class TestEqualityInference
         EqualityInference inference = builder.build();
 
         // Generating equalities for disjoint groups
-        EqualityInference.EqualityPartition equalityPartition = inference.generateEqualitiesPartitionedBy(symbolBeginsWith("a", "b"));
+        EqualityInference.EqualityPartition equalityPartition = inference.generateEqualitiesPartitionedBy(variableBeginsWith("a", "b"), types("a1", "b1", "c1", "a2", "b2", "c2", "d1", "d2"));
 
         // There should be equalities in the scope, that only use a* and b* symbols and are all inferrable equalities
         assertFalse(equalityPartition.getScopeEqualities().isEmpty());
-        assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), matchesSymbolScope(symbolBeginsWith("a", "b"))));
+        assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), matchesVariableScope(variableBeginsWith("a", "b"), types("a1", "b1", "c1", "a2", "b2", "c2", "d1", "d2"))));
         assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), EqualityInference.isInferenceCandidate()));
 
         // There should be equalities in the inverse scope, that never use a* and b* symbols and are all inferrable equalities
         assertFalse(equalityPartition.getScopeComplementEqualities().isEmpty());
-        assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), matchesSymbolScope(not(symbolBeginsWith("a", "b")))));
+        assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), matchesVariableScope(not(variableBeginsWith("a", "b")), types("a1", "b1", "c1", "a2", "b2", "c2", "d1", "d2"))));
         assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), EqualityInference.isInferenceCandidate()));
 
         // There should be equalities in the straddling scope, that should use both c1 and not c1 symbols
         assertFalse(equalityPartition.getScopeStraddlingEqualities().isEmpty());
-        assertTrue(Iterables.any(equalityPartition.getScopeStraddlingEqualities(), matchesStraddlingScope(symbolBeginsWith("a", "b"))));
+        assertTrue(Iterables.any(equalityPartition.getScopeStraddlingEqualities(), matchesStraddlingScope(variableBeginsWith("a", "b"), types("a1", "b1", "c1", "a2", "b2", "c2", "d1", "d2"))));
         assertTrue(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), EqualityInference.isInferenceCandidate()));
 
         // Again, there should be a "full cover" of all of the equalities used
@@ -262,7 +268,7 @@ public class TestEqualityInference
                 .addAllEqualities(equalityPartition.getScopeStraddlingEqualities())
                 .build();
 
-        EqualityInference.EqualityPartition newEqualityPartition = newInference.generateEqualitiesPartitionedBy(symbolBeginsWith("a", "b"));
+        EqualityInference.EqualityPartition newEqualityPartition = newInference.generateEqualitiesPartitionedBy(variableBeginsWith("a", "b"), types("a1", "b1", "c1", "a2", "b2", "c2", "d1", "d2"));
 
         assertEquals(setCopy(equalityPartition.getScopeEqualities()), setCopy(newEqualityPartition.getScopeEqualities()));
         assertEquals(setCopy(equalityPartition.getScopeComplementEqualities()), setCopy(newEqualityPartition.getScopeComplementEqualities()));
@@ -279,13 +285,13 @@ public class TestEqualityInference
         EqualityInference inference = builder.build();
 
         // Expression (b + c) should get entirely rewritten as a1
-        assertEquals(inference.rewriteExpression(add("b", "c"), symbolBeginsWith("a")), nameReference("a1"));
+        assertEquals(inference.rewriteExpression(add("b", "c"), variableBeginsWith("a"), types("a1", "a2", "a3", "b", "c")), nameReference("a1"));
 
         // Only the sub-expression (b + c) should get rewritten in terms of a*
-        assertEquals(inference.rewriteExpression(multiply(nameReference("ax"), add("b", "c")), symbolBeginsWith("a")), multiply(nameReference("ax"), nameReference("a1")));
+        assertEquals(inference.rewriteExpression(multiply(nameReference("ax"), add("b", "c")), variableBeginsWith("a"), types("a1", "a2", "a3", "b", "c", "ax")), multiply(nameReference("ax"), nameReference("a1")));
 
         // To be compliant, could rewrite either the whole expression, or just the sub-expression. Rewriting larger expressions are preferred
-        assertEquals(inference.rewriteExpression(multiply(nameReference("a1"), add("b", "c")), symbolBeginsWith("a")), nameReference("a3"));
+        assertEquals(inference.rewriteExpression(multiply(nameReference("a1"), add("b", "c")), variableBeginsWith("a"), types("a1", "a2", "a3", "b", "c")), nameReference("a3"));
     }
 
     @Test
@@ -298,10 +304,10 @@ public class TestEqualityInference
         EqualityInference inference = builder.build();
 
         // Should always prefer a constant if available (constant is part of all scopes)
-        assertEquals(inference.rewriteExpression(nameReference("a1"), matchesSymbols("a1", "b1")), number(1));
+        assertEquals(inference.rewriteExpression(nameReference("a1"), matchesVariables("a1", "b1"), types("a1", "b1", "c1")), number(1));
 
         // All scope equalities should utilize the constant if possible
-        EqualityInference.EqualityPartition equalityPartition = inference.generateEqualitiesPartitionedBy(matchesSymbols("a1", "b1"));
+        EqualityInference.EqualityPartition equalityPartition = inference.generateEqualitiesPartitionedBy(matchesVariables("a1", "b1"), types("a1", "b1", "c1"));
         assertEquals(equalitiesAsSets(equalityPartition.getScopeEqualities()),
                 set(set(nameReference("a1"), number(1)), set(nameReference("b1"), number(1))));
         assertEquals(equalitiesAsSets(equalityPartition.getScopeComplementEqualities()),
@@ -320,7 +326,7 @@ public class TestEqualityInference
         addEquality("c", "d", builder);
         EqualityInference inference = builder.build();
 
-        Expression scopedCanonical = inference.getScopedCanonical(nameReference("e1"), symbolBeginsWith("a"));
+        Expression scopedCanonical = inference.getScopedCanonical(nameReference("e1"), variableBeginsWith("a"), types("a1", "b", "c", "d", "e1"));
         assertEquals(scopedCanonical, nameReference("a1"));
     }
 
@@ -344,22 +350,22 @@ public class TestEqualityInference
             builder.extractInferenceCandidates(equals(nameReference("a"), candidate));
 
             EqualityInference inference = builder.build();
-            List<Expression> equalities = inference.generateEqualitiesPartitionedBy(matchesSymbols("b")).getScopeStraddlingEqualities();
+            List<Expression> equalities = inference.generateEqualitiesPartitionedBy(matchesVariables("b"), types("a", "b", "x")).getScopeStraddlingEqualities();
             assertEquals(equalities.size(), 1);
             assertTrue(equalities.get(0).equals(equals(nameReference("x"), nameReference("b"))) || equalities.get(0).equals(equals(nameReference("b"), nameReference("x"))));
         }
     }
 
-    private static Predicate<Expression> matchesSymbolScope(final Predicate<Symbol> symbolScope)
+    private static Predicate<Expression> matchesVariableScope(final Predicate<VariableReferenceExpression> variableScope, TypeProvider types)
     {
-        return expression -> Iterables.all(SymbolsExtractor.extractUnique(expression), symbolScope);
+        return expression -> Iterables.all(SymbolsExtractor.extractUniqueVariable(expression, types), variableScope);
     }
 
-    private static Predicate<Expression> matchesStraddlingScope(final Predicate<Symbol> symbolScope)
+    private static Predicate<Expression> matchesStraddlingScope(final Predicate<VariableReferenceExpression> variableScope, TypeProvider types)
     {
         return expression -> {
-            Set<Symbol> symbols = SymbolsExtractor.extractUnique(expression);
-            return Iterables.any(symbols, symbolScope) && Iterables.any(symbols, not(symbolScope));
+            Set<VariableReferenceExpression> variables = SymbolsExtractor.extractUniqueVariable(expression, types);
+            return Iterables.any(variables, variableScope) && Iterables.any(variables, not(variableScope));
         };
     }
 
@@ -418,30 +424,30 @@ public class TestEqualityInference
         return new LongLiteral(String.valueOf(number));
     }
 
-    private static Predicate<Symbol> matchesSymbols(String... symbols)
+    private static Predicate<VariableReferenceExpression> matchesVariables(String... variables)
     {
-        return matchesSymbols(Arrays.asList(symbols));
+        return matchesVariables(Arrays.asList(variables));
     }
 
-    private static Predicate<Symbol> matchesSymbols(Collection<String> symbols)
+    private static Predicate<VariableReferenceExpression> matchesVariables(Collection<String> variables)
     {
-        final Set<Symbol> symbolSet = symbols.stream()
-                .map(Symbol::new)
+        final Set<VariableReferenceExpression> symbolSet = variables.stream()
+                .map(name -> new VariableReferenceExpression(name, BIGINT))
                 .collect(toImmutableSet());
 
         return Predicates.in(symbolSet);
     }
 
-    private static Predicate<Symbol> symbolBeginsWith(String... prefixes)
+    private static Predicate<VariableReferenceExpression> variableBeginsWith(String... prefixes)
     {
-        return symbolBeginsWith(Arrays.asList(prefixes));
+        return variableBeginsWith(Arrays.asList(prefixes));
     }
 
-    private static Predicate<Symbol> symbolBeginsWith(final Iterable<String> prefixes)
+    private static Predicate<VariableReferenceExpression> variableBeginsWith(final Iterable<String> prefixes)
     {
-        return symbol -> {
+        return variable -> {
             for (String prefix : prefixes) {
-                if (symbol.getName().startsWith(prefix)) {
+                if (variable.getName().startsWith(prefix)) {
                     return true;
                 }
             }
@@ -474,5 +480,11 @@ public class TestEqualityInference
     private static <E> Set<E> setCopy(Iterable<E> elements)
     {
         return ImmutableSet.copyOf(elements);
+    }
+
+    private static TypeProvider types(String... variables)
+    {
+        Map<Symbol, Type> types = Arrays.asList(variables).stream().map(Symbol::new).collect(toImmutableMap(identity(), ignore -> BIGINT));
+        return TypeProvider.copyOf(types);
     }
 }

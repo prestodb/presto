@@ -16,13 +16,19 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.ExpressionVariableInliner;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.Assignments;
+import com.facebook.presto.sql.planner.plan.Assignments.Builder;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Literal;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.util.AstUtils;
 import com.google.common.collect.ImmutableSet;
@@ -34,9 +40,13 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineSymbols;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAsSymbolReference;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.isIdentity;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
+import static com.facebook.presto.sql.relational.Expressions.variable;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static java.util.stream.Collectors.toSet;
 
 /**
@@ -64,38 +74,39 @@ public class InlineProjections
     {
         ProjectNode child = captures.get(CHILD);
 
-        Sets.SetView<Symbol> targets = extractInliningTargets(parent, child);
+        Sets.SetView<VariableReferenceExpression> targets = extractInliningTargets(parent, child, context);
         if (targets.isEmpty()) {
             return Result.empty();
         }
 
         // inline the expressions
         Assignments assignments = child.getAssignments().filter(targets::contains);
-        Map<Symbol, Expression> parentAssignments = parent.getAssignments()
+        Map<VariableReferenceExpression, RowExpression> parentAssignments = parent.getAssignments()
                 .entrySet().stream()
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
-                        entry -> inlineReferences(entry.getValue(), assignments)));
+                        entry -> castToRowExpression(inlineReferences(castToExpression(entry.getValue()), assignments, context.getSymbolAllocator().getTypes()))));
 
         // Synthesize identity assignments for the inputs of expressions that were inlined
         // to place in the child projection.
         // If all assignments end up becoming identity assignments, they'll get pruned by
         // other rules
-        Set<Symbol> inputs = child.getAssignments()
+        Set<VariableReferenceExpression> inputs = child.getAssignments()
                 .entrySet().stream()
                 .filter(entry -> targets.contains(entry.getKey()))
                 .map(Map.Entry::getValue)
-                .flatMap(entry -> SymbolsExtractor.extractAll(entry).stream())
+                .map(OriginalExpressionUtils::castToExpression)
+                .flatMap(entry -> SymbolsExtractor.extractAllVariable(entry, context.getSymbolAllocator().getTypes()).stream())
                 .collect(toSet());
 
-        Assignments.Builder childAssignments = Assignments.builder();
-        for (Map.Entry<Symbol, Expression> assignment : child.getAssignments().entrySet()) {
+        Builder childAssignments = Assignments.builder();
+        for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : child.getAssignments().entrySet()) {
             if (!targets.contains(assignment.getKey())) {
                 childAssignments.put(assignment);
             }
         }
-        for (Symbol input : inputs) {
-            childAssignments.putIdentity(input);
+        for (VariableReferenceExpression input : inputs) {
+            childAssignments.put(identityAsSymbolReference(input));
         }
 
         return Result.ofPlanNode(
@@ -108,21 +119,19 @@ public class InlineProjections
                         Assignments.copyOf(parentAssignments)));
     }
 
-    private Expression inlineReferences(Expression expression, Assignments assignments)
+    private Expression inlineReferences(Expression expression, Assignments assignments, TypeProvider types)
     {
-        Function<Symbol, Expression> mapping = symbol -> {
-            Expression result = assignments.get(symbol);
-            if (result != null) {
-                return result;
+        Function<VariableReferenceExpression, Expression> mapping = variable -> {
+            if (assignments.get(variable) == null) {
+                return new SymbolReference(variable.getName());
             }
-
-            return symbol.toSymbolReference();
+            return castToExpression(assignments.get(variable));
         };
 
-        return inlineSymbols(mapping, expression);
+        return ExpressionVariableInliner.inlineVariables(mapping, expression, types);
     }
 
-    private Sets.SetView<Symbol> extractInliningTargets(ProjectNode parent, ProjectNode child)
+    private Sets.SetView<VariableReferenceExpression> extractInliningTargets(ProjectNode parent, ProjectNode child, Context context)
     {
         // candidates for inlining are
         //   1. references to simple constants
@@ -132,42 +141,45 @@ public class InlineProjections
         //      c. are not identity projections
         // which come from the child, as opposed to an enclosing scope.
 
-        Set<Symbol> childOutputSet = ImmutableSet.copyOf(child.getOutputSymbols());
+        Set<VariableReferenceExpression> childOutputSet = ImmutableSet.copyOf(child.getOutputVariables());
 
-        Map<Symbol, Long> dependencies = parent.getAssignments()
-                .getExpressions().stream()
+        Map<VariableReferenceExpression, Long> dependencies = parent.getAssignments()
+                .getExpressions()
+                .stream()
+                .map(OriginalExpressionUtils::castToExpression)
                 .flatMap(expression -> SymbolsExtractor.extractAll(expression).stream())
+                .map(symbol -> variable(symbol.getName(), context.getSymbolAllocator().getTypes().get(symbol)))
                 .filter(childOutputSet::contains)
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
         // find references to simple constants
-        Set<Symbol> constants = dependencies.keySet().stream()
-                .filter(input -> child.getAssignments().get(input) instanceof Literal)
+        Set<VariableReferenceExpression> constants = dependencies.keySet().stream()
+                .filter(input -> castToExpression(child.getAssignments().get(input)) instanceof Literal)
                 .collect(toSet());
 
         // exclude any complex inputs to TRY expressions. Inlining them would potentially
         // change the semantics of those expressions
-        Set<Symbol> tryArguments = parent.getAssignments()
+        Set<VariableReferenceExpression> tryArguments = parent.getAssignments()
                 .getExpressions().stream()
-                .flatMap(expression -> extractTryArguments(expression).stream())
+                .flatMap(expression -> extractTryArguments(castToExpression(expression), context.getSymbolAllocator().getTypes()).stream())
                 .collect(toSet());
 
-        Set<Symbol> singletons = dependencies.entrySet().stream()
+        Set<VariableReferenceExpression> singletons = dependencies.entrySet().stream()
                 .filter(entry -> entry.getValue() == 1) // reference appears just once across all expressions in parent project node
                 .filter(entry -> !tryArguments.contains(entry.getKey())) // they are not inputs to TRY. Otherwise, inlining might change semantics
-                .filter(entry -> !child.getAssignments().isIdentity(entry.getKey())) // skip identities, otherwise, this rule will keep firing forever
+                .filter(entry -> !isIdentity(child.getAssignments(), entry.getKey())) // skip identities, otherwise, this rule will keep firing forever
                 .map(Map.Entry::getKey)
                 .collect(toSet());
 
         return Sets.union(singletons, constants);
     }
 
-    private Set<Symbol> extractTryArguments(Expression expression)
+    private Set<VariableReferenceExpression> extractTryArguments(Expression expression, TypeProvider types)
     {
         return AstUtils.preOrder(expression)
                 .filter(TryExpression.class::isInstance)
                 .map(TryExpression.class::cast)
-                .flatMap(tryExpression -> SymbolsExtractor.extractAll(tryExpression).stream())
+                .flatMap(tryExpression -> SymbolsExtractor.extractAllVariable(tryExpression, types).stream())
                 .collect(toSet());
     }
 }

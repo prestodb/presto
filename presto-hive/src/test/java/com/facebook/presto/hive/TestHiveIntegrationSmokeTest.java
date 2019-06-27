@@ -14,19 +14,19 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.type.Type;
@@ -73,6 +73,7 @@ import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
 import static com.facebook.presto.SystemSessionProperties.DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION_FOR_AGGREGATION;
+import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
@@ -82,7 +83,7 @@ import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createMaterializeExchangesSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
-import static com.facebook.presto.hive.HiveQueryRunner.createRewindableSplitSourceSession;
+import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.RCFILE_OPTIMIZED_WRITER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.getInsertExistingPartitionsBehavior;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
@@ -145,7 +146,6 @@ public class TestHiveIntegrationSmokeTest
     private final String catalog;
     private final Session bucketedSession;
     private final Session materializeExchangesSession;
-    private final Session rewindableSplitSourceSession;
     private final TypeTranslator typeTranslator;
 
     @SuppressWarnings("unused")
@@ -154,7 +154,6 @@ public class TestHiveIntegrationSmokeTest
         this(() -> createQueryRunner(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER),
                 createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
                 createMaterializeExchangesSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
-                createRewindableSplitSourceSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
                 HIVE_CATALOG,
                 new HiveTypeTranslator());
     }
@@ -163,7 +162,6 @@ public class TestHiveIntegrationSmokeTest
             QueryRunnerSupplier queryRunnerSupplier,
             Session bucketedSession,
             Session materializeExchangesSession,
-            Session rewindableSplitSourceSession,
             String catalog,
             TypeTranslator typeTranslator)
     {
@@ -171,7 +169,6 @@ public class TestHiveIntegrationSmokeTest
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.bucketedSession = requireNonNull(bucketedSession, "bucketSession is null");
         this.materializeExchangesSession = requireNonNull(materializeExchangesSession, "materializeExchangesSession is null");
-        this.rewindableSplitSourceSession = requireNonNull(rewindableSplitSourceSession, "rewindableSplitSourceSession is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
     }
 
@@ -1876,7 +1873,6 @@ public class TestHiveIntegrationSmokeTest
     public void testBucketedCatalog()
     {
         testBucketedCatalog(bucketedSession);
-        testBucketedCatalog(rewindableSplitSourceSession);
     }
 
     private void testBucketedCatalog(Session session)
@@ -1897,7 +1893,6 @@ public class TestHiveIntegrationSmokeTest
     public void testBucketedExecution()
     {
         testBucketedExecution(bucketedSession);
-        testBucketedExecution(rewindableSplitSourceSession);
     }
 
     private void testBucketedExecution(Session session)
@@ -2440,7 +2435,6 @@ public class TestHiveIntegrationSmokeTest
     {
         testMismatchedBucketing(getSession());
         testMismatchedBucketing(materializeExchangesSession);
-        testMismatchedBucketing(rewindableSplitSourceSession);
     }
 
     public void testMismatchedBucketing(Session session)
@@ -2626,6 +2620,13 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testMaterializedPartitioning()
     {
+        testMaterializedPartitioning(Session.builder(materializeExchangesSession).setSystemProperty("max_concurrent_materializations", "1").build());
+        testMaterializedPartitioning(Session.builder(materializeExchangesSession).setSystemProperty("max_concurrent_materializations", "2").build());
+        testMaterializedPartitioning(materializeExchangesSession);
+    }
+
+    private void testMaterializedPartitioning(Session materializeExchangesSession)
+    {
         // Simple smoke tests for materialized partitioning
         // Comprehensive testing is done by TestHiveDistributedAggregationsWithExchangeMaterialization, TestHiveDistributedQueriesWithExchangeMaterialization
 
@@ -2788,7 +2789,6 @@ public class TestHiveIntegrationSmokeTest
     {
         testGroupedExecution(getSession());
         testGroupedExecution(materializeExchangesSession);
-        testGroupedExecution(rewindableSplitSourceSession);
     }
 
     private void testGroupedExecution(Session session)
@@ -2840,11 +2840,13 @@ public class TestHiveIntegrationSmokeTest
             Session notColocated = Session.builder(session)
                     .setSystemProperty(COLOCATED_JOIN, "false")
                     .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "false")
+                    .setSystemProperty(GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS, "false")
                     .build();
             // Co-located JOIN with all groups at once, fixed schedule
             Session colocatedAllGroupsAtOnce = Session.builder(session)
                     .setSystemProperty(COLOCATED_JOIN, "true")
                     .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                    .setSystemProperty(GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "0")
                     .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "false")
                     .build();
@@ -2852,6 +2854,7 @@ public class TestHiveIntegrationSmokeTest
             Session colocatedOneGroupAtATime = Session.builder(session)
                     .setSystemProperty(COLOCATED_JOIN, "true")
                     .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                    .setSystemProperty(GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
                     .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "false")
                     .build();
@@ -2859,6 +2862,7 @@ public class TestHiveIntegrationSmokeTest
             Session colocatedAllGroupsAtOnceDynamic = Session.builder(session)
                     .setSystemProperty(COLOCATED_JOIN, "true")
                     .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                    .setSystemProperty(GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "0")
                     .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
                     .build();
@@ -2866,6 +2870,7 @@ public class TestHiveIntegrationSmokeTest
             Session colocatedOneGroupAtATimeDynamic = Session.builder(session)
                     .setSystemProperty(COLOCATED_JOIN, "true")
                     .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                    .setSystemProperty(GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
                     .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
                     .build();
@@ -2874,6 +2879,7 @@ public class TestHiveIntegrationSmokeTest
                     .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                     .setSystemProperty(COLOCATED_JOIN, "true")
                     .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                    .setSystemProperty(GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
                     .build();
 
@@ -2882,8 +2888,15 @@ public class TestHiveIntegrationSmokeTest
                     .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                     .setSystemProperty(COLOCATED_JOIN, "true")
                     .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                    .setSystemProperty(GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
                     .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
+                    .build();
+
+            // Eligible table scans only, 1 group per worker at a time
+            Session eligibleTableScans = Session.builder(session)
+                    .setSystemProperty(GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS, "true")
+                    .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
                     .build();
 
             //
@@ -3294,15 +3307,24 @@ public class TestHiveIntegrationSmokeTest
             assertQuery(notColocated, joinMismatchedBuckets, expectedJoinMismatchedBuckets);
             assertQuery(colocatedAllGroupsAtOnce, joinMismatchedBuckets, expectedJoinMismatchedBuckets, assertRemoteExchangesCount(1));
             assertQuery(colocatedOneGroupAtATime, joinMismatchedBuckets, expectedJoinMismatchedBuckets, assertRemoteExchangesCount(1));
+
+            //
+            // Eligible table scans only
+            // =============================
+            @Language("SQL") String tableScan = "SELECT key1, value1 FROM test_grouped_join1";
+            @Language("SQL") String expectedTableScan = "SELECT orderkey, comment FROM orders";
+
+            assertQuery(notColocated, tableScan, expectedTableScan);
+            assertQuery(eligibleTableScans, tableScan, expectedTableScan);
         }
         finally {
-            assertUpdate("DROP TABLE IF EXISTS test_grouped_join1");
-            assertUpdate("DROP TABLE IF EXISTS test_grouped_join2");
-            assertUpdate("DROP TABLE IF EXISTS test_grouped_join3");
-            assertUpdate("DROP TABLE IF EXISTS test_grouped_join4");
-            assertUpdate("DROP TABLE IF EXISTS test_grouped_joinN");
-            assertUpdate("DROP TABLE IF EXISTS test_grouped_joinDual");
-            assertUpdate("DROP TABLE IF EXISTS test_grouped_window");
+            assertUpdate(session, "DROP TABLE IF EXISTS test_grouped_join1");
+            assertUpdate(session, "DROP TABLE IF EXISTS test_grouped_join2");
+            assertUpdate(session, "DROP TABLE IF EXISTS test_grouped_join3");
+            assertUpdate(session, "DROP TABLE IF EXISTS test_grouped_join4");
+            assertUpdate(session, "DROP TABLE IF EXISTS test_grouped_joinN");
+            assertUpdate(session, "DROP TABLE IF EXISTS test_grouped_joinDual");
+            assertUpdate(session, "DROP TABLE IF EXISTS test_grouped_window");
         }
     }
 
@@ -4070,15 +4092,15 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(format("CREATE TABLE %s(i int)", tableName));
 
         Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "temporary_staging_directory_enabled", "false")
+                .setCatalogSessionProperty(catalog, "temporary_staging_directory_enabled", "false")
                 .build();
 
         HiveInsertTableHandle hiveInsertTableHandle = getHiveInsertTableHandle(session, tableName);
         assertEquals(hiveInsertTableHandle.getLocationHandle().getWritePath(), hiveInsertTableHandle.getLocationHandle().getTargetPath());
 
         session = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "temporary_staging_directory_enabled", "true")
-                .setCatalogSessionProperty("hive", "temporary_staging_directory_path", "/tmp/custom/temporary-${USER}")
+                .setCatalogSessionProperty(catalog, "temporary_staging_directory_enabled", "true")
+                .setCatalogSessionProperty(catalog, "temporary_staging_directory_path", "/tmp/custom/temporary-${USER}")
                 .build();
 
         hiveInsertTableHandle = getHiveInsertTableHandle(session, tableName);
@@ -4086,6 +4108,31 @@ public class TestHiveIntegrationSmokeTest
         assertTrue(hiveInsertTableHandle.getLocationHandle().getWritePath().toString().startsWith("file:/tmp/custom/temporary-"));
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testLikeSerializesWithPushdownFilter()
+    {
+        Session pushdownFilterEnabled = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(catalog, PUSHDOWN_FILTER_ENABLED, "true")
+                .build();
+        assertQuerySucceeds(pushdownFilterEnabled, "SELECT comment FROM lineitem WHERE comment LIKE 'abc%'");
+    }
+
+    @Test
+    public void testGroupByWithUnion()
+    {
+        assertQuery("SELECT\n" +
+                "      linenumber,\n" +
+                "      'xxx'\n" +
+                "  FROM\n" +
+                "  (\n" +
+                "      (SELECT orderkey, linenumber FROM lineitem)\n" +
+                "      UNION\n" +
+                "      (SELECT orderkey, linenumber FROM lineitem)\n" +
+                "  ) WHERE orderkey = 1 \n" +
+                "  GROUP BY\n" +
+                "      linenumber");
     }
 
     private HiveInsertTableHandle getHiveInsertTableHandle(Session session, String tableName)

@@ -19,6 +19,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.ByteArrayBlockBuilder;
 import com.facebook.presto.spi.block.PageBuilderStatus;
+import com.facebook.presto.spi.block.UncheckedBlock;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 
@@ -126,6 +127,12 @@ public final class BooleanType
     public boolean getBoolean(Block block, int position)
     {
         return block.getByte(position) != 0;
+    }
+
+    @Override
+    public boolean getBooleanUnchecked(UncheckedBlock block, int internalPosition)
+    {
+        return block.getByteUnchecked(internalPosition) != 0;
     }
 
     @Override

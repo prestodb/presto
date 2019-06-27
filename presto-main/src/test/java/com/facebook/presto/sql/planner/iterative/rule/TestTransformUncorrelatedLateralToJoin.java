@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.ImmutableList;
@@ -38,10 +37,9 @@ public class TestTransformUncorrelatedLateralToJoin
     @Test
     public void testDoesNotFire()
     {
-        Symbol symbol = new Symbol("x");
         tester()
                 .assertThat(new TransformUncorrelatedLateralToJoin())
-                .on(p -> p.lateral(ImmutableList.of(symbol), p.values(symbol), p.values()))
+                .on(p -> p.lateral(ImmutableList.of(p.variable(p.symbol("x"))), p.values(p.variable("x")), p.values()))
                 .doesNotFire();
     }
 }

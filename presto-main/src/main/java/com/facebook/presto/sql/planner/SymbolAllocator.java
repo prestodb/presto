@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Field;
@@ -24,14 +26,18 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.primitives.Ints;
 
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class SymbolAllocator
+        implements VariableAllocator
 {
     private final Map<Symbol, Type> symbols;
     private int nextId;
@@ -46,15 +52,20 @@ public class SymbolAllocator
         symbols = new HashMap<>(initial);
     }
 
-    public Symbol newSymbol(Symbol symbolHint)
+    public VariableReferenceExpression newVariable(Symbol symbolHint)
     {
         checkArgument(symbols.containsKey(symbolHint), "symbolHint not in symbols map");
-        return newSymbol(symbolHint.getName(), symbols.get(symbolHint));
+        return newVariable(symbolHint.getName(), symbols.get(symbolHint));
     }
 
-    public Symbol newSymbol(QualifiedName nameHint, Type type)
+    public VariableReferenceExpression newVariable(VariableReferenceExpression variableHint)
     {
-        return newSymbol(nameHint.getSuffix(), type, null);
+        return newVariable(variableHint.getName(), variableHint.getType());
+    }
+
+    public VariableReferenceExpression newVariable(QualifiedName nameHint, Type type)
+    {
+        return newVariable(nameHint.getSuffix(), type, null);
     }
 
     public Symbol newSymbol(String nameHint, Type type)
@@ -62,9 +73,22 @@ public class SymbolAllocator
         return newSymbol(nameHint, type, null);
     }
 
-    public Symbol newHashSymbol()
+    @Override
+    public VariableReferenceExpression newVariable(String nameHint, Type type)
     {
-        return newSymbol("$hashValue", BigintType.BIGINT);
+        return newVariable(nameHint, type, null);
+    }
+
+    public VariableReferenceExpression newHashVariable()
+    {
+        return newVariable("$hashValue", BigintType.BIGINT);
+    }
+
+    @Override
+    public VariableReferenceExpression newVariable(String nameHint, Type type, String suffix)
+    {
+        Symbol symbol = newSymbol(nameHint, type, suffix);
+        return new VariableReferenceExpression(symbol.getName(), type);
     }
 
     public Symbol newSymbol(String nameHint, Type type, String suffix)
@@ -102,6 +126,12 @@ public class SymbolAllocator
         return symbol;
     }
 
+    public VariableReferenceExpression newVariable(Expression expression, Type type)
+    {
+        Symbol symbol = newSymbol(expression, type);
+        return new VariableReferenceExpression(symbol.getName(), type);
+    }
+
     public Symbol newSymbol(Expression expression, Type type)
     {
         return newSymbol(expression, type, null);
@@ -126,10 +156,33 @@ public class SymbolAllocator
         return newSymbol(nameHint, type, suffix);
     }
 
+    public VariableReferenceExpression newVariable(Expression expression, Type type, String suffix)
+    {
+        String nameHint = "expr";
+        if (expression instanceof Identifier) {
+            nameHint = ((Identifier) expression).getValue();
+        }
+        else if (expression instanceof FunctionCall) {
+            nameHint = ((FunctionCall) expression).getName().getSuffix();
+        }
+        else if (expression instanceof SymbolReference) {
+            nameHint = ((SymbolReference) expression).getName();
+        }
+        else if (expression instanceof GroupingOperation) {
+            nameHint = "grouping";
+        }
+        return newVariable(nameHint, type, suffix);
+    }
+
     public Symbol newSymbol(Field field)
     {
         String nameHint = field.getName().orElse("field");
         return newSymbol(nameHint, field.getType());
+    }
+
+    public VariableReferenceExpression newVariable(Field field)
+    {
+        return newVariable(field.getName().orElse("field"), field.getType(), null);
     }
 
     public TypeProvider getTypes()
@@ -140,5 +193,17 @@ public class SymbolAllocator
     private int nextId()
     {
         return nextId++;
+    }
+
+    public VariableReferenceExpression toVariableReference(Symbol symbol)
+    {
+        return new VariableReferenceExpression(symbol.getName(), getTypes().get(symbol));
+    }
+
+    public List<VariableReferenceExpression> toVariableReferences(Collection<Symbol> symbols)
+    {
+        return symbols.stream()
+                .map(symbol -> new VariableReferenceExpression(symbol.getName(), getTypes().get(symbol)))
+                .collect(toImmutableList());
     }
 }

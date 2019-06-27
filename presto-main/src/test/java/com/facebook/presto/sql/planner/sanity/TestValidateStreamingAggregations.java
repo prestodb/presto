@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.sql.planner.sanity;
 
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
@@ -68,24 +68,25 @@ public class TestValidateStreamingAggregations
         validatePlan(
                 p -> p.aggregation(
                         a -> a.step(SINGLE)
-                                .singleGroupingSet(p.symbol("nationkey"))
+                                .singleGroupingSet(p.variable("nationkey"))
                                 .source(
                                         p.tableScan(
                                                 nationTableHandle,
-                                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
-                                                ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT))))));
+                                                ImmutableList.of(p.variable(p.symbol("nationkey", BIGINT))),
+                                                ImmutableMap.of(p.variable(p.symbol("nationkey", BIGINT)), new TpchColumnHandle("nationkey", BIGINT))))));
 
         validatePlan(
                 p -> p.aggregation(
                         a -> a.step(SINGLE)
-                                .singleGroupingSet(p.symbol("unique"), p.symbol("nationkey"))
-                                .preGroupedSymbols(p.symbol("unique"), p.symbol("nationkey"))
+                                .singleGroupingSet(p.variable("unique"), p.variable("nationkey"))
+                                .preGroupedVariables(p.variable("unique"), p.variable("nationkey"))
                                 .source(
-                                        p.assignUniqueId(p.symbol("unique"),
+                                        p.assignUniqueId(
+                                                p.variable(p.symbol("unique")),
                                                 p.tableScan(
                                                         nationTableHandle,
-                                                        ImmutableList.of(p.symbol("nationkey", BIGINT)),
-                                                        ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)))))));
+                                                        ImmutableList.of(p.variable(p.symbol("nationkey", BIGINT))),
+                                                        ImmutableMap.of(p.variable(p.symbol("nationkey", BIGINT)), new TpchColumnHandle("nationkey", BIGINT)))))));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Streaming aggregation with input not grouped on the grouping keys")
@@ -94,13 +95,13 @@ public class TestValidateStreamingAggregations
         validatePlan(
                 p -> p.aggregation(
                         a -> a.step(SINGLE)
-                                .singleGroupingSet(p.symbol("nationkey"))
-                                .preGroupedSymbols(p.symbol("nationkey"))
+                                .singleGroupingSet(p.variable("nationkey"))
+                                .preGroupedVariables(p.variable("nationkey"))
                                 .source(
                                         p.tableScan(
                                                 nationTableHandle,
-                                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
-                                                ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT))))));
+                                                ImmutableList.of(p.variable(p.symbol("nationkey", BIGINT))),
+                                                ImmutableMap.of(p.variable(p.symbol("nationkey", BIGINT)), new TpchColumnHandle("nationkey", BIGINT))))));
     }
 
     private void validatePlan(Function<PlanBuilder, PlanNode> planProvider)

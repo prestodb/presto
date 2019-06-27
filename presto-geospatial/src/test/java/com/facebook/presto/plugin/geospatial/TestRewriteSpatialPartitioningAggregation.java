@@ -44,8 +44,8 @@ public class TestRewriteSpatialPartitioningAggregation
                 .on(p -> p.aggregation(a ->
                         a.globalGrouping()
                                 .step(AggregationNode.Step.FINAL)
-                                .addAggregation(p.symbol("sp"), PlanBuilder.expression("spatial_partitioning(geometry, 10)"), ImmutableList.of(GEOMETRY))
-                                .source(p.values(p.symbol("geometry")))))
+                                .addAggregation(p.variable(p.symbol("sp")), PlanBuilder.expression("spatial_partitioning(geometry, 10)"), ImmutableList.of(GEOMETRY))
+                                .source(p.values(p.variable("geometry")))))
                 .doesNotFire();
     }
 
@@ -56,8 +56,8 @@ public class TestRewriteSpatialPartitioningAggregation
                 .on(p -> p.aggregation(a ->
                         a.globalGrouping()
                                 .step(AggregationNode.Step.FINAL)
-                                .addAggregation(p.symbol("sp"), PlanBuilder.expression("spatial_partitioning(geometry)"), ImmutableList.of(GEOMETRY))
-                                .source(p.values(p.symbol("geometry")))))
+                                .addAggregation(p.variable(p.symbol("sp")), PlanBuilder.expression("spatial_partitioning(geometry)"), ImmutableList.of(GEOMETRY))
+                                .source(p.values(p.variable("geometry")))))
                 .matches(
                         aggregation(
                                 ImmutableMap.of("sp", functionCall("spatial_partitioning", ImmutableList.of("envelope", "partition_count"))),
@@ -70,8 +70,8 @@ public class TestRewriteSpatialPartitioningAggregation
                 .on(p -> p.aggregation(a ->
                         a.globalGrouping()
                                 .step(AggregationNode.Step.FINAL)
-                                .addAggregation(p.symbol("sp"), PlanBuilder.expression("spatial_partitioning(ST_Envelope(geometry))"), ImmutableList.of(GEOMETRY))
-                                .source(p.values(p.symbol("geometry")))))
+                                .addAggregation(p.variable(p.symbol("sp")), PlanBuilder.expression("spatial_partitioning(ST_Envelope(geometry))"), ImmutableList.of(GEOMETRY))
+                                .source(p.values(p.variable("geometry")))))
                 .matches(
                         aggregation(
                                 ImmutableMap.of("sp", functionCall("spatial_partitioning", ImmutableList.of("envelope", "partition_count"))),

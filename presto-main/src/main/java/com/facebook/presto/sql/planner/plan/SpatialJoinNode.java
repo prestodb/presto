@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -67,10 +68,10 @@ public class SpatialJoinNode
     private final Type type;
     private final PlanNode left;
     private final PlanNode right;
-    private final List<Symbol> outputSymbols;
+    private final List<VariableReferenceExpression> outputVariables;
     private final RowExpression filter;
-    private final Optional<Symbol> leftPartitionSymbol;
-    private final Optional<Symbol> rightPartitionSymbol;
+    private final Optional<VariableReferenceExpression> leftPartitionVariable;
+    private final Optional<VariableReferenceExpression> rightPartitionVariable;
     private final Optional<String> kdbTree;
     private final DistributionType distributionType;
 
@@ -86,10 +87,10 @@ public class SpatialJoinNode
             @JsonProperty("type") Type type,
             @JsonProperty("left") PlanNode left,
             @JsonProperty("right") PlanNode right,
-            @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
+            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("filter") RowExpression filter,
-            @JsonProperty("leftPartitionSymbol") Optional<Symbol> leftPartitionSymbol,
-            @JsonProperty("rightPartitionSymbol") Optional<Symbol> rightPartitionSymbol,
+            @JsonProperty("leftPartitionVariable") Optional<VariableReferenceExpression> leftPartitionVariable,
+            @JsonProperty("rightPartitionVariable") Optional<VariableReferenceExpression> rightPartitionVariable,
             @JsonProperty("kdbTree") Optional<String> kdbTree)
     {
         super(id);
@@ -97,66 +98,66 @@ public class SpatialJoinNode
         this.type = requireNonNull(type, "type is null");
         this.left = requireNonNull(left, "left is null");
         this.right = requireNonNull(right, "right is null");
-        this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputSymbols, "outputSymbols is null"));
+        this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
         this.filter = requireNonNull(filter, "filter is null");
-        this.leftPartitionSymbol = requireNonNull(leftPartitionSymbol, "leftPartitionSymbol is null");
-        this.rightPartitionSymbol = requireNonNull(rightPartitionSymbol, "rightPartitionSymbol is null");
+        this.leftPartitionVariable = requireNonNull(leftPartitionVariable, "leftPartitionVariable is null");
+        this.rightPartitionVariable = requireNonNull(rightPartitionVariable, "rightPartitionVariable is null");
         this.kdbTree = requireNonNull(kdbTree, "kdbTree is null");
 
-        Set<Symbol> inputSymbols = ImmutableSet.<Symbol>builder()
-                .addAll(left.getOutputSymbols())
-                .addAll(right.getOutputSymbols())
+        Set<VariableReferenceExpression> inputSymbols = ImmutableSet.<VariableReferenceExpression>builder()
+                .addAll(left.getOutputVariables())
+                .addAll(right.getOutputVariables())
                 .build();
 
-        checkArgument(inputSymbols.containsAll(outputSymbols), "Left and right join inputs do not contain all output symbols");
+        checkArgument(inputSymbols.containsAll(outputVariables), "Left and right join inputs do not contain all output variables");
         if (kdbTree.isPresent()) {
-            checkArgument(leftPartitionSymbol.isPresent(), "Left partition symbol is missing");
-            checkArgument(rightPartitionSymbol.isPresent(), "Right partition symbol is missing");
-            checkArgument(left.getOutputSymbols().contains(leftPartitionSymbol.get()), "Left join input does not contain left partition symbol");
-            checkArgument(right.getOutputSymbols().contains(rightPartitionSymbol.get()), "Right join input does not contain right partition symbol");
+            checkArgument(leftPartitionVariable.isPresent(), "Left partition variable is missing");
+            checkArgument(rightPartitionVariable.isPresent(), "Right partition variable is missing");
+            checkArgument(left.getOutputVariables().contains(leftPartitionVariable.get()), "Left join input does not contain left partition variable");
+            checkArgument(right.getOutputVariables().contains(rightPartitionVariable.get()), "Right join input does not contain right partition variable");
             this.distributionType = DistributionType.PARTITIONED;
         }
         else {
-            checkArgument(!leftPartitionSymbol.isPresent(), "KDB tree is missing");
-            checkArgument(!rightPartitionSymbol.isPresent(), "KDB tree is missing");
+            checkArgument(!leftPartitionVariable.isPresent(), "KDB tree is missing");
+            checkArgument(!rightPartitionVariable.isPresent(), "KDB tree is missing");
             this.distributionType = DistributionType.REPLICATED;
         }
     }
 
-    @JsonProperty("type")
+    @JsonProperty
     public Type getType()
     {
         return type;
     }
 
-    @JsonProperty("left")
+    @JsonProperty
     public PlanNode getLeft()
     {
         return left;
     }
 
-    @JsonProperty("right")
+    @JsonProperty
     public PlanNode getRight()
     {
         return right;
     }
 
-    @JsonProperty("filter")
+    @JsonProperty
     public RowExpression getFilter()
     {
         return filter;
     }
 
-    @JsonProperty("leftPartitionSymbol")
-    public Optional<Symbol> getLeftPartitionSymbol()
+    @JsonProperty
+    public Optional<VariableReferenceExpression> getLeftPartitionVariable()
     {
-        return leftPartitionSymbol;
+        return leftPartitionVariable;
     }
 
-    @JsonProperty("rightPartitionSymbol")
-    public Optional<Symbol> getRightPartitionSymbol()
+    @JsonProperty
+    public Optional<VariableReferenceExpression> getRightPartitionVariable()
     {
-        return rightPartitionSymbol;
+        return rightPartitionVariable;
     }
 
     @Override
@@ -166,19 +167,19 @@ public class SpatialJoinNode
     }
 
     @Override
-    @JsonProperty("outputSymbols")
-    public List<Symbol> getOutputSymbols()
+    @JsonProperty
+    public List<VariableReferenceExpression> getOutputVariables()
     {
-        return outputSymbols;
+        return outputVariables;
     }
 
-    @JsonProperty("distributionType")
+    @JsonProperty
     public DistributionType getDistributionType()
     {
         return distributionType;
     }
 
-    @JsonProperty("kdbTree")
+    @JsonProperty
     public Optional<String> getKdbTree()
     {
         return kdbTree;
@@ -194,6 +195,6 @@ public class SpatialJoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new SpatialJoinNode(getId(), type, newChildren.get(0), newChildren.get(1), outputSymbols, filter, leftPartitionSymbol, rightPartitionSymbol, kdbTree);
+        return new SpatialJoinNode(getId(), type, newChildren.get(0), newChildren.get(1), outputVariables, filter, leftPartitionVariable, rightPartitionVariable, kdbTree);
     }
 }

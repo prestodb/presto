@@ -16,15 +16,17 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
@@ -32,6 +34,7 @@ import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class AggregationMatcher
         implements Matcher
@@ -63,7 +66,7 @@ public class AggregationMatcher
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
         AggregationNode aggregationNode = (AggregationNode) node;
 
-        if (groupId.isPresent() != aggregationNode.getGroupIdSymbol().isPresent()) {
+        if (groupId.isPresent() != aggregationNode.getGroupIdVariable().isPresent()) {
             return NO_MATCH;
         }
 
@@ -79,19 +82,19 @@ public class AggregationMatcher
             return NO_MATCH;
         }
 
-        List<Symbol> aggregationsWithMask = aggregationNode.getAggregations()
+        List<VariableReferenceExpression> aggregationsWithMask = aggregationNode.getAggregations()
                 .entrySet()
                 .stream()
                 .filter(entry -> entry.getValue().isDistinct())
-                .map(entry -> entry.getKey())
+                .map(Map.Entry::getKey)
                 .collect(Collectors.toList());
 
         if (aggregationsWithMask.size() != masks.keySet().size()) {
             return NO_MATCH;
         }
 
-        for (Symbol symbol : aggregationsWithMask) {
-            if (!masks.keySet().contains(symbol)) {
+        for (VariableReferenceExpression variable : aggregationsWithMask) {
+            if (!masks.keySet().contains(new Symbol(variable.getName()))) {
                 return NO_MATCH;
             }
         }
@@ -100,25 +103,26 @@ public class AggregationMatcher
             return NO_MATCH;
         }
 
-        if (!matches(preGroupedSymbols, aggregationNode.getPreGroupedSymbols(), symbolAliases)) {
+        if (!matches(preGroupedSymbols, aggregationNode.getPreGroupedVariables(), symbolAliases)) {
             return NO_MATCH;
         }
 
         return match();
     }
 
-    static boolean matches(Collection<String> expectedAliases, Collection<Symbol> actualSymbols, SymbolAliases symbolAliases)
+    static boolean matches(Collection<String> expectedAliases, Collection<VariableReferenceExpression> actualVariables, SymbolAliases symbolAliases)
     {
-        if (expectedAliases.size() != actualSymbols.size()) {
+        if (expectedAliases.size() != actualVariables.size()) {
             return false;
         }
 
-        List<Symbol> expectedSymbols = expectedAliases
+        List<String> expectedSymbolNames = expectedAliases
                 .stream()
-                .map(alias -> new Symbol(symbolAliases.get(alias).getName()))
+                .map(alias -> symbolAliases.get(alias).getName())
                 .collect(toImmutableList());
-        for (Symbol symbol : expectedSymbols) {
-            if (!actualSymbols.contains(symbol)) {
+        Set<String> actualVariableNames = actualVariables.stream().map(VariableReferenceExpression::getName).collect(toImmutableSet());
+        for (String symbolName : expectedSymbolNames) {
+            if (!actualVariableNames.contains(symbolName)) {
                 return false;
             }
         }

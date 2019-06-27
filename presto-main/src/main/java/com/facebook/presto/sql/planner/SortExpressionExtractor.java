@@ -28,6 +28,7 @@ import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Optional;
@@ -35,7 +36,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Collections.singletonList;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
@@ -65,10 +65,10 @@ public final class SortExpressionExtractor
      */
     private SortExpressionExtractor() {}
 
-    public static Optional<SortExpressionContext> extractSortExpression(Set<Symbol> buildSymbols, RowExpression filter, FunctionManager functionManager)
+    public static Optional<SortExpressionContext> extractSortExpression(Set<VariableReferenceExpression> buildVariables, RowExpression filter, FunctionManager functionManager)
     {
         List<RowExpression> filterConjuncts = LogicalRowExpressions.extractConjuncts(filter);
-        SortExpressionVisitor visitor = new SortExpressionVisitor(buildSymbols, functionManager);
+        SortExpressionVisitor visitor = new SortExpressionVisitor(buildVariables, functionManager);
 
         DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionManager);
         List<SortExpressionContext> sortExpressionCandidates = filterConjuncts.stream()
@@ -100,12 +100,12 @@ public final class SortExpressionExtractor
     private static class SortExpressionVisitor
             implements RowExpressionVisitor<Optional<SortExpressionContext>, Void>
     {
-        private final Set<Symbol> buildSymbols;
+        private final Set<VariableReferenceExpression> buildVariables;
         private final FunctionManager functionManager;
 
-        public SortExpressionVisitor(Set<Symbol> buildSymbols, FunctionManager functionManager)
+        public SortExpressionVisitor(Set<VariableReferenceExpression> buildVariables, FunctionManager functionManager)
         {
-            this.buildSymbols = buildSymbols;
+            this.buildVariables = buildVariables;
             this.functionManager = functionManager;
         }
 
@@ -124,11 +124,11 @@ public final class SortExpressionExtractor
                 case LESS_THAN_OR_EQUAL:
                     RowExpression left = call.getArguments().get(0);
                     RowExpression right = call.getArguments().get(1);
-                    Optional<VariableReferenceExpression> sortChannel = asBuildVariableReference(buildSymbols, right);
-                    boolean hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, left);
+                    Optional<VariableReferenceExpression> sortChannel = asBuildVariableReference(buildVariables, right);
+                    boolean hasBuildReferencesOnOtherSide = hasBuildVariableReference(buildVariables, left);
                     if (!sortChannel.isPresent()) {
-                        sortChannel = asBuildVariableReference(buildSymbols, left);
-                        hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, right);
+                        sortChannel = asBuildVariableReference(buildVariables, left);
+                        hasBuildReferencesOnOtherSide = hasBuildVariableReference(buildVariables, right);
                     }
                     if (sortChannel.isPresent() && !hasBuildReferencesOnOtherSide) {
                         return sortChannel.map(variableReference -> new SortExpressionContext(variableReference, singletonList(call)));
@@ -170,33 +170,31 @@ public final class SortExpressionExtractor
         }
     }
 
-    private static Optional<VariableReferenceExpression> asBuildVariableReference(Set<Symbol> buildLayout, RowExpression expression)
+    private static Optional<VariableReferenceExpression> asBuildVariableReference(Set<VariableReferenceExpression> buildLayout, RowExpression expression)
     {
         // Currently only we support only symbol as sort expression on build side
         if (expression instanceof VariableReferenceExpression) {
             VariableReferenceExpression reference = (VariableReferenceExpression) expression;
-            if (buildLayout.contains(new Symbol(reference.getName()))) {
+            if (buildLayout.contains(reference)) {
                 return Optional.of(reference);
             }
         }
         return Optional.empty();
     }
 
-    private static boolean hasBuildSymbolReference(Set<Symbol> buildSymbols, RowExpression expression)
+    private static boolean hasBuildVariableReference(Set<VariableReferenceExpression> buildVariables, RowExpression expression)
     {
-        return expression.accept(new BuildSymbolReferenceFinder(buildSymbols), null);
+        return expression.accept(new BuildVariableReferenceFinder(buildVariables), null);
     }
 
-    private static class BuildSymbolReferenceFinder
+    private static class BuildVariableReferenceFinder
             implements RowExpressionVisitor<Boolean, Void>
     {
-        private final Set<String> buildSymbols;
+        private final Set<VariableReferenceExpression> buildVariables;
 
-        public BuildSymbolReferenceFinder(Set<Symbol> buildSymbols)
+        public BuildVariableReferenceFinder(Set<VariableReferenceExpression> buildVariables)
         {
-            this.buildSymbols = requireNonNull(buildSymbols, "buildSymbols is null").stream()
-                    .map(Symbol::getName)
-                    .collect(toImmutableSet());
+            this.buildVariables = ImmutableSet.copyOf(requireNonNull(buildVariables, "buildVariables is null"));
         }
 
         @Override
@@ -231,7 +229,7 @@ public final class SortExpressionExtractor
         @Override
         public Boolean visitVariableReference(VariableReferenceExpression reference, Void context)
         {
-            return buildSymbols.contains(reference.getName());
+            return buildVariables.contains(reference);
         }
 
         @Override

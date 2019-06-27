@@ -13,24 +13,24 @@
  */
 package com.facebook.presto.connector.thrift.api.valuesets;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.spi.predicate.AllOrNoneValueSet;
 import com.facebook.presto.spi.predicate.EquatableValueSet;
 import com.facebook.presto.spi.predicate.SortedRangeSet;
 import com.facebook.presto.spi.predicate.ValueSet;
-import io.airlift.drift.annotations.ThriftConstructor;
-import io.airlift.drift.annotations.ThriftField;
-import io.airlift.drift.annotations.ThriftStruct;
 
 import javax.annotation.Nullable;
 
 import java.util.Objects;
 
+import static com.facebook.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 import static com.facebook.presto.connector.thrift.api.valuesets.PrestoThriftAllOrNoneValueSet.fromAllOrNoneValueSet;
 import static com.facebook.presto.connector.thrift.api.valuesets.PrestoThriftEquatableValueSet.fromEquatableValueSet;
 import static com.facebook.presto.connector.thrift.api.valuesets.PrestoThriftRangeValueSet.fromSortedRangeSet;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 
 @ThriftStruct
 public final class PrestoThriftValueSet

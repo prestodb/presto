@@ -20,6 +20,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.PageBuilderStatus;
 import com.facebook.presto.spi.block.ShortArrayBlockBuilder;
+import com.facebook.presto.spi.block.UncheckedBlock;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -130,6 +131,12 @@ public final class SmallintType
     public long getLong(Block block, int position)
     {
         return (long) block.getShort(position);
+    }
+
+    @Override
+    public long getLongUnchecked(UncheckedBlock block, int internalPosition)
+    {
+        return (long) block.getShortUnchecked(internalPosition);
     }
 
     @Override

@@ -66,7 +66,7 @@ public class TestSwapAdjacentWindowsBySpecifications
     public void doesNotFireOnPlanWithoutWindowFunctions()
     {
         tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
-                .on(p -> p.values(p.symbol("a")))
+                .on(p -> p.values(p.variable("a")))
                 .doesNotFire();
     }
 
@@ -75,11 +75,11 @@ public class TestSwapAdjacentWindowsBySpecifications
     {
         tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                 .on(p -> p.window(new WindowNode.Specification(
-                                ImmutableList.of(p.symbol("a")),
+                                ImmutableList.of(p.variable(p.symbol("a"))),
                                 Optional.empty()),
-                        ImmutableMap.of(p.symbol("avg_1"),
+                        ImmutableMap.of(p.variable(p.symbol("avg_1")),
                                 new WindowNode.Function(call("avg", functionHandle, DOUBLE, ImmutableList.of()), frame)),
-                        p.values(p.symbol("a"))))
+                        p.values(p.variable("a"))))
                 .doesNotFire();
     }
 
@@ -98,14 +98,14 @@ public class TestSwapAdjacentWindowsBySpecifications
         tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                 .on(p ->
                         p.window(new WindowNode.Specification(
-                                        ImmutableList.of(p.symbol("a")),
+                                        ImmutableList.of(p.variable(p.symbol("a"))),
                                         Optional.empty()),
-                                ImmutableMap.of(p.symbol("avg_1", DOUBLE), newWindowNodeFunction(ImmutableList.of(new Symbol("a")))),
+                                ImmutableMap.of(p.variable(p.symbol("avg_1", DOUBLE)), newWindowNodeFunction(ImmutableList.of(new Symbol("a")))),
                                 p.window(new WindowNode.Specification(
-                                                ImmutableList.of(p.symbol("a"), p.symbol("b")),
+                                                ImmutableList.of(p.variable(p.symbol("a")), p.variable(p.symbol("b"))),
                                                 Optional.empty()),
-                                        ImmutableMap.of(p.symbol("avg_2", DOUBLE), newWindowNodeFunction(ImmutableList.of(new Symbol("b")))),
-                                        p.values(p.symbol("a"), p.symbol("b")))))
+                                        ImmutableMap.of(p.variable(p.symbol("avg_2", DOUBLE)), newWindowNodeFunction(ImmutableList.of(new Symbol("b")))),
+                                        p.values(p.variable("a"), p.variable("b")))))
                 .matches(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationAB)
@@ -124,14 +124,14 @@ public class TestSwapAdjacentWindowsBySpecifications
         tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                 .on(p ->
                         p.window(new WindowNode.Specification(
-                                        ImmutableList.of(p.symbol("a")),
+                                        ImmutableList.of(p.variable(p.symbol("a"))),
                                         Optional.empty()),
-                                ImmutableMap.of(p.symbol("avg_1"), newWindowNodeFunction(ImmutableList.of(new Symbol("avg_2")))),
+                                ImmutableMap.of(p.variable(p.symbol("avg_1")), newWindowNodeFunction(ImmutableList.of(new Symbol("avg_2")))),
                                 p.window(new WindowNode.Specification(
-                                                ImmutableList.of(p.symbol("a"), p.symbol("b")),
+                                                ImmutableList.of(p.variable(p.symbol("a")), p.variable(p.symbol("b"))),
                                                 Optional.empty()),
-                                        ImmutableMap.of(p.symbol("avg_2"), newWindowNodeFunction(ImmutableList.of(new Symbol("a")))),
-                                        p.values(p.symbol("a"), p.symbol("b")))))
+                                        ImmutableMap.of(p.variable(p.symbol("avg_2")), newWindowNodeFunction(ImmutableList.of(new Symbol("a")))),
+                                        p.values(p.variable("a"), p.variable("b")))))
                 .doesNotFire();
     }
 

@@ -11,19 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,12 +32,12 @@ import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class TableScanNode
+public final class TableScanNode
         extends PlanNode
 {
     private final TableHandle table;
-    private final List<Symbol> outputSymbols;
-    private final Map<Symbol, ColumnHandle> assignments;
+    private final Map<VariableReferenceExpression, ColumnHandle> assignments;
+    private final List<VariableReferenceExpression> outputVariables;
 
     // Used during predicate refinement over multiple passes of predicate pushdown
     // TODO: think about how to get rid of this in new planner
@@ -55,16 +53,16 @@ public class TableScanNode
     public TableScanNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("table") TableHandle table,
-            @JsonProperty("outputSymbols") List<Symbol> outputs,
-            @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
+            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
+            @JsonProperty("assignments") Map<VariableReferenceExpression, ColumnHandle> assignments,
             @JsonProperty("temporaryTable") boolean temporaryTable)
     {
         // This constructor is for JSON deserialization only. Do not use.
         super(id);
         this.table = requireNonNull(table, "table is null");
-        this.outputSymbols = unmodifiableList(new ArrayList<>(requireNonNull(outputs, "outputs is null")));
+        this.outputVariables = unmodifiableList(requireNonNull(outputVariables, "outputVariables is null"));
         this.assignments = unmodifiableMap(new HashMap<>(requireNonNull(assignments, "assignments is null")));
-        checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
+        checkArgument(assignments.keySet().containsAll(outputVariables), "assignments does not cover all of outputs");
         this.temporaryTable = temporaryTable;
         this.currentConstraint = null;
         this.enforcedConstraint = null;
@@ -73,37 +71,37 @@ public class TableScanNode
     public TableScanNode(
             PlanNodeId id,
             TableHandle table,
-            List<Symbol> outputs,
-            Map<Symbol, ColumnHandle> assignments)
+            List<VariableReferenceExpression> outputVariables,
+            Map<VariableReferenceExpression, ColumnHandle> assignments)
     {
-        this(id, table, outputs, assignments, TupleDomain.all(), TupleDomain.all(), false);
+        this(id, table, outputVariables, assignments, TupleDomain.all(), TupleDomain.all(), false);
     }
 
     public TableScanNode(
             PlanNodeId id,
             TableHandle table,
-            List<Symbol> outputs,
-            Map<Symbol, ColumnHandle> assignments,
+            List<VariableReferenceExpression> outputVariables,
+            Map<VariableReferenceExpression, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> currentConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint)
     {
-        this(id, table, outputs, assignments, currentConstraint, enforcedConstraint, false);
+        this(id, table, outputVariables, assignments, currentConstraint, enforcedConstraint, false);
     }
 
     public TableScanNode(
             PlanNodeId id,
             TableHandle table,
-            List<Symbol> outputs,
-            Map<Symbol, ColumnHandle> assignments,
+            List<VariableReferenceExpression> outputVariables,
+            Map<VariableReferenceExpression, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> currentConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint,
             boolean temporaryTable)
     {
         super(id);
         this.table = requireNonNull(table, "table is null");
-        this.outputSymbols = unmodifiableList(new ArrayList<>(requireNonNull(outputs, "outputs is null")));
+        this.outputVariables = unmodifiableList(requireNonNull(outputVariables, "outputVariables is null"));
         this.assignments = unmodifiableMap(new HashMap<>(requireNonNull(assignments, "assignments is null")));
-        checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
+        checkArgument(assignments.keySet().containsAll(outputVariables), "assignments does not cover all of outputs");
         this.currentConstraint = requireNonNull(currentConstraint, "currentConstraint is null");
         this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
         this.temporaryTable = temporaryTable;
@@ -124,8 +122,8 @@ public class TableScanNode
     /**
      * Get the mapping from symbols to columns
      */
-    @JsonProperty("assignments")
-    public Map<Symbol, ColumnHandle> getAssignments()
+    @JsonProperty
+    public Map<VariableReferenceExpression, ColumnHandle> getAssignments()
     {
         return assignments;
     }
@@ -173,10 +171,10 @@ public class TableScanNode
     }
 
     @Override
-    @JsonProperty("outputSymbols")
-    public List<Symbol> getOutputSymbols()
+    @JsonProperty
+    public List<VariableReferenceExpression> getOutputVariables()
     {
-        return outputSymbols;
+        return outputVariables;
     }
 
     @Override
@@ -191,7 +189,7 @@ public class TableScanNode
         StringBuilder stringBuilder = new StringBuilder(this.getClass().getSimpleName());
         stringBuilder.append(" {");
         stringBuilder.append("table='").append(table).append('\'');
-        stringBuilder.append(", outputSymbols='").append(outputSymbols).append('\'');
+        stringBuilder.append(", outputVariables='").append(outputVariables).append('\'');
         stringBuilder.append(", assignments='").append(assignments).append('\'');
         stringBuilder.append(", currentConstraint='").append(currentConstraint).append('\'');
         stringBuilder.append(", enforcedConstraint='").append(enforcedConstraint).append('\'');

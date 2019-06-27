@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 
 public abstract class InternalPlanVisitor<R, C>
@@ -59,11 +60,6 @@ public abstract class InternalPlanVisitor<R, C>
     }
 
     public R visitExplainAnalyze(ExplainAnalyzeNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
-    public R visitValues(ValuesNode node, C context)
     {
         return visitPlan(node, context);
     }

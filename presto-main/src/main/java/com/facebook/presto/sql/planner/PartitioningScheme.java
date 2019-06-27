@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -30,12 +31,12 @@ import static java.util.Objects.requireNonNull;
 public class PartitioningScheme
 {
     private final Partitioning partitioning;
-    private final List<Symbol> outputLayout;
-    private final Optional<Symbol> hashColumn;
+    private final List<VariableReferenceExpression> outputLayout;
+    private final Optional<VariableReferenceExpression> hashColumn;
     private final boolean replicateNullsAndAny;
     private final Optional<int[]> bucketToPartition;
 
-    public PartitioningScheme(Partitioning partitioning, List<Symbol> outputLayout)
+    public PartitioningScheme(Partitioning partitioning, List<VariableReferenceExpression> outputLayout)
     {
         this(
                 partitioning,
@@ -45,7 +46,7 @@ public class PartitioningScheme
                 Optional.empty());
     }
 
-    public PartitioningScheme(Partitioning partitioning, List<Symbol> outputLayout, Optional<Symbol> hashColumn)
+    public PartitioningScheme(Partitioning partitioning, List<VariableReferenceExpression> outputLayout, Optional<VariableReferenceExpression> hashColumn)
     {
         this(
                 partitioning,
@@ -58,15 +59,15 @@ public class PartitioningScheme
     @JsonCreator
     public PartitioningScheme(
             @JsonProperty("partitioning") Partitioning partitioning,
-            @JsonProperty("outputLayout") List<Symbol> outputLayout,
-            @JsonProperty("hashColumn") Optional<Symbol> hashColumn,
+            @JsonProperty("outputLayout") List<VariableReferenceExpression> outputLayout,
+            @JsonProperty("hashColumn") Optional<VariableReferenceExpression> hashColumn,
             @JsonProperty("replicateNullsAndAny") boolean replicateNullsAndAny,
             @JsonProperty("bucketToPartition") Optional<int[]> bucketToPartition)
     {
         this.partitioning = requireNonNull(partitioning, "partitioning is null");
         this.outputLayout = ImmutableList.copyOf(requireNonNull(outputLayout, "outputLayout is null"));
 
-        Set<Symbol> columns = partitioning.getColumns();
+        Set<VariableReferenceExpression> columns = partitioning.getVariableReferences();
         checkArgument(ImmutableSet.copyOf(outputLayout).containsAll(columns),
                 "Output layout (%s) don't include all partition columns (%s)", outputLayout, columns);
 
@@ -86,13 +87,13 @@ public class PartitioningScheme
     }
 
     @JsonProperty
-    public List<Symbol> getOutputLayout()
+    public List<VariableReferenceExpression> getOutputLayout()
     {
         return outputLayout;
     }
 
     @JsonProperty
-    public Optional<Symbol> getHashColumn()
+    public Optional<VariableReferenceExpression> getHashColumn()
     {
         return hashColumn;
     }
@@ -114,15 +115,15 @@ public class PartitioningScheme
         return new PartitioningScheme(partitioning, outputLayout, hashColumn, replicateNullsAndAny, bucketToPartition);
     }
 
-    public PartitioningScheme translateOutputLayout(List<Symbol> newOutputLayout)
+    public PartitioningScheme translateOutputLayout(List<VariableReferenceExpression> newOutputLayout)
     {
         requireNonNull(newOutputLayout, "newOutputLayout is null");
 
         checkArgument(newOutputLayout.size() == outputLayout.size());
 
-        Partitioning newPartitioning = partitioning.translate(symbol -> newOutputLayout.get(outputLayout.indexOf(symbol)));
+        Partitioning newPartitioning = partitioning.translate(variable -> newOutputLayout.get(outputLayout.indexOf(variable)));
 
-        Optional<Symbol> newHashSymbol = hashColumn
+        Optional<VariableReferenceExpression> newHashSymbol = hashColumn
                 .map(outputLayout::indexOf)
                 .map(newOutputLayout::get);
 

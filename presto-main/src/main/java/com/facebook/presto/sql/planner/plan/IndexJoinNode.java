@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -35,8 +36,8 @@ public class IndexJoinNode
     private final PlanNode probeSource;
     private final PlanNode indexSource;
     private final List<EquiJoinClause> criteria;
-    private final Optional<Symbol> probeHashSymbol;
-    private final Optional<Symbol> indexHashSymbol;
+    private final Optional<VariableReferenceExpression> probeHashVariable;
+    private final Optional<VariableReferenceExpression> indexHashVariable;
 
     @JsonCreator
     public IndexJoinNode(
@@ -45,16 +46,16 @@ public class IndexJoinNode
             @JsonProperty("probeSource") PlanNode probeSource,
             @JsonProperty("indexSource") PlanNode indexSource,
             @JsonProperty("criteria") List<EquiJoinClause> criteria,
-            @JsonProperty("probeHashSymbol") Optional<Symbol> probeHashSymbol,
-            @JsonProperty("indexHashSymbol") Optional<Symbol> indexHashSymbol)
+            @JsonProperty("probeHashVariable") Optional<VariableReferenceExpression> probeHashVariable,
+            @JsonProperty("indexHashVariable") Optional<VariableReferenceExpression> indexHashVariable)
     {
         super(id);
         this.type = requireNonNull(type, "type is null");
         this.probeSource = requireNonNull(probeSource, "probeSource is null");
         this.indexSource = requireNonNull(indexSource, "indexSource is null");
         this.criteria = ImmutableList.copyOf(requireNonNull(criteria, "criteria is null"));
-        this.probeHashSymbol = requireNonNull(probeHashSymbol, "probeHashSymbol is null");
-        this.indexHashSymbol = requireNonNull(indexHashSymbol, "indexHashSymbol is null");
+        this.probeHashVariable = requireNonNull(probeHashVariable, "probeHashVariable is null");
+        this.indexHashVariable = requireNonNull(indexHashVariable, "indexHashVariable is null");
     }
 
     public enum Type
@@ -75,40 +76,40 @@ public class IndexJoinNode
         }
     }
 
-    @JsonProperty("type")
+    @JsonProperty
     public Type getType()
     {
         return type;
     }
 
-    @JsonProperty("probeSource")
+    @JsonProperty
     public PlanNode getProbeSource()
     {
         return probeSource;
     }
 
-    @JsonProperty("indexSource")
+    @JsonProperty
     public PlanNode getIndexSource()
     {
         return indexSource;
     }
 
-    @JsonProperty("criteria")
+    @JsonProperty
     public List<EquiJoinClause> getCriteria()
     {
         return criteria;
     }
 
-    @JsonProperty("probeHashSymbol")
-    public Optional<Symbol> getProbeHashSymbol()
+    @JsonProperty
+    public Optional<VariableReferenceExpression> getProbeHashVariable()
     {
-        return probeHashSymbol;
+        return probeHashVariable;
     }
 
-    @JsonProperty("indexHashSymbol")
-    public Optional<Symbol> getIndexHashSymbol()
+    @JsonProperty
+    public Optional<VariableReferenceExpression> getIndexHashVariable()
     {
-        return indexHashSymbol;
+        return indexHashVariable;
     }
 
     @Override
@@ -118,11 +119,11 @@ public class IndexJoinNode
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<VariableReferenceExpression> getOutputVariables()
     {
-        return ImmutableList.<Symbol>builder()
-                .addAll(probeSource.getOutputSymbols())
-                .addAll(indexSource.getOutputSymbols())
+        return ImmutableList.<VariableReferenceExpression>builder()
+                .addAll(probeSource.getOutputVariables())
+                .addAll(indexSource.getOutputVariables())
                 .build();
     }
 
@@ -136,29 +137,29 @@ public class IndexJoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new IndexJoinNode(getId(), type, newChildren.get(0), newChildren.get(1), criteria, probeHashSymbol, indexHashSymbol);
+        return new IndexJoinNode(getId(), type, newChildren.get(0), newChildren.get(1), criteria, probeHashVariable, indexHashVariable);
     }
 
     public static class EquiJoinClause
     {
-        private final Symbol probe;
-        private final Symbol index;
+        private final VariableReferenceExpression probe;
+        private final VariableReferenceExpression index;
 
         @JsonCreator
-        public EquiJoinClause(@JsonProperty("probe") Symbol probe, @JsonProperty("index") Symbol index)
+        public EquiJoinClause(@JsonProperty("probe") VariableReferenceExpression probe, @JsonProperty("index") VariableReferenceExpression index)
         {
             this.probe = requireNonNull(probe, "probe is null");
             this.index = requireNonNull(index, "index is null");
         }
 
         @JsonProperty("probe")
-        public Symbol getProbe()
+        public VariableReferenceExpression getProbe()
         {
             return probe;
         }
 
         @JsonProperty("index")
-        public Symbol getIndex()
+        public VariableReferenceExpression getIndex()
         {
             return index;
         }

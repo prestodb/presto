@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.index;
 
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.metadata.Split;
@@ -23,6 +22,7 @@ import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;

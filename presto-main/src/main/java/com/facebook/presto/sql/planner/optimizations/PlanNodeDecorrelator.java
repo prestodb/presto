@@ -14,18 +14,20 @@
 
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
-import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.LimitNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -34,7 +36,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 
@@ -45,26 +46,28 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class PlanNodeDecorrelator
 {
     private final PlanNodeIdAllocator idAllocator;
+    private final SymbolAllocator symbolAllocator;
     private final Lookup lookup;
 
-    public PlanNodeDecorrelator(PlanNodeIdAllocator idAllocator, Lookup lookup)
+    public PlanNodeDecorrelator(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Lookup lookup)
     {
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+        this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.lookup = requireNonNull(lookup, "lookup is null");
     }
 
-    public Optional<DecorrelatedNode> decorrelateFilters(PlanNode node, List<Symbol> correlation)
+    public Optional<DecorrelatedNode> decorrelateFilters(PlanNode node, List<VariableReferenceExpression> correlation)
     {
         // TODO: when correlations list empty this should return immediately. However this isn't correct
         // right now, because for nested subqueries correlation list is empty while there might exists usages
@@ -80,15 +83,15 @@ public class PlanNodeDecorrelator
     private class DecorrelatingVisitor
             extends InternalPlanVisitor<Optional<DecorrelationResult>, Void>
     {
-        final List<Symbol> correlation;
+        final List<VariableReferenceExpression> correlation;
 
-        DecorrelatingVisitor(List<Symbol> correlation)
+        DecorrelatingVisitor(List<VariableReferenceExpression> correlation)
         {
             this.correlation = requireNonNull(correlation, "correlation is null");
         }
 
         @Override
-        protected Optional<DecorrelationResult> visitPlan(PlanNode node, Void context)
+        public Optional<DecorrelationResult> visitPlan(PlanNode node, Void context)
         {
             return Optional.of(new DecorrelationResult(
                     node,
@@ -129,16 +132,16 @@ public class PlanNodeDecorrelator
                     childDecorrelationResult.node,
                     castToRowExpression(ExpressionUtils.combineConjuncts(uncorrelatedPredicates)));
 
-            Set<Symbol> symbolsToPropagate = Sets.difference(SymbolsExtractor.extractUnique(correlatedPredicates), ImmutableSet.copyOf(correlation));
+            Set<VariableReferenceExpression> variablesToPropagate = Sets.difference(SymbolsExtractor.extractUniqueVariable(correlatedPredicates, symbolAllocator.getTypes()), ImmutableSet.copyOf(correlation));
             return Optional.of(new DecorrelationResult(
                     newFilterNode,
-                    Sets.union(childDecorrelationResult.symbolsToPropagate, symbolsToPropagate),
+                    Sets.union(childDecorrelationResult.variablesToPropagate, variablesToPropagate),
                     ImmutableList.<Expression>builder()
                             .addAll(childDecorrelationResult.correlatedPredicates)
                             .addAll(correlatedPredicates)
                             .build(),
-                    ImmutableMultimap.<Symbol, Symbol>builder()
-                            .putAll(childDecorrelationResult.correlatedSymbolsMapping)
+                    ImmutableMultimap.<VariableReferenceExpression, VariableReferenceExpression>builder()
+                            .putAll(childDecorrelationResult.correlatedVariablesMapping)
                             .putAll(extractCorrelatedSymbolsMapping(correlatedPredicates))
                             .build(),
                     childDecorrelationResult.atMostSingleRow));
@@ -161,10 +164,11 @@ public class PlanNodeDecorrelator
                 return Optional.empty();
             }
 
-            Set<Symbol> constantSymbols = childDecorrelationResult.getConstantSymbols();
+            Set<VariableReferenceExpression> constantVariables = childDecorrelationResult.getConstantVariables();
             PlanNode decorrelatedChildNode = childDecorrelationResult.node;
 
-            if (constantSymbols.isEmpty() || !constantSymbols.containsAll(decorrelatedChildNode.getOutputSymbols())) {
+            if (constantVariables.isEmpty() ||
+                    !constantVariables.containsAll(decorrelatedChildNode.getOutputVariables())) {
                 return Optional.empty();
             }
 
@@ -173,7 +177,7 @@ public class PlanNodeDecorrelator
                     idAllocator.getNextId(),
                     decorrelatedChildNode,
                     ImmutableMap.of(),
-                    singleGroupingSet(decorrelatedChildNode.getOutputSymbols()),
+                    singleGroupingSet(decorrelatedChildNode.getOutputVariables()),
                     ImmutableList.of(),
                     AggregationNode.Step.SINGLE,
                     Optional.empty(),
@@ -181,9 +185,9 @@ public class PlanNodeDecorrelator
 
             return Optional.of(new DecorrelationResult(
                     aggregationNode,
-                    childDecorrelationResult.symbolsToPropagate,
+                    childDecorrelationResult.variablesToPropagate,
                     childDecorrelationResult.correlatedPredicates,
-                    childDecorrelationResult.correlatedSymbolsMapping,
+                    childDecorrelationResult.correlatedVariablesMapping,
                     true));
         }
 
@@ -207,17 +211,17 @@ public class PlanNodeDecorrelator
             }
 
             DecorrelationResult childDecorrelationResult = childDecorrelationResultOptional.get();
-            Set<Symbol> constantSymbols = childDecorrelationResult.getConstantSymbols();
+            Set<VariableReferenceExpression> constantVariables = childDecorrelationResult.getConstantVariables();
 
             AggregationNode decorrelatedAggregation = childDecorrelationResult.getCorrelatedSymbolMapper()
                     .map(node, childDecorrelationResult.node);
 
-            Set<Symbol> groupingKeys = ImmutableSet.copyOf(node.getGroupingKeys());
-            List<Symbol> symbolsToAdd = childDecorrelationResult.symbolsToPropagate.stream()
-                    .filter(symbol -> !groupingKeys.contains(symbol))
+            Set<VariableReferenceExpression> groupingKeys = ImmutableSet.copyOf(node.getGroupingKeys());
+            List<VariableReferenceExpression> variablesToAdd = childDecorrelationResult.variablesToPropagate.stream()
+                    .filter(variable -> !groupingKeys.contains(variable))
                     .collect(toImmutableList());
 
-            if (!constantSymbols.containsAll(symbolsToAdd)) {
+            if (!constantVariables.containsAll(variablesToAdd)) {
                 return Optional.empty();
             }
 
@@ -225,23 +229,23 @@ public class PlanNodeDecorrelator
                     decorrelatedAggregation.getId(),
                     decorrelatedAggregation.getSource(),
                     decorrelatedAggregation.getAggregations(),
-                    AggregationNode.singleGroupingSet(ImmutableList.<Symbol>builder()
+                    AggregationNode.singleGroupingSet(ImmutableList.<VariableReferenceExpression>builder()
                             .addAll(node.getGroupingKeys())
-                            .addAll(symbolsToAdd)
+                            .addAll(variablesToAdd)
                             .build()),
                     ImmutableList.of(),
                     decorrelatedAggregation.getStep(),
-                    decorrelatedAggregation.getHashSymbol(),
-                    decorrelatedAggregation.getGroupIdSymbol());
+                    decorrelatedAggregation.getHashVariable(),
+                    decorrelatedAggregation.getGroupIdVariable());
 
             boolean atMostSingleRow = newAggregation.getGroupingSetCount() == 1
-                    && constantSymbols.containsAll(newAggregation.getGroupingKeys());
+                    && constantVariables.containsAll(newAggregation.getGroupingKeys());
 
             return Optional.of(new DecorrelationResult(
                     newAggregation,
-                    childDecorrelationResult.symbolsToPropagate,
+                    childDecorrelationResult.variablesToPropagate,
                     childDecorrelationResult.correlatedPredicates,
-                    childDecorrelationResult.correlatedSymbolsMapping,
+                    childDecorrelationResult.correlatedVariablesMapping,
                     atMostSingleRow));
         }
 
@@ -254,28 +258,28 @@ public class PlanNodeDecorrelator
             }
 
             DecorrelationResult childDecorrelationResult = childDecorrelationResultOptional.get();
-            Set<Symbol> nodeOutputSymbols = ImmutableSet.copyOf(node.getOutputSymbols());
-            List<Symbol> symbolsToAdd = childDecorrelationResult.symbolsToPropagate.stream()
-                    .filter(symbol -> !nodeOutputSymbols.contains(symbol))
+            Set<VariableReferenceExpression> nodeOutputVariables = ImmutableSet.copyOf(node.getOutputVariables());
+            List<VariableReferenceExpression> variablesToAdd = childDecorrelationResult.variablesToPropagate.stream()
+                    .filter(variable -> !nodeOutputVariables.contains(variable))
                     .collect(toImmutableList());
 
             Assignments assignments = Assignments.builder()
                     .putAll(node.getAssignments())
-                    .putIdentities(symbolsToAdd)
+                    .putAll(identitiesAsSymbolReferences(variablesToAdd))
                     .build();
 
             return Optional.of(new DecorrelationResult(
                     new ProjectNode(idAllocator.getNextId(), childDecorrelationResult.node, assignments),
-                    childDecorrelationResult.symbolsToPropagate,
+                    childDecorrelationResult.variablesToPropagate,
                     childDecorrelationResult.correlatedPredicates,
-                    childDecorrelationResult.correlatedSymbolsMapping,
+                    childDecorrelationResult.correlatedVariablesMapping,
                     childDecorrelationResult.atMostSingleRow));
         }
 
-        private Multimap<Symbol, Symbol> extractCorrelatedSymbolsMapping(List<Expression> correlatedConjuncts)
+        private Multimap<VariableReferenceExpression, VariableReferenceExpression> extractCorrelatedSymbolsMapping(List<Expression> correlatedConjuncts)
         {
             // TODO: handle coercions and non-direct column references
-            ImmutableMultimap.Builder<Symbol, Symbol> mapping = ImmutableMultimap.builder();
+            ImmutableMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> mapping = ImmutableMultimap.builder();
             for (Expression conjunct : correlatedConjuncts) {
                 if (!(conjunct instanceof ComparisonExpression)) {
                     continue;
@@ -288,8 +292,8 @@ public class PlanNodeDecorrelator
                     continue;
                 }
 
-                Symbol left = Symbol.from(comparison.getLeft());
-                Symbol right = Symbol.from(comparison.getRight());
+                VariableReferenceExpression left = symbolAllocator.toVariableReference(Symbol.from(comparison.getLeft()));
+                VariableReferenceExpression right = symbolAllocator.toVariableReference(Symbol.from(comparison.getRight()));
 
                 if (correlation.contains(left) && !correlation.contains(right)) {
                     mapping.put(left, right);
@@ -305,50 +309,56 @@ public class PlanNodeDecorrelator
 
         private boolean isCorrelated(Expression expression)
         {
-            return correlation.stream().anyMatch(SymbolsExtractor.extractUnique(expression)::contains);
+            return correlation.stream().anyMatch(SymbolsExtractor.extractUniqueVariable(expression, symbolAllocator.getTypes())::contains);
         }
     }
 
     private static class DecorrelationResult
     {
         final PlanNode node;
-        final Set<Symbol> symbolsToPropagate;
+        final Set<VariableReferenceExpression> variablesToPropagate;
         final List<Expression> correlatedPredicates;
 
         // mapping from correlated symbols to their uncorrelated equivalence
-        final Multimap<Symbol, Symbol> correlatedSymbolsMapping;
+        final Multimap<VariableReferenceExpression, VariableReferenceExpression> correlatedVariablesMapping;
         // If a subquery has at most single row for any correlation values?
         final boolean atMostSingleRow;
 
-        DecorrelationResult(PlanNode node, Set<Symbol> symbolsToPropagate, List<Expression> correlatedPredicates, Multimap<Symbol, Symbol> correlatedSymbolsMapping, boolean atMostSingleRow)
+        DecorrelationResult(
+                PlanNode node,
+                Set<VariableReferenceExpression> variablesToPropagate,
+                List<Expression> correlatedPredicates,
+                Multimap<VariableReferenceExpression, VariableReferenceExpression> correlatedVariablesMapping,
+                boolean atMostSingleRow)
         {
             this.node = node;
-            this.symbolsToPropagate = symbolsToPropagate;
+            this.variablesToPropagate = variablesToPropagate;
             this.correlatedPredicates = correlatedPredicates;
             this.atMostSingleRow = atMostSingleRow;
-            this.correlatedSymbolsMapping = correlatedSymbolsMapping;
-            checkState(symbolsToPropagate.containsAll(correlatedSymbolsMapping.values()), "Expected symbols to propagate to contain all constant symbols");
+            this.correlatedVariablesMapping = correlatedVariablesMapping;
+            checkState(variablesToPropagate.containsAll(correlatedVariablesMapping.values()), "Expected symbols to propagate to contain all constant symbols");
         }
 
         SymbolMapper getCorrelatedSymbolMapper()
         {
-            return new SymbolMapper(correlatedSymbolsMapping.asMap().entrySet().stream()
-                    .collect(toImmutableMap(Map.Entry::getKey, symbols -> Iterables.getLast(symbols.getValue()))));
+            SymbolMapper.Builder builder = SymbolMapper.builder();
+            correlatedVariablesMapping.forEach(builder::put);
+            return builder.build();
         }
 
         /**
          * @return constant symbols from a perspective of a subquery
          */
-        Set<Symbol> getConstantSymbols()
+        Set<VariableReferenceExpression> getConstantVariables()
         {
-            return ImmutableSet.copyOf(correlatedSymbolsMapping.values());
+            return ImmutableSet.copyOf(correlatedVariablesMapping.values());
         }
     }
 
     private Optional<DecorrelatedNode> decorrelatedNode(
             List<Expression> correlatedPredicates,
             PlanNode node,
-            List<Symbol> correlation)
+            List<VariableReferenceExpression> correlation)
     {
         if (containsCorrelation(node, correlation)) {
             // node is still correlated ; /
@@ -357,9 +367,9 @@ public class PlanNodeDecorrelator
         return Optional.of(new DecorrelatedNode(correlatedPredicates, node));
     }
 
-    private boolean containsCorrelation(PlanNode node, List<Symbol> correlation)
+    private boolean containsCorrelation(PlanNode node, List<VariableReferenceExpression> correlation)
     {
-        return Sets.union(SymbolsExtractor.extractUnique(node, lookup), SymbolsExtractor.extractOutputSymbols(node, lookup)).stream().anyMatch(correlation::contains);
+        return Sets.union(SymbolsExtractor.extractUniqueVariable(node, lookup, symbolAllocator.getTypes()), SymbolsExtractor.extractOutputVariables(node, lookup, symbolAllocator.getTypes())).stream().anyMatch(correlation::contains);
     }
 
     public static class DecorrelatedNode

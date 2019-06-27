@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;

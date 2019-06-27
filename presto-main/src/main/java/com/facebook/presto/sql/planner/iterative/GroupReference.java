@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.planner.iterative;
 
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.InternalPlanNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -26,9 +26,9 @@ public class GroupReference
         extends InternalPlanNode
 {
     private final int groupId;
-    private final List<Symbol> outputs;
+    private final List<VariableReferenceExpression> outputs;
 
-    public GroupReference(PlanNodeId id, int groupId, List<Symbol> outputs)
+    public GroupReference(PlanNodeId id, int groupId, List<VariableReferenceExpression> outputs)
     {
         super(id);
         this.groupId = groupId;
@@ -53,7 +53,7 @@ public class GroupReference
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<VariableReferenceExpression> getOutputVariables()
     {
         return outputs;
     }

@@ -47,7 +47,7 @@ public class TestExtractSpatialInnerJoin
                         p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText('POLYGON ...'), b)"),
                                 p.join(INNER,
                                         p.values(),
-                                        p.values(p.symbol("b")))))
+                                        p.values(p.variable("b")))))
                 .doesNotFire();
 
         // OR operand
@@ -55,8 +55,8 @@ public class TestExtractSpatialInnerJoin
                 .on(p ->
                         p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), point) OR name_1 != name_2"),
                                 p.join(INNER,
-                                        p.values(p.symbol("wkt", VARCHAR), p.symbol("name_1")),
-                                        p.values(p.symbol("point", GEOMETRY), p.symbol("name_2")))))
+                                        p.values(p.variable("wkt", VARCHAR), p.variable("name_1")),
+                                        p.values(p.variable("point", GEOMETRY), p.variable("name_2")))))
                 .doesNotFire();
 
         // NOT operator
@@ -64,8 +64,8 @@ public class TestExtractSpatialInnerJoin
                 .on(p ->
                         p.filter(PlanBuilder.expression("NOT ST_Contains(ST_GeometryFromText(wkt), point)"),
                                 p.join(INNER,
-                                        p.values(p.symbol("wkt", VARCHAR), p.symbol("name_1")),
-                                        p.values(p.symbol("point", GEOMETRY), p.symbol("name_2")))))
+                                        p.values(p.variable("wkt", VARCHAR), p.variable("name_1")),
+                                        p.values(p.variable("point", GEOMETRY), p.variable("name_2")))))
                 .doesNotFire();
 
         // ST_Distance(...) > r
@@ -73,8 +73,8 @@ public class TestExtractSpatialInnerJoin
                 .on(p ->
                         p.filter(PlanBuilder.expression("ST_Distance(a, b) > 5"),
                                 p.join(INNER,
-                                        p.values(p.symbol("a", GEOMETRY)),
-                                        p.values(p.symbol("b", GEOMETRY)))))
+                                        p.values(p.variable("a", GEOMETRY)),
+                                        p.values(p.variable("b", GEOMETRY)))))
                 .doesNotFire();
 
         // SphericalGeography operand
@@ -82,16 +82,16 @@ public class TestExtractSpatialInnerJoin
                 .on(p ->
                         p.filter(PlanBuilder.expression("ST_Distance(a, b) < 5"),
                                 p.join(INNER,
-                                        p.values(p.symbol("a", SPHERICAL_GEOGRAPHY)),
-                                        p.values(p.symbol("b", SPHERICAL_GEOGRAPHY)))))
+                                        p.values(p.variable("a", SPHERICAL_GEOGRAPHY)),
+                                        p.values(p.variable("b", SPHERICAL_GEOGRAPHY)))))
                 .doesNotFire();
 
         assertRuleApplication()
                 .on(p ->
                         p.filter(PlanBuilder.expression("ST_Contains(polygon, point)"),
                                 p.join(INNER,
-                                        p.values(p.symbol("polygon", SPHERICAL_GEOGRAPHY)),
-                                        p.values(p.symbol("point", SPHERICAL_GEOGRAPHY)))))
+                                        p.values(p.variable("polygon", SPHERICAL_GEOGRAPHY)),
+                                        p.values(p.variable("point", SPHERICAL_GEOGRAPHY)))))
                 .doesNotFire();
 
         // to_spherical_geography() operand
@@ -99,16 +99,16 @@ public class TestExtractSpatialInnerJoin
                 .on(p ->
                         p.filter(PlanBuilder.expression("ST_Distance(to_spherical_geography(ST_GeometryFromText(wkt)), point) < 5"),
                                 p.join(INNER,
-                                        p.values(p.symbol("wkt", VARCHAR)),
-                                        p.values(p.symbol("point", SPHERICAL_GEOGRAPHY)))))
+                                        p.values(p.variable("wkt", VARCHAR)),
+                                        p.values(p.variable("point", SPHERICAL_GEOGRAPHY)))))
                 .doesNotFire();
 
         assertRuleApplication()
                 .on(p ->
                         p.filter(PlanBuilder.expression("ST_Contains(to_spherical_geography(ST_GeometryFromText(wkt)), point)"),
                                 p.join(INNER,
-                                        p.values(p.symbol("wkt", VARCHAR)),
-                                        p.values(p.symbol("point", SPHERICAL_GEOGRAPHY)))))
+                                        p.values(p.variable("wkt", VARCHAR)),
+                                        p.values(p.variable("point", SPHERICAL_GEOGRAPHY)))))
                 .doesNotFire();
     }
 
@@ -187,8 +187,8 @@ public class TestExtractSpatialInnerJoin
                 .on(p ->
                         p.filter(PlanBuilder.expression(filter),
                                 p.join(INNER,
-                                        p.values(p.symbol("a", GEOMETRY), p.symbol("name_a")),
-                                        p.values(p.symbol("b", GEOMETRY), p.symbol("name_b"), p.symbol("r")))))
+                                        p.values(p.variable("a", GEOMETRY), p.variable("name_a")),
+                                        p.values(p.variable("b", GEOMETRY), p.variable("name_b"), p.variable("r")))))
                 .matches(
                         spatialJoin(newFilter,
                                 values(ImmutableMap.of("a", 0, "name_a", 1)),
@@ -201,8 +201,8 @@ public class TestExtractSpatialInnerJoin
                 .on(p ->
                         p.filter(PlanBuilder.expression(filter),
                                 p.join(INNER,
-                                        p.values(p.symbol("a", GEOMETRY), p.symbol("name_a")),
-                                        p.values(p.symbol("b", GEOMETRY), p.symbol("name_b"), p.symbol("r")))))
+                                        p.values(p.variable("a", GEOMETRY), p.variable("name_a")),
+                                        p.values(p.variable("b", GEOMETRY), p.variable("name_b"), p.variable("r")))))
                 .matches(
                         spatialJoin(newFilter,
                                 values(ImmutableMap.of("a", 0, "name_a", 1)),
@@ -216,8 +216,8 @@ public class TestExtractSpatialInnerJoin
                 .on(p ->
                         p.filter(PlanBuilder.expression(filter),
                                 p.join(INNER,
-                                        p.values(p.symbol("lat_a"), p.symbol("lng_a"), p.symbol("name_a")),
-                                        p.values(p.symbol("lat_b"), p.symbol("lng_b"), p.symbol("name_b")))))
+                                        p.values(p.variable("lat_a"), p.variable("lng_a"), p.variable("name_a")),
+                                        p.values(p.variable("lat_b"), p.variable("lng_b"), p.variable("name_b")))))
                 .matches(
                         spatialJoin(newFilter,
                                 project(ImmutableMap.of("point_a", expression("ST_Point(lng_a, lat_a)")),
@@ -232,8 +232,8 @@ public class TestExtractSpatialInnerJoin
                 .on(p ->
                         p.filter(PlanBuilder.expression(filter),
                                 p.join(INNER,
-                                        p.values(p.symbol("lat_a"), p.symbol("lng_a"), p.symbol("name_a")),
-                                        p.values(p.symbol("lat_b"), p.symbol("lng_b"), p.symbol("name_b")))))
+                                        p.values(p.variable("lat_a"), p.variable("lng_a"), p.variable("name_a")),
+                                        p.values(p.variable("lat_b"), p.variable("lng_b"), p.variable("name_b")))))
                 .matches(
                         spatialJoin(newFilter,
                                 project(ImmutableMap.of("point_a", expression("ST_Point(lng_a, lat_a)")),
@@ -251,8 +251,8 @@ public class TestExtractSpatialInnerJoin
                 .on(p ->
                         p.filter(PlanBuilder.expression("ST_Contains(a, b)"),
                                 p.join(INNER,
-                                        p.values(p.symbol("a")),
-                                        p.values(p.symbol("b")))))
+                                        p.values(p.variable("a")),
+                                        p.values(p.variable("b")))))
                 .matches(
                         spatialJoin("ST_Contains(a, b)",
                                 values(ImmutableMap.of("a", 0)),
@@ -263,8 +263,8 @@ public class TestExtractSpatialInnerJoin
                 .on(p ->
                         p.filter(PlanBuilder.expression("name_1 != name_2 AND ST_Contains(a, b)"),
                                 p.join(INNER,
-                                        p.values(p.symbol("a"), p.symbol("name_1")),
-                                        p.values(p.symbol("b"), p.symbol("name_2")))))
+                                        p.values(p.variable("a"), p.variable("name_1")),
+                                        p.values(p.variable("b"), p.variable("name_2")))))
                 .matches(
                         spatialJoin("name_1 != name_2 AND ST_Contains(a, b)",
                                 values(ImmutableMap.of("a", 0, "name_1", 1)),
@@ -275,8 +275,8 @@ public class TestExtractSpatialInnerJoin
                 .on(p ->
                         p.filter(PlanBuilder.expression("ST_Contains(a1, b1) AND ST_Contains(a2, b2)"),
                                 p.join(INNER,
-                                        p.values(p.symbol("a1"), p.symbol("a2")),
-                                        p.values(p.symbol("b1"), p.symbol("b2")))))
+                                        p.values(p.variable("a1"), p.variable("a2")),
+                                        p.values(p.variable("b1"), p.variable("b2")))))
                 .matches(
                         spatialJoin("ST_Contains(a1, b1) AND ST_Contains(a2, b2)",
                                 values(ImmutableMap.of("a1", 0, "a2", 1)),
@@ -290,8 +290,8 @@ public class TestExtractSpatialInnerJoin
                 .on(p ->
                         p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), point)"),
                                 p.join(INNER,
-                                        p.values(p.symbol("wkt", VARCHAR)),
-                                        p.values(p.symbol("point", GEOMETRY)))))
+                                        p.values(p.variable("wkt", VARCHAR)),
+                                        p.values(p.variable("point", GEOMETRY)))))
                 .matches(
                         spatialJoin("ST_Contains(st_geometryfromtext, point)",
                                 project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(wkt)")), values(ImmutableMap.of("wkt", 0))),
@@ -301,7 +301,7 @@ public class TestExtractSpatialInnerJoin
                 .on(p ->
                         p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(0, 0))"),
                                 p.join(INNER,
-                                        p.values(p.symbol("wkt", VARCHAR)),
+                                        p.values(p.variable("wkt", VARCHAR)),
                                         p.values())))
                 .doesNotFire();
     }
@@ -313,8 +313,8 @@ public class TestExtractSpatialInnerJoin
                 .on(p ->
                         p.filter(PlanBuilder.expression("ST_Contains(polygon, ST_Point(lng, lat))"),
                                 p.join(INNER,
-                                        p.values(p.symbol("polygon", GEOMETRY)),
-                                        p.values(p.symbol("lat"), p.symbol("lng")))))
+                                        p.values(p.variable("polygon", GEOMETRY)),
+                                        p.values(p.variable("lat"), p.variable("lng")))))
                 .matches(
                         spatialJoin("ST_Contains(polygon, st_point)",
                                 values(ImmutableMap.of("polygon", 0)),
@@ -325,7 +325,7 @@ public class TestExtractSpatialInnerJoin
                         p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText('POLYGON ...'), ST_Point(lng, lat))"),
                                 p.join(INNER,
                                         p.values(),
-                                        p.values(p.symbol("lat"), p.symbol("lng")))))
+                                        p.values(p.variable("lat"), p.variable("lng")))))
                 .doesNotFire();
     }
 
@@ -336,8 +336,8 @@ public class TestExtractSpatialInnerJoin
                 .on(p ->
                         p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))"),
                                 p.join(INNER,
-                                        p.values(p.symbol("wkt", VARCHAR)),
-                                        p.values(p.symbol("lat"), p.symbol("lng")))))
+                                        p.values(p.variable("wkt", VARCHAR)),
+                                        p.values(p.variable("lat"), p.variable("lng")))))
                 .matches(
                         spatialJoin("ST_Contains(st_geometryfromtext, st_point)",
                                 project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(wkt)")), values(ImmutableMap.of("wkt", 0))),
@@ -351,8 +351,8 @@ public class TestExtractSpatialInnerJoin
                 .on(p ->
                         p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))"),
                                 p.join(INNER,
-                                        p.values(p.symbol("lat"), p.symbol("lng")),
-                                        p.values(p.symbol("wkt", VARCHAR)))))
+                                        p.values(p.variable("lat"), p.variable("lng")),
+                                        p.values(p.variable("wkt", VARCHAR)))))
                 .matches(
                         spatialJoin("ST_Contains(st_geometryfromtext, st_point)",
                                 project(ImmutableMap.of("st_point", expression("ST_Point(lng, lat)")), values(ImmutableMap.of("lat", 0, "lng", 1))),
@@ -366,8 +366,8 @@ public class TestExtractSpatialInnerJoin
                 .on(p ->
                         p.filter(PlanBuilder.expression("name_1 != name_2 AND ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))"),
                                 p.join(INNER,
-                                        p.values(p.symbol("wkt", VARCHAR), p.symbol("name_1")),
-                                        p.values(p.symbol("lat"), p.symbol("lng"), p.symbol("name_2")))))
+                                        p.values(p.variable("wkt", VARCHAR), p.variable("name_1")),
+                                        p.values(p.variable("lat"), p.variable("lng"), p.variable("name_2")))))
                 .matches(
                         spatialJoin("name_1 != name_2 AND ST_Contains(st_geometryfromtext, st_point)",
                                 project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(wkt)")), values(ImmutableMap.of("wkt", 0, "name_1", 1))),
@@ -378,8 +378,8 @@ public class TestExtractSpatialInnerJoin
                 .on(p ->
                         p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt1), geometry1) AND ST_Contains(ST_GeometryFromText(wkt2), geometry2)"),
                                 p.join(INNER,
-                                        p.values(p.symbol("wkt1", VARCHAR), p.symbol("wkt2", VARCHAR)),
-                                        p.values(p.symbol("geometry1"), p.symbol("geometry2")))))
+                                        p.values(p.variable("wkt1", VARCHAR), p.variable("wkt2", VARCHAR)),
+                                        p.values(p.variable("geometry1"), p.variable("geometry2")))))
                 .matches(
                         spatialJoin("ST_Contains(st_geometryfromtext, geometry1) AND ST_Contains(ST_GeometryFromText(wkt2), geometry2)",
                                 project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(wkt1)")), values(ImmutableMap.of("wkt1", 0, "wkt2", 1))),
