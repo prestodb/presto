@@ -86,6 +86,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxStageCount;
+import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isDynamicScheduleForGroupedExecution;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForEligibleTableScansEnabled;
@@ -221,7 +222,7 @@ public class PlanFragmenter
                  *   - Input connectors supports split source rewind
                  *   - Output connectors supports partition commit
                  *   - Bucket node map uses dynamic scheduling
-                 *   - Output table is partitioned
+                 *   - One table writer per task
                  */
                 boolean recoverable = isRecoverableGroupedExecutionEnabled(session) &&
                         parentContainsTableFinish &&
@@ -1047,7 +1048,8 @@ public class PlanFragmenter
         public GroupedExecutionProperties visitTableWriter(TableWriterNode node, Void context)
         {
             GroupedExecutionProperties properties = node.getSource().accept(this, null);
-            boolean recoveryEligible = properties.isRecoveryEligible() && node.getPartitioningScheme().isPresent();
+            // TODO (#13098): Remove partitioning and task writer count check after we have TableWriterMergeOperator
+            boolean recoveryEligible = properties.isRecoveryEligible() && (node.getPartitioningScheme().isPresent() || getTaskWriterCount(session) == 1);
             if (node.getTarget() instanceof CreateHandle) {
                 recoveryEligible &= metadata.getConnectorCapabilities(session, ((CreateHandle) node.getTarget()).getHandle().getConnectorId()).contains(SUPPORTS_PARTITION_COMMIT);
             }
