@@ -41,7 +41,6 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ApplyConnectorOptimization
@@ -122,7 +121,8 @@ public class ApplyConnectorOptimization
                     // the optimizer has allocated a new PlanNode
                     checkState(
                             containsAll(ImmutableSet.copyOf(newNode.getOutputVariables()), node.getOutputVariables()),
-                            format("the connector optimizer from %s returns a node that does not cover all output before optimization", connectorId));
+                            "the connector optimizer from %s returns a node that does not cover all output before optimization",
+                            connectorId);
                     updates.put(node, newNode);
                 }
             }
