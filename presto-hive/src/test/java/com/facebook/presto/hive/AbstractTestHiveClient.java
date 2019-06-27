@@ -35,7 +35,7 @@ import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.HiveCluster;
 import com.facebook.presto.hive.metastore.thrift.TestingHiveCluster;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
-import com.facebook.presto.hive.orc.OrcPageSource;
+import com.facebook.presto.hive.orc.OrcBatchPageSource;
 import com.facebook.presto.hive.parquet.ParquetPageSource;
 import com.facebook.presto.hive.rcfile.RcFilePageSource;
 import com.facebook.presto.metadata.MetadataManager;
@@ -4500,7 +4500,7 @@ public abstract class AbstractTestHiveClient
                 return RcFilePageSource.class;
             case ORC:
             case DWRF:
-                return OrcPageSource.class;
+                return OrcBatchPageSource.class;
             case PARQUET:
                 return ParquetPageSource.class;
             default:

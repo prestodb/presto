@@ -148,7 +148,7 @@ public class OrcBatchPageSourceFactory
                 domainCompactionThreshold));
     }
 
-    public static OrcPageSource createOrcPageSource(
+    public static OrcBatchPageSource createOrcPageSource(
             OrcEncoding orcEncoding,
             HdfsEnvironment hdfsEnvironment,
             String sessionUser,
@@ -223,7 +223,7 @@ public class OrcBatchPageSourceFactory
                     systemMemoryUsage,
                     INITIAL_BATCH_SIZE);
 
-            return new OrcPageSource(
+            return new OrcBatchPageSource(
                     recordReader,
                     orcDataSource,
                     physicalColumns,
