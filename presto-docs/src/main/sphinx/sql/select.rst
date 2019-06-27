@@ -804,6 +804,81 @@ The following query will fail with the error ``Column 'name' is ambiguous``::
     FROM nation
     CROSS JOIN region;
 
+
+USING
+^^^^^
+The ``USING`` clause allows you to write shorter queries when both tables you 
+are joining have the same name for the join key.
+
+For example:
+
+.. code-block:: none 
+
+    SELECT *
+    FROM table_1 
+    JOIN table_2
+    ON table_1.key_A = table_2.key_A AND table_1.key_B = table_2.key_B
+
+Can be rewritten to:
+
+.. code-block:: none 
+
+    SELECT *
+    FROM table_1
+    JOIN table_2
+    USING (key_A, key_B)
+
+
+The output of doing ``JOIN`` with ``USING`` will be one copy of the join key 
+columns (key_1 and key_2 in the example above) followed by the remaining columns
+in table_1 and then the remaining columns in table_2. Note that the join keys are not
+included in the list of columns from the origin tables for the purpose of
+referencing them in the query. You cannot access them with a table prefix and 
+if you run ``SELECT table_1.*, table_2.*``, the join columns are not included in the output.
+
+The following two queries are equivalent:
+
+.. code-block:: none 
+
+    SELECT *
+    FROM (
+        VALUES
+            (1, 3, 10),
+            (2, 4, 20)
+    ) AS table_1 (key_A, key_B, y1)
+    LEFT JOIN (
+        VALUES
+            (1, 3, 100),
+            (2, 4, 200)
+    ) AS table_2 (key_A, key_B, y2) 
+    USING (key_A, key_B)
+
+    -----------------------------
+
+    SELECT key_A, key_B, table_1.*, table_2.*
+    FROM (
+        VALUES
+            (1, 3, 10),
+            (2, 4, 20)
+    ) AS table_1 (key_A, key_B, y1)
+    LEFT JOIN (
+        VALUES
+            (1, 3, 100),
+            (2, 4, 200)
+    ) AS table_2 (key_A, key_B, y2) 
+    USING (key_A, key_B)
+
+And produce the output:
+
+.. code-block:: none
+
+     key_A | key_B | y1 | y2  
+    -------+-------+----+-----
+         1 |     3 | 10 | 100 
+         2 |     4 | 20 | 200 
+    (2 rows)
+
+
 Subqueries
 ----------
 
