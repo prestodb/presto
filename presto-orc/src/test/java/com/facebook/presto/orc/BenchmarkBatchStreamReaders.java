@@ -81,7 +81,7 @@ import static org.joda.time.DateTimeZone.UTC;
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkBatchStreamReaders
 {
-    public static final DecimalType DECIMAL_TYPE = createDecimalType(10, 5);
+    public static final DecimalType SHORT_DECIMAL_TYPE = createDecimalType(10, 5);
     public static final int ROWS = 10_000_000;
     public static final List<?> NULL_VALUES = Collections.nCopies(ROWS, null);
 
@@ -121,14 +121,14 @@ public class BenchmarkBatchStreamReaders
     }
 
     @Benchmark
-    public Object readDecimalNoNull(DecimalNoNullBenchmarkData data)
+    public Object readShortDecimalNoNull(ShortDecimalNoNullBenchmarkData data)
             throws Throwable
     {
         return readAllBlocks(data.createRecordReader(), data.getType());
     }
 
     @Benchmark
-    public Object readDecimalWithNull(DecimalWithNullBenchmarkData data)
+    public Object readShortDecimalWithNull(ShortDecimalWithNullBenchmarkData data)
             throws Throwable
     {
         return readAllBlocks(data.createRecordReader(), data.getType());
@@ -396,14 +396,14 @@ public class BenchmarkBatchStreamReaders
 
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
-    public static class DecimalNoNullBenchmarkData
+    public static class ShortDecimalNoNullBenchmarkData
             extends BenchmarkData
     {
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(DECIMAL_TYPE);
+            setup(SHORT_DECIMAL_TYPE);
         }
 
         @Override
@@ -419,14 +419,14 @@ public class BenchmarkBatchStreamReaders
 
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
-    public static class DecimalWithNullBenchmarkData
+    public static class ShortDecimalWithNullBenchmarkData
             extends BenchmarkData
     {
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(DECIMAL_TYPE);
+            setup(SHORT_DECIMAL_TYPE);
         }
 
         @Override
