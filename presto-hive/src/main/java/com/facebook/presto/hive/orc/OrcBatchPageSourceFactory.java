@@ -15,9 +15,9 @@ package com.facebook.presto.hive.orc;
 
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
-import com.facebook.presto.hive.HivePageSourceFactory;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
@@ -76,8 +76,8 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class OrcPageSourceFactory
-        implements HivePageSourceFactory
+public class OrcBatchPageSourceFactory
+        implements HiveBatchPageSourceFactory
 {
     private static final Pattern DEFAULT_HIVE_COLUMN_NAME_PATTERN = Pattern.compile("_col\\d+");
     private final TypeManager typeManager;
@@ -87,12 +87,12 @@ public class OrcPageSourceFactory
     private final int domainCompactionThreshold;
 
     @Inject
-    public OrcPageSourceFactory(TypeManager typeManager, HiveClientConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
+    public OrcBatchPageSourceFactory(TypeManager typeManager, HiveClientConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
     {
         this(typeManager, requireNonNull(config, "hiveClientConfig is null").isUseOrcColumnNames(), hdfsEnvironment, stats, config.getDomainCompactionThreshold());
     }
 
-    public OrcPageSourceFactory(TypeManager typeManager, boolean useOrcColumnNames, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, int domainCompactionThreshold)
+    public OrcBatchPageSourceFactory(TypeManager typeManager, boolean useOrcColumnNames, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, int domainCompactionThreshold)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.useOrcColumnNames = useOrcColumnNames;

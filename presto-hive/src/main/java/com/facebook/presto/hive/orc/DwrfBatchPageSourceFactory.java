@@ -16,9 +16,9 @@ package com.facebook.presto.hive.orc;
 import com.facebook.hive.orc.OrcSerde;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
-import com.facebook.presto.hive.HivePageSourceFactory;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -42,12 +42,12 @@ import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockS
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
 import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
-import static com.facebook.presto.hive.orc.OrcPageSourceFactory.createOrcPageSource;
+import static com.facebook.presto.hive.orc.OrcBatchPageSourceFactory.createOrcPageSource;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static java.util.Objects.requireNonNull;
 
-public class DwrfPageSourceFactory
-        implements HivePageSourceFactory
+public class DwrfBatchPageSourceFactory
+        implements HiveBatchPageSourceFactory
 {
     private final TypeManager typeManager;
     private final HdfsEnvironment hdfsEnvironment;
@@ -55,7 +55,7 @@ public class DwrfPageSourceFactory
     private final int domainCompactionThreshold;
 
     @Inject
-    public DwrfPageSourceFactory(TypeManager typeManager, HiveClientConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
+    public DwrfBatchPageSourceFactory(TypeManager typeManager, HiveClientConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
