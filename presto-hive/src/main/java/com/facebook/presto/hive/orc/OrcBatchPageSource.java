@@ -43,7 +43,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class OrcPageSource
+public class OrcBatchPageSource
         implements ConnectorPageSource
 {
     private static final int NULL_ENTRY_SIZE = 0;
@@ -63,7 +63,7 @@ public class OrcPageSource
 
     private final FileFormatDataSourceStats stats;
 
-    public OrcPageSource(
+    public OrcBatchPageSource(
             OrcBatchRecordReader recordReader,
             OrcDataSource orcDataSource,
             List<HiveColumnHandle> columns,
