@@ -1176,7 +1176,7 @@ public final class DateTimeFunctions
 
         String formatString = format.toStringUtf8();
         boolean escaped = false;
-        for (int i = 0; i < format.length(); i++) {
+        for (int i = 0; i < formatString.length(); i++) {
             char character = formatString.charAt(i);
 
             if (escaped) {
