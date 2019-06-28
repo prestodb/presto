@@ -30,6 +30,8 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.PlanVisitor;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Plan;
@@ -44,7 +46,6 @@ import com.facebook.presto.sql.planner.assertions.SymbolAliases;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -284,7 +285,7 @@ public class TestConnectorOptimization
 
     private static PlanNode optimize(PlanNode plan, Map<ConnectorId, Set<ConnectorPlanOptimizer>> optimizers)
     {
-        ApplyConnectorOptimization optimizer = new ApplyConnectorOptimization(optimizers);
+        ApplyConnectorOptimization optimizer = new ApplyConnectorOptimization(() -> optimizers);
         return optimizer.optimize(plan, TEST_SESSION, TypeProvider.empty(), new SymbolAllocator(), new PlanNodeIdAllocator(), WarningCollector.NOOP);
     }
 
@@ -334,7 +335,9 @@ public class TestConnectorOptimization
                                 handle.getTransaction(),
                                 Optional.of(new TestConnectorTableLayoutHandle(node.getPredicate()))),
                         tableScanNode.getOutputVariables(),
-                        tableScanNode.getAssignments());
+                        tableScanNode.getAssignments(),
+                        TupleDomain.all(),
+                        TupleDomain.all());
             }
             return node;
         }

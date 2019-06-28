@@ -24,6 +24,8 @@ import java.util.NoSuchElementException;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.operator.aggregation.fixedhistogram.FixedHistogramUtils.getIndexForValue;
+import static com.facebook.presto.operator.aggregation.fixedhistogram.FixedHistogramUtils.getLeftValuForIndex;
+import static com.facebook.presto.operator.aggregation.fixedhistogram.FixedHistogramUtils.getRightValuForIndex;
 import static com.facebook.presto.operator.aggregation.fixedhistogram.FixedHistogramUtils.verifyParams;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -254,8 +256,8 @@ public class FixedDoubleBreakdownHistogram
                 }
 
                 final BucketWeight bucket = new BucketWeight(
-                        indices[currentIndex] * (max - min) / bucketCount,
-                        (indices[currentIndex] + 1) * (max - min) / bucketCount,
+                        getLeftValuForIndex(bucketCount, min, max, indices[currentIndex]),
+                        getRightValuForIndex(bucketCount, min, max, indices[currentIndex]),
                         weights[currentIndex],
                         counts[currentIndex]);
                 ++currentIndex;

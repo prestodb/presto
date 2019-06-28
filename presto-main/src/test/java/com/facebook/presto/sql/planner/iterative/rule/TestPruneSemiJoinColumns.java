@@ -17,7 +17,6 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -30,6 +29,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expres
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class TestPruneSemiJoinColumns
@@ -88,7 +88,7 @@ public class TestPruneSemiJoinColumns
         VariableReferenceExpression rightKey = p.variable("rightKey");
         List<VariableReferenceExpression> outputs = ImmutableList.of(match, leftKey, leftKeyHash, leftValue);
         return p.project(
-                Assignments.identity(
+                identityAssignmentsAsSymbolReferences(
                         outputs.stream()
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),

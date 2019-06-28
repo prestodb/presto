@@ -37,7 +37,6 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class LongDictionaryStreamReader
@@ -53,7 +52,6 @@ public class LongDictionaryStreamReader
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream presentStream;
-    private boolean[] nullVector = new boolean[0];
 
     private InputStreamSource<LongInputStream> dictionaryDataStreamSource = missingStreamSource(LongInputStream.class);
     private int dictionarySize;
@@ -62,12 +60,10 @@ public class LongDictionaryStreamReader
     private InputStreamSource<BooleanInputStream> inDictionaryStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream inDictionaryStream;
-    private boolean[] inDictionaryVector = new boolean[0];
 
     private InputStreamSource<LongInputStream> dataStreamSource;
     @Nullable
     private LongInputStream dataStream;
-    private long[] dataVector = new long[0];
 
     private boolean dictionaryOpen;
     private boolean rowGroupOpen;
@@ -248,14 +244,11 @@ public class LongDictionaryStreamReader
     public void close()
     {
         systemMemoryContext.close();
-        nullVector = null;
-        dataVector = null;
-        inDictionaryVector = null;
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + sizeOf(nullVector) + sizeOf(dataVector) + sizeOf(inDictionaryVector);
+        return INSTANCE_SIZE;
     }
 }

@@ -23,6 +23,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.LiteralEncoder;
@@ -30,7 +31,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
@@ -57,9 +57,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
+import static com.facebook.presto.sql.relational.Expressions.variable;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -162,7 +165,7 @@ public class IndexJoinOptimizer
                                 indexJoinNode = new ProjectNode(
                                         idAllocator.getNextId(),
                                         indexJoinNode,
-                                        Assignments.identity(node.getOutputVariables()));
+                                        identityAssignmentsAsSymbolReferences(node.getOutputVariables()));
                             }
 
                             return indexJoinNode;
@@ -172,14 +175,14 @@ public class IndexJoinOptimizer
                     case LEFT:
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (!node.getFilter().isPresent() && rightIndexCandidate.isPresent()) {
-                            return createIndexJoinWithExpectedOutputs(node.getOutputVariables(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinVariables, rightJoinVariables), idAllocator, symbolAllocator);
+                            return createIndexJoinWithExpectedOutputs(node.getOutputVariables(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinVariables, rightJoinVariables), idAllocator);
                         }
                         break;
 
                     case RIGHT:
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (!node.getFilter().isPresent() && leftIndexCandidate.isPresent()) {
-                            return createIndexJoinWithExpectedOutputs(node.getOutputVariables(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinVariables, leftJoinVariables), idAllocator, symbolAllocator);
+                            return createIndexJoinWithExpectedOutputs(node.getOutputVariables(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinVariables, leftJoinVariables), idAllocator);
                         }
                         break;
 
@@ -203,15 +206,14 @@ public class IndexJoinOptimizer
                 PlanNode probe,
                 PlanNode index,
                 List<IndexJoinNode.EquiJoinClause> equiJoinClause,
-                PlanNodeIdAllocator idAllocator,
-                SymbolAllocator symbolAllocator)
+                PlanNodeIdAllocator idAllocator)
         {
             PlanNode result = new IndexJoinNode(idAllocator.getNextId(), type, probe, index, equiJoinClause, Optional.empty(), Optional.empty());
             if (!result.getOutputVariables().equals(expectedOutputs)) {
                 result = new ProjectNode(
                         idAllocator.getNextId(),
                         result,
-                        Assignments.identity(expectedOutputs));
+                        identityAssignmentsAsSymbolReferences(expectedOutputs));
             }
             return result;
         }
@@ -335,9 +337,9 @@ public class IndexJoinOptimizer
             // Rewrite the lookup variables in terms of only the pre-projected variables that have direct translations
             ImmutableSet.Builder<VariableReferenceExpression> newLookupVariablesBuilder = ImmutableSet.builder();
             for (VariableReferenceExpression variable : context.get().getLookupVariables()) {
-                Expression expression = node.getAssignments().get(variable);
-                if (expression instanceof SymbolReference) {
-                    newLookupVariablesBuilder.add(new VariableReferenceExpression(((SymbolReference) expression).getName(), variable.getType()));
+                RowExpression expression = node.getAssignments().get(variable);
+                if (castToExpression(expression) instanceof SymbolReference) {
+                    newLookupVariablesBuilder.add(new VariableReferenceExpression(((SymbolReference) castToExpression(expression)).getName(), variable.getType()));
                 }
             }
             ImmutableSet<VariableReferenceExpression> newLookupVariables = newLookupVariablesBuilder.build();
@@ -496,11 +498,13 @@ public class IndexJoinOptimizer
             @Override
             public Map<VariableReferenceExpression, VariableReferenceExpression> visitProject(ProjectNode node, Set<VariableReferenceExpression> lookupVariables)
             {
-                // Map from output variables to source variables
-                Map<VariableReferenceExpression, Symbol> directSymbolTranslationOutputMap = Maps.transformValues(Maps.filterValues(node.getAssignments().getMap(), SymbolReference.class::isInstance), Symbol::from);
+                // Map from output Variables to source Variables
+                Map<VariableReferenceExpression, VariableReferenceExpression> directVariableTranslationOutputMap = Maps.transformEntries(
+                        Maps.filterValues(node.getAssignments().getMap(), IndexKeyTracer::isVariable),
+                        IndexKeyTracer::extractVariable);
                 Map<VariableReferenceExpression, VariableReferenceExpression> outputToSourceMap = lookupVariables.stream()
-                        .filter(directSymbolTranslationOutputMap.keySet()::contains)
-                        .collect(toImmutableMap(identity(), variable -> new VariableReferenceExpression(directSymbolTranslationOutputMap.get(variable).getName(), variable.getType())));
+                        .filter(directVariableTranslationOutputMap.keySet()::contains)
+                        .collect(toImmutableMap(identity(), variable -> directVariableTranslationOutputMap.get(variable)));
 
                 checkState(!outputToSourceMap.isEmpty(), "No lookup variables were able to pass through the projection");
 
@@ -560,6 +564,26 @@ public class IndexJoinOptimizer
                 checkState(node.getLookupVariables().equals(lookupVariables), "lookupVariables must be the same as IndexSource lookup variables");
                 return lookupVariables.stream().collect(toImmutableMap(identity(), identity()));
             }
+        }
+
+        private static VariableReferenceExpression extractVariable(VariableReferenceExpression key, RowExpression value)
+        {
+            // TODO remove isExpression once all optimization rule is using RowExpression.
+            // Handle both expression and rowExpression because ValidateDependenciesChecker used it.
+            if (value instanceof VariableReferenceExpression) {
+                return (VariableReferenceExpression) value;
+            }
+            return variable(((SymbolReference) castToExpression(value)).getName(), key.getType());
+        }
+
+        private static boolean isVariable(RowExpression expression)
+        {
+            // TODO remove isExpression once all optimization rule is using RowExpression.
+            // Handle both expression and rowExpression because ValidateDependenciesChecker used it.
+            if (isExpression(expression)) {
+                return castToExpression(expression) instanceof SymbolReference;
+            }
+            return expression instanceof VariableReferenceExpression;
         }
     }
 }

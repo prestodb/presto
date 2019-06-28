@@ -41,8 +41,10 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
@@ -66,10 +68,8 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.sanity.PlanSanityChecker;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -560,14 +560,13 @@ public class PlanFragmenter
         private PartitioningVariableAssignments assignPartitioningVariables(Partitioning partitioning)
         {
             ImmutableList.Builder<VariableReferenceExpression> variables = ImmutableList.builder();
-            ImmutableMap.Builder<VariableReferenceExpression, Expression> constants = ImmutableMap.builder();
+            ImmutableMap.Builder<VariableReferenceExpression, RowExpression> constants = ImmutableMap.builder();
             for (ArgumentBinding argumentBinding : partitioning.getArguments()) {
                 VariableReferenceExpression variable;
                 if (argumentBinding.isConstant()) {
                     ConstantExpression constant = argumentBinding.getConstant();
-                    Expression expression = literalEncoder.toExpression(constant.getValue(), constant.getType());
-                    variable = symbolAllocator.newVariable(expression, constant.getType());
-                    constants.put(variable, expression);
+                    variable = symbolAllocator.newVariable("constant_partition", constant.getType());
+                    constants.put(variable, constant);
                 }
                 else {
                     variable = argumentBinding.getVariableReference();
@@ -622,8 +621,7 @@ public class PlanFragmenter
                     outputVariables,
                     assignments,
                     TupleDomain.all(),
-                    TupleDomain.all(),
-                    true);
+                    TupleDomain.all());
         }
 
         private TableFinishNode createTemporaryTableWrite(
@@ -632,7 +630,7 @@ public class PlanFragmenter
                 List<VariableReferenceExpression> outputs,
                 List<List<VariableReferenceExpression>> inputs,
                 List<PlanNode> sources,
-                Map<VariableReferenceExpression, Expression> constantExpressions,
+                Map<VariableReferenceExpression, RowExpression> constantExpressions,
                 PartitioningMetadata partitioningMetadata)
         {
             if (!constantExpressions.isEmpty()) {
@@ -656,7 +654,7 @@ public class PlanFragmenter
                 sources = sources.stream()
                         .map(source -> {
                             Assignments.Builder assignments = Assignments.builder();
-                            assignments.putIdentities(source.getOutputVariables());
+                            source.getOutputVariables().forEach(variable -> assignments.put(variable, new VariableReferenceExpression(variable.getName(), variable.getType())));
                             constantVariables.forEach(variable -> assignments.put(variable, constantExpressions.get(variable)));
                             return new ProjectNode(idAllocator.getNextId(), source, assignments.build());
                         })
@@ -1208,17 +1206,16 @@ public class PlanFragmenter
                     node.getOutputVariables(),
                     node.getAssignments(),
                     node.getCurrentConstraint(),
-                    node.getEnforcedConstraint(),
-                    node.isTemporaryTable());
+                    node.getEnforcedConstraint());
         }
     }
 
     private static class PartitioningVariableAssignments
     {
         private final List<VariableReferenceExpression> variables;
-        private final Map<VariableReferenceExpression, Expression> constants;
+        private final Map<VariableReferenceExpression, RowExpression> constants;
 
-        private PartitioningVariableAssignments(List<VariableReferenceExpression> variables, Map<VariableReferenceExpression, Expression> constants)
+        private PartitioningVariableAssignments(List<VariableReferenceExpression> variables, Map<VariableReferenceExpression, RowExpression> constants)
         {
             this.variables = ImmutableList.copyOf(requireNonNull(variables, "variables is null"));
             this.constants = ImmutableMap.copyOf(requireNonNull(constants, "constants is null"));
@@ -1232,7 +1229,7 @@ public class PlanFragmenter
             return variables;
         }
 
-        public Map<VariableReferenceExpression, Expression> getConstants()
+        public Map<VariableReferenceExpression, RowExpression> getConstants()
         {
             return constants;
         }

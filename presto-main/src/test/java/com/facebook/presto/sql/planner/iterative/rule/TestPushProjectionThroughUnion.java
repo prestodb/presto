@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -28,6 +27,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expres
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.union;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 
 public class TestPushProjectionThroughUnion
         extends BaseRuleTest
@@ -38,7 +38,7 @@ public class TestPushProjectionThroughUnion
         tester().assertThat(new PushProjectionThroughUnion())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.variable("x"), new LongLiteral("3")),
+                                assignment(p.variable("x"), new LongLiteral("3")),
                                 p.values(p.variable("a"))))
                 .doesNotFire();
     }
@@ -52,7 +52,9 @@ public class TestPushProjectionThroughUnion
                     VariableReferenceExpression b = p.variable("b");
                     VariableReferenceExpression c = p.variable("c");
                     return p.project(
-                            Assignments.of(p.variable("c_times_3"), new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, new SymbolReference(c.getName()), new LongLiteral("3"))),
+                            assignment(
+                                    p.variable("c_times_3"),
+                                    new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, new SymbolReference(c.getName()), new LongLiteral("3"))),
                             p.union(
                                     ImmutableListMultimap.<VariableReferenceExpression, VariableReferenceExpression>builder()
                                             .put(c, a)

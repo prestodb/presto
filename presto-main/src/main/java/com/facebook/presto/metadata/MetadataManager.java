@@ -1153,25 +1153,25 @@ public class MetadataManager
     }
 
     @Override
-    public void commitPartition(Session session, OutputTableHandle tableHandle, int partitionId, Collection<Slice> fragments)
+    public void commitPartition(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
 
-        metadata.commitPartition(connectorSession, tableHandle.getConnectorHandle(), partitionId, fragments);
+        metadata.commitPartition(connectorSession, tableHandle.getConnectorHandle(), fragments);
     }
 
     @Override
-    public void commitPartition(Session session, InsertTableHandle tableHandle, int partitionId, Collection<Slice> fragments)
+    public void commitPartition(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
 
-        metadata.commitPartition(connectorSession, tableHandle.getConnectorHandle(), partitionId, fragments);
+        metadata.commitPartition(connectorSession, tableHandle.getConnectorHandle(), fragments);
     }
 
     @Override

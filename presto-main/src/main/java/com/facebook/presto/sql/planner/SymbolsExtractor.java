@@ -130,6 +130,7 @@ public final class SymbolsExtractor
         new SymbolBuilderVisitor().process(expression, builder);
         return builder.build();
     }
+
     public static List<VariableReferenceExpression> extractAllVariable(Expression expression, TypeProvider types)
     {
         ImmutableList.Builder<VariableReferenceExpression> builder = ImmutableList.builder();
@@ -174,6 +175,7 @@ public final class SymbolsExtractor
                 .flatMap(node -> node.getOutputVariables().stream())
                 .collect(toImmutableSet());
     }
+
     /**
      * {@param expression} could be an OriginalExpression
      */

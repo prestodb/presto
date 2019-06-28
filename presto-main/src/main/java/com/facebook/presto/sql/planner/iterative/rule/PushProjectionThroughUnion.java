@@ -17,8 +17,10 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.ExpressionVariableInliner;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -35,10 +37,11 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.sql.planner.ExpressionVariableInliner.inlineVariables;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.union;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 
 public class PushProjectionThroughUnion
         implements Rule<ProjectNode>
@@ -76,11 +79,11 @@ public class PushProjectionThroughUnion
             Map<VariableReferenceExpression, VariableReferenceExpression> projectVariableMapping = new HashMap<>();
 
             // Translate the assignments in the ProjectNode using symbols of the source of the UnionNode
-            for (Map.Entry<VariableReferenceExpression, Expression> entry : parent.getAssignments().entrySet()) {
-                Expression translatedExpression = inlineVariables(outputToInput, entry.getValue(), context.getSymbolAllocator().getTypes());
+            for (Map.Entry<VariableReferenceExpression, RowExpression> entry : parent.getAssignments().entrySet()) {
+                Expression translatedExpression = ExpressionVariableInliner.inlineVariables(outputToInput, castToExpression(entry.getValue()), context.getSymbolAllocator().getTypes());
                 Type type = entry.getKey().getType();
                 VariableReferenceExpression variable = context.getSymbolAllocator().newVariable(translatedExpression, type);
-                assignments.put(variable, translatedExpression);
+                assignments.put(variable, castToRowExpression(translatedExpression));
                 projectVariableMapping.put(new VariableReferenceExpression(entry.getKey().getName(), type), variable);
             }
             outputSources.add(new ProjectNode(context.getIdAllocator().getNextId(), source.getSources().get(i), assignments.build()));

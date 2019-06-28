@@ -15,12 +15,12 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.MultiJoinNode;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -41,6 +41,7 @@ import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.MultiJ
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
@@ -177,10 +178,10 @@ public class TestJoinNodeFlattener
                         valuesC,
                         ImmutableList.of(equiJoinClause(b1, c1)),
                         ImmutableList.of(b1, b2, c1, c2),
-                        Optional.of(bcFilter)),
+                        Optional.of(castToRowExpression(bcFilter))),
                 ImmutableList.of(equiJoinClause(a1, b1)),
                 ImmutableList.of(a1, b1, b2, c1, c2),
-                Optional.of(abcFilter));
+                Optional.of(castToRowExpression(abcFilter)));
         MultiJoinNode expected = new MultiJoinNode(
                 new LinkedHashSet<>(ImmutableList.of(valuesA, valuesB, valuesC)),
                 and(new ComparisonExpression(EQUAL, new SymbolReference(b1.getName()), new SymbolReference(c1.getName())), new ComparisonExpression(EQUAL, new SymbolReference(a1.getName()), new SymbolReference(b1.getName())), bcFilter, abcFilter),

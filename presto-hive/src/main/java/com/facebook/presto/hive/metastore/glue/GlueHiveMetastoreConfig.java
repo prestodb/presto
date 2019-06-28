@@ -26,6 +26,7 @@ public class GlueHiveMetastoreConfig
     private boolean pinGlueClientToCurrentRegion;
     private int maxGlueConnections = 5;
     private Optional<String> defaultWarehouseDir = Optional.empty();
+    private Optional<String> catalogId = Optional.empty();
 
     public Optional<String> getGlueRegion()
     {
@@ -77,6 +78,19 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setDefaultWarehouseDir(String defaultWarehouseDir)
     {
         this.defaultWarehouseDir = Optional.ofNullable(defaultWarehouseDir);
+        return this;
+    }
+
+    public Optional<String> getCatalogId()
+    {
+        return catalogId;
+    }
+
+    @Config("hive.metastore.glue.catalogid")
+    @ConfigDescription("Hive Glue metastore catalog id")
+    public GlueHiveMetastoreConfig setCatalogId(String catalogId)
+    {
+        this.catalogId = Optional.ofNullable(catalogId);
         return this;
     }
 }

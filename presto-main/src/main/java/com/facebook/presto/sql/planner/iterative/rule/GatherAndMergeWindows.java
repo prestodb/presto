@@ -18,18 +18,22 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.matching.PropertyPattern;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.OrderingScheme;
+import com.facebook.presto.sql.planner.SymbolsExtractor;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -39,10 +43,11 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUniqueVariable;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.transpose;
 import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.dependsOn;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.isIdentity;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.window;
@@ -139,9 +144,9 @@ public class GatherAndMergeWindows
 
                 // The only kind of use of the output of the target that we can safely ignore is a simple identity propagation.
                 // The target node, when hoisted above the projections, will provide the symbols directly.
-                Map<VariableReferenceExpression, Expression> assignmentsWithoutTargetOutputIdentities = Maps.filterKeys(
+                Map<VariableReferenceExpression, RowExpression> assignmentsWithoutTargetOutputIdentities = Maps.filterKeys(
                         project.getAssignments().getMap(),
-                        output -> !(project.getAssignments().isIdentity(output) && targetOutputs.contains(output)));
+                        output -> !(isIdentity(project.getAssignments(), output) && targetOutputs.contains(output)));
 
                 if (targetInputs.stream().anyMatch(assignmentsWithoutTargetOutputIdentities::containsKey)) {
                     // Redefinition of an input to the target -- can't handle this case.
@@ -150,10 +155,10 @@ public class GatherAndMergeWindows
 
                 Assignments newAssignments = Assignments.builder()
                         .putAll(assignmentsWithoutTargetOutputIdentities)
-                        .putIdentities(targetInputs)
+                        .putAll(identitiesAsSymbolReferences(targetInputs))
                         .build();
 
-                if (!newTargetChildOutputs.containsAll(extractUniqueVariable(newAssignments.getExpressions(), context.getSymbolAllocator().getTypes()))) {
+                if (!newTargetChildOutputs.containsAll(extractUniqueVariable(newAssignments, context.getSymbolAllocator().getTypes()))) {
                     // Projection uses an output of the target -- can't move the target above this projection.
                     return Optional.empty();
                 }
@@ -169,6 +174,12 @@ public class GatherAndMergeWindows
             }
             return Optional.of(newTarget);
         }
+    }
+
+    private static Set<VariableReferenceExpression> extractUniqueVariable(Assignments assignments, TypeProvider types)
+    {
+        Collection<RowExpression> expressions = assignments.getExpressions();
+        return SymbolsExtractor.extractUniqueVariable(expressions.stream().map(OriginalExpressionUtils::castToExpression).collect(toImmutableList()), types);
     }
 
     public static class MergeAdjacentWindowsOverProjects

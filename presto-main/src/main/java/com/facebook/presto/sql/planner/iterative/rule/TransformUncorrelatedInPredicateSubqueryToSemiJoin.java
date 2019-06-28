@@ -28,6 +28,7 @@ import java.util.Optional;
 import static com.facebook.presto.matching.Pattern.empty;
 import static com.facebook.presto.sql.planner.plan.Patterns.Apply.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
 /**
@@ -72,7 +73,7 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
             return Result.empty();
         }
 
-        Expression expression = getOnlyElement(applyNode.getSubqueryAssignments().getExpressions());
+        Expression expression = castToExpression(getOnlyElement(applyNode.getSubqueryAssignments().getExpressions()));
         if (!(expression instanceof InPredicate)) {
             return Result.empty();
         }

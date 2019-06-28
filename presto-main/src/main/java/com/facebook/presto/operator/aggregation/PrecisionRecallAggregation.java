@@ -114,27 +114,65 @@ public abstract class PrecisionRecallAggregation
 
     protected static class BucketResult
     {
-        public final double totalTrueWeight;
-        public final double totalFalseWeight;
-        public final double runningTrueWeight;
-        public final double runningFalseWeight;
-        public final double left;
-        public final double right;
+        private final double threshold;
+        private final double positive;
+        private final double negative;
+        private final double truePositive;
+        private final double trueNegative;
+        private final double falsePositive;
+        private final double falseNegative;
+
+        public double getThreshold()
+        {
+            return threshold;
+        }
+
+        public double getPositive()
+        {
+            return positive;
+        }
+
+        public double getNegative()
+        {
+            return negative;
+        }
+
+        public double getTruePositive()
+        {
+            return truePositive;
+        }
+
+        public double getTrueNegative()
+        {
+            return trueNegative;
+        }
+
+        public double getFalsePositive()
+        {
+            return falsePositive;
+        }
+
+        public double getFalseNegative()
+        {
+            return falseNegative;
+        }
 
         public BucketResult(
-                double left,
-                double right,
-                double totalTrueWeight,
-                double totalFalseWeight,
-                double runningTrueWeight,
-                double runningFalseWeight)
+                double threshold,
+                double positive,
+                double negative,
+                double truePositive,
+                double trueNegative,
+                double falsePositive,
+                double falseNegative)
         {
-            this.left = left;
-            this.right = right;
-            this.totalTrueWeight = totalTrueWeight;
-            this.totalFalseWeight = totalFalseWeight;
-            this.runningTrueWeight = runningTrueWeight;
-            this.runningFalseWeight = runningFalseWeight;
+            this.threshold = threshold;
+            this.positive = positive;
+            this.negative = negative;
+            this.truePositive = truePositive;
+            this.trueNegative = trueNegative;
+            this.falsePositive = falsePositive;
+            this.falseNegative = falseNegative;
         }
     }
 
@@ -175,11 +213,12 @@ public abstract class PrecisionRecallAggregation
 
                 final BucketResult result = new BucketResult(
                         trueResult.getLeft(),
-                        trueResult.getRight(),
                         totalTrueWeight,
                         totalFalseWeight,
+                        totalTrueWeight - runningTrueWeight,
+                        runningFalseWeight,
                         runningTrueWeight,
-                        runningFalseWeight);
+                        totalFalseWeight - runningFalseWeight);
 
                 runningTrueWeight += trueResult.getWeight();
                 runningFalseWeight += falseResult.getWeight();

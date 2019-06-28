@@ -33,6 +33,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.ExpressionUtils.combineDisjunctsWithDefault;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -98,7 +99,7 @@ public class ImplementFilteredAggregations
                 Expression filter = OriginalExpressionUtils.castToExpression(entry.getValue().getFilter().get());
                 VariableReferenceExpression variable = context.getSymbolAllocator().newVariable(filter, BOOLEAN);
                 verify(!mask.isPresent(), "Expected aggregation without mask symbols, see Rule pattern");
-                newAssignments.put(variable, filter);
+                newAssignments.put(variable, castToRowExpression(filter));
                 mask = Optional.of(variable);
 
                 maskSymbols.add(new SymbolReference(variable.getName()));
@@ -121,7 +122,7 @@ public class ImplementFilteredAggregations
         }
 
         // identity projection for all existing inputs
-        newAssignments.putIdentities(aggregation.getSource().getOutputVariables());
+        newAssignments.putAll(identitiesAsSymbolReferences(aggregation.getSource().getOutputVariables()));
 
         return Result.ofPlanNode(
                 new AggregationNode(

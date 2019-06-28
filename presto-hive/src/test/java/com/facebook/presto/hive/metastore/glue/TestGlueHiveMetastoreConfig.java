@@ -31,7 +31,8 @@ public class TestGlueHiveMetastoreConfig
                 .setGlueRegion(null)
                 .setPinGlueClientToCurrentRegion(false)
                 .setMaxGlueConnections(5)
-                .setDefaultWarehouseDir(null));
+                .setDefaultWarehouseDir(null)
+                .setCatalogId(null));
     }
 
     @Test
@@ -42,13 +43,15 @@ public class TestGlueHiveMetastoreConfig
                 .put("hive.metastore.glue.pin-client-to-current-region", "true")
                 .put("hive.metastore.glue.max-connections", "10")
                 .put("hive.metastore.glue.default-warehouse-dir", "/location")
+                .put("hive.metastore.glue.catalogid", "0123456789")
                 .build();
 
         GlueHiveMetastoreConfig expected = new GlueHiveMetastoreConfig()
                 .setGlueRegion("us-east-1")
                 .setPinGlueClientToCurrentRegion(true)
                 .setMaxGlueConnections(10)
-                .setDefaultWarehouseDir("/location");
+                .setDefaultWarehouseDir("/location")
+                .setCatalogId("0123456789");
 
         assertFullMapping(properties, expected);
     }

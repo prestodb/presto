@@ -88,6 +88,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUniqueVariable;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAsSymbolReference;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
@@ -587,10 +588,10 @@ public class ExtractSpatialJoins
     {
         Assignments.Builder projections = Assignments.builder();
         for (VariableReferenceExpression outputVariable : node.getOutputVariables()) {
-            projections.putIdentity(outputVariable);
+            projections.put(identityAsSymbolReference(outputVariable));
         }
 
-        projections.put(variable, expression);
+        projections.put(variable, castToRowExpression(expression));
         return new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build());
     }
 
@@ -598,7 +599,7 @@ public class ExtractSpatialJoins
     {
         Assignments.Builder projections = Assignments.builder();
         for (VariableReferenceExpression outputVariable : node.getOutputVariables()) {
-            projections.putIdentity(outputVariable);
+            projections.put(identityAsSymbolReference(outputVariable));
         }
 
         ImmutableList.Builder<Expression> partitioningArguments = ImmutableList.<Expression>builder()
@@ -608,7 +609,7 @@ public class ExtractSpatialJoins
 
         FunctionCall partitioningFunction = new FunctionCall(QualifiedName.of("spatial_partitions"), partitioningArguments.build());
         VariableReferenceExpression partitionsVariable = context.getSymbolAllocator().newVariable(partitioningFunction, new ArrayType(INTEGER));
-        projections.put(partitionsVariable, partitioningFunction);
+        projections.put(partitionsVariable, castToRowExpression(partitioningFunction));
 
         return new UnnestNode(
                 context.getIdAllocator().getNextId(),

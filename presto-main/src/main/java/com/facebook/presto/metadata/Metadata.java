@@ -24,6 +24,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.api.Experimental;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
@@ -77,14 +78,14 @@ public interface Metadata
 
     /**
      * Returns a new table layout that satisfies the given constraint together with unenforced constraint.
-     * @apiNote This method is unstable and subject to change in the future.
      */
+    @Experimental
     TableLayoutResult getLayout(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns);
 
     /**
      * Returns table's layout properties for a given table handle.
-     * @apiNote This method is unstable and subject to change in the future.
      */
+    @Experimental
     TableLayout getLayout(Session session, TableHandle handle);
 
     /**
@@ -123,9 +124,8 @@ public interface Metadata
      * for details about refined partitioning.
      * <p>
      * Refined-over relation is reflexive.
-     * <p>
-     * This SPI is unstable and subject to change in the future.
      */
+    @Experimental
     boolean isRefinedPartitioningOver(Session session, PartitioningHandle a, PartitioningHandle b);
 
     /**
@@ -197,9 +197,8 @@ public interface Metadata
      * Creates a temporary table with optional partitioning requirements.
      * Temporary table might have different default storage format, compression scheme, replication factor, etc,
      * and gets automatically dropped when the transaction ends.
-     *
-     * This SPI is unstable and subject to change in the future.
      */
+    @Experimental
     TableHandle createTemporaryTable(Session session, String catalogName, List<ColumnMetadata> columns, Optional<PartitioningMetadata> partitioningMetadata);
 
     /**
@@ -416,15 +415,15 @@ public interface Metadata
 
     /**
      * Commits partition for table creation.
-     * @apiNote This method is unstable and subject to change in the future.
      */
-    void commitPartition(Session session, OutputTableHandle tableHandle, int partitionId, Collection<Slice> fragments);
+    @Experimental
+    void commitPartition(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Commits partition for table insertion.
-     * @apiNote This method is unstable and subject to change in the future.
      */
-    void commitPartition(Session session, InsertTableHandle tableHandle, int partitionId, Collection<Slice> fragments);
+    @Experimental
+    void commitPartition(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments);
 
     FunctionManager getFunctionManager();
 

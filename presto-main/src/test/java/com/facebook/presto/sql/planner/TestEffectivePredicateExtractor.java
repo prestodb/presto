@@ -29,7 +29,6 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -76,6 +75,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.or;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.count;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggregation;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -154,7 +154,9 @@ public class TestEffectivePredicateExtractor
                 newId(),
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
-                assignments);
+                assignments,
+                TupleDomain.all(),
+                TupleDomain.all());
 
         expressionNormalizer = new ExpressionIdentityNormalizer();
     }
@@ -236,7 +238,7 @@ public class TestEffectivePredicateExtractor
                                 equals(AE, BE),
                                 equals(BE, CE),
                                 lessThan(CE, bigintLiteral(10)))),
-                Assignments.of(DV, AE, EV, CE));
+                assignment(DV, AE, EV, CE));
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
 
@@ -349,7 +351,9 @@ public class TestEffectivePredicateExtractor
                 newId(),
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
-                assignments);
+                assignments,
+                TupleDomain.all(),
+                TupleDomain.all());
         Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
         assertEquals(effectivePredicate, BooleanLiteral.TRUE_LITERAL);
 

@@ -20,6 +20,7 @@ import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -64,7 +65,6 @@ import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Expression;
@@ -89,6 +89,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
@@ -474,7 +475,9 @@ public class UnaliasSymbolReferences
             PlanNode subquery = context.rewrite(node.getSubquery());
             List<VariableReferenceExpression> canonicalCorrelation = Lists.transform(node.getCorrelation(), this::canonicalize);
 
-            return new ApplyNode(node.getId(), source, subquery, canonicalize(node.getSubqueryAssignments()), canonicalCorrelation, node.getOriginSubqueryError());
+            Assignments assignments = canonicalize(node.getSubqueryAssignments());
+            verifySubquerySupported(assignments);
+            return new ApplyNode(node.getId(), source, subquery, assignments, canonicalCorrelation, node.getOriginSubqueryError());
         }
 
         @Override
@@ -634,8 +637,8 @@ public class UnaliasSymbolReferences
         {
             Map<Expression, VariableReferenceExpression> computedExpressions = new HashMap<>();
             Assignments.Builder assignments = Assignments.builder();
-            for (Map.Entry<VariableReferenceExpression, Expression> entry : oldAssignments.getMap().entrySet()) {
-                Expression expression = canonicalize(entry.getValue());
+            for (Map.Entry<VariableReferenceExpression, RowExpression> entry : oldAssignments.getMap().entrySet()) {
+                Expression expression = canonicalize(castToExpression(entry.getValue()));
 
                 if (expression instanceof SymbolReference) {
                     // Always map a trivial symbol projection
@@ -660,7 +663,7 @@ public class UnaliasSymbolReferences
                 }
 
                 VariableReferenceExpression canonical = canonicalize(entry.getKey());
-                assignments.put(canonical, expression);
+                assignments.put(canonical, castToRowExpression(expression));
             }
             return assignments.build();
         }

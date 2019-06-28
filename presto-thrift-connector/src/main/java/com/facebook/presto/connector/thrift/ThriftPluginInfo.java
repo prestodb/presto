@@ -16,9 +16,9 @@ package com.facebook.presto.connector.thrift;
 import com.facebook.presto.connector.thrift.api.PrestoThriftService;
 import com.google.inject.Module;
 
+import static com.facebook.drift.client.guice.DriftClientBinder.driftClientBinder;
 import static com.facebook.presto.connector.thrift.location.ExtendedSimpleAddressSelectorBinder.extendedSimpleAddressSelector;
 import static com.google.inject.Scopes.SINGLETON;
-import static io.airlift.drift.client.guice.DriftClientBinder.driftClientBinder;
 
 public class ThriftPluginInfo
 {

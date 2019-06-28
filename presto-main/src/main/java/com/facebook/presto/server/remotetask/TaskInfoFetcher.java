@@ -41,6 +41,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.server.RequestHelpers.setContentTypeHeaders;
 import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
 import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFullSmileResponseHandler;
@@ -61,7 +63,9 @@ public class TaskInfoFetcher
     private final Codec<TaskInfo> taskInfoCodec;
 
     private final long updateIntervalMillis;
+    private final Duration taskInfoRefreshMaxWait;
     private final AtomicLong lastUpdateNanos = new AtomicLong();
+
     private final ScheduledExecutorService updateScheduledExecutor;
 
     private final Executor executor;
@@ -91,6 +95,7 @@ public class TaskInfoFetcher
             TaskInfo initialTask,
             HttpClient httpClient,
             Duration updateInterval,
+            Duration taskInfoRefreshMaxWait,
             Codec<TaskInfo> taskInfoCodec,
             Duration maxErrorDuration,
             boolean summarizeTaskInfo,
@@ -110,6 +115,7 @@ public class TaskInfoFetcher
         this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
 
         this.updateIntervalMillis = requireNonNull(updateInterval, "updateInterval is null").toMillis();
+        this.taskInfoRefreshMaxWait = requireNonNull(taskInfoRefreshMaxWait, "taskInfoRefreshMaxWait is null");
         this.updateScheduledExecutor = requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
         this.errorTracker = new RequestErrorTracker(taskId, initialTask.getTaskStatus().getSelf(), maxErrorDuration, errorScheduledExecutor, "getting info for task");
 
@@ -209,9 +215,14 @@ public class TaskInfoFetcher
 
         HttpUriBuilder httpUriBuilder = uriBuilderFrom(taskStatus.getSelf());
         URI uri = summarizeTaskInfo ? httpUriBuilder.addParameter("summarize").build() : httpUriBuilder.build();
-        Request request = setContentTypeHeaders(isBinaryTransportEnabled, prepareGet())
-                .setUri(uri)
-                .build();
+        Request.Builder uriBuilder = setContentTypeHeaders(isBinaryTransportEnabled, prepareGet());
+
+        if (taskInfoRefreshMaxWait.toMillis() != 0L) {
+            uriBuilder.setHeader(PRESTO_CURRENT_STATE, taskStatus.getState().toString())
+                    .setHeader(PRESTO_MAX_WAIT, taskInfoRefreshMaxWait.toString());
+        }
+
+        Request request = uriBuilder.setUri(uri).build();
 
         ResponseHandler responseHandler;
         if (isBinaryTransportEnabled) {

@@ -18,17 +18,18 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.AssignmentUtils;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
@@ -61,6 +62,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.subQueryNotSupportedError;
 import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;
+import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
@@ -200,7 +202,7 @@ class SubqueryPlanner
 
         subPlan.getTranslations().put(inPredicate, inPredicateSubqueryVariable);
 
-        return appendApplyNode(subPlan, inPredicate, subqueryPlan.getRoot(), Assignments.of(inPredicateSubqueryVariable, inPredicateSubqueryExpression), correlationAllowed);
+        return appendApplyNode(subPlan, inPredicate, subqueryPlan.getRoot(), Assignments.of(inPredicateSubqueryVariable, castToRowExpression(inPredicateSubqueryExpression)), correlationAllowed);
     }
 
     private PlanBuilder appendScalarSubqueryApplyNodes(PlanBuilder builder, Set<SubqueryExpression> scalarSubqueries, boolean correlationAllowed)
@@ -299,7 +301,7 @@ class SubqueryPlanner
                 subPlan,
                 existsPredicate.getSubquery(),
                 subqueryNode,
-                Assignments.of(exists, rewrittenExistsPredicate),
+                Assignments.of(exists, castToRowExpression(rewrittenExistsPredicate)),
                 correlationAllowed);
     }
 
@@ -397,7 +399,7 @@ class SubqueryPlanner
                 subPlan,
                 quantifiedComparison.getSubquery(),
                 subqueryPlan.getRoot(),
-                Assignments.of(coercedQuantifiedComparisonVariable, coercedQuantifiedComparison),
+                Assignments.of(coercedQuantifiedComparisonVariable, castToRowExpression(coercedQuantifiedComparison)),
                 correlationAllowed);
     }
 
@@ -441,6 +443,7 @@ class SubqueryPlanner
 
         TranslationMap translations = subPlan.copyTranslations();
         PlanNode root = subPlan.getRoot();
+        verifySubquerySupported(subqueryAssignments);
         return new PlanBuilder(translations,
                 new ApplyNode(idAllocator.getNextId(),
                         root,
@@ -572,8 +575,7 @@ class SubqueryPlanner
         {
             ProjectNode rewrittenNode = (ProjectNode) context.defaultRewrite(node);
 
-            Assignments assignments = rewrittenNode.getAssignments()
-                    .rewrite(expression -> replaceExpression(expression, mapping));
+            Assignments assignments = AssignmentUtils.rewrite(rewrittenNode.getAssignments(), expression -> replaceExpression(expression, mapping));
 
             return new ProjectNode(idAllocator.getNextId(), rewrittenNode.getSource(), assignments);
         }

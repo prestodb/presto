@@ -83,6 +83,7 @@ import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createMaterializeExchangesSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
+import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.RCFILE_OPTIMIZED_WRITER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.getInsertExistingPartitionsBehavior;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
@@ -4091,15 +4092,15 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(format("CREATE TABLE %s(i int)", tableName));
 
         Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "temporary_staging_directory_enabled", "false")
+                .setCatalogSessionProperty(catalog, "temporary_staging_directory_enabled", "false")
                 .build();
 
         HiveInsertTableHandle hiveInsertTableHandle = getHiveInsertTableHandle(session, tableName);
         assertEquals(hiveInsertTableHandle.getLocationHandle().getWritePath(), hiveInsertTableHandle.getLocationHandle().getTargetPath());
 
         session = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "temporary_staging_directory_enabled", "true")
-                .setCatalogSessionProperty("hive", "temporary_staging_directory_path", "/tmp/custom/temporary-${USER}")
+                .setCatalogSessionProperty(catalog, "temporary_staging_directory_enabled", "true")
+                .setCatalogSessionProperty(catalog, "temporary_staging_directory_path", "/tmp/custom/temporary-${USER}")
                 .build();
 
         hiveInsertTableHandle = getHiveInsertTableHandle(session, tableName);
@@ -4107,6 +4108,15 @@ public class TestHiveIntegrationSmokeTest
         assertTrue(hiveInsertTableHandle.getLocationHandle().getWritePath().toString().startsWith("file:/tmp/custom/temporary-"));
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testLikeSerializesWithPushdownFilter()
+    {
+        Session pushdownFilterEnabled = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(catalog, PUSHDOWN_FILTER_ENABLED, "true")
+                .build();
+        assertQuerySucceeds(pushdownFilterEnabled, "SELECT comment FROM lineitem WHERE comment LIKE 'abc%'");
     }
 
     @Test

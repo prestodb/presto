@@ -19,7 +19,6 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.tree.Expression;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -29,6 +28,7 @@ import java.util.Optional;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 
 public class TestSimpleFilterProjectSemiJoinStatsRule
         extends BaseStatsCalculatorTest
@@ -99,10 +99,10 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
                         .addVariableStatistics(new VariableReferenceExpression("c", BIGINT), cStats)
                         .build())
                 .check(check -> check.outputRowsCount(180)
-                            .variableStats(new VariableReferenceExpression("a", BIGINT), assertion -> assertion.isEqualTo(expectedAInC))
-                            .variableStats(new VariableReferenceExpression("b", BIGINT), assertion -> assertion.isEqualTo(bStats))
-                            .variableStatsUnknown("c")
-                            .variableStatsUnknown("sjo"));
+                        .variableStats(new VariableReferenceExpression("a", BIGINT), assertion -> assertion.isEqualTo(expectedAInC))
+                        .variableStats(new VariableReferenceExpression("b", BIGINT), assertion -> assertion.isEqualTo(bStats))
+                        .variableStatsUnknown("c")
+                        .variableStatsUnknown("sjo"));
     }
 
     @Test(dataProvider = "toRowExpression")
@@ -127,9 +127,9 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
             if (toRowExpression) {
                 return pb.filter(
                         TRANSLATOR.translateAndOptimize(expression("sjo"), pb.getTypes()),
-                        pb.project(Assignments.identity(semiJoinOutput, a), semiJoinNode));
+                        pb.project(identityAssignmentsAsSymbolReferences(semiJoinOutput, a), semiJoinNode));
             }
-            return pb.filter(expression("sjo"), pb.project(Assignments.identity(semiJoinOutput, a), semiJoinNode));
+            return pb.filter(expression("sjo"), pb.project(identityAssignmentsAsSymbolReferences(semiJoinOutput, a), semiJoinNode));
         })
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
@@ -141,10 +141,10 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
                         .addVariableStatistics(new VariableReferenceExpression("c", BIGINT), cStats)
                         .build())
                 .check(check -> check.outputRowsCount(180)
-                            .variableStats(new VariableReferenceExpression("a", BIGINT), assertion -> assertion.isEqualTo(expectedAInC))
-                            .variableStatsUnknown("b")
-                            .variableStatsUnknown("c")
-                            .variableStatsUnknown("sjo"));
+                        .variableStats(new VariableReferenceExpression("a", BIGINT), assertion -> assertion.isEqualTo(expectedAInC))
+                        .variableStatsUnknown("b")
+                        .variableStatsUnknown("c")
+                        .variableStatsUnknown("sjo"));
     }
 
     @Test(dataProvider = "toRowExpression")
@@ -161,10 +161,10 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
                         .addVariableStatistics(new VariableReferenceExpression("c", BIGINT), cStats)
                         .build())
                 .check(check -> check.outputRowsCount(144)
-                            .variableStats(new VariableReferenceExpression("a", BIGINT), assertion -> assertion.isEqualTo(expectedANotInC))
-                            .variableStats(new VariableReferenceExpression("b", BIGINT), assertion -> assertion.isEqualTo(bStats))
-                            .variableStatsUnknown("c")
-                            .variableStatsUnknown("sjo"));
+                        .variableStats(new VariableReferenceExpression("a", BIGINT), assertion -> assertion.isEqualTo(expectedANotInC))
+                        .variableStats(new VariableReferenceExpression("b", BIGINT), assertion -> assertion.isEqualTo(bStats))
+                        .variableStatsUnknown("c")
+                        .variableStatsUnknown("sjo"));
     }
 
     @Test(dataProvider = "toRowExpression")
@@ -181,10 +181,10 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
                         .addVariableStatistics(new VariableReferenceExpression("c", BIGINT), cStats)
                         .build())
                 .check(check -> check.outputRowsCount(720)
-                            .variableStats(new VariableReferenceExpression("a", BIGINT), assertion -> assertion.isEqualTo(expectedANotInCWithExtraFilter))
-                            .variableStats(new VariableReferenceExpression("b", BIGINT), assertion -> assertion.isEqualTo(bStats))
-                            .variableStatsUnknown("c")
-                            .variableStatsUnknown("sjo"));
+                        .variableStats(new VariableReferenceExpression("a", BIGINT), assertion -> assertion.isEqualTo(expectedANotInCWithExtraFilter))
+                        .variableStats(new VariableReferenceExpression("b", BIGINT), assertion -> assertion.isEqualTo(bStats))
+                        .variableStatsUnknown("c")
+                        .variableStatsUnknown("sjo"));
     }
 
     private StatsCalculatorAssertion getStatsCalculatorAssertion(Expression expression, boolean toRowExpression)

@@ -46,6 +46,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
@@ -264,7 +265,7 @@ public class PlanNodeDecorrelator
 
             Assignments assignments = Assignments.builder()
                     .putAll(node.getAssignments())
-                    .putIdentities(variablesToAdd)
+                    .putAll(identitiesAsSymbolReferences(variablesToAdd))
                     .build();
 
             return Optional.of(new DecorrelationResult(

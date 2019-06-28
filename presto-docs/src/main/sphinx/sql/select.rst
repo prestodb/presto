@@ -663,13 +663,13 @@ is added to the end.
 ``UNNEST`` is normally used with a ``JOIN`` and can reference columns
 from relations on the left side of the join.
 
-Using a single column::
+Using a single array column::
 
     SELECT student, score
     FROM tests
     CROSS JOIN UNNEST(scores) AS t (score);
 
-Using multiple columns::
+Using multiple array columns::
 
     SELECT numbers, animals, n, a
     FROM (
@@ -711,6 +711,29 @@ Using multiple columns::
      [7, 8, 9] | 8 | 2
      [7, 8, 9] | 9 | 3
     (5 rows)
+
+Using a single map column::
+
+    SELECT
+        animals, a, n
+    FROM (
+        VALUES
+            (MAP(ARRAY['dog', 'cat', 'bird'], ARRAY[1, 2, 0])),
+            (MAP(ARRAY['dog', 'cat'], ARRAY[4, 5]))
+    ) AS x (animals)
+    CROSS JOIN UNNEST(animals) AS t (a, n);
+
+.. code-block:: none
+
+               animals          |  a   | n
+    ----------------------------+------+---
+     {"cat":2,"bird":0,"dog":1} | dog  | 1 
+     {"cat":2,"bird":0,"dog":1} | cat  | 2 
+     {"cat":2,"bird":0,"dog":1} | bird | 0 
+     {"cat":5,"dog":4}          | dog  | 4 
+     {"cat":5,"dog":4}          | cat  | 5 
+    (5 rows)
+
 
 Joins
 -----

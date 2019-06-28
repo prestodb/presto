@@ -31,7 +31,7 @@ public class TestFixedDoubleBreakdownHistogram
         final FixedDoubleBreakdownHistogram histogram =
                 new FixedDoubleBreakdownHistogram(200, 3.0, 4.0);
 
-        assertEquals(histogram.getBucketWeightCount(), 200);
+        assertEquals(histogram.getBucketCount(), 200);
         assertEquals(histogram.getMin(), 3.0);
         assertEquals(histogram.getMax(), 4.0);
     }
@@ -84,9 +84,9 @@ public class TestFixedDoubleBreakdownHistogram
         histogram.add(3.5, 0.4, 1);
         histogram.add(3.5, 0.3, 2);
         Streams.stream(histogram.iterator()).forEach(c -> {
-            c.getLeft() <= 3.5;
-            c.getRight() >= 3.5;
-            c.getLeft() < c.getRight();
+            assertTrue(c.getLeft() <= 3.5);
+            assertTrue(c.getRight() >= 3.5);
+            assertTrue(c.getLeft() < c.getRight());
         });
         assertEquals(
                 Streams.stream(histogram.iterator()).mapToLong(c -> 1).sum(),

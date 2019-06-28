@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.Subfield;
+import com.facebook.presto.spi.block.TestingSession;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -26,6 +27,7 @@ import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -64,7 +66,10 @@ public class TestSubfieldExtractor
     public void setup()
     {
         functionManager = createTestMetadataManager().getFunctionManager();
-        subfieldExtractor = new SubfieldExtractor(new FunctionResolution(functionManager));
+        subfieldExtractor = new SubfieldExtractor(
+                new FunctionResolution(functionManager),
+                (rowExpression, level, session) -> rowExpression,
+                TestingSession.SESSION);
     }
 
     @Test
@@ -73,12 +78,12 @@ public class TestSubfieldExtractor
         assertSubfieldExtract(C_BIGINT, "c_bigint");
         assertSubfieldExtract(arraySubscript(C_BIGINT_ARRAY, 5), "c_bigint_array[5]");
         assertSubfieldExtract(mapSubscript(C_BIGINT_TO_BIGINT_MAP, constant(5, BIGINT)), "c_bigint_to_bigint_map[5]");
-        assertSubfieldExtract(mapSubscript(C_VARCHAR_TO_BIGINT_MAP, constant("foo", VARCHAR)), "c_varchar_to_bigint_map[\"foo\"]");
+        assertSubfieldExtract(mapSubscript(C_VARCHAR_TO_BIGINT_MAP, constant(Slices.utf8Slice("foo"), VARCHAR)), "c_varchar_to_bigint_map[\"foo\"]");
         assertSubfieldExtract(dereference(C_STRUCT, 0), "c_struct.a");
         assertSubfieldExtract(dereference(dereference(C_STRUCT, 1), 0), "c_struct.b.x");
         assertSubfieldExtract(arraySubscript(dereference(C_STRUCT, 2), 5), "c_struct.c[5]");
         assertSubfieldExtract(mapSubscript(dereference(C_STRUCT, 3), constant(5, BIGINT)), "c_struct.d[5]");
-        assertSubfieldExtract(mapSubscript(dereference(C_STRUCT, 4), constant("foo", VARCHAR)), "c_struct.e[\"foo\"]");
+        assertSubfieldExtract(mapSubscript(dereference(C_STRUCT, 4), constant(Slices.utf8Slice("foo"), VARCHAR)), "c_struct.e[\"foo\"]");
 
         assertEquals(subfieldExtractor.extract(constant(2, INTEGER)), Optional.empty());
     }

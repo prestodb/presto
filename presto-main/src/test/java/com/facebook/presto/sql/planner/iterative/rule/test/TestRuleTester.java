@@ -24,7 +24,8 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static com.facebook.presto.sql.relational.Expressions.variable;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class TestRuleTester
 {
@@ -35,7 +36,7 @@ public class TestRuleTester
             tester.assertThat(new DummyReplaceNodeRule())
                     .on(p ->
                             p.project(
-                                    Assignments.of(p.variable("y"), expression("x")),
+                                    Assignments.of(p.variable("y"), variable("x", BIGINT)),
                                     p.values(
                                             ImmutableList.of(p.variable(p.symbol("x"))),
                                             ImmutableList.of(constantExpressions(BIGINT, 1)))))
@@ -56,7 +57,9 @@ public class TestRuleTester
         @Override
         public Result apply(PlanNode node, Captures captures, Context context)
         {
-            return Result.ofPlanNode(node.replaceChildren(node.getSources()));
+            return Result.ofPlanNode(node.replaceChildren(node.getSources().stream()
+                    .map(context.getLookup()::resolve)
+                    .collect(toImmutableList())));
         }
     }
 }

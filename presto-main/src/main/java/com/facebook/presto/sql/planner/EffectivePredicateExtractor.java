@@ -62,6 +62,7 @@ import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToE
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Maps.transformValues;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -164,7 +165,7 @@ public class EffectivePredicateExtractor
 
             Expression underlyingPredicate = node.getSource().accept(this, context);
 
-            List<Expression> projectionEqualities = node.getAssignments().entrySet().stream()
+            List<Expression> projectionEqualities = transformValues(node.getAssignments().getMap(), OriginalExpressionUtils::castToExpression).entrySet().stream()
                     .filter(VARIABLE_MATCHES_EXPRESSION.negate())
                     .map(VARIABLE_ENTRY_TO_EQUALITY)
                     .collect(toImmutableList());

@@ -62,6 +62,7 @@ public final class FilterNode
         return source;
     }
 
+    @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
         return source.getOutputVariables();

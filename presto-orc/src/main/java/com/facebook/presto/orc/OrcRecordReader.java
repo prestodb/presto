@@ -315,11 +315,6 @@ public class OrcRecordReader
         return totalRowCount;
     }
 
-    public float getProgress()
-    {
-        return ((float) currentPosition) / totalRowCount;
-    }
-
     public long getSplitLength()
     {
         return splitLength;

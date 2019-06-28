@@ -22,7 +22,6 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
@@ -41,6 +40,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.constrainedIndexSource;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
@@ -80,7 +80,7 @@ public class TestPruneIndexSourceColumns
         ColumnHandle custkeyHandle = new TpchColumnHandle(custkey.getName(), INTEGER);
         ColumnHandle totalpriceHandle = new TpchColumnHandle(totalprice.getName(), DOUBLE);
         return p.project(
-                Assignments.identity(
+                identityAssignmentsAsSymbolReferences(
                         ImmutableList.of(orderkey, custkey, totalprice).stream()
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),

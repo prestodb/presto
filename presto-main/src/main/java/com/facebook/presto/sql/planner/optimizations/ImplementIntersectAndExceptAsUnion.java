@@ -56,6 +56,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -219,13 +220,13 @@ public class ImplementIntersectAndExceptAsUnion
             // add existing intersect symbols to projection
             for (Map.Entry<VariableReferenceExpression, SymbolReference> entry : projections.entrySet()) {
                 VariableReferenceExpression variable = symbolAllocator.newVariable(entry.getKey().getName(), entry.getKey().getType());
-                assignments.put(variable, entry.getValue());
+                assignments.put(variable, castToRowExpression(entry.getValue()));
             }
 
             // add extra marker fields to the projection
             for (int i = 0; i < markers.size(); ++i) {
                 Expression expression = (i == markerIndex) ? TRUE_LITERAL : new Cast(new NullLiteral(), StandardTypes.BOOLEAN);
-                assignments.put(symbolAllocator.newVariable(markers.get(i).getName(), BOOLEAN), expression);
+                assignments.put(symbolAllocator.newVariable(markers.get(i).getName(), BOOLEAN), castToRowExpression(expression));
             }
 
             return new ProjectNode(idAllocator.getNextId(), source, assignments.build());
@@ -295,7 +296,7 @@ public class ImplementIntersectAndExceptAsUnion
             return new ProjectNode(
                     idAllocator.getNextId(),
                     node,
-                    Assignments.identity(columns));
+                    identityAssignmentsAsSymbolReferences(columns));
         }
     }
 }

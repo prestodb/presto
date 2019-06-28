@@ -23,6 +23,8 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 import static com.facebook.presto.operator.aggregation.fixedhistogram.FixedHistogramUtils.getIndexForValue;
+import static com.facebook.presto.operator.aggregation.fixedhistogram.FixedHistogramUtils.getLeftValuForIndex;
+import static com.facebook.presto.operator.aggregation.fixedhistogram.FixedHistogramUtils.getRightValuForIndex;
 import static com.facebook.presto.operator.aggregation.fixedhistogram.FixedHistogramUtils.verifyParams;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -193,8 +195,8 @@ public class FixedDoubleHistogram
                 }
 
                 final Bucket value = new Bucket(
-                        currentIndex * (max - min) / bucketCount,
-                        (currentIndex + 1) * (max - min) / bucketCount,
+                        getLeftValuForIndex(bucketCount, min, max, currentIndex),
+                        getRightValuForIndex(bucketCount, min, max, currentIndex),
                         weights[currentIndex]);
                 ++currentIndex;
                 return value;

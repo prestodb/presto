@@ -27,8 +27,10 @@ import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -36,6 +38,7 @@ import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.OrderingScheme;
+import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
@@ -68,7 +71,6 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.Expression;
@@ -93,13 +95,13 @@ import static com.facebook.presto.SystemSessionProperties.planWithTableNodeParti
 import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValuesToConstantExpressions;
 import static com.facebook.presto.spi.relation.DomainTranslator.BASIC_COLUMN_EXTRACTOR;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.coordinatorSingleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.streamPartitionedOn;
-import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReference;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -626,29 +628,44 @@ public class PropertyDerivations
 
             // Extract additional constants
             Map<VariableReferenceExpression, ConstantExpression> constants = new HashMap<>();
-            for (Map.Entry<VariableReferenceExpression, Expression> assignment : node.getAssignments().entrySet()) {
-                Expression expression = assignment.getValue();
+            for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : node.getAssignments().entrySet()) {
+                RowExpression expression = assignment.getValue();
                 VariableReferenceExpression output = assignment.getKey();
 
-                Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, parser, types, expression, emptyList(), WarningCollector.NOOP);
-                Type type = requireNonNull(expressionTypes.get(NodeRef.of(expression)));
-                ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
                 // TODO:
                 // We want to use a symbol resolver that looks up in the constants from the input subplan
                 // to take advantage of constant-folding for complex expressions
                 // However, that currently causes errors when those expressions operate on arrays or row types
                 // ("ROW comparison not supported for fields with null elements", etc)
-                Object value = optimizer.optimize(NoOpSymbolResolver.INSTANCE);
+                if (isExpression(expression)) {
+                    Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, parser, types, castToExpression(expression), emptyList(), WarningCollector.NOOP);
+                    Type type = requireNonNull(expressionTypes.get(NodeRef.of(castToExpression(expression))));
+                    ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(castToExpression(expression), metadata, session, expressionTypes);
+                    Object value = optimizer.optimize(NoOpSymbolResolver.INSTANCE);
 
-                if (value instanceof SymbolReference) {
-                    VariableReferenceExpression variable = toVariableReference(Symbol.from((SymbolReference) value), types);
-                    ConstantExpression existingConstantValue = constants.get(variable);
-                    if (existingConstantValue != null) {
+                    if (value instanceof SymbolReference) {
+                        VariableReferenceExpression variable = toVariableReference(Symbol.from((SymbolReference) value), types);
+                        ConstantExpression existingConstantValue = constants.get(variable);
+                        if (existingConstantValue != null) {
+                            constants.put(output, new ConstantExpression(value, type));
+                        }
+                    }
+                    else if (!(value instanceof Expression)) {
                         constants.put(output, new ConstantExpression(value, type));
                     }
                 }
-                else if (!(value instanceof Expression)) {
-                    constants.put(output, new ConstantExpression(value, type));
+                else {
+                    Object value = new RowExpressionInterpreter(expression, metadata, session.toConnectorSession(), true).optimize();
+
+                    if (value instanceof VariableReferenceExpression) {
+                        ConstantExpression existingConstantValue = constants.get(value);
+                        if (existingConstantValue != null) {
+                            constants.put(output, new ConstantExpression(value, expression.getType()));
+                        }
+                    }
+                    else if (!(value instanceof RowExpression)) {
+                        constants.put(output, new ConstantExpression(value, expression.getType()));
+                    }
                 }
             }
             constants.putAll(translatedProperties.getConstants());
@@ -776,17 +793,25 @@ public class PropertyDerivations
 
             return Optional.of(ImmutableList.copyOf(builder.build()));
         }
-    }
 
-    private static Map<VariableReferenceExpression, VariableReferenceExpression> computeIdentityTranslations(Map<VariableReferenceExpression, Expression> assignments, TypeProvider types)
-    {
-        Map<VariableReferenceExpression, VariableReferenceExpression> inputToOutput = new HashMap<>();
-        for (Map.Entry<VariableReferenceExpression, Expression> assignment : assignments.entrySet()) {
-            if (assignment.getValue() instanceof SymbolReference) {
-                inputToOutput.put(toVariableReference(Symbol.from(assignment.getValue()), types), assignment.getKey());
+        private static Map<VariableReferenceExpression, VariableReferenceExpression> computeIdentityTranslations(Map<VariableReferenceExpression, RowExpression> assignments, TypeProvider types)
+        {
+            Map<VariableReferenceExpression, VariableReferenceExpression> inputToOutput = new HashMap<>();
+            for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : assignments.entrySet()) {
+                RowExpression expression = assignment.getValue();
+                if (isExpression(expression)) {
+                    if (castToExpression(expression) instanceof SymbolReference) {
+                        inputToOutput.put(toVariableReference(Symbol.from(castToExpression(expression)), types), assignment.getKey());
+                    }
+                }
+                else {
+                    if (expression instanceof VariableReferenceExpression) {
+                        inputToOutput.put((VariableReferenceExpression) expression, assignment.getKey());
+                    }
+                }
             }
+            return inputToOutput;
         }
-        return inputToOutput;
     }
 
     static boolean spillPossible(Session session, JoinNode.Type joinType)

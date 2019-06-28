@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -35,7 +36,6 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NullLiteral;
@@ -51,7 +51,7 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.shouldPushAggregationThroughJoin;
 import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReference;
+import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
 import static com.facebook.presto.sql.planner.optimizations.DistinctOutputQueryUtil.isDistinct;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggregation;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -269,10 +269,13 @@ public class PushAggregationThroughOuterJoin
         Assignments.Builder assignmentsBuilder = Assignments.builder();
         for (VariableReferenceExpression variable : outerJoin.getOutputVariables()) {
             if (aggregationNode.getAggregations().keySet().contains(variable)) {
-                assignmentsBuilder.put(variable, new CoalesceExpression(new SymbolReference(variable.getName()), new SymbolReference(sourceAggregationToOverNullMapping.get(variable).getName())));
+                assignmentsBuilder.put(variable, castToRowExpression(
+                        new CoalesceExpression(
+                                new SymbolReference(variable.getName()),
+                                new SymbolReference(sourceAggregationToOverNullMapping.get(variable).getName()))));
             }
             else {
-                assignmentsBuilder.put(variable, new SymbolReference(variable.getName()));
+                assignmentsBuilder.put(variable, castToRowExpression(new SymbolReference(variable.getName())));
             }
         }
         return Optional.of(new ProjectNode(idAllocator.getNextId(), crossJoin, assignmentsBuilder.build()));

@@ -19,7 +19,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -44,6 +43,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.latera
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -123,7 +123,7 @@ public class TestTransformCorrelatedScalarSubquery
                         p.values(p.variable("corr")),
                         p.enforceSingleRow(
                                 p.project(
-                                        Assignments.of(p.variable("a2"), p.expression("a * 2")),
+                                        assignment(p.variable("a2"), p.expression("a * 2")),
                                         p.filter(
                                                 p.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
                                                 p.values(ImmutableList.of(p.variable("a")), TWO_ROWS))))))
@@ -152,10 +152,10 @@ public class TestTransformCorrelatedScalarSubquery
                         ImmutableList.of(p.variable("corr")),
                         p.values(p.variable("corr")),
                         p.project(
-                                Assignments.of(p.variable("a3"), p.expression("a2 + 1")),
+                                assignment(p.variable("a3"), p.expression("a2 + 1")),
                                 p.enforceSingleRow(
                                         p.project(
-                                                Assignments.of(p.variable("a2"), p.expression("a * 2")),
+                                                assignment(p.variable("a2"), p.expression("a * 2")),
                                                 p.filter(
                                                         p.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
                                                         p.values(ImmutableList.of(p.variable("a")), TWO_ROWS)))))))

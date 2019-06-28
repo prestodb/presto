@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -30,6 +29,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.topN;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.FIRST;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -76,7 +76,7 @@ public class TestPruneTopNColumns
         VariableReferenceExpression a = planBuilder.variable("a");
         VariableReferenceExpression b = planBuilder.variable("b");
         return planBuilder.project(
-                Assignments.identity(ImmutableList.of(a, b).stream().filter(projectionTopN).collect(toImmutableSet())),
+                identityAssignmentsAsSymbolReferences(ImmutableList.of(a, b).stream().filter(projectionTopN).collect(toImmutableSet())),
                 planBuilder.topN(
                         COUNT,
                         ImmutableList.of(b),

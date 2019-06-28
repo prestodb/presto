@@ -57,9 +57,10 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isOptimizeDistinctAggregationEnabled;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static com.facebook.presto.sql.planner.optimizations.AddExchanges.toVariableReference;
+import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAsSymbolReference;
 import static com.facebook.presto.sql.relational.Expressions.variable;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
@@ -222,10 +223,10 @@ public class OptimizeMixedDistinctAggregations
             for (VariableReferenceExpression variable : aggregationNode.getOutputVariables()) {
                 if (coalesceVariables.containsKey(variable)) {
                     Expression expression = new CoalesceExpression(new SymbolReference(variable.getName()), new Cast(new LongLiteral("0"), "bigint"));
-                    outputVariables.put(coalesceVariables.get(variable), expression);
+                    outputVariables.put(coalesceVariables.get(variable), castToRowExpression(expression));
                 }
                 else {
-                    outputVariables.putIdentity(variable);
+                    outputVariables.put(identityAsSymbolReference(variable));
                 }
             }
 
@@ -351,7 +352,7 @@ public class OptimizeMixedDistinctAggregations
                             ComparisonExpression.Operator.EQUAL,
                             new SymbolReference(variable.getName()),
                             variable.getType());
-                    outputVariables.put(newVariable, expression);
+                    outputVariables.put(newVariable, castToRowExpression(expression));
                 }
                 else if (aggregationOutputVariablesMap.containsKey(variable)) {
                     VariableReferenceExpression newVariable = symbolAllocator.newVariable("expr", variable.getType());
@@ -363,19 +364,19 @@ public class OptimizeMixedDistinctAggregations
                             ComparisonExpression.Operator.EQUAL,
                             new SymbolReference(variable.getName()),
                             variable.getType());
-                    outputVariables.put(newVariable, expression);
+                    outputVariables.put(newVariable, castToRowExpression(expression));
                 }
 
                 // A symbol can appear both in groupBy and distinct/non-distinct aggregation
                 if (groupByVariables.contains(variable)) {
                     Expression expression = new SymbolReference(variable.getName());
-                    outputVariables.put(variable, expression);
+                    outputVariables.put(variable, castToRowExpression(expression));
                 }
             }
 
             // add null assignment for mask
             // unused mask will be removed by PruneUnreferencedOutputs
-            outputVariables.put(aggregateInfo.getMask(), new NullLiteral());
+            outputVariables.put(aggregateInfo.getMask(), castToRowExpression(new NullLiteral()));
 
             aggregateInfo.setNewNonDistinctAggregateSymbols(outputNonDistinctAggregateVariables.build());
 

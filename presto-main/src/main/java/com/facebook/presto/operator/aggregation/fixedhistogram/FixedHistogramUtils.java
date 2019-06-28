@@ -34,4 +34,16 @@ class FixedHistogramUtils
                 (int) (bucketCount * (value - min) / (max - min)),
                 bucketCount - 1);
     }
+
+    public static double getLeftValuForIndex(int bucketCount, double min, double max, int index)
+    {
+        return min + index * (max - min) / bucketCount;
+    }
+
+    public static double getRightValuForIndex(int bucketCount, double min, double max, int index)
+    {
+        return Math.min(
+                max,
+                getLeftValuForIndex(bucketCount, min, max, index + 1));
+    }
 }

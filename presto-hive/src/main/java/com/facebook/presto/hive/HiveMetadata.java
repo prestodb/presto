@@ -1766,7 +1766,7 @@ public class HiveMetadata
         //  - range filters that apply to subfields,
         //  - the rest
         ExtractionResult<Subfield> decomposedFilter = rowExpressionService.getDomainTranslator()
-                .fromPredicate(session, filter, new SubfieldExtractor(functionResolution));
+                .fromPredicate(session, filter, new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(), session));
 
         Map<String, ColumnHandle> columnHandles = getColumnHandles(session, tableHandle);
         TupleDomain<ColumnHandle> entireColumnDomain = decomposedFilter.getTupleDomain()
@@ -2294,14 +2294,14 @@ public class HiveMetadata
     }
 
     @Override
-    public void commitPartition(ConnectorSession session, ConnectorOutputTableHandle tableHandle, int partitionId, Collection<Slice> fragments)
+    public void commitPartition(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         HiveOutputTableHandle handle = (HiveOutputTableHandle) tableHandle;
         stagingFileCommitter.commitFiles(session, handle.getSchemaName(), handle.getTableName(), getPartitionUpdates(fragments));
     }
 
     @Override
-    public void commitPartition(ConnectorSession session, ConnectorInsertTableHandle tableHandle, int partitionId, Collection<Slice> fragments)
+    public void commitPartition(ConnectorSession session, ConnectorInsertTableHandle tableHandle, Collection<Slice> fragments)
     {
         HiveInsertTableHandle handle = (HiveInsertTableHandle) tableHandle;
         stagingFileCommitter.commitFiles(session, handle.getSchemaName(), handle.getTableName(), getPartitionUpdates(fragments));

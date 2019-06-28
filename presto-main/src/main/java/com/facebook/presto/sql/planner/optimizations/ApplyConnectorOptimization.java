@@ -17,14 +17,14 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -41,7 +41,6 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ApplyConnectorOptimization
@@ -49,16 +48,17 @@ public class ApplyConnectorOptimization
 {
     static final Set<Class<? extends PlanNode>> CONNECTOR_ACCESSIBLE_PLAN_NODES = ImmutableSet.of(
             FilterNode.class,
-            TableScanNode.class);
+            TableScanNode.class,
+            ValuesNode.class);
 
     // for a leaf node that does not belong to any connector (e.g., ValuesNode)
     private static final ConnectorId EMPTY_CONNECTOR_ID = new ConnectorId("$internal$" + ApplyConnectorOptimization.class + "_CONNECTOR");
 
-    private final Map<ConnectorId, Set<ConnectorPlanOptimizer>> connectorOptimizers;
+    private final Supplier<Map<ConnectorId, Set<ConnectorPlanOptimizer>>> connectorOptimizersSupplier;
 
-    public ApplyConnectorOptimization(Map<ConnectorId, Set<ConnectorPlanOptimizer>> connectorOptimizers)
+    public ApplyConnectorOptimization(Supplier<Map<ConnectorId, Set<ConnectorPlanOptimizer>>> connectorOptimizersSupplier)
     {
-        this.connectorOptimizers = requireNonNull(connectorOptimizers, "connectorOptimizers is null");
+        this.connectorOptimizersSupplier = requireNonNull(connectorOptimizersSupplier, "connectorOptimizersSupplier is null");
     }
 
     @Override
@@ -70,11 +70,10 @@ public class ApplyConnectorOptimization
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
+        Map<ConnectorId, Set<ConnectorPlanOptimizer>> connectorOptimizers = connectorOptimizersSupplier.get();
         if (connectorOptimizers.isEmpty()) {
             return plan;
         }
-
-        ConnectorSession connectorSession = session.toConnectorSession();
 
         // retrieve all the connectors
         ImmutableSet.Builder<ConnectorId> connectorIds = ImmutableSet.builder();
@@ -115,14 +114,15 @@ public class ApplyConnectorOptimization
 
                 // the returned node is still a max closure (only if there is no new connector added, which does happen but ignored here)
                 for (ConnectorPlanOptimizer optimizer : optimizers) {
-                    newNode = optimizer.optimize(newNode, connectorSession, symbolAllocator, idAllocator);
+                    newNode = optimizer.optimize(newNode, session.toConnectorSession(connectorId), symbolAllocator, idAllocator);
                 }
 
                 if (node != newNode) {
                     // the optimizer has allocated a new PlanNode
                     checkState(
                             containsAll(ImmutableSet.copyOf(newNode.getOutputVariables()), node.getOutputVariables()),
-                            format("the connector optimizer from %s returns a node that does not cover all output before optimization", connectorId));
+                            "the connector optimizer from %s returns a node that does not cover all output before optimization",
+                            connectorId);
                     updates.put(node, newNode);
                 }
             }

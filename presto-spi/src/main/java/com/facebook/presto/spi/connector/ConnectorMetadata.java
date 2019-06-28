@@ -661,7 +661,7 @@ public interface ConnectorMetadata
      * This method is unstable and subject to change in the future.
      */
     @Experimental
-    default void commitPartition(ConnectorSession session, ConnectorOutputTableHandle tableHandle, int partitionId, Collection<Slice> fragments)
+    default void commitPartition(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support partition commit");
     }
@@ -672,7 +672,7 @@ public interface ConnectorMetadata
      * This method is unstable and subject to change in the future.
      */
     @Experimental
-    default void commitPartition(ConnectorSession session, ConnectorInsertTableHandle tableHandle, int partitionId, Collection<Slice> fragments)
+    default void commitPartition(ConnectorSession session, ConnectorInsertTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support partition commit");
     }

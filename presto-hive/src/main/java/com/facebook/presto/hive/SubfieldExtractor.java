@@ -13,15 +13,18 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DomainTranslator;
+import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.RowType;
+import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -37,19 +40,30 @@ public final class SubfieldExtractor
         implements DomainTranslator.ColumnExtractor<Subfield>
 {
     private final StandardFunctionResolution functionResolution;
+    private final ExpressionOptimizer expressionOptimizer;
+    private final ConnectorSession connectorSession;
 
-    public SubfieldExtractor(StandardFunctionResolution functionResolution)
+    public SubfieldExtractor(
+            StandardFunctionResolution functionResolution,
+            ExpressionOptimizer expressionOptimizer,
+            ConnectorSession connectorSession)
     {
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
+        this.expressionOptimizer = requireNonNull(expressionOptimizer, "expressionOptimzier is null");
+        this.connectorSession = requireNonNull(connectorSession, "connectorSession is null");
     }
 
     @Override
     public Optional<Subfield> extract(RowExpression expression)
     {
-        return toSubfield(expression, functionResolution);
+        return toSubfield(expression, functionResolution, expressionOptimizer, connectorSession);
     }
 
-    private static Optional<Subfield> toSubfield(RowExpression expression, StandardFunctionResolution functionResolution)
+    private static Optional<Subfield> toSubfield(
+            RowExpression expression,
+            StandardFunctionResolution functionResolution,
+            ExpressionOptimizer expressionOptimizer,
+            ConnectorSession connectorSession)
     {
         List<Subfield.PathElement> elements = new ArrayList<>();
         while (true) {
@@ -63,7 +77,11 @@ public final class SubfieldExtractor
                 RowExpression base = dereferenceExpression.getArguments().get(0);
                 RowType baseType = (RowType) base.getType();
 
-                RowExpression indexExpression = dereferenceExpression.getArguments().get(1);
+                RowExpression indexExpression = expressionOptimizer.optimize(
+                        dereferenceExpression.getArguments().get(1),
+                        ExpressionOptimizer.Level.MOST_OPTIMIZED,
+                        connectorSession);
+
                 if (indexExpression instanceof ConstantExpression) {
                     Object index = ((ConstantExpression) indexExpression).getValue();
                     if (index instanceof Number) {
@@ -80,7 +98,11 @@ public final class SubfieldExtractor
 
             if (expression instanceof CallExpression && functionResolution.isSubscriptFunction(((CallExpression) expression).getFunctionHandle())) {
                 List<RowExpression> arguments = ((CallExpression) expression).getArguments();
-                RowExpression indexExpression = arguments.get(1);
+                RowExpression indexExpression = expressionOptimizer.optimize(
+                        arguments.get(1),
+                        ExpressionOptimizer.Level.MOST_OPTIMIZED,
+                        connectorSession);
+
                 if (indexExpression instanceof ConstantExpression) {
                     Object index = ((ConstantExpression) indexExpression).getValue();
                     if (index instanceof Number) {
@@ -90,7 +112,7 @@ public final class SubfieldExtractor
                     }
 
                     if (isVarcharType(indexExpression.getType())) {
-                        elements.add(new Subfield.StringSubscript(String.valueOf(index)));
+                        elements.add(new Subfield.StringSubscript(((Slice) index).toStringUtf8()));
                         expression = arguments.get(0);
                         continue;
                     }
