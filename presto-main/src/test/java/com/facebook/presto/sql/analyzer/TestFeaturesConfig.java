@@ -120,7 +120,8 @@ public class TestFeaturesConfig
                 .setPushdownSubfieldsEnabled(false)
                 .setTableWriterMergeOperatorEnabled(true)
                 .setOptimizeFullOuterJoinWithCoalesce(true)
-                .setIndexLoaderTimeout(new Duration(20, SECONDS)));
+                .setIndexLoaderTimeout(new Duration(20, SECONDS))
+                .setOptimizedRepartitioningEnabled(false));
     }
 
     @Test
@@ -200,6 +201,7 @@ public class TestFeaturesConfig
                 .put("experimental.table-writer-merge-operator-enabled", "false")
                 .put("optimizer.optimize-full-outer-join-with-coalesce", "false")
                 .put("index-loader-timeout", "10s")
+                .put("experimental.optimized-repartitioning", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -275,7 +277,8 @@ public class TestFeaturesConfig
                 .setPushdownSubfieldsEnabled(true)
                 .setTableWriterMergeOperatorEnabled(false)
                 .setOptimizeFullOuterJoinWithCoalesce(false)
-                .setIndexLoaderTimeout(new Duration(10, SECONDS));
+                .setIndexLoaderTimeout(new Duration(10, SECONDS))
+                .setOptimizedRepartitioningEnabled(true);
         assertFullMapping(properties, expected);
     }
 

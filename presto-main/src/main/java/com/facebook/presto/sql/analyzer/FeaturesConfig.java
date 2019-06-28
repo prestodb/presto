@@ -135,6 +135,7 @@ public class FeaturesConfig
 
     private boolean jsonSerdeCodeGenerationEnabled;
     private int maxConcurrentMaterializations = 3;
+    private boolean optimizedRepartitioningEnabled;
 
     private boolean pushdownSubfieldsEnabled;
 
@@ -1086,5 +1087,18 @@ public class FeaturesConfig
     public Duration getIndexLoaderTimeout()
     {
         return this.indexLoaderTimeout;
+    }
+
+    public boolean isOptimizedRepartitioningEnabled()
+    {
+        return optimizedRepartitioningEnabled;
+    }
+
+    @Config("experimental.optimized-repartitioning")
+    @ConfigDescription("Experimental: Use optimized repartitioning")
+    public FeaturesConfig setOptimizedRepartitioningEnabled(boolean optimizedRepartitioningEnabled)
+    {
+        this.optimizedRepartitioningEnabled = optimizedRepartitioningEnabled;
+        return this;
     }
 }
