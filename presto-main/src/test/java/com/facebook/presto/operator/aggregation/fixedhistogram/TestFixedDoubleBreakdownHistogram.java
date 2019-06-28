@@ -21,7 +21,6 @@ import java.util.stream.IntStream;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestFixedDoubleBreakdownHistogram
 {
@@ -36,30 +35,20 @@ public class TestFixedDoubleBreakdownHistogram
         assertEquals(histogram.getMax(), 4.0);
     }
 
-    @Test
-    public void testIllegalBucketWeightCount()
+    @Test(
+            expectedExceptions = IllegalArgumentException.class,
+            expectedExceptionsMessageRegExp = "bucketCount must be at least 2: -200")
+    public void testIllegalBucketCount()
     {
-        try {
-            new FixedDoubleBreakdownHistogram(-200, 3.0, 4.0);
-            fail("exception expected");
-        }
-        catch (IllegalArgumentException e) {
-            assertTrue(e.getMessage().contains("bucketCount"));
-            assertTrue(e.getMessage().contains("must be at least"));
-        }
+        new FixedDoubleBreakdownHistogram(-200, 3.0, 4.0);
     }
 
-    @Test
+    @Test(
+            expectedExceptions = IllegalArgumentException.class,
+            expectedExceptionsMessageRegExp = "min must be smaller than max: 3.0 3.0")
     public void testIllegalMinMax()
     {
-        try {
-            new FixedDoubleBreakdownHistogram(200, 3.0, 3.0);
-            fail("exception expected");
-        }
-        catch (IllegalArgumentException e) {
-            assertTrue(e.getMessage().contains("min"));
-            assertTrue(e.getMessage().contains("must be smaller than"));
-        }
+        new FixedDoubleBreakdownHistogram(200, 3.0, 3.0);
     }
 
     @Test
@@ -72,7 +61,7 @@ public class TestFixedDoubleBreakdownHistogram
         histogram.add(3.8, 200.0);
         histogram.add(3.1, 100.0);
         assertEquals(
-                Streams.stream(histogram.iterator()).mapToDouble(FixedDoubleBreakdownHistogram.BucketWeight::getWeight).sum(),
+                Streams.stream(histogram.iterator()).mapToDouble(FixedDoubleBreakdownHistogram.Bucket::getWeight).sum(),
                 300.0);
     }
 
@@ -94,10 +83,10 @@ public class TestFixedDoubleBreakdownHistogram
                 Streams.stream(histogram.iterator()).count(),
                 3);
         assertEquals(
-                Streams.stream(histogram.iterator()).mapToDouble(FixedDoubleBreakdownHistogram.BucketWeight::getWeight).sum(),
+                Streams.stream(histogram.iterator()).mapToDouble(FixedDoubleBreakdownHistogram.Bucket::getWeight).sum(),
                 0.9);
         assertEquals(
-                Streams.stream(histogram.iterator()).mapToLong(FixedDoubleBreakdownHistogram.BucketWeight::getCount).sum(),
+                Streams.stream(histogram.iterator()).mapToLong(FixedDoubleBreakdownHistogram.Bucket::getCount).sum(),
                 4);
     }
 

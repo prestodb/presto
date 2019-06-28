@@ -25,10 +25,15 @@ import java.util.NoSuchElementException;
 import static com.facebook.presto.operator.aggregation.fixedhistogram.FixedHistogramUtils.getIndexForValue;
 import static com.facebook.presto.operator.aggregation.fixedhistogram.FixedHistogramUtils.getLeftValueForIndex;
 import static com.facebook.presto.operator.aggregation.fixedhistogram.FixedHistogramUtils.getRightValueForIndex;
-import static com.facebook.presto.operator.aggregation.fixedhistogram.FixedHistogramUtils.verifyParameters;
+import static com.facebook.presto.operator.aggregation.fixedhistogram.FixedHistogramUtils.validateParameters;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
+/**
+ * Fixed-bucket histogram of weights. For each bucket, it stores the total weights it accrued.
+ */
 public class FixedDoubleHistogram
+        implements Iterable<FixedDoubleHistogram.Bucket>
 {
     public static class Bucket
     {
@@ -69,23 +74,20 @@ public class FixedDoubleHistogram
 
     public FixedDoubleHistogram(int bucketCount, double min, double max)
     {
+        validateParameters(bucketCount, min, max);
         this.bucketCount = bucketCount;
         this.min = min;
         this.max = max;
-        verifyParameters(bucketCount, min, max);
         this.weights = new double[bucketCount];
     }
 
-    public FixedDoubleHistogram(SliceInput input)
+    private FixedDoubleHistogram(int bucketCount, double min, double max, double[] weights)
     {
-        this.bucketCount = input.readInt();
-        this.min = input.readDouble();
-        this.max = input.readDouble();
-        verifyParameters(bucketCount, min, max);
-        this.weights = new double[bucketCount];
-        input.readBytes(
-                Slices.wrappedDoubleArray(weights),
-                bucketCount * SizeOf.SIZE_OF_DOUBLE);
+        validateParameters(bucketCount, min, max);
+        this.bucketCount = bucketCount;
+        this.min = min;
+        this.max = max;
+        this.weights = requireNonNull(weights, "weights is null");
     }
 
     public int getBucketCount()
@@ -108,7 +110,7 @@ public class FixedDoubleHistogram
         return (max - min) / bucketCount;
     }
 
-    protected FixedDoubleHistogram(FixedDoubleHistogram other)
+    private FixedDoubleHistogram(FixedDoubleHistogram other)
     {
         bucketCount = other.bucketCount;
         min = other.min;
@@ -124,6 +126,17 @@ public class FixedDoubleHistogram
                 SizeOf.SIZE_OF_DOUBLE + // min
                 SizeOf.SIZE_OF_DOUBLE + // max
                 SizeOf.SIZE_OF_DOUBLE * bucketCount; // weights
+    }
+
+    public static FixedDoubleHistogram deserialize(SliceInput input)
+    {
+        int bucketCount = input.readInt();
+        double min = input.readDouble();
+        double max = input.readDouble();
+        validateParameters(bucketCount, min, max);
+        double[] weights = new double[bucketCount];
+        input.readBytes(Slices.wrappedDoubleArray(weights), bucketCount * SizeOf.SIZE_OF_DOUBLE);
+        return new FixedDoubleHistogram(bucketCount, min, max, weights);
     }
 
     public void serialize(SliceOutput out)
@@ -161,7 +174,7 @@ public class FixedDoubleHistogram
         checkArgument(
                 bucketCount == other.bucketCount,
                 "bucketCount %s must be equal to other bucketCount %s", bucketCount, other.bucketCount);
-        for (int i = 0; i < bucketCount; ++i) {
+        for (int i = 0; i < bucketCount; i++) {
             weights[i] += other.weights[i];
         }
     }

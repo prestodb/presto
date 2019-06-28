@@ -44,6 +44,7 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -517,6 +518,13 @@ public final class BlockAssertions
     {
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 1);
         BIGINT.writeLong(blockBuilder, value);
+        return new RunLengthEncodedBlock(blockBuilder.build(), positionCount);
+    }
+
+    public static RunLengthEncodedBlock createRLEBlock(String value, int positionCount)
+    {
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 1);
+        VARCHAR.writeSlice(blockBuilder, wrappedBuffer(value.getBytes()));
         return new RunLengthEncodedBlock(blockBuilder.build(), positionCount);
     }
 }

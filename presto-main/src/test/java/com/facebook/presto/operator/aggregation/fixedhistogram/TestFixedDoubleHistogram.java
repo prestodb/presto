@@ -20,8 +20,6 @@ import java.util.ArrayList;
 import java.util.stream.IntStream;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestFixedDoubleHistogram
 {
@@ -35,30 +33,20 @@ public class TestFixedDoubleHistogram
         assertEquals(histogram.getMax(), 4.0);
     }
 
-    @Test
+    @Test(
+            expectedExceptions = IllegalArgumentException.class,
+            expectedExceptionsMessageRegExp = "bucketCount must be at least 2: -200")
     public void testIllegalBucketCount()
     {
-        try {
-            new FixedDoubleHistogram(-200, 3.0, 4.0);
-            fail("exception expected");
-        }
-        catch (IllegalArgumentException e) {
-            assertTrue(e.getMessage().contains("bucketCount"));
-            assertTrue(e.getMessage().contains("must be at least"));
-        }
+        new FixedDoubleHistogram(-200, 3.0, 4.0);
     }
 
-    @Test
+    @Test(
+            expectedExceptions = IllegalArgumentException.class,
+            expectedExceptionsMessageRegExp = "min must be smaller than max: 3.0 3.0")
     public void testIllegalMinMax()
     {
-        try {
-            new FixedDoubleHistogram(200, 3.0, 3.0);
-            fail("exception expected");
-        }
-        catch (IllegalArgumentException e) {
-            assertTrue(e.getMessage().contains("min"));
-            assertTrue(e.getMessage().contains("must be smaller than"));
-        }
+        new FixedDoubleHistogram(200, 3.0, 3.0);
     }
 
     @Test

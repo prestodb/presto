@@ -19,6 +19,7 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.stream.IntStream;
@@ -26,8 +27,10 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.operator.aggregation.fixedhistogram.FixedHistogramUtils.getIndexForValue;
 import static com.facebook.presto.operator.aggregation.fixedhistogram.FixedHistogramUtils.getLeftValueForIndex;
 import static com.facebook.presto.operator.aggregation.fixedhistogram.FixedHistogramUtils.getRightValueForIndex;
-import static com.facebook.presto.operator.aggregation.fixedhistogram.FixedHistogramUtils.verifyParameters;
+import static com.facebook.presto.operator.aggregation.fixedhistogram.FixedHistogramUtils.validateParameters;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Fixed-bucket histogram of weights breakdowns. For each bucket, it stores the number of times
@@ -38,6 +41,7 @@ import static com.google.common.base.Preconditions.checkArgument;
  * and space complexities can be very large.
  */
 public class FixedDoubleBreakdownHistogram
+        implements Iterable<FixedDoubleBreakdownHistogram.Bucket>
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(FixedDoubleBreakdownHistogram.class).instanceSize();
 
@@ -49,7 +53,7 @@ public class FixedDoubleBreakdownHistogram
     private double[] weights;
     private long[] counts;
 
-    public static class BucketWeight
+    public static class Bucket
     {
         private final double left;
         private final double right;
@@ -76,7 +80,7 @@ public class FixedDoubleBreakdownHistogram
             return count;
         }
 
-        public BucketWeight(double left, double right, double weight, long count)
+        public Bucket(double left, double right, double weight, long count)
         {
             this.left = left;
             this.right = right;
@@ -87,50 +91,40 @@ public class FixedDoubleBreakdownHistogram
 
     public FixedDoubleBreakdownHistogram(int bucketCount, double min, double max)
     {
+        validateParameters(bucketCount, min, max);
         this.bucketCount = bucketCount;
         this.min = min;
         this.max = max;
-        verifyParameters(bucketCount, min, max);
         this.indices = new int[0];
         this.weights = new double[0];
         this.counts = new long[0];
     }
 
-    public FixedDoubleBreakdownHistogram(SliceInput input)
-    {
-        this.bucketCount = input.readInt();
-        this.min = input.readDouble();
-        this.max = input.readDouble();
-        verifyParameters(bucketCount, min, max);
-        int size = input.readInt();
-        this.indices = new int[size];
-        this.weights = new double[size];
-        this.counts = new long[size];
-        input.readBytes(
-                Slices.wrappedIntArray(indices),
-                size * SizeOf.SIZE_OF_INT);
-        input.readBytes(
-                Slices.wrappedDoubleArray(weights),
-                size * SizeOf.SIZE_OF_DOUBLE);
-        input.readBytes(
-                Slices.wrappedLongArray(counts),
-                size * SizeOf.SIZE_OF_LONG);
-    }
-
-    protected FixedDoubleBreakdownHistogram(FixedDoubleBreakdownHistogram other)
+    private FixedDoubleBreakdownHistogram(FixedDoubleBreakdownHistogram other)
     {
         this.bucketCount = other.bucketCount;
         this.min = other.min;
         this.max = other.max;
-        verifyParameters(bucketCount, min, max);
-        this.indices = new int[other.indices.length];
-        this.weights = new double[other.weights.length];
-        this.counts = new long[other.counts.length];
-        for (int i = 0; i < other.indices.length; ++i) {
-            this.indices[i] = other.indices[i];
-            this.weights[i] = other.weights[i];
-            this.counts[i] = other.counts[i];
-        }
+        this.indices = Arrays.copyOf(other.indices, other.indices.length);
+        this.weights = Arrays.copyOf(other.weights, other.weights.length);
+        this.counts = Arrays.copyOf(other.counts, other.counts.length);
+    }
+
+    private FixedDoubleBreakdownHistogram(
+            int bucketCount,
+            double min,
+            double max,
+            int[] indices,
+            double[] weights,
+            long[] counts)
+    {
+        validateParameters(bucketCount, min, max);
+        this.bucketCount = bucketCount;
+        this.min = min;
+        this.max = max;
+        this.indices = requireNonNull(indices, "indices is null");
+        this.weights = requireNonNull(weights, "weights is null");
+        this.counts = requireNonNull(counts, "counts is null");
     }
 
     public int getBucketCount()
@@ -155,15 +149,36 @@ public class FixedDoubleBreakdownHistogram
 
     public long estimatedInMemorySize()
     {
-        return INSTANCE_SIZE + indices.length * (SizeOf.SIZE_OF_INT + SizeOf.SIZE_OF_DOUBLE + SizeOf.SIZE_OF_LONG);
+        return INSTANCE_SIZE +
+                SizeOf.sizeOf(indices) +
+                SizeOf.sizeOf(weights) +
+                SizeOf.sizeOf(counts);
     }
 
     public int getRequiredBytesForSerialization()
     {
         return SizeOf.SIZE_OF_INT + // bucketCount
-                // 2 * SizeOf.SIZE_OF_DOUBLE + // min, max
+                2 * SizeOf.SIZE_OF_DOUBLE + // min, max
                 SizeOf.SIZE_OF_INT + // size
-                indices.length * (SizeOf.SIZE_OF_INT + SizeOf.SIZE_OF_DOUBLE + SizeOf.SIZE_OF_LONG); // arrays
+                indices.length *
+                        (SizeOf.SIZE_OF_INT + SizeOf.SIZE_OF_DOUBLE + SizeOf.SIZE_OF_LONG); // indices, weights, counts
+    }
+
+    public static FixedDoubleBreakdownHistogram deserialize(SliceInput input)
+    {
+        int bucketCount = input.readInt();
+        double min = input.readDouble();
+        double max = input.readDouble();
+        validateParameters(bucketCount, min, max);
+
+        int size = input.readInt();
+        int[] indices = new int[size];
+        double[] weights = new double[size];
+        long[] counts = new long[size];
+        input.readBytes(Slices.wrappedIntArray(indices), size * SizeOf.SIZE_OF_INT);
+        input.readBytes(Slices.wrappedDoubleArray(weights), size * SizeOf.SIZE_OF_DOUBLE);
+        input.readBytes(Slices.wrappedLongArray(counts), size * SizeOf.SIZE_OF_LONG);
+        return new FixedDoubleBreakdownHistogram(bucketCount, min, max, indices, weights, counts);
     }
 
     public void serialize(SliceOutput out)
@@ -223,20 +238,24 @@ public class FixedDoubleBreakdownHistogram
 
     public void mergeWith(FixedDoubleBreakdownHistogram other)
     {
-        checkArgument(bucketCount == other.bucketCount, "bucket counts must be equal.");
-        checkArgument(min == other.min, "minimums must be equal.");
-        checkArgument(max == other.max, "maximums must be equal.");
+        checkArgument(
+                bucketCount == other.bucketCount,
+                format("bucket count must be equal to other bucket count: %s %s", bucketCount, other.bucketCount));
+        checkArgument(
+                min == other.min,
+                format("minimum must be equal to other minimum: %s %s", min, other.min));
+        checkArgument(
+                max == other.max,
+                format("Maximum must be equal to other maximum: %s %s", max, other.max));
 
-        for (int i = 0; i < other.indices.length; ++i) {
-            add(other.indices[i],
-                    other.weights[i],
-                    other.counts[i]);
+        for (int i = 0; i < other.indices.length; i++) {
+            add(other.indices[i], other.weights[i], other.counts[i]);
         }
     }
 
-    public Iterator<BucketWeight> iterator()
+    public Iterator<Bucket> iterator()
     {
-        return new Iterator<BucketWeight>() {
+        return new Iterator<Bucket>() {
             private int currentIndex;
 
             @Override
@@ -246,13 +265,13 @@ public class FixedDoubleBreakdownHistogram
             }
 
             @Override
-            public BucketWeight next()
+            public Bucket next()
             {
                 if (!hasNext()) {
                     throw new NoSuchElementException();
                 }
 
-                final BucketWeight bucket = new BucketWeight(
+                final Bucket bucket = new Bucket(
                         getLeftValueForIndex(bucketCount, min, max, indices[currentIndex]),
                         getRightValueForIndex(bucketCount, min, max, indices[currentIndex]),
                         weights[currentIndex],
