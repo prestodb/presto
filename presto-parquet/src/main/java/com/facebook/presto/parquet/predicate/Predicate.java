@@ -25,7 +25,7 @@ public interface Predicate
     Predicate TRUE = new Predicate()
     {
         @Override
-        public boolean matches(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics, ParquetDataSourceId id, boolean failOnCorruptedParquetStatistics)
+        public boolean matches(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics, ParquetDataSourceId id, boolean failOnCorruptedParquetStatistics, boolean ignoreBinaryStatisticsForVarchars)
                 throws ParquetCorruptionException
         {
             return true;
@@ -40,14 +40,14 @@ public interface Predicate
 
     /**
      * Should the Parquet Reader process a file section with the specified statistics.
-     *
-     * @param numberOfRows the number of rows in the segment; this can be used with
+     *  @param numberOfRows the number of rows in the segment; this can be used with
      * Statistics to determine if a column is only null
      * @param statistics column statistics
      * @param id Parquet file name
      * @param failOnCorruptedParquetStatistics whether to fail query when scanning a Parquet file with corrupted statistics
+     * @param shouldIgnoreStatisticsForVarcharBinary whether to ignore varchar's statistics may corrupted
      */
-    boolean matches(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics, ParquetDataSourceId id, boolean failOnCorruptedParquetStatistics)
+    boolean matches(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics, ParquetDataSourceId id, boolean failOnCorruptedParquetStatistics, boolean shouldIgnoreStatisticsForVarcharBinary)
             throws ParquetCorruptionException;
 
     /**

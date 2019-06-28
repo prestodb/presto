@@ -103,6 +103,7 @@ public class HiveClientConfig
 
     private boolean useParquetColumnNames;
     private boolean failOnCorruptedParquetStatistics = true;
+    private boolean isIgnoreBinaryStatisticsForVarchars;
 
     private boolean assumeCanonicalPartitionKeys;
 
@@ -926,6 +927,19 @@ public class HiveClientConfig
     public HiveClientConfig setFailOnCorruptedParquetStatistics(boolean failOnCorruptedParquetStatistics)
     {
         this.failOnCorruptedParquetStatistics = failOnCorruptedParquetStatistics;
+        return this;
+    }
+
+    public boolean isIgnoreBinaryStatisticsForVarchars()
+    {
+        return isIgnoreBinaryStatisticsForVarchars;
+    }
+
+    @Config("hive.parquet.ignore-binary-statistics-for-varchars")
+    @ConfigDescription("Ignore the incorrect binary-statistics for varchars when pushdown predicates")
+    public HiveClientConfig setIgnoreBinaryStatisticsForVarchars(boolean isIgnoreBinaryStatisticsForVarchars)
+    {
+        this.isIgnoreBinaryStatisticsForVarchars = isIgnoreBinaryStatisticsForVarchars;
         return this;
     }
 

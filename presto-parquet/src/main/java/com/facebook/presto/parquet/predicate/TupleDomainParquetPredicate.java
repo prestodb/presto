@@ -71,7 +71,7 @@ public class TupleDomainParquetPredicate
     }
 
     @Override
-    public boolean matches(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics, ParquetDataSourceId id, boolean failOnCorruptedParquetStatistics)
+    public boolean matches(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics, ParquetDataSourceId id, boolean failOnCorruptedParquetStatistics, boolean shouldIgnoreStatisticsForVarcharBinary)
             throws ParquetCorruptionException
     {
         if (numberOfRows == 0) {
@@ -96,7 +96,7 @@ public class TupleDomainParquetPredicate
                 // no stats for column
             }
             else {
-                Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnStatistics, id, column.toString(), failOnCorruptedParquetStatistics);
+                Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnStatistics, id, column.toString(), failOnCorruptedParquetStatistics, shouldIgnoreStatisticsForVarcharBinary);
                 if (effectivePredicateDomain.intersect(domain).isNone()) {
                     return false;
                 }
@@ -130,7 +130,7 @@ public class TupleDomainParquetPredicate
     }
 
     @VisibleForTesting
-    public static Domain getDomain(Type type, long rowCount, Statistics<?> statistics, ParquetDataSourceId id, String column, boolean failOnCorruptedParquetStatistics)
+    public static Domain getDomain(Type type, long rowCount, Statistics<?> statistics, ParquetDataSourceId id, String column, boolean failOnCorruptedParquetStatistics, boolean shouldIgnoreStatisticsForVarcharBinary)
             throws ParquetCorruptionException
     {
         if (statistics == null || statistics.isEmpty()) {
@@ -213,7 +213,7 @@ public class TupleDomainParquetPredicate
             return createDomain(type, hasNullValue, parquetDoubleStatistics);
         }
 
-        if (isVarcharType(type) && statistics instanceof BinaryStatistics) {
+        if (isVarcharType(type) && statistics instanceof BinaryStatistics && !shouldIgnoreStatisticsForVarcharBinary) {
             BinaryStatistics binaryStatistics = (BinaryStatistics) statistics;
             Slice minSlice = Slices.wrappedBuffer(binaryStatistics.genericGetMin().getBytes());
             Slice maxSlice = Slices.wrappedBuffer(binaryStatistics.genericGetMax().getBytes());

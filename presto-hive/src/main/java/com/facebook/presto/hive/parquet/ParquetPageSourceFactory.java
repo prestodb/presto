@@ -62,10 +62,12 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveSessionProperties.isFailOnCorruptedParquetStatistics;
+import static com.facebook.presto.hive.HiveSessionProperties.isIgnoreBinaryStatisticsForVarchars;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
 import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.parquet.ParquetCorruptStatisticsUtils.shouldIgnoreBinaryStatisticsForVarchars;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetTypeByName;
@@ -126,6 +128,7 @@ public class ParquetPageSourceFactory
                 columns,
                 isUseParquetColumnNames(session),
                 isFailOnCorruptedParquetStatistics(session),
+                isIgnoreBinaryStatisticsForVarchars(session),
                 typeManager,
                 effectivePredicate,
                 stats));
@@ -143,6 +146,7 @@ public class ParquetPageSourceFactory
             List<HiveColumnHandle> columns,
             boolean useParquetColumnNames,
             boolean failOnCorruptedParquetStatistics,
+            boolean ignoreStatisticsForVarcharBinary,
             TypeManager typeManager,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             FileFormatDataSourceStats stats)
@@ -155,6 +159,7 @@ public class ParquetPageSourceFactory
             FSDataInputStream inputStream = fileSystem.open(path);
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(inputStream, path, fileSize);
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
+            boolean shouldIgnoreBinaryStatisticsForVarchars = ignoreStatisticsForVarcharBinary || shouldIgnoreBinaryStatisticsForVarchars(fileMetaData);
             MessageType fileSchema = fileMetaData.getSchema();
             dataSource = buildHdfsParquetDataSource(inputStream, path, fileSize, stats);
 
@@ -180,7 +185,7 @@ public class ParquetPageSourceFactory
             final ParquetDataSource finalDataSource = dataSource;
             ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
             for (BlockMetaData block : footerBlocks.build()) {
-                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, failOnCorruptedParquetStatistics)) {
+                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, failOnCorruptedParquetStatistics, shouldIgnoreBinaryStatisticsForVarchars)) {
                     blocks.add(block);
                 }
             }
