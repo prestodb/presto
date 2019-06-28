@@ -134,6 +134,7 @@ public final class SystemSessionProperties
     public static final String TABLE_WRITER_MERGE_OPERATOR_ENABLED = "table_writer_merge_operator_enabled";
     public static final String OPTIMIZE_FULL_OUTER_JOIN_WITH_COALESCE = "optimize_full_outer_join_with_coalesce";
     public static final String INDEX_LOADER_TIMEOUT = "index_loader_timeout";
+    public static final String OPTIMIZED_REPARTITIONING_ENABLED = "optimized_repartitioning";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -658,7 +659,12 @@ public final class SystemSessionProperties
                         featuresConfig.getIndexLoaderTimeout(),
                         false,
                         value -> Duration.valueOf((String) value),
-                        Duration::toString));
+                        Duration::toString),
+                booleanProperty(
+                        OPTIMIZED_REPARTITIONING_ENABLED,
+                        "Experimental: Use optimized repartitioning",
+                        featuresConfig.isOptimizedRepartitioningEnabled(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1122,5 +1128,10 @@ public final class SystemSessionProperties
     public static Duration getIndexLoaderTimeout(Session session)
     {
         return session.getSystemProperty(INDEX_LOADER_TIMEOUT, Duration.class);
+    }
+
+    public static boolean isOptimizedRepartitioningEnabled(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZED_REPARTITIONING_ENABLED, Boolean.class);
     }
 }
