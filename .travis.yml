@@ -18,6 +18,7 @@ env:
     - TEST_SPECIFIC_MODULES=presto-cassandra
     - TEST_SPECIFIC_MODULES=presto-hive
     - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-materialized"
+    - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-recoverable-grouped-execution"
     - TEST_SPECIFIC_MODULES=presto-main
     - TEST_SPECIFIC_MODULES=presto-mongodb
     - TEST_OTHER_MODULES=!presto-tests,!presto-raptor,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-kudu,!presto-docs,!presto-server,!presto-server-rpm,!presto-main,!presto-mongodb
