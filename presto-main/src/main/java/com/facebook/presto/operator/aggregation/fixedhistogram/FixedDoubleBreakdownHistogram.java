@@ -161,7 +161,7 @@ public class FixedDoubleBreakdownHistogram
     public int getRequiredBytesForSerialization()
     {
         return SizeOf.SIZE_OF_INT + // bucketCount
-                // 2 * SizeOf.SIZE_OF_DOUBLE + // min, max
+                2 * SizeOf.SIZE_OF_DOUBLE + // min, max
                 SizeOf.SIZE_OF_INT + // size
                 indices.length * (SizeOf.SIZE_OF_INT + SizeOf.SIZE_OF_DOUBLE + SizeOf.SIZE_OF_LONG); // arrays
     }

@@ -310,6 +310,44 @@ Statistical Aggregate Functions
 
     Returns the sample covariance of input values.
 
+.. function:: differential_entropy(bucket_count, sample, weight, "fixed_histogram_mle", min, max) -> double
+
+   Returns the approximate log-2 differential entropy from a random variable's sample outcomes. Broadly speaking,
+   the function internally creates a conceptual histogram of the sample values, calculates the counts, and
+   then approximates the entropy using maximum-likelihood estimation.
+
+   The parameter `bucket_count` determines the number of histogram method. The parameter `min` is the minimal value
+   of a sample - all values smaller than `min`, will be made into `min`. The parameter `max` is the minimal value
+   of a sample - all values larger than `max`, will be made into `max`. The parameter `weight` is the weight
+   of the sample, and must be non-negative. The parameter `method` describes the estimation method, and is
+   described further next.
+
+   See more in
+
+    .. code-block:: none
+
+        Beirlant, Dudewicz, Gyorfi, and van der Meulen,
+        "Nonparametric entropy estimation: an overview", (2001)
+
+.. function:: differential_entropy(bucket_count, sample, weight, "fixed_histogram_jacknife", min, max) -> double
+
+   Returns the approximate log-2 differential entropy from a random variable's sample outcomes. Broadly speaking,
+   the function internally creates a conceptual histogram of the sample values, calculates the counts, and
+   then approximates the entropy using Jacknife correction to the maximum-likelihood estimate.
+
+   The parameter `bucket_count` determines the number of histogram method. The parameter `min` is the minimal value
+   of a sample - all values smaller than `min`, will be made into `min`. The parameter `max` is the minimal value
+   of a sample - all values larger than `max`, will be made into `max`. The parameter `weight` is the weight
+   of the sample, and must be non-negative. The parameter `method` describes the estimation method, and is
+   described further next.
+
+   See more in
+
+    .. code-block:: none
+
+        Beirlant, Dudewicz, Gyorfi, and van der Meulen,
+        "Nonparametric entropy estimation: an overview", (2001)
+
 .. function:: entropy(c) -> double
 
     Returns the log-2 entropy of count input-values.

@@ -28,6 +28,9 @@ import static com.facebook.presto.operator.aggregation.fixedhistogram.FixedHisto
 import static com.facebook.presto.operator.aggregation.fixedhistogram.FixedHistogramUtils.verifyParameters;
 import static com.google.common.base.Preconditions.checkArgument;
 
+/**
+ * Fixed-bucket histogram of weights. For each bucket, it stores the total weights it accrued.
+ */
 public class FixedDoubleHistogram
 {
     public static class Bucket
