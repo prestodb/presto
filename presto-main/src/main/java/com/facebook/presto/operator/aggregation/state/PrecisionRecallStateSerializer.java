@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.operator.aggregation.FixedDoubleHistogram;
+import com.facebook.presto.operator.aggregation.fixedhistogram.FixedDoubleHistogram;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
