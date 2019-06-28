@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.connector.thrift;
 
+import com.facebook.drift.client.ExceptionClassification;
+import com.facebook.drift.client.ExceptionClassification.HostStatus;
 import com.facebook.presto.connector.thrift.annotations.ForMetadataRefresh;
 import com.facebook.presto.connector.thrift.api.PrestoThriftService;
 import com.facebook.presto.connector.thrift.api.PrestoThriftServiceException;
@@ -20,18 +22,16 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import io.airlift.drift.client.ExceptionClassification;
-import io.airlift.drift.client.ExceptionClassification.HostStatus;
 
 import javax.inject.Singleton;
 
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
+import static com.facebook.drift.client.ExceptionClassification.NORMAL_EXCEPTION;
+import static com.facebook.drift.client.guice.DriftClientBinder.driftClientBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.drift.client.ExceptionClassification.NORMAL_EXCEPTION;
-import static io.airlift.drift.client.guice.DriftClientBinder.driftClientBinder;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;

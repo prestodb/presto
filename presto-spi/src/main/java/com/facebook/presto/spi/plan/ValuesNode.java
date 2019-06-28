@@ -11,26 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
-import static com.facebook.presto.util.MoreLists.listOfListsCopy;
-import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.unmodifiableList;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class ValuesNode
-        extends InternalPlanNode
+public final class ValuesNode
+        extends PlanNode
 {
     private final List<VariableReferenceExpression> outputVariables;
     private final List<List<RowExpression>> rows;
@@ -41,20 +42,14 @@ public class ValuesNode
             @JsonProperty("rows") List<List<RowExpression>> rows)
     {
         super(id);
-        this.outputVariables = ImmutableList.copyOf(outputVariables);
-        this.rows = listOfListsCopy(rows);
+        this.outputVariables = immutableListCopyOf(outputVariables);
+        this.rows = immutableListCopyOf(requireNonNull(rows, "lists is null").stream().map(ValuesNode::immutableListCopyOf).collect(Collectors.toList()));
 
         for (List<RowExpression> row : rows) {
-            checkArgument(row.size() == outputVariables.size() || row.size() == 0,
-                    "Expected row to have %s values, but row has %s values", outputVariables.size(), row.size());
+            if (!(row.size() == outputVariables.size() || row.size() == 0)) {
+                throw new IllegalArgumentException(format("Expected row to have %s values, but row has %s values", outputVariables.size(), row.size()));
+            }
         }
-    }
-
-    @Override
-    @JsonProperty
-    public List<VariableReferenceExpression> getOutputVariables()
-    {
-        return outputVariables;
     }
 
     @JsonProperty
@@ -64,13 +59,20 @@ public class ValuesNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    @JsonProperty
+    public List<VariableReferenceExpression> getOutputVariables()
     {
-        return ImmutableList.of();
+        return outputVariables;
     }
 
     @Override
-    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    public List<PlanNode> getSources()
+    {
+        return unmodifiableList(emptyList());
+    }
+
+    @Override
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitValues(this, context);
     }
@@ -78,7 +80,14 @@ public class ValuesNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        checkArgument(newChildren.isEmpty(), "newChildren is not empty");
+        if (!newChildren.isEmpty()) {
+            throw new IllegalArgumentException("newChildren is not empty");
+        }
         return this;
+    }
+
+    private static <T> List<T> immutableListCopyOf(List<T> list)
+    {
+        return unmodifiableList(new ArrayList<>(requireNonNull(list, "list is null")));
     }
 }

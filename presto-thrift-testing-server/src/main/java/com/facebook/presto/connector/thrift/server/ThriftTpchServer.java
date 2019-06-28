@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.connector.thrift.server;
 
+import com.facebook.drift.transport.netty.server.DriftNettyServerModule;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
-import io.airlift.drift.transport.netty.server.DriftNettyServerModule;
 import io.airlift.log.Logger;
 
 import java.util.List;

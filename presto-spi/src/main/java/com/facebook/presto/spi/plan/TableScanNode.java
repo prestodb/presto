@@ -46,16 +46,12 @@ public final class TableScanNode
 
     private final TupleDomain<ColumnHandle> enforcedConstraint;
 
-    // TODO: this flag will be remove with #12776; the caller should always set it to false until it is removed.
-    private final boolean temporaryTable;
-
     @JsonCreator
     public TableScanNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("table") TableHandle table,
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
-            @JsonProperty("assignments") Map<VariableReferenceExpression, ColumnHandle> assignments,
-            @JsonProperty("temporaryTable") boolean temporaryTable)
+            @JsonProperty("assignments") Map<VariableReferenceExpression, ColumnHandle> assignments)
     {
         // This constructor is for JSON deserialization only. Do not use.
         super(id);
@@ -63,18 +59,8 @@ public final class TableScanNode
         this.outputVariables = unmodifiableList(requireNonNull(outputVariables, "outputVariables is null"));
         this.assignments = unmodifiableMap(new HashMap<>(requireNonNull(assignments, "assignments is null")));
         checkArgument(assignments.keySet().containsAll(outputVariables), "assignments does not cover all of outputs");
-        this.temporaryTable = temporaryTable;
         this.currentConstraint = null;
         this.enforcedConstraint = null;
-    }
-
-    public TableScanNode(
-            PlanNodeId id,
-            TableHandle table,
-            List<VariableReferenceExpression> outputVariables,
-            Map<VariableReferenceExpression, ColumnHandle> assignments)
-    {
-        this(id, table, outputVariables, assignments, TupleDomain.all(), TupleDomain.all(), false);
     }
 
     public TableScanNode(
@@ -85,18 +71,6 @@ public final class TableScanNode
             TupleDomain<ColumnHandle> currentConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint)
     {
-        this(id, table, outputVariables, assignments, currentConstraint, enforcedConstraint, false);
-    }
-
-    public TableScanNode(
-            PlanNodeId id,
-            TableHandle table,
-            List<VariableReferenceExpression> outputVariables,
-            Map<VariableReferenceExpression, ColumnHandle> assignments,
-            TupleDomain<ColumnHandle> currentConstraint,
-            TupleDomain<ColumnHandle> enforcedConstraint,
-            boolean temporaryTable)
-    {
         super(id);
         this.table = requireNonNull(table, "table is null");
         this.outputVariables = unmodifiableList(requireNonNull(outputVariables, "outputVariables is null"));
@@ -104,7 +78,6 @@ public final class TableScanNode
         checkArgument(assignments.keySet().containsAll(outputVariables), "assignments does not cover all of outputs");
         this.currentConstraint = requireNonNull(currentConstraint, "currentConstraint is null");
         this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
-        this.temporaryTable = temporaryTable;
         if (!currentConstraint.isAll() || !enforcedConstraint.isAll()) {
             checkArgument(table.getLayout().isPresent(), "tableLayout must be present when currentConstraint or enforcedConstraint is non-trivial");
         }
@@ -126,12 +99,6 @@ public final class TableScanNode
     public Map<VariableReferenceExpression, ColumnHandle> getAssignments()
     {
         return assignments;
-    }
-
-    @JsonProperty
-    public boolean isTemporaryTable()
-    {
-        return temporaryTable;
     }
 
     /**

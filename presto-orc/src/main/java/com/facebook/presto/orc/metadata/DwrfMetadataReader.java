@@ -29,6 +29,7 @@ import com.facebook.presto.orc.protobuf.CodedInputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 
@@ -39,6 +40,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.SortedMap;
 
 import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
@@ -149,16 +151,17 @@ public class DwrfMetadataReader
                         columnEncoding.getDictionarySize()));
     }
 
-    private static Optional<List<DwrfSequenceEncoding>> toAdditionalSequenceEncodings(List<DwrfProto.ColumnEncoding> columnEncodings, OrcType type)
+    private static Optional<SortedMap<Integer, DwrfSequenceEncoding>> toAdditionalSequenceEncodings(List<DwrfProto.ColumnEncoding> columnEncodings, OrcType type)
     {
         if (columnEncodings.size() == 1) {
             return Optional.empty();
         }
 
-        ImmutableList.Builder<DwrfSequenceEncoding> additionalSequenceEncodings = ImmutableList.builder();
+        ImmutableSortedMap.Builder<Integer, DwrfSequenceEncoding> additionalSequenceEncodings = ImmutableSortedMap.<Integer, DwrfSequenceEncoding>naturalOrder();
 
         for (int i = 1; i < columnEncodings.size(); i++) {
-            additionalSequenceEncodings.add(toSequenceEncoding(type, columnEncodings.get(i)));
+            DwrfProto.ColumnEncoding columnEncoding = columnEncodings.get(i);
+            additionalSequenceEncodings.put(columnEncoding.getSequence(), toSequenceEncoding(type, columnEncoding));
         }
 
         return Optional.of(additionalSequenceEncodings.build());

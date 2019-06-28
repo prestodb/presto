@@ -64,11 +64,6 @@ public abstract class InternalPlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
-    public R visitValues(ValuesNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
     public R visitIndexSource(IndexSourceNode node, C context)
     {
         return visitPlan(node, context);

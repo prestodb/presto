@@ -313,8 +313,7 @@ public class PushdownSubfields
                     node.getOutputVariables(),
                     newAssignments.build(),
                     node.getCurrentConstraint(),
-                    node.getEnforcedConstraint(),
-                    node.isTemporaryTable());
+                    node.getEnforcedConstraint());
         }
 
         @Override

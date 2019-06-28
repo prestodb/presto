@@ -34,7 +34,7 @@ public class TestClassificationThresholdAggregation
         final ArrayList<Double> expected = new ArrayList<>();
         while (iterator.hasNext()) {
             final BucketResult result = iterator.next();
-            expected.add((result.left + result.right) / 2);
+            expected.add(result.left);
         }
         return expected;
     }

@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.connector.thrift.util;
 
+import com.facebook.drift.TApplicationException;
+import com.facebook.drift.TException;
+import com.facebook.drift.protocol.TTransportException;
 import com.facebook.presto.connector.thrift.api.PrestoThriftServiceException;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.drift.TApplicationException;
-import io.airlift.drift.TException;
-import io.airlift.drift.protocol.TTransportException;
 
 import static com.facebook.presto.connector.thrift.ThriftErrorCode.THRIFT_SERVICE_CONNECTION_ERROR;
 import static com.facebook.presto.connector.thrift.ThriftErrorCode.THRIFT_SERVICE_GENERIC_REMOTE_ERROR;

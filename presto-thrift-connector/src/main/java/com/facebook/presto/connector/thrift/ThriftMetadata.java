@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.connector.thrift;
 
+import com.facebook.drift.TException;
+import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.connector.thrift.annotations.ForMetadataRefresh;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableSchemaName;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableTableMetadata;
@@ -40,8 +42,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import io.airlift.drift.TException;
-import io.airlift.drift.client.DriftClient;
 import io.airlift.units.Duration;
 
 import javax.inject.Inject;

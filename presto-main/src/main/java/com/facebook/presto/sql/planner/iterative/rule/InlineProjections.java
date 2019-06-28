@@ -18,7 +18,7 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.ExpressionVariableInliner;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -28,6 +28,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Literal;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.util.AstUtils;
 import com.google.common.collect.ImmutableSet;
@@ -39,7 +40,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAsSymbolReference;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.isIdentity;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
@@ -85,7 +85,7 @@ public class InlineProjections
                 .entrySet().stream()
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
-                        entry -> castToRowExpression(inlineReferences(castToExpression(entry.getValue()), assignments))));
+                        entry -> castToRowExpression(inlineReferences(castToExpression(entry.getValue()), assignments, context.getSymbolAllocator().getTypes()))));
 
         // Synthesize identity assignments for the inputs of expressions that were inlined
         // to place in the child projection.
@@ -119,16 +119,16 @@ public class InlineProjections
                         Assignments.copyOf(parentAssignments)));
     }
 
-    private Expression inlineReferences(Expression expression, Assignments assignments)
+    private Expression inlineReferences(Expression expression, Assignments assignments, TypeProvider types)
     {
-        Function<Symbol, Expression> mapping = symbol -> {
-            if (assignments.get(symbol) == null) {
-                return symbol.toSymbolReference();
+        Function<VariableReferenceExpression, Expression> mapping = variable -> {
+            if (assignments.get(variable) == null) {
+                return new SymbolReference(variable.getName());
             }
-            return castToExpression(assignments.get(symbol));
+            return castToExpression(assignments.get(variable));
         };
 
-        return inlineSymbols(mapping, expression);
+        return ExpressionVariableInliner.inlineVariables(mapping, expression, types);
     }
 
     private Sets.SetView<VariableReferenceExpression> extractInliningTargets(ProjectNode parent, ProjectNode child, Context context)

@@ -70,6 +70,7 @@ public class HttpRemoteTaskFactory
     private final Codec<TaskUpdateRequest> taskUpdateRequestCodec;
     private final Duration maxErrorDuration;
     private final Duration taskStatusRefreshMaxWait;
+    private final Duration taskInfoRefreshMaxWait;
     private final Duration taskInfoUpdateInterval;
     private final ExecutorService coreExecutor;
     private final Executor executor;
@@ -98,6 +99,7 @@ public class HttpRemoteTaskFactory
         this.maxErrorDuration = config.getRemoteTaskMaxErrorDuration();
         this.taskStatusRefreshMaxWait = taskConfig.getStatusRefreshMaxWait();
         this.taskInfoUpdateInterval = taskConfig.getInfoUpdateInterval();
+        this.taskInfoRefreshMaxWait = taskConfig.getInfoRefreshMaxWait();
         this.coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%s"));
         this.executor = new BoundedExecutor(coreExecutor, config.getRemoteTaskMaxCallbackThreads());
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
@@ -159,6 +161,7 @@ public class HttpRemoteTaskFactory
                 errorScheduledExecutor,
                 maxErrorDuration,
                 taskStatusRefreshMaxWait,
+                taskInfoRefreshMaxWait,
                 taskInfoUpdateInterval,
                 summarizeTaskInfo,
                 taskStatusCodec,
