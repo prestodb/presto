@@ -756,6 +756,7 @@ public abstract class TestDateTimeFunctionsBase
         assertFunction("date_format(" + dateTimeLiteral + ", '%g')", VARCHAR, "g");
         assertFunction("date_format(" + dateTimeLiteral + ", '%4')", VARCHAR, "4");
         assertFunction("date_format(" + dateTimeLiteral + ", '%x %v')", VARCHAR, "2001 02");
+        assertFunction("date_format(" + dateTimeLiteral + ", '%Y\u5e74%m\u6708%d\u65e5')", VARCHAR, "2001\u5e7401\u670809\u65e5");
 
         String weirdDateTimeLiteral = "TIMESTAMP '2001-01-09 13:04:05.321 +07:09'";
 
@@ -788,6 +789,7 @@ public abstract class TestDateTimeFunctionsBase
         assertFunction("date_format(" + weirdDateTimeLiteral + ", '%g')", VARCHAR, "g");
         assertFunction("date_format(" + weirdDateTimeLiteral + ", '%4')", VARCHAR, "4");
         assertFunction("date_format(" + weirdDateTimeLiteral + ", '%x %v')", VARCHAR, "2001 02");
+        assertFunction("date_format(" + weirdDateTimeLiteral + ", '%Y\u5e74%m\u6708%d\u65e5')", VARCHAR, "2001\u5e7401\u670809\u65e5");
 
         assertFunction("date_format(TIMESTAMP '2001-01-09 13:04:05.32', '%f')", VARCHAR, "320000");
         assertFunction("date_format(TIMESTAMP '2001-01-09 00:04:05.32', '%k')", VARCHAR, "0");
