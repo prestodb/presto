@@ -564,8 +564,147 @@ To find the `ROC curve <https://en.wikipedia.org/wiki/Receiver_operating_charact
 
     The thresholds are defined as a sequence whose :math:`j`-th entry is the :math:`j`-th smallest threshold.
 
---------------------------
+Differential Entropy Functions
+-------------------------------
+
+The following functions approximate the binary `differential entropy <https://en.wikipedia.org/wiki/Differential_entropy>`_.
+That is, for a random variable :math:`x`, they approximate
+
+.. math ::
+
+    H(x) = - \int x \log_2\left(f(x)\right) dx,
+
+where :math:`f(x)` is the partial density function of :math:`x`.
+
+.. function:: differential_entropy(sample_size, x)
+
+    Returns the approximate log-2 differential entropy from a random variable's sample outcomes. The function internally
+    creates a reservoir (see [Black2015]_), then calculates the
+    entropy from the sample results by approximating the derivative of the cumulative distribution
+    (see [Alizadeh2010]_).
+
+    ``sample_size`` (``long``) is the maximal number of reservoir samples.
+
+    ``x`` (``double``) is the samples.
+
+    For example, to find the differential entropy of ``x`` of ``data`` using 1000000 reservoir samples, use
+
+    .. code-block:: none
+
+         SELECT
+             differential_entropy(1000000, x)
+         FROM
+             data
+
+    .. note::
+
+        If :math:`x` has a known lower and upper bound,
+        prefer the versions taking ``(bucket_count, x, 1.0, "fixed_histogram_mle", min, max)``,
+        or ``(bucket_count, x, 1.0, "fixed_histogram_jacknife", min, max)``,
+        as they have better convergence.
+
+.. function:: differential_entropy(sample_size, x, weight)
+
+    Returns the approximate log-2 differential entropy from a random variable's sample outcomes. The function
+    internally creates a weighted reservoir (see [Efraimidis2006]_), then calculates the
+    entropy from the sample results by approximating the derivative of the cumulative distribution
+    (see [Alizadeh2010]_).
+
+    ``sample_size`` is the maximal number of reservoir samples.
+
+    ``x`` (``double``) is the samples.
+
+    ``weight`` (``double``) is a non-negative double value indicating the weight of the sample.
+
+    For example, to find the differential entropy of ``x`` with weights ``weight`` of ``data``
+    using 1000000 reservoir samples, use
+
+    .. code-block:: none
+
+         SELECT
+             differential_entropy(1000000, x, weight)
+         FROM
+             data
+
+    .. note::
+
+        If :math:`x` has a known lower and upper bound,
+        prefer the versions taking ``(bucket_count, x, weight, "fixed_histogram_mle", min, max)``,
+        or ``(bucket_count, x, weight, "fixed_histogram_jacknife", min, max)``,
+        as they have better convergence.
+
+.. function:: differential_entropy(bucket_count, x, weight, method, min, max) -> double
+
+    Returns the approximate log-2 differential entropy from a random variable's sample outcomes. The function
+    internally creates a conceptual histogram of the sample values, calculates the counts, and
+    then approximates the entropy using maximum likelihood with or without Jacknife
+    correction, based on the ``method`` parameter. If Jacknife correction (see [Beirlant2001]_) is used, the
+    estimate is
+
+    .. math ::
+
+        n H(x) - (n - 1) \sum_{i = 1}^n H\left(x_{(i)}\right)
+
+    where :math:`n` is the length of the sequence, and :math:`x_{(i)}` is the sequence with the :math:`i`-th element
+    removed.
+
+    ``bucket_count`` (``long``) determines the number of histogram buckets.
+
+    ``x`` (``double``) is the samples.
+
+    ``method`` (``varchar``) is either ``'fixed_histogram_mle'`` (for the maximum likelihood estimate)
+    or ``'fixed_histogram_jacknife'`` (for the jacknife-corrected maximum likelihood estimate).
+
+    ``min`` and ``max`` (both ``double``) are the minimal and maximal values, respectively;
+    the function will throw if there is an input outside this range.
+
+    ``weight`` (``double``) is the weight of the sample, and must be non-negative.
+
+    For example, to find the differential entropy of ``x``, each between ``0.0`` and ``1.0``,
+    with weights 1.0 of ``data`` using 1000000 bins and jacknife estimates, use
+
+    .. code-block:: none
+
+         SELECT
+             differential_entropy(1000000, x, 1.0, 'fixed_histogram_jacknife', 0.0, 1.0)
+         FROM
+             data
+
+    To find the differential entropy of ``x``, each between ``-2.0`` and ``2.0``,
+    with weights ``weight`` of ``data`` using 1000000 buckets and maximum-likelihood estimates, use
+
+        .. code-block:: none
+
+             SELECT
+                 differential_entropy(1000000, x, weight, 'fixed_histogram_mle', -2.0, 2.0)
+             FROM
+                 data
+
+    .. note::
+
+        If :math:`x` doesn't have known lower and upper bounds, prefer the versions taking ``(sample_size, x)``
+        (unweighted case) or ``(sample_size, x, weight)`` (weighted case), as they use reservoir
+        sampling which doesn't require a known range for samples.
+
+        Otherwise, if the number of distinct weights is low,
+        especially if the number of samples is low, consider using the version taking
+        ``(bucket_count, x, weight, "fixed_histogram_jacknife", min, max)``, as jacknife bias correction,
+        is better than maximum likelihood estimation. However, if the number of distinct weights is high,
+        consider using the version taking ``(bucket_count, x, weight, "fixed_histogram_mle", min, max)``,
+        as this will reduce memory and running time.
+
+
+---------------------------
+
+.. [Alizadeh2010] Alizadeh Noughabi, Hadi & Arghami, N. (2010). "A New Estimator of Entropy".
+
+.. [Beirlant2001] Beirlant, Dudewicz, Gyorfi, and van der Meulen,
+    "Nonparametric entropy estimation: an overview", (2001)
 
 .. [BenHaimTomTov2010] Yael Ben-Haim and Elad Tom-Tov, "A streaming parallel decision tree algorithm",
     J. Machine Learning Research 11 (2010), pp. 849--872.
 
+.. [Black2015] Black, Paul E. (26 January 2015). "Reservoir sampling". Dictionary of Algorithms and Data Structures.
+
+.. [Efraimidis2006] Efraimidis, Pavlos S.; Spirakis, Paul G. (2006-03-16). "Weighted random sampling with a reservoir".
+    Information Processing Letters. 97 (5): 181–185.
