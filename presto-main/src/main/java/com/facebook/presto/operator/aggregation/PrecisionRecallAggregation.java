@@ -234,9 +234,3 @@ public abstract class PrecisionRecallAggregation
         };
     }
 }
-=======
-final FixedDoubleHistogram.Bucket trueResult = trueIt.next();
-final FixedDoubleHistogram.Bucket falseResult = falseIt.next();
-
-final BucketResult result = new BucketResult(
-        >>>>>>> Fixed histograms

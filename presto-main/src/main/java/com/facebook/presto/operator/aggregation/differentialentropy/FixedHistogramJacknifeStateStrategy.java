@@ -38,7 +38,12 @@ public class FixedHistogramJacknifeStateStrategy
         histogram = new FixedDoubleBreakdownHistogram((int) bucketCount, min, max);
     }
 
+<<<<<<< HEAD
     protected FixedHistogramJacknifeStateStrategy(FixedHistogramJacknifeStateStrategy other) {
+=======
+    protected FixedHistogramJacknifeStateStrategy(FixedHistogramJacknifeStateStrategy other)
+    {
+>>>>>>> differential_entropy_udf
         histogram = other.getBreakdownHistogram().clone();
     }
 
@@ -100,7 +105,11 @@ public class FixedHistogramJacknifeStateStrategy
         Map<Double, Double> bucketWeights = Streams.stream(getBreakdownHistogram().iterator()).collect(
                 Collectors.groupingBy(
                         FixedDoubleBreakdownHistogram.BucketWeight::getLeft,
+<<<<<<< HEAD
                         Collectors.summingDouble(e -> e.getCount() * e.getWeight())));
+=======
+                        Collectors.summingDouble(FixedDoubleBreakdownHistogram.BucketWeight::getWeight)));
+>>>>>>> differential_entropy_udf
         double sumW = bucketWeights.values().stream().mapToDouble(Double::doubleValue).sum();
         if (sumW == 0.0) {
             return 0.0;
@@ -112,6 +121,10 @@ public class FixedHistogramJacknifeStateStrategy
                 bucketWeights.values().stream().mapToDouble(w -> w == 0.0 ? 0.0 : w * Math.log(w)).sum();
 
         double entropy = n * calculateEntropy(histogram.getWidth(), sumW, sumWLogW);
+<<<<<<< HEAD
+=======
+        System.out.println("orig ent " + calculateEntropy(histogram.getWidth(), sumW, sumWLogW));
+>>>>>>> differential_entropy_udf
         entropy -= Streams.stream(getBreakdownHistogram().iterator()).mapToDouble(
                 e -> {
                     double bucketWeight = bucketWeights.get(e.getLeft());
@@ -119,7 +132,11 @@ public class FixedHistogramJacknifeStateStrategy
                         return 0.0;
                     }
                     return getHoldOutEntropy(
+<<<<<<< HEAD
                         n,
+=======
+                        e.getCount(),
+>>>>>>> differential_entropy_udf
                         e.getRight() - e.getLeft(),
                         sumW,
                         sumWLogW,
