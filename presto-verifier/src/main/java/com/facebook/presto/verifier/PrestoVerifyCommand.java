@@ -14,6 +14,7 @@
 package com.facebook.presto.verifier;
 
 import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.verifier.framework.AbstractVerifyCommand;
 import com.facebook.presto.verifier.framework.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.framework.SourceQuery;
@@ -76,5 +77,11 @@ public class PrestoVerifyCommand
         return ImmutableList.of(
                 new ExceededGlobalMemoryLimitFailureResolver(),
                 new ExceededTimeLimitFailureResolver());
+    }
+
+    @Override
+    public List<Property> getTablePropertiesOverride()
+    {
+        return ImmutableList.of();
     }
 }

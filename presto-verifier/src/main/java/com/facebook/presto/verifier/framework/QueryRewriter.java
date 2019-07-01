@@ -17,9 +17,11 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.LikeClause;
+import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -38,6 +40,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.CONTROL;
@@ -45,8 +49,11 @@ import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.T
 import static com.facebook.presto.verifier.framework.QueryOrigin.forRewrite;
 import static com.facebook.presto.verifier.framework.QueryType.Category.DATA_PRODUCING;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 
@@ -54,13 +61,15 @@ public class QueryRewriter
 {
     private final SqlParser sqlParser;
     private final PrestoAction prestoAction;
+    private final List<Property> tablePropertiesOverride;
     private final Map<TargetCluster, QualifiedName> prefixes;
 
     @Inject
-    public QueryRewriter(SqlParser sqlParser, PrestoAction prestoAction, VerifierConfig config)
+    public QueryRewriter(SqlParser sqlParser, PrestoAction prestoAction, List<Property> tablePropertiesOverride, VerifierConfig config)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
+        this.tablePropertiesOverride = requireNonNull(tablePropertiesOverride, "tablePropertiesOverride is null");
         this.prefixes = ImmutableMap.of(
                 CONTROL, config.getControlTablePrefix(),
                 TEST, config.getTestTablePrefix());
@@ -84,7 +93,7 @@ public class QueryRewriter
                             temporaryTableName,
                             createTableAsSelect.getQuery(),
                             createTableAsSelect.isNotExists(),
-                            createTableAsSelect.getProperties(),
+                            applyPropertyOverride(createTableAsSelect.getProperties(), tablePropertiesOverride),
                             createTableAsSelect.isWithData(),
                             createTableAsSelect.getColumnAliases(),
                             createTableAsSelect.getComment()),
@@ -101,7 +110,7 @@ public class QueryRewriter
                                     temporaryTableName,
                                     ImmutableList.of(new LikeClause(originalTableName, Optional.of(INCLUDING))),
                                     false,
-                                    ImmutableList.of(),
+                                    tablePropertiesOverride,
                                     Optional.empty())),
                     new Insert(
                             temporaryTableName,
@@ -118,7 +127,7 @@ public class QueryRewriter
                             temporaryTableName,
                             (Query) statement,
                             false,
-                            ImmutableList.of(),
+                            tablePropertiesOverride,
                             true,
                             Optional.of(generateStorageColumnAliases((Query) statement, controlConfiguration, context)),
                             Optional.empty()),
@@ -187,5 +196,19 @@ public class QueryRewriter
     private static String sanitizeColumnName(String columnName)
     {
         return columnName.replaceAll("[^a-zA-Z0-9_]", "_").toLowerCase(ENGLISH);
+    }
+
+    private static List<Property> applyPropertyOverride(List<Property> properties, List<Property> overrides)
+    {
+        Map<String, Expression> propertyMap = properties.stream()
+                .collect(toImmutableMap(property -> property.getName().getValue().toLowerCase(ENGLISH), Property::getValue));
+        Map<String, Expression> overrideMap = overrides.stream()
+                .collect(toImmutableMap(property -> property.getName().getValue().toLowerCase(ENGLISH), Property::getValue));
+        return Stream.concat(propertyMap.entrySet().stream(), overrideMap.entrySet().stream())
+                .collect(Collectors.toMap(Entry::getKey, Entry::getValue, (original, override) -> override))
+                .entrySet()
+                .stream()
+                .map(entry -> new Property(new Identifier(entry.getKey()), entry.getValue()))
+                .collect(toImmutableList());
     }
 }
