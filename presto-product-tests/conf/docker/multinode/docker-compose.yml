@@ -16,4 +16,4 @@ services:
     volumes_from:
       - presto-master
     volumes:
-      - ../../../conf/presto/etc/jvm.config:/docker/volumes/conf/presto/etc/jvm.config
+      - ../../../conf/presto/etc/multinode-worker-jvm.config:/docker/volumes/conf/presto/etc/jvm.config
