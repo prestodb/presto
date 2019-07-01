@@ -49,14 +49,14 @@ import static com.google.common.collect.Iterables.filter;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Makes equality based inferences to rewrite Expressions and generate equality sets in terms of specified symbol scopes
+ * Makes equality based inferences to rewrite Expressions and generate equality sets in terms of specified variable scopes
  */
 public class EqualityInference
 {
     // Ordering used to determine Expression preference when determining canonicals
     private static final Ordering<Expression> CANONICAL_ORDERING = Ordering.from((expression1, expression2) -> {
         // Current cost heuristic:
-        // 1) Prefer fewer input symbols
+        // 1) Prefer fewer input variables
         // 2) Prefer smaller expression trees
         // 3) Sort the expressions alphabetically - creates a stable consistent ordering (extremely useful for unit testing)
         // TODO: be more precise in determining the cost of an expression
@@ -93,7 +93,7 @@ public class EqualityInference
     }
 
     /**
-     * Attempts to rewrite an Expression in terms of the symbols allowed by the symbol scope
+     * Attempts to rewrite an Expression in terms of the variables allowed by the variable scope
      * given the known equalities. Returns null if unsuccessful.
      * This method checks if rewritten expression is non-deterministic.
      */
@@ -104,7 +104,7 @@ public class EqualityInference
     }
 
     /**
-     * Attempts to rewrite an Expression in terms of the symbols allowed by the symbol scope
+     * Attempts to rewrite an Expression in terms of the variables allowed by the variable scope
      * given the known equalities. Returns null if unsuccessful.
      * This method allows rewriting non-deterministic expressions.
      */
@@ -146,11 +146,11 @@ public class EqualityInference
 
     /**
      * Dumps the inference equalities as equality expressions that are partitioned by the variableScope.
-     * All stored equalities are returned in a compact set and will be classified into three groups as determined by the symbol scope:
+     * All stored equalities are returned in a compact set and will be classified into three groups as determined by the variable scope:
      * <ol>
-     * <li>equalities that fit entirely within the symbol scope</li>
-     * <li>equalities that fit entirely outside of the symbol scope</li>
-     * <li>equalities that straddle the symbol scope</li>
+     * <li>equalities that fit entirely within the variable scope</li>
+     * <li>equalities that fit entirely outside of the variable scope</li>
+     * <li>equalities that straddle the variable scope</li>
      * </ol>
      * <pre>
      * Example:
@@ -158,7 +158,7 @@ public class EqualityInference
      *     a = b = c
      *     d = e = f = g
      *
-     *   Symbol Scope:
+     *   variable Scope:
      *     a, b, d, e
      *
      *   Output EqualityPartition:
