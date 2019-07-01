@@ -47,13 +47,9 @@ import static org.testng.Assert.assertTrue;
 public class TestMySqlIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private static final MySqlOptions MY_SQL_OPTIONS;
-
-    static {
-        MySqlOptions.Builder mySqlOptionsBuilder = MySqlOptions.builder();
-        mySqlOptionsBuilder.setCommandTimeout(new Duration(90, SECONDS));
-        MY_SQL_OPTIONS = mySqlOptionsBuilder.build();
-    }
+    private static final MySqlOptions MY_SQL_OPTIONS = MySqlOptions.builder()
+            .setCommandTimeout(new Duration(90, SECONDS))
+            .build();
 
     private final TestingMySqlServer mysqlServer;
 

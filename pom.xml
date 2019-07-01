@@ -921,7 +921,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>testing-mysql-server</artifactId>
-                <version>8.0.12-4</version>
+                <version>8.0.12-5</version>
             </dependency>
 
             <dependency>
