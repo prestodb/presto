@@ -15,6 +15,9 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tests.StandaloneQueryRunner;
 import com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster;
@@ -47,6 +50,7 @@ public class TestQueryRewriter
 {
     private static final String DEFAULT_PREFIX = "local.tmp";
     private static final QueryConfiguration CONFIGURATION = new QueryConfiguration(CATALOG, SCHEMA, "test_user", Optional.empty(), ImmutableMap.of());
+    private static final List<Property> TABLE_PROPERTIES_OVERRIDE = ImmutableList.of(new Property(new Identifier("test_property"), new LongLiteral("21")));
     private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
 
     private static StandaloneQueryRunner queryRunner;
@@ -82,7 +86,7 @@ public class TestQueryRewriter
                 "local.tmp",
                 ImmutableList.of(),
                 "CREATE TABLE %s " +
-                        "(\"x\", \"y\", \"x_p_7\", \"x__1\", \"x_p_7__1\", \"a\", \"a__1\", \"b\") AS " +
+                        "(\"x\", \"y\", \"x_p_7\", \"x__1\", \"x_p_7__1\", \"a\", \"a__1\", \"b\") WITH (test_property = 21) AS " +
                         "SELECT " +
                         "1 x, " +
                         "2 y, " +
@@ -100,7 +104,7 @@ public class TestQueryRewriter
                 "local.tmp",
                 ImmutableList.of(),
                 "CREATE TABLE %s " +
-                        "(\"a\", \"b\", \"a__1\", \"b__1\") AS " +
+                        "(\"a\", \"b\", \"a__1\", \"b__1\") WITH (test_property = 21) AS " +
                         "SELECT * FROM test_table a CROSS JOIN test_table b",
                 ImmutableList.of("DROP TABLE IF EXISTS %s"));
     }
@@ -112,7 +116,7 @@ public class TestQueryRewriter
                 getQueryRewriter(DEFAULT_PREFIX),
                 "INSERT INTO dest_table SELECT * FROM test_table",
                 "local.tmp",
-                ImmutableList.of("CREATE TABLE %s (LIKE dest_table INCLUDING PROPERTIES)"),
+                ImmutableList.of("CREATE TABLE %s (LIKE dest_table INCLUDING PROPERTIES) WITH (test_property = 21)"),
                 "INSERT INTO %s SELECT * FROM test_table",
                 ImmutableList.of("DROP TABLE IF EXISTS %s"));
     }
@@ -122,10 +126,10 @@ public class TestQueryRewriter
     {
         assertShadowed(
                 getQueryRewriter(DEFAULT_PREFIX),
-                "CREATE TABLE dest_table AS SELECT * FROM test_table",
+                "CREATE TABLE dest_table WITH (test_property = 90) AS SELECT * FROM test_table",
                 "local.tmp",
                 ImmutableList.of(),
-                "CREATE TABLE %s AS SELECT * FROM test_table",
+                "CREATE TABLE %s WITH (test_property = 21) AS SELECT * FROM test_table",
                 ImmutableList.of("DROP TABLE IF EXISTS %s"));
     }
 
@@ -201,6 +205,7 @@ public class TestQueryRewriter
                         config,
                         new RetryConfig(),
                         new RetryConfig()),
+                TABLE_PROPERTIES_OVERRIDE,
                 config);
     }
 }

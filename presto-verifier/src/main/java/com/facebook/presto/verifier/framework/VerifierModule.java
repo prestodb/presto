@@ -15,6 +15,7 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.checksum.FloatingPointColumnValidator;
 import com.facebook.presto.verifier.checksum.OrderableArrayColumnValidator;
@@ -46,17 +47,20 @@ public class VerifierModule
     private final List<Class<? extends Predicate<SourceQuery>>> customQueryFilterClasses;
     private final SqlExceptionClassifier exceptionClassifier;
     private final List<FailureResolver> failureResolvers;
+    private final List<Property> tablePropertiesOverride;
 
     public VerifierModule(
             SqlParserOptions sqlParserOptions,
             List<Class<? extends Predicate<SourceQuery>>> customQueryFilterClasses,
             SqlExceptionClassifier exceptionClassifier,
-            List<FailureResolver> failureResolvers)
+            List<FailureResolver> failureResolvers,
+            List<Property> tablePropertiesOverride)
     {
         this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
         this.customQueryFilterClasses = ImmutableList.copyOf(customQueryFilterClasses);
         this.exceptionClassifier = requireNonNull(exceptionClassifier, "exceptionClassifier is null");
         this.failureResolvers = requireNonNull(failureResolvers, "failureResolvers is null");
+        this.tablePropertiesOverride = requireNonNull(tablePropertiesOverride, "tablePropertiesOverride is null");
     }
 
     protected final void setup(Binder binder)
@@ -82,6 +86,7 @@ public class VerifierModule
         binder.bind(new TypeLiteral<List<Predicate<SourceQuery>>>() {}).toProvider(new CustomQueryFilterProvider(customQueryFilterClasses));
         binder.bind(SqlExceptionClassifier.class).toInstance(exceptionClassifier);
         binder.bind(new TypeLiteral<List<FailureResolver>>() {}).toInstance(failureResolvers);
+        binder.bind(new TypeLiteral<List<Property>>() {}).toInstance(tablePropertiesOverride);
     }
 
     private static class CustomQueryFilterProvider

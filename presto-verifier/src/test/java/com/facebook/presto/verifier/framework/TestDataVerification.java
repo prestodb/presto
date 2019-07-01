@@ -86,6 +86,7 @@ public class TestDataVerification
         queryRewriter = new QueryRewriter(
                 new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN)),
                 prestoAction,
+                ImmutableList.of(),
                 verifierConfig);
         checksumValidator = new ChecksumValidator(
                 new SimpleColumnValidator(),
