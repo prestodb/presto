@@ -257,6 +257,11 @@ public final class SqlStageExecution
         stateMachine.transitionToScheduling();
     }
 
+    public synchronized void transitionToFinishedTaskScheduling()
+    {
+        stateMachine.transitionToFinishedTaskScheduling();
+    }
+
     public synchronized void transitionToSchedulingSplits()
     {
         stateMachine.transitionToSchedulingSplits();
