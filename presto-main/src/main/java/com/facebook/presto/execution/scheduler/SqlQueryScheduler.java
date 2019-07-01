@@ -929,6 +929,7 @@ public class SqlQueryScheduler
                 case SCHEDULING:
                     // workers are still being added to the query
                     break;
+                case FINISHED_TASK_SCHEDULING:
                 case SCHEDULING_SPLITS:
                 case SCHEDULED:
                 case RUNNING:

@@ -178,7 +178,7 @@ public class FixedSourcePartitionedScheduler
             scheduledTasks = true;
 
             // notify listeners that we have scheduled all tasks so they can set no more buffers or exchange splits
-            stage.transitionToSchedulingSplits();
+            stage.transitionToFinishedTaskScheduling();
         }
 
         boolean allBlocked = true;
@@ -212,6 +212,9 @@ public class FixedSourcePartitionedScheduler
             }
 
             ScheduleResult schedule = sourceScheduler.schedule();
+            if (schedule.getSplitsScheduled() > 0) {
+                stage.transitionToSchedulingSplits();
+            }
             splitsScheduled += schedule.getSplitsScheduled();
             if (schedule.getBlockedReason().isPresent()) {
                 blocked.add(schedule.getBlocked());

@@ -481,7 +481,7 @@ public class SourcePartitionedScheduler
                 .collect(toImmutableSet());
 
         // notify listeners that we have scheduled all tasks so they can set no more buffers or exchange splits
-        stage.transitionToSchedulingSplits();
+        stage.transitionToFinishedTaskScheduling();
 
         return newTasks;
     }
