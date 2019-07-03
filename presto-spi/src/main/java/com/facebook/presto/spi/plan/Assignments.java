@@ -11,14 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -31,9 +29,10 @@ import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import java.util.stream.Collector;
 
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Objects.requireNonNull;
+import static com.facebook.presto.spi.utils.Utils.checkState;
+import static java.util.Collections.unmodifiableList;
+import static java.util.Collections.unmodifiableMap;
+import static java.util.stream.Collectors.toList;
 
 public class Assignments
 {
@@ -72,13 +71,14 @@ public class Assignments
     private final List<VariableReferenceExpression> outputVariables;
     private final Map<VariableReferenceExpression, RowExpression> assignments;
 
+    // Do not use this constructor directly, always use Assignments.Builder to build the Assignments
     @JsonCreator
     public Assignments(
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("assignments") Map<VariableReferenceExpression, RowExpression> assignments)
     {
-        this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
-        this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
+        this.outputVariables = unmodifiableList(outputVariables);
+        this.assignments = unmodifiableMap(assignments);
     }
 
     @JsonProperty("outputVariables")
@@ -213,7 +213,7 @@ public class Assignments
 
         public Assignments build()
         {
-            return new Assignments(assignments.keySet().stream().collect(toImmutableList()), assignments);
+            return new Assignments(assignments.keySet().stream().collect(toList()), assignments);
         }
     }
 }
