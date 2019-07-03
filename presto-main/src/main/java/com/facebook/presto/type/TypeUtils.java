@@ -39,7 +39,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public final class TypeUtils
 {
-    public static final int NULL_HASH_CODE = 0;
+    public static final long NULL_HASH_CODE = 0;
 
     private TypeUtils()
     {

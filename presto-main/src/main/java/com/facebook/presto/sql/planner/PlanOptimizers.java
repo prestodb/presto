@@ -513,10 +513,6 @@ public class PlanOptimizers
                 ImmutableSet.of(
                         new AddIntermediateAggregations(),
                         new RemoveRedundantIdentityProjections())));
-        // DO NOT add optimizers that change the plan shape (computations) after this point
-
-        // Precomputed hashes - this assumes that partitioning will not change
-        builder.add(new HashGenerationOptimizer());
 
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
@@ -525,13 +521,17 @@ public class PlanOptimizers
                 statsCalculator,
                 costCalculator,
                 new TranslateExpressions(metadata, sqlParser).rules()));
+        // After this point, all planNodes should not contain OriginalExpression
 
-        // TODO: Do not move other PlanNode to SPI until this rule is moved to the end of logical planning (i.e., where AddExchanges lives)
-        // TODO: The connector optimizer should not change plan shape (computations) at this point util #12960 is landed. (e.g., connector may pushdown filters to table scan but cannot add a new node)
+        // TODO: Do not move other PlanNode to SPI until ApplyConnectorOptimization is moved to the end of logical planning (i.e., where AddExchanges lives)
         // TODO: Run RemoveRedundantIdentityProjections and PruneUnreferencedOutputs once (1) we can have ProjectNode in SPI and (2) have moved the connector optimization above HashGenerationOptimizer
         // Pass a supplier so that we pickup connector optimizers that are installed later
         builder.add(new ApplyConnectorOptimization(planOptimizerManager::getOptimizers));
 
+        // DO NOT add optimizers that change the plan shape (computations) after this point
+
+        // Precomputed hashes - this assumes that partitioning will not change
+        builder.add(new HashGenerationOptimizer(metadata.getFunctionManager()));
         builder.add(new MetadataDeleteOptimizer(metadata));
         builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite
 

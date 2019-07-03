@@ -20,7 +20,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Queue;
@@ -32,6 +31,7 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static java.util.Collections.singletonList;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -81,7 +81,7 @@ public final class LogicalRowExpressions
             List<RowExpression> predicates = new ArrayList<>();
             predicates.addAll(extractPredicates(form, specialFormExpression.getArguments().get(0)));
             predicates.addAll(extractPredicates(form, specialFormExpression.getArguments().get(1)));
-            return Collections.unmodifiableList(predicates);
+            return unmodifiableList(predicates);
         }
 
         return singletonList(expression);
@@ -261,6 +261,59 @@ public final class LogicalRowExpressions
         return expression.accept(new PushNegationVisitor(), null);
     }
 
+    /**
+     * Given a logical expression, the goal is to convert to conjuctive normal form (CNF).
+     * This requires making a call to `pushNegationToLeaves`. There is no guarantee as to
+     * the balance of the resulting expression tree.
+     *
+     * This only applies to propositional logic. this utility cannot be applied to high-order logic.
+     * Examples of non-applicable cases could be f(a AND b) > 5
+     *
+     * NOTE: This may exponentially increase the number of RowExpressions in the expression.
+     *
+     * An applicable example:
+     *
+     *        NOT
+     *         |
+     *      ___OR_                          AND
+     *     /      \                      /      \
+     *    NOT     OR        ==>        OR      AND
+     *     |     /  \                 /  \     /   \
+     *    OR   c   NOT              a    b   NOT  d
+     *   /  \        |                         |
+     *  a    b       d                         c
+     */
+    public RowExpression convertToConjunctiveNormalForm(RowExpression expression)
+    {
+        return convertToNormalForm(expression, AND);
+    }
+
+    /**
+     * Given a logical expression, the goal is to convert to disjunctive normal form (DNF).
+     * The same limitations, format, and risks apply as for converting to conjunctive normal form (CNF).
+     *
+     * An applicable example:
+     *
+     *        NOT                                    OR
+     *         |                                 /        \
+     *      ___OR_                          AND            AND
+     *     /      \                        /    \        /     \
+     *    NOT     OR        ==>          a     AND      b     AND
+     *     |     /  \                         /   \          /   \
+     *    OR   c   NOT                       NOT  d         NOT  d
+     *   /  \        |                         |              |
+     *  a    b       d                         c              c
+     */
+    public RowExpression convertToDisjunctiveNormalForm(RowExpression expression)
+    {
+        return convertToNormalForm(expression, OR);
+    }
+
+    public RowExpression convertToNormalForm(RowExpression expression, Form clauseJoiner)
+    {
+        return pushNegationToLeaves(expression).accept(new ConvertNormalFormVisitor(), clauseJoiner);
+    }
+
     public RowExpression filterDeterministicConjuncts(RowExpression expression)
     {
         return filterConjuncts(expression, this.determinismEvaluator::isDeterministic);
@@ -299,7 +352,16 @@ public final class LogicalRowExpressions
             }
         }
 
-        return Collections.unmodifiableList(result);
+        return unmodifiableList(result);
+    }
+
+    private boolean isConjunctionOrDisjunction(RowExpression expression)
+    {
+        if (expression instanceof SpecialFormExpression) {
+            Form form = ((SpecialFormExpression) expression).getForm();
+            return form == AND || form == OR;
+        }
+        return false;
     }
 
     private final class PushNegationVisitor
@@ -384,14 +446,69 @@ public final class LogicalRowExpressions
         {
             return new CallExpression("not", functionResolution.notFunction(), BOOLEAN, singletonList(argument));
         }
+    }
 
-        private boolean isConjunctionOrDisjunction(RowExpression expression)
+    private class ConvertNormalFormVisitor
+            implements RowExpressionVisitor<RowExpression, Form>
+    {
+        @Override
+        public RowExpression visitSpecialForm(SpecialFormExpression specialForm, Form clauseJoiner)
         {
-            if (expression instanceof SpecialFormExpression) {
-                Form form = ((SpecialFormExpression) expression).getForm();
-                return form == AND || form == OR;
+            if (!isConjunctionOrDisjunction(specialForm)) {
+                return specialForm;
             }
-            return false;
+
+            // normalize arguments
+            RowExpression left = specialForm.getArguments().get(0).accept(new ConvertNormalFormVisitor(), clauseJoiner);
+            RowExpression right = specialForm.getArguments().get(1).accept(new ConvertNormalFormVisitor(), clauseJoiner);
+
+            // check if already in correct form
+            if (specialForm.getForm() == clauseJoiner) {
+                return clauseJoiner == AND ? and(left, right) : or(left, right);
+            }
+
+            // else, we expand and rewrite based on distributive property of Boolean algebra, for example
+            // (l1 OR l2) AND (r1 OR r2) <=> (l1 AND r1) OR (l1 AND r2) OR (l2 AND r1) OR (l2 AND r2)
+            Form termJoiner = clauseJoiner == AND ? OR : AND;
+            List<RowExpression> leftClauses = extractPredicates(clauseJoiner, left);
+            List<RowExpression> rightClauses = extractPredicates(clauseJoiner, right);
+            List<RowExpression> permutationClauses = new ArrayList<>();
+            for (RowExpression leftClause : leftClauses) {
+                for (RowExpression rightClause : rightClauses) {
+                    permutationClauses.add(termJoiner == AND ? and(leftClause, rightClause) : or(leftClause, rightClause));
+                }
+            }
+            return combinePredicates(clauseJoiner, unmodifiableList(permutationClauses));
+        }
+
+        @Override
+        public RowExpression visitCall(CallExpression call, Form clauseJoiner)
+        {
+            return call;
+        }
+
+        @Override
+        public RowExpression visitInputReference(InputReferenceExpression reference, SpecialFormExpression.Form clauseJoiner)
+        {
+            return reference;
+        }
+
+        @Override
+        public RowExpression visitConstant(ConstantExpression literal, SpecialFormExpression.Form clauseJoiner)
+        {
+            return literal;
+        }
+
+        @Override
+        public RowExpression visitLambda(LambdaDefinitionExpression lambda, SpecialFormExpression.Form clauseJoiner)
+        {
+            return lambda;
+        }
+
+        @Override
+        public RowExpression visitVariableReference(VariableReferenceExpression reference, SpecialFormExpression.Form clauseJoiner)
+        {
+            return reference;
         }
     }
 }
