@@ -163,7 +163,6 @@ public class ApplyConnectorOptimization
                 builder.add(((TableScanNode) node).getTable().getConnectorId());
             }
             else {
-                verify(node instanceof ValuesNode, "Unexpected node type: " + node.getClass().getSimpleName());
                 builder.add(EMPTY_CONNECTOR_ID);
             }
             return;
