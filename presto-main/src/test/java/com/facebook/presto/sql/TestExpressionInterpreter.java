@@ -36,7 +36,6 @@ import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
-import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
@@ -1430,6 +1429,13 @@ public class TestExpressionInterpreter
         optimize("CAST(null AS ROW(a VARCHAR, b BIGINT)).a");
     }
 
+    @Test
+    public void testRowSubscript()
+    {
+        assertOptimizedEquals("ROW (1, 'a', true)[3]", "true");
+        assertOptimizedEquals("ROW (1, 'a', ROW (2, 'b', ROW (3, 'c')))[3][3][2]", "'c'");
+    }
+
     @Test(expectedExceptions = PrestoException.class)
     public void testArraySubscriptConstantNegativeIndex()
     {
@@ -1533,16 +1539,6 @@ public class TestExpressionInterpreter
             }
             return value;
         });
-        RowExpression rowExpression = TRANSLATOR.translate(parsedExpression, SYMBOL_TYPES);
-        Object rowExpressionResult = new RowExpressionInterpreter(rowExpression, METADATA, TEST_SESSION.toConnectorSession(), true).optimize(symbol -> {
-            Object value = symbolConstant(symbol);
-            if (value == null) {
-                return new VariableReferenceExpression(symbol.getName(), SYMBOL_TYPES.get(symbol));
-            }
-            return value;
-        });
-
-        assertExpressionAndRowExpressionEquals(expressionResult, rowExpressionResult);
         return expressionResult;
     }
 

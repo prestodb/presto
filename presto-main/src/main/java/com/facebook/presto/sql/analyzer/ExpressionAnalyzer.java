@@ -161,6 +161,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
@@ -652,6 +653,30 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitSubscriptExpression(SubscriptExpression node, StackableAstVisitorContext<Context> context)
         {
+            Type baseType = process(node.getBase(), context);
+            // Subscript on Row hasn't got a dedicated operator. Its Type is resolved by hand.
+            if (baseType instanceof RowType) {
+                if (!(node.getIndex() instanceof LongLiteral)) {
+                    throw new SemanticException(INVALID_PARAMETER_USAGE, node.getIndex(),
+                            "Subscript expression on ROW requires a constant index");
+                }
+                Type indexType = process(node.getIndex(), context);
+                if (!indexType.equals(INTEGER)) {
+                    throw new SemanticException(TYPE_MISMATCH, node.getIndex(),
+                            "Subscript expression on ROW requires integer index, found %s", indexType);
+                }
+                int indexValue = toIntExact(((LongLiteral) node.getIndex()).getValue());
+                if (indexValue <= 0) {
+                    throw new SemanticException(INVALID_PARAMETER_USAGE, node.getIndex(),
+                            "Invalid subscript index: %s. ROW indices start at 1", indexValue);
+                }
+                List<Type> rowTypes = baseType.getTypeParameters();
+                if (indexValue > rowTypes.size()) {
+                    throw new SemanticException(INVALID_PARAMETER_USAGE, node.getIndex(),
+                            "Subscript index out of bounds: %s, max value is %s", indexValue, rowTypes.size());
+                }
+                return setExpressionType(node, rowTypes.get(indexValue - 1));
+            }
             return getOperator(context, node, SUBSCRIPT, node.getBase(), node.getIndex());
         }
 
