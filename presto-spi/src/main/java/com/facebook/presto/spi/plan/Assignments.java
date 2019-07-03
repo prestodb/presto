@@ -176,14 +176,17 @@ public class Assignments
     public static class Builder
     {
         private final Map<VariableReferenceExpression, RowExpression> assignments = new LinkedHashMap<>();
+        private boolean built;
 
         public Builder putAll(Assignments assignments)
         {
+            checkState(!built, "changing built assignments");
             return putAll(assignments.getMap());
         }
 
         public Builder putAll(Map<VariableReferenceExpression, RowExpression> assignments)
         {
+            checkState(!built, "changing built assignments");
             for (Entry<VariableReferenceExpression, RowExpression> assignment : assignments.entrySet()) {
                 put(assignment.getKey(), assignment.getValue());
             }
@@ -192,6 +195,7 @@ public class Assignments
 
         public Builder put(VariableReferenceExpression variable, RowExpression expression)
         {
+            checkState(!built, "changing built assignments");
             if (assignments.containsKey(variable)) {
                 RowExpression assignment = assignments.get(variable);
                 checkState(
@@ -207,12 +211,14 @@ public class Assignments
 
         public Builder put(Entry<VariableReferenceExpression, RowExpression> assignment)
         {
+            checkState(!built, "changing built assignments");
             put(assignment.getKey(), assignment.getValue());
             return this;
         }
 
         public Assignments build()
         {
+            built = true;
             return new Assignments(assignments.keySet().stream().collect(toList()), assignments);
         }
     }
