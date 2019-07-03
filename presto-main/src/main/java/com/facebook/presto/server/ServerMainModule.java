@@ -371,8 +371,9 @@ public class ServerMainModule
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
 
-        //typeAnalzer
+        //typeAnalyzer
         binder.bind(TypeAnalyzer.class).in(Scopes.SINGLETON);
+        
         // row expression utils
         binder.bind(DomainTranslator.class).to(RowExpressionDomainTranslator.class).in(Scopes.SINGLETON);
         binder.bind(PredicateCompiler.class).to(RowExpressionPredicateCompiler.class).in(Scopes.SINGLETON);
