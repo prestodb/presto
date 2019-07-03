@@ -26,12 +26,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import java.util.stream.Collector;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
@@ -69,17 +71,22 @@ public class Assignments
         return builder().put(variable1, expression1).put(variable2, expression2).build();
     }
 
+    private final List<VariableReferenceExpression> outputVariables;
     private final Map<VariableReferenceExpression, RowExpression> assignments;
 
     @JsonCreator
-    public Assignments(@JsonProperty("assignments") Map<VariableReferenceExpression, RowExpression> assignments)
+    public Assignments(
+            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
+            @JsonProperty("assignments") Map<VariableReferenceExpression, RowExpression> assignments)
     {
+        this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
     }
 
-    public List<VariableReferenceExpression> getOutputs()
+    @JsonProperty("outputVariables")
+    public List<VariableReferenceExpression> getOutputVariables()
     {
-        return ImmutableList.copyOf(assignments.keySet());
+        return outputVariables;
     }
 
     @JsonProperty("assignments")
@@ -164,13 +171,13 @@ public class Assignments
 
         Assignments that = (Assignments) o;
 
-        return assignments.equals(that.assignments);
+        return outputVariables.equals(that.outputVariables) && assignments.equals(that.assignments);
     }
 
     @Override
     public int hashCode()
     {
-        return assignments.hashCode();
+        return Objects.hash(outputVariables, assignments);
     }
 
     public static class Builder
@@ -213,7 +220,7 @@ public class Assignments
 
         public Assignments build()
         {
-            return new Assignments(assignments);
+            return new Assignments(assignments.keySet().stream().collect(toImmutableList()), assignments);
         }
     }
 }

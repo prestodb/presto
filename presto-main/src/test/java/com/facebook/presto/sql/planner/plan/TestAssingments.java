@@ -29,12 +29,12 @@ public class TestAssingments
     @Test
     public void testOutputsImmutable()
     {
-        assertTrue(assignments.getOutputs() instanceof ImmutableCollection);
+        assertTrue(assignments.getOutputVariables() instanceof ImmutableCollection);
     }
 
     @Test
     public void testOutputsMemoized()
     {
-        assertTrue(assignments.getOutputs() == assignments.getOutputs());
+        assertTrue(assignments.getOutputVariables() == assignments.getOutputVariables());
     }
 }

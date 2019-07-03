@@ -34,7 +34,6 @@ public class ProjectNode
     private final PlanNode source;
     private final Assignments assignments;
 
-    // TODO: pass in the "assignments" and the "outputs" separately (i.e., get rid if the symbol := symbol idiom)
     @JsonCreator
     public ProjectNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
@@ -52,7 +51,7 @@ public class ProjectNode
     @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
-        return assignments.getOutputs();
+        return assignments.getOutputVariables();
     }
 
     @JsonProperty

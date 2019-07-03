@@ -153,7 +153,7 @@ public class TestVerifyNoOriginalExpression
         RowExpression rowExpression = castToRowExpression(predicate);
         FilterNode filterNode = builder.filter(rowExpression, valuesNode);
         ImmutableMap<VariableReferenceExpression, RowExpression> map = ImmutableMap.of(VARIABLE_REFERENCE_EXPRESSION, castToRowExpression(new SymbolReference("count")));
-        ProjectNode projectNode = builder.project(new Assignments(map), filterNode);
+        ProjectNode projectNode = builder.project(Assignments.copyOf(map), filterNode);
         testValidation(projectNode);
     }
 
@@ -195,7 +195,7 @@ public class TestVerifyNoOriginalExpression
     public void testValidateForApplyFailed()
     {
         ImmutableMap<VariableReferenceExpression, RowExpression> map = ImmutableMap.of(VARIABLE_REFERENCE_EXPRESSION, castToRowExpression(new SymbolReference("count")));
-        Assignments assignments = new Assignments(map);
+        Assignments assignments = Assignments.copyOf(map);
         ImmutableList<VariableReferenceExpression> variableReferenceExpressions = ImmutableList.of(VARIABLE_REFERENCE_EXPRESSION);
         ApplyNode applyNode = builder.apply(
                 assignments,
@@ -234,7 +234,7 @@ public class TestVerifyNoOriginalExpression
         ImmutableMap<VariableReferenceExpression, RowExpression> map = ImmutableMap.of(
                 VARIABLE_REFERENCE_EXPRESSION,
                 VARIABLE_REFERENCE_EXPRESSION);
-        ProjectNode projectNode = builder.project(new Assignments(map), valuesNode);
+        ProjectNode projectNode = builder.project(Assignments.copyOf(map), valuesNode);
         JoinNode joinNode;
         if (ifRowExpression) {
             joinNode = builder.join(
@@ -262,7 +262,7 @@ public class TestVerifyNoOriginalExpression
         ImmutableMap<VariableReferenceExpression, RowExpression> map = ImmutableMap.of(
                 VARIABLE_REFERENCE_EXPRESSION,
                 VARIABLE_REFERENCE_EXPRESSION);
-        ProjectNode projectNode = builder.project(new Assignments(map), valuesNode);
+        ProjectNode projectNode = builder.project(Assignments.copyOf(map), valuesNode);
         SpatialJoinNode spatialJoinNode = new SpatialJoinNode(
                 new PlanNodeId("1"),
                 SpatialJoinNode.Type.INNER,

@@ -136,7 +136,7 @@ public class ApplyNode
     {
         return ImmutableList.<VariableReferenceExpression>builder()
                 .addAll(input.getOutputVariables())
-                .addAll(subqueryAssignments.getOutputs())
+                .addAll(subqueryAssignments.getOutputVariables())
                 .build();
     }
 
