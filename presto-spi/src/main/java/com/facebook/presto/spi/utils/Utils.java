@@ -63,4 +63,11 @@ public class Utils
             throw new IllegalStateException();
         }
     }
+
+    public static <T> T getOnlyElement(List<T> list)
+    {
+        requireNonNull(list, "list is null");
+        checkArgument(list.size() == 1, "expect list to have exactly one element");
+        return list.get(0);
+    }
 }

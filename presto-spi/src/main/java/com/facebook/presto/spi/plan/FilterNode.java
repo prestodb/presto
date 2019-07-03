@@ -22,6 +22,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.utils.Utils.getOnlyElement;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableList;
 
@@ -84,9 +85,6 @@ public final class FilterNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         // FilterNode only expects a single upstream PlanNode
-        if (newChildren == null || newChildren.size() != 1) {
-            throw new IllegalArgumentException("Expect exactly one child to replace");
-        }
-        return new FilterNode(getId(), newChildren.get(0), predicate);
+        return new FilterNode(getId(), getOnlyElement(newChildren), predicate);
     }
 }
