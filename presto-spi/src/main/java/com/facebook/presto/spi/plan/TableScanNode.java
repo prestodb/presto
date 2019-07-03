@@ -59,6 +59,12 @@ public final class TableScanNode
         this.outputVariables = unmodifiableList(requireNonNull(outputVariables, "outputVariables is null"));
         this.assignments = unmodifiableMap(new HashMap<>(requireNonNull(assignments, "assignments is null")));
         checkArgument(assignments.keySet().containsAll(outputVariables), "assignments does not cover all of outputs");
+        // currentConstraint and enforcedConstraint are set to null and checked in getCurrentConstraint and getEnforcedConstraint to
+        // guard worker node from accessing currentConstraint and enforcedConstraint.
+        // Details in commit: https://github.com/prestodb/presto/commit/a2c6c129fd2b1dc2e09c21b56c2cf481b22f809c
+        // TableScanNode construction for plan analysis and optimization SHOULD NOT use this constructor to make sure currentConstraint and enforcedConstraint
+        // are non-null.
+        // TODO: Ideally, TableScanNode for worker and engine should expose different APIs to prevent implicit assumptions and mis-using constructors.
         this.currentConstraint = null;
         this.enforcedConstraint = null;
     }
