@@ -14,11 +14,11 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.google.common.collect.ImmutableCollection;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
+import static com.facebook.presto.sql.relational.Expressions.variable;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static org.testng.Assert.assertTrue;
 
@@ -26,10 +26,10 @@ public class TestAssingments
 {
     private final Assignments assignments = assignment(new VariableReferenceExpression("test", BIGINT), TRUE_LITERAL);
 
-    @Test
+    @Test(expectedExceptions = RuntimeException.class)
     public void testOutputsImmutable()
     {
-        assertTrue(assignments.getOutputVariables() instanceof ImmutableCollection);
+        assignments.getOutputVariables().add(variable("new_variable", BIGINT));
     }
 
     @Test
