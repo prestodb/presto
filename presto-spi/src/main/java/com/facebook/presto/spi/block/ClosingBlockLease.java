@@ -19,6 +19,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.utils.Utils.checkState;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
@@ -84,13 +85,6 @@ public final class ClosingBlockLease
         if (innerException != null) {
             // Convert to unchecked exception
             throw new RuntimeException(innerException);
-        }
-    }
-
-    private static void checkState(boolean state, String message)
-    {
-        if (!state) {
-            throw new IllegalStateException(message);
         }
     }
 

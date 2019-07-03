@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
-import static java.lang.String.format;
+import static com.facebook.presto.spi.utils.Utils.checkArgument;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
@@ -100,12 +100,5 @@ public final class QueryId
             checkArgument(ID_PATTERN.matcher(part).matches(), "Invalid id %s", id);
         }
         return ids;
-    }
-
-    private static void checkArgument(boolean condition, String message, Object... messageArgs)
-    {
-        if (!condition) {
-            throw new IllegalArgumentException(format(message, messageArgs));
-        }
     }
 }

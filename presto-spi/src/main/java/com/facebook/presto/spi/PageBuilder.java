@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
+import static com.facebook.presto.spi.utils.Utils.checkArgument;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
@@ -170,12 +171,5 @@ public class PageBuilder
         }
 
         return new Page(blocks);
-    }
-
-    private static void checkArgument(boolean expression, String errorMessage)
-    {
-        if (!expression) {
-            throw new IllegalArgumentException(errorMessage);
-        }
     }
 }

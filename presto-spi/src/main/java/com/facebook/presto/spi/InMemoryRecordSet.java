@@ -34,6 +34,8 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.utils.Utils.checkArgument;
+import static com.facebook.presto.spi.utils.Utils.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class InMemoryRecordSet
@@ -248,20 +250,6 @@ public class InMemoryRecordSet
         public InMemoryRecordSet build()
         {
             return new InMemoryRecordSet(types, records);
-        }
-    }
-
-    private static void checkArgument(boolean test, String message, Object... args)
-    {
-        if (!test) {
-            throw new IllegalArgumentException(String.format(message, args));
-        }
-    }
-
-    private static void checkState(boolean test, String message)
-    {
-        if (!test) {
-            throw new IllegalStateException(message);
         }
     }
 

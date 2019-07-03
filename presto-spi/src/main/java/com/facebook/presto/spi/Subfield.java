@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.utils.Utils.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class Subfield
@@ -224,13 +225,6 @@ public class Subfield
         List<PathElement> pathElements = new ArrayList<>();
         tokenizer.forEachRemaining(pathElements::add);
         this.path = Collections.unmodifiableList(pathElements);
-    }
-
-    private static void checkArgument(boolean expression, String errorMessage)
-    {
-        if (!expression) {
-            throw new IllegalArgumentException(errorMessage);
-        }
     }
 
     public Subfield(String name, List<PathElement> path)

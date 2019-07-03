@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.utils.Utils.checkArgument;
 import static java.lang.Character.isDigit;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
@@ -305,12 +306,5 @@ public final class TimeZoneKey
     private static String zoneIdForOffset(long offset)
     {
         return String.format("%s%02d:%02d", offset < 0 ? "-" : "+", abs(offset / 60), abs(offset % 60));
-    }
-
-    private static void checkArgument(boolean check, String message, Object... args)
-    {
-        if (!check) {
-            throw new IllegalArgumentException(String.format(message, args));
-        }
     }
 }

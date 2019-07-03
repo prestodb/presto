@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static java.lang.String.format;
+import static com.facebook.presto.spi.utils.Utils.checkArgument;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -88,13 +88,6 @@ public final class ResourceGroupId
             return false;
         }
         return descendantSegments.subList(0, segments.size()).equals(segments);
-    }
-
-    private static void checkArgument(boolean argument, String format, Object... args)
-    {
-        if (!argument) {
-            throw new IllegalArgumentException(format(format, args));
-        }
     }
 
     @Override

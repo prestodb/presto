@@ -22,6 +22,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.spi.utils.Utils.checkState;
 
 public final class SqlTimestamp
 {
@@ -99,13 +100,6 @@ public final class SqlTimestamp
         }
         else {
             return Instant.ofEpochMilli(millis).atZone(ZoneId.of(UTC_KEY.getId())).format(JSON_FORMATTER);
-        }
-    }
-
-    private static void checkState(boolean condition, String message)
-    {
-        if (!condition) {
-            throw new IllegalStateException(message);
         }
     }
 }

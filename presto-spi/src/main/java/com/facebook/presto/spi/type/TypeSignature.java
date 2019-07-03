@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.type;
 
+import com.facebook.presto.spi.utils.Utils;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -28,6 +29,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.spi.utils.Utils.checkArgument;
 import static java.lang.Character.isDigit;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -131,8 +133,8 @@ public class TypeSignature
             // but to correctly parse ARRAY(row<BIGINT, BIGINT>('a','b'))
             if (c == '(' || c == '<') {
                 if (bracketCount == 0) {
-                    verify(baseName == null, "Expected baseName to be null");
-                    verify(parameterStart == -1, "Expected parameter start to be -1");
+                    Utils.verify(baseName == null, "Expected baseName to be null");
+                    Utils.verify(parameterStart == -1, "Expected parameter start to be -1");
                     baseName = canonicalizeBaseName(signature.substring(0, i));
                     checkArgument(!literalCalculationParameters.contains(baseName), "Bad type signature: '%s'", signature);
                     parameterStart = i + 1;
@@ -208,7 +210,7 @@ public class TypeSignature
                         }
                         else {
                             // Remove quotes around the delimited column name
-                            verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
+                            Utils.verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
                             delimitedColumnName = signature.substring(tokenStart + 1, i);
                             tokenStart = i + 1;
                             state = RowTypeSignatureParsingState.TYPE;
@@ -217,7 +219,7 @@ public class TypeSignature
                     break;
 
                 case DELIMITED_NAME_ESCAPED:
-                    verify(c == '"', "Expect quote after escape");
+                    Utils.verify(c == '"', "Expect quote after escape");
                     state = RowTypeSignatureParsingState.DELIMITED_NAME;
                     break;
 
@@ -229,13 +231,13 @@ public class TypeSignature
                         bracketLevel--;
                     }
                     else if (c == ')') {
-                        verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
+                        Utils.verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
                         fields.add(parseTypeOrNamedType(signature.substring(tokenStart, i).trim(), literalParameters));
                         tokenStart = -1;
                         state = RowTypeSignatureParsingState.FINISHED;
                     }
                     else if (c == ',' && bracketLevel == 1) {
-                        verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
+                        Utils.verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
                         fields.add(parseTypeOrNamedType(signature.substring(tokenStart, i).trim(), literalParameters));
                         tokenStart = -1;
                         state = RowTypeSignatureParsingState.START_OF_FIELD;
@@ -250,8 +252,8 @@ public class TypeSignature
                         bracketLevel--;
                     }
                     else if (c == ')') {
-                        verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
-                        verify(delimitedColumnName != null, "Expect delimitedColumnName to be non-null");
+                        Utils.verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
+                        Utils.verify(delimitedColumnName != null, "Expect delimitedColumnName to be non-null");
                         fields.add(TypeSignatureParameter.of(new NamedTypeSignature(
                                 Optional.of(new RowFieldName(delimitedColumnName, true)),
                                 parseTypeSignature(signature.substring(tokenStart, i).trim(), literalParameters))));
@@ -260,8 +262,8 @@ public class TypeSignature
                         state = RowTypeSignatureParsingState.FINISHED;
                     }
                     else if (c == ',' && bracketLevel == 1) {
-                        verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
-                        verify(delimitedColumnName != null, "Expect delimitedColumnName to be non-null");
+                        Utils.verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
+                        Utils.verify(delimitedColumnName != null, "Expect delimitedColumnName to be non-null");
                         fields.add(TypeSignatureParameter.of(new NamedTypeSignature(
                                 Optional.of(new RowFieldName(delimitedColumnName, true)),
                                 parseTypeSignature(signature.substring(tokenStart, i).trim(), literalParameters))));
@@ -352,20 +354,6 @@ public class TypeSignature
         }
         typeName.append(")");
         return typeName.toString();
-    }
-
-    private static void checkArgument(boolean argument, String format, Object... args)
-    {
-        if (!argument) {
-            throw new IllegalArgumentException(format(format, args));
-        }
-    }
-
-    private static void verify(boolean argument, String message)
-    {
-        if (!argument) {
-            throw new AssertionError(message);
-        }
     }
 
     private static boolean validateName(String name)

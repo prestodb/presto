@@ -24,7 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import static java.lang.String.format;
+import static com.facebook.presto.spi.utils.Utils.checkArgument;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
@@ -103,12 +103,5 @@ public final class LambdaDefinitionExpression
     public <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context)
     {
         return visitor.visitLambda(this, context);
-    }
-
-    private static void checkArgument(boolean condition, String message, Object... messageArgs)
-    {
-        if (!condition) {
-            throw new IllegalArgumentException(format(message, messageArgs));
-        }
     }
 }

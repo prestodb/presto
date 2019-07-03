@@ -26,6 +26,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.spi.utils.Utils.checkArgument;
+import static com.facebook.presto.spi.utils.Utils.checkState;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
@@ -169,19 +171,5 @@ public final class TableScanNode
     {
         checkArgument(newChildren.isEmpty(), "newChildren is not empty");
         return this;
-    }
-
-    private static void checkArgument(boolean test, String errorMessage)
-    {
-        if (!test) {
-            throw new IllegalArgumentException(errorMessage);
-        }
-    }
-
-    private static void checkState(boolean test, String errorMessage)
-    {
-        if (!test) {
-            throw new IllegalStateException(errorMessage);
-        }
     }
 }

@@ -22,6 +22,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.utils.Utils.checkState;
+
 public final class SqlTime
 {
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
@@ -96,13 +98,6 @@ public final class SqlTime
         }
         else {
             return Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).format(formatter);
-        }
-    }
-
-    private static void checkState(boolean condition, String message)
-    {
-        if (!condition) {
-            throw new IllegalStateException(message);
         }
     }
 }

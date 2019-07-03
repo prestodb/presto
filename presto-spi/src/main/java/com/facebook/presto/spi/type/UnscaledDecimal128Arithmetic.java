@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.type;
 
+import com.facebook.presto.spi.utils.Utils;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
@@ -452,7 +453,7 @@ public final class UnscaledDecimal128Arithmetic
 
     public static void multiply(Slice left, Slice right, Slice result)
     {
-        checkArgument(result.length() == NUMBER_OF_LONGS * Long.BYTES);
+        Utils.checkArgument(result.length() == NUMBER_OF_LONGS * Long.BYTES);
 
         long l0 = getInt(left, 0) & LONG_MASK;
         long l1 = getInt(left, 1) & LONG_MASK;
@@ -533,7 +534,7 @@ public final class UnscaledDecimal128Arithmetic
 
     public static void multiply256(Slice left, Slice right, Slice result)
     {
-        checkArgument(result.length() >= NUMBER_OF_LONGS * Long.BYTES * 2);
+        Utils.checkArgument(result.length() >= NUMBER_OF_LONGS * Long.BYTES * 2);
 
         long l0 = getInt(left, 0) & LONG_MASK;
         long l1 = getInt(left, 1) & LONG_MASK;
@@ -1269,9 +1270,9 @@ public final class UnscaledDecimal128Arithmetic
      */
     private static void divideUnsignedMultiPrecision(int[] dividend, int[] divisor, int[] quotient)
     {
-        checkArgument(dividend.length == NUMBER_OF_INTS * 2 + 1);
-        checkArgument(divisor.length == NUMBER_OF_INTS * 2);
-        checkArgument(quotient.length == NUMBER_OF_INTS * 2);
+        Utils.checkArgument(dividend.length == NUMBER_OF_INTS * 2 + 1);
+        Utils.checkArgument(divisor.length == NUMBER_OF_INTS * 2);
+        Utils.checkArgument(quotient.length == NUMBER_OF_INTS * 2);
 
         int divisorLength = digitsInIntegerBase(divisor);
         int dividendLength = digitsInIntegerBase(dividend);
@@ -1282,7 +1283,7 @@ public final class UnscaledDecimal128Arithmetic
 
         if (divisorLength == 1) {
             int remainder = divideUnsignedMultiPrecision(dividend, dividendLength, divisor[0]);
-            checkState(dividend[dividend.length - 1] == 0);
+            Utils.checkState(dividend[dividend.length - 1] == 0);
             arraycopy(dividend, 0, quotient, 0, quotient.length);
             fill(dividend, 0);
             dividend[0] = remainder;
@@ -1436,7 +1437,7 @@ public final class UnscaledDecimal128Arithmetic
         int wordShifts = shifts >>> 5;
         // we don't wan't to loose any leading bits
         for (int i = 0; i < wordShifts; i++) {
-            checkState(number[length - i - 1] == 0);
+            Utils.checkState(number[length - i - 1] == 0);
         }
         if (wordShifts > 0) {
             arraycopy(number, 0, number, wordShifts, length - wordShifts);
@@ -1446,7 +1447,7 @@ public final class UnscaledDecimal128Arithmetic
         int bitShifts = shifts & 0b11111;
         if (bitShifts > 0) {
             // we don't wan't to loose any leading bits
-            checkState(number[length - 1] >>> (Integer.SIZE - bitShifts) == 0);
+            Utils.checkState(number[length - 1] >>> (Integer.SIZE - bitShifts) == 0);
             for (int position = length - 1; position > 0; position--) {
                 number[position] = (number[position] << bitShifts) | (number[position - 1] >>> (Integer.SIZE - bitShifts));
             }
@@ -1465,7 +1466,7 @@ public final class UnscaledDecimal128Arithmetic
         int wordShifts = shifts >>> 5;
         // we don't wan't to loose any trailing bits
         for (int i = 0; i < wordShifts; i++) {
-            checkState(number[i] == 0);
+            Utils.checkState(number[i] == 0);
         }
         if (wordShifts > 0) {
             arraycopy(number, wordShifts, number, 0, length - wordShifts);
@@ -1475,7 +1476,7 @@ public final class UnscaledDecimal128Arithmetic
         int bitShifts = shifts & 0b11111;
         if (bitShifts > 0) {
             // we don't wan't to loose any trailing bits
-            checkState(number[0] << (Integer.SIZE - bitShifts) == 0);
+            Utils.checkState(number[0] << (Integer.SIZE - bitShifts) == 0);
             for (int position = 0; position < length - 1; position++) {
                 number[position] = (number[position] >>> bitShifts) | (number[position + 1] << (Integer.SIZE - bitShifts));
             }
@@ -1557,7 +1558,7 @@ public final class UnscaledDecimal128Arithmetic
         if (divisor == 0) {
             throwDivisionByZeroException();
         }
-        checkArgument(divisor > 0);
+        Utils.checkArgument(divisor > 0);
 
         long remainder = getLong(decimal, 1);
         long high = remainder / divisor;
@@ -1726,20 +1727,6 @@ public final class UnscaledDecimal128Arithmetic
     private static void setRawLong(Slice decimal, int index, long value)
     {
         unsafe.putLong(decimal.getBase(), decimal.getAddress() + SIZE_OF_LONG * index, value);
-    }
-
-    private static void checkArgument(boolean condition)
-    {
-        if (!condition) {
-            throw new IllegalArgumentException();
-        }
-    }
-
-    private static void checkState(boolean condition)
-    {
-        if (!condition) {
-            throw new IllegalStateException();
-        }
     }
 
     private UnscaledDecimal128Arithmetic() {}

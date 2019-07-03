@@ -15,12 +15,12 @@ package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.utils.Utils;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -42,8 +42,8 @@ public final class ValuesNode
             @JsonProperty("rows") List<List<RowExpression>> rows)
     {
         super(id);
-        this.outputVariables = immutableListCopyOf(outputVariables);
-        this.rows = immutableListCopyOf(requireNonNull(rows, "lists is null").stream().map(ValuesNode::immutableListCopyOf).collect(Collectors.toList()));
+        this.outputVariables = Utils.immutableListCopyOf(outputVariables);
+        this.rows = Utils.immutableListCopyOf(requireNonNull(rows, "lists is null").stream().map(Utils::immutableListCopyOf).collect(Collectors.toList()));
 
         for (List<RowExpression> row : rows) {
             if (!(row.size() == outputVariables.size() || row.size() == 0)) {
@@ -84,10 +84,5 @@ public final class ValuesNode
             throw new IllegalArgumentException("newChildren is not empty");
         }
         return this;
-    }
-
-    private static <T> List<T> immutableListCopyOf(List<T> list)
-    {
-        return unmodifiableList(new ArrayList<>(requireNonNull(list, "list is null")));
     }
 }

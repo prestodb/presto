@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.utils.Utils.checkArgument;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -127,12 +128,5 @@ public class Procedure
         requireNonNull(value, name + " is null");
         checkArgument(!value.isEmpty(), name + " is empty");
         return value;
-    }
-
-    private static void checkArgument(boolean assertion, String message)
-    {
-        if (!assertion) {
-            throw new IllegalArgumentException(message);
-        }
     }
 }
