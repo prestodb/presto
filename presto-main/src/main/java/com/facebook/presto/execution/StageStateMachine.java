@@ -48,6 +48,7 @@ import static com.facebook.presto.execution.StageState.ABORTED;
 import static com.facebook.presto.execution.StageState.CANCELED;
 import static com.facebook.presto.execution.StageState.FAILED;
 import static com.facebook.presto.execution.StageState.FINISHED;
+import static com.facebook.presto.execution.StageState.FINISHED_TASK_SCHEDULING;
 import static com.facebook.presto.execution.StageState.PLANNED;
 import static com.facebook.presto.execution.StageState.RUNNING;
 import static com.facebook.presto.execution.StageState.SCHEDULED;
@@ -150,15 +151,20 @@ public class StageStateMachine
         return stageState.compareAndSet(PLANNED, SCHEDULING);
     }
 
+    public synchronized boolean transitionToFinishedTaskScheduling()
+    {
+        return stageState.compareAndSet(SCHEDULING, FINISHED_TASK_SCHEDULING);
+    }
+
     public synchronized boolean transitionToSchedulingSplits()
     {
-        return stageState.setIf(SCHEDULING_SPLITS, currentState -> currentState == PLANNED || currentState == SCHEDULING);
+        return stageState.setIf(SCHEDULING_SPLITS, currentState -> currentState == PLANNED || currentState == SCHEDULING || currentState == FINISHED_TASK_SCHEDULING);
     }
 
     public synchronized boolean transitionToScheduled()
     {
         schedulingComplete.compareAndSet(null, DateTime.now());
-        return stageState.setIf(SCHEDULED, currentState -> currentState == PLANNED || currentState == SCHEDULING || currentState == SCHEDULING_SPLITS);
+        return stageState.setIf(SCHEDULED, currentState -> currentState == PLANNED || currentState == SCHEDULING || currentState == FINISHED_TASK_SCHEDULING || currentState == SCHEDULING_SPLITS);
     }
 
     public boolean transitionToRunning()

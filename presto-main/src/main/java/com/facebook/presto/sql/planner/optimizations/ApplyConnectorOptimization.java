@@ -40,7 +40,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class ApplyConnectorOptimization
@@ -166,7 +165,6 @@ public class ApplyConnectorOptimization
                 builder.add(((TableScanNode) node).getTable().getConnectorId());
             }
             else {
-                verify(node instanceof ValuesNode, "Unexpected node type: " + node.getClass().getSimpleName());
                 builder.add(EMPTY_CONNECTOR_ID);
             }
             return;

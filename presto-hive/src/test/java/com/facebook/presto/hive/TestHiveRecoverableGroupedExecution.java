@@ -14,16 +14,22 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.execution.StageInfo;
+import com.facebook.presto.execution.StageState;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -31,17 +37,19 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
+import static com.facebook.presto.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
 import static com.facebook.presto.SystemSessionProperties.DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION_FOR_AGGREGATION;
 import static com.facebook.presto.SystemSessionProperties.RECOVERABLE_GROUPED_EXECUTION;
-import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.TPCH_BUCKETED_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.Thread.sleep;
@@ -49,9 +57,13 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestHiveRecoverableGroupedExecution
 {
+    private static final Set<StageState> SPLIT_SCHEDULING_STARTED_STATES = ImmutableSet.of(StageState.SCHEDULING_SPLITS, StageState.SCHEDULED, StageState.RUNNING, StageState.FINISHED);
+
     private final Session recoverableSession;
     private final DistributedQueryRunnerSupplier distributedQueryRunnerSupplier;
     private ListeningExecutorService executor;
@@ -84,142 +96,149 @@ public class TestHiveRecoverableGroupedExecution
         executor.shutdownNow();
     }
 
-    @Test
-    public void testRecoverableGroupedExecutionWithoutFailure()
+    @Test(timeOut = 60_000)
+    public void testCreateBucketedTable()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = distributedQueryRunnerSupplier.get()) {
-            try {
-                queryRunner.execute(
-                        recoverableSession,
+        testRecoverableGroupedExecution(
+                ImmutableList.of(
                         "CREATE TABLE test_table1\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
-                                "SELECT orderkey key1, comment value1 FROM orders");
-                queryRunner.execute(
-                        recoverableSession,
+                                "SELECT orderkey key1, comment value1 FROM orders",
                         "CREATE TABLE test_table2\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key2']) AS\n" +
-                                "SELECT orderkey key2, comment value2 FROM orders");
-                queryRunner.execute(
-                        recoverableSession,
+                                "SELECT orderkey key2, comment value2 FROM orders",
                         "CREATE TABLE test_table3\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key3']) AS\n" +
-                                "SELECT orderkey key3, comment value3 FROM orders");
-                queryRunner.execute(
-                        recoverableSession,
-                        "CREATE TABLE test_insert (key BIGINT, value VARCHAR, partition_key VARCHAR)\n" +
-                                "WITH (bucket_count = 13, bucketed_by = ARRAY['key'], partitioned_by = ARRAY['partition_key'])");
-
-                MaterializedResult createTable = queryRunner.execute(
-                        recoverableSession,
-                        "CREATE TABLE test_create_table WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
-                                "SELECT key1, value1, key2, value2, key3, value3\n" +
-                                "FROM test_table1\n" +
-                                "JOIN test_table2\n" +
-                                "ON key1 = key2\n" +
-                                "JOIN test_table3\n" +
-                                "ON key2 = key3");
-                MaterializedResult insert = queryRunner.execute(
-                        recoverableSession,
-                        "INSERT INTO test_insert\n" +
-                                "SELECT key1, value1, 'foo'\n" +
-                                "FROM test_table1\n" +
-                                "JOIN test_table2\n" +
-                                "ON key1 = key2\n" +
-                                "JOIN test_table3\n" +
-                                "ON key2 = key3");
-
-                assertEquals(createTable.getUpdateCount(), OptionalLong.of(15000));
-                assertEquals(insert.getUpdateCount(), OptionalLong.of(15000));
-            }
-            finally {
-                queryRunner.execute(recoverableSession, "DROP TABLE IF EXISTS test_table1");
-                queryRunner.execute(recoverableSession, "DROP TABLE IF EXISTS test_table2");
-                queryRunner.execute(recoverableSession, "DROP TABLE IF EXISTS test_table3");
-                queryRunner.execute(recoverableSession, "DROP TABLE IF EXISTS test_create_table");
-                queryRunner.execute(recoverableSession, "DROP TABLE IF EXISTS test_insert");
-            }
-        }
+                                "SELECT orderkey key3, comment value3 FROM orders"),
+                "CREATE TABLE test_success WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
+                        "SELECT key1, value1, key2, value2, key3, value3\n" +
+                        "FROM test_table1\n" +
+                        "JOIN test_table2\n" +
+                        "ON key1 = key2\n" +
+                        "JOIN test_table3\n" +
+                        "ON key2 = key3",
+                "CREATE TABLE test_failure WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
+                        "SELECT key1, value1, key2, value2, key3, value3\n" +
+                        "FROM test_table1\n" +
+                        "JOIN test_table2\n" +
+                        "ON key1 = key2\n" +
+                        "JOIN test_table3\n" +
+                        "ON key2 = key3",
+                15000,
+                ImmutableList.of(
+                        "DROP TABLE IF EXISTS test_table1",
+                        "DROP TABLE IF EXISTS test_table2",
+                        "DROP TABLE IF EXISTS test_table3",
+                        "DROP TABLE IF EXISTS test_success",
+                        "DROP TABLE IF EXISTS test_failure"));
     }
 
     @Test(timeOut = 60_000)
-    public void testRecoverableGroupedExecutionWithFailure()
+    public void testInsertBucketedTable()
+            throws Exception
+    {
+        testRecoverableGroupedExecution(
+                ImmutableList.of(
+                        "CREATE TABLE test_table1\n" +
+                                "WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
+                                "SELECT orderkey key1, comment value1 FROM orders",
+                        "CREATE TABLE test_table2\n" +
+                                "WITH (bucket_count = 13, bucketed_by = ARRAY['key2']) AS\n" +
+                                "SELECT orderkey key2, comment value2 FROM orders",
+                        "CREATE TABLE test_table3\n" +
+                                "WITH (bucket_count = 13, bucketed_by = ARRAY['key3']) AS\n" +
+                                "SELECT orderkey key3, comment value3 FROM orders",
+                        "CREATE TABLE test_success (key BIGINT, value VARCHAR, partition_key VARCHAR)\n" +
+                                "WITH (bucket_count = 13, bucketed_by = ARRAY['key'], partitioned_by = ARRAY['partition_key'])",
+                        "CREATE TABLE test_failure (key BIGINT, value VARCHAR, partition_key VARCHAR)\n" +
+                                "WITH (bucket_count = 13, bucketed_by = ARRAY['key'], partitioned_by = ARRAY['partition_key'])"),
+                "INSERT INTO test_success\n" +
+                        "SELECT key1, value1, 'foo'\n" +
+                        "FROM test_table1\n" +
+                        "JOIN test_table2\n" +
+                        "ON key1 = key2\n" +
+                        "JOIN test_table3\n" +
+                        "ON key2 = key3",
+                "INSERT INTO test_failure\n" +
+                        "SELECT key1, value1, 'foo'\n" +
+                        "FROM test_table1\n" +
+                        "JOIN test_table2\n" +
+                        "ON key1 = key2\n" +
+                        "JOIN test_table3\n" +
+                        "ON key2 = key3",
+                15000,
+                ImmutableList.of(
+                        "DROP TABLE IF EXISTS test_table1",
+                        "DROP TABLE IF EXISTS test_table2",
+                        "DROP TABLE IF EXISTS test_table3",
+                        "DROP TABLE IF EXISTS test_success",
+                        "DROP TABLE IF EXISTS test_failure"));
+    }
+
+    private void testRecoverableGroupedExecution(
+            List<String> preQueries,
+            @Language("SQL") String queryWithoutFailure,
+            @Language("SQL") String queryWithFailure,
+            int expectedUpdateCount,
+            List<String> postQueries)
             throws Exception
     {
         try (DistributedQueryRunner queryRunner = distributedQueryRunnerSupplier.get()) {
             try {
-                queryRunner.execute(
-                        recoverableSession,
-                        "CREATE TABLE test_table1\n" +
-                                "WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
-                                "SELECT orderkey key1, comment value1 FROM orders");
-                queryRunner.execute(
-                        recoverableSession,
-                        "CREATE TABLE test_table2\n" +
-                                "WITH (bucket_count = 13, bucketed_by = ARRAY['key2']) AS\n" +
-                                "SELECT orderkey key2, comment value2 FROM orders");
-                queryRunner.execute(
-                        recoverableSession,
-                        "CREATE TABLE test_table3\n" +
-                                "WITH (bucket_count = 13, bucketed_by = ARRAY['key3']) AS\n" +
-                                "SELECT orderkey key3, comment value3 FROM orders");
-                queryRunner.execute(
-                        recoverableSession,
-                        "CREATE TABLE test_insert (key BIGINT, value VARCHAR, partition_key VARCHAR)\n" +
-                                "WITH (bucket_count = 13, bucketed_by = ARRAY['key'], partitioned_by = ARRAY['partition_key'])");
+                for (@Language("SQL") String preQuery : preQueries) {
+                    queryRunner.execute(recoverableSession, preQuery);
+                }
 
-                ListenableFuture<MaterializedResult> createTable = executor.submit(() -> queryRunner.execute(
-                        recoverableSession,
-                        "CREATE TABLE test_create_table WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
-                                "SELECT key1, value1, key2, value2, key3, value3\n" +
-                                "FROM test_table1\n" +
-                                "JOIN test_table2\n" +
-                                "ON key1 = key2\n" +
-                                "JOIN test_table3\n" +
-                                "ON key2 = key3"));
-                ListenableFuture<MaterializedResult> insert = executor.submit(() -> queryRunner.execute(
-                        recoverableSession,
-                        "INSERT INTO test_insert\n" +
-                                "SELECT key1, value1, 'foo'\n" +
-                                "FROM test_table1\n" +
-                                "JOIN test_table2\n" +
-                                "ON key1 = key2\n" +
-                                "JOIN test_table3\n" +
-                                "ON key2 = key3"));
+                // test no failure case
+                assertEquals(queryRunner.execute(recoverableSession, queryWithoutFailure).getUpdateCount(), OptionalLong.of(expectedUpdateCount));
 
-                // wait for queries to start running
-                while (getRunningQueryCount(queryRunner.getQueries()) != 2) {
+                // test failure case
+                ListenableFuture<MaterializedResult> result = executor.submit(() -> queryRunner.execute(recoverableSession, queryWithFailure));
+
+                // wait for split scheduling starts
+                while (!isSplitSchedulingStarted(queryRunner)) {
                     sleep(10);
                 }
 
-                // wait for additional 500ms before close a worker
-                sleep(500);
-                assertEquals(getRunningQueryCount(queryRunner.getQueries()), 2);
+                // wait for additional 300ms before close a worker
+                sleep(300);
+
+                assertTrue(getRunningQueryId(queryRunner.getQueries()).isPresent());
                 TestingPrestoServer worker = queryRunner.getServers().stream()
                         .filter(server -> !server.isCoordinator())
                         .findFirst()
                         .get();
                 worker.close();
 
-                assertEquals(createTable.get(30, SECONDS).getUpdateCount(), OptionalLong.of(15000));
-                assertEquals(insert.get(30, SECONDS).getUpdateCount(), OptionalLong.of(15000));
+                assertEquals(result.get(30, SECONDS).getUpdateCount(), OptionalLong.of(expectedUpdateCount));
             }
             finally {
-                queryRunner.execute(recoverableSession, "DROP TABLE IF EXISTS test_table1");
-                queryRunner.execute(recoverableSession, "DROP TABLE IF EXISTS test_table2");
-                queryRunner.execute(recoverableSession, "DROP TABLE IF EXISTS test_table3");
-                queryRunner.execute(recoverableSession, "DROP TABLE IF EXISTS test_create_table");
-                queryRunner.execute(recoverableSession, "DROP TABLE IF EXISTS test_insert");
+                for (@Language("SQL") String postQuery : postQueries) {
+                    queryRunner.execute(recoverableSession, postQuery);
+                }
             }
         }
     }
 
-    private static long getRunningQueryCount(List<BasicQueryInfo> basicQueryInfos)
+    private boolean isSplitSchedulingStarted(DistributedQueryRunner queryRunner)
+    {
+        Optional<QueryId> runningQueryId = getRunningQueryId(queryRunner.getQueries());
+        if (!runningQueryId.isPresent()) {
+            return false;
+        }
+
+        return queryRunner.getQueryInfo(runningQueryId.get()).getOutputStage().get().getSubStages().stream()
+                .map(StageInfo::getState)
+                .allMatch(SPLIT_SCHEDULING_STARTED_STATES::contains);
+    }
+
+    private static Optional<QueryId> getRunningQueryId(List<BasicQueryInfo> basicQueryInfos)
     {
         return basicQueryInfos.stream()
-                .map(BasicQueryInfo::getState)
-                .filter(queryState -> queryState == RUNNING)
-                .count();
+                .filter(basicQueryInfo -> basicQueryInfo.getState() == QueryState.RUNNING)
+                .map(BasicQueryInfo::getQueryId)
+                .collect(toOptional());
     }
 
     private static Session createRecoverableSession(Optional<SelectedRole> role)
@@ -233,6 +252,7 @@ public class TestHiveRecoverableGroupedExecution
                 .setSystemProperty(COLOCATED_JOIN, "true")
                 .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
                 .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
+                .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
                 .setSystemProperty(RECOVERABLE_GROUPED_EXECUTION, "true")
                 .setCatalog(HIVE_CATALOG)
                 .setSchema(TPCH_BUCKETED_SCHEMA)

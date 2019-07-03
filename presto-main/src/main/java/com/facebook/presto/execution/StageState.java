@@ -32,6 +32,11 @@ public enum StageState
      */
     SCHEDULING(false, false),
     /**
+     * All Stage tasks have been scheduled, but no split has been scheduled.
+     * In recoverable grouped execution, this state is not trivial because split scheduling happens after all splits are loaded.
+     */
+    FINISHED_TASK_SCHEDULING(false, false),
+    /**
      * All stage tasks have been scheduled, but splits are still being scheduled.
      */
     SCHEDULING_SPLITS(false, false),
