@@ -11,26 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
-import com.facebook.presto.spi.plan.Assignments;
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.utils.Utils.getOnlyElement;
+import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class ProjectNode
-        extends InternalPlanNode
+        extends PlanNode
 {
     private final PlanNode source;
     private final Assignments assignments;
@@ -64,7 +61,7 @@ public class ProjectNode
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of(source);
+        return singletonList(source);
     }
 
     @JsonProperty
@@ -74,7 +71,7 @@ public class ProjectNode
     }
 
     @Override
-    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitProject(this, context);
     }
@@ -82,6 +79,6 @@ public class ProjectNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new ProjectNode(getId(), Iterables.getOnlyElement(newChildren), assignments);
+        return new ProjectNode(getId(), getOnlyElement(newChildren), assignments);
     }
 }
