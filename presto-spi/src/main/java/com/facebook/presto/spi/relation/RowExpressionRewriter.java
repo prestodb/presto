@@ -11,15 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.relational;
-
-import com.facebook.presto.spi.relation.CallExpression;
-import com.facebook.presto.spi.relation.ConstantExpression;
-import com.facebook.presto.spi.relation.InputReferenceExpression;
-import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
-import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.relation.SpecialFormExpression;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
+package com.facebook.presto.spi.relation;
 
 public class RowExpressionRewriter<C>
 {

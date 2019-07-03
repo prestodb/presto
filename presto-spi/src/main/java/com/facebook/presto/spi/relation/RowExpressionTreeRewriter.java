@@ -11,23 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.relational;
+package com.facebook.presto.spi.relation;
 
-import com.facebook.presto.spi.relation.CallExpression;
-import com.facebook.presto.spi.relation.ConstantExpression;
-import com.facebook.presto.spi.relation.InputReferenceExpression;
-import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
-import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.relation.RowExpressionVisitor;
-import com.facebook.presto.spi.relation.SpecialFormExpression;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-
-import static com.facebook.presto.sql.relational.Expressions.call;
 
 public final class RowExpressionTreeRewriter<C>
 {
@@ -52,11 +42,11 @@ public final class RowExpressionTreeRewriter<C>
 
     private List<RowExpression> rewrite(List<RowExpression> items, Context<C> context)
     {
-        ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
+        List<RowExpression> rewritenExpressions = new ArrayList<>();
         for (RowExpression expression : items) {
-            builder.add(rewrite(expression, context.get()));
+            rewritenExpressions.add(rewrite(expression, context.get()));
         }
-        return builder.build();
+        return Collections.unmodifiableList(rewritenExpressions);
     }
 
     @SuppressWarnings("unchecked")
@@ -103,7 +93,7 @@ public final class RowExpressionTreeRewriter<C>
             List<RowExpression> arguments = rewrite(call.getArguments(), context);
 
             if (!sameElements(call.getArguments(), arguments)) {
-                return call(call.getDisplayName(), call.getFunctionHandle(), call.getType(), arguments);
+                return new CallExpression(call.getDisplayName(), call.getFunctionHandle(), call.getType(), arguments);
             }
             return call;
         }
@@ -194,9 +184,9 @@ public final class RowExpressionTreeRewriter<C>
     }
 
     @SuppressWarnings("ObjectEquality")
-    private static <T> boolean sameElements(Iterable<? extends T> a, Iterable<? extends T> b)
+    private static <T> boolean sameElements(Collection<? extends T> a, Collection<? extends T> b)
     {
-        if (Iterables.size(a) != Iterables.size(b)) {
+        if (a.size() != b.size()) {
             return false;
         }
 

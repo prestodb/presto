@@ -15,9 +15,9 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.RowExpressionRewriter;
+import com.facebook.presto.spi.relation.RowExpressionTreeRewriter;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.relational.RowExpressionRewriter;
-import com.facebook.presto.sql.relational.RowExpressionTreeRewriter;
 
 import java.util.HashSet;
 import java.util.Map;

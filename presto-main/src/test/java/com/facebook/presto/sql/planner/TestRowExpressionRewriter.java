@@ -19,10 +19,10 @@ import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.RowExpressionRewriter;
+import com.facebook.presto.spi.relation.RowExpressionTreeRewriter;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.relational.FunctionResolution;
-import com.facebook.presto.sql.relational.RowExpressionRewriter;
-import com.facebook.presto.sql.relational.RowExpressionTreeRewriter;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
@@ -30,13 +30,13 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.function.OperatorType.ADD;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
+import static com.facebook.presto.spi.relation.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.TestRowExpressionRewriter.NegationExpressionRewriter.rewrite;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
-import static com.facebook.presto.sql.relational.RowExpressionNodeInliner.replaceExpression;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
