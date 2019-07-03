@@ -373,7 +373,7 @@ public class ServerMainModule
 
         //typeAnalyzer
         binder.bind(TypeAnalyzer.class).in(Scopes.SINGLETON);
-        
+
         // row expression utils
         binder.bind(DomainTranslator.class).to(RowExpressionDomainTranslator.class).in(Scopes.SINGLETON);
         binder.bind(PredicateCompiler.class).to(RowExpressionPredicateCompiler.class).in(Scopes.SINGLETON);
