@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -34,7 +33,6 @@ import java.util.stream.Collector;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class Assignments
@@ -122,11 +120,6 @@ public class Assignments
     public Collection<RowExpression> getExpressions()
     {
         return assignments.values();
-    }
-
-    public Set<Symbol> getSymbols()
-    {
-        return assignments.keySet().stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet());
     }
 
     public Set<VariableReferenceExpression> getVariables()
