@@ -315,6 +315,27 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testRowSubscript()
+    {
+        // Subscript on Row with unnamed fields
+        assertQuery("SELECT ROW (1, 'a', true)[2]", "SELECT 'a'");
+        assertQuery("SELECT r[2] FROM (VALUES (ROW (ROW (1, 'a', true)))) AS v(r)", "SELECT 'a'");
+        assertQuery("SELECT r[1], r[2] FROM (SELECT ROW (name, regionkey) FROM nation ORDER BY name LIMIT 1) t(r)", "VALUES ('ALGERIA', 0)");
+
+        // Subscript on Row with named fields
+        assertQuery("SELECT (CAST (ROW (1, 'a', 2 ) AS ROW (field1 bigint, field2 varchar(1), field3 bigint)))[2]", "SELECT 'a'");
+
+        // Subscript on nested Row
+        assertQuery("SELECT ROW (1, 'a', ROW (false, 2, 'b'))[3][3]", "SELECT 'b'");
+
+        // Row subscript in filter condition
+        assertQuery("SELECT orderstatus FROM orders WHERE ROW (orderkey, custkey)[1] = 100", "SELECT 'O'");
+
+        // Row subscript in join condition
+        assertQuery("SELECT n.name, r.name FROM nation n JOIN region r ON ROW (n.name, n.regionkey)[2] = ROW (r.name, r.regionkey)[2] ORDER BY n.name LIMIT 1", "VALUES ('ALGERIA', 'AFRICA')");
+    }
+
+    @Test
     public void testVarbinary()
     {
         assertQuery("SELECT LENGTH(x) FROM (SELECT from_base64('gw==') AS x)", "SELECT 1");

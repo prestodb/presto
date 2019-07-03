@@ -32,6 +32,7 @@ import com.facebook.presto.sql.planner.iterative.rule.DesugarAtTimeZone;
 import com.facebook.presto.sql.planner.iterative.rule.DesugarCurrentPath;
 import com.facebook.presto.sql.planner.iterative.rule.DesugarCurrentUser;
 import com.facebook.presto.sql.planner.iterative.rule.DesugarLambdaExpression;
+import com.facebook.presto.sql.planner.iterative.rule.DesugarRowSubscript;
 import com.facebook.presto.sql.planner.iterative.rule.DesugarTryExpression;
 import com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType;
 import com.facebook.presto.sql.planner.iterative.rule.DetermineSemiJoinDistributionType;
@@ -144,6 +145,7 @@ public class PlanOptimizers
     @Inject
     public PlanOptimizers(
             Metadata metadata,
+            TypeAnalyzer typeAnalyzer,
             SqlParser sqlParser,
             FeaturesConfig featuresConfig,
             MBeanExporter exporter,
@@ -157,6 +159,7 @@ public class PlanOptimizers
             TaskCountEstimator taskCountEstimator)
     {
         this(metadata,
+                typeAnalyzer,
                 sqlParser,
                 featuresConfig,
                 false,
@@ -187,6 +190,7 @@ public class PlanOptimizers
 
     public PlanOptimizers(
             Metadata metadata,
+            TypeAnalyzer typeAnalyzer,
             SqlParser sqlParser,
             FeaturesConfig featuresConfig,
             boolean forceSingleNode,
@@ -262,6 +266,7 @@ public class PlanOptimizers
                                 .addAll(new DesugarCurrentUser().rules())
                                 .addAll(new DesugarCurrentPath().rules())
                                 .addAll(new DesugarTryExpression().rules())
+                                .addAll(new DesugarRowSubscript(typeAnalyzer).rules())
                                 .build()),
                 new IterativeOptimizer(
                         ruleStats,

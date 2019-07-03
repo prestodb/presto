@@ -30,6 +30,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
+import com.facebook.presto.sql.planner.TypeAnalyzer;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
@@ -72,6 +73,7 @@ public abstract class AbstractTestQueryFramework
     private QueryRunner queryRunner;
     private H2QueryRunner h2QueryRunner;
     private SqlParser sqlParser;
+    private TypeAnalyzer typeAnalyzer;
 
     protected AbstractTestQueryFramework(QueryRunnerSupplier supplier)
     {
@@ -368,8 +370,10 @@ public abstract class AbstractTestQueryFramework
         boolean forceSingleNode = queryRunner.getNodeCount() == 1;
         TaskCountEstimator taskCountEstimator = new TaskCountEstimator(queryRunner::getNodeCount);
         CostCalculator costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
+        typeAnalyzer = new TypeAnalyzer(sqlParser, metadata);
         List<PlanOptimizer> optimizers = new PlanOptimizers(
                 metadata,
+                typeAnalyzer,
                 sqlParser,
                 featuresConfig,
                 forceSingleNode,

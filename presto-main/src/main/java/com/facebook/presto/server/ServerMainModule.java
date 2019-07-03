@@ -123,6 +123,7 @@ import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.planner.TypeAnalyzer;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.Expression;
@@ -370,6 +371,8 @@ public class ServerMainModule
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
 
+        //typeAnalzer
+        binder.bind(TypeAnalyzer.class).in(Scopes.SINGLETON);
         // row expression utils
         binder.bind(DomainTranslator.class).to(RowExpressionDomainTranslator.class).in(Scopes.SINGLETON);
         binder.bind(PredicateCompiler.class).to(RowExpressionPredicateCompiler.class).in(Scopes.SINGLETON);
