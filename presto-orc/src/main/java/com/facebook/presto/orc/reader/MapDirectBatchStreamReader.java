@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -67,11 +66,11 @@ public class MapDirectBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    public MapDirectBatchStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
+    public MapDirectBatchStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        this.keyStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone, systemMemoryContext);
-        this.valueStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(1), hiveStorageTimeZone, systemMemoryContext);
+        this.keyStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone);
+        this.valueStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(1), hiveStorageTimeZone);
     }
 
     @Override

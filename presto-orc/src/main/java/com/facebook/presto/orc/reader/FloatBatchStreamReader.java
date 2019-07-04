@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -59,12 +58,9 @@ public class FloatBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    private LocalMemoryContext systemMemoryContext;
-
-    public FloatBatchStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
+    public FloatBatchStreamReader(StreamDescriptor streamDescriptor)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
 
     @Override
@@ -180,7 +176,6 @@ public class FloatBatchStreamReader
     @Override
     public void close()
     {
-        systemMemoryContext.close();
     }
 
     @Override

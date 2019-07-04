@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.DwrfSequenceEncoding;
@@ -73,7 +72,6 @@ public class MapFlatBatchStreamReader
 
     private final StreamDescriptor streamDescriptor;
     private final DateTimeZone hiveStorageTimeZone;
-    private final AggregatedMemoryContext systemMemoryContext;
 
     // This is the StreamDescriptor for the value stream with sequence ID 0, it is used to derive StreamDescriptors for the
     // value streams with other sequence IDs
@@ -95,11 +93,10 @@ public class MapFlatBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    public MapFlatBatchStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
+    public MapFlatBatchStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.keyOrcType = streamDescriptor.getNestedStreams().get(0).getStreamType();
         this.baseValueStreamDescriptor = streamDescriptor.getNestedStreams().get(1);
     }
@@ -244,7 +241,7 @@ public class MapFlatBatchStreamReader
             StreamDescriptor valueStreamDescriptor = copyStreamDescriptorWithSequence(baseValueStreamDescriptor, sequence);
             valueStreamDescriptors.add(valueStreamDescriptor);
 
-            BatchStreamReader valueStreamReader = BatchStreamReaders.createStreamReader(valueStreamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+            BatchStreamReader valueStreamReader = BatchStreamReaders.createStreamReader(valueStreamDescriptor, hiveStorageTimeZone);
             valueStreamReader.startStripe(dictionaryStreamSources, encodings);
             valueStreamReaders.add(valueStreamReader);
         }

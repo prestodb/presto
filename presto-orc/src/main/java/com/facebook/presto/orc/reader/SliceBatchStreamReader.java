@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
@@ -53,11 +52,11 @@ public class SliceBatchStreamReader
     private final SliceDictionaryBatchStreamReader dictionaryReader;
     private BatchStreamReader currentReader;
 
-    public SliceBatchStreamReader(StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
+    public SliceBatchStreamReader(StreamDescriptor streamDescriptor)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         directReader = new SliceDirectBatchStreamReader(streamDescriptor);
-        dictionaryReader = new SliceDictionaryBatchStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(SliceBatchStreamReader.class.getSimpleName()));
+        dictionaryReader = new SliceDictionaryBatchStreamReader(streamDescriptor);
     }
 
     @Override
