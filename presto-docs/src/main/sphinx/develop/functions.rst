@@ -46,7 +46,7 @@ types. Below is a sample function which implements ``is_null``:
 
     public class ExampleNullFunction
     {
-        @ScalarFunction("is_null")
+        @ScalarFunction("is_null", calledOnNullInput = true)
         @Description("Returns TRUE if the argument is NULL")
         @SqlType(StandardTypes.BOOLEAN)
         public static boolean isNull(@SqlNullable @SqlType(StandardTypes.VARCHAR) Slice string)
@@ -83,7 +83,7 @@ To make our previous example work with any type we need the following:
 
 .. code-block:: java
 
-    @ScalarFunction(name = "is_null")
+    @ScalarFunction(name = "is_null", calledOnNullInput = true)
     @Description("Returns TRUE if the argument is NULL")
     public final class IsNullFunction
     {
@@ -123,7 +123,7 @@ To make our previous example work with any type we need the following:
 
 .. code-block:: java
 
-    @ScalarFunction(name = "is_equal_or_null")
+    @ScalarFunction(name = "is_equal_or_null", calledOnNullInput = true)
     @Description("Returns TRUE if arguments are equal or both NULL")
     public final class IsEqualOrNullFunction
     {
