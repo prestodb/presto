@@ -163,7 +163,7 @@ public class OrcBatchRecordReader
         for (int columnId = 0; columnId < rowType.getFieldCount(); columnId++) {
             if (includedColumns.containsKey(columnId)) {
                 StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
-                streamReaders[columnId] = BatchStreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+                streamReaders[columnId] = BatchStreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone);
             }
         }
         return streamReaders;

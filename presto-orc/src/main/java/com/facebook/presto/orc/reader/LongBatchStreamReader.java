@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
@@ -44,11 +43,11 @@ public class LongBatchStreamReader
     private final LongDictionaryBatchStreamReader dictionaryReader;
     private BatchStreamReader currentReader;
 
-    public LongBatchStreamReader(StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
+    public LongBatchStreamReader(StreamDescriptor streamDescriptor)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        directReader = new LongDirectBatchStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(LongBatchStreamReader.class.getSimpleName()));
-        dictionaryReader = new LongDictionaryBatchStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(LongBatchStreamReader.class.getSimpleName()));
+        directReader = new LongDirectBatchStreamReader(streamDescriptor);
+        dictionaryReader = new LongDictionaryBatchStreamReader(streamDescriptor);
     }
 
     @Override
