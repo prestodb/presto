@@ -487,6 +487,80 @@ public class TestMapOperators
     }
 
     @Test
+    public void testMapTopN()
+    {
+        //special values
+        assertFunction("map_top_n(null, 5)", mapType(UNKNOWN, UNKNOWN), null);
+        assertFunction("map_top_n(MAP(ARRAY [1, 2, 3], ARRAY [1, 2, 3]), null)", mapType(INTEGER, INTEGER), null);
+        assertFunction("map_top_n(MAP(ARRAY [], ARRAY []), 5)", mapType(UNKNOWN, UNKNOWN), ImmutableMap.of());
+        assertFunction("map_top_n(MAP(ARRAY [1, 2, 3], ARRAY [null, null, null]), 2)", mapType(INTEGER, UNKNOWN), asMap(ImmutableList.of(1, 2), asList(null, null)));
+
+        //boolean
+        assertFunction("map_top_n(MAP(ARRAY [true, false], ARRAY ['a', 'aa']), 1)", mapType(BOOLEAN, createVarcharType(2)), ImmutableMap.of(false, "aa"));
+        assertFunction("map_top_n(MAP(ARRAY [1, 2, 3, 4, 5], ARRAY [true, true, true, false, false]), 2)", mapType(INTEGER, BOOLEAN), ImmutableMap.of(1, true,2,true));
+
+        //integer and decimal
+        assertFunction("map_top_n(MAP(ARRAY [1, 2, 3, 4, 5], ARRAY [10, 20, 50, 5, 19]), 2)", mapType(INTEGER, INTEGER), ImmutableMap.of(2,20,3,50));
+        assertFunction("map_top_n(MAP(ARRAY [1, 2, 3, 4, 5], ARRAY [10.9, 10.5, 10.1, 10.3, 10.09]), 2)", mapType(INTEGER, createDecimalType(4, 2)), ImmutableMap.of(1, decimal("10.90"),2, decimal("10.50")));
+        assertFunction("map_top_n(MAP(ARRAY [10.9, 10.5, 10.1, 10.3, 10.09], ARRAY [1, 2, 3, 4, 5]), 2)", mapType(createDecimalType(4, 2), INTEGER), ImmutableMap.of(decimal("10.09"),5, decimal("10.30"),4));
+        assertFunction("map_top_n(MAP(ARRAY [10.9, 10.5, 10.1, 10.3, 10.09], ARRAY [1229487.98634, 398694825.34535, 345345.356356, 35636.346363, 963663.362772929]), 2)",
+                mapType(createDecimalType(4, 2), createDecimalType(18, 9)),
+                ImmutableMap.of(decimal("10.50"), decimal("398694825.345350000"), decimal("10.90"), decimal("1229487.986340000")));
+
+        //varchar
+        assertFunction("map_top_n(MAP (ARRAY ['abc', 'def', 'ghij', 'xyza'], ARRAY [10, 20, 30, 40]), 2)", mapType(createVarcharType(4), INTEGER), ImmutableMap.of("xyza", 40, "ghij",30));
+        assertFunction("map_top_n(MAP (ARRAY ['abc', 'def', 'ghij', 'xyza'], ARRAY [100.1, 190.45, 600.2, 10.34]), 3)",
+                mapType(createVarcharType(4), createDecimalType(5, 2)),
+                ImmutableMap.of("ghij", decimal("600.20"), "abc", decimal("100.10"),"def", decimal("190.45")));
+        assertFunction("map_top_n(MAP (ARRAY [10, 20, 30, 40, 6], ARRAY ['ten', 'twenty', 'thirty', 'fourty', 'six']), 3)", mapType(INTEGER, createVarcharType(6)), ImmutableMap.of(20, "twenty", 10, "ten", 30, "thirty"));
+        assertFunction("map_top_n(MAP (ARRAY ['10', '20', '30', '40', '6'], ARRAY ['10', '20', '30', '40', '6']), 3)", mapType(createVarcharType(2),createVarcharType(2)), ImmutableMap.of("6", "6", "40", "40", "30", "30"));
+
+        //timestamp
+        assertFunction("map_top_n(MAP(ARRAY[1,2,3,4], ARRAY[TIMESTAMP '2019-07-04 23:02:03', TIMESTAMP '2016-02-03 03:04:05', TIMESTAMP '2019-02-03 20:00:55', TIMESTAMP '2019-02-03 20:10:55']), 2)",
+                mapType(INTEGER, TIMESTAMP),
+                ImmutableMap.of(
+                        1,
+                        sqlTimestampOf(2019, 7, 4,23,2,3,0, TEST_SESSION),
+                        4,
+                        sqlTimestampOf(2019,2,3,20,10,55,0, TEST_SESSION)));
+
+        assertFunction("map_top_n(MAP(ARRAY['abc', 'def', 'xyz', 'pqr'], ARRAY[TIMESTAMP '2018-10-01 23:02:03', TIMESTAMP '2018-10-01 00:09:03', TIMESTAMP '2018-10-01 12:02:03', TIMESTAMP '2018-10-01 12:02:04']), 2)",
+                mapType(createVarcharType(3), TIMESTAMP),
+                ImmutableMap.of(
+                        "pqr",
+                        sqlTimestampOf(2018,10,1,12,2,4,0 ,TEST_SESSION),
+                        "abc",
+                        sqlTimestampOf(2018,10,1,23,2,3,0, TEST_SESSION)));
+        assertFunction("map_top_n(MAP(ARRAY[TIMESTAMP '2018-10-01 23:02:03', TIMESTAMP '2018-10-01 00:09:03', TIMESTAMP '2018-10-01 12:02:03', TIMESTAMP '2018-10-01 12:02:04'], ARRAY[9045.34, 34636.3463, 346346.01 ,34634.0004] ), 2)",
+                mapType(TIMESTAMP, createDecimalType(10,4)),
+                ImmutableMap.of(
+                        sqlTimestampOf(2018,10,1,12,2,3,0, TEST_SESSION),
+                        decimal("346346.0100"),
+                        sqlTimestampOf(2018,10,1,0,9,3,0, TEST_SESSION),
+                        decimal("34636.3463")));
+
+        //map(array, array[array])
+        assertFunction("map_top_n(MAP(ARRAY[1, 2, 3, 4], ARRAY[ARRAY[123.345, 10.001], ARRAY[10.09, 11.1, 9456.34], ARRAY[123.5, 0.00234], ARRAY[9943.3436, 12.09E2]]), 2)",
+                mapType(INTEGER,new ArrayType(DOUBLE)),
+                ImmutableMap.of(3, ImmutableList.of(123.5, 0.00234),4, ImmutableList.of(9943.3436, 1209.0)));
+        assertFunction("map_top_n(MAP(ARRAY['abdc', 'xyz', 'a', 'pqrst'], ARRAY[ARRAY[1, 2, 3, 4], ARRAY[1, 2], ARRAY[1, 2, 3, 4, 5], ARRAY[1, 2, 3]]), 2)",
+                mapType(createVarcharType(5), new ArrayType(INTEGER)),
+                ImmutableMap.of("a", ImmutableList.of(1, 2, 3, 4, 5), "abdc", ImmutableList.of(1, 2, 3, 4)));
+        assertFunction("map_top_n(MAP(ARRAY[10, 20, 30, 40], ARRAY[ARRAY['abs', 'bbc', 'def', 'af'], ARRAY['z', 'cca'], ARRAY['abs', 'bbc', 'def', 'qrst'], ARRAY['cef', 'yrs']]), 2)",
+                mapType(INTEGER, new ArrayType(createVarcharType(4))),
+                ImmutableMap.of(20, ImmutableList.of("z", "cca"), 40, ImmutableList.of("cef", "yrs")));
+
+        //n >= map length
+        assertFunction("map_top_n(MAP(ARRAY[1, 2, 3, 4], ARRAY[10.2E0, 10.3E0, 10.09E0, 10.01E0]), 4)", mapType(INTEGER, DOUBLE), ImmutableMap.of(1, 10.2, 2, 10.3, 3, 10.09, 4, 10.01));
+        assertFunction("map_top_n(MAP(ARRAY[1, 2], ARRAY['asbsab*&^%#$', '(*^(*^*^#_%#%$#']), 100)", mapType(INTEGER, createVarcharType(15)), ImmutableMap.of(1, "asbsab*&^%#$", 2,"(*^(*^*^#_%#%$#" ));
+
+        // huge map length 20K (k,v) pairs
+        assertFunction("map_top_n(MAP(concat(SEQUENCE(1,10000),SEQUENCE(10001,20000)),concat(SEQUENCE(1,10000),SEQUENCE(10001,20000))), 3)",
+                mapType(BIGINT, BIGINT),
+                ImmutableMap.of(20000L, 20000L, 19998L, 19998L, 19999L, 19999L));
+    }
+
+    @Test
     public void testElementAt()
     {
         // empty map

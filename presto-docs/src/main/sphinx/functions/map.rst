@@ -71,6 +71,16 @@ Map Functions
 
     Returns all the keys in the map ``x``.
 
+.. function:: map_top_n(map(K, V), integer n) -> map(K, V)
+
+    Returns a ``map`` filtered by top ``n`` values. If there are ties, they are returned in the occurrence order. ::
+
+        SELECT map_top_n(MAP(ARRAY[1, 2, 3, 4], ARRAY[120, 930, 200, 301]), 2); -- {2 -> 930, 4 -> 301}
+        SELECT map_top_n(MAP(ARRAY[1, 2, 3, 4], ARRAY['abc', 'abcd', 'efg', 'aaa']), 2); -- {2 -> 'abcd', 3 -> 'efg'}
+        SELECT map_top_n(null, 2); -- null
+        SELECT map_top_n(MAP(ARRAY[1, 2, 3], ARRAY[200, 100, 100]), 2); -- {1 -> 200, 2 -> 100}
+        SELECT map_top_n(MAP(ARRAY[1, 2], ARRAY[200, 100]), 4); -- {1 -> 200, 2 -> 100}
+
 .. function:: map_values(x(K,V)) -> array(V)
 
     Returns all the values in the map ``x``.
