@@ -195,9 +195,9 @@ script:
     fi
   - |
     if [[ -v KUDU_TESTS ]]; then
-      presto-kudu/bin/run_kudu_tests.sh 3 null
-      presto-kudu/bin/run_kudu_tests.sh 1 ""
-      presto-kudu/bin/run_kudu_tests.sh 1 presto::
+      presto-kudu/bin/run_kudu_tests.sh null
+      presto-kudu/bin/run_kudu_tests.sh ""
+      presto-kudu/bin/run_kudu_tests.sh presto::
     fi
 
 before_cache:

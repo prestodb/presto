@@ -2,9 +2,8 @@
 #
 # Runs all tests with Kudu server in docker containers.
 #
-# ./run_kudu_tests.sh <nodes> <inferSchemaPrefix>
+# ./run_kudu_tests.sh <inferSchemaPrefix>
 #
-# <nodes>                Number of tablet servers (1 oder 3). Also used for number of replicas.
 # <inferSchemaPrefix>    InferSchema setup: "null" = disabled,
 #                                           ""     = enabled, using empty prefix,
 #                                           "presto::" = enabled, using standard prefix
@@ -13,25 +12,11 @@
 
 set -euo pipefail -x
 
-export KUDU_MASTER_RPC_PORT=17051
-export DOCKER_HOST_IP=$(docker network inspect bridge --format='{{index .IPAM.Config 0 "Gateway"}}')
+export KUDU_VERSION="1.10.0"
+export KUDU_CLUSTERIP=$(docker network inspect bridge --format='{{index .IPAM.Config 0 "Gateway"}}')
 
 PROJECT_ROOT="${BASH_SOURCE%/*}/../.."
-
-# single or three tablet nodes?
-if [ $# -eq 0 ]
-then
-  DOCKER_COMPOSE_LOCATION="${BASH_SOURCE%/*}/../conf/docker-compose-single-node.yaml"
-elif [ $1 -eq 1 ]
-then
-  DOCKER_COMPOSE_LOCATION="${BASH_SOURCE%/*}/../conf/docker-compose-single-node.yaml"
-elif [ $1 -eq 3 ]
-then
-  DOCKER_COMPOSE_LOCATION="${BASH_SOURCE%/*}/../conf/docker-compose-three-nodes.yaml"
-else
-  echo unknown node configuration
-  exit 1
-fi
+DOCKER_COMPOSE_LOCATION="${BASH_SOURCE%/*}/../conf/docker-compose.yml"
 
 # emulate schemas ?
 if [ $# -lt 2 ]
@@ -53,14 +38,16 @@ function cleanup_docker_container() {
   docker-compose -f "${DOCKER_COMPOSE_LOCATION}" down
 }
 
-
 start_docker_container
 
 # run product tests
 pushd ${PROJECT_ROOT}
+# sleep to allow cluster be up
+sleep 15s
+
 set +e
 ./mvnw -pl presto-kudu test -P integration \
-  -Dkudu.client.master-addresses=${DOCKER_HOST_IP}:${KUDU_MASTER_RPC_PORT} \
+  -Dkudu.client.master-addresses=${KUDU_CLUSTERIP}:7051,${KUDU_CLUSTERIP}:7151,${KUDU_CLUSTERIP}:7251 \
   -Dkudu.schema-emulation.prefix=${TEST_SCHEMA_EMULATION_PREFIX}
 EXIT_CODE=$?
 set -e
