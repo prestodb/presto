@@ -17,6 +17,7 @@ import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.spi.Subfield;
+import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
@@ -31,7 +32,7 @@ public final class SelectiveStreamReaders
     public static SelectiveStreamReader createStreamReader(
             StreamDescriptor streamDescriptor,
             Optional<TupleDomainFilter> filter,
-            boolean outputRequired,
+            Optional<Type> outputType,
             List<Subfield> requiredSubfields,
             DateTimeZone hiveStorageTimeZone,
             AggregatedMemoryContext systemMemoryContext)
@@ -39,12 +40,15 @@ public final class SelectiveStreamReaders
         switch (streamDescriptor.getStreamType()) {
             case BOOLEAN:
                 checkArgument(requiredSubfields.isEmpty(), "Boolean stream reader doesn't support subfields");
-                return new BooleanSelectiveStreamReader(streamDescriptor, filter, outputRequired, systemMemoryContext.newLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
+                return new BooleanSelectiveStreamReader(streamDescriptor, filter, outputType.isPresent(), systemMemoryContext.newLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
             case BYTE:
+                throw new IllegalArgumentException("Unsupported type: " + streamDescriptor.getStreamType());
             case SHORT:
             case INT:
             case LONG:
             case DATE:
+                checkArgument(requiredSubfields.isEmpty(), "Primitive type stream reader doesn't support subfields");
+                return new LongSelectiveStreamReader(streamDescriptor, filter, outputType, systemMemoryContext);
             case FLOAT:
             case DOUBLE:
             case BINARY:
