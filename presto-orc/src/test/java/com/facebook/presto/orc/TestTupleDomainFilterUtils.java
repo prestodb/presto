@@ -52,6 +52,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.joda.time.DateTime;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -59,6 +60,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
@@ -298,6 +300,22 @@ public class TestTupleDomainFilterUtils
         assertEquals(toFilter(or(isNull(C_VARCHAR), equal(C_VARCHAR, stringLiteral("abc", VARCHAR)))), BytesRange.of(toBytes("abc"), false, toBytes("abc"), false, true));
     }
 
+    @Test
+    public void testDate()
+    {
+        long days = TimeUnit.MILLISECONDS.toDays(DateTime.parse("2019-06-01").getMillis());
+        assertEquals(toFilter(equal(C_DATE, dateLiteral("2019-06-01"))), BigintRange.of(days, days, false));
+        assertEquals(toFilter(not(equal(C_DATE, dateLiteral("2019-06-01")))),
+                BigintMultiRange.of(ImmutableList.of(
+                        BigintRange.of(Long.MIN_VALUE, days - 1, false),
+                        BigintRange.of(days + 1, Long.MAX_VALUE, false)), false));
+
+        assertEquals(toFilter(lessThan(C_DATE, dateLiteral("2019-06-01"))), BigintRange.of(Long.MIN_VALUE, days - 1, false));
+        assertEquals(toFilter(lessThanOrEqual(C_DATE, dateLiteral("2019-06-01"))), BigintRange.of(Long.MIN_VALUE, days, false));
+        assertEquals(toFilter(not(lessThan(C_DATE, dateLiteral("2019-06-01")))), BigintRange.of(days, Long.MAX_VALUE, false));
+        assertEquals(toFilter(not(lessThanOrEqual(C_DATE, dateLiteral("2019-06-01")))), BigintRange.of(days + 1, Long.MAX_VALUE, false));
+    }
+
     private static byte[] toBytes(String value)
     {
         return Slices.utf8Slice(value).getBytes();
@@ -464,6 +482,11 @@ public class TestTupleDomainFilterUtils
     private static Expression stringLiteral(String value, Type type)
     {
         return cast(stringLiteral(value), type);
+    }
+
+    private static Literal dateLiteral(String value)
+    {
+        return new GenericLiteral("DATE", value);
     }
 
     private static NullLiteral nullLiteral()
