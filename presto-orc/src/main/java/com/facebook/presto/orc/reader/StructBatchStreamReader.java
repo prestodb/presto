@@ -23,14 +23,12 @@ import com.facebook.presto.spi.block.RowBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.io.Closer;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -217,19 +215,6 @@ public class StructBatchStreamReader
                 .appendNull()
                 .build();
         return new RunLengthEncodedBlock(nullValueBlock, positionCount);
-    }
-
-    @Override
-    public void close()
-    {
-        try (Closer closer = Closer.create()) {
-            for (BatchStreamReader structField : structFields.values()) {
-                closer.register(() -> structField.close());
-            }
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
     }
 
     @Override

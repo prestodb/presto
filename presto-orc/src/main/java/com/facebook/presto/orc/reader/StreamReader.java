@@ -27,7 +27,5 @@ public interface StreamReader
     void startRowGroup(InputStreamSources dataStreamSources)
             throws IOException;
 
-    void close();
-
     long getRetainedSizeInBytes();
 }

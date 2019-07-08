@@ -126,12 +126,6 @@ public class BooleanSelectiveStreamReader
     }
 
     @Override
-    public void close()
-    {
-        systemMemoryContext.close();
-    }
-
-    @Override
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + sizeOf(values) + sizeOf(nulls) + sizeOf(outputPositions);

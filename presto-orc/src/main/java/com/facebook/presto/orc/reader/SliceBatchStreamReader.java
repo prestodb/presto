@@ -21,12 +21,10 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
-import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
@@ -132,18 +130,6 @@ public class SliceBatchStreamReader
             return byteCount(slice, offset, length, maxCodePointCount);
         }
         return length;
-    }
-
-    @Override
-    public void close()
-    {
-        try (Closer closer = Closer.create()) {
-            closer.register(() -> directReader.close());
-            closer.register(() -> dictionaryReader.close());
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
     }
 
     @Override

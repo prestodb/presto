@@ -19,12 +19,10 @@ import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.io.Closer;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
@@ -97,18 +95,6 @@ public class MapBatchStreamReader
         return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
-    }
-
-    @Override
-    public void close()
-    {
-        try (Closer closer = Closer.create()) {
-            closer.register(directReader::close);
-            closer.register(flatReader::close);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
     }
 
     @Override
