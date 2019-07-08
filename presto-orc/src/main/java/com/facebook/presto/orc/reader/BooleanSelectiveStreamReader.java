@@ -160,6 +160,9 @@ public class BooleanSelectiveStreamReader
             outputPositions = positions;
         }
 
+        // account memory used by values, nulls and outputPositions
+        systemMemoryContext.setBytes(getRetainedSizeInBytes());
+
         if (readOffset < offset) {
             skip(offset - readOffset);
         }
@@ -347,5 +350,11 @@ public class BooleanSelectiveStreamReader
         }
 
         return new ByteArrayBlock(positionCount, Optional.ofNullable(nullsCopy), valuesCopy);
+    }
+
+    @Override
+    public void close()
+    {
+        systemMemoryContext.close();
     }
 }
