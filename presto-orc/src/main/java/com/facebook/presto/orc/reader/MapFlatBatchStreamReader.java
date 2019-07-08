@@ -30,7 +30,6 @@ import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTimeZone;
@@ -39,7 +38,6 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -370,19 +368,6 @@ public class MapFlatBatchStreamReader
         return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
-    }
-
-    @Override
-    public void close()
-    {
-        try (Closer closer = Closer.create()) {
-            for (BatchStreamReader valueStreamReader : valueStreamReaders) {
-                closer.register(valueStreamReader::close);
-            }
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
     }
 
     @Override

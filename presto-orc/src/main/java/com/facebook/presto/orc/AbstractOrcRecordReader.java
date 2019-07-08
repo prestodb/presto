@@ -346,11 +346,6 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     {
         try (Closer closer = Closer.create()) {
             closer.register(orcDataSource);
-            for (StreamReader column : streamReaders) {
-                if (column != null) {
-                    closer.register(column::close);
-                }
-            }
         }
 
         if (writeChecksumBuilder.isPresent()) {
