@@ -36,6 +36,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class LongDictionaryBatchStreamReader
@@ -239,6 +240,6 @@ public class LongDictionaryBatchStreamReader
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE;
+        return INSTANCE_SIZE + sizeOf(dictionary);
     }
 }
