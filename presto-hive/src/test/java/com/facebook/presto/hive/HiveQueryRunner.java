@@ -47,6 +47,7 @@ import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.airlift.log.Level.ERROR;
 import static io.airlift.log.Level.WARN;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
@@ -170,7 +171,13 @@ public final class HiveQueryRunner
     private static void setupLogging()
     {
         Logging logging = Logging.initialize();
+        logging.setLevel("com.facebook.presto.security.AccessControlManager", WARN);
+        logging.setLevel("com.facebook.presto.server.PluginManager", WARN);
+        logging.setLevel("io.airlift.bootstrap.LifeCycleManager", WARN);
         logging.setLevel("org.apache.parquet.hadoop", WARN);
+        logging.setLevel("org.eclipse.jetty.server.handler.ContextHandler", WARN);
+        logging.setLevel("org.eclipse.jetty.server.AbstractConnector", WARN);
+        logging.setLevel("org.glassfish.jersey.internal.inject.Providers", ERROR);
         logging.setLevel("parquet.hadoop", WARN);
     }
 
