@@ -48,4 +48,6 @@ public interface SelectiveStreamReader
      *                      size of the array
      */
     Block getBlock(int[] positions, int positionCount);
+
+    void close();
 }

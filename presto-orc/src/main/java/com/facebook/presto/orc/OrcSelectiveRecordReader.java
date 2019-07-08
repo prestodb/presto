@@ -26,6 +26,7 @@ import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
@@ -188,5 +189,20 @@ public class OrcSelectiveRecordReader
                 positions[i] = i;
             }
         }
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        try (Closer closer = Closer.create()) {
+            for (SelectiveStreamReader streamReader : getStreamReaders()) {
+                if (streamReader != null) {
+                    closer.register(streamReader::close);
+                }
+            }
+        }
+
+        super.close();
     }
 }
