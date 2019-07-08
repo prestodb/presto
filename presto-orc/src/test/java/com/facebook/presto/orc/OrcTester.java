@@ -714,6 +714,16 @@ public class OrcTester
                         return false;
                     }
                 }
+                else if (type == BIGINT || type == INTEGER || type == SMALLINT) {
+                    if (!filter.testLong(((Number) value).longValue())) {
+                        return false;
+                    }
+                }
+                else if (type == DATE) {
+                    if (!filter.testLong(((SqlDate) value).getDays())) {
+                        return false;
+                    }
+                }
                 else {
                     fail("Unsupported type: " + type);
                 }

@@ -30,7 +30,7 @@ public class TestHivePushdownFilterQueries
         extends AbstractTestQueryFramework
 {
     private static final String WITH_LINEITEM_EX = "WITH lineitem_ex AS (" +
-            "SELECT linenumber, " +
+            "SELECT linenumber, orderkey, " +
             "   CASE WHEN linenumber % 7 = 0 THEN null ELSE shipmode = 'AIR' END AS ship_by_air, " +
             "   CASE WHEN linenumber % 5 = 0 THEN null ELSE returnflag = 'R' END AS is_returned " +
             "FROM lineitem)";
@@ -50,11 +50,12 @@ public class TestHivePushdownFilterQueries
                 Optional.empty());
 
         queryRunner.execute(noPushdownFilter(queryRunner.getDefaultSession()),
-                "CREATE TABLE lineitem_ex (linenumber, ship_by_air, is_returned) AS " +
-                "SELECT linenumber, " +
-                "   IF (linenumber % 7 = 0, null, shipmode = 'AIR') AS ship_by_air, " +
-                "   IF (linenumber % 5 = 0, null, returnflag = 'R') AS is_returned " +
-                "FROM lineitem");
+                "CREATE TABLE lineitem_ex (linenumber, orderkey, ship_by_air, is_returned) AS " +
+                        "SELECT linenumber, " +
+                        "   orderkey, " +
+                        "   IF (linenumber % 7 = 0, null, shipmode = 'AIR') AS ship_by_air, " +
+                        "   IF (linenumber % 5 = 0, null, returnflag = 'R') AS is_returned " +
+                        "FROM lineitem");
 
         return queryRunner;
     }
@@ -81,6 +82,24 @@ public class TestHivePushdownFilterQueries
         assertQueryUsingH2Cte("SELECT COUNT(*) FROM lineitem_ex WHERE ship_by_air is null");
 
         assertQueryUsingH2Cte("SELECT COUNT(*) FROM lineitem_ex WHERE ship_by_air is not null AND is_returned = true");
+    }
+
+    @Test
+    public void testNumeric()
+    {
+        assertQuery("SELECT orderkey, custkey, orderdate, shippriority FROM orders");
+
+        assertQuery("SELECT count(*) FROM orders WHERE orderkey BETWEEN 100 AND 1000 AND custkey BETWEEN 500 AND 800");
+
+        assertQuery("SELECT custkey, orderdate, shippriority FROM orders WHERE orderkey BETWEEN 100 AND 1000 AND custkey BETWEEN 500 AND 800");
+
+        assertQuery("SELECT orderkey, orderdate FROM orders WHERE orderdate BETWEEN date '1994-01-01' AND date '1997-03-30'");
+
+        assertQueryUsingH2Cte("SELECT count(*) FROM lineitem_ex WHERE orderkey < 30000 AND ship_by_air = true");
+
+        assertQueryUsingH2Cte("SELECT linenumber, orderkey, ship_by_air, is_returned FROM lineitem_ex WHERE orderkey < 30000 AND ship_by_air = true");
+
+        assertQueryUsingH2Cte("SELECT linenumber, ship_by_air, is_returned FROM lineitem_ex WHERE orderkey < 30000 AND ship_by_air = true");
     }
 
     private void assertQueryUsingH2Cte(String query)

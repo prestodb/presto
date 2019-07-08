@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.TypeRegistry;
@@ -47,6 +49,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
@@ -54,21 +57,26 @@ import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
 import static com.facebook.presto.orc.OrcTester.writeOrcColumnHive;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.stream.Collectors.toList;
 import static org.joda.time.DateTimeZone.UTC;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.SECONDS)
 @Fork(2)
-@Warmup(iterations = 10, time = 500, timeUnit = MILLISECONDS)
-@Measurement(iterations = 10, time = 500, timeUnit = MILLISECONDS)
+@Warmup(iterations = 10, time = 1000, timeUnit = MILLISECONDS)
+@Measurement(iterations = 10, time = 1000, timeUnit = MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkSelectiveStreamReaders
 {
@@ -83,31 +91,17 @@ public class BenchmarkSelectiveStreamReaders
     }
 
     @Benchmark
-    public Object readBooleanNoNull(BooleanNoNullBenchmarkData data)
-            throws Throwable
+    public Object read(BenchmarkData data)
+            throws IOException
     {
         return readAllBlocks(data.createRecordReader(Optional.empty()));
     }
 
     @Benchmark
-    public Object readBooleanNoNullWithFilter(BooleanNoNullBenchmarkData data)
-            throws Throwable
+    public Object readWithFilter(BenchmarkData data)
+            throws IOException
     {
-        return readAllBlocks(data.createRecordReader(Optional.of(BooleanValue.of(true, true))));
-    }
-
-    @Benchmark
-    public Object readBooleanWithNull(BooleanWithNullBenchmarkData data)
-            throws Throwable
-    {
-        return readAllBlocks(data.createRecordReader(Optional.empty()));
-    }
-
-    @Benchmark
-    public Object readBooleanWithNullWithFilter(BooleanWithNullBenchmarkData data)
-            throws Throwable
-    {
-        return readAllBlocks(data.createRecordReader(Optional.of(BooleanValue.of(true, true))));
+        return readAllBlocks(data.createRecordReader(data.getFilter()));
     }
 
     private static List<Block> readAllBlocks(OrcSelectiveRecordReader recordReader)
@@ -120,22 +114,24 @@ public class BenchmarkSelectiveStreamReaders
                 break;
             }
 
-            blocks.add(page.getBlock(0));
+            if (page.getPositionCount() > 0) {
+                blocks.add(page.getBlock(0));
+            }
         }
         return blocks;
     }
 
-    private abstract static class BenchmarkData
+    private abstract static class AbstractBenchmarkData
     {
         protected final Random random = new Random(0);
         private Type type;
         private File temporaryDirectory;
         private File orcFile;
 
-        public void setup(Type type)
+        public void setup(String typeSignature)
                 throws Exception
         {
-            this.type = type;
+            type = new TypeRegistry().getType(TypeSignature.parseTypeSignature(typeSignature));
             temporaryDirectory = createTempDir();
             orcFile = new File(temporaryDirectory, randomUUID().toString());
             writeOrcColumnHive(orcFile, ORC_12, NONE, type, createValues());
@@ -179,17 +175,23 @@ public class BenchmarkSelectiveStreamReaders
 
     @State(Scope.Thread)
     public static class AllNullBenchmarkData
-            extends BenchmarkData
+            extends AbstractBenchmarkData
     {
         @SuppressWarnings("unused")
-        @Param("boolean")
+        @Param({
+                "boolean",
+                "integer",
+                "bigint",
+                "smallint",
+                "date"
+        })
         private String typeSignature;
 
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(new TypeRegistry().getType(TypeSignature.parseTypeSignature(typeSignature)));
+            setup(typeSignature);
         }
 
         @Override
@@ -199,49 +201,85 @@ public class BenchmarkSelectiveStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
-    public static class BooleanNoNullBenchmarkData
-            extends BenchmarkData
+    public static class BenchmarkData
+            extends AbstractBenchmarkData
     {
+        @SuppressWarnings("unused")
+        @Param({
+                "boolean",
+
+                "integer",
+                "bigint",
+                "smallint",
+                "date"
+        })
+        private String typeSignature;
+
+        @Param({"true", "false"})
+        private boolean withNulls;
+
+        private Optional<TupleDomainFilter> filter;
+
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(BOOLEAN);
+            setup(typeSignature);
+
+            this.filter = getFilter(getType());
+        }
+
+        public Optional<TupleDomainFilter> getFilter()
+        {
+            return filter;
+        }
+
+        private static Optional<TupleDomainFilter> getFilter(Type type)
+        {
+            if (type == BOOLEAN) {
+                return Optional.of(BooleanValue.of(true, true));
+            }
+
+            if (type == BIGINT || type == INTEGER || type == SMALLINT || type == DATE) {
+                return Optional.of(BigintRange.of(0, Long.MAX_VALUE, true));
+            }
+
+            throw new UnsupportedOperationException("Unsupported type: " + type);
         }
 
         @Override
-        protected List<?> createValues()
+        protected final List<?> createValues()
         {
-            List<Boolean> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                values.add(random.nextBoolean());
+            if (withNulls) {
+                return IntStream.range(0, ROWS).mapToObj(i -> i % 2 == 0 ? createValue() : null).collect(toList());
             }
-            return values;
-        }
-    }
-
-    @SuppressWarnings("FieldMayBeFinal")
-    @State(Scope.Thread)
-    public static class BooleanWithNullBenchmarkData
-            extends BenchmarkData
-    {
-        @Setup
-        public void setup()
-                throws Exception
-        {
-            setup(BOOLEAN);
+            return IntStream.range(0, ROWS).mapToObj(i -> createValue()).collect(toList());
         }
 
-        @Override
-        protected List<?> createValues()
+        private final Object createValue()
         {
-            List<Boolean> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                values.add(random.nextBoolean() ? random.nextBoolean() : null);
+            if (getType() == BOOLEAN) {
+                return random.nextBoolean();
             }
-            return values;
+
+            if (getType() == BIGINT) {
+                return random.nextLong();
+            }
+
+            if (getType() == INTEGER) {
+                return random.nextInt();
+            }
+
+            if (getType() == SMALLINT) {
+                return (short) random.nextInt();
+            }
+
+            if (getType() == DATE) {
+                return new SqlDate(random.nextInt());
+            }
+
+            throw new UnsupportedOperationException("Unsupported type: " + getType());
         }
     }
 

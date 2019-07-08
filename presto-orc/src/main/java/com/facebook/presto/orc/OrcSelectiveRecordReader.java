@@ -128,7 +128,7 @@ public class OrcSelectiveRecordReader
                 streamReaders[columnId] = createStreamReader(
                         streamDescriptor,
                         Optional.ofNullable(filters.get(columnId)),
-                        outputColumns.contains(columnId),
+                        Optional.ofNullable(includedColumns.get(columnId)),
                         Optional.ofNullable(requiredSubfields.get(columnId)).orElse(ImmutableList.of()),
                         hiveStorageTimeZone,
                         systemMemoryContext);
