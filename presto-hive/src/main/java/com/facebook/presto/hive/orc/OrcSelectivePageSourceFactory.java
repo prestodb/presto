@@ -130,9 +130,9 @@ public class OrcSelectivePageSourceFactory
         }
 
         return Optional.of(createOrcPageSource(
+                session,
                 ORC,
                 hdfsEnvironment,
-                session.getUser(),
                 configuration,
                 path,
                 start,
@@ -145,21 +145,15 @@ public class OrcSelectivePageSourceFactory
                 useOrcColumnNames,
                 hiveStorageTimeZone,
                 typeManager,
-                getOrcMaxMergeDistance(session),
-                getOrcMaxBufferSize(session),
-                getOrcStreamBufferSize(session),
-                getOrcTinyStripeThreshold(session),
-                getOrcMaxReadBlockSize(session),
-                getOrcLazyReadSmallRanges(session),
                 isOrcBloomFiltersEnabled(session),
                 stats,
                 domainCompactionThreshold));
     }
 
     public static OrcSelectivePageSource createOrcPageSource(
+            ConnectorSession session,
             OrcEncoding orcEncoding,
             HdfsEnvironment hdfsEnvironment,
-            String sessionUser,
             Configuration configuration,
             Path path,
             long start,
@@ -172,21 +166,22 @@ public class OrcSelectivePageSourceFactory
             boolean useOrcColumnNames,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
-            DataSize maxMergeDistance,
-            DataSize maxBufferSize,
-            DataSize streamBufferSize,
-            DataSize tinyStripeThreshold,
-            DataSize maxReadBlockSize,
-            boolean lazyReadSmallRanges,
             boolean orcBloomFiltersEnabled,
             FileFormatDataSourceStats stats,
             int domainCompactionThreshold)
     {
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
 
+        DataSize maxMergeDistance = getOrcMaxMergeDistance(session);
+        DataSize maxBufferSize = getOrcMaxBufferSize(session);
+        DataSize streamBufferSize = getOrcStreamBufferSize(session);
+        DataSize tinyStripeThreshold = getOrcTinyStripeThreshold(session);
+        DataSize maxReadBlockSize = getOrcMaxReadBlockSize(session);
+        boolean lazyReadSmallRanges = getOrcLazyReadSmallRanges(session);
+
         OrcDataSource orcDataSource;
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
             FSDataInputStream inputStream = fileSystem.open(path);
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),

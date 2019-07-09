@@ -37,12 +37,6 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
-import static com.facebook.presto.hive.HiveSessionProperties.getOrcLazyReadSmallRanges;
-import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
-import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
-import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockSize;
-import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
-import static com.facebook.presto.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
 import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.facebook.presto.hive.orc.OrcSelectivePageSourceFactory.createOrcPageSource;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
@@ -89,9 +83,9 @@ public class DwrfSelectivePageSourceFactory
         }
 
         return Optional.of(createOrcPageSource(
+                session,
                 DWRF,
                 hdfsEnvironment,
-                session.getUser(),
                 configuration,
                 path,
                 start,
@@ -104,12 +98,6 @@ public class DwrfSelectivePageSourceFactory
                 false,
                 hiveStorageTimeZone,
                 typeManager,
-                getOrcMaxMergeDistance(session),
-                getOrcMaxBufferSize(session),
-                getOrcStreamBufferSize(session),
-                getOrcTinyStripeThreshold(session),
-                getOrcMaxReadBlockSize(session),
-                getOrcLazyReadSmallRanges(session),
                 false,
                 stats,
                 domainCompactionThreshold));
