@@ -22,6 +22,7 @@ import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockLease;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
@@ -35,6 +36,7 @@ import java.util.Optional;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.spi.block.ClosingBlockLease.newLease;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -87,11 +89,9 @@ public class LongDirectSelectiveStreamReader
             openRowGroup();
         }
 
-        allNulls = false;
+        prepareNextRead(positionCount, nullsAllowed && presentStream != null);
 
-        if (outputRequired) {
-            ensureValuesCapacity(positionCount, nullsAllowed && presentStream != null);
-        }
+        allNulls = false;
 
         if (filter != null) {
             ensureOutputPositionsCapacity(positionCount);
@@ -204,6 +204,20 @@ public class LongDirectSelectiveStreamReader
         }
 
         return buildOutputBlock(positions, positionCount, nullsAllowed && presentStream != null);
+    }
+
+    @Override
+    public BlockLease getBlockView(int[] positions, int positionCount)
+    {
+        checkArgument(outputPositionCount > 0, "outputPositionCount must be greater than zero");
+        checkState(outputRequired, "This stream reader doesn't produce output");
+        checkState(positionCount <= outputPositionCount, "Not enough values");
+
+        if (allNulls) {
+            return newLease(new RunLengthEncodedBlock(outputType.createBlockBuilder(null, 1).appendNull().build(), outputPositionCount));
+        }
+
+        return buildOutputBlockView(positions, positionCount, nullsAllowed && presentStream != null);
     }
 
     @Override

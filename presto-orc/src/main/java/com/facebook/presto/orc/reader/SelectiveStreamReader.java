@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockLease;
 
 import java.io.IOException;
 
@@ -41,6 +42,9 @@ public interface SelectiveStreamReader
 
     /**
      * Return a subset of the values extracted during most recent read() for the specified positions
+     *
+     * Can be called at most once after each read().
+     *
      * @param positions Monotonically increasing positions to return; must be a strict subset of both
      *                  the list of positions passed into read() and the list of positions returned
      *                  from getReadPositions()
@@ -48,6 +52,17 @@ public interface SelectiveStreamReader
      *                      size of the array
      */
     Block getBlock(int[] positions, int positionCount);
+
+    /**
+     * Like getBlock(), but returns a temporary view of the data.
+     *
+     * The returned lease must be closed and block usage should be completed before subsequent
+     * invocations of getBlockView, getBlock, or read.
+     *
+     * May be called multiple times after each read(). On repeated invocation, the list of positions
+     * must be a strict subset of positions passed in the previous invocation.
+     */
+    BlockLease getBlockView(int[] positions, int positionCount);
 
     void close();
 }

@@ -14,6 +14,8 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockLease;
+import com.facebook.presto.spi.block.ClosingBlockLease;
 import com.facebook.presto.spi.block.IntArrayBlock;
 import com.facebook.presto.spi.block.LongArrayBlock;
 import com.facebook.presto.spi.block.ShortArrayBlock;
@@ -27,6 +29,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -45,10 +48,29 @@ abstract class AbstractLongSelectiveStreamReader
     protected int[] outputPositions;
     protected int outputPositionCount;
 
+    private int[] intValues;
+    private boolean intValuesPopulated;
+
+    private short[] shortValues;
+    private boolean shortValuesPopulated;
+
+    private boolean valuesInUse;
+
     protected AbstractLongSelectiveStreamReader(Optional<Type> outputType)
     {
         this.outputRequired = outputType.isPresent();
         this.outputType = requireNonNull(outputType, "outputType is null").orElse(null);
+    }
+
+    protected void prepareNextRead(int positionCount, boolean withNulls)
+    {
+        checkState(!valuesInUse, "BlockLease hasn't been closed yet");
+
+        if (outputRequired) {
+            ensureValuesCapacity(positionCount, withNulls);
+        }
+        intValuesPopulated = false;
+        shortValuesPopulated = false;
     }
 
     @Override
@@ -57,8 +79,64 @@ abstract class AbstractLongSelectiveStreamReader
         return outputPositions;
     }
 
+    protected BlockLease buildOutputBlockView(int[] positions, int positionCount, boolean includeNulls)
+    {
+        checkState(!valuesInUse, "BlockLease hasn't been closed yet");
+
+        if (outputType == BIGINT) {
+            if (positionCount < outputPositionCount) {
+                compactValues(positions, positionCount, includeNulls);
+            }
+            return newLease(new LongArrayBlock(positionCount, Optional.ofNullable(includeNulls ? nulls : null), values));
+        }
+
+        if (outputType == INTEGER || outputType == DATE) {
+            if (!intValuesPopulated || positionCount < outputPositionCount) {
+                if (positionCount < outputPositionCount) {
+                    compactValues(positions, positionCount, includeNulls);
+                }
+                if (intValues == null || intValues.length < positionCount) {
+                    intValues = new int[positionCount];
+                }
+                for (int i = 0; i < positionCount; i++) {
+                    intValues[i] = (int) values[i];
+                }
+                intValuesPopulated = true;
+            }
+
+            return newLease(new IntArrayBlock(positionCount, Optional.ofNullable(includeNulls ? nulls : null), intValues));
+        }
+
+        if (outputType == SMALLINT) {
+            if (!shortValuesPopulated || positionCount < outputPositionCount) {
+                if (positionCount < outputPositionCount) {
+                    compactValues(positions, positionCount, includeNulls);
+                }
+                if (shortValues == null || shortValues.length < positionCount) {
+                    shortValues = new short[positionCount];
+                }
+                for (int i = 0; i < positionCount; i++) {
+                    shortValues[i] = (short) values[i];
+                }
+                shortValuesPopulated = true;
+            }
+
+            return newLease(new ShortArrayBlock(positionCount, Optional.ofNullable(includeNulls ? nulls : null), shortValues));
+        }
+
+        throw new UnsupportedOperationException("Unsupported type: " + outputType);
+    }
+
+    private BlockLease newLease(Block block)
+    {
+        valuesInUse = true;
+        return ClosingBlockLease.newLease(block, () -> valuesInUse = false);
+    }
+
     protected Block buildOutputBlock(int[] positions, int positionCount, boolean includeNulls)
     {
+        checkState(!valuesInUse, "BlockLease hasn't been closed yet");
+
         if (outputType == BIGINT) {
             return getLongArrayBlock(positions, positionCount, includeNulls);
         }
@@ -123,6 +201,10 @@ abstract class AbstractLongSelectiveStreamReader
 
     private Block getIntArrayBlock(int[] positions, int positionCount, boolean includeNulls)
     {
+        if (intValuesPopulated && positionCount == outputPositionCount) {
+            return new IntArrayBlock(positionCount, Optional.ofNullable(includeNulls ? nulls : null), intValues);
+        }
+
         int[] valuesCopy = new int[positionCount];
         boolean[] nullsCopy = null;
         if (includeNulls) {
@@ -156,6 +238,10 @@ abstract class AbstractLongSelectiveStreamReader
 
     private Block getShortArrayBlock(int[] positions, int positionCount, boolean includeNulls)
     {
+        if (shortValuesPopulated && positionCount == outputPositionCount) {
+            return new ShortArrayBlock(positionCount, Optional.ofNullable(includeNulls ? nulls : null), shortValues);
+        }
+
         short[] valuesCopy = new short[positionCount];
         boolean[] nullsCopy = null;
         if (includeNulls) {
@@ -205,5 +291,32 @@ abstract class AbstractLongSelectiveStreamReader
         if (outputPositions == null || outputPositions.length < capacity) {
             outputPositions = new int[capacity];
         }
+    }
+
+    private void compactValues(int[] positions, int positionCount, boolean compactNulls)
+    {
+        int positionIndex = 0;
+        int nextPosition = positions[positionIndex];
+        for (int i = 0; i < outputPositionCount; i++) {
+            if (outputPositions[i] < nextPosition) {
+                continue;
+            }
+
+            assert outputPositions[i] == nextPosition;
+
+            values[positionIndex] = values[i];
+            if (compactNulls) {
+                nulls[positionIndex] = nulls[i];
+            }
+            outputPositions[positionIndex] = nextPosition;
+
+            positionIndex++;
+            if (positionIndex >= positionCount) {
+                break;
+            }
+            nextPosition = positions[positionIndex];
+        }
+
+        outputPositionCount = positionCount;
     }
 }

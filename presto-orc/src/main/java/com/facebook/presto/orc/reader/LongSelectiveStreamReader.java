@@ -19,6 +19,7 @@ import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockLease;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.io.Closer;
 import org.openjdk.jol.info.ClassLayout;
@@ -125,5 +126,11 @@ public class LongSelectiveStreamReader
     public Block getBlock(int[] positions, int positionCount)
     {
         return currentReader.getBlock(positions, positionCount);
+    }
+
+    @Override
+    public BlockLease getBlockView(int[] positions, int positionCount)
+    {
+        return currentReader.getBlockView(positions, positionCount);
     }
 }
