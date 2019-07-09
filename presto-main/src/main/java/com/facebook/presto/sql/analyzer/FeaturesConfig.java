@@ -16,6 +16,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
+import com.facebook.presto.tdigest.StatisticalDigestImplementation;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -102,6 +103,7 @@ public class FeaturesConfig
     private int re2JDfaStatesLimit = Integer.MAX_VALUE;
     private int re2JDfaRetries = 5;
     private RegexLibrary regexLibrary = JONI;
+    private StatisticalDigestImplementation statisticalDigestImplementation = StatisticalDigestImplementation.QDIGEST;
     private HistogramGroupImplementation histogramGroupImplementation = HistogramGroupImplementation.NEW;
     private ArrayAggGroupImplementation arrayAggGroupImplementation = ArrayAggGroupImplementation.NEW;
     private MultimapAggGroupImplementation multimapAggGroupImplementation = MultimapAggGroupImplementation.NEW;
@@ -633,10 +635,22 @@ public class FeaturesConfig
         return regexLibrary;
     }
 
+    public StatisticalDigestImplementation getStatisticalDigestImplementation()
+    {
+        return statisticalDigestImplementation;
+    }
+
     @Config("regex-library")
     public FeaturesConfig setRegexLibrary(RegexLibrary regexLibrary)
     {
         this.regexLibrary = regexLibrary;
+        return this;
+    }
+
+    @Config("statistical-digest-implementation")
+    public FeaturesConfig setStatisticalDigestImplementation(StatisticalDigestImplementation digest)
+    {
+        this.statisticalDigestImplementation = digest;
         return this;
     }
 

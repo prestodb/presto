@@ -22,6 +22,8 @@ import com.facebook.presto.operator.aggregation.ApproximateLongPercentileArrayAg
 import com.facebook.presto.operator.aggregation.ApproximateRealPercentileAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateRealPercentileArrayAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateSetAggregation;
+import com.facebook.presto.operator.aggregation.ApproximateTDigestDoublePercentileAggregations;
+import com.facebook.presto.operator.aggregation.ApproximateTDigestDoublePercentileArrayAggregations;
 import com.facebook.presto.operator.aggregation.AverageAggregations;
 import com.facebook.presto.operator.aggregation.BitwiseAndAggregation;
 import com.facebook.presto.operator.aggregation.BitwiseOrAggregation;
@@ -439,8 +441,6 @@ class StaticFunctionNamespace
                 .aggregates(CentralMomentsAggregation.class)
                 .aggregates(ApproximateLongPercentileAggregations.class)
                 .aggregates(ApproximateLongPercentileArrayAggregations.class)
-                .aggregates(ApproximateDoublePercentileAggregations.class)
-                .aggregates(ApproximateDoublePercentileArrayAggregations.class)
                 .aggregates(ApproximateRealPercentileAggregations.class)
                 .aggregates(ApproximateRealPercentileArrayAggregations.class)
                 .aggregates(CountIfAggregation.class)
@@ -665,6 +665,17 @@ class StaticFunctionNamespace
             case RE2J:
                 builder.scalars(Re2JRegexpFunctions.class);
                 builder.scalar(Re2JRegexpReplaceLambdaFunction.class);
+                break;
+        }
+
+        switch (featuresConfig.getStatisticalDigestImplementation()) {
+            case TDIGEST:
+                builder.aggregates(ApproximateTDigestDoublePercentileAggregations.class);
+                builder.aggregates(ApproximateTDigestDoublePercentileArrayAggregations.class);
+                break;
+            case QDIGEST:
+                builder.aggregates(ApproximateDoublePercentileAggregations.class);
+                builder.aggregates(ApproximateDoublePercentileArrayAggregations.class);
                 break;
         }
 

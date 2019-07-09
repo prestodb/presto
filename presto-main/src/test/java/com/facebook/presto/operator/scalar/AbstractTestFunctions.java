@@ -54,7 +54,7 @@ import static org.testng.Assert.fail;
 public abstract class AbstractTestFunctions
 {
     protected final Session session;
-    private final FeaturesConfig config;
+    protected final FeaturesConfig config;
     protected FunctionAssertions functionAssertions;
 
     protected AbstractTestFunctions()
