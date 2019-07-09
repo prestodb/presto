@@ -820,7 +820,7 @@ public abstract class AbstractTestHiveClient
                 new HiveSessionProperties(hiveClientConfig, new OrcFileWriterConfig(), new ParquetFileWriterConfig()),
                 new HiveWriterStats(),
                 getDefaultOrcFileWriterFactory(hiveClientConfig));
-        pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveClientConfig), getDefaultHiveDataStreamFactories(hiveClientConfig), ImmutableSet.of(), TYPE_MANAGER);
+        pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveClientConfig), getDefaultHiveDataStreamFactories(hiveClientConfig), ImmutableSet.of(), TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
     }
 
     /**

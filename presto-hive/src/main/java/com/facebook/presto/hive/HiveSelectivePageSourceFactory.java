@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.RowExpression;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;
@@ -40,5 +41,6 @@ public interface HiveSelectivePageSourceFactory
             Map<Integer, String> prefilledValues,   // key is hiveColumnIndex
             List<Integer> outputColumns,            // element is hiveColumnIndex
             TupleDomain<Subfield> domainPredicate,
+            RowExpression remainingPredicate,   // refers to columns by name; already optimized
             DateTimeZone hiveStorageTimeZone);
 }

@@ -887,6 +887,8 @@ public class OrcTester
                 columnTypes,
                 IntStream.range(0, types.size()).boxed().collect(toList()),
                 filters,
+                ImmutableList.of(),
+                ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 predicate,

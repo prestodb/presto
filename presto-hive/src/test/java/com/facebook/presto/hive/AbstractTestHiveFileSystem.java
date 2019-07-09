@@ -223,7 +223,7 @@ public abstract class AbstractTestHiveFileSystem
                 new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()),
                 new HiveWriterStats(),
                 getDefaultOrcFileWriterFactory(config));
-        pageSourceProvider = new HivePageSourceProvider(config, hdfsEnvironment, getDefaultHiveRecordCursorProvider(config), getDefaultHiveDataStreamFactories(config), ImmutableSet.of(), TYPE_MANAGER);
+        pageSourceProvider = new HivePageSourceProvider(config, hdfsEnvironment, getDefaultHiveRecordCursorProvider(config), getDefaultHiveDataStreamFactories(config), ImmutableSet.of(), TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
     }
 
     protected ConnectorSession newSession()
