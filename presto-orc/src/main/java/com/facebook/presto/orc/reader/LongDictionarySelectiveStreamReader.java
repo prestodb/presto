@@ -23,6 +23,7 @@ import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockLease;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -97,9 +98,7 @@ public class LongDictionarySelectiveStreamReader
             openRowGroup();
         }
 
-        if (outputRequired) {
-            ensureValuesCapacity(positionCount, presentStream != null && nullsAllowed);
-        }
+        prepareNextRead(positionCount, presentStream != null && nullsAllowed);
 
         if (filter != null) {
             ensureOutputPositionsCapacity(positionCount);
@@ -212,6 +211,16 @@ public class LongDictionarySelectiveStreamReader
         checkState(positionCount <= outputPositionCount, "Not enough values");
 
         return buildOutputBlock(positions, positionCount, nullsAllowed && presentStream != null);
+    }
+
+    @Override
+    public BlockLease getBlockView(int[] positions, int positionCount)
+    {
+        checkArgument(outputPositionCount > 0, "outputPositionCount must be greater than zero");
+        checkState(outputRequired, "This stream reader doesn't produce output");
+        checkState(positionCount <= outputPositionCount, "Not enough values");
+
+        return buildOutputBlockView(positions, positionCount, nullsAllowed && presentStream != null);
     }
 
     @Override

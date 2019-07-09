@@ -21,7 +21,9 @@ import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockLease;
 import com.facebook.presto.spi.block.ByteArrayBlock;
+import com.facebook.presto.spi.block.ClosingBlockLease;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -45,6 +47,7 @@ public class BooleanSelectiveStreamReader
         implements SelectiveStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(BooleanSelectiveStreamReader.class).instanceSize();
+    private static final Block NULL_BLOCK = BOOLEAN.createBlockBuilder(null, 1).appendNull().build();
 
     private final StreamDescriptor streamDescriptor;
     @Nullable
@@ -70,6 +73,7 @@ public class BooleanSelectiveStreamReader
     private int[] outputPositions;
     private int outputPositionCount;
     private boolean allNulls;
+    private boolean valuesInUse;
 
     private LocalMemoryContext systemMemoryContext;
 
@@ -143,6 +147,8 @@ public class BooleanSelectiveStreamReader
     public int read(int offset, int[] positions, int positionCount)
             throws IOException
     {
+        checkState(!valuesInUse, "BlockLease hasn't been closed yet");
+
         if (!rowGroupOpen) {
             openRowGroup();
         }
@@ -309,13 +315,15 @@ public class BooleanSelectiveStreamReader
         checkArgument(outputPositionCount > 0, "outputPositionCount must be greater than zero");
         checkState(outputRequired, "This stream reader doesn't produce output");
         checkState(positionCount <= outputPositionCount, "Not enough values");
+        checkState(!valuesInUse, "BlockLease hasn't been closed yet");
 
         if (allNulls) {
-            return new RunLengthEncodedBlock(BOOLEAN.createBlockBuilder(null, 1).appendNull().build(), outputPositionCount);
+            return new RunLengthEncodedBlock(NULL_BLOCK, outputPositionCount);
         }
 
+        boolean includeNulls = nullsAllowed && presentStream != null;
         if (positionCount == outputPositionCount) {
-            Block block = new ByteArrayBlock(positionCount, Optional.ofNullable(nulls), values);
+            Block block = new ByteArrayBlock(positionCount, Optional.ofNullable(includeNulls ? nulls : null), values);
             nulls = null;
             values = null;
             return block;
@@ -323,7 +331,7 @@ public class BooleanSelectiveStreamReader
 
         byte[] valuesCopy = new byte[positionCount];
         boolean[] nullsCopy = null;
-        if (nullsAllowed && presentStream != null) {
+        if (includeNulls) {
             nullsCopy = new boolean[positionCount];
         }
 
@@ -350,6 +358,59 @@ public class BooleanSelectiveStreamReader
         }
 
         return new ByteArrayBlock(positionCount, Optional.ofNullable(nullsCopy), valuesCopy);
+    }
+
+    @Override
+    public BlockLease getBlockView(int[] positions, int positionCount)
+    {
+        checkArgument(outputPositionCount > 0, "outputPositionCount must be greater than zero");
+        checkState(outputRequired, "This stream reader doesn't produce output");
+        checkState(positionCount <= outputPositionCount, "Not enough values");
+        checkState(!valuesInUse, "BlockLease hasn't been closed yet");
+
+        if (allNulls) {
+            return newLease(new RunLengthEncodedBlock(NULL_BLOCK, outputPositionCount));
+        }
+
+        boolean includeNulls = nullsAllowed && presentStream != null;
+        if (positionCount != outputPositionCount) {
+            compactValues(positions, positionCount, includeNulls);
+        }
+
+        return newLease(new ByteArrayBlock(positionCount, Optional.ofNullable(includeNulls ? nulls : null), values));
+    }
+
+    private BlockLease newLease(Block block)
+    {
+        valuesInUse = true;
+        return ClosingBlockLease.newLease(block, () -> valuesInUse = false);
+    }
+
+    private void compactValues(int[] positions, int positionCount, boolean compactNulls)
+    {
+        int positionIndex = 0;
+        int nextPosition = positions[positionIndex];
+        for (int i = 0; i < outputPositionCount; i++) {
+            if (outputPositions[i] < nextPosition) {
+                continue;
+            }
+
+            assert outputPositions[i] == nextPosition;
+
+            values[positionIndex] = values[i];
+            if (compactNulls) {
+                nulls[positionIndex] = nulls[i];
+            }
+            outputPositions[positionIndex] = nextPosition;
+
+            positionIndex++;
+            if (positionIndex >= positionCount) {
+                break;
+            }
+            nextPosition = positions[positionIndex];
+        }
+
+        outputPositionCount = positionCount;
     }
 
     @Override
