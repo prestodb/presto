@@ -318,7 +318,6 @@ public class PlanFragmenter
         private final PlanSanityChecker planSanityChecker;
         private final WarningCollector warningCollector;
         private final SqlParser sqlParser;
-        private final LiteralEncoder literalEncoder;
         private final Set<PlanNodeId> outputTableWriterNodeIds;
         private int nextFragmentId = ROOT_FRAGMENT_ID + 1;
 
@@ -341,7 +340,6 @@ public class PlanFragmenter
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
-            this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
             this.outputTableWriterNodeIds = ImmutableSet.copyOf(requireNonNull(outputTableWriterNodeIds, "outputTableWriterNodeIds is null"));
         }
 
