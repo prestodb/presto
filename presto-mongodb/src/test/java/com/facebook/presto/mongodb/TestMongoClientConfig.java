@@ -14,10 +14,13 @@
 package com.facebook.presto.mongodb;
 
 import com.google.common.collect.ImmutableMap;
+import com.mongodb.MongoCredential;
 import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+
+import static org.testng.Assert.assertEquals;
 
 public class TestMongoClientConfig
 {
@@ -84,5 +87,16 @@ public class TestMongoClientConfig
                 .setImplicitRowFieldPrefix("_prefix");
 
         ConfigAssertions.assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testSpecialCharacterCredential()
+    {
+        MongoClientConfig config = new MongoClientConfig()
+                .setCredentials("username:P@ss:w0rd@database");
+
+        MongoCredential credential = config.getCredentials().get(0);
+        MongoCredential expected = MongoCredential.createCredential("username", "database", "P@ss:w0rd".toCharArray());
+        assertEquals(credential, expected);
     }
 }
