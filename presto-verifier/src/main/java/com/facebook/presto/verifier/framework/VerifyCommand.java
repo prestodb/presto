@@ -39,5 +39,5 @@ public interface VerifyCommand
 
     List<FailureResolver> getFailureResolvers();
 
-    List<Property> getTablePropertiesOverride();
+    List<Property> getTablePropertyOverrides();
 }

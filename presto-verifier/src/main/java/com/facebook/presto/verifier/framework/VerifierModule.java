@@ -47,20 +47,20 @@ public class VerifierModule
     private final List<Class<? extends Predicate<SourceQuery>>> customQueryFilterClasses;
     private final SqlExceptionClassifier exceptionClassifier;
     private final List<FailureResolver> failureResolvers;
-    private final List<Property> tablePropertiesOverride;
+    private final List<Property> tablePropertyOverrides;
 
     public VerifierModule(
             SqlParserOptions sqlParserOptions,
             List<Class<? extends Predicate<SourceQuery>>> customQueryFilterClasses,
             SqlExceptionClassifier exceptionClassifier,
             List<FailureResolver> failureResolvers,
-            List<Property> tablePropertiesOverride)
+            List<Property> tablePropertyOverrides)
     {
         this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
         this.customQueryFilterClasses = ImmutableList.copyOf(customQueryFilterClasses);
         this.exceptionClassifier = requireNonNull(exceptionClassifier, "exceptionClassifier is null");
         this.failureResolvers = requireNonNull(failureResolvers, "failureResolvers is null");
-        this.tablePropertiesOverride = requireNonNull(tablePropertiesOverride, "tablePropertiesOverride is null");
+        this.tablePropertyOverrides = requireNonNull(tablePropertyOverrides, "tablePropertyOverrides is null");
     }
 
     protected final void setup(Binder binder)
@@ -86,7 +86,7 @@ public class VerifierModule
         binder.bind(new TypeLiteral<List<Predicate<SourceQuery>>>() {}).toProvider(new CustomQueryFilterProvider(customQueryFilterClasses));
         binder.bind(SqlExceptionClassifier.class).toInstance(exceptionClassifier);
         binder.bind(new TypeLiteral<List<FailureResolver>>() {}).toInstance(failureResolvers);
-        binder.bind(new TypeLiteral<List<Property>>() {}).toInstance(tablePropertiesOverride);
+        binder.bind(new TypeLiteral<List<Property>>() {}).toInstance(tablePropertyOverrides);
     }
 
     private static class CustomQueryFilterProvider
