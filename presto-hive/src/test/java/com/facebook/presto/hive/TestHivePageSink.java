@@ -58,6 +58,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
 import static com.facebook.presto.hive.HiveTestUtils.PAGE_SORTER;
+import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveDataStreamFactories;
@@ -237,7 +238,7 @@ public class TestHivePageSink
                 ImmutableMap.of(),
                 Optional.empty(),
                 false);
-        HivePageSourceProvider provider = new HivePageSourceProvider(config, createTestHdfsEnvironment(config), getDefaultHiveRecordCursorProvider(config), getDefaultHiveDataStreamFactories(config), ImmutableSet.of(), TYPE_MANAGER);
+        HivePageSourceProvider provider = new HivePageSourceProvider(config, createTestHdfsEnvironment(config), getDefaultHiveRecordCursorProvider(config), getDefaultHiveDataStreamFactories(config), ImmutableSet.of(), TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
         return provider.createPageSource(transaction, getSession(config), split, ImmutableList.copyOf(getColumnHandles()));
     }
 

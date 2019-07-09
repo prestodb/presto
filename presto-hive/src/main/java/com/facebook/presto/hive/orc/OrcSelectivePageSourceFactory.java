@@ -19,6 +19,7 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveSelectivePageSourceFactory;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.FilterFunction;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcEncoding;
@@ -34,10 +35,19 @@ import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.DefaultRowExpressionTraversalVisitor;
+import com.facebook.presto.spi.relation.DeterminismEvaluator;
+import com.facebook.presto.spi.relation.InputReferenceExpression;
+import com.facebook.presto.spi.relation.PredicateCompiler;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.RowExpressionService;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
@@ -51,10 +61,14 @@ import javax.inject.Inject;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
@@ -73,8 +87,14 @@ import static com.facebook.presto.hive.HiveUtil.typedPartitionKey;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.binaryExpression;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.extractConjuncts;
+import static com.facebook.presto.spi.relation.RowExpressionNodeInliner.replaceExpression;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.uniqueIndex;
@@ -85,20 +105,22 @@ public class OrcSelectivePageSourceFactory
         implements HiveSelectivePageSourceFactory
 {
     private final TypeManager typeManager;
+    private final RowExpressionService rowExpressionService;
     private final boolean useOrcColumnNames;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
     private final int domainCompactionThreshold;
 
     @Inject
-    public OrcSelectivePageSourceFactory(TypeManager typeManager, HiveClientConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
+    public OrcSelectivePageSourceFactory(TypeManager typeManager, RowExpressionService rowExpressionService, HiveClientConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
     {
-        this(typeManager, requireNonNull(config, "hiveClientConfig is null").isUseOrcColumnNames(), hdfsEnvironment, stats, config.getDomainCompactionThreshold());
+        this(typeManager, rowExpressionService, requireNonNull(config, "hiveClientConfig is null").isUseOrcColumnNames(), hdfsEnvironment, stats, config.getDomainCompactionThreshold());
     }
 
-    public OrcSelectivePageSourceFactory(TypeManager typeManager, boolean useOrcColumnNames, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, int domainCompactionThreshold)
+    public OrcSelectivePageSourceFactory(TypeManager typeManager, RowExpressionService rowExpressionService, boolean useOrcColumnNames, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, int domainCompactionThreshold)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.useOrcColumnNames = useOrcColumnNames;
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
@@ -118,6 +140,7 @@ public class OrcSelectivePageSourceFactory
             Map<Integer, String> prefilledValues,
             List<Integer> outputColumns,
             TupleDomain<Subfield> domainPredicate,
+            RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone)
     {
         if (!isDeserializerClass(schema, OrcSerde.class)) {
@@ -142,9 +165,11 @@ public class OrcSelectivePageSourceFactory
                 prefilledValues,
                 outputColumns,
                 domainPredicate,
+                remainingPredicate,
                 useOrcColumnNames,
                 hiveStorageTimeZone,
                 typeManager,
+                rowExpressionService,
                 isOrcBloomFiltersEnabled(session),
                 stats,
                 domainCompactionThreshold));
@@ -163,9 +188,11 @@ public class OrcSelectivePageSourceFactory
             Map<Integer, String> prefilledValues,
             List<Integer> outputColumns,
             TupleDomain<Subfield> domainPredicate,
+            RowExpression remainingPredicate,
             boolean useOrcColumnNames,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
+            RowExpressionService rowExpressionService,
             boolean orcBloomFiltersEnabled,
             FileFormatDataSourceStats stats,
             int domainCompactionThreshold)
@@ -230,10 +257,23 @@ public class OrcSelectivePageSourceFactory
                             .collect(toImmutableMap(entry -> indexMapping.get(entry.getKey()), Map.Entry::getValue)),
                     (hiveColumnIndex, value) -> typedPartitionKey(value, columnTypes.get(hiveColumnIndex), columnNames.get(hiveColumnIndex), hiveStorageTimeZone));
 
+            BiMap<Integer, Integer> inputs = IntStream.range(0, physicalColumns.size())
+                    .boxed()
+                    .collect(toImmutableBiMap(i -> physicalColumns.get(i).getHiveColumnIndex(), Function.identity()));
+
+            Map<VariableReferenceExpression, InputReferenceExpression> variableToInput = columnNames.keySet().stream()
+                    .collect(toImmutableMap(
+                            hiveColumnIndex -> new VariableReferenceExpression(columnNames.get(hiveColumnIndex), columnTypes.get(hiveColumnIndex)),
+                            hiveColumnIndex -> new InputReferenceExpression(inputs.get(hiveColumnIndex), columnTypes.get(hiveColumnIndex))));
+
+            List<FilterFunction> filterFunctions = toFilterFunctions(replaceExpression(remainingPredicate, variableToInput), session, rowExpressionService.getDeterminismEvaluator(), rowExpressionService.getPredicateCompiler());
+
             OrcSelectiveRecordReader recordReader = reader.createSelectiveRecordReader(
                     columnTypes,
                     outputColumns.stream().map(indexMapping::get).collect(toImmutableList()),
                     tupleDomainFilters,
+                    filterFunctions,
+                    inputs.inverse(),
                     requiredSubfields,
                     typedPrefilledValues,
                     orcPredicate,
@@ -298,6 +338,51 @@ public class OrcSelectivePageSourceFactory
         Map<String, HiveColumnHandle> columnsByName = uniqueIndex(physicalColumns, HiveColumnHandle::getName);
         TupleDomain<HiveColumnHandle> entireColumnDomains = domainPredicate.transform(subfield -> isEntireColumn(subfield) ? columnsByName.get(subfield.getRootName()) : null);
         return new TupleDomainOrcPredicate<>(entireColumnDomains, columnReferences.build(), orcBloomFiltersEnabled, Optional.of(domainCompactionThreshold));
+    }
+
+    /**
+     * Split filter expression into groups of conjuncts that depend on the same set of inputs,
+     * then compile each group into FilterFunction.
+     */
+    private static List<FilterFunction> toFilterFunctions(RowExpression filter, ConnectorSession session, DeterminismEvaluator determinismEvaluator, PredicateCompiler predicateCompiler)
+    {
+        if (TRUE_CONSTANT.equals(filter)) {
+            return ImmutableList.of();
+        }
+
+        List<RowExpression> conjuncts = extractConjuncts(filter);
+        if (conjuncts.size() == 1) {
+            return ImmutableList.of(new FilterFunction(session, determinismEvaluator.isDeterministic(filter), predicateCompiler.compilePredicate(filter).get()));
+        }
+
+        // Use LinkedHashMap to preserve user-specified order of conjuncts. This will be the initial order in which filters are applied.
+        Map<Set<Integer>, List<RowExpression>> inputsToConjuncts = new LinkedHashMap<>();
+        for (RowExpression conjunct : conjuncts) {
+            inputsToConjuncts.computeIfAbsent(extractInputs(conjunct), k -> new ArrayList<>()).add(conjunct);
+        }
+
+        return inputsToConjuncts.values().stream()
+                .map(expressions -> binaryExpression(AND, expressions))
+                .map(predicate -> new FilterFunction(session, determinismEvaluator.isDeterministic(predicate), predicateCompiler.compilePredicate(predicate).get()))
+                .collect(toImmutableList());
+    }
+
+    private static Set<Integer> extractInputs(RowExpression expression)
+    {
+        ImmutableSet.Builder<Integer> inputs = ImmutableSet.builder();
+        expression.accept(new InputReferenceBuilderVisitor(), inputs);
+        return inputs.build();
+    }
+
+    private static class InputReferenceBuilderVisitor
+            extends DefaultRowExpressionTraversalVisitor<ImmutableSet.Builder<Integer>>
+    {
+        @Override
+        public Void visitInputReference(InputReferenceExpression input, ImmutableSet.Builder<Integer> builder)
+        {
+            builder.add(input.getField());
+            return null;
+        }
     }
 
     private static String splitError(Throwable t, Path path, long start, long length)

@@ -24,6 +24,8 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -46,14 +48,16 @@ public class DwrfSelectivePageSourceFactory
         implements HiveSelectivePageSourceFactory
 {
     private final TypeManager typeManager;
+    private final RowExpressionService rowExpressionService;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
     private final int domainCompactionThreshold;
 
     @Inject
-    public DwrfSelectivePageSourceFactory(TypeManager typeManager, HiveClientConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
+    public DwrfSelectivePageSourceFactory(TypeManager typeManager, RowExpressionService rowExpressionService, HiveClientConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.domainCompactionThreshold = requireNonNull(config, "config is null").getDomainCompactionThreshold();
@@ -72,6 +76,7 @@ public class DwrfSelectivePageSourceFactory
             Map<Integer, String> prefilledValues,
             List<Integer> outputColumns,
             TupleDomain<Subfield> domainPredicate,
+            RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone)
     {
         if (!isDeserializerClass(schema, OrcSerde.class)) {
@@ -95,9 +100,11 @@ public class DwrfSelectivePageSourceFactory
                 prefilledValues,
                 outputColumns,
                 domainPredicate,
+                remainingPredicate,
                 false,
                 hiveStorageTimeZone,
                 typeManager,
+                rowExpressionService,
                 false,
                 stats,
                 domainCompactionThreshold));

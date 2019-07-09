@@ -161,6 +161,8 @@ public class BenchmarkSelectiveStreamReaders
                     ImmutableMap.of(0, type),
                     ImmutableList.of(0),
                     filter.map(f -> ImmutableMap.of(0, f)).orElse(ImmutableMap.of()),
+                    ImmutableList.of(),
+                    ImmutableMap.of(),
                     ImmutableMap.of(),
                     ImmutableMap.of(),
                     OrcPredicate.TRUE,

@@ -4147,7 +4147,7 @@ public class TestHiveIntegrationSmokeTest
         Session pushdownFilterEnabled = Session.builder(getQueryRunner().getDefaultSession())
                 .setCatalogSessionProperty(catalog, PUSHDOWN_FILTER_ENABLED, "true")
                 .build();
-        assertQueryFails(pushdownFilterEnabled, "SELECT comment FROM lineitem WHERE comment LIKE 'abc%'", "Complex predicate pushdown is not supported yet");
+        assertQueryFails(pushdownFilterEnabled, "SELECT comment FROM lineitem WHERE comment LIKE 'abc%'", "Error opening Hive split.*Unsupported type: VARCHAR");
     }
 
     @Test

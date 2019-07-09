@@ -102,6 +102,34 @@ public class TestHivePushdownFilterQueries
         assertQueryUsingH2Cte("SELECT linenumber, ship_by_air, is_returned FROM lineitem_ex WHERE orderkey < 30000 AND ship_by_air = true");
     }
 
+    @Test
+    public void testFilterFunctions()
+    {
+        // filter function on orderkey; orderkey is projected out
+        assertQuery("SELECT custkey, orderkey, orderdate FROM orders WHERE orderkey % 5 = 0");
+
+        // filter function on orderkey; orderkey is not projected out
+        assertQuery("SELECT custkey, orderdate FROM orders WHERE orderkey % 5 = 0");
+
+        // filter function and range predicate on orderkey
+        assertQuery("SELECT custkey, orderdate FROM orders WHERE orderkey % 5 = 0 AND orderkey > 100");
+
+        // multiple filter functions
+        assertQuery("SELECT custkey, orderdate FROM orders WHERE orderkey % 5 = 0 AND custkey % 7 = 0");
+
+        // multi-column filter functions
+        assertQuery("SELECT custkey, orderdate FROM orders WHERE (orderkey + custkey) % 5 = 0");
+
+        // filter function with an error
+        assertQueryFails("SELECT custkey, orderdate FROM orders WHERE array[1, 2, 3][orderkey % 5 + custkey % 7 + 1] > 0", "Array subscript out of bounds");
+
+        // filter function with "recoverable" error
+        assertQuery("SELECT custkey, orderdate FROM orders WHERE array[1, 2, 3][orderkey % 5 + custkey %7 + 1] > 0 AND orderkey % 5 = 1 AND custkey % 7 = 0", "SELECT custkey, orderdate FROM orders WHERE orderkey % 5 = 1 AND custkey % 7 = 0");
+
+        // filter function on numeric and boolean columnss
+        assertQuery("SELECT linenumber FROM lineitem_ex WHERE if(is_returned, linenumber, orderkey) % 5 = 0", WITH_LINEITEM_EX + "SELECT linenumber FROM lineitem_ex WHERE CASE WHEN is_returned THEN linenumber ELSE orderkey END % 5 = 0");
+    }
+
     private void assertQueryUsingH2Cte(String query)
     {
         assertQuery(query, WITH_LINEITEM_EX + query);
