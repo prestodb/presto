@@ -46,7 +46,7 @@ public abstract class AbstractVerifyCommand
                         getCustomQueryFilterClasses(),
                         getSqlExceptionClassifier(),
                         getFailureResolvers(),
-                        getTablePropertiesOverride()))
+                        getTablePropertyOverrides()))
                 .add(new SourceQueryModule(getCustomSourceQuerySupplierTypes()))
                 .add(new EventClientModule(getCustomEventClientTypes()))
                 .addAll(getAdditionalModules())

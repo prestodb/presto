@@ -80,7 +80,7 @@ public class PrestoVerifyCommand
     }
 
     @Override
-    public List<Property> getTablePropertiesOverride()
+    public List<Property> getTablePropertyOverrides()
     {
         return ImmutableList.of();
     }
