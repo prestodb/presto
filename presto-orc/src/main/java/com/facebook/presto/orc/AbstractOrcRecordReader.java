@@ -158,7 +158,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         for (Map.Entry<Integer, Type> entry : includedColumns.entrySet()) {
             // an old file can have less columns since columns can be added
             // after the file was written
-            if (entry.getKey() < root.getFieldCount()) {
+            if (entry.getKey() >= 0 && entry.getKey() < root.getFieldCount()) {
                 presentColumns.add(entry.getKey());
                 presentColumnsAndTypes.put(entry.getKey(), entry.getValue());
             }

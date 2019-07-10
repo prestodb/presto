@@ -54,6 +54,7 @@ import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.MOST_OPTIMIZED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.uniqueIndex;
@@ -148,11 +149,16 @@ public class HivePageSourceProvider
                 .addAll(split.getBucketConversion().map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()))
                 .build();
 
+        List<HiveColumnHandle> allColumns = ImmutableList.<HiveColumnHandle>builder()
+                .addAll(columns)
+                .addAll(interimColumns.stream().filter(not(columns::contains)).collect(toImmutableList()))
+                .build();
+
         Path path = new Path(split.getPath());
         List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(
                 split.getPartitionKeys(),
-                columns,
-                ImmutableList.copyOf(interimColumns),
+                allColumns,
+                ImmutableList.of(),
                 split.getColumnCoercions(), // TODO Include predicateColumns
                 path,
                 split.getTableBucketNumber());
