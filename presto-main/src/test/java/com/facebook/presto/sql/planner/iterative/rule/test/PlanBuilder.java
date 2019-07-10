@@ -37,14 +37,17 @@ import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.DesugarTryExpressionRewriter;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TestingConnectorIndexHandle;
 import com.facebook.presto.sql.planner.TestingConnectorTransactionHandle;
 import com.facebook.presto.sql.planner.TestingWriterTarget;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.iterative.rule.LambdaCaptureDesugaringRewriter;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
@@ -808,14 +811,24 @@ public class PlanBuilder
         return ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql));
     }
 
-    public static RowExpression castToRowExpression(String sql)
+    public RowExpression castToRowExpression(String sql)
     {
-        return OriginalExpressionUtils.castToRowExpression(ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql)));
+        return OriginalExpressionUtils.castToRowExpression(desugarExpression(expression(sql)));
     }
 
     public static Expression expression(String sql, ParsingOptions options)
     {
         return ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql, options));
+    }
+
+    private Expression desugarExpression(Expression expression)
+    {
+        // Create a temporary symbol allocator as a HACK to be able to create variable with no name changes in test but still able to allocate automatically generated variable.
+        SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
+        expression = DesugarTryExpressionRewriter.rewrite(expression);
+        expression = LambdaCaptureDesugaringRewriter.rewrite(expression, symbolAllocator);
+        symbols.putAll(symbolAllocator.getTypes().allTypes());
+        return expression;
     }
 
     public static List<Expression> expressions(String... expressions)

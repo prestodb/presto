@@ -40,7 +40,6 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.enforc
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.castToRowExpression;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
@@ -195,7 +194,7 @@ public class TestDetermineJoinDistributionType
                                         ImmutableList.of(constantExpressions(BIGINT, 50), constantExpressions(BIGINT, 11))),
                                 ImmutableList.of(),
                                 ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
-                                Optional.of(castToRowExpression("A1 * B1 > 100"))))
+                                Optional.of(p.castToRowExpression("A1 * B1 > 100"))))
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .matches(join(
                         joinType,

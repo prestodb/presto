@@ -38,7 +38,6 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specif
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.castToRowExpression;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
@@ -183,7 +182,7 @@ public class TestMergeAdjacentWindows
                                 ImmutableMap.of(p.variable(p.symbol("lagOutput")), newWindowNodeFunction("lag", LAG_FUNCTION_HANDLE, "a", "one")),
                                 p.project(
                                         Assignments.builder()
-                                                .put(p.variable("one"), castToRowExpression("CAST(1 AS bigint)"))
+                                                .put(p.variable("one"), p.castToRowExpression("CAST(1 AS bigint)"))
                                                 .putAll(identitiesAsSymbolReferences(ImmutableList.of(p.variable("a"), p.variable("avgOutput"))))
                                                 .build(),
                                         p.project(

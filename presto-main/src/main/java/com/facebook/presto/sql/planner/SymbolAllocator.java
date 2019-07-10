@@ -94,6 +94,11 @@ public class SymbolAllocator
         return new VariableReferenceExpression(symbol.getName(), type);
     }
 
+    public boolean contains(Symbol symbol)
+    {
+        return symbols.containsKey(symbol);
+    }
+
     public Symbol newSymbol(String nameHint, Type type, String suffix)
     {
         requireNonNull(nameHint, "name is null");
