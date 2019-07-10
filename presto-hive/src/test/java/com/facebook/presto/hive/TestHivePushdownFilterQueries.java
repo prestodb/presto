@@ -130,6 +130,45 @@ public class TestHivePushdownFilterQueries
         assertQuery("SELECT linenumber FROM lineitem_ex WHERE if(is_returned, linenumber, orderkey) % 5 = 0", WITH_LINEITEM_EX + "SELECT linenumber FROM lineitem_ex WHERE CASE WHEN is_returned THEN linenumber ELSE orderkey END % 5 = 0");
     }
 
+    @Test
+    public void testPartitionColumns()
+    {
+        assertUpdate("CREATE TABLE test_partition_columns WITH (partitioned_by = ARRAY['p']) AS\n" +
+                "SELECT * FROM (VALUES (1, 'abc'), (2, 'abc')) as t(x, p)", 2);
+
+        assertQuery("SELECT * FROM test_partition_columns", "SELECT 1, 'abc' UNION ALL SELECT 2, 'abc'");
+
+        assertQuery("SELECT * FROM test_partition_columns WHERE p = 'abc'", "SELECT 1, 'abc' UNION ALL SELECT 2, 'abc'");
+
+        assertQuery("SELECT * FROM test_partition_columns WHERE p LIKE 'a%'", "SELECT 1, 'abc' UNION ALL SELECT 2, 'abc'");
+
+        assertQuery("SELECT * FROM test_partition_columns WHERE substr(p, x, 1) = 'a'", "SELECT 1, 'abc'");
+
+        assertQueryReturnsEmptyResult("SELECT * FROM test_partition_columns WHERE p = 'xxx'");
+
+        assertUpdate("DROP TABLE test_partition_columns");
+    }
+
+    @Test
+    public void testBucketColumn()
+    {
+        getQueryRunner().execute("CREATE TABLE test_bucket_column WITH (bucketed_by = ARRAY['orderkey'], bucket_count = 11) AS " +
+                "SELECT linenumber, orderkey FROM lineitem");
+
+        assertQuery("SELECT linenumber, \"$bucket\" FROM test_bucket_column", "SELECT linenumber, orderkey % 11 FROM lineitem");
+        assertQuery("SELECT linenumber, \"$bucket\" FROM test_bucket_column WHERE (\"$bucket\" + linenumber) % 2 = 1", "SELECT linenumber, orderkey % 11 FROM lineitem WHERE (orderkey % 11 + linenumber) % 2 = 1");
+
+        assertUpdate("DROP TABLE test_bucket_column");
+    }
+
+    @Test
+    public void testPathColumn()
+    {
+        Session session = getQueryRunner().getDefaultSession();
+        assertQuerySucceeds(session, "SELECT linenumber, \"$path\" FROM lineitem");
+        assertQuerySucceeds(session, "SELECT linenumber, \"$path\" FROM lineitem WHERE length(\"$path\") % 2 = linenumber % 2");
+    }
+
     private void assertQueryUsingH2Cte(String query)
     {
         assertQuery(query, WITH_LINEITEM_EX + query);
