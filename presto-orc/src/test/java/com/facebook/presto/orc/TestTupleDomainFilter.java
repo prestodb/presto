@@ -18,6 +18,7 @@ import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintValues;
 import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
 import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
+import com.facebook.presto.orc.TupleDomainFilter.BytesValues;
 import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
 import com.facebook.presto.orc.TupleDomainFilter.LongDecimalRange;
@@ -31,6 +32,7 @@ import java.math.BigDecimal;
 
 import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -249,6 +251,46 @@ public class TestTupleDomainFilter
         assertFalse(filter.testBytes(toBytes("banana"), 0, 6));
         assertFalse(filter.testBytes(toBytes("camel"), 0, 5));
         assertFalse(filter.testBytes(toBytes("_abc"), 0, 4));
+    }
+
+    @Test
+    public void testBytesValues()
+    {
+        // The filter has values of size on either side of 8 bytes.
+        TupleDomainFilter filter = BytesValues.of(new byte[][] {toBytes("Igne"), toBytes("natura"), toBytes("renovitur"), toBytes("integra.")}, false);
+        assertTrue(filter.testBytes(toBytes("Igne"), 0, 4));
+        assertTrue(filter.testBytes(toBytes("natura"), 0, 6));
+        assertTrue(filter.testBytes(toBytes("renovitur"), 0, 9));
+        assertTrue(filter.testBytes(toBytes("integra."), 0, 8));
+
+        assertFalse(filter.testNull());
+        assertFalse(filter.testBytes(toBytes("natura"), 0, 5));
+        assertFalse(filter.testBytes(toBytes("apple"), 0, 5));
+
+        byte[][] testValues = new byte[1000][];
+        byte[][] filterValues = new byte[(testValues.length / 9) + 1][];
+        byte base = 0;
+        int numFilterValues = 0;
+        for (int i = 0; i < testValues.length; i++) {
+            testValues[i] = sequentialBytes(base, i);
+            base = (byte) (base + i);
+            if (i % 9 == 0) {
+                filterValues[numFilterValues++] = testValues[i];
+            }
+        }
+        filter = BytesValues.of(filterValues, false);
+        for (int i = 0; i < testValues.length; i++) {
+            assertEquals(i % 9 == 0, filter.testBytes(testValues[i], 0, testValues[i].length));
+        }
+    }
+
+    private static byte[] sequentialBytes(byte base, int length)
+    {
+        byte[] bytes = new byte[length];
+        for (int i = 0; i < length; i++) {
+            bytes[i] = (byte) (base + i);
+        }
+        return bytes;
     }
 
     private static byte[] toBytes(String value)

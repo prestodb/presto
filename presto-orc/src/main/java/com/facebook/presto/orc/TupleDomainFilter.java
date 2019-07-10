@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Objects;
 
 import static com.facebook.presto.orc.ByteArrayUtils.compareRanges;
+import static com.facebook.presto.orc.ByteArrayUtils.hash;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.compare;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -807,6 +808,16 @@ public interface TupleDomainFilter
             return Objects.hash(lower, lowerExclusive, upper, upperExclusive, nullAllowed);
         }
 
+        public boolean isSingleValue()
+        {
+            return singleValue;
+        }
+
+        public byte[] getLower()
+        {
+            return lower;
+        }
+
         @Override
         public boolean equals(Object obj)
         {
@@ -834,6 +845,123 @@ public interface TupleDomainFilter
                     .add("lowerExclusive", lowerExclusive)
                     .add("upper", upper)
                     .add("upperExclusive", upperExclusive)
+                    .add("nullAllowed", nullAllowed)
+                    .toString();
+        }
+    }
+
+    class BytesValues
+            extends AbstractTupleDomainFilter
+    {
+        private final byte[][] values;
+        private final byte[][] hashTable;
+        private final int hashTableSizeMask;
+        private final long[] bloom;
+        private final int bloomSize;
+
+        private BytesValues(byte[][] values, boolean nullAllowed)
+        {
+            super(nullAllowed);
+
+            requireNonNull(values, "values is null");
+            checkArgument(values.length > 1, "values must contain at least 2 entries");
+
+            this.values = values;
+            // Linear hash table size is the highest power of two less than or equal to number of values * 4. This means that the
+            // table is under half full, e.g. 127 elements gets 256 slots.
+            int hashTableSize = Integer.highestOneBit(values.length * 4);
+            hashTableSizeMask = hashTableSize - 1;
+            hashTable = new byte[hashTableSize][];
+            // 8 bits of Bloom filter per slot in hash table. The bloomSize is a count of longs, hence / 8.
+            bloomSize = Math.max(1, hashTableSize / 8);
+            bloom = new long[bloomSize];
+            for (byte[] value : values) {
+                long hashCode = hash(value, 0, value.length);
+                bloom[bloomIndex(hashCode)] |= bloomMask(hashCode);
+                int position = (int) (hashCode & hashTableSizeMask);
+                for (int i = position; i <= position + hashTableSizeMask; i++) {
+                    int index = i & hashTableSizeMask;
+                    if (hashTable[index] == null) {
+                        hashTable[index] = value;
+                        break;
+                    }
+                    if (compareRanges(value, 0, value.length, hashTable[index], 0, hashTable[index].length) == 0) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        public static BytesValues of(byte[][] values, boolean nullAllowed)
+        {
+            return new BytesValues(values, nullAllowed);
+        }
+
+        @Override
+        public boolean testBytes(byte[] value, int offset, int length)
+        {
+            long hashCode = hash(value, offset, length);
+            if (!testBloom(hashCode)) {
+                return false;
+            }
+            int position = (int) (hashCode & hashTableSizeMask);
+            for (int i = position; i <= position + hashTableSizeMask; i++) {
+                int index = i & hashTableSizeMask;
+                byte[] entry = hashTable[index];
+                if (entry == null) {
+                    return false;
+                }
+                if (compareRanges(value, offset, length, entry, 0, entry.length) == 0) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static long bloomMask(long hashCode)
+        {
+            return (1L << ((hashCode >> 20) & 63)) | (1L << ((hashCode >> 26) & 63)) | (1L << ((hashCode >> 32) & 63));
+        }
+
+        private int bloomIndex(long hashCode)
+        {
+            return (int) ((hashCode >> 38) & (bloomSize - 1));
+        }
+
+        private boolean testBloom(long hashCode)
+        {
+            long mask = bloomMask(hashCode);
+            int index = bloomIndex(hashCode);
+            return mask == (bloom[index] & mask);
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            BytesValues that = (BytesValues) o;
+            return nullAllowed == that.nullAllowed &&
+                    Arrays.deepEquals(values, that.values);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(values, nullAllowed);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("values", values)
                     .add("nullAllowed", nullAllowed)
                     .toString();
         }

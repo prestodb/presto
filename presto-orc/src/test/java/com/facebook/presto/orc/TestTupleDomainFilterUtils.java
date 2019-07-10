@@ -20,6 +20,7 @@ import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintValues;
 import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
 import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
+import com.facebook.presto.orc.TupleDomainFilter.BytesValues;
 import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
 import com.facebook.presto.orc.TupleDomainFilter.LongDecimalRange;
@@ -78,6 +79,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.ExpressionUtils.or;
 import static com.facebook.presto.sql.planner.LiteralEncoder.getMagicLiteralFunctionSignature;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
@@ -296,6 +298,9 @@ public class TestTupleDomainFilterUtils
 
         assertEquals(toFilter(between(C_VARCHAR, stringLiteral("apple", VARCHAR), stringLiteral("banana", VARCHAR))), BytesRange.of(toBytes("apple"), false, toBytes("banana"), false, false));
         assertEquals(toFilter(or(isNull(C_VARCHAR), equal(C_VARCHAR, stringLiteral("abc", VARCHAR)))), BytesRange.of(toBytes("abc"), false, toBytes("abc"), false, true));
+
+        assertEquals(toFilter(in(C_VARCHAR, ImmutableList.of(stringLiteral("Ex", createVarcharType(7)), stringLiteral("oriente")))),
+                BytesValues.of(new byte[][] {toBytes("Ex"), toBytes("oriente")}, false));
     }
 
     private static byte[] toBytes(String value)

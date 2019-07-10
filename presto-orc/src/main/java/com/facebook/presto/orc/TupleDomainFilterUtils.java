@@ -18,6 +18,7 @@ import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintValues;
 import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
 import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
+import com.facebook.presto.orc.TupleDomainFilter.BytesValues;
 import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
 import com.facebook.presto.orc.TupleDomainFilter.LongDecimalRange;
@@ -102,6 +103,19 @@ public class TupleDomainFilterUtils
             return BigintMultiRange.of(bigintRanges, nullAllowed);
         }
 
+        if (rangeFilters.get(0) instanceof BytesRange) {
+            List<BytesRange> bytesRanges = rangeFilters.stream()
+                    .map(BytesRange.class::cast)
+                    .collect(toImmutableList());
+
+            if (bytesRanges.stream().allMatch(BytesRange::isSingleValue)) {
+                return BytesValues.of(
+                        bytesRanges.stream()
+                                .map(BytesRange::getLower)
+                                .toArray(byte[][]::new),
+                        nullAllowed);
+            }
+        }
         return MultiRange.of(rangeFilters, nullAllowed);
     }
 
