@@ -74,6 +74,8 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.facebook.presto.type.ColorType.COLOR;
+import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.lang.Float.floatToIntBits;
 import static org.testng.Assert.assertEquals;
@@ -149,6 +151,12 @@ public class TestRowExpressionFormatter
         assertEquals(format(constantExpression), "TIMESTAMP 1991-01-01 00:00:00.000");
         constantExpression = constant(7670L, DATE);
         assertEquals(format(constantExpression), "DATE 1991-01-01");
+
+        // interval
+        constantExpression = constant(24L, INTERVAL_DAY_TIME);
+        assertEquals(format(constantExpression), "INTERVAL DAY TO SECOND 0 00:00:00.024");
+        constantExpression = constant(25L, INTERVAL_YEAR_MONTH);
+        assertEquals(format(constantExpression), "INTERVAL YEAR TO MONTH 2-1");
 
         // block
         constantExpression = constant(new LongArrayBlockBuilder(null, 4).writeLong(1L).writeLong(2).build(), new ArrayType(BIGINT));
