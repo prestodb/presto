@@ -156,7 +156,7 @@ public final class LiteralInterpreter
             return new SqlIntervalDayTime((long) node.getValue());
         }
         if (type instanceof IntervalYearMonthType) {
-            return new SqlIntervalYearMonth((int) node.getValue());
+            return new SqlIntervalYearMonth(((Long) node.getValue()).intValue());
         }
 
         // We should not fail at the moment; just return the raw value (block, regex, etc) to the user
