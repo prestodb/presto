@@ -20,6 +20,7 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -105,6 +106,7 @@ import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutpu
 import static com.facebook.presto.SystemSessionProperties.isRedistributeWrites;
 import static com.facebook.presto.SystemSessionProperties.isScaleWriters;
 import static com.facebook.presto.SystemSessionProperties.preferStreamingOperators;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.getNumberOfTableScans;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.hasMultipleTableScans;
 import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
@@ -1314,8 +1316,19 @@ public class AddExchanges
             List<Type> partitioningTypes = partitioningColumns.stream()
                     .map(VariableReferenceExpression::getType)
                     .collect(toImmutableList());
-            PartitioningHandle partitioningHandle = metadata.getPartitioningHandleForExchange(session, partitioningProviderCatalog, hashPartitionCount, partitioningTypes);
-            return Partitioning.create(partitioningHandle, partitioningColumns);
+            try {
+                PartitioningHandle partitioningHandle = metadata.getPartitioningHandleForExchange(session, partitioningProviderCatalog, hashPartitionCount, partitioningTypes);
+                return Partitioning.create(partitioningHandle, partitioningColumns);
+            }
+            catch (PrestoException e) {
+                if (e.getErrorCode().equals(NOT_SUPPORTED.toErrorCode())) {
+                    throw new PrestoException(
+                            NOT_SUPPORTED,
+                            format("Catalog \"%s\" does not support custom partitioning and cannot be used as a partitioning provider", partitioningProviderCatalog),
+                            e);
+                }
+                throw e;
+            }
         }
 
         // TODO: refactor this method into ExchangeNode#partitionedExchange once
