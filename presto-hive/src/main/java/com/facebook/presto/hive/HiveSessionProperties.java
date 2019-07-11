@@ -85,6 +85,7 @@ public final class HiveSessionProperties
     private static final String TEMPORARY_TABLE_COMPRESSION_CODEC = "temporary_table_compression_codec";
     public static final String PUSHDOWN_FILTER_ENABLED = "pushdown_filter_enabled";
     public static final String VIRTUAL_BUCKET_COUNT = "virtual_bucket_count";
+    public static final String MAX_BUCKETS_FOR_GROUPED_EXECUTION = "max_buckets_for_grouped_execution";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -362,6 +363,11 @@ public final class HiveSessionProperties
                         VIRTUAL_BUCKET_COUNT,
                         "Number of virtual bucket assigned for unbucketed tables",
                         0,
+                        false),
+                integerProperty(
+                        MAX_BUCKETS_FOR_GROUPED_EXECUTION,
+                        "maximum total buckets to allow using grouped execution",
+                        hiveClientConfig.getMaxBucketsForGroupedExecution(),
                         false));
     }
 
@@ -378,6 +384,11 @@ public final class HiveSessionProperties
     public static boolean shouldIgnoreTableBucketing(ConnectorSession session)
     {
         return session.getProperty(IGNORE_TABLE_BUCKETING, Boolean.class);
+    }
+
+    public static int getMaxBucketsForGroupedExecution(ConnectorSession session)
+    {
+        return session.getProperty(MAX_BUCKETS_FOR_GROUPED_EXECUTION, Integer.class);
     }
 
     public static boolean isForceLocalScheduling(ConnectorSession session)
