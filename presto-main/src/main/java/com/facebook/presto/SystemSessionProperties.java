@@ -129,6 +129,7 @@ public final class SystemSessionProperties
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
     public static final String PUSH_LIMIT_THROUGH_OUTER_JOIN = "push_limit_through_outer_join";
     public static final String MAX_CONCURRENT_MATERIALIZATIONS = "max_concurrent_materializations";
+    public static final String PUSHDOWN_SUBFIELDS_ENABLED = "pushdown_subfields_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -620,6 +621,11 @@ public final class SystemSessionProperties
                         MAX_CONCURRENT_MATERIALIZATIONS,
                         "Maximum number of materializing plan sections that can run concurrently",
                         featuresConfig.getMaxConcurrentMaterializations(),
+                        false),
+                booleanProperty(
+                        PUSHDOWN_SUBFIELDS_ENABLED,
+                        "Experimental: enable subfield pruning",
+                        featuresConfig.isPushdownSubfieldsEnabled(),
                         false));
     }
 
@@ -1051,5 +1057,10 @@ public final class SystemSessionProperties
     public static int getMaxConcurrentMaterializations(Session session)
     {
         return session.getSystemProperty(MAX_CONCURRENT_MATERIALIZATIONS, Integer.class);
+    }
+
+    public static boolean isPushdownSubfieldsEnabled(Session session)
+    {
+        return session.getSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, Boolean.class);
     }
 }
