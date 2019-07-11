@@ -76,6 +76,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.isPushdownSubfieldsEnabled;
 import static com.facebook.presto.spi.Subfield.allSubscripts;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
@@ -99,6 +100,10 @@ public class PushdownSubfields
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
         requireNonNull(types, "types is null");
+
+        if (!isPushdownSubfieldsEnabled(session)) {
+            return plan;
+        }
 
         return SimplePlanRewriter.rewriteWith(new Rewriter(session, metadata, types), plan, new Rewriter.Context());
     }

@@ -134,6 +134,8 @@ public class FeaturesConfig
     private boolean jsonSerdeCodeGenerationEnabled;
     private int maxConcurrentMaterializations = 10;
 
+    private boolean pushdownSubfieldsEnabled;
+
     public enum JoinReorderingStrategy
     {
         NONE,
@@ -1028,5 +1030,18 @@ public class FeaturesConfig
     public int getMaxConcurrentMaterializations()
     {
         return maxConcurrentMaterializations;
+    }
+
+    @Config("experimental.pushdown-subfields-enabled")
+    @ConfigDescription("Experimental: enable subfield pruning")
+    public FeaturesConfig setPushdownSubfieldsEnabled(boolean pushdownSubfieldsEnabled)
+    {
+        this.pushdownSubfieldsEnabled = pushdownSubfieldsEnabled;
+        return this;
+    }
+
+    public boolean isPushdownSubfieldsEnabled()
+    {
+        return pushdownSubfieldsEnabled;
     }
 }
