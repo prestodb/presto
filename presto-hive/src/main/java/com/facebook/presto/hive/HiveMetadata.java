@@ -2009,10 +2009,11 @@ public class HiveMetadata
         checkArgument(hiveLayoutHandle.getBucketHandle().isPresent(), "Hive connector only provides alternative layout for bucketed table");
         HiveBucketHandle bucketHandle = hiveLayoutHandle.getBucketHandle().get();
         List<HiveType> bucketTypes = bucketHandle.getColumns().stream().map(HiveColumnHandle::getHiveType).collect(toImmutableList());
+        List<HiveType> partitioningTypes = hivePartitioningHandle.getHiveTypes();
         checkArgument(
-                hivePartitioningHandle.getHiveTypes().equals(bucketTypes),
-                "Types from the new PartitioningHandle (%s) does not match the TableLayoutHandle (%s)",
-                hivePartitioningHandle.getHiveTypes(),
+                partitioningTypes.containsAll(bucketTypes),
+                "Types from the new PartitioningHandle (%s) is not a superset of TableLayoutHandle (%s)",
+                partitioningTypes,
                 bucketTypes);
         int largerBucketCount = Math.max(bucketHandle.getTableBucketCount(), hivePartitioningHandle.getBucketCount());
         int smallerBucketCount = Math.min(bucketHandle.getTableBucketCount(), hivePartitioningHandle.getBucketCount());

@@ -441,15 +441,6 @@ public class PlanFragmenter
         }
 
         @Override
-        public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<FragmentProperties> context)
-        {
-            if (node.getPartitioningScheme().isPresent()) {
-                context.get().setDistribution(node.getPartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
-            }
-            return context.defaultRewrite(node, context.get());
-        }
-
-        @Override
         public PlanNode visitValues(ValuesNode node, RewriteContext<FragmentProperties> context)
         {
             context.get().setSingleNodeDistribution();

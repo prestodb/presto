@@ -2836,6 +2836,12 @@ public class TestHiveIntegrationSmokeTest
                             "WITH (bucket_count = 5, bucketed_by = ARRAY['key']) AS\n" +
                             "SELECT custkey key, orderkey value FROM orders WHERE custkey <= 5 ORDER BY orderkey LIMIT 10",
                     10);
+            assertUpdate(
+                    session,
+                    "CREATE TABLE test_bucketing_schema\n" +
+                            "WITH (bucket_count = 13, bucketed_by = ARRAY['key1', 'key2']) AS\n" +
+                            "SELECT orderkey key1, custkey key2, comment value FROM orders",
+                    15000);
 
             // NOT grouped execution; default
             Session notColocated = Session.builder(session)
@@ -3273,6 +3279,25 @@ public class TestHiveIntegrationSmokeTest
                     assertRemoteExchangesCount(1));
 
             //
+            // Target table and source table has different bucketing schema
+            // ============================================================
+            assertUpdate(
+                    colocatedOneGroupAtATime,
+                    "CREATE TABLE test_target_table_superset\n" +
+                            "WITH (bucketed_by = ARRAY['key1', 'key2', 'value'], bucket_count = 13) AS\n" +
+                            "SELECT key1, key2, value FROM test_bucketing_schema",
+                    "SELECT count(*) FROM orders",
+                    assertRemoteExchangesCount(1));
+
+            assertUpdate(
+                    colocatedOneGroupAtATime,
+                    "CREATE TABLE test_target_table_subset\n" +
+                            "WITH (bucketed_by = ARRAY['key1'], bucket_count = 13) AS\n" +
+                            "SELECT key1, key2, value FROM test_bucketing_schema",
+                    "SELECT count(*) FROM orders",
+                    assertRemoteExchangesCount(2));
+
+            //
             // Filter out all or majority of splits
             // ====================================
             @Language("SQL") String noSplits =
@@ -3326,6 +3351,9 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate(session, "DROP TABLE IF EXISTS test_grouped_joinN");
             assertUpdate(session, "DROP TABLE IF EXISTS test_grouped_joinDual");
             assertUpdate(session, "DROP TABLE IF EXISTS test_grouped_window");
+            assertUpdate(session, "DROP TABLE IF EXISTS test_bucketing_schema");
+            assertUpdate(session, "DROP TABLE IF EXISTS test_target_table_superset");
+            assertUpdate(session, "DROP TABLE IF EXISTS test_target_table_subset");
         }
     }
 
