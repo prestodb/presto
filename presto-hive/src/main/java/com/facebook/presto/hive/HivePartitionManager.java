@@ -116,42 +116,38 @@ public class HivePartitionManager
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
         Table table = getTable(metastore, tableName);
 
-        // never ignore table bucketing for temporary tables as those are created such explicitly by the engine request
-        boolean shouldIgnoreTableBucketing = !table.getTableType().equals(TEMPORARY_TABLE) && shouldIgnoreTableBucketing(session);
-
-        Optional<HiveBucketHandle> hiveBucketHandle = shouldIgnoreTableBucketing ? Optional.empty() : getHiveBucketHandle(table);
-
         List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table);
 
-        if (effectivePredicate.isNone()) {
-            return new HivePartitionResult(partitionColumns, ImmutableList.of(), TupleDomain.none(), TupleDomain.none(), TupleDomain.none(), hiveBucketHandle, Optional.empty());
-        }
+        List<Type> partitionTypes = partitionColumns.stream()
+                .map(column -> typeManager.getType(column.getTypeSignature()))
+                .collect(toList());
 
+        Iterable<HivePartition> partitionsIterable = partitionColumns.isEmpty() ? ImmutableList.of(new HivePartition(tableName)) : () -> getFilteredPartitionNames(metastore, tableName, partitionColumns, effectivePredicate).stream()
+                // Apply extra filters which could not be done by getFilteredPartitionNames
+                .map(partitionName -> parseValuesAndFilterPartition(tableName, partitionName, partitionColumns, partitionTypes, constraint))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .iterator();
+
+        // never ignore table bucketing for temporary tables as those are created such explicitly by the engine request
+        boolean shouldIgnoreTableBucketing = !table.getTableType().equals(TEMPORARY_TABLE) && shouldIgnoreTableBucketing(session);
+        Optional<HiveBucketHandle> hiveBucketHandle = shouldIgnoreTableBucketing ? Optional.empty() : getHiveBucketHandle(table);
         Optional<HiveBucketFilter> bucketFilter = shouldIgnoreTableBucketing ? Optional.empty() : getHiveBucketFilter(table, effectivePredicate);
+
+        if (effectivePredicate.isNone()) {
+            return new HivePartitionResult(partitionColumns, partitionsIterable, TupleDomain.none(), TupleDomain.none(), TupleDomain.none(), hiveBucketHandle, Optional.empty());
+        }
 
         if (partitionColumns.isEmpty()) {
             return new HivePartitionResult(
                     partitionColumns,
-                    ImmutableList.of(new HivePartition(tableName)),
+                    partitionsIterable,
                     effectivePredicate,
                     effectivePredicate,
                     TupleDomain.none(),
                     hiveBucketHandle,
                     bucketFilter);
         }
-
-        List<Type> partitionTypes = partitionColumns.stream()
-                .map(column -> typeManager.getType(column.getTypeSignature()))
-                .collect(toList());
-
-        List<String> partitionNames = getFilteredPartitionNames(metastore, tableName, partitionColumns, effectivePredicate);
-
-        Iterable<HivePartition> partitionsIterable = () -> partitionNames.stream()
-                // Apply extra filters which could not be done by getFilteredPartitionNames
-                .map(partitionName -> parseValuesAndFilterPartition(tableName, partitionName, partitionColumns, partitionTypes, constraint))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .iterator();
 
         // All partition key domains will be fully evaluated, so we don't need to include those
         TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), not(Predicates.in(partitionColumns))));
@@ -219,7 +215,9 @@ public class HivePartitionManager
 
     private List<String> getFilteredPartitionNames(SemiTransactionalHiveMetastore metastore, SchemaTableName tableName, List<HiveColumnHandle> partitionKeys, TupleDomain<ColumnHandle> effectivePredicate)
     {
-        checkArgument(effectivePredicate.getDomains().isPresent());
+        if (effectivePredicate.isNone()) {
+            return ImmutableList.of();
+        }
 
         List<String> filter = new ArrayList<>();
         for (HiveColumnHandle partitionKey : partitionKeys) {
