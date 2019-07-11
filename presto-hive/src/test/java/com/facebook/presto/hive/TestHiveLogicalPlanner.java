@@ -46,6 +46,7 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
@@ -83,7 +84,7 @@ public class TestHiveLogicalPlanner
 {
     public TestHiveLogicalPlanner()
     {
-        super(() -> createQueryRunner(LINE_ITEM));
+        super(() -> createQueryRunner(ImmutableList.of(LINE_ITEM), ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"), Optional.empty()));
     }
 
     @Test
