@@ -72,10 +72,12 @@ import java.util.stream.LongStream;
 import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
 import static com.facebook.presto.SystemSessionProperties.DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION;
+import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION_FOR_AGGREGATION;
 import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
@@ -2623,6 +2625,24 @@ public class TestHiveIntegrationSmokeTest
         testMaterializedPartitioning(Session.builder(materializeExchangesSession).setSystemProperty("max_concurrent_materializations", "1").build());
         testMaterializedPartitioning(Session.builder(materializeExchangesSession).setSystemProperty("max_concurrent_materializations", "2").build());
         testMaterializedPartitioning(materializeExchangesSession);
+
+        // verify error messages
+        Session materializeAllDefaultPartitioningProvider = Session.builder(getSession())
+                .setSystemProperty(EXCHANGE_MATERIALIZATION_STRATEGY, "ALL")
+                .build();
+        assertQueryFails(
+                materializeAllDefaultPartitioningProvider,
+                "SELECT orderkey, COUNT(*) lines FROM lineitem GROUP BY orderkey",
+                "The \"partitioning_provider_catalog\" session property must be set to enable the exchanges materialization\\. " +
+                        "The catalog must support providing a custom partitioning and storing temporary tables\\.");
+        Session materializeAllWrongPartitioningProvider = Session.builder(getSession())
+                .setSystemProperty(EXCHANGE_MATERIALIZATION_STRATEGY, "ALL")
+                .setSystemProperty(PARTITIONING_PROVIDER_CATALOG, "tpch")
+                .build();
+        assertQueryFails(
+                materializeAllWrongPartitioningProvider,
+                "SELECT orderkey, COUNT(*) lines FROM lineitem GROUP BY orderkey",
+                "Catalog \"tpch\" does not support custom partitioning and cannot be used as a partitioning provider");
     }
 
     private void testMaterializedPartitioning(Session materializeExchangesSession)

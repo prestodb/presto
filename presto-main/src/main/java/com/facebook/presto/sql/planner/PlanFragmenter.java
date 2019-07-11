@@ -90,6 +90,7 @@ import static com.facebook.presto.SystemSessionProperties.isDynamicScheduleForGr
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForEligibleTableScansEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedExecutionEnabled;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static com.facebook.presto.spi.StandardWarningCode.TOO_MANY_STAGES;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_PARTITION_COMMIT;
@@ -507,11 +508,13 @@ public class PlanFragmenter
             checkArgument(exchange.getScope() == REMOTE_MATERIALIZED, "Unexpected exchange scope: %s", exchange.getScope());
 
             PartitioningScheme partitioningScheme = exchange.getPartitioningScheme();
-            checkArgument(!partitioningScheme.getHashColumn().isPresent(), "precomputed hashes are not supported in materializing exchanges");
 
             PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
             ConnectorId connectorId = partitioningHandle.getConnectorId()
-                    .orElseThrow(() -> new IllegalArgumentException("Unsupported partitioning handle: " + partitioningHandle));
+                    .orElseThrow(() -> new PrestoException(
+                            NOT_SUPPORTED,
+                            "The \"partitioning_provider_catalog\" session property must be set to enable the exchanges materialization. " +
+                                    "The catalog must support providing a custom partitioning and storing temporary tables."));
 
             Partitioning partitioning = partitioningScheme.getPartitioning();
             PartitioningVariableAssignments partitioningVariableAssignments = assignPartitioningVariables(partitioning);
@@ -522,11 +525,24 @@ public class PlanFragmenter
                     .collect(toImmutableList());
             PartitioningMetadata partitioningMetadata = new PartitioningMetadata(partitioningHandle, partitionColumns);
 
-            TableHandle temporaryTableHandle = metadata.createTemporaryTable(
-                    session,
-                    connectorId.getCatalogName(),
-                    ImmutableList.copyOf(variableToColumnMap.values()),
-                    Optional.of(partitioningMetadata));
+            TableHandle temporaryTableHandle;
+
+            try {
+                temporaryTableHandle = metadata.createTemporaryTable(
+                        session,
+                        connectorId.getCatalogName(),
+                        ImmutableList.copyOf(variableToColumnMap.values()),
+                        Optional.of(partitioningMetadata));
+            }
+            catch (PrestoException e) {
+                if (e.getErrorCode().equals(NOT_SUPPORTED.toErrorCode())) {
+                    throw new PrestoException(
+                            NOT_SUPPORTED,
+                            format("Catalog \"%s\" does not support temporary tables. The exchange cannot be materialized.", connectorId.getCatalogName()),
+                            e);
+                }
+                throw e;
+            }
 
             TableScanNode scan = createTemporaryTableScan(
                     temporaryTableHandle,
