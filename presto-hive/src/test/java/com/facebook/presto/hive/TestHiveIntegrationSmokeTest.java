@@ -78,6 +78,7 @@ import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
+import static com.facebook.presto.hive.HiveQueryRunner.HIVE_BUCKETED_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
@@ -4133,6 +4134,17 @@ public class TestHiveIntegrationSmokeTest
                 "  ) WHERE orderkey = 1 \n" +
                 "  GROUP BY\n" +
                 "      linenumber");
+    }
+
+    @Test
+    public void testIgnoreTableBucketing()
+    {
+        String query = "SELECT count(*) FROM orders WHERE \"$bucket\" = 1";
+        assertQuery(bucketedSession, query, "SELECT 1350");
+        Session ignoreBucketingSession = Session.builder(bucketedSession)
+                .setCatalogSessionProperty(HIVE_BUCKETED_CATALOG, "ignore_table_bucketing", "true")
+                .build();
+        assertQueryFails(ignoreBucketingSession, query, "Table bucketing is ignored\\. The virtual \"\\$bucket\" column cannot be referenced\\.");
     }
 
     private HiveInsertTableHandle getHiveInsertTableHandle(Session session, String tableName)
