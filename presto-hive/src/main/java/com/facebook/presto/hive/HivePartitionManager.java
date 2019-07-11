@@ -68,6 +68,7 @@ import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
+import static com.facebook.presto.hive.metastore.PrestoTableType.TEMPORARY_TABLE;
 import static com.facebook.presto.spi.Constraint.alwaysTrue;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.Chars.padSpaces;
@@ -114,7 +115,11 @@ public class HivePartitionManager
 
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
         Table table = getTable(metastore, tableName);
-        Optional<HiveBucketHandle> hiveBucketHandle = shouldIgnoreTableBucketing(session) ? Optional.empty() : getHiveBucketHandle(table);
+
+        // never ignore table bucketing for temporary tables as those are created such explicitly by the engine request
+        boolean shouldIgnoreTableBucketing = !table.getTableType().equals(TEMPORARY_TABLE) && shouldIgnoreTableBucketing(session);
+
+        Optional<HiveBucketHandle> hiveBucketHandle = shouldIgnoreTableBucketing ? Optional.empty() : getHiveBucketHandle(table);
 
         List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table);
 
@@ -122,7 +127,7 @@ public class HivePartitionManager
             return new HivePartitionResult(partitionColumns, ImmutableList.of(), TupleDomain.none(), TupleDomain.none(), TupleDomain.none(), hiveBucketHandle, Optional.empty());
         }
 
-        Optional<HiveBucketFilter> bucketFilter = shouldIgnoreTableBucketing(session) ? Optional.empty() : getHiveBucketFilter(table, effectivePredicate);
+        Optional<HiveBucketFilter> bucketFilter = shouldIgnoreTableBucketing ? Optional.empty() : getHiveBucketFilter(table, effectivePredicate);
 
         if (partitionColumns.isEmpty()) {
             return new HivePartitionResult(

@@ -2643,6 +2643,17 @@ public class TestHiveIntegrationSmokeTest
                 materializeAllWrongPartitioningProvider,
                 "SELECT orderkey, COUNT(*) lines FROM lineitem GROUP BY orderkey",
                 "Catalog \"tpch\" does not support custom partitioning and cannot be used as a partitioning provider");
+
+        // make sure that bucketing is not ignored for temporary tables
+        Session bucketingIgnored = Session.builder(materializeExchangesSession)
+                .setCatalogSessionProperty(catalog, "ignore_table_bucketing", "true")
+                .build();
+        assertQuery(bucketingIgnored, "SELECT orderkey, COUNT(*) lines FROM lineitem GROUP BY orderkey", assertRemoteMaterializedExchangesCount(1));
+
+        Session bucketingExecutionDisabled = Session.builder(materializeExchangesSession)
+                .setCatalogSessionProperty(catalog, "bucket_execution_enabled", "false")
+                .build();
+        assertQuery(bucketingExecutionDisabled, "SELECT orderkey, COUNT(*) lines FROM lineitem GROUP BY orderkey", assertRemoteMaterializedExchangesCount(1));
     }
 
     private void testMaterializedPartitioning(Session materializeExchangesSession)
