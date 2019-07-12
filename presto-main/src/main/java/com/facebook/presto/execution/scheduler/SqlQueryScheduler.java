@@ -59,6 +59,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -264,10 +265,8 @@ public class SqlQueryScheduler
                     queryStateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "Query stage was aborted"));
                 }
                 else if (state == FINISHED) {
-                    List<SqlStageExecution> nextStagesToSchedule = getStagesReadyForExecution();
-                    if (!nextStagesToSchedule.isEmpty()) {
-                        startScheduling(nextStagesToSchedule);
-                    }
+                    // checks if there's any new sections available for execution and starts the scheduling if any
+                    startScheduling();
                 }
                 else if (queryStateMachine.getQueryState() == QueryState.STARTING) {
                     // if the stage has at least one task, we are running
@@ -641,93 +640,128 @@ public class SqlQueryScheduler
     public void start()
     {
         if (started.compareAndSet(false, true)) {
-            startScheduling(getStagesReadyForExecution());
+            startScheduling();
         }
     }
 
-    private void startScheduling(Collection<SqlStageExecution> stages)
+    private void startScheduling()
     {
         requireNonNull(stages);
         // still scheduling the previous batch of stages
         if (scheduling.get()) {
             return;
         }
-        executor.submit(() -> schedule(stages));
+        executor.submit(this::schedule);
     }
 
-    private void schedule(Collection<SqlStageExecution> stages)
+    private void schedule()
     {
         if (!scheduling.compareAndSet(false, true)) {
             // still scheduling the previous batch of stages
             return;
         }
 
+        List<SqlStageExecution> scheduledStages = new ArrayList<>();
+
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
             Set<StageId> completedStages = new HashSet<>();
-            ExecutionSchedule executionSchedule = executionPolicy.createExecutionSchedule(stages);
-            while (!executionSchedule.isFinished()) {
-                List<ListenableFuture<?>> blockedStages = new ArrayList<>();
-                for (SqlStageExecution stage : executionSchedule.getStagesToSchedule()) {
-                    stage.beginScheduling();
 
-                    // perform some scheduling work
-                    ScheduleResult result = stageSchedulers.get(stage.getStageId())
-                            .schedule();
+            List<ExecutionSchedule> sectionExecutionSchedules = new LinkedList<>();
 
-                    // modify parent and children based on the results of the scheduling
-                    if (result.isFinished()) {
-                        stage.schedulingComplete();
-                    }
-                    else if (!result.getBlocked().isDone()) {
-                        blockedStages.add(result.getBlocked());
-                    }
-                    stageLinkages.get(stage.getStageId())
-                            .processScheduleResults(stage.getState(), result.getNewTasks());
-                    schedulerStats.getSplitsScheduledPerIteration().add(result.getSplitsScheduled());
-                    if (result.getBlockedReason().isPresent()) {
-                        switch (result.getBlockedReason().get()) {
-                            case WRITER_SCALING:
-                                // no-op
-                                break;
-                            case WAITING_FOR_SOURCE:
-                                schedulerStats.getWaitingForSource().update(1);
-                                break;
-                            case SPLIT_QUEUES_FULL:
-                                schedulerStats.getSplitQueuesFull().update(1);
-                                break;
-                            case MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE:
-                                schedulerStats.getMixedSplitQueuesFullAndWaitingForSource().update(1);
-                                break;
-                            case NO_ACTIVE_DRIVER_GROUP:
-                                schedulerStats.getNoActiveDriverGroup().update(1);
-                                break;
-                            default:
-                                throw new UnsupportedOperationException("Unknown blocked reason: " + result.getBlockedReason().get());
+            while (!Thread.currentThread().isInterrupted()) {
+                // remove finished section
+                sectionExecutionSchedules.removeIf(ExecutionSchedule::isFinished);
+
+                // try to pull more section that are ready to be run
+                List<StreamingPlanSection> sectionsReadyForExecution = getSectionsReadyForExecution();
+
+                // all finished
+                if (sectionsReadyForExecution.isEmpty() && sectionExecutionSchedules.isEmpty()) {
+                    break;
+                }
+
+                List<List<SqlStageExecution>> sectionStageExecutions = getStageExecutions(sectionsReadyForExecution);
+                sectionStageExecutions.forEach(scheduledStages::addAll);
+                sectionStageExecutions.stream()
+                        .map(executionPolicy::createExecutionSchedule)
+                        .forEach(sectionExecutionSchedules::add);
+
+                while (sectionExecutionSchedules.stream().noneMatch(ExecutionSchedule::isFinished)) {
+                    List<ListenableFuture<?>> blockedStages = new ArrayList<>();
+
+                    List<SqlStageExecution> stagesToSchedule = sectionExecutionSchedules.stream()
+                            .flatMap(schedule -> schedule.getStagesToSchedule().stream())
+                            .collect(toImmutableList());
+
+                    for (SqlStageExecution stage : stagesToSchedule) {
+                        stage.beginScheduling();
+
+                        // perform some scheduling work
+                        ScheduleResult result = stageSchedulers.get(stage.getStageId())
+                                .schedule();
+
+                        // modify parent and children based on the results of the scheduling
+                        if (result.isFinished()) {
+                            stage.schedulingComplete();
+                        }
+                        else if (!result.getBlocked().isDone()) {
+                            blockedStages.add(result.getBlocked());
+                        }
+                        stageLinkages.get(stage.getStageId())
+                                .processScheduleResults(stage.getState(), result.getNewTasks());
+                        schedulerStats.getSplitsScheduledPerIteration().add(result.getSplitsScheduled());
+                        if (result.getBlockedReason().isPresent()) {
+                            switch (result.getBlockedReason().get()) {
+                                case WRITER_SCALING:
+                                    // no-op
+                                    break;
+                                case WAITING_FOR_SOURCE:
+                                    schedulerStats.getWaitingForSource().update(1);
+                                    break;
+                                case SPLIT_QUEUES_FULL:
+                                    schedulerStats.getSplitQueuesFull().update(1);
+                                    break;
+                                case MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE:
+                                    schedulerStats.getMixedSplitQueuesFullAndWaitingForSource().update(1);
+                                    break;
+                                case NO_ACTIVE_DRIVER_GROUP:
+                                    schedulerStats.getNoActiveDriverGroup().update(1);
+                                    break;
+                                default:
+                                    throw new UnsupportedOperationException("Unknown blocked reason: " + result.getBlockedReason().get());
+                            }
                         }
                     }
-                }
 
-                // make sure to update stage linkage at least once per loop to catch async state changes (e.g., partial cancel)
-                for (SqlStageExecution stage : stages) {
-                    if (!completedStages.contains(stage.getStageId()) && stage.getState().isDone()) {
-                        stageLinkages.get(stage.getStageId())
-                                .processScheduleResults(stage.getState(), ImmutableSet.of());
-                        completedStages.add(stage.getStageId());
+                    // make sure to update stage linkage at least once per loop to catch async state changes (e.g., partial cancel)
+                    boolean stageFinishedExecution = false;
+                    for (SqlStageExecution stage : scheduledStages) {
+                        if (!completedStages.contains(stage.getStageId()) && stage.getState().isDone()) {
+                            stageLinkages.get(stage.getStageId())
+                                    .processScheduleResults(stage.getState(), ImmutableSet.of());
+                            completedStages.add(stage.getStageId());
+                            stageFinishedExecution = true;
+                        }
                     }
-                }
 
-                // wait for a state change and then schedule again
-                if (!blockedStages.isEmpty()) {
-                    try (TimeStat.BlockTimer timer = schedulerStats.getSleepTime().time()) {
-                        tryGetFutureValue(whenAnyComplete(blockedStages), 1, SECONDS);
+                    // if any stage has just finished execution try to pull more sections for scheduling
+                    if (stageFinishedExecution) {
+                        break;
                     }
-                    for (ListenableFuture<?> blockedStage : blockedStages) {
-                        blockedStage.cancel(true);
+
+                    // wait for a state change and then schedule again
+                    if (!blockedStages.isEmpty()) {
+                        try (TimeStat.BlockTimer timer = schedulerStats.getSleepTime().time()) {
+                            tryGetFutureValue(whenAnyComplete(blockedStages), 1, SECONDS);
+                        }
+                        for (ListenableFuture<?> blockedStage : blockedStages) {
+                            blockedStage.cancel(true);
+                        }
                     }
                 }
             }
 
-            for (SqlStageExecution stage : stages) {
+            for (SqlStageExecution stage : scheduledStages) {
                 StageState state = stage.getState();
                 if (state != SCHEDULED && state != RUNNING && !state.isDone()) {
                     throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Scheduling is complete, but stage %s is in state %s", stage.getStageId(), state));
@@ -735,9 +769,9 @@ public class SqlQueryScheduler
             }
 
             scheduling.set(false);
-            List<SqlStageExecution> nextStagesToSchedule = getStagesReadyForExecution();
-            if (!nextStagesToSchedule.isEmpty()) {
-                startScheduling(nextStagesToSchedule);
+
+            if (!getSectionsReadyForExecution().isEmpty()) {
+                startScheduling();
             }
         }
         catch (Throwable t) {
@@ -747,7 +781,7 @@ public class SqlQueryScheduler
         }
         finally {
             RuntimeException closeError = new RuntimeException();
-            for (SqlStageExecution stage : stages) {
+            for (SqlStageExecution stage : scheduledStages) {
                 try {
                     stageSchedulers.get(stage.getStageId()).close();
                 }
@@ -765,7 +799,7 @@ public class SqlQueryScheduler
         }
     }
 
-    private List<SqlStageExecution> getStagesReadyForExecution()
+    private List<StreamingPlanSection> getSectionsReadyForExecution()
     {
         long runningPlanSections =
                 stream(forTree(StreamingPlanSection::getChildren).depthFirstPreOrder(sectionedPlan))
@@ -776,11 +810,6 @@ public class SqlQueryScheduler
                 // get all sections ready for execution
                 .filter(this::isReadyForExecution)
                 .limit(maxConcurrentMaterializations - runningPlanSections)
-                // get all stages in the sections
-                .flatMap(section -> stream(forTree(StreamingSubPlan::getChildren).depthFirstPreOrder(section.getPlan())))
-                .map(StreamingSubPlan::getFragment)
-                .map(PlanFragment::getId)
-                .map(this::getStageExecution)
                 .collect(toImmutableList());
     }
 
@@ -798,6 +827,18 @@ public class SqlQueryScheduler
             }
         }
         return true;
+    }
+
+    private List<List<SqlStageExecution>> getStageExecutions(List<StreamingPlanSection> sections)
+    {
+        return sections.stream()
+                .map(section -> stream(forTree(StreamingSubPlan::getChildren).depthFirstPreOrder(section.getPlan())).collect(toImmutableList()))
+                .map(plans -> plans.stream()
+                        .map(StreamingSubPlan::getFragment)
+                        .map(PlanFragment::getId)
+                        .map(this::getStageExecution)
+                        .collect(toImmutableList()))
+                .collect(toImmutableList());
     }
 
     private SqlStageExecution getStageExecution(PlanFragmentId planFragmentId)
