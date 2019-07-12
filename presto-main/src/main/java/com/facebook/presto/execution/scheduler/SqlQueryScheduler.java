@@ -645,51 +645,6 @@ public class SqlQueryScheduler
         }
     }
 
-    private List<SqlStageExecution> getStagesReadyForExecution()
-    {
-        long runningPlanSections =
-                stream(forTree(StreamingPlanSection::getChildren).depthFirstPreOrder(sectionedPlan))
-                        .map(section -> getStageExecution(section.getPlan().getFragment().getId()).getState())
-                        .filter(state -> !state.isDone() && state != PLANNED)
-                        .count();
-        return stream(forTree(StreamingPlanSection::getChildren).depthFirstPreOrder(sectionedPlan))
-                // get all sections ready for execution
-                .filter(this::isReadyForExecution)
-                .limit(maxConcurrentMaterializations - runningPlanSections)
-                // get all stages in the sections
-                .flatMap(section -> stream(forTree(StreamingSubPlan::getChildren).depthFirstPreOrder(section.getPlan())))
-                .map(StreamingSubPlan::getFragment)
-                .map(PlanFragment::getId)
-                .map(this::getStageExecution)
-                .collect(toImmutableList());
-    }
-
-    private boolean isReadyForExecution(StreamingPlanSection section)
-    {
-        SqlStageExecution stage = getStageExecution(section.getPlan().getFragment().getId());
-        if (stage.getState() != PLANNED) {
-            // already scheduled
-            return false;
-        }
-        for (StreamingPlanSection child : section.getChildren()) {
-            SqlStageExecution childRootStage = getStageExecution(child.getPlan().getFragment().getId());
-            if (childRootStage.getState() != FINISHED) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private SqlStageExecution getStageExecution(PlanFragmentId planFragmentId)
-    {
-        return stages.get(getStageId(planFragmentId));
-    }
-
-    private StageId getStageId(PlanFragmentId fragmentId)
-    {
-        return new StageId(queryStateMachine.getQueryId(), fragmentId.getId());
-    }
-
     private void startScheduling(Collection<SqlStageExecution> stages)
     {
         requireNonNull(stages);
@@ -808,6 +763,51 @@ public class SqlQueryScheduler
                 throw closeError;
             }
         }
+    }
+
+    private List<SqlStageExecution> getStagesReadyForExecution()
+    {
+        long runningPlanSections =
+                stream(forTree(StreamingPlanSection::getChildren).depthFirstPreOrder(sectionedPlan))
+                        .map(section -> getStageExecution(section.getPlan().getFragment().getId()).getState())
+                        .filter(state -> !state.isDone() && state != PLANNED)
+                        .count();
+        return stream(forTree(StreamingPlanSection::getChildren).depthFirstPreOrder(sectionedPlan))
+                // get all sections ready for execution
+                .filter(this::isReadyForExecution)
+                .limit(maxConcurrentMaterializations - runningPlanSections)
+                // get all stages in the sections
+                .flatMap(section -> stream(forTree(StreamingSubPlan::getChildren).depthFirstPreOrder(section.getPlan())))
+                .map(StreamingSubPlan::getFragment)
+                .map(PlanFragment::getId)
+                .map(this::getStageExecution)
+                .collect(toImmutableList());
+    }
+
+    private boolean isReadyForExecution(StreamingPlanSection section)
+    {
+        SqlStageExecution stage = getStageExecution(section.getPlan().getFragment().getId());
+        if (stage.getState() != PLANNED) {
+            // already scheduled
+            return false;
+        }
+        for (StreamingPlanSection child : section.getChildren()) {
+            SqlStageExecution childRootStage = getStageExecution(child.getPlan().getFragment().getId());
+            if (childRootStage.getState() != FINISHED) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private SqlStageExecution getStageExecution(PlanFragmentId planFragmentId)
+    {
+        return stages.get(getStageId(planFragmentId));
+    }
+
+    private StageId getStageId(PlanFragmentId fragmentId)
+    {
+        return new StageId(queryStateMachine.getQueryId(), fragmentId.getId());
     }
 
     public void cancelStage(StageId stageId)
