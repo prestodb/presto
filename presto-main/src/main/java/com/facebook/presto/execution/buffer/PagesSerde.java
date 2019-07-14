@@ -70,6 +70,12 @@ public class PagesSerde
         return wrapSlice(serializationBuffer.slice(), page.getPositionCount());
     }
 
+    public SerializedPage serialize(Slice slice, int positionCount)
+    {
+        checkArgument(slice.isCompact(), "slice is not compact");
+        return wrapSlice(slice, positionCount);
+    }
+
     public Page deserialize(SerializedPage serializedPage)
     {
         checkArgument(serializedPage != null, "serializedPage is null");

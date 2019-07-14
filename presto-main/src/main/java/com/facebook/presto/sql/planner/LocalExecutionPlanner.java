@@ -96,6 +96,7 @@ import com.facebook.presto.operator.index.IndexLookupSourceFactory;
 import com.facebook.presto.operator.index.IndexSourceOperator;
 import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.operator.repartition.OptimizedPartitionedOutputOperator.OptimizedPartitionedOutputFactory;
 import com.facebook.presto.operator.repartition.PartitionedOutputOperator.PartitionedOutputFactory;
 import com.facebook.presto.operator.window.FrameInfo;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
@@ -223,6 +224,7 @@ import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
+import static com.facebook.presto.SystemSessionProperties.isOptimizedRepartitioningEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
 import static com.facebook.presto.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
@@ -438,6 +440,28 @@ public class LocalExecutionPlanner
             nullChannel = OptionalInt.of(outputLayout.indexOf(getOnlyElement(partitioningColumns)));
         }
 
+        OutputFactory outputFactory;
+        if (isOptimizedRepartitioningEnabled(taskContext.getSession())) {
+            outputFactory = new OptimizedPartitionedOutputFactory(
+                    partitionFunction,
+                    partitionChannels,
+                    partitionConstants,
+                    partitioningScheme.isReplicateNullsAndAny(),
+                    nullChannel,
+                    outputBuffer,
+                    maxPagePartitioningBufferSize);
+        }
+        else {
+            outputFactory = new PartitionedOutputFactory(
+                    partitionFunction,
+                    partitionChannels,
+                    partitionConstants,
+                    partitioningScheme.isReplicateNullsAndAny(),
+                    nullChannel,
+                    outputBuffer,
+                    maxPagePartitioningBufferSize);
+        }
+
         return plan(
                 taskContext,
                 stageExecutionDescriptor,
@@ -445,14 +469,7 @@ public class LocalExecutionPlanner
                 outputLayout,
                 types,
                 partitionedSourceOrder,
-                new PartitionedOutputFactory(
-                        partitionFunction,
-                        partitionChannels,
-                        partitionConstants,
-                        partitioningScheme.isReplicateNullsAndAny(),
-                        nullChannel,
-                        outputBuffer,
-                        maxPagePartitioningBufferSize),
+                outputFactory,
                 taskExchangeClientManager);
     }
 
@@ -2868,8 +2885,8 @@ public class LocalExecutionPlanner
     }
 
     /**
-     *  List of sort orders in the same order as the list of variables returned from `getOrderByVariables()`. This means for
-     *  index i, variable `getOrderByVariables().get(i)` has order `getOrderingList().get(i)`.
+     * List of sort orders in the same order as the list of variables returned from `getOrderByVariables()`. This means for
+     * index i, variable `getOrderByVariables().get(i)` has order `getOrderingList().get(i)`.
      */
     private static List<SortOrder> getOrderingList(OrderingScheme orderingScheme)
     {
