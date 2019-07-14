@@ -46,6 +46,7 @@ public class PagesSerde
     private final Optional<Compressor> compressor;
     private final Optional<Decompressor> decompressor;
     private final Optional<SpillCipher> spillCipher;
+    private byte[] compressionBuffer;
 
     public PagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<Compressor> compressor, Optional<Decompressor> decompressor, Optional<SpillCipher> spillCipher)
     {
@@ -86,6 +87,41 @@ public class PagesSerde
         }
 
         return new SerializedPage(slice, markers, page.getPositionCount(), uncompressedSize);
+    }
+
+    public SerializedPage serialize(Slice slice, int positionCount)
+    {
+        checkArgument(slice.isCompact(), "slice is not compact");
+
+        int uncompressedSize = slice.length();
+        byte markers = PageCodecMarker.none();
+
+        if (compressor.isPresent()) {
+            int maxCompressedSize = compressor.get().maxCompressedLength(uncompressedSize);
+            ensureCompressionBufferCapacity(maxCompressedSize);
+            int compressedSize = compressor.get().compress((byte[]) slice.getBase(), 0, uncompressedSize, compressionBuffer, 0, maxCompressedSize);
+
+            if ((((double) compressedSize) / uncompressedSize) <= MINIMUM_COMPRESSION_RATIO) {
+                slice = Slices.copyOf(Slices.wrappedBuffer(compressionBuffer, 0, compressedSize));
+                markers = COMPRESSED.set(markers);
+            }
+        }
+
+        if (spillCipher.isPresent()) {
+            slice = Slices.wrappedBuffer(spillCipher.get().encrypt(slice.toByteBuffer()));
+            markers = ENCRYPTED.set(markers);
+        }
+
+        // The slice is either compressed but compression rate > MINIMUM_COMPRESSION_RATIO, or not compressed.
+        // In either case, we don't want to copy the slice because the slice is precisely sized.
+        return new SerializedPage(slice, markers, positionCount, uncompressedSize);
+    }
+
+    private void ensureCompressionBufferCapacity(int capacity)
+    {
+        if (compressionBuffer == null || compressionBuffer.length < capacity) {
+            compressionBuffer = new byte[capacity];
+        }
     }
 
     public Page deserialize(SerializedPage serializedPage)

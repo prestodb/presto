@@ -50,6 +50,7 @@ import com.facebook.presto.operator.MetadataDeleteOperator.MetadataDeleteOperato
 import com.facebook.presto.operator.NestedLoopJoinBridge;
 import com.facebook.presto.operator.NestedLoopJoinPagesSupplier;
 import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.OptimizedPartitionedOutputOperator.OptimizedPartitionedOutputFactory;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PagesIndex;
@@ -217,6 +218,7 @@ import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMin
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
+import static com.facebook.presto.SystemSessionProperties.isOptimizedRepartitioningEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
 import static com.facebook.presto.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
@@ -424,6 +426,28 @@ public class LocalExecutionPlanner
             nullChannel = OptionalInt.of(outputLayout.indexOf(getOnlyElement(partitioningColumns)));
         }
 
+        OutputFactory outputFactory;
+        if (isOptimizedRepartitioningEnabled(taskContext.getSession())) {
+            outputFactory = new OptimizedPartitionedOutputFactory(
+                    partitionFunction,
+                    partitionChannels,
+                    partitionConstants,
+                    partitioningScheme.isReplicateNullsAndAny(),
+                    nullChannel,
+                    outputBuffer,
+                    maxPagePartitioningBufferSize);
+        }
+        else {
+            outputFactory = new PartitionedOutputFactory(
+                    partitionFunction,
+                    partitionChannels,
+                    partitionConstants,
+                    partitioningScheme.isReplicateNullsAndAny(),
+                    nullChannel,
+                    outputBuffer,
+                    maxPagePartitioningBufferSize);
+        }
+
         return plan(
                 taskContext,
                 stageExecutionDescriptor,
@@ -431,14 +455,7 @@ public class LocalExecutionPlanner
                 outputLayout,
                 types,
                 partitionedSourceOrder,
-                new PartitionedOutputFactory(
-                        partitionFunction,
-                        partitionChannels,
-                        partitionConstants,
-                        partitioningScheme.isReplicateNullsAndAny(),
-                        nullChannel,
-                        outputBuffer,
-                        maxPagePartitioningBufferSize),
+                outputFactory,
                 taskExchangeClientManager);
     }
 
