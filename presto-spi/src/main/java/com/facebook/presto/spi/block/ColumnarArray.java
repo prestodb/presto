@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.block;
 
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnarArray
@@ -143,5 +144,15 @@ public class ColumnarArray
     public Block getElementsBlock()
     {
         return elementsBlock;
+    }
+
+    public Block getNullCheckBlock()
+    {
+        return nullCheckBlock;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return nullCheckBlock.getRetainedSizeInBytes() + elementsBlock.getRetainedSizeInBytes() + sizeOf(offsets);
     }
 }
