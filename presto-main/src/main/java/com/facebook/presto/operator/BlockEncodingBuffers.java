@@ -15,6 +15,9 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.ByteArrayBlock;
+import com.facebook.presto.spi.block.ColumnarArray;
+import com.facebook.presto.spi.block.ColumnarMap;
+import com.facebook.presto.spi.block.ColumnarRow;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.Int128ArrayBlock;
 import com.facebook.presto.spi.block.IntArrayBlock;
@@ -119,6 +122,10 @@ public abstract class BlockEncodingBuffers
 
         if (decodedBlock instanceof ShortArrayBlock) {
             return new ShortArrayBlockEncodingBuffers(initialPositionCount);
+        }
+
+        if (decodedBlock instanceof ColumnarArray) {
+            return new ArrayBlockEncodingBuffers(decodedBlockNode, initialPositionCount);
         }
 
         if (decodedBlock instanceof Int128ArrayBlock) {
