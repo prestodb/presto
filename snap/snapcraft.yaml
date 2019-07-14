@@ -1,0 +1,26 @@
+name: presto
+version: '0.221'
+summary: SQL query engine.
+description: Presto is a distributed SQL query engine for big data. 
+
+confinement: devmode
+
+parts:
+  presto:
+    after: [desktop-glib-only]
+    plugin: maven
+    source: https://codeload.github.com/presto-0.221.zip
+    build: |
+      export JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64"
+      gradle release -x test -x createGitTag
+    install: |
+      unzip DIST/presto_bin-*.zip -d $SNAPCRAFT_PART_INSTALL/
+    build-packages:
+      - unzip
+      - openjdk-8-jdk
+      - python
+      - java-binutils
+
+apps:
+  presto:
+    command: desktop-launch $SNAP/presto-0.221/presto.sh
