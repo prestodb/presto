@@ -37,6 +37,10 @@ import static java.lang.String.format;
 
 public final class Serialization
 {
+    // for variable SerDe; variable names might contain "()"; use angle brackets to avoid conflict
+    private static final char VARIABLE_TYPE_OPEN_BRACKET = '<';
+    private static final char VARIABLE_TYPE_CLOSE_BRACKET = '>';
+
     private Serialization() {}
 
     public static class ExpressionSerializer
@@ -95,7 +99,8 @@ public final class Serialization
         public void serialize(VariableReferenceExpression value, JsonGenerator jsonGenerator, SerializerProvider serializers)
                 throws IOException
         {
-            jsonGenerator.writeFieldName(format("%s(%s)", value.getName(), value.getType()));
+            // serialize variable as "name<type>"
+            jsonGenerator.writeFieldName(format("%s%s%s%s", value.getName(), VARIABLE_TYPE_OPEN_BRACKET, value.getType(), VARIABLE_TYPE_CLOSE_BRACKET));
         }
     }
 
@@ -112,11 +117,10 @@ public final class Serialization
 
         @Override
         public Object deserializeKey(String key, DeserializationContext ctxt)
-                throws IOException
         {
-            int p = key.indexOf("(");
-            if (p <= 0 || key.charAt(key.length() - 1) != ')') {
-                throw new IllegalArgumentException(format("Expect key to be of format 'name(type)', found %s", key));
+            int p = key.indexOf(VARIABLE_TYPE_OPEN_BRACKET);
+            if (p <= 0 || key.charAt(key.length() - 1) != VARIABLE_TYPE_CLOSE_BRACKET) {
+                throw new IllegalArgumentException(format("Expect key to be of format 'name<type>', found %s", key));
             }
             return new VariableReferenceExpression(key.substring(0, p), typeManager.getType(parseTypeSignature(key.substring(p + 1, key.length() - 1))));
         }
