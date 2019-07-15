@@ -30,6 +30,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -39,6 +40,8 @@ import static java.util.Objects.requireNonNull;
 public class SymbolAllocator
         implements VariableAllocator
 {
+    private static final Pattern DISALLOWED_CHAR_PATTERN = Pattern.compile("[^a-zA-Z0-9_\\-$]+");
+
     private final Map<Symbol, Type> symbols;
     private int nextId;
 
@@ -115,6 +118,8 @@ public class SymbolAllocator
         if (suffix != null) {
             unique = unique + "$" + suffix;
         }
+        // remove special characters for other special serde
+        unique = DISALLOWED_CHAR_PATTERN.matcher(unique).replaceAll("_");
 
         String attempt = unique;
         while (symbols.containsKey(new Symbol(attempt))) {
