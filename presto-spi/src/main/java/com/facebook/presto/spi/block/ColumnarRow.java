@@ -134,4 +134,23 @@ public final class ColumnarRow
     {
         return fields[index];
     }
+
+    public int getOffset(int position)
+    {
+        return ((AbstractRowBlock) nullCheckBlock).getFieldBlockOffset(position);
+    }
+
+    public Block getNullCheckBlock()
+    {
+        return nullCheckBlock;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        int fieldsRetainedSize = 0;
+        for (int i = 0; i < fields.length; i++) {
+            fieldsRetainedSize += fields[i].getRetainedSizeInBytes();
+        }
+        return nullCheckBlock.getRetainedSizeInBytes() + fieldsRetainedSize;
+    }
 }
