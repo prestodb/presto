@@ -33,6 +33,7 @@ import static com.facebook.presto.operator.OptimizedPartitionedOutputOperator.de
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.testing.TestingEnvironment.TYPE_MANAGER;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -55,6 +56,12 @@ public class TestBlockEncodingBuffers
     public void testLongDecimal()
     {
         testBlock(createDecimalType(MAX_SHORT_PRECISION + 1), TESTING_BLOCK_BUILDERS.buildLongDecimalBlock(POSITIONS_PER_BLOCK, true));
+    }
+
+    @Test
+    public void testInteger()
+    {
+        testBlock(INTEGER, TESTING_BLOCK_BUILDERS.buildIntegerBlock(POSITIONS_PER_BLOCK, true));
     }
 
     private void testBlock(Type type, Block block)
