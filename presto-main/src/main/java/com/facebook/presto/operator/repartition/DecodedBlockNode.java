@@ -16,6 +16,7 @@ package com.facebook.presto.operator.repartition;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.ColumnarArray;
 import com.facebook.presto.spi.block.ColumnarMap;
+import com.facebook.presto.spi.block.ColumnarRow;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
@@ -68,6 +69,9 @@ class DecodedBlockNode
         }
         else if (decodedBlock instanceof ColumnarMap) {
             size += ((ColumnarMap) decodedBlock).getRetainedSizeInBytes();
+        }
+        else if (decodedBlock instanceof ColumnarRow) {
+            size += ((ColumnarRow) decodedBlock).getRetainedSizeInBytes();
         }
 
         for (DecodedBlockNode child : children) {
