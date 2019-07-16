@@ -31,6 +31,8 @@ import static com.facebook.presto.block.BlockSerdeUtil.readBlock;
 import static com.facebook.presto.operator.BlockEncodingBuffers.createBlockEncodingBuffers;
 import static com.facebook.presto.operator.OptimizedPartitionedOutputOperator.decodeBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
+import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static com.facebook.presto.testing.TestingEnvironment.TYPE_MANAGER;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -47,6 +49,12 @@ public class TestBlockEncodingBuffers
     public void testBigint()
     {
         testBlock(BIGINT, TESTING_BLOCK_BUILDERS.buildBigintBlock(POSITIONS_PER_BLOCK, true));
+    }
+
+    @Test
+    public void testLongDecimal()
+    {
+        testBlock(createDecimalType(MAX_SHORT_PRECISION + 1), TESTING_BLOCK_BUILDERS.buildLongDecimalBlock(POSITIONS_PER_BLOCK, true));
     }
 
     private void testBlock(Type type, Block block)
@@ -75,6 +83,7 @@ public class TestBlockEncodingBuffers
         assertSerialized(type, TESTING_BLOCK_BUILDERS.buildDictRleBlock(block.getRegion(POSITIONS_PER_BLOCK / 2, POSITIONS_PER_BLOCK / 3), POSITIONS_PER_BLOCK, Optional.of("D")));
         assertSerialized(type, TESTING_BLOCK_BUILDERS.buildDictRleBlock(block.getRegion(POSITIONS_PER_BLOCK / 2, POSITIONS_PER_BLOCK / 3), POSITIONS_PER_BLOCK, Optional.of("R")));
         assertSerialized(type, TESTING_BLOCK_BUILDERS.buildDictRleBlock(block.getRegion(POSITIONS_PER_BLOCK / 2, POSITIONS_PER_BLOCK / 3), POSITIONS_PER_BLOCK, Optional.of("DDRR")));
+        assertSerialized(type, TESTING_BLOCK_BUILDERS.buildDictRleBlock(block.getRegion(POSITIONS_PER_BLOCK / 2, POSITIONS_PER_BLOCK / 3), POSITIONS_PER_BLOCK, Optional.of("RRDD")));
     }
 
     private static void assertSerialized(Type type, Block block)

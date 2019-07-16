@@ -108,6 +108,10 @@ public abstract class BlockEncodingBuffers
             return new LongArrayBlockEncodingBuffers(initialPositionCount);
         }
 
+        if (decodedBlock instanceof Int128ArrayBlock) {
+            return new Int128ArrayBlockEncodingBuffers(initialPositionCount);
+        }
+
         throw new IllegalArgumentException("Unsupported encoding: " + decodedBlock.getClass().getSimpleName());
     }
 
