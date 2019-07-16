@@ -112,6 +112,10 @@ public abstract class BlockEncodingBuffers
             return new IntArrayBlockEncodingBuffers(initialPositionCount);
         }
 
+        if (decodedBlock instanceof ShortArrayBlock) {
+            return new ShortArrayBlockEncodingBuffers(initialPositionCount);
+        }
+
         if (decodedBlock instanceof Int128ArrayBlock) {
             return new Int128ArrayBlockEncodingBuffers(initialPositionCount);
         }
