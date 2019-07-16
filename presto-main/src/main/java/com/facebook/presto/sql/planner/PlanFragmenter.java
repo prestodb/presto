@@ -36,7 +36,6 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
-import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -103,6 +102,7 @@ import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrd
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isCompatibleSystemPartitioning;
 import static com.facebook.presto.sql.planner.VariablesExtractor.extractOutputVariables;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
@@ -800,7 +800,7 @@ public class PlanFragmenter
 
             PartitioningHandle currentPartitioning = this.partitioningHandle.get();
 
-            if (isCompatibleSystemPartitioning(distribution)) {
+            if (isCompatibleSystemPartitioning(currentPartitioning, distribution)) {
                 return this;
             }
 
@@ -832,18 +832,6 @@ public class PlanFragmenter
                     "Cannot set distribution to %s. Already set to %s",
                     distribution,
                     this.partitioningHandle));
-        }
-
-        private boolean isCompatibleSystemPartitioning(PartitioningHandle distribution)
-        {
-            ConnectorPartitioningHandle currentHandle = partitioningHandle.get().getConnectorHandle();
-            ConnectorPartitioningHandle distributionHandle = distribution.getConnectorHandle();
-            if ((currentHandle instanceof SystemPartitioningHandle) &&
-                    (distributionHandle instanceof SystemPartitioningHandle)) {
-                return ((SystemPartitioningHandle) currentHandle).getPartitioning() ==
-                        ((SystemPartitioningHandle) distributionHandle).getPartitioning();
-            }
-            return false;
         }
 
         public FragmentProperties setCoordinatorOnlyDistribution()

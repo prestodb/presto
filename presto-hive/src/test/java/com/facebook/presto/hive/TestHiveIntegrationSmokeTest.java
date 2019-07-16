@@ -2796,6 +2796,76 @@ public class TestHiveIntegrationSmokeTest
                         ") " +
                         "GROUP BY partkey",
                 assertRemoteMaterializedExchangesCount(2));
+
+        // union over aggregation + broadcast join
+        Session broadcastJoinMaterializeExchangesSession = Session.builder(materializeExchangesSession)
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
+                .build();
+        Session broadcastJoinStreamingExchangesSession = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
+                .build();
+
+        // compatible union partitioning
+        assertQuery(
+                broadcastJoinMaterializeExchangesSession,
+                "WITH union_of_aggregations as ( " +
+                        "    SELECT " +
+                        "        partkey, " +
+                        "        count(*) AS value " +
+                        "    FROM lineitem " +
+                        "    GROUP BY  " +
+                        "        1 " +
+                        "    UNION ALL " +
+                        "    SELECT " +
+                        "        partkey, " +
+                        "        sum(suppkey) AS value " +
+                        "    FROM lineitem " +
+                        "    GROUP BY  " +
+                        "        1        " +
+                        ") " +
+                        "SELECT " +
+                        "    sum(a.value + b.value) " +
+                        "FROM union_of_aggregations a, union_of_aggregations b  " +
+                        "WHERE a.partkey = b.partkey ",
+                "SELECT 12404708",
+                assertRemoteExchangesCount(6)
+                        .andThen(assertRemoteMaterializedExchangesCount(4)));
+
+        // incompatible union partitioning, requires an extra remote exchange for build and probe
+        String incompatiblePartitioningQuery = "WITH union_of_aggregations as ( " +
+                "    SELECT " +
+                "        partkey, " +
+                "        count(*) as value " +
+                "    FROM lineitem " +
+                "    GROUP BY  " +
+                "        1 " +
+                "    UNION ALL " +
+                "    SELECT " +
+                "        partkey, " +
+                "        suppkey as value " +
+                "    FROM lineitem " +
+                "    GROUP BY  " +
+                "        1, 2        " +
+                ") " +
+                "SELECT " +
+                "    sum(a.value + b.value) " +
+                "FROM union_of_aggregations a, union_of_aggregations b  " +
+                "WHERE a.partkey = b.partkey ";
+
+        // system partitioning handle is always compatible
+        assertQuery(
+                broadcastJoinStreamingExchangesSession,
+                incompatiblePartitioningQuery,
+                "SELECT 4639006",
+                assertRemoteExchangesCount(6));
+
+        // hive partitioning handle is incompatible
+        assertQuery(
+                broadcastJoinMaterializeExchangesSession,
+                incompatiblePartitioningQuery,
+                "SELECT 4639006",
+                assertRemoteExchangesCount(8)
+                        .andThen(assertRemoteMaterializedExchangesCount(4)));
     }
 
     public static Consumer<Plan> assertRemoteMaterializedExchangesCount(int expectedRemoteExchangesCount)
