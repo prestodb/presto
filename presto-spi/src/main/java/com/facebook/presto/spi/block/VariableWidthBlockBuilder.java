@@ -78,7 +78,7 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
-    protected int getPositionOffset(int position)
+    public int getPositionOffset(int position)
     {
         checkValidPosition(position, positions);
         return getOffset(position);
