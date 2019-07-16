@@ -37,6 +37,7 @@ import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
@@ -75,11 +76,13 @@ import static com.facebook.presto.spi.block.ArrayBlock.fromElementBlock;
 import static com.facebook.presto.spi.block.MapBlock.fromKeyValueBlock;
 import static com.facebook.presto.spi.block.MethodHandleUtil.compose;
 import static com.facebook.presto.spi.block.MethodHandleUtil.nativeValueGetter;
+import static com.facebook.presto.spi.block.RowBlock.fromFieldBlocks;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RowType.withDefaultFieldNames;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingEnvironment.TYPE_MANAGER;
@@ -191,6 +194,45 @@ public class TestBlockEncodingBuffers
         testNestedBlock(createMapType(SMALLINT, new ArrayType(SMALLINT)));
         testNestedBlock(createMapType(BOOLEAN, new ArrayType(BOOLEAN)));
         testNestedBlock(createMapType(VARCHAR, new ArrayType(VARCHAR)));
+    }
+
+    @Test
+    public void testRow()
+    {
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(BIGINT, BIGINT, BIGINT)));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(createDecimalType(MAX_SHORT_PRECISION + 1), createDecimalType(MAX_SHORT_PRECISION + 1), createDecimalType(MAX_SHORT_PRECISION + 1))));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(INTEGER, INTEGER, INTEGER)));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(SMALLINT, SMALLINT, SMALLINT)));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(BOOLEAN, BOOLEAN, BOOLEAN)));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR)));
+
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(BIGINT, withDefaultFieldNames(ImmutableList.of(BIGINT, BIGINT)))));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(createDecimalType(MAX_SHORT_PRECISION + 1), withDefaultFieldNames(ImmutableList.of(BIGINT, BIGINT)))));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(INTEGER, withDefaultFieldNames(ImmutableList.of(INTEGER, INTEGER)))));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(SMALLINT, withDefaultFieldNames(ImmutableList.of(SMALLINT, SMALLINT)))));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(BOOLEAN, withDefaultFieldNames(ImmutableList.of(BOOLEAN, BOOLEAN, BOOLEAN)))));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(VARCHAR, withDefaultFieldNames(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR)))));
+
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(withDefaultFieldNames(ImmutableList.of(withDefaultFieldNames(ImmutableList.of(BIGINT)), BIGINT)), BIGINT)));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(withDefaultFieldNames(ImmutableList.of(withDefaultFieldNames(ImmutableList.of(createDecimalType(MAX_SHORT_PRECISION + 1))), createDecimalType(MAX_SHORT_PRECISION))), createDecimalType(MAX_SHORT_PRECISION - 1))));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(withDefaultFieldNames(ImmutableList.of(withDefaultFieldNames(ImmutableList.of(INTEGER)), INTEGER)), INTEGER)));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(withDefaultFieldNames(ImmutableList.of(withDefaultFieldNames(ImmutableList.of(SMALLINT)), SMALLINT)), SMALLINT)));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(withDefaultFieldNames(ImmutableList.of(withDefaultFieldNames(ImmutableList.of(BOOLEAN)), BOOLEAN)), BOOLEAN)));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(withDefaultFieldNames(ImmutableList.of(withDefaultFieldNames(ImmutableList.of(VARCHAR)), VARCHAR)), VARCHAR)));
+
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(new ArrayType(BIGINT), new ArrayType(BIGINT))));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(new ArrayType(createDecimalType(MAX_SHORT_PRECISION + 1)), new ArrayType(createDecimalType(MAX_SHORT_PRECISION + 1)))));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(new ArrayType(INTEGER), new ArrayType(INTEGER))));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(new ArrayType(SMALLINT), new ArrayType(SMALLINT))));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(new ArrayType(BOOLEAN), new ArrayType(BOOLEAN))));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(new ArrayType(VARCHAR), new ArrayType(VARCHAR))));
+
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(new ArrayType(BIGINT), createMapType(BIGINT, BIGINT))));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(new ArrayType(createDecimalType(MAX_SHORT_PRECISION + 1)), createMapType(BIGINT, createDecimalType(MAX_SHORT_PRECISION + 1)))));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(new ArrayType(INTEGER), createMapType(INTEGER, INTEGER))));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(new ArrayType(SMALLINT), createMapType(SMALLINT, SMALLINT))));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(new ArrayType(BOOLEAN), createMapType(BOOLEAN, BOOLEAN))));
+        testNestedBlock(withDefaultFieldNames(ImmutableList.of(new ArrayType(VARCHAR), createMapType(VARCHAR, VARCHAR))));
     }
 
     private void testBlock(Type type, Block block)
@@ -385,7 +427,7 @@ public class TestBlockEncodingBuffers
                     offsets[position + 1] = offsets[position];
                 }
                 else {
-                    offsets[position + 1] = offsets[position] + ThreadLocalRandom.current().nextInt(10);
+                    offsets[position + 1] = offsets[position] + (type instanceof RowType ? 1 : ThreadLocalRandom.current().nextInt(10) + 1);
                 }
             }
 
@@ -395,6 +437,9 @@ public class TestBlockEncodingBuffers
             }
             else if (type instanceof MapType) {
                 blockStatus = buildMapBlockStatus((MapType) type, positionCount, isView, isNull, offsets, allowNulls, wrappings);
+            }
+            else if (type instanceof RowType) {
+                blockStatus = buildRowBlockStatus((RowType) type, positionCount, isView, isNull, offsets, allowNulls, wrappings);
             }
             else {
                 throw new UnsupportedOperationException(format("type %s is not supported.", type));
@@ -598,6 +643,42 @@ public class TestBlockEncodingBuffers
                         keyNativeHashCode,
                         keyBlockHashCode),
                 expectedRowSizes);
+        return blockStatus;
+    }
+
+    private BlockStatus buildRowBlockStatus(
+            RowType rowType,
+            int positionCount,
+            boolean isView,
+            boolean[] isNull,
+            int[] offsets,
+            boolean allowNulls,
+            List<Encoding> wrappings)
+    {
+        requireNonNull(isNull);
+
+        BlockStatus blockStatus;
+        int[] expectedTotalFieldSizes = new int[positionCount];
+
+        List<Type> fieldTypes = rowType.getTypeParameters();
+        Block[] fieldBlocks = new Block[fieldTypes.size()];
+
+        for (int i = 0; i < fieldBlocks.length; i++) {
+            BlockStatus fieldBlockStatus = buildBlockStatusWithType(
+                    fieldTypes.get(i),
+                    positionCount,
+                    isView,
+                    allowNulls,
+                    wrappings);
+            fieldBlocks[i] = fieldBlockStatus.block;
+            Arrays.setAll(expectedTotalFieldSizes, j -> expectedTotalFieldSizes[j] + fieldBlockStatus.expectedRowSizes[j]);
+        }
+
+        int[] expectedRowSizes = IntStream.range(0, positionCount)
+                .map(i -> RowBlockEncodingBuffer.POSITION_SIZE + Arrays.stream(expectedTotalFieldSizes, offsets[i], offsets[i + 1]).sum())
+                .toArray();
+
+        blockStatus = new BlockStatus(fromFieldBlocks(positionCount, Optional.of(isNull), fieldBlocks), expectedRowSizes);
         return blockStatus;
     }
 
