@@ -30,6 +30,7 @@ package com.facebook.presto.operator.repartition;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.Int128ArrayBlock;
+import com.facebook.presto.spi.block.IntArrayBlock;
 import com.facebook.presto.spi.block.LongArrayBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.google.common.annotations.VisibleForTesting;
@@ -131,6 +132,10 @@ public abstract class AbstractBlockEncodingBuffer
 
         if (decodedBlock instanceof Int128ArrayBlock) {
             return new Int128ArrayBlockEncodingBuffer();
+        }
+
+        if (decodedBlock instanceof IntArrayBlock) {
+            return new IntArrayBlockEncodingBuffer();
         }
 
         throw new IllegalArgumentException("Unsupported encoding: " + decodedBlock.getClass().getSimpleName());
