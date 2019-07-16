@@ -113,6 +113,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARB
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isCompatibleSystemPartitioning;
 import static com.facebook.presto.sql.planner.iterative.rule.PickTableLayout.pushPredicateIntoTableScan;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
@@ -1227,7 +1228,7 @@ public class AddExchanges
                 List<List<VariableReferenceExpression>> distributedOutputLayouts)
         {
             // TODO: can we insert LOCAL exchange for one child SOURCE distributed and another HASH distributed?
-            if (getNumberOfTableScans(distributedChildren) == 0) {
+            if (getNumberOfTableScans(distributedChildren) == 0 && isSameOrSystemCompatiblePartitions(extractRemoteExchangePartitioningHandles(distributedChildren))) {
                 // No source distributed child, we can use insert LOCAL exchange
                 // TODO: if all children have the same partitioning, pass this partitioning to the parent
                 // instead of "arbitraryPartition".
@@ -1489,6 +1490,46 @@ public class AddExchanges
         public ActualProperties getProperties()
         {
             return properties;
+        }
+    }
+
+    private static boolean isSameOrSystemCompatiblePartitions(List<PartitioningHandle> partitioningHandles)
+    {
+        for (int i = 0; i < partitioningHandles.size() - 1; i++) {
+            PartitioningHandle first = partitioningHandles.get(i);
+            PartitioningHandle second = partitioningHandles.get(i + 1);
+            if (!first.equals(second) && !isCompatibleSystemPartitioning(first, second)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static List<PartitioningHandle> extractRemoteExchangePartitioningHandles(List<PlanNode> nodes)
+    {
+        ImmutableList.Builder<PartitioningHandle> handles = ImmutableList.builder();
+        nodes.forEach(node -> node.accept(new ExchangePartitioningHandleExtractor(), handles));
+        return handles.build();
+    }
+
+    private static class ExchangePartitioningHandleExtractor
+            extends InternalPlanVisitor<Void, ImmutableList.Builder<PartitioningHandle>>
+    {
+        @Override
+        public Void visitExchange(ExchangeNode node, ImmutableList.Builder<PartitioningHandle> handles)
+        {
+            checkArgument(node.getScope().isRemote(), "scope is expected to be remote: %s", node.getScope());
+            handles.add(node.getPartitioningScheme().getPartitioning().getHandle());
+            return null;
+        }
+
+        @Override
+        public Void visitPlan(PlanNode node, ImmutableList.Builder<PartitioningHandle> handles)
+        {
+            for (PlanNode source : node.getSources()) {
+                source.accept(this, handles);
+            }
+            return null;
         }
     }
 }

@@ -169,6 +169,18 @@ public final class SystemPartitioningHandle
         return new BucketPartitionFunction(bucketFunction, bucketToPartition);
     }
 
+    public static boolean isCompatibleSystemPartitioning(PartitioningHandle first, PartitioningHandle second)
+    {
+        ConnectorPartitioningHandle firstConnectorHandle = first.getConnectorHandle();
+        ConnectorPartitioningHandle secondConnectorHandle = second.getConnectorHandle();
+        if ((firstConnectorHandle instanceof SystemPartitioningHandle) &&
+                (secondConnectorHandle instanceof SystemPartitioningHandle)) {
+            return ((SystemPartitioningHandle) firstConnectorHandle).getPartitioning() ==
+                    ((SystemPartitioningHandle) secondConnectorHandle).getPartitioning();
+        }
+        return false;
+    }
+
     public enum SystemPartitionFunction
     {
         SINGLE {
