@@ -136,6 +136,10 @@ public abstract class BlockEncodingBuffers
             return new VariableWidthBlockEncodingBuffers(initialPositionCount);
         }
 
+        if (decodedBlock instanceof ColumnarMap) {
+            return new MapBlockEncodingBuffers(decodedBlockNode, initialPositionCount);
+        }
+
         throw new IllegalArgumentException("Unsupported encoding: " + decodedBlock.getClass().getSimpleName());
     }
 

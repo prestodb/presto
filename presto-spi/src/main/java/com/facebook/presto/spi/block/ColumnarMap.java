@@ -13,6 +13,13 @@
  */
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.type.Type;
+
+import java.util.Optional;
+
+import static com.facebook.presto.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnarMap
@@ -22,6 +29,8 @@ public class ColumnarMap
     private final int[] offsets;
     private final Block keysBlock;
     private final Block valuesBlock;
+    private final Type keyType;
+    private final int[] hashTables;
 
     public static ColumnarMap toColumnarMap(Block block)
     {
@@ -48,8 +57,9 @@ public class ColumnarMap
         int totalEntryCount = mapBlock.getOffset(block.getPositionCount()) - firstEntryPosition;
         Block keysBlock = mapBlock.getRawKeyBlock().getRegion(firstEntryPosition, totalEntryCount);
         Block valuesBlock = mapBlock.getRawValueBlock().getRegion(firstEntryPosition, totalEntryCount);
+        Optional<int[]> hashTables = mapBlock.getHashTables().get();
 
-        return new ColumnarMap(block, offsetBase, offsets, keysBlock, valuesBlock);
+        return new ColumnarMap(block, offsetBase, offsets, keysBlock, valuesBlock, mapBlock.keyType, hashTables);
     }
 
     private static ColumnarMap toColumnarMap(DictionaryBlock dictionaryBlock)
@@ -83,7 +93,9 @@ public class ColumnarMap
                 0,
                 offsets,
                 new DictionaryBlock(dictionaryIds.length, columnarMap.getKeysBlock(), dictionaryIds),
-                new DictionaryBlock(dictionaryIds.length, columnarMap.getValuesBlock(), dictionaryIds));
+                new DictionaryBlock(dictionaryIds.length, columnarMap.getValuesBlock(), dictionaryIds),
+                columnarMap.keyType,
+                columnarMap.getHashTables());
     }
 
     private static ColumnarMap toColumnarMap(RunLengthEncodedBlock rleBlock)
@@ -112,16 +124,20 @@ public class ColumnarMap
                 0,
                 offsets,
                 new DictionaryBlock(dictionaryIds.length, columnarMap.getKeysBlock(), dictionaryIds),
-                new DictionaryBlock(dictionaryIds.length, columnarMap.getValuesBlock(), dictionaryIds));
+                new DictionaryBlock(dictionaryIds.length, columnarMap.getValuesBlock(), dictionaryIds),
+                columnarMap.keyType,
+                columnarMap.getHashTables());
     }
 
-    private ColumnarMap(Block nullCheckBlock, int offsetsOffset, int[] offsets, Block keysBlock, Block valuesBlock)
+    private ColumnarMap(Block nullCheckBlock, int offsetsOffset, int[] offsets, Block keysBlock, Block valuesBlock, Type keyType, Optional<int[]> hashTables)
     {
         this.nullCheckBlock = nullCheckBlock;
         this.offsetsOffset = offsetsOffset;
         this.offsets = offsets;
         this.keysBlock = keysBlock;
         this.valuesBlock = valuesBlock;
+        this.keyType = keyType;
+        this.hashTables = hashTables.orElse(null);
     }
 
     public int getPositionCount()
@@ -139,7 +155,7 @@ public class ColumnarMap
         return (offsets[position + 1 + offsetsOffset] - offsets[position + offsetsOffset]);
     }
 
-    private int getOffset(int position)
+    public int getOffset(int position)
     {
         return offsets[position + offsetsOffset];
     }
@@ -152,5 +168,30 @@ public class ColumnarMap
     public Block getValuesBlock()
     {
         return valuesBlock;
+    }
+
+    public Block getNullCheckBlock()
+    {
+        return nullCheckBlock;
+    }
+
+    public Type getKeyType()
+    {
+        return keyType;
+    }
+
+    public Optional<int[]> getHashTables()
+    {
+        return Optional.ofNullable(hashTables);
+    }
+
+    public long getSizeInBytes()
+    {
+        return nullCheckBlock.getSizeInBytes() + keysBlock.getSizeInBytes() + valuesBlock.getSizeInBytes() + SIZE_OF_INT * getPositionCount() + SIZE_OF_INT * getPositionCount() * HASH_MULTIPLIER;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return nullCheckBlock.getRetainedSizeInBytes() + keysBlock.getRetainedSizeInBytes() + valuesBlock.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(hashTables);
     }
 }
