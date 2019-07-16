@@ -83,7 +83,7 @@ public class VariableWidthBlock
     }
 
     @Override
-    protected final int getPositionOffset(int position)
+    public final int getPositionOffset(int position)
     {
         return offsets[position + arrayOffset];
     }
@@ -186,7 +186,7 @@ public class VariableWidthBlock
     }
 
     @Override
-    protected Slice getRawSlice(int position)
+    public Slice getRawSlice(int position)
     {
         return slice;
     }
