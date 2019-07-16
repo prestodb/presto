@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -32,8 +33,10 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.FunctionType;
 import com.facebook.presto.spi.type.RowType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.planner.Interpreters.LambdaSymbolResolver;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -57,6 +60,9 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.metadata.CastType.CAST;
+import static com.facebook.presto.metadata.CastType.JSON_TO_ARRAY_CAST;
+import static com.facebook.presto.metadata.CastType.JSON_TO_MAP_CAST;
+import static com.facebook.presto.metadata.CastType.JSON_TO_ROW_CAST;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.MOST_EVALUATED;
@@ -74,6 +80,10 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.ROW_CO
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.StandardTypes.MAP;
+import static com.facebook.presto.spi.type.StandardTypes.ROW;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
@@ -111,6 +121,7 @@ public class RowExpressionInterpreter
     private final Level optimizationLevel;
     private final InterpretedFunctionInvoker functionInvoker;
     private final RowExpressionDeterminismEvaluator determinismEvaluator;
+    private final FunctionManager functionManager;
     private final FunctionResolution resolution;
 
     private final Visitor visitor;
@@ -137,6 +148,7 @@ public class RowExpressionInterpreter
         this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionManager());
         this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata.getFunctionManager());
         this.resolution = new FunctionResolution(metadata.getFunctionManager());
+        this.functionManager = metadata.getFunctionManager();
 
         this.visitor = new Visitor();
     }
@@ -720,6 +732,45 @@ public class RowExpressionInterpreter
             if (value instanceof RowExpression) {
                 if (targetType.equals(sourceType)) {
                     return changed(value);
+                }
+                if (callExpression.getArguments().get(0) instanceof CallExpression) {
+                    // Optimization for CAST(JSON_PARSE(...) AS ARRAY/MAP/ROW)
+                    CallExpression innerCall = (CallExpression) callExpression.getArguments().get(0);
+                    if (functionManager.getFunctionMetadata(innerCall.getFunctionHandle()).getName().equals("json_parse")) {
+                        checkArgument(innerCall.getType().equals(JSON));
+                        checkArgument(innerCall.getArguments().size() == 1);
+                        TypeSignature returnType = functionManager.getFunctionMetadata(callExpression.getFunctionHandle()).getReturnType();
+                        if (returnType.getBase().equals(ARRAY)) {
+                            return changed(call(
+                                    JSON_TO_ARRAY_CAST.name(),
+                                    functionManager.lookupCast(
+                                            JSON_TO_ARRAY_CAST,
+                                            parseTypeSignature(StandardTypes.VARCHAR),
+                                            returnType),
+                                    callExpression.getType(),
+                                    innerCall.getArguments()));
+                        }
+                        if (returnType.getBase().equals(MAP)) {
+                            return changed(call(
+                                    JSON_TO_MAP_CAST.name(),
+                                    functionManager.lookupCast(
+                                            JSON_TO_MAP_CAST,
+                                            parseTypeSignature(StandardTypes.VARCHAR),
+                                            returnType),
+                                    callExpression.getType(),
+                                    innerCall.getArguments()));
+                        }
+                        if (returnType.getBase().equals(ROW)) {
+                            return changed(call(
+                                    JSON_TO_ROW_CAST.name(),
+                                    functionManager.lookupCast(
+                                            JSON_TO_ROW_CAST,
+                                            parseTypeSignature(StandardTypes.VARCHAR),
+                                            returnType),
+                                    callExpression.getType(),
+                                    innerCall.getArguments()));
+                        }
+                    }
                 }
                 return changed(call(callExpression.getDisplayName(), callExpression.getFunctionHandle(), callExpression.getType(), toRowExpression(value, sourceType)));
             }
