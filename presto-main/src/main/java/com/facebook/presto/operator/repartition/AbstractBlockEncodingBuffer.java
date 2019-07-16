@@ -35,6 +35,7 @@ import com.facebook.presto.spi.block.IntArrayBlock;
 import com.facebook.presto.spi.block.LongArrayBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.block.ShortArrayBlock;
+import com.facebook.presto.spi.block.VariableWidthBlock;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.SliceOutput;
 
@@ -146,6 +147,10 @@ public abstract class AbstractBlockEncodingBuffer
 
         if (decodedBlock instanceof ByteArrayBlock) {
             return new ByteArrayBlockEncodingBuffer();
+        }
+
+        if (decodedBlock instanceof VariableWidthBlock) {
+            return new VariableWidthBlockEncodingBuffer();
         }
 
         throw new IllegalArgumentException("Unsupported encoding: " + decodedBlock.getClass().getSimpleName());
