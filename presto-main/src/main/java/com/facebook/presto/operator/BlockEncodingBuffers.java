@@ -140,6 +140,9 @@ public abstract class BlockEncodingBuffers
             return new MapBlockEncodingBuffers(decodedBlockNode, initialPositionCount);
         }
 
+        if (decodedBlock instanceof ColumnarRow) {
+            return new RowBlockEncodingBuffers(decodedBlockNode, initialPositionCount);
+        }
         throw new IllegalArgumentException("Unsupported encoding: " + decodedBlock.getClass().getSimpleName());
     }
 
