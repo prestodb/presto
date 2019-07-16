@@ -69,6 +69,7 @@ import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndSumD
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.capStats;
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level;
 import static com.facebook.presto.spi.relation.LogicalRowExpressions.and;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -153,7 +154,7 @@ public class FilterStatsCalculator
 
     private RowExpression simplifyExpression(Session session, RowExpression predicate)
     {
-        RowExpressionInterpreter interpreter = new RowExpressionInterpreter(predicate, metadata, session.toConnectorSession(), true);
+        RowExpressionInterpreter interpreter = new RowExpressionInterpreter(predicate, metadata, session.toConnectorSession(), Level.MOST_OPTIMIZED);
         Object value = interpreter.optimize();
 
         if (value == null) {

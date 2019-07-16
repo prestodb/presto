@@ -94,6 +94,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.SystemSessionProperties.planWithTableNodePartitioning;
 import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValuesToConstantExpressions;
 import static com.facebook.presto.spi.relation.DomainTranslator.BASIC_COLUMN_EXTRACTOR;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
@@ -655,7 +656,7 @@ public class PropertyDerivations
                     }
                 }
                 else {
-                    Object value = new RowExpressionInterpreter(expression, metadata, session.toConnectorSession(), true).optimize();
+                    Object value = new RowExpressionInterpreter(expression, metadata, session.toConnectorSession(), Level.MOST_OPTIMIZED).optimize();
 
                     if (value instanceof VariableReferenceExpression) {
                         ConstantExpression existingConstantValue = constants.get(value);

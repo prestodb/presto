@@ -58,6 +58,9 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.MOST_EVALUATED;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.SERIALIZABLE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.BIND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
@@ -105,7 +108,7 @@ public class RowExpressionInterpreter
     private final RowExpression expression;
     private final Metadata metadata;
     private final ConnectorSession session;
-    private final boolean optimize;
+    private final Level optimizationLevel;
     private final InterpretedFunctionInvoker functionInvoker;
     private final RowExpressionDeterminismEvaluator determinismEvaluator;
     private final FunctionResolution resolution;
@@ -115,22 +118,22 @@ public class RowExpressionInterpreter
     public static Object evaluateConstantRowExpression(RowExpression expression, Metadata metadata, ConnectorSession session)
     {
         // evaluate the expression
-        Object result = new RowExpressionInterpreter(expression, metadata, session, false).evaluate();
+        Object result = new RowExpressionInterpreter(expression, metadata, session, MOST_EVALUATED).evaluate();
         verify(!(result instanceof RowExpression), "RowExpression interpreter returned an unresolved expression");
         return result;
     }
 
     public static RowExpressionInterpreter rowExpressionInterpreter(RowExpression expression, Metadata metadata, ConnectorSession session)
     {
-        return new RowExpressionInterpreter(expression, metadata, session, false);
+        return new RowExpressionInterpreter(expression, metadata, session, MOST_EVALUATED);
     }
 
-    public RowExpressionInterpreter(RowExpression expression, Metadata metadata, ConnectorSession session, boolean optimize)
+    public RowExpressionInterpreter(RowExpression expression, Metadata metadata, ConnectorSession session, Level optimizationLevel)
     {
         this.expression = requireNonNull(expression, "expression is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.session = requireNonNull(session, "session is null");
-        this.optimize = optimize;
+        this.optimizationLevel = optimizationLevel;
         this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionManager());
         this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata.getFunctionManager());
         this.resolution = new FunctionResolution(metadata.getFunctionManager());
@@ -145,13 +148,13 @@ public class RowExpressionInterpreter
 
     public Object evaluate()
     {
-        checkState(!optimize, "evaluate() not allowed for optimizer");
+        checkState(optimizationLevel.ordinal() >= MOST_EVALUATED.ordinal(), "evaluate() not allowed for optimizer");
         return expression.accept(visitor, null);
     }
 
     public Object optimize()
     {
-        checkState(optimize, "optimize() not allowed for interpreter");
+        checkState(optimizationLevel.ordinal() < MOST_EVALUATED.ordinal(), "optimize() not allowed for interpreter");
         return optimize(null);
     }
 
@@ -161,7 +164,7 @@ public class RowExpressionInterpreter
     @VisibleForTesting
     public Object optimize(SymbolResolver inputs)
     {
-        checkState(optimize, "optimize(SymbolResolver) not allowed for interpreter");
+        checkState(optimizationLevel.ordinal() <= MOST_EVALUATED.ordinal(), "optimize(SymbolResolver) not allowed for interpreter");
         Object result = expression.accept(visitor, inputs);
 
         if (!(result instanceof RowExpression)) {
@@ -241,7 +244,8 @@ public class RowExpressionInterpreter
             }
 
             // do not optimize non-deterministic functions
-            if (optimize && (!functionMetadata.isDeterministic() || hasUnresolvedValue(argumentValues) || functionMetadata.getName().equals("fail"))) {
+            if (optimizationLevel.ordinal() < MOST_EVALUATED.ordinal() &&
+                    (!functionMetadata.isDeterministic() || hasUnresolvedValue(argumentValues) || functionMetadata.getName().equals("fail"))) {
                 return call(node.getDisplayName(), functionHandle, node.getType(), toRowExpressions(argumentValues, argumentTypes));
             }
             return functionInvoker.invoke(functionHandle, session, argumentValues);
@@ -250,8 +254,9 @@ public class RowExpressionInterpreter
         @Override
         public Object visitLambda(LambdaDefinitionExpression node, Object context)
         {
-            if (optimize) {
+            if (optimizationLevel.ordinal() < MOST_EVALUATED.ordinal()) {
                 // TODO: enable optimization related to lambda expression
+                // In most evaluated form, we will convert lambda definition into FunctionHandle which cannot be used by RowExpressionCompiler yet.
                 // A mechanism to convert function type back into lambda expression need to exist to enable optimization
                 return node;
             }
@@ -719,7 +724,8 @@ public class RowExpressionInterpreter
             }
 
             // TODO: still there is limitation for RowExpression. Example types could be Regex
-            if (optimize && !isSupportedLiteralType(targetType)) {
+            if (optimizationLevel.ordinal() <= SERIALIZABLE.ordinal() && !isSupportedLiteralType(targetType)) {
+                // Otherwise, cast will be evaluated through invoke later.
                 return changed(call(callExpression.getDisplayName(), callExpression.getFunctionHandle(), callExpression.getType(), toRowExpression(value, sourceType)));
             }
             return notChanged();
@@ -734,7 +740,7 @@ public class RowExpressionInterpreter
             checkArgument(
                     (likePatternExpression instanceof CallExpression &&
                             (((CallExpression) likePatternExpression).getFunctionHandle().equals(resolution.likePatternFunction()) ||
-                            (resolution.isCastFunction(((CallExpression) likePatternExpression).getFunctionHandle())))),
+                                    (resolution.isCastFunction(((CallExpression) likePatternExpression).getFunctionHandle())))),
                     "expect a like_pattern function or a cast function");
             Object value = argumentValues.get(0);
             Object possibleCompiledPattern = argumentValues.get(1);
