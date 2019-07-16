@@ -27,10 +27,19 @@ import java.util.Random;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
+<<<<<<< HEAD
+=======
+import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
+import static com.facebook.presto.block.BlockAssertions.createIntsBlock;
+import static com.facebook.presto.block.BlockAssertions.createLongDecimalsBlock;
+import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
+import static com.facebook.presto.block.BlockAssertions.createTypedLongsBlock;
+>>>>>>> 1cb7d86bd5... Optimize repartitioning for BOOLEAN type
 import static com.facebook.presto.block.BlockSerdeUtil.readBlock;
 import static com.facebook.presto.operator.BlockEncodingBuffers.createBlockEncodingBuffers;
 import static com.facebook.presto.operator.OptimizedPartitionedOutputOperator.decodeBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -69,6 +78,12 @@ public class TestBlockEncodingBuffers
     public void testSmallint()
     {
         testBlock(SMALLINT, TESTING_BLOCK_BUILDERS.buildSmallintBlock(POSITIONS_PER_BLOCK, true));
+    }
+
+    @Test
+    public void testBoolean()
+    {
+        testBlock(BOOLEAN, TESTING_BLOCK_BUILDERS.buildBooleanBlock(POSITIONS_PER_BLOCK, true));
     }
 
     private void testBlock(Type type, Block block)
