@@ -47,6 +47,7 @@ import static com.facebook.presto.block.BlockAssertions.Encoding.DICTIONARY;
 import static com.facebook.presto.block.BlockAssertions.Encoding.RUN_LENGTH;
 import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
 import static com.facebook.presto.block.BlockAssertions.createAllNullsBlock;
+import static com.facebook.presto.block.BlockAssertions.createRandomBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createRandomIntsBlock;
 import static com.facebook.presto.block.BlockAssertions.createRandomLongDecimalsBlock;
 import static com.facebook.presto.block.BlockAssertions.createRandomLongsBlock;
@@ -56,6 +57,7 @@ import static com.facebook.presto.block.BlockSerdeUtil.readBlock;
 import static com.facebook.presto.operator.repartition.AbstractBlockEncodingBuffer.createBlockEncodingBuffers;
 import static com.facebook.presto.operator.repartition.OptimizedPartitionedOutputOperator.decodeBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -91,6 +93,12 @@ public class TestBlockEncodingBuffers
     public void testSmallint()
     {
         testBlock(SMALLINT, createRandomSmallintsBlock(POSITIONS_PER_BLOCK, true));
+    }
+
+    @Test
+    public void testBoolean()
+    {
+        testBlock(BOOLEAN, createRandomBooleansBlock(POSITIONS_PER_BLOCK, true));
     }
 
     private void testBlock(Type type, Block block)
