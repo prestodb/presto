@@ -27,7 +27,8 @@ public class TestBaseJdbcConfig
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(BaseJdbcConfig.class)
                 .setConnectionUrl(null)
                 .setConnectionUser(null)
-                .setConnectionPassword(null));
+                .setConnectionPassword(null)
+                .setCaseInsensitiveNameMatching(false));
     }
 
     @Test
@@ -37,12 +38,14 @@ public class TestBaseJdbcConfig
                 .put("connection-url", "jdbc:h2:mem:config")
                 .put("connection-user", "user")
                 .put("connection-password", "password")
+                .put("case-insensitive-name-matching", "true")
                 .build();
 
         BaseJdbcConfig expected = new BaseJdbcConfig()
                 .setConnectionUrl("jdbc:h2:mem:config")
                 .setConnectionUser("user")
-                .setConnectionPassword("password");
+                .setConnectionPassword("password")
+                .setCaseInsensitiveNameMatching(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

@@ -23,6 +23,7 @@ public class BaseJdbcConfig
     private String connectionUrl;
     private String connectionUser;
     private String connectionPassword;
+    private boolean caseInsensitiveNameMatching;
 
     @NotNull
     public String getConnectionUrl()
@@ -59,6 +60,18 @@ public class BaseJdbcConfig
     public BaseJdbcConfig setConnectionPassword(String connectionPassword)
     {
         this.connectionPassword = connectionPassword;
+        return this;
+    }
+
+    public boolean isCaseInsensitiveNameMatching()
+    {
+        return caseInsensitiveNameMatching;
+    }
+
+    @Config("case-insensitive-name-matching")
+    public BaseJdbcConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
+    {
+        this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
         return this;
     }
 }

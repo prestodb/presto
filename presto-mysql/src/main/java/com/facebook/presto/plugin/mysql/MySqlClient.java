@@ -36,8 +36,8 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.Properties;
-import java.util.Set;
 
 import static com.facebook.presto.plugin.jdbc.DriverConnectionFactory.basicConnectionProperties;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
@@ -86,16 +86,15 @@ public class MySqlClient
     }
 
     @Override
-    public Set<String> getSchemaNames()
+    protected Collection<String> listSchemas(Connection connection)
     {
         // for MySQL, we need to list catalogs instead of schemas
-        try (Connection connection = connectionFactory.openConnection();
-                ResultSet resultSet = connection.getMetaData().getCatalogs()) {
+        try (ResultSet resultSet = connection.getMetaData().getCatalogs()) {
             ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
             while (resultSet.next()) {
-                String schemaName = resultSet.getString("TABLE_CAT").toLowerCase(ENGLISH);
+                String schemaName = resultSet.getString("TABLE_CAT");
                 // skip internal schemas
-                if (!schemaName.equals("information_schema") && !schemaName.equals("mysql")) {
+                if (!schemaName.equalsIgnoreCase("information_schema") && !schemaName.equalsIgnoreCase("mysql")) {
                     schemaNames.add(schemaName);
                 }
             }
