@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.mysql.TestingMySqlServer;
 import io.airlift.tpch.TpchTable;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -40,10 +41,22 @@ public final class MySqlQueryRunner
     public static QueryRunner createMySqlQueryRunner(TestingMySqlServer server, TpchTable<?>... tables)
             throws Exception
     {
-        return createMySqlQueryRunner(server, ImmutableList.copyOf(tables));
+        return createMySqlQueryRunner(server, ImmutableMap.of(), ImmutableList.copyOf(tables));
     }
 
-    public static QueryRunner createMySqlQueryRunner(TestingMySqlServer server, Iterable<TpchTable<?>> tables)
+    public static QueryRunner createMySqlQueryRunner(TestingMySqlServer server, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        try {
+            return createMySqlQueryRunner(server.getJdbcUrl(), connectorProperties, tables);
+        }
+        catch (Throwable e) {
+            closeAllSuppress(e, server);
+            throw e;
+        }
+    }
+
+    public static QueryRunner createMySqlQueryRunner(String jdbcUrl, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -53,20 +66,19 @@ public final class MySqlQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            Map<String, String> properties = ImmutableMap.<String, String>builder()
-                    .put("connection-url", server.getJdbcUrl())
-                    .put("allow-drop-table", "true")
-                    .build();
+            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
+            connectorProperties.putIfAbsent("connection-url", jdbcUrl);
+            connectorProperties.putIfAbsent("allow-drop-table", "true");
 
             queryRunner.installPlugin(new MySqlPlugin());
-            queryRunner.createCatalog("mysql", "mysql", properties);
+            queryRunner.createCatalog("mysql", "mysql", connectorProperties);
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
 
             return queryRunner;
         }
         catch (Throwable e) {
-            closeAllSuppress(e, queryRunner, server);
+            closeAllSuppress(e, queryRunner);
             throw e;
         }
     }

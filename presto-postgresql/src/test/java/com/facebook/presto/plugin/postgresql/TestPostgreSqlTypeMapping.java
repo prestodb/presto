@@ -24,6 +24,7 @@ import com.facebook.presto.tests.datatype.DataTypeTest;
 import com.facebook.presto.tests.sql.JdbcSqlExecutor;
 import com.facebook.presto.tests.sql.PrestoSqlExecutor;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.postgresql.TestingPostgreSqlServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -53,7 +54,6 @@ import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Collections.emptyList;
 
 @Test
 public class TestPostgreSqlTypeMapping
@@ -69,7 +69,7 @@ public class TestPostgreSqlTypeMapping
 
     private TestPostgreSqlTypeMapping(TestingPostgreSqlServer postgreSqlServer)
     {
-        super(() -> createPostgreSqlQueryRunner(postgreSqlServer, emptyList()));
+        super(() -> createPostgreSqlQueryRunner(postgreSqlServer, ImmutableMap.of(), ImmutableList.of()));
         this.postgreSqlServer = postgreSqlServer;
     }
 
