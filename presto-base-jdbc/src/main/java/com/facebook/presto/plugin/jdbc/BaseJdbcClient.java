@@ -28,6 +28,7 @@ import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -70,8 +71,10 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.sql.ResultSetMetaData.columnNullable;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
@@ -141,11 +144,8 @@ public class BaseJdbcClient
     public List<SchemaTableName> getTableNames(@Nullable String schema)
     {
         try (Connection connection = connectionFactory.openConnection()) {
-            DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers() && (schema != null)) {
-                schema = schema.toUpperCase(ENGLISH);
-            }
-            try (ResultSet resultSet = getTables(connection, schema, null)) {
+            String remoteSchema = toRemoteSchemaName(connection,schema);
+            try (ResultSet resultSet = getTables(connection, remoteSchema, null)) {
                 ImmutableList.Builder<SchemaTableName> list = ImmutableList.builder();
                 while (resultSet.next()) {
                     list.add(getSchemaTableName(resultSet));
@@ -163,14 +163,9 @@ public class BaseJdbcClient
     public JdbcTableHandle getTableHandle(SchemaTableName schemaTableName)
     {
         try (Connection connection = connectionFactory.openConnection()) {
-            DatabaseMetaData metadata = connection.getMetaData();
-            String jdbcSchemaName = schemaTableName.getSchemaName();
-            String jdbcTableName = schemaTableName.getTableName();
-            if (metadata.storesUpperCaseIdentifiers()) {
-                jdbcSchemaName = jdbcSchemaName.toUpperCase(ENGLISH);
-                jdbcTableName = jdbcTableName.toUpperCase(ENGLISH);
-            }
-            try (ResultSet resultSet = getTables(connection, jdbcSchemaName, jdbcTableName)) {
+            String remoteSchema = toRemoteSchemaName(connection, schemaTableName.getSchemaName());
+            String remoteTable = toRemoteTableName(connection, remoteSchema, schemaTableName.getTableName());
+            try (ResultSet resultSet = getTables(connection, remoteSchema, remoteTable)) {
                 List<JdbcTableHandle> tableHandles = new ArrayList<>();
                 while (resultSet.next()) {
                     tableHandles.add(new JdbcTableHandle(
@@ -312,26 +307,20 @@ public class BaseJdbcClient
             throws SQLException
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
-        String schema = schemaTableName.getSchemaName();
-        String table = schemaTableName.getTableName();
 
-        if (!getSchemaNames().contains(schema)) {
-            throw new PrestoException(NOT_FOUND, "Schema not found: " + schema);
+        if (!getSchemaNames().contains(schemaTableName.getSchemaName())) {
+            throw new PrestoException(NOT_FOUND, "Schema not found: " + schemaTableName.getSchemaName());
         }
 
         try (Connection connection = connectionFactory.openConnection()) {
             boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
+            String remoteSchema = toRemoteSchemaName(connection, schemaTableName.getSchemaName());
+            String remoteTable = toRemoteTableName(connection, remoteSchema, schemaTableName.getTableName());
             if (uppercase) {
-                schema = schema.toUpperCase(ENGLISH);
-                table = table.toUpperCase(ENGLISH);
                 tableName = tableName.toUpperCase(ENGLISH);
             }
             String catalog = connection.getCatalog();
 
-            StringBuilder sql = new StringBuilder()
-                    .append("CREATE TABLE ")
-                    .append(quoted(catalog, schema, tableName))
-                    .append(" (");
             ImmutableList.Builder<String> columnNames = ImmutableList.builder();
             ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
             ImmutableList.Builder<String> columnList = ImmutableList.builder();
@@ -344,16 +333,18 @@ public class BaseJdbcClient
                 columnTypes.add(column.getType());
                 columnList.add(getColumnString(column, columnName));
             }
-            Joiner.on(", ").appendTo(sql, columnList.build());
-            sql.append(")");
 
-            execute(connection, sql.toString());
+            String sql = format(
+                    "CREATE TABLE %s (%s)",
+                    quoted(catalog, remoteSchema, tableName),
+                    join(", ", columnList.build()));
+            execute(connection, sql);
 
             return new JdbcOutputTableHandle(
                     connectorId,
                     catalog,
-                    schema,
-                    table,
+                    remoteSchema,
+                    remoteTable,
                     columnNames.build(),
                     columnTypes.build(),
                     tableName);
@@ -568,6 +559,41 @@ public class BaseJdbcClient
         return new SchemaTableName(
                 resultSet.getString("TABLE_SCHEM").toLowerCase(ENGLISH),
                 resultSet.getString("TABLE_NAME").toLowerCase(ENGLISH));
+    }
+
+    protected String toRemoteSchemaName(Connection connection, String schemaName)
+    {
+        requireNonNull(schemaName, "schemaName is null");
+        verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(schemaName), "Expected schema name from internal metadata to be lowercase: %s", schemaName);
+
+        try {
+            DatabaseMetaData metadata = connection.getMetaData();
+            if (metadata.storesUpperCaseIdentifiers()) {
+                return schemaName.toUpperCase(ENGLISH);
+            }
+            return schemaName;
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    protected String toRemoteTableName(Connection connection, String remoteSchema, String tableName)
+    {
+        requireNonNull(remoteSchema, "remoteSchema is null");
+        requireNonNull(tableName, "tableName is null");
+        verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(tableName), "Expected table name from internal metadata to be lowercase: %s", tableName);
+
+        try {
+            DatabaseMetaData metadata = connection.getMetaData();
+            if (metadata.storesUpperCaseIdentifiers()) {
+                return tableName.toUpperCase(ENGLISH);
+            }
+            return tableName;
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
     }
 
     @Override
