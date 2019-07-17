@@ -16,6 +16,7 @@ package com.facebook.presto.plugin.mysql;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.mysql.MySqlOptions;
 import io.airlift.testing.mysql.TestingMySqlServer;
 import io.airlift.tpch.TpchTable;
@@ -47,7 +48,7 @@ public class TestMySqlDistributedQueries
 
     public TestMySqlDistributedQueries(TestingMySqlServer mysqlServer)
     {
-        super(() -> createMySqlQueryRunner(mysqlServer, TpchTable.getTables()));
+        super(() -> createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), TpchTable.getTables()));
         this.mysqlServer = mysqlServer;
     }
 

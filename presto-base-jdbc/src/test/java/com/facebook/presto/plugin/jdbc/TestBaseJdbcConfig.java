@@ -15,9 +15,13 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestBaseJdbcConfig
 {
@@ -27,7 +31,9 @@ public class TestBaseJdbcConfig
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(BaseJdbcConfig.class)
                 .setConnectionUrl(null)
                 .setConnectionUser(null)
-                .setConnectionPassword(null));
+                .setConnectionPassword(null)
+                .setCaseInsensitiveNameMatching(false)
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES)));
     }
 
     @Test
@@ -37,12 +43,16 @@ public class TestBaseJdbcConfig
                 .put("connection-url", "jdbc:h2:mem:config")
                 .put("connection-user", "user")
                 .put("connection-password", "password")
+                .put("case-insensitive-name-matching", "true")
+                .put("case-insensitive-name-matching.cache-ttl", "1s")
                 .build();
 
         BaseJdbcConfig expected = new BaseJdbcConfig()
                 .setConnectionUrl("jdbc:h2:mem:config")
                 .setConnectionUser("user")
-                .setConnectionPassword("password");
+                .setConnectionPassword("password")
+                .setCaseInsensitiveNameMatching(true)
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
