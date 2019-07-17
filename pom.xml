@@ -100,6 +100,7 @@
         <module>presto-tpcds</module>
         <module>presto-raptor</module>
         <module>presto-base-jdbc</module>
+        <module>presto-testing-docker</module>
         <module>presto-mysql</module>
         <module>presto-postgresql</module>
         <module>presto-redshift</module>
@@ -140,6 +141,12 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-testing-docker</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-spi</artifactId>
@@ -1131,6 +1138,18 @@
                 <groupId>org.javassist</groupId>
                 <artifactId>javassist</artifactId>
                 <version>3.22.0-GA</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.starburstdata</groupId>
+                <artifactId>starburst-spotify-docker-client</artifactId>
+                <version>8.11.7-0.6</version>
+            </dependency>
+
+            <dependency>
+                <groupId>net.jodah</groupId>
+                <artifactId>failsafe</artifactId>
+                <version>2.0.1</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
