@@ -35,12 +35,15 @@ import com.facebook.presto.operator.exchange.LocalPartitionGenerator;
 import com.facebook.presto.operator.repartition.OptimizedPartitionedOutputOperator.OptimizedPartitionedOutputFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.VariableWidthBlock;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
+import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
@@ -56,6 +59,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.block.BlockAssertions.Encoding.DICTIONARY;
 import static com.facebook.presto.block.BlockAssertions.Encoding.RUN_LENGTH;
@@ -578,6 +582,25 @@ public class TestOptimizedPartitionedOutputOperator
         testPartitioned(types, ImmutableList.of(page), new DataSize(1, KILOBYTE));
     }
 
+    @Test
+    public void testPageWithVariableWidthBlocksOfSliceViews()
+    {
+        Block[] blocks = new Block[2];
+
+        // PreComputed Hash Block
+        blocks[0] = createRandomLongsBlock(POSITION_COUNT, false);
+
+        // Create blocks whose base blocks are with increasing number of positions
+        blocks[1] = createVariableWidthBlockOverSliceView(POSITION_COUNT);
+
+        Page page = new Page(blocks);
+
+        List<Type> types = ImmutableList.of(BIGINT, VARCHAR);
+
+        testPartitioned(types, ImmutableList.of(page), new DataSize(128, MEGABYTE));
+        testPartitioned(types, ImmutableList.of(page), new DataSize(1, KILOBYTE));
+    }
+
     private void testPartitionedSinglePage(List<Type> targetTypes)
     {
         List<Type> types = updateBlockTypesWithHashBlockAndNullBlock(targetTypes, true, false);
@@ -793,6 +816,19 @@ public class TestOptimizedPartitionedOutputOperator
                 dataSize,
                 () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 SCHEDULER);
+    }
+
+    private static Block createVariableWidthBlockOverSliceView(int entries)
+    {
+        // Create a slice view whose address starts in the middle of the original slice, and length is half of original slice
+        DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(entries * 2);
+        for (int i = 0; i < entries * 2; i++) {
+            dynamicSliceOutput.writeByte(i);
+        }
+        Slice slice = dynamicSliceOutput.slice().slice(entries, entries);
+
+        int[] offsets = IntStream.range(0, entries + 1).toArray();
+        return new VariableWidthBlock(entries, slice, offsets, Optional.empty());
     }
 
     private static class TestingPartitionedOutputBuffer
