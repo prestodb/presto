@@ -206,7 +206,7 @@ public class EffectivePredicateExtractor
         public Expression visitTableScan(TableScanNode node, Void context)
         {
             Map<ColumnHandle, VariableReferenceExpression> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
-            return domainTranslator.toPredicate(node.getCurrentConstraint().simplify().transform(column -> assignments.containsKey(column) ? new Symbol(assignments.get(column).getName()) : null));
+            return domainTranslator.toPredicate(node.getCurrentConstraint().simplify().transform(column -> assignments.containsKey(column) ? assignments.get(column).getName() : null));
         }
 
         @Override

@@ -41,7 +41,6 @@ import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.LookupSymbolResolver;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -328,7 +327,7 @@ public class PickTableLayout
                 types);
 
         TupleDomain<ColumnHandle> newDomain = decomposedPredicate.getTupleDomain()
-                .transform(symbol -> node.getAssignments().entrySet().stream().collect(toImmutableMap(entry -> new Symbol(entry.getKey().getName()), Map.Entry::getValue)).get(symbol))
+                .transform(variableName -> node.getAssignments().entrySet().stream().collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue)).get(variableName))
                 .intersect(node.getEnforcedConstraint());
 
         Map<ColumnHandle, VariableReferenceExpression> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
@@ -345,7 +344,7 @@ public class PickTableLayout
                             deterministicPredicate,
                             // Simplify the tuple domain to avoid creating an expression with too many nodes,
                             // which would be expensive to evaluate in the call to isCandidate below.
-                            domainTranslator.toPredicate(newDomain.simplify().transform(column -> assignments.containsKey(column) ? new Symbol(assignments.get(column).getName()) : null))));
+                            domainTranslator.toPredicate(newDomain.simplify().transform(column -> assignments.containsKey(column) ? assignments.get(column).getName() : null))));
             constraint = new Constraint<>(newDomain, evaluator::isCandidate);
         }
         else {
@@ -387,7 +386,7 @@ public class PickTableLayout
         //   and non-TupleDomain-expressible expressions should be retained. Changing the order can lead
         //   to failures of previously successful queries.
         Expression resultingPredicate = combineConjuncts(
-                domainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(column -> new Symbol(assignments.get(column).getName()))),
+                domainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(column -> assignments.get(column).getName())),
                 filterNonDeterministicConjuncts(predicate),
                 decomposedPredicate.getRemainingExpression());
 

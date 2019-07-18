@@ -25,7 +25,6 @@ import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
 import com.facebook.presto.orc.TupleDomainFilter.LongDecimalRange;
 import com.facebook.presto.orc.TupleDomainFilter.MultiRange;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
@@ -328,15 +327,10 @@ public class TestTupleDomainFilterUtils
 
     private TupleDomainFilter toFilter(Expression expression)
     {
-        Optional<Map<Symbol, Domain>> domains = fromPredicate(expression).getTupleDomain().getDomains();
+        Optional<Map<String, Domain>> domains = fromPredicate(expression).getTupleDomain().getDomains();
         assertTrue(domains.isPresent());
         Domain domain = Iterables.getOnlyElement(domains.get().values());
         return TupleDomainFilterUtils.toFilter(domain);
-    }
-
-    private TupleDomainOrcPredicate.ColumnReference columnReference(ColumnHandle column, Type type)
-    {
-        return new TupleDomainOrcPredicate.ColumnReference<>(column, 0, type);
     }
 
     private ExpressionDomainTranslator.ExtractionResult fromPredicate(Expression originalPredicate)

@@ -96,16 +96,16 @@ public final class ExpressionDomainTranslator
         this.literalEncoder = requireNonNull(literalEncoder, "literalEncoder is null");
     }
 
-    public Expression toPredicate(TupleDomain<Symbol> tupleDomain)
+    public Expression toPredicate(TupleDomain<String> tupleDomain)
     {
         if (tupleDomain.isNone()) {
             return FALSE_LITERAL;
         }
 
-        Map<Symbol, Domain> domains = tupleDomain.getDomains().get();
+        Map<String, Domain> domains = tupleDomain.getDomains().get();
         return domains.entrySet().stream()
-                .sorted(comparing(entry -> entry.getKey().getName()))
-                .map(entry -> toPredicate(entry.getValue(), entry.getKey().toSymbolReference()))
+                .sorted(comparing(entry -> entry.getKey()))
+                .map(entry -> toPredicate(entry.getValue(), new SymbolReference(entry.getKey())))
                 .collect(collectingAndThen(toImmutableList(), ExpressionUtils::combineConjuncts));
     }
 
@@ -336,8 +336,8 @@ public final class ExpressionDomainTranslator
             ExtractionResult leftResult = process(node.getLeft(), complement);
             ExtractionResult rightResult = process(node.getRight(), complement);
 
-            TupleDomain<Symbol> leftTupleDomain = leftResult.getTupleDomain();
-            TupleDomain<Symbol> rightTupleDomain = rightResult.getTupleDomain();
+            TupleDomain<String> leftTupleDomain = leftResult.getTupleDomain();
+            TupleDomain<String> rightTupleDomain = rightResult.getTupleDomain();
 
             LogicalBinaryExpression.Operator operator = complement ? node.getOperator().flip() : node.getOperator();
             switch (operator) {
@@ -347,7 +347,7 @@ public final class ExpressionDomainTranslator
                             combineConjuncts(leftResult.getRemainingExpression(), rightResult.getRemainingExpression()));
 
                 case OR:
-                    TupleDomain<Symbol> columnUnionedTupleDomain = TupleDomain.columnWiseUnion(leftTupleDomain, rightTupleDomain);
+                    TupleDomain<String> columnUnionedTupleDomain = TupleDomain.columnWiseUnion(leftTupleDomain, rightTupleDomain);
 
                     // In most cases, the columnUnionedTupleDomain is only a superset of the actual strict union
                     // and so we can return the current node as the remainingExpression so that all bounds will be double checked again at execution time.
@@ -398,10 +398,10 @@ public final class ExpressionDomainTranslator
 
             Expression symbolExpression = normalized.getSymbolExpression();
             if (symbolExpression instanceof SymbolReference) {
-                Symbol symbol = Symbol.from(symbolExpression);
+                String symbolName = ((SymbolReference) symbolExpression).getName();
                 NullableValue value = normalized.getValue();
                 Type type = value.getType(); // common type for symbol and value
-                return createComparisonExtractionResult(normalized.getComparisonOperator(), symbol, type, value.getValue(), complement);
+                return createComparisonExtractionResult(normalized.getComparisonOperator(), symbolName, type, value.getValue(), complement);
             }
             else if (symbolExpression instanceof Cast) {
                 Cast castExpression = (Cast) symbolExpression;
@@ -495,7 +495,7 @@ public final class ExpressionDomainTranslator
             return ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyList(), WarningCollector.NOOP);
         }
 
-        private static ExtractionResult createComparisonExtractionResult(ComparisonExpression.Operator comparisonOperator, Symbol column, Type type, @Nullable Object value, boolean complement)
+        private static ExtractionResult createComparisonExtractionResult(ComparisonExpression.Operator comparisonOperator, String column, Type type, @Nullable Object value, boolean complement)
         {
             if (value == null) {
                 switch (comparisonOperator) {
@@ -723,7 +723,7 @@ public final class ExpressionDomainTranslator
             Type columnType = checkedTypeLookup(node.getValue());
             Domain domain = complementIfNecessary(Domain.onlyNull(columnType), complement);
             return new ExtractionResult(
-                    TupleDomain.withColumnDomains(ImmutableMap.of(Symbol.from(node.getValue()), domain)),
+                    TupleDomain.withColumnDomains(ImmutableMap.of(((SymbolReference) node.getValue()).getName(), domain)),
                     TRUE_LITERAL);
         }
 
@@ -738,7 +738,7 @@ public final class ExpressionDomainTranslator
 
             Domain domain = complementIfNecessary(Domain.notNull(columnType), complement);
             return new ExtractionResult(
-                    TupleDomain.withColumnDomains(ImmutableMap.of(Symbol.from(node.getValue()), domain)),
+                    TupleDomain.withColumnDomains(ImmutableMap.of(((SymbolReference) node.getValue()).getName(), domain)),
                     TRUE_LITERAL);
         }
 
@@ -793,16 +793,16 @@ public final class ExpressionDomainTranslator
 
     public static class ExtractionResult
     {
-        private final TupleDomain<Symbol> tupleDomain;
+        private final TupleDomain<String> tupleDomain;
         private final Expression remainingExpression;
 
-        public ExtractionResult(TupleDomain<Symbol> tupleDomain, Expression remainingExpression)
+        public ExtractionResult(TupleDomain<String> tupleDomain, Expression remainingExpression)
         {
             this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
             this.remainingExpression = requireNonNull(remainingExpression, "remainingExpression is null");
         }
 
-        public TupleDomain<Symbol> getTupleDomain()
+        public TupleDomain<String> getTupleDomain()
         {
             return tupleDomain;
         }

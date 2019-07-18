@@ -28,7 +28,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
@@ -289,7 +288,7 @@ public class IndexJoinOptimizer
                     variableAllocator.getTypes());
 
             TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain()
-                    .transform(symbol -> node.getAssignments().entrySet().stream().collect(toImmutableMap(entry -> new Symbol(entry.getKey().getName()), Map.Entry::getValue)).get(symbol))
+                    .transform(variableName -> node.getAssignments().entrySet().stream().collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue)).get(variableName))
                     .intersect(node.getEnforcedConstraint());
 
             checkState(node.getOutputVariables().containsAll(context.getLookupVariables()));
@@ -307,8 +306,8 @@ public class IndexJoinOptimizer
             }
             ResolvedIndex resolvedIndex = optionalResolvedIndex.get();
 
-            Map<ColumnHandle, Symbol> inverseAssignments = node.getAssignments().entrySet().stream()
-                    .collect(toImmutableMap(Map.Entry::getValue, entry -> new Symbol(entry.getKey().getName())));
+            Map<ColumnHandle, String> inverseAssignments = node.getAssignments().entrySet().stream()
+                    .collect(toImmutableMap(Map.Entry::getValue, entry -> entry.getKey().getName()));
 
             PlanNode source = new IndexSourceNode(
                     idAllocator.getNextId(),
