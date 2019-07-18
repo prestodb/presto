@@ -171,6 +171,7 @@ public class RowExpressionInterpreter
             // constant folding
             return result;
         }
+        // TODO deprecate ExpressionOptimizer since it overlaps with RowExpressionInterpreter and is less efficient.
         return new ExpressionOptimizer(metadata.getFunctionManager(), session).optimize((RowExpression) result);
     }
 

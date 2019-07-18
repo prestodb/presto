@@ -56,6 +56,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+@Deprecated
 public class ExpressionOptimizer
 {
     private final FunctionManager functionManager;
@@ -66,7 +67,8 @@ public class ExpressionOptimizer
         this.functionManager = functionManager;
         this.session = session;
     }
-
+    
+    // TODO replace ExpressionOptimizer with RowExpressionInterpreter
     public RowExpression optimize(RowExpression expression)
     {
         return expression.accept(new Visitor(), null);
