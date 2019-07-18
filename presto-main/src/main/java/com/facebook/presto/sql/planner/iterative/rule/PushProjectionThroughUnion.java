@@ -21,7 +21,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.ExpressionVariableInliner;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -91,10 +90,5 @@ public class PushProjectionThroughUnion
         }
 
         return Result.ofPlanNode(new UnionNode(parent.getId(), outputSources.build(), mappings.build()));
-    }
-
-    private static VariableReferenceExpression getWithMatchingSymbol(Map<VariableReferenceExpression, VariableReferenceExpression> variableMapping, Symbol symbol)
-    {
-        return variableMapping.entrySet().stream().filter(entry -> entry.getKey().getName().equals(symbol.getName())).findAny().map(Map.Entry::getValue).get();
     }
 }
