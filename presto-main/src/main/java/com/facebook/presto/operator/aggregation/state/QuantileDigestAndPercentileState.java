@@ -17,17 +17,19 @@ import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 import io.airlift.stats.QuantileDigest;
 
-@AccumulatorStateMetadata(stateSerializerClass = DigestAndPercentileStateSerializer.class, stateFactoryClass = DigestAndPercentileStateFactory.class)
-public interface DigestAndPercentileState
+import java.util.List;
+
+@AccumulatorStateMetadata(stateSerializerClass = QuantileDigestAndPercentileStateSerializer.class, stateFactoryClass = QuantileDigestAndPercentileStateFactory.class)
+public interface QuantileDigestAndPercentileState
         extends AccumulatorState
 {
     QuantileDigest getDigest();
 
     void setDigest(QuantileDigest digest);
 
-    double getPercentile();
+    void setPercentiles(List<Double> percentiles);
 
-    void setPercentile(double percentile);
+    List<Double> getPercentiles();
 
     void addMemoryUsage(int value);
 }

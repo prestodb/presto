@@ -30,8 +30,8 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 
-public class DigestAndPercentileArrayStateSerializer
-        implements AccumulatorStateSerializer<DigestAndPercentileArrayState>
+public class QuantileDigestAndPercentileStateSerializer
+        implements AccumulatorStateSerializer<QuantileDigestAndPercentileState>
 {
     @Override
     public Type getSerializedType()
@@ -40,7 +40,7 @@ public class DigestAndPercentileArrayStateSerializer
     }
 
     @Override
-    public void serialize(DigestAndPercentileArrayState state, BlockBuilder out)
+    public void serialize(QuantileDigestAndPercentileState state, BlockBuilder out)
     {
         if (state.getDigest() == null) {
             out.appendNull();
@@ -70,7 +70,7 @@ public class DigestAndPercentileArrayStateSerializer
     }
 
     @Override
-    public void deserialize(Block block, int index, DigestAndPercentileArrayState state)
+    public void deserialize(Block block, int index, QuantileDigestAndPercentileState state)
     {
         SliceInput input = VARBINARY.getSlice(block, index).getInput();
 

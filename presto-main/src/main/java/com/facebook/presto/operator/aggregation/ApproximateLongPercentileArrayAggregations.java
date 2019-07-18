@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.DigestAndPercentileArrayState;
+import com.facebook.presto.operator.aggregation.state.QuantileDigestAndPercentileState;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
@@ -36,13 +36,15 @@ import static com.facebook.presto.util.Failures.checkCondition;
 @AggregationFunction("approx_percentile")
 public final class ApproximateLongPercentileArrayAggregations
 {
+    private static final double STANDARD_ERROR = 0.01;
+
     private ApproximateLongPercentileArrayAggregations() {}
 
     @InputFunction
-    public static void input(@AggregationState DigestAndPercentileArrayState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType("array(double)") Block percentilesArrayBlock)
+    public static void input(@AggregationState QuantileDigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType("array(double)") Block percentilesArrayBlock)
     {
         initializePercentilesArray(state, percentilesArrayBlock);
-        initializeDigest(state);
+        initializeDigest(state, STANDARD_ERROR);
 
         QuantileDigest digest = state.getDigest();
         state.addMemoryUsage(-digest.estimatedInMemorySizeInBytes());
@@ -51,10 +53,10 @@ public final class ApproximateLongPercentileArrayAggregations
     }
 
     @InputFunction
-    public static void weightedInput(@AggregationState DigestAndPercentileArrayState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType("array(double)") Block percentilesArrayBlock)
+    public static void weightedInput(@AggregationState QuantileDigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType("array(double)") Block percentilesArrayBlock)
     {
         initializePercentilesArray(state, percentilesArrayBlock);
-        initializeDigest(state);
+        initializeDigest(state, STANDARD_ERROR);
 
         QuantileDigest digest = state.getDigest();
         state.addMemoryUsage(-digest.estimatedInMemorySizeInBytes());
@@ -63,7 +65,7 @@ public final class ApproximateLongPercentileArrayAggregations
     }
 
     @CombineFunction
-    public static void combine(@AggregationState DigestAndPercentileArrayState state, DigestAndPercentileArrayState otherState)
+    public static void combine(@AggregationState QuantileDigestAndPercentileState state, QuantileDigestAndPercentileState otherState)
     {
         QuantileDigest otherDigest = otherState.getDigest();
         QuantileDigest digest = state.getDigest();
@@ -82,7 +84,7 @@ public final class ApproximateLongPercentileArrayAggregations
     }
 
     @OutputFunction("array(bigint)")
-    public static void output(@AggregationState DigestAndPercentileArrayState state, BlockBuilder out)
+    public static void output(@AggregationState QuantileDigestAndPercentileState state, BlockBuilder out)
     {
         QuantileDigest digest = state.getDigest();
         List<Double> percentiles = state.getPercentiles();
@@ -102,7 +104,7 @@ public final class ApproximateLongPercentileArrayAggregations
         out.closeEntry();
     }
 
-    private static void initializePercentilesArray(@AggregationState DigestAndPercentileArrayState state, Block percentilesArrayBlock)
+    static void initializePercentilesArray(@AggregationState QuantileDigestAndPercentileState state, Block percentilesArrayBlock)
     {
         if (state.getPercentiles() == null) {
             ImmutableList.Builder<Double> percentilesListBuilder = ImmutableList.builder();
@@ -118,11 +120,11 @@ public final class ApproximateLongPercentileArrayAggregations
         }
     }
 
-    private static void initializeDigest(@AggregationState DigestAndPercentileArrayState state)
+    static void initializeDigest(@AggregationState QuantileDigestAndPercentileState state, double maxError)
     {
         QuantileDigest digest = state.getDigest();
         if (digest == null) {
-            digest = new QuantileDigest(0.01);
+            digest = new QuantileDigest(maxError);
             state.setDigest(digest);
             state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
         }

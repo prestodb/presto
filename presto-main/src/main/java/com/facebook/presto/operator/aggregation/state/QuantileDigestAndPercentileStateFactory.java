@@ -23,38 +23,38 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public class DigestAndPercentileArrayStateFactory
-        implements AccumulatorStateFactory<DigestAndPercentileArrayState>
+public class QuantileDigestAndPercentileStateFactory
+        implements AccumulatorStateFactory<QuantileDigestAndPercentileState>
 {
     @Override
-    public DigestAndPercentileArrayState createSingleState()
+    public QuantileDigestAndPercentileState createSingleState()
     {
-        return new SingleDigestAndPercentileArrayState();
+        return new SingleQuantileDigestAndPercentileState();
     }
 
     @Override
-    public Class<? extends DigestAndPercentileArrayState> getSingleStateClass()
+    public Class<? extends QuantileDigestAndPercentileState> getSingleStateClass()
     {
-        return SingleDigestAndPercentileArrayState.class;
+        return SingleQuantileDigestAndPercentileState.class;
     }
 
     @Override
-    public DigestAndPercentileArrayState createGroupedState()
+    public QuantileDigestAndPercentileState createGroupedState()
     {
-        return new GroupedDigestAndPercentileArrayState();
+        return new GroupedQuantileDigestAndPercentileState();
     }
 
     @Override
-    public Class<? extends DigestAndPercentileArrayState> getGroupedStateClass()
+    public Class<? extends QuantileDigestAndPercentileState> getGroupedStateClass()
     {
-        return GroupedDigestAndPercentileArrayState.class;
+        return GroupedQuantileDigestAndPercentileState.class;
     }
 
-    public static class GroupedDigestAndPercentileArrayState
+    public static class GroupedQuantileDigestAndPercentileState
             extends AbstractGroupedAccumulatorState
-            implements DigestAndPercentileArrayState
+            implements QuantileDigestAndPercentileState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedDigestAndPercentileArrayState.class).instanceSize();
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedQuantileDigestAndPercentileState.class).instanceSize();
         private final ObjectBigArray<QuantileDigest> digests = new ObjectBigArray<>();
         private final ObjectBigArray<List<Double>> percentilesArray = new ObjectBigArray<>();
         private long size;
@@ -103,10 +103,10 @@ public class DigestAndPercentileArrayStateFactory
         }
     }
 
-    public static class SingleDigestAndPercentileArrayState
-            implements DigestAndPercentileArrayState
+    public static class SingleQuantileDigestAndPercentileState
+            implements QuantileDigestAndPercentileState
     {
-        public static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleDigestAndPercentileArrayState.class).instanceSize();
+        public static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleQuantileDigestAndPercentileState.class).instanceSize();
         private QuantileDigest digest;
         private List<Double> percentiles;
 

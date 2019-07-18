@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.DigestAndPercentileArrayState;
+import com.facebook.presto.operator.aggregation.state.QuantileDigestAndPercentileState;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
@@ -37,25 +37,25 @@ public final class ApproximateDoublePercentileArrayAggregations
     private ApproximateDoublePercentileArrayAggregations() {}
 
     @InputFunction
-    public static void input(@AggregationState DigestAndPercentileArrayState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType("array(double)") Block percentilesArrayBlock)
+    public static void input(@AggregationState QuantileDigestAndPercentileState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType("array(double)") Block percentilesArrayBlock)
     {
         ApproximateLongPercentileArrayAggregations.input(state, doubleToSortableLong(value), percentilesArrayBlock);
     }
 
     @InputFunction
-    public static void weightedInput(@AggregationState DigestAndPercentileArrayState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType("array(double)") Block percentilesArrayBlock)
+    public static void weightedInput(@AggregationState QuantileDigestAndPercentileState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType("array(double)") Block percentilesArrayBlock)
     {
         ApproximateLongPercentileArrayAggregations.weightedInput(state, doubleToSortableLong(value), weight, percentilesArrayBlock);
     }
 
     @CombineFunction
-    public static void combine(@AggregationState DigestAndPercentileArrayState state, DigestAndPercentileArrayState otherState)
+    public static void combine(@AggregationState QuantileDigestAndPercentileState state, QuantileDigestAndPercentileState otherState)
     {
         ApproximateLongPercentileArrayAggregations.combine(state, otherState);
     }
 
     @OutputFunction("array(double)")
-    public static void output(@AggregationState DigestAndPercentileArrayState state, BlockBuilder out)
+    public static void output(@AggregationState QuantileDigestAndPercentileState state, BlockBuilder out)
     {
         QuantileDigest digest = state.getDigest();
         List<Double> percentiles = state.getPercentiles();
