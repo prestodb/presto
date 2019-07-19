@@ -107,7 +107,7 @@ public final class Partitioning
             return false;
         }
 
-        return arguments.equals(right.arguments);
+        return right.arguments.containsAll(arguments);
     }
 
     @Deprecated
@@ -148,7 +148,7 @@ public final class Partitioning
             return false;
         }
 
-        return arguments.equals(right.arguments);
+        return right.arguments.containsAll(arguments);
     }
 
     //  Refined-over relation is reflexive.

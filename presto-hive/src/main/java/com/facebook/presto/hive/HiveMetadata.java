@@ -1936,7 +1936,7 @@ public class HiveMetadata
         HivePartitioningHandle leftHandle = (HivePartitioningHandle) left;
         HivePartitioningHandle rightHandle = (HivePartitioningHandle) right;
 
-        if (!leftHandle.getHiveTypes().equals(rightHandle.getHiveTypes())) {
+        if (!rightHandle.getHiveTypes().containsAll(leftHandle.getHiveTypes())) {
             return Optional.empty();
         }
         if (leftHandle.getBucketCount() == rightHandle.getBucketCount()) {
@@ -1976,7 +1976,7 @@ public class HiveMetadata
         HivePartitioningHandle leftHandle = (HivePartitioningHandle) left;
         HivePartitioningHandle rightHandle = (HivePartitioningHandle) right;
 
-        if (!leftHandle.getHiveTypes().equals(rightHandle.getHiveTypes())) {
+        if (!rightHandle.getHiveTypes().containsAll(leftHandle.getHiveTypes())) {
             return false;
         }
 
