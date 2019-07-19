@@ -236,6 +236,49 @@ public class TDigest
         }
     }
 
+    /**
+     * Get the approx truncated mean from the digest.
+     * The mean is computed as a weighted average of values between the upper and lower quantiles (inclusive)
+     * When the rank of a quantile is non-integer, a portion of the nearest rank's value is included in the mean
+     * according to its fraction within the quantile bound.
+     * <p>
+     */
+    public double getTruncatedMean(double lowerQuantile, double upperQuantile)
+    {
+        double sum = 0;
+        double count = 0;
+        double mean = 0;
+
+        compress();
+
+        checkArgument(totalWeight != 0, "t-digest is empty");
+        checkArgument(lowerQuantile < upperQuantile, "lower quantile must be strictly less than upper quantile");
+
+        double lowerRank = lowerQuantile * totalWeight;
+        double upperRank = upperQuantile * totalWeight;
+
+        for (int i = 0; i < activeCentroids; i++) {
+            double centroidWeight = weight[i];
+            sum += centroidWeight;
+
+            double amountOverLower = Math.max(sum - lowerRank, 0);
+            double amountOverUpper = Math.max(sum - upperRank, 0);
+
+            centroidWeight = Math.max(0, Math.min(Math.min(centroidWeight, amountOverLower), centroidWeight - amountOverUpper));
+
+            if (amountOverLower > 0) {
+                mean = weightedAverage(mean, count, this.mean[i], centroidWeight);
+                count += centroidWeight;
+            }
+
+            if (amountOverUpper > 0 || sum == totalWeight) {
+                break;
+            }
+        }
+
+        return mean;
+    }
+
     private void mergeNewValues()
     {
         mergeNewValues(false, compression);

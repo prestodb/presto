@@ -42,8 +42,10 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TDigestParametricType.TDIGEST;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static java.lang.String.format;
 
 public final class TDigestUtils
@@ -79,6 +81,13 @@ public final class TDigestUtils
             }
         }
         return false;
+    }
+
+    public static void validateQuantileRange(double lowerQuantile, double upperQuantile)
+    {
+        checkCondition(0 <= lowerQuantile && lowerQuantile <= 1, INVALID_FUNCTION_ARGUMENT, "lowerQuantile must be between 0 and 1");
+        checkCondition(0 <= upperQuantile && upperQuantile <= 1, INVALID_FUNCTION_ARGUMENT, "upperQuantile must be between 0 and 1");
+        checkCondition(lowerQuantile < upperQuantile, INVALID_FUNCTION_ARGUMENT, "lowerQuantile must be strictly less than upperQuantile");
     }
 
     // Scale Functions

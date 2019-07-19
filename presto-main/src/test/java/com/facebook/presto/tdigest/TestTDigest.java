@@ -31,6 +31,7 @@
 
 package com.facebook.presto.tdigest;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.apache.commons.math3.distribution.GeometricDistribution;
 import org.apache.commons.math3.distribution.NormalDistribution;
@@ -44,6 +45,8 @@ import java.util.List;
 import static com.facebook.presto.tdigest.TDigest.createTDigest;
 import static java.lang.String.format;
 import static java.util.Collections.sort;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestTDigest
@@ -315,6 +318,57 @@ public class TestTDigest
             for (int i = 0; i < quantile.length; i++) {
                 assertDiscreteWithinBound(quantile[i], STANDARD_ERROR, list, tDigest);
             }
+        }
+    }
+
+    @Test
+    public void testTruncatedMeanDoublesShortList()
+    {
+        List<Double> vals = ImmutableList.of(0.2, 0.8, 1.4, 2.0, 2.6);
+        assertTruncatedMeanDoubles(vals, 0.0, 1.0, 1.4);
+        assertTruncatedMeanDoubles(vals, 0.6, 1.0, 2.3);
+        assertTruncatedMeanDoubles(vals, 0.0, 0.4, 0.5);
+        assertTruncatedMeanDoubles(vals, 0.0, 0.1, 0.2);
+    }
+
+    @Test
+    public void testTruncatedMeanDoublesSkew()
+    {
+        List<Double> vals = ImmutableList.of(0.2, 0.2, 0.2, 0.2, 0.2, 5.0, 10.5, 50.5, 99.5, 9999.5);
+        assertTruncatedMeanDoubles(vals, 0.0, 0.6, 6.0 / 6);
+        assertTruncatedMeanDoubles(vals, 0.0, 0.8, 67.0 / 8);
+        assertTruncatedMeanDoubles(vals, 0.0, 0.9, 166.5 / 9);
+        assertTruncatedMeanDoubles(vals, 0.0, 1.0, 10166.0 / 10);
+        assertTruncatedMeanDoubles(vals, 0.5, 1.0, 10165.0 / 5);
+    }
+
+    @Test
+    public void testTruncatedMeanDoublesSigned()
+    {
+        List<Double> vals = ImmutableList.of(-2.5, -0.5, 0.0, 0.5, 2.5);
+        assertTruncatedMeanDoubles(vals, 0.0, 0.6, -1.0);
+        assertTruncatedMeanDoubles(vals, 0.2, 0.8, 0.0);
+        assertTruncatedMeanDoubles(vals, 0.4, 1.0, 1.0);
+    }
+
+    private void assertTruncatedMeanDoubles(List<Double> vals, double lowerQuantile, double upperQuantile, Double expected)
+    {
+        List<Long> weights = Collections.nCopies(vals.size(), 1L);
+        assertTruncatedMean(vals, weights, lowerQuantile, upperQuantile, expected);
+    }
+
+    private void assertTruncatedMean(List<Double> vals, List<Long> weights, double lowerQuantile, double upperQuantile, Double expected)
+    {
+        TDigest t = createTDigest(100);
+        for (int i = 0; i < vals.size(); i++) {
+            t.add(vals.get(i), weights.get(i));
+        }
+        Double mean = t.getTruncatedMean(lowerQuantile, upperQuantile);
+        if (expected == null) {
+            assertNull(mean);
+        }
+        else {
+            assertEquals(mean, expected, 1e-6);
         }
     }
 
