@@ -114,15 +114,19 @@ public class ElasticsearchQueryBuilder
     public SearchRequest buildScrollSearchRequest()
     {
         String indices = index != null && !index.isEmpty() ? index : "_all";
-        SliceBuilder sliceBuilder = new SliceBuilder(shard, shards);
         List<String> fields = columns.stream()
                 .map(ElasticsearchColumnHandle::getColumnName)
                 .collect(toList());
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
                 .size(scrollSize)
-                .slice(sliceBuilder)
                 .fetchSource(fields.toArray(new String[0]), new String[0])
                 .query(buildSearchQuery());
+
+        if (shards > 1) {
+            SliceBuilder sliceBuilder = new SliceBuilder(shard, shards);
+            searchSourceBuilder = searchSourceBuilder.slice(sliceBuilder);
+        }
+
         SearchRequest scrollRequest = new SearchRequest(indices)
                 .source(searchSourceBuilder)
                 .scroll(new TimeValue(scrollTimeout.toMillis()));
