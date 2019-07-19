@@ -22,6 +22,7 @@ import java.util.Set;
 /**
  * Extracts and returns the set of all expression subtrees within an Expression, including Expression itself
  */
+@Deprecated
 public final class SubExpressionExtractor
 {
     private SubExpressionExtractor() {}
