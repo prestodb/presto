@@ -26,9 +26,11 @@ import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -88,6 +90,16 @@ public final class Expressions
     public static SpecialFormExpression specialForm(Form form, Type returnType, List<RowExpression> arguments)
     {
         return new SpecialFormExpression(form, returnType, arguments);
+    }
+
+    public static Set<RowExpression> uniqueSubExpressions(RowExpression expression)
+    {
+        return ImmutableSet.copyOf(subExpressions(ImmutableList.of(expression)));
+    }
+
+    public static List<RowExpression> subExpressions(RowExpression expression)
+    {
+        return subExpressions(ImmutableList.of(expression));
     }
 
     public static List<RowExpression> subExpressions(Iterable<RowExpression> expressions)
