@@ -20,6 +20,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
@@ -60,6 +61,11 @@ public class TestingRowExpressionTranslator
     public RowExpression translateAndOptimize(Expression expression, TypeProvider typeProvider)
     {
         return translateAndOptimize(expression, getExpressionTypes(expression, typeProvider));
+    }
+
+    public RowExpression translate(String sql, Map<String, Type> types)
+    {
+        return translate(ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql)), TypeProvider.viewOf(types));
     }
 
     public RowExpression translate(Expression expression, TypeProvider typeProvider)
