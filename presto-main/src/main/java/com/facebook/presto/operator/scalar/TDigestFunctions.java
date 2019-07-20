@@ -17,6 +17,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.tdigest.TDigest;
@@ -24,11 +25,11 @@ import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.tdigest.TDigest.createTDigest;
+import static com.facebook.presto.tdigest.TDigestUtils.validateQuantileRange;
 
 public final class TDigestFunctions
 {
     public static final double DEFAULT_COMPRESSION = 100;
-    public static final long DEFAULT_WEIGHT = 1L;
 
     private TDigestFunctions() {}
 
@@ -72,5 +73,19 @@ public final class TDigestFunctions
             DOUBLE.writeDouble(output, tDigest.getCdf(DOUBLE.getDouble(valuesArrayBlock, i)));
         }
         return output.build();
+    }
+
+    @SqlNullable
+    @ScalarFunction(value = "truncated_mean", hidden = true)
+    @Description("The approx arithmetic mean, estimated from tdigest, of values in the quantile range bounded by lowerQuantile and upperQuantile.")
+    @SqlType(StandardTypes.DOUBLE)
+    public static Double truncatedMeanDouble(
+            @SqlType("tdigest(double)") Slice input,
+            @SqlType(StandardTypes.DOUBLE) double lowerQuantile,
+            @SqlType(StandardTypes.DOUBLE) double upperQuantile)
+    {
+        validateQuantileRange(lowerQuantile, upperQuantile);
+        TDigest digest = createTDigest(input);
+        return digest.getTruncatedMean(lowerQuantile, upperQuantile);
     }
 }

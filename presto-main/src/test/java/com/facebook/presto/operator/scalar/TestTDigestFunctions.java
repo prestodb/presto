@@ -15,8 +15,10 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.type.SqlVarbinary;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.tdigest.TDigest;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.apache.commons.math3.distribution.GeometricDistribution;
 import org.apache.commons.math3.distribution.NormalDistribution;
@@ -27,6 +29,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 
 import static com.facebook.presto.Session.builder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -35,6 +39,9 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.tdigest.TDigest.createTDigest;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.Double.NaN;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Collections.sort;
 
@@ -46,6 +53,14 @@ public class TestTDigestFunctions
     private static final double STANDARD_ERROR = 0.01;
     private static final double[] quantiles = {0.0001, 0.0200, 0.0300, 0.04000, 0.0500, 0.1000, 0.2000, 0.3000, 0.4000, 0.5000, 0.6000, 0.7000, 0.8000,
             0.9000, 0.9500, 0.9600, 0.9700, 0.9800, 0.9999};
+    private static final List<List<Double>> quantileBoundPairs = ImmutableList.of(
+            ImmutableList.of(0.4, 0.6),
+            ImmutableList.of(0.0, 0.95),
+            ImmutableList.of(0.0, 0.1),
+            ImmutableList.of(0.2, 0.3),
+            ImmutableList.of(0.01, 0.05),
+            ImmutableList.of(0.95, 0.99),
+            ImmutableList.of(0.1, 0.9));
 
     private static final Joiner ARRAY_JOINER = Joiner.on(",");
     private static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
@@ -99,6 +114,15 @@ public class TestTDigestFunctions
     {
         functionAssertions.assertFunction(format("value_at_quantile(CAST(X'%s' AS tdigest(double)), 0.5)",
                 new SqlVarbinary(new byte[0])),
+                DOUBLE,
+                null);
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testTDigestNaNCompression()
+    {
+        functionAssertions.assertFunction(format("value_at_quantile(CAST(X'%s' AS tdigest(double)), 0.2)",
+                new SqlVarbinary(createTDigest(NaN).serialize().getBytes()).toString().replaceAll("\\s+", " ")),
                 DOUBLE,
                 null);
     }
@@ -475,6 +499,120 @@ public class TestTDigestFunctions
                 assertDiscreteQuantileWithinBound(quantiles[i], STANDARD_ERROR, list, tDigest);
             }
         }
+    }
+
+    @Test
+    public void testTruncatedMean()
+    {
+        for (List<Double> quantileBound : quantileBoundPairs) {
+            assertTruncatedMeanWithinError(
+                    DOUBLE,
+                    getExpectedValueDoubles(STANDARD_COMPRESSION_FACTOR, 1.0, 2.0, 3.0, 4.0, 5.0),
+                    STANDARD_ERROR,
+                    quantileBound,
+                    1.0, 2.0, 3.0, 4.0, 5.0);
+
+            assertTruncatedMeanWithinError(
+                    DOUBLE,
+                    getExpectedValueDoubles(STANDARD_COMPRESSION_FACTOR),
+                    STANDARD_ERROR,
+                    quantileBound);
+
+            assertTruncatedMeanWithinError(
+                    DOUBLE,
+                    getExpectedValueDoubles(STANDARD_COMPRESSION_FACTOR, -1.0, -2.0, -3.0, -4.0, -5.0, -6.0, -7.0, -8.0, -9.0, -10.0),
+                    STANDARD_ERROR,
+                    quantileBound,
+                    -1.0, -2.0, -3.0, -4.0, -5.0, -6.0, -7.0, -8.0, -9.0, -10.0);
+
+            assertTruncatedMeanWithinError(
+                    DOUBLE,
+                    getExpectedValueDoubles(STANDARD_COMPRESSION_FACTOR, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0),
+                    STANDARD_ERROR,
+                    quantileBound,
+                    1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0);
+
+            assertTruncatedMeanWithinError(
+                    DOUBLE,
+                    getExpectedValueDoubles(NaN),
+                    STANDARD_ERROR,
+                    quantileBound);
+
+            assertTruncatedMeanWithinError(
+                    DOUBLE,
+                    getExpectedValueDoubles(100, 1.0),
+                    STANDARD_ERROR,
+                    quantileBound,
+                    1.0);
+
+            assertTruncatedMeanWithinError(
+                    DOUBLE,
+                    getExpectedValueDoubles(100, LongStream.range(-1000, 1000).asDoubleStream().toArray()),
+                    STANDARD_ERROR,
+                    quantileBound,
+                    LongStream.range(-1000, 1000).asDoubleStream().toArray());
+        }
+    }
+
+    private SqlVarbinary getExpectedValueDoubles(double compression, double... values)
+    {
+        if (values.length == 0) {
+            return null;
+        }
+
+        TDigest tDigest = createTDigest(compression);
+
+        for (double value : values) {
+            tDigest.add(value);
+        }
+        return new SqlVarbinary(tDigest.serialize().getBytes());
+    }
+
+    private void assertTruncatedMeanWithinError(Type type, SqlVarbinary binary, double error, List<Double> quantileBounds, double... inputs)
+    {
+        List<Double> rows = Arrays.stream(inputs).sorted().boxed().collect(Collectors.toList());
+
+        if (rows.isEmpty()) {
+            return;
+        }
+
+        Double lowerQuantile = quantileBounds.get(0);
+        Double upperQuantile = quantileBounds.get(1);
+        Double truncatedLowerMean = getTruncatedMean(rows, max(0, lowerQuantile - error), upperQuantile);
+        Double truncatedUpperMean = getTruncatedMean(rows, lowerQuantile, min(upperQuantile + error, 1));
+
+        functionAssertions.assertFunction(
+                format("truncated_mean(CAST(X'%s' AS tdigest(%s)), %s, %s) >= %s",
+                        binary.toString().replaceAll("\\s+", " "),
+                        type,
+                        lowerQuantile,
+                        upperQuantile,
+                        truncatedLowerMean),
+                BOOLEAN,
+                true);
+        functionAssertions.assertFunction(
+                format("truncated_mean(CAST(X'%s' AS tdigest(%s)), %s, %s) <= %s",
+                        binary.toString().replaceAll("\\s+", " "),
+                        type,
+                        lowerQuantile,
+                        upperQuantile,
+                        truncatedUpperMean),
+                BOOLEAN,
+                true);
+    }
+
+    private Double getTruncatedMean(List<Double> rows, double lowerQuantile, double upperQuantile)
+    {
+        double sum = 0;
+        for (int i = 0; i < rows.size(); i++) {
+            double l = (double) i / rows.size();
+            double h = (double) (i + 1) / rows.size();
+            double overlap = max(min(h, upperQuantile) - max(l, lowerQuantile), 0);
+
+            double val = rows.get(min(i, rows.size() - 1));
+            sum += val * overlap;
+        }
+        return sum / ((upperQuantile - lowerQuantile));
     }
 
     private void assertValueWithinBound(double quantile, double error, List<Double> list, TDigest tDigest)
