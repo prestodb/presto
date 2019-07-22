@@ -2,6 +2,11 @@
 Release 0.222
 =============
 
+.. warning::
+
+    This release contains a regression which may cause Presto to incorrectly
+    remove certain ``CAST`` operations.
+
 General Changes
 ---------------
 
