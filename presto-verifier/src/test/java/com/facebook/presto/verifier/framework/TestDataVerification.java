@@ -122,7 +122,7 @@ public class TestDataVerification
                 FAILED,
                 Optional.empty(),
                 Optional.of("SCHEMA_MISMATCH"),
-                Optional.of("Test state SUCCEEDED, Control state SUCCEEDED\n" +
+                Optional.of("Test state SUCCEEDED, Control state SUCCEEDED.\n" +
                         "SCHEMA MISMATCH\n"));
     }
 
@@ -138,7 +138,7 @@ public class TestDataVerification
                 FAILED,
                 Optional.of(true),
                 Optional.of("ROW_COUNT_MISMATCH"),
-                Optional.of("Test state SUCCEEDED, Control state SUCCEEDED\n" +
+                Optional.of("Test state SUCCEEDED, Control state SUCCEEDED.\n" +
                         "ROW COUNT MISMATCH\n" +
                         "Control 1 rows, Test 2 rows\n"));
     }
@@ -153,7 +153,7 @@ public class TestDataVerification
                 FAILED,
                 Optional.of(true),
                 Optional.of("COLUMN_MISMATCH"),
-                Optional.of("Test state SUCCEEDED, Control state SUCCEEDED\n" +
+                Optional.of("Test state SUCCEEDED, Control state SUCCEEDED.\n" +
                         "COLUMN MISMATCH\n" +
                         "Control 1 rows, Test 1 rows\n" +
                         "Mismatched Columns:\n" +
@@ -178,7 +178,8 @@ public class TestDataVerification
                 SKIPPED,
                 Optional.empty(),
                 Optional.of("PRESTO(SYNTAX_ERROR)"),
-                Optional.of("Test state NOT_RUN, Control state NOT_RUN\n.*"));
+                Optional.of("Test state NOT_RUN, Control state NOT_RUN.\n" +
+                        "Query failure for stage REWRITE:\n.*"));
     }
 
     @Test
@@ -192,7 +193,8 @@ public class TestDataVerification
                 SKIPPED,
                 Optional.empty(),
                 Optional.of("PRESTO(SYNTAX_ERROR)"),
-                Optional.of("Test state NOT_RUN, Control state FAILED_TO_SETUP\n.*"));
+                Optional.of("Test state NOT_RUN, Control state FAILED_TO_SETUP.\n" +
+                        "Query failure for stage SETUP:\n.*"));
     }
 
     @Test
@@ -206,7 +208,7 @@ public class TestDataVerification
                 SKIPPED,
                 Optional.of(false),
                 Optional.of("COLUMN_MISMATCH"),
-                Optional.of("Test state SUCCEEDED, Control state SUCCEEDED\n" +
+                Optional.of("Test state SUCCEEDED, Control state SUCCEEDED.\n" +
                         "COLUMN MISMATCH\n" +
                         "Control 1 rows, Test 1 rows\n" +
                         "Mismatched Columns:\n" +
@@ -227,7 +229,7 @@ public class TestDataVerification
                 FAILED,
                 Optional.of(true),
                 Optional.of("COLUMN_MISMATCH"),
-                Optional.of("Test state SUCCEEDED, Control state SUCCEEDED\n" +
+                Optional.of("Test state SUCCEEDED, Control state SUCCEEDED.\n" +
                         "COLUMN MISMATCH\n" +
                         "Control 1 rows, Test 1 rows\n" +
                         "Mismatched Columns:\n" +

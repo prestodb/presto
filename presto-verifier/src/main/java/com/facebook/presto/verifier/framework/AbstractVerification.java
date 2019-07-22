@@ -218,10 +218,13 @@ public abstract class AbstractVerification
         QueryState testState = getQueryState(testStats, queryException, TEST);
         String errorMessage = null;
         if (!succeeded) {
-            errorMessage = format("Test state %s, Control state %s\n", testState.name(), controlState.name());
+            errorMessage = format("Test state %s, Control state %s.\n", testState.name(), controlState.name());
 
             if (queryException.isPresent()) {
-                errorMessage += getStackTraceAsString(queryException.get().getCause());
+                errorMessage += format(
+                        "Query failure for stage %s:\n%s",
+                        queryException.get().getQueryOrigin().getStage().name(),
+                        getStackTraceAsString(queryException.get().getCause()));
             }
             if (verificationResult.isPresent()) {
                 errorMessage += verificationResult.get().getMatchResult().getResultsComparison();
