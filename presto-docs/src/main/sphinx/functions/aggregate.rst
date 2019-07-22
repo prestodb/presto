@@ -314,9 +314,9 @@ Statistical Aggregate Functions
 
     Returns the log-2 entropy of count input-values.
 
-    .. code-block:: none
+    .. math::
 
-        entropy(c) = \sum_i [ c_i / \sum_j [c_j] \log_2(\sum_j [c_j] / c_i) ]
+        \mathrm{entropy}(c) = \sum_i \left[ {c_i \over \sum_j [c_j]} \log_2\left({\sum_j [c_j] \over c_i}\right) \right].
 
     ``c`` must be a ``bigint`` column of non-negative values.
 
@@ -328,9 +328,11 @@ Statistical Aggregate Functions
     Returns the excess kurtosis of all input values. Unbiased estimate using
     the following expression:
 
-    .. code-block:: none
+    .. math::
 
-        kurtosis(x) = n(n+1)/((n-1)(n-2)(n-3))sum[(x_i-mean)^4]/stddev(x)^4-3(n-1)^2/((n-2)(n-3))
+        \mathrm{kurtosis}(x) = {n(n+1) \over (n-1)(n-2)(n-3)} { \sum[(x_i-\mu)^4] \over \sigma^4} -3{ (n-1)^2 \over (n-2)(n-3) },
+
+   where :math:`\mu` is the mean, and :math:`\sigma` is the standard deviation.
 
 .. function:: classification_miss_rate(buckets, y, x, weight) -> array<double>
 
