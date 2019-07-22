@@ -35,6 +35,5 @@ public @interface ScalarFunction
 
     boolean calledOnNullInput() default false;
 
-    // TODO remove CAN_RETURN_NULL_FOR_NON_NULL_INPUT from default list
     FunctionFeature[] features() default {CAN_RETURN_NULL_FOR_NON_NULL_INPUT};
 }

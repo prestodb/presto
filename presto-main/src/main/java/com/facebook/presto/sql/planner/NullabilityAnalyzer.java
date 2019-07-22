@@ -13,6 +13,15 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.DefaultRowExpressionTraversalVisitor;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
@@ -28,11 +37,20 @@ import com.facebook.presto.sql.tree.TryExpression;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.spi.function.FunctionFeature.CAN_RETURN_NULL_FOR_NON_NULL_INPUT;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public final class NullabilityAnalyzer
 {
-    private NullabilityAnalyzer() {}
+    private final FunctionManager functionManager;
+    private final TypeManager typeManager;
+
+    public NullabilityAnalyzer(FunctionManager functionManager, TypeManager typeManager)
+    {
+        this.functionManager = functionManager;
+        this.typeManager = typeManager;
+    }
 
     /**
      * TODO: this currently produces a very conservative estimate.
@@ -40,12 +58,22 @@ public final class NullabilityAnalyzer
      * can return null (e.g., if(a, b, c) might return null for non-null a
      * only if b or c can be null.
      */
+    @Deprecated
     public static boolean mayReturnNullOnNonNullInput(Expression expression)
     {
         requireNonNull(expression, "expression is null");
 
         AtomicBoolean result = new AtomicBoolean(false);
         new Visitor().process(expression, result);
+        return result.get();
+    }
+
+    public boolean mayReturnNullOnNonNullInput(RowExpression expression)
+    {
+        requireNonNull(expression, "expression is null");
+
+        AtomicBoolean result = new AtomicBoolean(false);
+        expression.accept(new RowExpressionVisitor(functionManager, typeManager), result);
         return result.get();
     }
 
@@ -127,5 +155,56 @@ public final class NullabilityAnalyzer
             result.set(true);
             return null;
         }
+    }
+
+    private static class RowExpressionVisitor
+            extends DefaultRowExpressionTraversalVisitor<AtomicBoolean>
+    {
+        private final FunctionResolution functionResolution;
+        private final FunctionManager functionManager;
+        private final TypeManager typeManager;
+
+        public RowExpressionVisitor(FunctionManager functionManager, TypeManager typeManager)
+        {
+            this.functionResolution = new FunctionResolution(functionManager);
+            this.functionManager = functionManager;
+            this.typeManager = typeManager;
+        }
+
+        @Override
+        public Void visitCall(CallExpression call, AtomicBoolean result)
+        {
+            FunctionHandle function = call.getFunctionHandle();
+            if (functionResolution.isCastFunction(function)) {
+                // TODO rely function metadata instead of hard coded logic, currently making sure we have same behavior as Expression based analyzer.
+                checkArgument(call.getArguments().size() == 1);
+                Type sourceType = call.getArguments().get(0).getType();
+                Type targetType = call.getType();
+                if (!typeManager.isTypeOnlyCoercion(sourceType, targetType)) {
+                    result.set(true);
+                }
+            }
+            else if (functionManager.getFunctionMetadata(function).hasFeature(CAN_RETURN_NULL_FOR_NON_NULL_INPUT)) {
+                result.set(true);
+            }
+            return super.visitCall(call, result);
+        }
+
+        @Override
+        public Void visitSpecialForm(SpecialFormExpression specialForm, AtomicBoolean result)
+        {
+            switch (specialForm.getForm()) {
+                case IN:
+                case IF:
+                case SWITCH:
+                case WHEN:
+                case NULL_IF:
+                case DEREFERENCE:
+                    result.set(true);
+            }
+            return super.visitSpecialForm(specialForm, result);
+        }
+        // constant/variable reference should always be false.
+        // lambda depends on whether lambda body contains any of above functions/special form.
     }
 }
