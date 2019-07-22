@@ -20,6 +20,9 @@ import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcIdentity;
 import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
+import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
+import com.facebook.presto.plugin.jdbc.ReadMapping;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.CharType;
@@ -29,18 +32,22 @@ import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
+import microsoft.sql.DateTimeOffset;
 
 import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static com.facebook.presto.plugin.jdbc.ReadMapping.longReadMapping;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.isCharType;
+import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -53,6 +60,7 @@ import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static java.lang.String.format;
+import static microsoft.sql.Types.DATETIMEOFFSET;
 
 public class SqlServerClient
         extends BaseJdbcClient
@@ -141,6 +149,23 @@ public class SqlServerClient
             return sqlType;
         }
         throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+    }
+
+    @Override
+    public Optional<ReadMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
+    {
+        if (typeHandle.getJdbcType() == DATETIMEOFFSET) {
+            return Optional.of(dateTimeOffsetReadMapping());
+        }
+        return super.toPrestoType(session, typeHandle);
+    }
+
+    private static ReadMapping dateTimeOffsetReadMapping()
+    {
+        return longReadMapping(TIMESTAMP_WITH_TIME_ZONE, (resultSet, columnIndex) -> {
+            DateTimeOffset dto = resultSet.getObject(columnIndex, DateTimeOffset.class);
+            return packDateTimeWithZone(dto.getTimestamp().getTime(), dto.getMinutesOffset());
+        });
     }
 
     private static String singleQuote(String... objects)
