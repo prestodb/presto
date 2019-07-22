@@ -293,6 +293,12 @@ public class PlanBuilder
         return call(operatorType.getOperator(), functionHandle, left.getType(), left, right);
     }
 
+    public CallExpression comparisonOperation(OperatorType operatorType, RowExpression left, RowExpression right)
+    {
+        FunctionHandle functionHandle = new FunctionResolution(metadata.getFunctionManager()).comparisonFunction(operatorType, left.getType(), right.getType());
+        return call(operatorType.getOperator(), functionHandle, left.getType(), left, right);
+    }
+
     public class AggregationBuilder
     {
         private final TypeProvider types;
