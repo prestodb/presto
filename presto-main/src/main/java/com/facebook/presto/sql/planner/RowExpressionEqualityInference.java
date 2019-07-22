@@ -103,6 +103,13 @@ public class RowExpressionEqualityInference
         this.derivedExpressions = ImmutableSet.copyOf(derivedExpressions);
     }
 
+    public static RowExpressionEqualityInference createEqualityInference(Metadata metadata, RowExpression... equalityInferences)
+    {
+        return new Builder(metadata)
+                .addEqualityInference(equalityInferences)
+                .build();
+    }
+
     /**
      * Attempts to rewrite an RowExpression in terms of the symbols allowed by the symbol scope
      * given the known equalities. Returns null if unsuccessful.

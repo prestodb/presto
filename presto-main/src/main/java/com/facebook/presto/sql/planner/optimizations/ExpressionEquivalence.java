@@ -96,6 +96,14 @@ public class ExpressionEquivalence
         return canonicalizedLeft.equals(canonicalizedRight);
     }
 
+    public boolean areExpressionsEquivalent(RowExpression leftExpression, RowExpression rightExpression)
+    {
+        RowExpression canonicalizedLeft = leftExpression.accept(canonicalizationVisitor, null);
+        RowExpression canonicalizedRight = rightExpression.accept(canonicalizationVisitor, null);
+
+        return canonicalizedLeft.equals(canonicalizedRight);
+    }
+
     private RowExpression toRowExpression(Session session, Expression expression, Map<VariableReferenceExpression, Integer> variableInput, TypeProvider types)
     {
         // replace qualified names with input references since row expressions do not support these
