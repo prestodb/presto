@@ -67,8 +67,8 @@ that catalog name instead of ``sqlserver`` in the above examples.
 SQL Server Connector Limitations
 --------------------------------
 
-Presto supports connecting to SQL Server 2016, SQL Server 2014, SQL Server 2012
-and Azure SQL Database.
+Presto supports connecting to SQL Server 2016, SQL Server 2014, SQL Server 2012,
+SQL Server 2008 R2, SQL Server 2008 and Azure SQL Database.
 
 Presto supports the following SQL Server data types.
 The following table shows the mappings between SQL Server and Presto data types.
@@ -76,13 +76,30 @@ The following table shows the mappings between SQL Server and Presto data types.
 ============================= ============================
 SQL Server Type               Presto Type
 ============================= ============================
-``bigint``                    ``bigint``
+``bit``                       ``boolean``
+``tinyint``                   ``tinyint``
 ``smallint``                  ``smallint``
 ``int``                       ``integer``
+``bigint``                    ``bigint``
+``real``                      ``real``
 ``float``                     ``double``
-``char(n)``                   ``char(n)``
-``varchar(n)``                ``varchar(n)``
+``decimal``                   ``decimal``
+``numeric``                   ``decimal``
+``char``                      ``char``
+``varchar``                   ``varchar``
+``nchar``                     ``char``
+``nvarchar``                  ``varchar``
+``binary``                    ``varbinary``
+``varbinary``                 ``varbinary``
 ``date``                      ``date``
+``time``                      ``time``
+``smalldatetime``             ``timestamp``
+``datetime``                  ``timestamp``
+``datetime2``                 ``timestamp``
+``datetimeoffset``            ``timestamp with time zone``
+``smallmoney``                ``decimal(10, 4)``
+``money``                     ``decimal(19, 4)``
+``uniqueidentifier``          ``char(36)``
 ============================= ============================
 
 Complete list of `SQL Server data types
