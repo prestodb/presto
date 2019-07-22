@@ -17,7 +17,6 @@ import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
@@ -34,7 +33,7 @@ import static java.util.Objects.requireNonNull;
 public class HivePartitionResult
 {
     private final List<HiveColumnHandle> partitionColumns;
-    private final Iterable<HivePartition> partitions;
+    private final List<HivePartition> partitions;
     private final TupleDomain<? extends ColumnHandle> effectivePredicate;
     private final TupleDomain<ColumnHandle> unenforcedConstraint;
     private final TupleDomain<ColumnHandle> enforcedConstraint;
@@ -43,7 +42,7 @@ public class HivePartitionResult
 
     public HivePartitionResult(
             List<HiveColumnHandle> partitionColumns,
-            Iterable<HivePartition> partitions,
+            List<HivePartition> partitions,
             TupleDomain<? extends ColumnHandle> effectivePredicate,
             TupleDomain<ColumnHandle> unenforcedConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint,
@@ -64,9 +63,9 @@ public class HivePartitionResult
         return partitionColumns;
     }
 
-    public Iterator<HivePartition> getPartitions()
+    public List<HivePartition> getPartitions()
     {
-        return partitions.iterator();
+        return partitions;
     }
 
     public TupleDomain<? extends ColumnHandle> getEffectivePredicate()

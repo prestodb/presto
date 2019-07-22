@@ -112,7 +112,6 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -140,7 +139,6 @@ import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.updateRowIdHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_EXCEEDED_PARTITION_LIMIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
@@ -271,7 +269,6 @@ public class HiveMetadata
     private final TypeTranslator typeTranslator;
     private final String prestoVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
-    private final int maxPartitions;
     private final StagingFileCommitter stagingFileCommitter;
 
     public HiveMetadata(
@@ -291,7 +288,6 @@ public class HiveMetadata
             TypeTranslator typeTranslator,
             String prestoVersion,
             HiveStatisticsProvider hiveStatisticsProvider,
-            int maxPartitions,
             StagingFileCommitter stagingFileCommitter)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
@@ -311,8 +307,6 @@ public class HiveMetadata
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
-        checkArgument(maxPartitions >= 1, "maxPartitions must be at least 1");
-        this.maxPartitions = maxPartitions;
         this.stagingFileCommitter = requireNonNull(stagingFileCommitter, "stagingFileCommitter is null");
     }
 
@@ -426,7 +420,7 @@ public class HiveMetadata
                 Predicate<Map<ColumnHandle, NullableValue>> targetPredicate = convertToPredicate(targetTupleDomain);
                 Constraint<ColumnHandle> targetConstraint = new Constraint<>(targetTupleDomain, targetPredicate);
                 Iterable<List<Object>> records = () ->
-                        stream(partitionManager.getPartitions(metastore, sourceTableHandle, targetConstraint, session).getPartitions())
+                        stream(partitionManager.getPartitionsIterator(metastore, sourceTableHandle, targetConstraint))
                                 .map(hivePartition ->
                                         IntStream.range(0, partitionColumns.size())
                                                 .mapToObj(fieldIdToColumnHandle::get)
@@ -604,33 +598,8 @@ public class HiveMetadata
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         Map<String, Type> columnTypes = columns.entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> getColumnMetadata(session, tableHandle, entry.getValue()).getType()));
-        List<HivePartition> partitions = getPartitionsAsList(tableHandle, constraint, session);
+        List<HivePartition> partitions = partitionManager.getPartitions(metastore, tableHandle, constraint, session).getPartitions();
         return hiveStatisticsProvider.getTableStatistics(session, ((HiveTableHandle) tableHandle).getSchemaTableName(), columns, columnTypes, partitions);
-    }
-
-    private List<HivePartition> getPartitionsAsList(ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint, ConnectorSession session)
-    {
-        HivePartitionResult partitions = partitionManager.getPartitions(metastore, tableHandle, constraint, session);
-        return getPartitionsAsList(partitions);
-    }
-
-    private List<HivePartition> getPartitionsAsList(HivePartitionResult partitions)
-    {
-        ImmutableList.Builder<HivePartition> partitionList = ImmutableList.builder();
-        int count = 0;
-        Iterator<HivePartition> iterator = partitions.getPartitions();
-        while (iterator.hasNext()) {
-            HivePartition partition = iterator.next();
-            if (count == maxPartitions) {
-                throw new PrestoException(HIVE_EXCEEDED_PARTITION_LIMIT, format(
-                        "Query over table '%s' can potentially read more than %s partitions",
-                        partition.getTableName(),
-                        maxPartitions));
-            }
-            partitionList.add(partition);
-            count++;
-        }
-        return partitionList.build();
     }
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
@@ -1807,7 +1776,7 @@ public class HiveMetadata
                         new HiveTableLayoutHandle(
                                 ((HiveTableHandle) tableHandle).getSchemaTableName(),
                                 ImmutableList.copyOf(hivePartitionResult.getPartitionColumns()),
-                                getPartitionsAsList(hivePartitionResult),
+                                hivePartitionResult.getPartitions(),
                                 domainPredicate,
                                 decomposedFilter.getRemainingExpression(),
                                 predicateColumns,
@@ -1864,14 +1833,14 @@ public class HiveMetadata
                         new HiveTableLayoutHandle(
                                 handle.getSchemaTableName(),
                                 ImmutableList.copyOf(hivePartitionResult.getPartitionColumns()),
-                                getPartitionsAsList(hivePartitionResult),
+                                hivePartitionResult.getPartitions(),
                                 hivePartitionResult.getEffectivePredicate().transform(HiveMetadata::toSubfield),
                                 TRUE_CONSTANT,
                                 predicateColumns,
                                 hivePartitionResult.getEnforcedConstraint(),
                                 hiveBucketHandle,
                                 hivePartitionResult.getBucketFilter())),
-                                hivePartitionResult.getUnenforcedConstraint()));
+                hivePartitionResult.getUnenforcedConstraint()));
     }
 
     private static Subfield toSubfield(ColumnHandle columnHandle)

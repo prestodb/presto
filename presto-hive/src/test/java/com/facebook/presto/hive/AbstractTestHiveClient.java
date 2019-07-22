@@ -777,7 +777,6 @@ public abstract class AbstractTestHiveClient
                 false,
                 false,
                 true,
-                1000,
                 getHiveClientConfig().getMaxPartitionsPerScan(),
                 TYPE_MANAGER,
                 locationService,
