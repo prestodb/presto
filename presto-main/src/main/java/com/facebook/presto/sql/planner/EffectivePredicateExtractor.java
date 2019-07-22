@@ -70,6 +70,7 @@ import static java.util.Objects.requireNonNull;
  * <p>
  * Note: non-deterministic predicates can not be pulled up (so they will be ignored)
  */
+@Deprecated
 public class EffectivePredicateExtractor
 {
     private static final Predicate<Map.Entry<VariableReferenceExpression, ? extends Expression>> VARIABLE_MATCHES_EXPRESSION =
