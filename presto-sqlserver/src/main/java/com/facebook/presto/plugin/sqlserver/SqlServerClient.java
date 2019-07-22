@@ -22,21 +22,59 @@ import com.facebook.presto.plugin.jdbc.JdbcIdentity;
 import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.type.CharType;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 
 import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Map;
 
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static java.lang.String.format;
 
 public class SqlServerClient
         extends BaseJdbcClient
 {
     private static final Joiner DOT_JOINER = Joiner.on(".");
+
+    private static final int MAX_CHAR_LENGTH = 8000;
+
+    private static final Map<Type, String> MSSQL_TYPES = ImmutableMap.<Type, String>builder()
+            .put(BOOLEAN, "bit")
+            .put(BIGINT, "bigint")
+            .put(INTEGER, "int")
+            .put(SMALLINT, "smallint")
+            .put(TINYINT, "tinyint")
+            .put(REAL, "float(24)")
+            .put(DOUBLE, "float(53)")
+            .put(VARBINARY, "varbinary(max)")
+            .put(DATE, "date")
+            .put(TIME, "time")
+            .put(TIMESTAMP, "datetime2")
+            .put(TIMESTAMP_WITH_TIME_ZONE, "datetimeoffset")
+            .build();
 
     @Inject
     public SqlServerClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
@@ -72,6 +110,37 @@ public class SqlServerClient
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
         }
+    }
+
+    @Override
+    protected String toSqlType(Type type)
+    {
+        if (isVarcharType(type)) {
+            VarcharType varcharType = (VarcharType) type;
+            if (varcharType.isUnbounded() || varcharType.getLengthSafe() > MAX_CHAR_LENGTH) {
+                return "varchar(max)";
+            }
+            return "varchar(" + varcharType.getLengthSafe() + ")";
+        }
+
+        if (isCharType(type)) {
+            CharType charType = (CharType) type;
+            if (charType.getLength() <= MAX_CHAR_LENGTH) {
+                return "char(" + charType.getLength() + ")";
+            }
+            throw new PrestoException(NOT_SUPPORTED, "Length of char type cannot exceed " + MAX_CHAR_LENGTH);
+        }
+
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            return format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+        }
+
+        String sqlType = MSSQL_TYPES.get(type);
+        if (sqlType != null) {
+            return sqlType;
+        }
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
     private static String singleQuote(String... objects)
