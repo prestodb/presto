@@ -208,6 +208,11 @@ final class RowExpressionVerifier
             OperatorType actualOperatorType = functionMetadata.getOperatorType().get();
             OperatorType expectedOperatorType = getOperatorType(expected.getOperator());
             if (expectedOperatorType.equals(actualOperatorType)) {
+                if (actualOperatorType == EQUAL) {
+                    return (process(expected.getLeft(), ((CallExpression) actual).getArguments().get(0)) && process(expected.getRight(), ((CallExpression) actual).getArguments().get(1)))
+                            || (process(expected.getLeft(), ((CallExpression) actual).getArguments().get(1)) && process(expected.getRight(), ((CallExpression) actual).getArguments().get(0)));
+                }
+                // TODO support other comparison operators
                 return process(expected.getLeft(), ((CallExpression) actual).getArguments().get(0)) && process(expected.getRight(), ((CallExpression) actual).getArguments().get(1));
             }
         }

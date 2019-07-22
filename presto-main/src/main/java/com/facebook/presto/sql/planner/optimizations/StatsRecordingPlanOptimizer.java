@@ -20,6 +20,7 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.OptimizerStatsRecorder;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.google.common.annotations.VisibleForTesting;
 
 import static java.util.Objects.requireNonNull;
 
@@ -34,6 +35,12 @@ public final class StatsRecordingPlanOptimizer
         this.stats = requireNonNull(stats, "stats is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
         stats.register(delegate);
+    }
+
+    @VisibleForTesting
+    public PlanOptimizer getDelegate()
+    {
+        return delegate;
     }
 
     public final PlanNode optimize(
