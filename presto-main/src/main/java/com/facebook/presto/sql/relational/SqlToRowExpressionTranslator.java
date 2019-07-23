@@ -49,6 +49,7 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentPath;
 import com.facebook.presto.sql.tree.CurrentUser;
 import com.facebook.presto.sql.tree.DecimalLiteral;
+import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
@@ -89,7 +90,9 @@ import io.airlift.slice.Slices;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLegacyTimestamp;
@@ -485,7 +488,7 @@ public final class SqlToRowExpressionTranslator
         {
             RowExpression value = process(node.getExpression(), context);
 
-            if (node.isTypeOnly()) {
+            if (allChildrenTypeOnly(node)) {
                 return changeType(value, getType(node));
             }
 
@@ -500,6 +503,23 @@ public final class SqlToRowExpressionTranslator
         {
             ChangeTypeVisitor visitor = new ChangeTypeVisitor(targetType);
             return value.accept(visitor, null);
+        }
+
+        private static boolean allChildrenTypeOnly(Cast node)
+        {
+            // TODO this is a hack, we should remove the changeType optimization completely and fix tests related to this optimization.
+            AtomicReference<Optional<Boolean>> allTrue = new AtomicReference<>(Optional.empty());
+            new DefaultExpressionTraversalVisitor<Void, AtomicReference<Optional<Boolean>>>()
+            {
+                @Override
+                protected Void visitCast(Cast node, AtomicReference<Optional<Boolean>> context)
+                {
+                    super.visitCast(node, context);
+                    context.set(Optional.of(node.isTypeOnly() && context.get().orElse(true)));
+                    return null;
+                }
+            }.process(node, allTrue);
+            return allTrue.get().orElse(false);
         }
 
         private static class ChangeTypeVisitor

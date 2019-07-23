@@ -4091,6 +4091,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testNestedCast()
+    {
+        assertQuery("select cast(varchar_value as varchar(3)) || ' sfd' from (values ('9898.122')) t(varchar_value)", "VALUES '989 sfd'");
+        assertQuery("select cast(cast(varchar_value as varchar(3)) as varchar(5)) from (values ('9898.122')) t(varchar_value)", "VALUES '989'");
+    }
+
+    @Test
     public void testInvalidCast()
     {
         assertQueryFails(
