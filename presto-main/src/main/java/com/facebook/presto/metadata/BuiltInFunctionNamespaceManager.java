@@ -63,6 +63,8 @@ import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggregationFunctio
 import com.facebook.presto.operator.aggregation.differentialentropy.DifferentialEntropyAggregation;
 import com.facebook.presto.operator.aggregation.histogram.Histogram;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggregationFunction;
+import com.facebook.presto.operator.scalar.ArrayAllMatchFunction;
+import com.facebook.presto.operator.scalar.ArrayAnyMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayCardinalityFunction;
 import com.facebook.presto.operator.scalar.ArrayContains;
 import com.facebook.presto.operator.scalar.ArrayDistinctFromOperator;
@@ -82,6 +84,7 @@ import com.facebook.presto.operator.scalar.ArrayLessThanOrEqualOperator;
 import com.facebook.presto.operator.scalar.ArrayMaxFunction;
 import com.facebook.presto.operator.scalar.ArrayMinFunction;
 import com.facebook.presto.operator.scalar.ArrayNgramsFunction;
+import com.facebook.presto.operator.scalar.ArrayNoneMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayNotEqualOperator;
 import com.facebook.presto.operator.scalar.ArrayPositionFunction;
 import com.facebook.presto.operator.scalar.ArrayRemoveFunction;
@@ -585,6 +588,9 @@ public class BuiltInFunctionNamespaceManager
                 .scalar(ArraySliceFunction.class)
                 .scalar(ArrayIndeterminateOperator.class)
                 .scalar(ArrayNgramsFunction.class)
+                .scalar(ArrayAllMatchFunction.class)
+                .scalar(ArrayAnyMatchFunction.class)
+                .scalar(ArrayNoneMatchFunction.class)
                 .scalar(MapDistinctFromOperator.class)
                 .scalar(MapEqualOperator.class)
                 .scalar(MapEntriesFunction.class)
