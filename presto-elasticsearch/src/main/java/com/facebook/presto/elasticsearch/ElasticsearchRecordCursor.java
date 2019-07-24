@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.elasticsearch;
 
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
@@ -35,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_MAX_HITS_EXCEEDED;
 import static com.facebook.presto.elasticsearch.ElasticsearchUtils.serializeObject;
 import static com.facebook.presto.elasticsearch.RetryDriver.retry;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -48,7 +46,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchRecordCursor
@@ -58,12 +55,8 @@ public class ElasticsearchRecordCursor
 
     private final List<ElasticsearchColumnHandle> columnHandles;
     private final Map<String, Integer> jsonPathToIndex = new HashMap<>();
-    private final int maxHits;
-    private final Iterator<SearchHit> searchHits;
-    private final Duration requestTimeout;
-    private final int maxAttempts;
-    private final Duration maxRetryTime;
     private final ElasticsearchQueryBuilder builder;
+    private final SearchHitsIterator searchHits;
 
     private long totalBytes;
     private List<Object> fields;
@@ -74,16 +67,12 @@ public class ElasticsearchRecordCursor
         requireNonNull(config, "config is null");
 
         this.columnHandles = columnHandles;
-        this.maxHits = config.getMaxHits();
-        this.requestTimeout = config.getRequestTimeout();
-        this.maxAttempts = config.getMaxRequestRetries();
-        this.maxRetryTime = config.getMaxRetryTime();
 
         for (int i = 0; i < columnHandles.size(); i++) {
             jsonPathToIndex.put(columnHandles.get(i).getColumnJsonPath(), i);
         }
         this.builder = new ElasticsearchQueryBuilder(columnHandles, config, split);
-        this.searchHits = sendElasticsearchQuery(builder).iterator();
+        this.searchHits = new SearchHitsIterator(builder, config);
     }
 
     @Override
@@ -185,58 +174,6 @@ public class ElasticsearchRecordCursor
         builder.close();
     }
 
-    private SearchResponse getSearchResponse(ElasticsearchQueryBuilder queryBuilder)
-    {
-        try {
-            return retry()
-                    .maxAttempts(maxAttempts)
-                    .exponentialBackoff(maxRetryTime)
-                    .run("searchRequest", () -> queryBuilder.buildScrollSearchRequest()
-                            .execute()
-                            .actionGet(requestTimeout.toMillis()));
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private SearchResponse getScrollResponse(ElasticsearchQueryBuilder queryBuilder, String scrollId)
-    {
-        try {
-            return retry()
-                    .maxAttempts(maxAttempts)
-                    .exponentialBackoff(maxRetryTime)
-                    .run("scrollRequest", () -> queryBuilder.prepareSearchScroll(scrollId)
-                            .execute()
-                            .actionGet(requestTimeout.toMillis()));
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private List<SearchHit> sendElasticsearchQuery(ElasticsearchQueryBuilder queryBuilder)
-    {
-        SearchResponse response = getSearchResponse(queryBuilder);
-
-        if (response.getHits().getTotalHits() > maxHits) {
-            throw new PrestoException(ELASTICSEARCH_MAX_HITS_EXCEEDED,
-                    format("The number of hits for the query (%d) exceeds the configured max hits (%d)", response.getHits().getTotalHits(), maxHits));
-        }
-
-        ImmutableList.Builder<SearchHit> result = ImmutableList.builder();
-        while (true) {
-            for (SearchHit hit : response.getHits().getHits()) {
-                result.add(hit);
-            }
-            response = getScrollResponse(queryBuilder, response.getScrollId());
-            if (response.getHits().getHits().length == 0) {
-                break;
-            }
-        }
-        return result.build();
-    }
-
     private void setFieldIfExists(String jsonPath, Object jsonValue)
     {
         if (jsonPathToIndex.containsKey(jsonPath)) {
@@ -332,6 +269,80 @@ public class ElasticsearchRecordCursor
         public Object getValue()
         {
             return value;
+        }
+    }
+
+    /**
+     * Iterator to go over search results in a paged manner.
+     */
+    private static class SearchHitsIterator
+            extends AbstractIterator<SearchHit>
+    {
+        private final ElasticsearchQueryBuilder queryBuilder;
+        private final Duration requestTimeout;
+        private final int maxAttempts;
+        private final Duration maxRetryTime;
+
+        private Iterator<SearchHit> searchHits;
+        private String scrollId;
+
+        SearchHitsIterator(ElasticsearchQueryBuilder queryBuilder, ElasticsearchConnectorConfig config)
+        {
+            this.queryBuilder = queryBuilder;
+            this.requestTimeout = config.getRequestTimeout();
+            this.maxAttempts = config.getMaxRequestRetries();
+            this.maxRetryTime = config.getMaxRetryTime();
+        }
+
+        @Override
+        protected SearchHit computeNext()
+        {
+            if (scrollId == null) {
+                // make the first request and get the scroll id
+                SearchResponse response = getSearchResponse(queryBuilder);
+                scrollId = response.getScrollId();
+                searchHits = response.getHits().iterator();
+            }
+
+            while (!searchHits.hasNext()) {
+                SearchResponse response = getScrollResponse(queryBuilder, scrollId);
+                if (response.getHits().getHits().length == 0) {
+                    return endOfData();
+                }
+                searchHits = response.getHits().iterator();
+            }
+
+            return searchHits.next();
+        }
+
+        private SearchResponse getSearchResponse(ElasticsearchQueryBuilder queryBuilder)
+        {
+            try {
+                return retry()
+                        .maxAttempts(maxAttempts)
+                        .exponentialBackoff(maxRetryTime)
+                        .run("searchRequest", () -> queryBuilder.buildScrollSearchRequest()
+                                .execute()
+                                .actionGet(requestTimeout.toMillis()));
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        private SearchResponse getScrollResponse(ElasticsearchQueryBuilder queryBuilder, String scrollId)
+        {
+            try {
+                return retry()
+                        .maxAttempts(maxAttempts)
+                        .exponentialBackoff(maxRetryTime)
+                        .run("scrollRequest", () -> queryBuilder.prepareSearchScroll(scrollId)
+                                .execute()
+                                .actionGet(requestTimeout.toMillis()));
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 }

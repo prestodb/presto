@@ -16,6 +16,7 @@ package com.facebook.presto.elasticsearch;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
 
 import javax.validation.constraints.Min;
@@ -27,13 +28,13 @@ import static com.facebook.presto.elasticsearch.SearchGuardCertificateFormat.NON
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+@DefunctConfig("elasticsearch.max-hits")
 public class ElasticsearchConnectorConfig
 {
     private String defaultSchema = "default";
     private File tableDescriptionDirectory = new File("etc/elasticsearch/");
     private int scrollSize = 1_000;
     private Duration scrollTimeout = new Duration(1, SECONDS);
-    private int maxHits = 1_000;
     private Duration requestTimeout = new Duration(100, MILLISECONDS);
     private int maxRequestRetries = 5;
     private Duration maxRetryTime = new Duration(10, SECONDS);
@@ -101,21 +102,6 @@ public class ElasticsearchConnectorConfig
     public ElasticsearchConnectorConfig setScrollTimeout(Duration scrollTimeout)
     {
         this.scrollTimeout = scrollTimeout;
-        return this;
-    }
-
-    @NotNull
-    @Min(1)
-    public int getMaxHits()
-    {
-        return maxHits;
-    }
-
-    @Config("elasticsearch.max-hits")
-    @ConfigDescription("Max number of hits a single Elasticsearch request can fetch")
-    public ElasticsearchConnectorConfig setMaxHits(int maxHits)
-    {
-        this.maxHits = maxHits;
         return this;
     }
 

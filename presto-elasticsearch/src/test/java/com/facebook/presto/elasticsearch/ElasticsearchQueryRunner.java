@@ -106,7 +106,6 @@ public final class ElasticsearchQueryRunner
                 .put("elasticsearch.table-description-directory", metadataUrl.toURI().toString())
                 .put("elasticsearch.scroll-size", "1000")
                 .put("elasticsearch.scroll-timeout", "1m")
-                .put("elasticsearch.max-hits", "1000000")
                 .put("elasticsearch.request-timeout", "2m")
                 .put("elasticsearch.max-request-retries", "3")
                 .put("elasticsearch.max-request-retry-time", "5s")
