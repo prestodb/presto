@@ -186,11 +186,4 @@ public final class ArrayFilterFunction
     {
         Boolean apply(Block x);
     }
-
-    @FunctionalInterface
-    public interface FilterVoidLambda
-            extends LambdaFunctionInterface
-    {
-        Boolean apply(Void x);
-    }
 }
