@@ -187,6 +187,7 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
             <scope>test</scope>
+            <version>3.4</version>
         </dependency>
     </dependencies>
 
