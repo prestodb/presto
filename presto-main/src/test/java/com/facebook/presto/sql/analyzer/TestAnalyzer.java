@@ -922,6 +922,13 @@ public class TestAnalyzer
         // row type
         assertFails(TYPE_MISMATCH, "SELECT t.x.f1 FROM (VALUES 1) t(x)");
         assertFails(TYPE_MISMATCH, "SELECT x.f1 FROM (VALUES 1) t(x)");
+
+        // subscript on Row
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:20: Subscript expression on ROW requires a constant index", "SELECT ROW(1, 'a')[x]");
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:20: Subscript expression on ROW requires a constant index", "SELECT ROW(1, 'a')[-1]");
+        assertFails(TYPE_MISMATCH, "line 1:20: Subscript expression on ROW requires integer index, found bigint", "SELECT ROW(1, 'a')[9999999999]");
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:20: Invalid subscript index: 0. ROW indices start at 1", "SELECT ROW(1, 'a')[0]");
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:20: Subscript index out of bounds: 5, max value is 2", "SELECT ROW(1, 'a')[5]");
     }
 
     @Test
