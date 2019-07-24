@@ -30,12 +30,10 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 
 /*
-Serializes sample-entropy states.
- */
+Serializes sample-entropy states. */
 public class StateSerializer
         implements AccumulatorStateSerializer<State>
 {
-    /*
     public static StateStrategy create(
             long size,
             boolean hasWeight)
@@ -49,9 +47,12 @@ public class StateSerializer
             long size,
             String method)
     {
-        return new UnweightedReservoirSampleStateStrategy(size);
+        if (method == "reservoir_vasicek") {
+            return new UnweightedReservoirSampleStateStrategy(size);
+        }
+
+        throw new InvalidParameterException(String.format("Unsupported"));
     }
-    */
 
     public static StateStrategy create(
             long size,
@@ -59,11 +60,6 @@ public class StateSerializer
             double min,
             double max)
     {
-        if (method.equalsIgnoreCase("unweighted_reservoir") ||
-                method.equalsIgnoreCase("unweighted_reservoir")) {
-            throw new InvalidParameterException("Methods and arguments mismatch");
-        }
-
         if (method.equalsIgnoreCase("fixed_histogram_mle")) {
             return new FixedHistogramMLEStateStrategy(size, min, max);
         }
@@ -72,12 +68,12 @@ public class StateSerializer
             return new FixedHistogramJacknifeStateStrategy(size, min, max);
         }
 
-        throw new InvalidParameterException(String.format("unknown method %s", method));
+        throw new InvalidParameterException(String.format("unknown method %s or method/argument mismatch", method));
     }
 
     public static void validate(StateStrategy strategy, String method)
     {
-        if (method.equalsIgnoreCase("unweighted_reservoir")) {
+        if (method.equalsIgnoreCase("reservoir_vasicek")) {
             if (!(strategy instanceof UnweightedReservoirSampleStateStrategy)) {
                 throw new PrestoException(
                         INVALID_FUNCTION_ARGUMENT,

@@ -13,109 +13,102 @@
  */
 package com.facebook.presto.operator.aggregation.reservoirsample;
 
+import io.airlift.slice.SizeOf;
+import io.airlift.slice.SliceInput;
+import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
+import org.openjdk.jol.info.ClassLayout;
+
 import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.DoubleStream;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class UnweightedDoubleReservoirSample
         implements Cloneable
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(WeightedDoubleReservoirSample.class).instanceSize();
     private static final int MAX_SAMPLES_LIMIT = 1_000_000;
 
-    private final int maxSamples;
-    private long count;
-    private double[] elements;
+    private int count;
+    private double[] samples;
 
     public UnweightedDoubleReservoirSample(int maxSamples)
     {
-        this.maxSamples = maxSamples;
-        checkArguments();
-        this.elements = new double[0];
+        checkArgument(maxSamples > 0, "Cannot use 0 number of samples for a reservoir");
+        checkArgument(maxSamples <= MAX_SAMPLES_LIMIT, "Maximum number of reservoir samples is capped");
+
+        this.count = 0;
+        this.samples = new double[maxSamples];
+    }
+
+    public UnweightedDoubleReservoirSample(SliceInput input)
+    {
+        count = input.readInt();
+        int maxSamples = input.readInt();
+        this.samples = new double[maxSamples];
+        input.readBytes(
+                Slices.wrappedDoubleArray(samples),
+                maxSamples * SizeOf.SIZE_OF_DOUBLE);
     }
 
     protected UnweightedDoubleReservoirSample(UnweightedDoubleReservoirSample other)
     {
-        this.maxSamples = other.maxSamples;
-        checkArguments();
         this.count = other.count;
-        this.elements = new double[other.elements.length];
-        System.arraycopy(other.elements, 0, elements, 0, elements.length);
+        this.count = other.count;
+        this.samples = new double[other.samples.length];
+        System.arraycopy(other.samples, 0, samples, 0, samples.length);
     }
 
     public int getMaxSamples()
     {
-        return maxSamples;
+        return samples.length;
     }
 
     public void add(double element)
     {
-        int index = getInsertIndex();
-        if (index >= 0) {
-            putAtIndex(index, Double.valueOf(element));
-        }
-    }
-
-    protected int getInsertIndex()
-    {
-        ++count;
-        if (elements.length < maxSamples) {
-            return elements.length;
-        }
-
-        int index = (int) ThreadLocalRandom.current().nextInt(0, (int) count);
-        System.out.println(index + " " + count);
-        return index < elements.length ? index : -1;
-    }
-
-    protected void putAtIndex(int index, double element)
-    {
-        if (index == -1) {
+        if (++count <= samples.length) {
+            samples[count - 1] = element;
             return;
         }
-
-        if (elements.length < maxSamples) {
-            double[] newElements = new double[elements.length + 1];
-            System.arraycopy(elements, 0, newElements, 0, elements.length);
-            newElements[elements.length] = element;
-            elements = newElements;
-            return;
+        int index = ThreadLocalRandom.current().nextInt(0, count);
+        if (index < samples.length) {
+            samples[index] = element;
         }
-
-        elements[index] = element;
     }
 
     public void mergeWith(UnweightedDoubleReservoirSample other)
     {
-        checkArgument(maxSamples == other.maxSamples, "Max samples must be equal");
-        if (other.count < other.maxSamples) {
-            Arrays.stream(other.elements).forEach(o -> add(o));
+        checkArgument(samples.length == other.samples.length, "Max samples must be equal");
+        if (other.count < other.samples.length) {
+            Arrays.stream(other.samples).forEach(o -> add(o));
             return;
         }
-        if (count < maxSamples) {
+        if (count < samples.length) {
             final UnweightedDoubleReservoirSample target = ((UnweightedDoubleReservoirSample) other.clone());
-            Arrays.stream(elements).forEach(o -> target.add(o));
+            Arrays.stream(samples).forEach(o -> target.add(o));
             count = target.count;
-            elements = target.elements;
+            samples = target.samples;
             return;
         }
 
-        shuffleArray(elements);
-        shuffleArray(other.elements);
+        shuffleArray(samples);
+        shuffleArray(other.samples);
         int nextIndex = 0;
         int otherNextIndex = 0;
-        double[] merged = new double[maxSamples];
-        for (int i = 0; i < maxSamples; ++i) {
+        double[] merged = new double[samples.length];
+        for (int i = 0; i < samples.length; ++i) {
             if (ThreadLocalRandom.current().nextLong(0, count + other.count) < count) {
-                merged[i] = elements[nextIndex++];
+                merged[i] = samples[nextIndex++];
             }
             else {
-                merged[i] = other.elements[otherNextIndex++];
+                merged[i] = other.samples[otherNextIndex++];
             }
         }
         count += other.count;
-        elements = merged;
+        samples = merged;
     }
 
     @Override
@@ -126,13 +119,8 @@ public class UnweightedDoubleReservoirSample
 
     public DoubleStream stream()
     {
-        return Arrays.stream(elements);
-    }
-
-    private void checkArguments()
-    {
-        checkArgument(maxSamples > 0, "Maximum number of reservoir samples must be strictly positive");
-        checkArgument(maxSamples <= MAX_SAMPLES_LIMIT, "Maximum number of reservoir samples is capped");
+        int effectiveSize = Math.min(count, samples.length);
+        return Arrays.stream(samples, 0, effectiveSize);
     }
 
     private static void shuffleArray(double[] ar)
@@ -143,5 +131,27 @@ public class UnweightedDoubleReservoirSample
             ar[index] = ar[i];
             ar[i] = a;
         }
+    }
+
+    public void serialize(SliceOutput out)
+    {
+        out.appendInt(count);
+        out.appendInt(samples.length);
+        IntStream.range(0, Math.min(count, samples.length)).forEach(i -> out.appendDouble(samples[i]));
+    }
+
+    public int getRequiredBytesForSerialization()
+    {
+        return SizeOf.SIZE_OF_INT + // count
+                SizeOf.SIZE_OF_INT + // length
+                2 * SizeOf.SIZE_OF_DOUBLE * Math.min(count, samples.length); // samples
+    }
+
+    public long estimatedInMemorySize()
+    {
+        return INSTANCE_SIZE +
+                SizeOf.SIZE_OF_INT + // count
+                SizeOf.SIZE_OF_INT + // length
+                2 * SizeOf.SIZE_OF_DOUBLE * Math.min(count, samples.length); // samples
     }
 }

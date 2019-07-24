@@ -76,14 +76,13 @@ public class UnweightedReservoirSampleStateStrategy
     @Override
     public void mergeWith(StateStrategy other)
     {
-        getReservoir()
-                .mergeWith(((UnweightedReservoirSampleStateStrategy) other).getReservoir());
+        reservoir.mergeWith(((UnweightedReservoirSampleStateStrategy) other).reservoir);
     }
 
     @Override
     public void add(double value, double weight)
     {
-        getReservoir().add(value, weight);
+        reservoir.add(value, weight);
     }
 
     @Override
@@ -95,19 +94,19 @@ public class UnweightedReservoirSampleStateStrategy
     @Override
     public long estimatedInMemorySize()
     {
-        return 0;
+        return reservoir.estimatedInMemorySize();
     }
 
     @Override
     public int getRequiredBytesForSerialization()
     {
-        return 0;
+        return reservoir.getRequiredBytesForSerialization();
     }
 
     @Override
     public void serialize(SliceOutput out)
     {
-        // getBreakdownHistogram().serialize(out);
+        reservoir.serialize(out);
     }
 
     public WeightedDoubleReservoirSample getReservoir()

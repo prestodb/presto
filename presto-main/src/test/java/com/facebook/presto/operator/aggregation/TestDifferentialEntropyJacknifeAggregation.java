@@ -50,6 +50,7 @@ public class TestDifferentialEntropyJacknifeAggregation
                     samples.size();
             entropy -= holdOutEntropy;
         }
+
         return entropy;
     }
 }

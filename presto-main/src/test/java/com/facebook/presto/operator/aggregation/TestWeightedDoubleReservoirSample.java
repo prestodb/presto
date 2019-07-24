@@ -14,10 +14,8 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.reservoirsample.WeightedDoubleReservoirSample;
-import com.google.common.collect.Streams;
 import org.testng.annotations.Test;
 
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -25,7 +23,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-public class TestWeightedLongReservoirSample
+public class TestWeightedDoubleReservoirSample
 {
     @Test
     public void testGetters()
@@ -51,35 +49,65 @@ public class TestWeightedLongReservoirSample
     @Test
     public void testFew()
     {
-        final WeightedDoubleReservoirSample sample =
+        final WeightedDoubleReservoirSample reservoir =
                 new WeightedDoubleReservoirSample(200);
 
-        sample.add((long) 1, 1.0);
-        sample.add((long) 2, 1.0);
-        sample.add((long) 3, 0.5);
+        reservoir.add(1.0, 1.0);
+        reservoir.add(2.0, 1.0);
+        reservoir.add(3.0, 0.5);
 
-        Set<Long> samples = new HashSet<Long>();
-        Streams.stream(sample.iterator()).forEach(o -> samples.add((Long) o));
+        Set<Double> samples = new HashSet<>();
+        reservoir.stream().forEach(o -> samples.add(Double.valueOf(o)));
         assertEquals(samples.size(), 3);
-        assertTrue(samples.contains(Long.valueOf(1)));
-        assertTrue(samples.contains(Long.valueOf(2)));
-        assertTrue(samples.contains(Long.valueOf(3)));
+        assertTrue(samples.contains(Double.valueOf(1)));
+        assertTrue(samples.contains(Double.valueOf(2)));
+        assertTrue(samples.contains(Double.valueOf(3)));
     }
 
     @Test
     public void testMany()
     {
-        final WeightedDoubleReservoirSample sample =
+        final WeightedDoubleReservoirSample reservoir =
                 new WeightedDoubleReservoirSample(200);
 
         long streamLength = 1000000;
-        for (long i = 0; i < streamLength; ++i) {
-            long value = i * 10 + i % 2;
-            sample.add(value, 1.0);
+        for (int i = 0; i < streamLength; ++i) {
+            double value = i * 10 + i % 2;
+            reservoir.add(value, 1.0);
         }
 
-        Set<Long> sampled = new HashSet<Long>();
-        Streams.stream(sample.iterator()).forEach(o -> sampled.add((Long) o));
-        System.out.println("res " + Arrays.toString(sampled.toArray()));
+        double quantized[] = new double[4];
+        reservoir.stream().forEach(s -> {
+            int index = (int) (4.0 * s / (10.0 * streamLength + 1));
+            ++quantized[index];
+        });
+        for (int i = 0; i < 4; ++i) {
+            assertTrue(quantized[i] > 35);
+        }
+    }
+
+    @Test
+    public void testManyWeighted()
+    {
+        final WeightedDoubleReservoirSample reservoir =
+                new WeightedDoubleReservoirSample(200);
+
+        long streamLength = 1000000;
+        for (int i = 0; i < streamLength; ++i) {
+            reservoir.add(3, 0.00000001);
+        }
+        for (int i = 0; i < streamLength; ++i) {
+            double value = i * 10 + i % 2;
+            reservoir.add(value, 9999999999.0);
+        }
+
+        double quantized[] = new double[4];
+        reservoir.stream().forEach(s -> {
+            int index = (int) (4.0 * s / (10.0 * streamLength + 1));
+            ++quantized[index];
+        });
+        for (int i = 0; i < 4; ++i) {
+            assertTrue(quantized[i] > 35);
+        }
     }
 }

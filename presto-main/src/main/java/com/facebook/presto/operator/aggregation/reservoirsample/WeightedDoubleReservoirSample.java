@@ -15,7 +15,9 @@ package com.facebook.presto.operator.aggregation.reservoirsample;
 
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.SliceInput;
+import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
@@ -27,50 +29,62 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class WeightedDoubleReservoirSample
         implements Cloneable
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(WeightedDoubleReservoirSample.class).instanceSize();
+    private static final int MAX_SAMPLES_LIMIT = 1_000_000;
+    private static boolean DEBUG = true;
+
     private int size;
-    private double[] elements;
+    private double[] samples;
     private double[] weights;
 
     public WeightedDoubleReservoirSample(int maxSamples)
     {
-        this.elements = new double[maxSamples];
+        checkArgument(maxSamples <= MAX_SAMPLES_LIMIT, "Maximum number of reservoir samples is capped");
+
+        this.size = 0;
+        this.samples = new double[maxSamples];
         this.weights = new double[maxSamples];
         assertValid();
     }
 
     protected WeightedDoubleReservoirSample(WeightedDoubleReservoirSample other)
     {
-        this.elements = new double[other.elements.length];
+        this.size = 0;
+        this.samples = new double[other.samples.length];
         this.weights = new double[other.weights.length];
-        assertValid();
-        System.arraycopy(other.elements, 0, elements, 0, elements.length);
+        System.arraycopy(other.samples, 0, samples, 0, samples.length);
         System.arraycopy(other.weights, 0, weights, 0, weights.length);
+        assertValid();
     }
 
     public WeightedDoubleReservoirSample(SliceInput input)
     {
-        int length = input.readInt();
-        this.elements = new double[length];
+        size = input.readInt();
+        int maxSamples = input.readInt();
+        this.samples = new double[maxSamples];
         input.readBytes(
-                Slices.wrappedDoubleArray(elements),
-                length * SizeOf.SIZE_OF_DOUBLE);
-        this.weights = new double[length];
+                Slices.wrappedDoubleArray(samples),
+                maxSamples * SizeOf.SIZE_OF_DOUBLE);
+        this.weights = new double[maxSamples];
         input.readBytes(
                 Slices.wrappedDoubleArray(weights),
-                length * SizeOf.SIZE_OF_DOUBLE);
+                maxSamples * SizeOf.SIZE_OF_DOUBLE);
     }
 
     public long getMaxSamples()
     {
-        return elements.length;
+        return samples.length;
     }
 
     public void add(double element, double weight)
     {
-        double adjustedWeight = getAdjustedWeight(weight);
+        addWithAdjustedWeight(element, getAdjustedWeight(weight));
+    }
 
-        if (size < elements.length) {
-            elements[size] = element;
+    private void addWithAdjustedWeight(double element, double adjustedWeight)
+    {
+        if (size < samples.length) {
+            samples[size] = element;
             weights[size] = adjustedWeight;
             ++size;
             bubbleUp();
@@ -78,11 +92,11 @@ public class WeightedDoubleReservoirSample
             return;
         }
 
-        if (adjustedWeight >= weights[0]) {
+        if (adjustedWeight <= weights[0]) {
             return;
         }
 
-        elements[0] = element;
+        samples[0] = element;
         weights[0] = adjustedWeight;
         bubbleDown();
         assertValid();
@@ -98,7 +112,9 @@ public class WeightedDoubleReservoirSample
 
     public void mergeWith(WeightedDoubleReservoirSample other)
     {
-        IntStream.range(0, other.elements.length).forEach(i -> add(other.elements[i], other.weights[i]));
+        for (int i = 0; i < other.samples.length; ++i) {
+            addWithAdjustedWeight(other.samples[i], other.weights[i]);
+        }
     }
 
     @Override
@@ -109,32 +125,33 @@ public class WeightedDoubleReservoirSample
 
     public DoubleStream stream()
     {
-        return Arrays.stream(elements);
+        return Arrays.stream(samples, 0, size);
     }
 
     private void assertValid()
     {
-        checkArgument(elements.length > 0, "Number of reservoir samples must be strictly positive");
-        checkArgument(size > 0, "Size must be strictly positive");
-        checkArgument(size <= elements.length, "Size must be at most number of samples");
+        checkArgument(samples.length > 0, "Number of reservoir samples must be strictly positive");
+        checkArgument(size <= samples.length, "Size must be at most number of samples");
 
-        for (int i = 0; i < elements.length; ++i) {
-            if (leftChild(i) < size) {
-                assert (weights[i] >= weights[leftChild(i)]);
-            }
-            if (rightChild(i) < size) {
-                assert (weights[i] >= weights[rightChild(i)]);
+        if (DEBUG) {
+            for (int i = 0; i < samples.length; ++i) {
+                if (leftChild(i) < size) {
+                    assert (weights[i] <= weights[leftChild(i)]);
+                }
+                if (rightChild(i) < size) {
+                    assert (weights[i] <= weights[rightChild(i)]);
+                }
             }
         }
     }
 
     private void swap(int fpos, int spos)
     {
-        double tmpElement = elements[fpos];
+        double tmpElement = samples[fpos];
         double tmpWeight = weights[fpos];
-        elements[fpos] = elements[spos];
+        samples[fpos] = samples[spos];
         weights[fpos] = weights[spos];
-        elements[spos] = tmpElement;
+        samples[spos] = tmpElement;
         weights[spos] = tmpWeight;
     }
 
@@ -142,28 +159,27 @@ public class WeightedDoubleReservoirSample
     {
         int index = 0;
         while (leftChild(index) < size) {
-            int largestChildIndex = leftChild(index);
+            int smallestChildIndex = leftChild(index);
 
-            if (rightChild(index) < size && weights[leftChild(index)] > weights[leftChild(index)]) {
-                largestChildIndex = rightChild(index);
+            if (rightChild(index) < size && weights[leftChild(index)] > weights[rightChild(index)]) {
+                smallestChildIndex = rightChild(index);
             }
 
-            if (weights[index] < weights[largestChildIndex]) {
-                swap(index, largestChildIndex);
+            if (weights[index] > weights[smallestChildIndex]) {
+                swap(index, smallestChildIndex);
             }
             else {
                 break;
             }
 
-            index = largestChildIndex;
+            index = smallestChildIndex;
         }
     }
 
     private void bubbleUp()
     {
         int index = size - 1;
-        while (index > 0 && weights[index] > weights[parent(index)]) {
-            // parent/child are out of order; swap them
+        while (index > 0 && weights[index] < weights[parent(index)]) {
             swap(index, parent(index));
             index = parent(index);
         }
@@ -182,5 +198,25 @@ public class WeightedDoubleReservoirSample
     private static int rightChild(int pos)
     {
         return 2 * pos + 1;
+    }
+
+    public void serialize(SliceOutput out)
+    {
+        out.appendInt(size);
+        IntStream.range(0, size).forEach(i -> out.appendDouble(samples[i]));
+        IntStream.range(0, size).forEach(i -> out.appendDouble(weights[i]));
+    }
+
+    public int getRequiredBytesForSerialization()
+    {
+        return SizeOf.SIZE_OF_INT + // size
+                2 * SizeOf.SIZE_OF_DOUBLE * Math.min(size, samples.length); // samples, weights
+    }
+
+    public long estimatedInMemorySize()
+    {
+        return INSTANCE_SIZE +
+                SizeOf.SIZE_OF_INT + // size
+                2 * SizeOf.SIZE_OF_DOUBLE * Math.min(size, samples.length); // samples, weights
     }
 }

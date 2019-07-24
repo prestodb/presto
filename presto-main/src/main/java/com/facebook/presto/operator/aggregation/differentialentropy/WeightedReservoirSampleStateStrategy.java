@@ -14,19 +14,13 @@
 package com.facebook.presto.operator.aggregation.differentialentropy;
 
 import com.facebook.presto.operator.aggregation.reservoirsample.WeightedDoubleReservoirSample;
-import com.google.common.collect.Streams;
+import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
-
-import java.util.Map;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.operator.aggregation.differentialentropy.FixedHistogramStateStrategyUtils.getXLogX;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
-/*
-Tmp Ami
- */
 public class WeightedReservoirSampleStateStrategy
         implements StateStrategy
 {
@@ -39,7 +33,7 @@ public class WeightedReservoirSampleStateStrategy
 
     protected WeightedReservoirSampleStateStrategy(WeightedReservoirSampleStateStrategy other)
     {
-        reservoir = other.getReservoir().clone();
+        reservoir = other.reservoir.clone();
     }
 
     public WeightedReservoirSampleStateStrategy(SliceInput input)
@@ -80,20 +74,20 @@ public class WeightedReservoirSampleStateStrategy
     @Override
     public void mergeWith(StateStrategy other)
     {
-        getReservoir()
-                .mergeWith(((WeightedReservoirSampleStateStrategy) other).getReservoir());
+        reservoir.mergeWith(((WeightedReservoirSampleStateStrategy) other).reservoir);
     }
 
     @Override
     public void add(double value, double weight)
     {
-        getBreakdownHistogram().add(value, weight);
+        reservoir.add(value, weight);
     }
 
     @Override
     public double calculateEntropy()
     {
-        Map<Double, Double> bucketWeights = Streams.stream(getBreakdownHistogram().iterator()).collect(
+        /*
+        Map<Double, Double> bucketWeights = other.reservoir.stream().collect(
                 Collectors.groupingBy(
                         FixedDoubleBreakdownHistogram.BucketWeight::getLeft,
                         Collectors.summingDouble(FixedDoubleBreakdownHistogram.BucketWeight::getWeight)));
@@ -126,6 +120,8 @@ public class WeightedReservoirSampleStateStrategy
                 })
                 .sum();
         return entropy;
+         */
+        return 0.0;
     }
 
     private static double getHoldOutEntropy(
@@ -162,24 +158,19 @@ public class WeightedReservoirSampleStateStrategy
     @Override
     public long estimatedInMemorySize()
     {
-        return getBreakdownHistogram().estimatedInMemorySize();
+        return reservoir.estimatedInMemorySize();
     }
 
     @Override
     public int getRequiredBytesForSerialization()
     {
-        return getBreakdownHistogram().getRequiredBytesForSerialization();
+        return reservoir.getRequiredBytesForSerialization();
     }
 
     @Override
     public void serialize(SliceOutput out)
     {
-        getBreakdownHistogram().serialize(out);
-    }
-
-    public WeightedDoubleReservoirSample getReservoir()
-    {
-        return reservoir;
+        reservoir.serialize(out);
     }
 
     @Override

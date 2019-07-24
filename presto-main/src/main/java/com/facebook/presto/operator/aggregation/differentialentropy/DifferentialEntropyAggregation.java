@@ -42,12 +42,12 @@ public final class DifferentialEntropyAggregation
             @SqlType(StandardTypes.DOUBLE) double min,
             @SqlType(StandardTypes.DOUBLE) double max)
     {
-        final String requestedMethod = method == null ? null : method.toStringUtf8();
+        String requestedMethod = method == null ? null : method.toStringUtf8();
         if (state.getStrategy() == null) {
             state.setStrategy(StateSerializer.create(
                     size, requestedMethod, min, max));
         }
-        final StateStrategy strategy = state.getStrategy();
+        StateStrategy strategy = state.getStrategy();
         StateSerializer.validate(strategy, requestedMethod);
         strategy.validateParameters(size, sample, weight, min, max);
         strategy.add(sample, weight);
@@ -61,12 +61,12 @@ public final class DifferentialEntropyAggregation
             @SqlType(StandardTypes.DOUBLE) double weight,
             @SqlType(StandardTypes.VARCHAR) Slice method)
     {
-        final String requestedMethod = method.toStringUtf8();
+        String requestedMethod = method.toStringUtf8();
         if (state.getStrategy() == null) {
             state.setStrategy(StateSerializer.create(
                     size, requestedMethod));
         }
-        final StateStrategy strategy = state.getStrategy();
+        StateStrategy strategy = state.getStrategy();
         StateSerializer.validate(strategy, requestedMethod);
         strategy.add(sample, weight);
     }
@@ -79,9 +79,9 @@ public final class DifferentialEntropyAggregation
             @SqlType(StandardTypes.DOUBLE) double weight)
     {
         if (state.getStrategy() == null) {
-            state.setStrategy(StateSerializer.create(size));
+            state.setStrategy(StateSerializer.create(size, true));
         }
-        final StateStrategy strategy = state.getStrategy();
+        StateStrategy strategy = state.getStrategy();
         StateSerializer.validate(strategy);
         strategy.add(sample, weight);
     }
@@ -93,9 +93,9 @@ public final class DifferentialEntropyAggregation
             @SqlType(StandardTypes.DOUBLE) double sample)
     {
         if (state.getStrategy() == null) {
-            state.setStrategy(StateSerializer.create(size));
+            state.setStrategy(StateSerializer.create(size, false));
         }
-        final StateStrategy strategy = state.getStrategy();
+        StateStrategy strategy = state.getStrategy();
         StateSerializer.validate(strategy);
         strategy.add(sample, 1.0);
     }
@@ -105,8 +105,8 @@ public final class DifferentialEntropyAggregation
             @AggregationState State state,
             @AggregationState State otherState)
     {
-        final StateStrategy strategy = state.getStrategy();
-        final StateStrategy otherStrategy = otherState.getStrategy();
+        StateStrategy strategy = state.getStrategy();
+        StateStrategy otherStrategy = otherState.getStrategy();
         if (strategy == null && otherStrategy != null) {
             state.setStrategy(otherStrategy.clone());
             return;
@@ -119,7 +119,7 @@ public final class DifferentialEntropyAggregation
     @OutputFunction("double")
     public static void output(@AggregationState State state, BlockBuilder out)
     {
-        final StateStrategy strategy = state.getStrategy();
+        StateStrategy strategy = state.getStrategy();
         if (strategy == null) {
             DOUBLE.writeDouble(out, 0.0);
             return;

@@ -16,7 +16,6 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.reservoirsample.UnweightedDoubleReservoirSample;
 import org.testng.annotations.Test;
 
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -43,7 +42,6 @@ public class TestUnweightedDoubleReservoirSample
             fail("exception expected");
         }
         catch (IllegalArgumentException e) {
-            assertTrue(e.getMessage().contains("positive"));
         }
     }
 
@@ -53,32 +51,37 @@ public class TestUnweightedDoubleReservoirSample
         final UnweightedDoubleReservoirSample sample =
                 new UnweightedDoubleReservoirSample(200);
 
-        sample.add((double) 1);
-        sample.add((double) 2);
-        sample.add((double) 3);
+        sample.add(1.0);
+        sample.add(2.0);
+        sample.add(3.0);
 
-        Set<Long> samples = new HashSet<Long>();
-        sample.stream().forEach(o -> samples.add((Long) o));
+        Set<Double> samples = new HashSet<Double>();
+        sample.stream().forEach(o -> samples.add(Double.valueOf(o)));
         assertEquals(samples.size(), 3);
-        assertTrue(samples.contains(Long.valueOf(1)));
-        assertTrue(samples.contains(Long.valueOf(2)));
-        assertTrue(samples.contains(Long.valueOf(3)));
+        assertTrue(samples.contains(Double.valueOf(1)));
+        assertTrue(samples.contains(Double.valueOf(2)));
+        assertTrue(samples.contains(Double.valueOf(3)));
     }
 
     @Test
     public void testMany()
     {
-        final UnweightedDoubleReservoirSample sample =
+        final UnweightedDoubleReservoirSample reservoir =
                 new UnweightedDoubleReservoirSample(200);
 
         long streamLength = 1000000;
-        for (long i = 0; i < streamLength; ++i) {
+        for (int i = 0; i < streamLength; ++i) {
             double value = i * 10 + i % 2;
-            sample.add(value);
+            reservoir.add(value);
         }
 
-        Set<Long> sampled = new HashSet<Long>();
-        sample.stream().forEach(o -> sampled.add((Long) o));
-        System.out.println("res " + Arrays.toString(sampled.toArray()));
+        double quantized[] = new double[4];
+        reservoir.stream().forEach(s -> {
+            int index = (int) (4.0 * s / (10.0 * streamLength + 1));
+            ++quantized[index];
+        });
+        for (int i = 0; i < 4; ++i) {
+            assertTrue(quantized[i] > 35);
+        }
     }
 }
