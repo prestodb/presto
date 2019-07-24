@@ -95,7 +95,7 @@ final class PrestoSystemRequirements
         }
 
         JavaVersion version = JavaVersion.parse(javaVersion);
-        if (version.getMajor() == 8 && version.getUpdate().isPresent() && version.getUpdate().getAsInt() >= 151) {
+        if (version.getMajor() == 8 && version.getUpdate().isPresent() && version.getUpdate().getAsInt() >= 161) {
             return;
         }
 

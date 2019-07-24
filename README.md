@@ -7,7 +7,7 @@ See the [User Manual](https://prestodb.github.io/docs/current/) for deployment i
 ## Requirements
 
 * Mac OS X or Linux
-* Java 8 Update 151 or higher (8u151+), 64-bit. Both Oracle JDK and OpenJDK are supported.
+* Java 8 Update 161 or higher (8u161+), 64-bit. Both Oracle JDK and OpenJDK are supported.
 * Maven 3.3.9+ (for building)
 * Python 2.4+ (for running with the launcher script)
 
