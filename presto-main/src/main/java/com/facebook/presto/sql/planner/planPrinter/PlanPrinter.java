@@ -156,11 +156,11 @@ public class PlanPrinter
         this.functionManager = functionManager;
 
         Optional<Duration> totalCpuTime = stats.map(s -> new Duration(s.values().stream()
-                .mapToLong(planNode -> planNode.getPlanNodeScheduledTime().toMillis())
+                .mapToLong(planNode -> planNode.getPlanNodeCpuTime().toMillis())
                 .sum(), MILLISECONDS));
 
         Optional<Duration> totalScheduledTime = stats.map(s -> new Duration(s.values().stream()
-                .mapToLong(planNode -> planNode.getPlanNodeCpuTime().toMillis())
+                .mapToLong(planNode -> planNode.getPlanNodeScheduledTime().toMillis())
                 .sum(), MILLISECONDS));
 
         this.representation = new PlanRepresentation(planRoot, types, totalCpuTime, totalScheduledTime);
