@@ -295,6 +295,14 @@ public class TestSqlParser
     }
 
     @Test
+    public void testRowSubscript()
+    {
+        assertExpression("ROW (1, 'a', true)[1]", new SubscriptExpression(
+                new Row(ImmutableList.of(new LongLiteral("1"), new StringLiteral("a"), new BooleanLiteral("true"))),
+                new LongLiteral("1")));
+    }
+
+    @Test
     public void testDouble()
     {
         assertExpression("123E7", new DoubleLiteral("123E7"));
