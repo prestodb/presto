@@ -68,6 +68,8 @@ public class QueryContext
     private final long maxSpill;
     private final SpillSpaceTracker spillSpaceTracker;
     private final Map<TaskId, TaskContext> taskContexts = new ConcurrentHashMap();
+    // Corresponding to AbstractAggregatedMemoryContext.FORCE_FREE_TAG
+    protected static final String FORCE_FREE_TAG = "FORCE_FREE_OPERATION";
 
     // TODO: This field should be final. However, due to the way QueryContext is constructed the memory limit is not known in advance
     @GuardedBy("this")
@@ -352,6 +354,7 @@ public class QueryContext
         }
 
         String topConsumers = queryAllocations.entrySet().stream()
+                .filter(entry -> !entry.getKey().equals(FORCE_FREE_TAG))
                 .sorted(comparingByValue(Comparator.reverseOrder()))
                 .limit(3)
                 .collect(toImmutableMap(Entry::getKey, e -> succinctBytes(e.getValue())))
