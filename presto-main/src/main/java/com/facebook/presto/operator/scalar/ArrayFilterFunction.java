@@ -21,7 +21,6 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
 import io.airlift.slice.Slice;
 
 import static java.lang.Boolean.TRUE;
@@ -38,7 +37,7 @@ public final class ArrayFilterFunction
     public static Block filterLong(
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") FilterLongLambda function)
+            @SqlType("function(T, boolean)") LongToBooleanFunction function)
     {
         int positionCount = arrayBlock.getPositionCount();
         BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
@@ -62,7 +61,7 @@ public final class ArrayFilterFunction
     public static Block filterDouble(
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") FilterDoubleLambda function)
+            @SqlType("function(T, boolean)") DoubleToBooleanFunction function)
     {
         int positionCount = arrayBlock.getPositionCount();
         BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
@@ -86,7 +85,7 @@ public final class ArrayFilterFunction
     public static Block filterBoolean(
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") FilterBooleanLambda function)
+            @SqlType("function(T, boolean)") BooleanToBooleanFunction function)
     {
         int positionCount = arrayBlock.getPositionCount();
         BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
@@ -110,7 +109,7 @@ public final class ArrayFilterFunction
     public static Block filterSlice(
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") FilterSliceLambda function)
+            @SqlType("function(T, boolean)") SliceToBooleanFunction function)
     {
         int positionCount = arrayBlock.getPositionCount();
         BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
@@ -134,7 +133,7 @@ public final class ArrayFilterFunction
     public static Block filterBlock(
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") FilterBlockLambda function)
+            @SqlType("function(T, boolean)") BlockToBooleanFunction function)
     {
         int positionCount = arrayBlock.getPositionCount();
         BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
@@ -150,40 +149,5 @@ public final class ArrayFilterFunction
             }
         }
         return resultBuilder.build();
-    }
-
-    @FunctionalInterface
-    public interface FilterLongLambda
-            extends LambdaFunctionInterface
-    {
-        Boolean apply(Long x);
-    }
-
-    @FunctionalInterface
-    public interface FilterDoubleLambda
-            extends LambdaFunctionInterface
-    {
-        Boolean apply(Double x);
-    }
-
-    @FunctionalInterface
-    public interface FilterBooleanLambda
-            extends LambdaFunctionInterface
-    {
-        Boolean apply(Boolean x);
-    }
-
-    @FunctionalInterface
-    public interface FilterSliceLambda
-            extends LambdaFunctionInterface
-    {
-        Boolean apply(Slice x);
-    }
-
-    @FunctionalInterface
-    public interface FilterBlockLambda
-            extends LambdaFunctionInterface
-    {
-        Boolean apply(Block x);
     }
 }
