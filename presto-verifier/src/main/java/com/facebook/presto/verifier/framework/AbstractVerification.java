@@ -62,7 +62,7 @@ public abstract class AbstractVerification
 {
     private static final Logger log = Logger.get(AbstractVerification.class);
 
-    private final PrestoAction prestoAction;
+    private final JdbcPrestoAction prestoAction;
     private final SourceQuery sourceQuery;
     private final QueryRewriter queryRewriter;
     private final List<FailureResolver> failureResolvers;
@@ -74,7 +74,7 @@ public abstract class AbstractVerification
     private final VerificationContext verificationContext = new VerificationContext();
 
     public AbstractVerification(
-            PrestoAction prestoAction,
+            JdbcPrestoAction prestoAction,
             SourceQuery sourceQuery,
             QueryRewriter queryRewriter,
             List<FailureResolver> failureResolvers,
@@ -158,7 +158,7 @@ public abstract class AbstractVerification
         }
     }
 
-    protected PrestoAction getPrestoAction()
+    protected JdbcPrestoAction getPrestoAction()
     {
         return prestoAction;
     }

@@ -60,7 +60,7 @@ public class TestDataVerification
     private static StandaloneQueryRunner queryRunner;
 
     private VerifierConfig verifierConfig;
-    private PrestoAction prestoAction;
+    private JdbcPrestoAction prestoAction;
     private QueryRewriter queryRewriter;
     private ChecksumValidator checksumValidator;
 
@@ -81,7 +81,7 @@ public class TestDataVerification
                 .setTestJdbcUrl(jdbcUrl)
                 .setTestId(TEST_ID)
                 .setFailureResolverEnabled(false);
-        prestoAction = new PrestoAction(
+        prestoAction = new JdbcPrestoAction(
                 new PrestoExceptionClassifier(ImmutableSet.of(), ImmutableSet.of()),
                 verifierConfig,
                 retryConfig,

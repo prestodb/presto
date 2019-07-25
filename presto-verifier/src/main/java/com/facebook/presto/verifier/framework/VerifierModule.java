@@ -76,7 +76,7 @@ public class VerifierModule
         binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
         binder.bind(SqlParser.class).in(SINGLETON);
         binder.bind(QueryRewriter.class).in(SINGLETON);
-        binder.bind(PrestoAction.class).in(SINGLETON);
+        binder.bind(JdbcPrestoAction.class).in(SINGLETON);
         binder.bind(VerificationManager.class).in(SINGLETON);
         binder.bind(VerificationFactory.class).in(SINGLETON);
         binder.bind(ChecksumValidator.class).in(SINGLETON);
