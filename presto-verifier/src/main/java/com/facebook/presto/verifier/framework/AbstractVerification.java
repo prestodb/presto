@@ -57,6 +57,7 @@ public abstract class AbstractVerification
 {
     private static final Logger log = Logger.get(AbstractVerification.class);
 
+    private final VerificationResubmitter verificationResubmitter;
     private final PrestoAction prestoAction;
     private final SourceQuery sourceQuery;
     private final QueryRewriter queryRewriter;
@@ -69,12 +70,14 @@ public abstract class AbstractVerification
     private final VerificationContext verificationContext = new VerificationContext();
 
     public AbstractVerification(
+            VerificationResubmitter verificationResubmitter,
             PrestoAction prestoAction,
             SourceQuery sourceQuery,
             QueryRewriter queryRewriter,
             List<FailureResolver> failureResolvers,
             VerifierConfig config)
     {
+        this.verificationResubmitter = requireNonNull(verificationResubmitter, "verificationResubmitter is null");
         this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
         this.sourceQuery = requireNonNull(sourceQuery, "sourceQuery is null");
         this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
@@ -92,6 +95,12 @@ public abstract class AbstractVerification
     protected VerificationContext getVerificationContext()
     {
         return verificationContext;
+    }
+
+    @Override
+    public SourceQuery getSourceQuery()
+    {
+        return sourceQuery;
     }
 
     @Override
@@ -128,6 +137,9 @@ public abstract class AbstractVerification
                     deterministic));
         }
         catch (QueryException e) {
+            if (verificationResubmitter.resubmit(this, e)) {
+                return Optional.empty();
+            }
             return Optional.of(buildEvent(
                     Optional.ofNullable(control),
                     Optional.ofNullable(test),
@@ -161,11 +173,6 @@ public abstract class AbstractVerification
     protected QueryRewriter getQueryRewriter()
     {
         return queryRewriter;
-    }
-
-    protected SourceQuery getSourceQuery()
-    {
-        return sourceQuery;
     }
 
     protected QueryConfiguration getConfiguration(TargetCluster cluster)

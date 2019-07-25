@@ -74,6 +74,7 @@ public class VerifierConfig
     private double absoluteErrorMargin = 1e-12;
     private boolean runTearDownOnResultMismatch;
     private boolean failureResolverEnabled = true;
+    private int verificationResubmissionLimit = 2;
 
     @NotNull
     public Optional<String> getAdditionalJdbcDriverPath()
@@ -532,6 +533,20 @@ public class VerifierConfig
     public VerifierConfig setFailureResolverEnabled(boolean failureResolverEnabled)
     {
         this.failureResolverEnabled = failureResolverEnabled;
+        return this;
+    }
+
+    @Min(0)
+    public int getVerificationResubmissionLimit()
+    {
+        return verificationResubmissionLimit;
+    }
+
+    @ConfigDescription("Maximum number of time a transiently failed verification can be resubmitted")
+    @Config("verification-resubmission.limit")
+    public VerifierConfig setVerificationResubmissionLimit(int verificationResubmissionLimit)
+    {
+        this.verificationResubmissionLimit = verificationResubmissionLimit;
         return this;
     }
 }

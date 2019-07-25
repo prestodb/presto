@@ -98,7 +98,7 @@ public class TestDataVerification
     {
         QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, "test-user", Optional.empty(), ImmutableMap.of());
         SourceQuery sourceQuery = new SourceQuery(SUITE, NAME, controlQuery, testQuery, configuration, configuration);
-        return new DataVerification(prestoAction, sourceQuery, queryRewriter, ImmutableList.of(), verifierConfig, checksumValidator);
+        return new DataVerification((verification, e) -> false, prestoAction, sourceQuery, queryRewriter, ImmutableList.of(), verifierConfig, checksumValidator);
     }
 
     @Test

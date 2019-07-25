@@ -51,12 +51,12 @@ public class VerificationFactory
         this.config = requireNonNull(config, "config is null");
     }
 
-    public Verification get(SourceQuery sourceQuery)
+    public Verification get(VerificationResubmitter verificationResubmitter, SourceQuery sourceQuery)
     {
         QueryType queryType = QueryType.of(sqlParser.createStatement(sourceQuery.getControlQuery(), PARSING_OPTIONS));
         switch (queryType.getCategory()) {
             case DATA_PRODUCING:
-                return new DataVerification(prestoAction, sourceQuery, queryRewriter, failureResolvers, config, checksumValidator);
+                return new DataVerification(verificationResubmitter, prestoAction, sourceQuery, queryRewriter, failureResolvers, config, checksumValidator);
             default:
                 throw new IllegalStateException(format("Unsupported query type: %s", queryType));
         }
