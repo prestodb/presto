@@ -57,7 +57,7 @@ public class TestDataVerification
     private static StandaloneQueryRunner queryRunner;
 
     private VerifierConfig verifierConfig;
-    private JdbcPrestoAction prestoAction;
+    private PrestoAction prestoAction;
     private QueryRewriter queryRewriter;
     private ChecksumValidator checksumValidator;
 

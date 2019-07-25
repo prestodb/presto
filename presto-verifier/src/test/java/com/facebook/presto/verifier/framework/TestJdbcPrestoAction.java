@@ -54,7 +54,7 @@ public class TestJdbcPrestoAction
     private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
     private static StandaloneQueryRunner queryRunner;
 
-    private JdbcPrestoAction prestoAction;
+    private PrestoAction prestoAction;
 
     @BeforeClass
     public void setupQueryRunner()
