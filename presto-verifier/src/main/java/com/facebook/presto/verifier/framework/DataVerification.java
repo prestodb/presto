@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.ShowColumns;
@@ -38,7 +37,6 @@ import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.C
 import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.TEST;
 import static com.facebook.presto.verifier.framework.QueryOrigin.forChecksum;
 import static com.facebook.presto.verifier.framework.QueryOrigin.forDescribe;
-import static com.facebook.presto.verifier.framework.QueryOrigin.forMain;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -62,8 +60,6 @@ public class DataVerification
     @Override
     public VerificationResult verify(QueryBundle control, QueryBundle test)
     {
-        setQueryStats(setupAndRun(control, CONTROL), CONTROL);
-        setQueryStats(setupAndRun(test, TEST), TEST);
         List<Column> controlColumns = getColumns(control.getTableName(), CONTROL);
         List<Column> testColumns = getColumns(test.getTableName(), TEST);
         ChecksumQueryAndResult controlChecksum = computeChecksum(control, controlColumns, CONTROL);
@@ -113,12 +109,6 @@ public class DataVerification
                 teardownSafely(thirdRun, CONTROL);
             }
         }
-    }
-
-    private QueryStats setupAndRun(QueryBundle control, TargetCluster cluster)
-    {
-        setup(control, cluster);
-        return getPrestoAction().execute(control.getQuery(), getConfiguration(cluster), forMain(cluster), getVerificationContext());
     }
 
     private MatchResult match(
