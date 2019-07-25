@@ -32,7 +32,6 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLClientInfoException;
 import java.sql.SQLException;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -48,22 +47,8 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcPrestoAction
+        implements PrestoAction
 {
-    @FunctionalInterface
-    interface ResultSetConverter<R>
-    {
-        R apply(ResultSet resultSet)
-                throws SQLException;
-
-        ResultSetConverter<List<Object>> DEFAULT = resultSet -> {
-            ImmutableList.Builder<Object> row = ImmutableList.builder();
-            for (int i = 0; i < resultSet.getMetaData().getColumnCount(); i++) {
-                row.add(resultSet.getObject(i));
-            }
-            return row.build();
-        };
-    }
-
     private static final String QUERY_MAX_EXECUTION_TIME = "query_max_execution_time";
 
     private final SqlExceptionClassifier exceptionClassifier;
@@ -97,6 +82,7 @@ public class JdbcPrestoAction
         this.prestoRetry = new RetryDriver(prestoRetryConfig, queryException -> queryException.getType() == PRESTO && queryException.isRetryable());
     }
 
+    @Override
     public QueryStats execute(
             Statement statement,
             QueryConfiguration configuration,
@@ -106,6 +92,7 @@ public class JdbcPrestoAction
         return execute(statement, configuration, queryOrigin, context, Optional.empty()).getQueryStats();
     }
 
+    @Override
     public <R> QueryResult<R> execute(
             Statement statement,
             QueryConfiguration configuration,
@@ -189,7 +176,7 @@ public class JdbcPrestoAction
         }
     }
 
-    public PrestoConnection getConnection(
+    private PrestoConnection getConnection(
             QueryConfiguration configuration,
             QueryOrigin queryOrigin)
             throws SQLException

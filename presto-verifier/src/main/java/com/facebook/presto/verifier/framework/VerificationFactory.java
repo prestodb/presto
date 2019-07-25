@@ -28,7 +28,7 @@ import static java.util.Objects.requireNonNull;
 public class VerificationFactory
 {
     private final SqlParser sqlParser;
-    private final JdbcPrestoAction prestoAction;
+    private final PrestoAction prestoAction;
     private final QueryRewriter queryRewriter;
     private final ChecksumValidator checksumValidator;
     private final List<FailureResolver> failureResolvers;
@@ -37,7 +37,7 @@ public class VerificationFactory
     @Inject
     public VerificationFactory(
             SqlParser sqlParser,
-            JdbcPrestoAction prestoAction,
+            PrestoAction prestoAction,
             QueryRewriter queryRewriter,
             ChecksumValidator checksumValidator,
             List<FailureResolver> failureResolvers,

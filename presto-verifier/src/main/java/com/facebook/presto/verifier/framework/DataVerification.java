@@ -46,7 +46,7 @@ public class DataVerification
     private final ChecksumValidator checksumValidator;
 
     public DataVerification(
-            JdbcPrestoAction prestoAction,
+            PrestoAction prestoAction,
             SourceQuery sourceQuery,
             QueryRewriter queryRewriter,
             List<FailureResolver> failureResolvers,
