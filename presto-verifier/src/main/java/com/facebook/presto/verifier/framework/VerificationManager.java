@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.event.client.EventClient;
 import io.airlift.log.Logger;
 
+import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
@@ -129,6 +130,7 @@ public class VerificationManager
         this.verificationResubmissionLimit = config.getVerificationResubmissionLimit();
     }
 
+    @PostConstruct
     public void start()
     {
         initializeDrivers(additionalJdbcDriverPath, controlJdbcDriverClass, testJdbcDriverClass);

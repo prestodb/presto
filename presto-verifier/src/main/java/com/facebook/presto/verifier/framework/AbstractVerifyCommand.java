@@ -54,7 +54,6 @@ public abstract class AbstractVerifyCommand
         Injector injector = null;
         try {
             injector = app.strictConfig().initialize();
-            injector.getInstance(VerificationManager.class).start();
         }
         catch (Exception e) {
             throwIfUnchecked(e);
