@@ -11,9 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
-
-import com.facebook.presto.spi.function.Signature;
+package com.facebook.presto.spi.function;
 
 public interface SqlFunction
 {

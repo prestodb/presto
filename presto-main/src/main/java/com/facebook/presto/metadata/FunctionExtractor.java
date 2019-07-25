@@ -18,6 +18,7 @@ import com.facebook.presto.operator.window.WindowAnnotationsParser;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.WindowFunction;
 
 import java.util.Collection;
