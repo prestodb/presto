@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.geospatial;
 
+import com.facebook.presto.geospatial.rtree.HasExtent;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.openjdk.jol.info.ClassLayout;
@@ -26,6 +27,7 @@ import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public final class Rectangle
+        implements HasExtent
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(Rectangle.class).instanceSize();
 
@@ -103,7 +105,20 @@ public final class Rectangle
         return new Rectangle(min(this.xMin, other.xMin), min(this.yMin, other.yMin), max(this.xMax, other.xMax), max(this.yMax, other.yMax));
     }
 
-    public int estimateMemorySize()
+    public boolean contains(double x, double y)
+    {
+        return xMin <= x && x <= xMax
+                && yMin <= y && y <= yMax;
+    }
+
+    @Override
+    public Rectangle getExtent()
+    {
+        return this;
+    }
+
+    @Override
+    public long getEstimatedSizeInBytes()
     {
         return INSTANCE_SIZE;
     }
