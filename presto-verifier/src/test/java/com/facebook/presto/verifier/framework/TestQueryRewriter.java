@@ -200,7 +200,7 @@ public class TestQueryRewriter
                 .setTestTablePrefix(prefix);
         return new QueryRewriter(
                 sqlParser,
-                new PrestoAction(
+                new JdbcPrestoAction(
                         new PrestoExceptionClassifier(ImmutableSet.of(), ImmutableSet.of()),
                         config,
                         new RetryConfig(),

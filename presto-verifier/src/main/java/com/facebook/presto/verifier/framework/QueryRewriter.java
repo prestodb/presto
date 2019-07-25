@@ -26,7 +26,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.verifier.framework.PrestoAction.ResultSetConverter;
+import com.facebook.presto.verifier.framework.JdbcPrestoAction.ResultSetConverter;
 import com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -60,12 +60,12 @@ import static java.util.UUID.randomUUID;
 public class QueryRewriter
 {
     private final SqlParser sqlParser;
-    private final PrestoAction prestoAction;
+    private final JdbcPrestoAction prestoAction;
     private final List<Property> tablePropertyOverrides;
     private final Map<TargetCluster, QualifiedName> prefixes;
 
     @Inject
-    public QueryRewriter(SqlParser sqlParser, PrestoAction prestoAction, List<Property> tablePropertyOverrides, VerifierConfig config)
+    public QueryRewriter(SqlParser sqlParser, JdbcPrestoAction prestoAction, List<Property> tablePropertyOverrides, VerifierConfig config)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");

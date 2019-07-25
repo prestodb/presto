@@ -48,13 +48,13 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-public class TestPrestoAction
+public class TestJdbcPrestoAction
 {
     private static final QueryOrigin QUERY_ORIGIN = forMain(CONTROL);
     private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
     private static StandaloneQueryRunner queryRunner;
 
-    private PrestoAction prestoAction;
+    private JdbcPrestoAction prestoAction;
 
     @BeforeClass
     public void setupQueryRunner()
@@ -67,7 +67,7 @@ public class TestPrestoAction
     public void setup()
     {
         String jdbcUrl = getJdbcUrl(queryRunner);
-        prestoAction = new PrestoAction(
+        prestoAction = new JdbcPrestoAction(
                 new PrestoExceptionClassifier(ImmutableSet.of(), ImmutableSet.of()),
                 new VerifierConfig()
                         .setControlJdbcUrl(jdbcUrl)

@@ -47,7 +47,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class PrestoAction
+public class JdbcPrestoAction
 {
     @FunctionalInterface
     interface ResultSetConverter<R>
@@ -78,7 +78,7 @@ public class PrestoAction
     private final RetryDriver prestoRetry;
 
     @Inject
-    public PrestoAction(
+    public JdbcPrestoAction(
             SqlExceptionClassifier exceptionClassifier,
             VerifierConfig config,
             @ForClusterConnection RetryConfig networkRetryConfig,
