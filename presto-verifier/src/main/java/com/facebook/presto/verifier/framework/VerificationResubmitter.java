@@ -13,13 +13,7 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.presto.verifier.event.VerifierQueryEvent;
-
-import java.util.Optional;
-
-public interface Verification
+public interface VerificationResubmitter
 {
-    SourceQuery getSourceQuery();
-
-    Optional<VerifierQueryEvent> run();
+    boolean resubmit(Verification verification, QueryException e);
 }

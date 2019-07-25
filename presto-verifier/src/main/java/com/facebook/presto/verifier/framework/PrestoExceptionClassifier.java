@@ -37,6 +37,8 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
@@ -91,6 +93,10 @@ public class PrestoExceptionClassifier
             // From ThriftErrorCode
             THRIFT_SERVICE_CONNECTION_ERROR);
 
+    private static final Set<ErrorCodeSupplier> DEFAULT_REQUEUABLE_ERRORS = ImmutableSet.of(
+            HIVE_PARTITION_DROPPED_DURING_QUERY,
+            HIVE_TABLE_DROPPED_DURING_QUERY);
+
     private final Map<Integer, ErrorCodeSupplier> errorByCode;
     private final Set<ErrorCodeSupplier> retryableErrors;
 
@@ -119,6 +125,12 @@ public class PrestoExceptionClassifier
 
         Optional<ErrorCodeSupplier> errorCode = Optional.ofNullable(errorByCode.get(cause.getErrorCode()));
         return QueryException.forPresto(cause, errorCode, errorCode.isPresent() && retryableErrors.contains(errorCode.get()), queryStats, queryOrigin);
+    }
+
+    public static boolean shouldResubmit(QueryException queryException)
+    {
+        return queryException.getPrestoErrorCode().isPresent()
+                && DEFAULT_REQUEUABLE_ERRORS.contains(queryException.getPrestoErrorCode().get());
     }
 
     private static Optional<Throwable> getClusterConnectionExceptionCause(Throwable t)

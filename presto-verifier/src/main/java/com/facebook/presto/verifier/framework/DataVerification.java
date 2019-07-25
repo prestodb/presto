@@ -46,6 +46,7 @@ public class DataVerification
     private final ChecksumValidator checksumValidator;
 
     public DataVerification(
+            VerificationResubmitter verificationResubmitter,
             PrestoAction prestoAction,
             SourceQuery sourceQuery,
             QueryRewriter queryRewriter,
@@ -53,7 +54,7 @@ public class DataVerification
             VerifierConfig config,
             ChecksumValidator checksumValidator)
     {
-        super(prestoAction, sourceQuery, queryRewriter, failureResolvers, config);
+        super(verificationResubmitter, prestoAction, sourceQuery, queryRewriter, failureResolvers, config);
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
     }
 

@@ -63,7 +63,8 @@ public class TestVerifierConfig
                 .setRelativeErrorMargin(1e-4)
                 .setAbsoluteErrorMargin(1e-12)
                 .setRunTearDownOnResultMismatch(false)
-                .setFailureResolverEnabled(true));
+                .setFailureResolverEnabled(true)
+                .setVerificationResubmissionLimit(2));
     }
 
     @Test
@@ -103,6 +104,7 @@ public class TestVerifierConfig
                 .put("absolute-error-margin", "1e-14")
                 .put("run-teardown-on-result-mismatch", "true")
                 .put("failure-resolver.enabled", "false")
+                .put("verification-resubmission.limit", "1")
                 .build();
         VerifierConfig expected = new VerifierConfig()
                 .setAdditionalJdbcDriverPath("/path/to/file")
@@ -137,7 +139,8 @@ public class TestVerifierConfig
                 .setRelativeErrorMargin(2e-5)
                 .setAbsoluteErrorMargin(1e-14)
                 .setRunTearDownOnResultMismatch(true)
-                .setFailureResolverEnabled(false);
+                .setFailureResolverEnabled(false)
+                .setVerificationResubmissionLimit(1);
 
         assertFullMapping(properties, expected);
     }
