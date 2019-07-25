@@ -42,6 +42,9 @@ import static com.facebook.presto.verifier.VerifierTestUtil.setupPresto;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SKIPPED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SUCCEEDED;
+import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_SETUP_QUERY_FAILED;
+import static com.facebook.presto.verifier.framework.SkippedReason.FAILED_BEFORE_CONTROL_QUERY;
+import static com.facebook.presto.verifier.framework.SkippedReason.NON_DETERMINISTIC;
 import static java.util.regex.Pattern.DOTALL;
 import static java.util.regex.Pattern.MULTILINE;
 import static org.testng.Assert.assertEquals;
@@ -169,6 +172,7 @@ public class TestDataVerification
     {
         Optional<VerifierQueryEvent> event = createVerification("SELECT * FROM test", "SELECT 1").run();
         assertTrue(event.isPresent());
+        assertEquals(event.get().getSkippedReason(), FAILED_BEFORE_CONTROL_QUERY.name());
         assertEvent(
                 event.get(),
                 SKIPPED,
@@ -182,6 +186,7 @@ public class TestDataVerification
     {
         Optional<VerifierQueryEvent> event = createVerification("INSERT INTO dest SELECT * FROM test", "SELECT 1").run();
         assertTrue(event.isPresent());
+        assertEquals(event.get().getSkippedReason(), CONTROL_SETUP_QUERY_FAILED.name());
         assertEvent(
                 event.get(),
                 SKIPPED,
@@ -195,6 +200,7 @@ public class TestDataVerification
     {
         Optional<VerifierQueryEvent> event = createVerification("SELECT rand()", "SELECT 2.0").run();
         assertTrue(event.isPresent());
+        assertEquals(event.get().getSkippedReason(), NON_DETERMINISTIC.name());
         assertEvent(
                 event.get(),
                 SKIPPED,
