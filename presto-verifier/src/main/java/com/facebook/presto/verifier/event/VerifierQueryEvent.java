@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.event;
 
+import com.facebook.presto.verifier.framework.SkippedReason;
 import io.airlift.event.client.EventField;
 import io.airlift.event.client.EventType;
 
@@ -39,6 +40,8 @@ public class VerifierQueryEvent
     private final String name;
 
     private final String status;
+    private final String skippedReason;
+
     private final Boolean deterministic;
     private final String resolveMessage;
 
@@ -53,6 +56,7 @@ public class VerifierQueryEvent
             String testId,
             String name,
             EventStatus status,
+            Optional<SkippedReason> skippedReason,
             Optional<Boolean> deterministic,
             Optional<String> resolveMessage,
             QueryInfo controlQueryInfo,
@@ -64,6 +68,7 @@ public class VerifierQueryEvent
         this.testId = requireNonNull(testId, "testId is null");
         this.name = requireNonNull(name, "name is null");
         this.status = status.name();
+        this.skippedReason = skippedReason.map(SkippedReason::name).orElse(null);
         this.deterministic = deterministic.orElse(null);
         this.resolveMessage = resolveMessage.orElse(null);
         this.controlQueryInfo = requireNonNull(controlQueryInfo, "controlQueryInfo is null");
@@ -94,6 +99,12 @@ public class VerifierQueryEvent
     public String getStatus()
     {
         return status;
+    }
+
+    @EventField
+    public String getSkippedReason()
+    {
+        return skippedReason;
     }
 
     @EventField
