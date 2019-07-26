@@ -104,10 +104,16 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.PI;
+import static java.lang.Math.acos;
+import static java.lang.Math.asin;
 import static java.lang.Math.atan2;
 import static java.lang.Math.cos;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
+import static java.lang.Math.pow;
 import static java.lang.Math.sin;
 import static java.lang.Math.sqrt;
+import static java.lang.Math.toDegrees;
 import static java.lang.Math.toIntExact;
 import static java.lang.Math.toRadians;
 import static java.lang.String.format;
@@ -138,6 +144,7 @@ public final class GeoFunctions
     private static final float MAX_LATITUDE = 90;
     private static final float MIN_LONGITUDE = -180;
     private static final float MAX_LONGITUDE = 180;
+    private static final double ERROR_LATITUDE_RADIANS = 0.0087; // ~ 0.5 degrees
 
     private static final EnumSet<Type> GEOMETRY_TYPES_FOR_SPHERICAL_GEOGRAPHY = EnumSet.of(
             Type.Point, Type.Polyline, Type.Polygon, Type.MultiPoint);
@@ -1586,7 +1593,167 @@ public final class GeoFunctions
         return sum * 1000;
     }
 
+    @SqlNullable
+    @Description("Returns TRUE if and only if no points of right lie in the exterior of left, and at least one point of the interior of left lies in the interior of right")
+    @ScalarFunction("ST_Contains")
+    @SqlType(BOOLEAN)
+    public static Boolean stSphericalContains(@SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME) Slice left, @SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME) Slice right)
+    {
+        OGCGeometry leftGeometry = deserialize(left);
+        if (leftGeometry.isEmpty()) {
+            return null;
+        }
+
+        OGCGeometry rightGeometry = deserialize(right);
+        if (rightGeometry.isEmpty()) {
+            return null;
+        }
+
+        validateSphericalType("ST_Contains", leftGeometry, EnumSet.of(POLYGON));
+        validateSphericalType("ST_Contains", rightGeometry, EnumSet.of(POINT));
+
+        Polygon polygon = (Polygon) leftGeometry.getEsriGeometry();
+        Point point = (Point) rightGeometry.getEsriGeometry();
+
+        if (point.getY() == MAX_LATITUDE || point.getY() == MIN_LATITUDE) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "When applied to SphericalGeography inputs, ST_Contains only supports points which are not poles.");
+        }
+
+        if (containsEitherPole(polygon)) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "When applied to SphericalGeography inputs, ST_Contains only supports polygons which do not enclose poles.");
+        }
+
+        int k = getNumberIntersectionsWithPolygon(polygon, point);
+        if (k % 2 == 1) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    private static boolean liesInRange(double point, double rangeStart, double rangeEnd)
+    {
+        return point >= rangeStart && point <= rangeEnd;
+    }
+
+    private static boolean edgeCrosses(double edgeStart, double edgeEnd, double longitude)
+    {
+        double start = min(edgeStart, edgeEnd);
+        double end = max(edgeStart, edgeEnd);
+        double distanceVia0 = end - start;
+        double distanceVia180 = start - MIN_LONGITUDE + MAX_LONGITUDE - end;
+        if (distanceVia0 < distanceVia180) {
+            return liesInRange(longitude, start, end);
+        }
+        else {
+            return liesInRange(longitude, MIN_LONGITUDE, start) || liesInRange(longitude, end, MAX_LONGITUDE);
+        }
+    }
+
+    private static boolean edgeCrossesLongitude(double edgeStart, double edgeEnd, double longitude)
+    {
+        double start = min(edgeStart, edgeEnd);
+        double end = max(edgeStart, edgeEnd);
+        double distanceVia0 = end - start;
+        double distanceVia180 = start - MIN_LONGITUDE + MAX_LONGITUDE - end;
+        if (distanceVia0 < distanceVia180) {
+            return liesInRange(longitude, start, end);
+        }
+        else {
+            return liesInRange(longitude, MIN_LONGITUDE, start) || liesInRange(longitude, end, MAX_LONGITUDE);
+        }
+    }
+
+    private static boolean edgeIntersectsTestEdge(Point arcStart, Point arcEnd, Point longitudeStart, Point longitudeEnd)
+    {
+        // y of longstart must be lower than y of longend
+        double longitude = longitudeStart.getX();
+        boolean arcCrossesLongitude = edgeCrossesLongitude(arcStart.getX(), arcEnd.getX(), longitude);
+
+        if (arcCrossesLongitude) {
+            double edgeLatitude = getArcLatitudeAtLongitude(arcStart, arcEnd, longitude);
+            boolean inRange = liesInRange(edgeLatitude, longitudeStart.getY() - 0.5, longitudeEnd.getY() + 0.5);
+            return inRange;
+        }
+        else {
+            return false;
+        }
+    }
+
+    private static double getArcLatitudeAtLongitude(Point start, Point end, double longitude)
+    {
+        SphericalExcessCalculator calculator = new SphericalExcessCalculator(start);
+        return calculator.computeExtrapolatedLatitudeThroughPoint(end, longitude);
+    }
+
+    private static Point getExternalPoint(double longitude)
+    {
+        return new Point(longitude, 90.0);
+    }
+
+    private static int getNumberIntersectionsWithPolygon(Polygon polygon, Point point)
+    {
+        int intersectionSum = 0;
+        Point testEdgeStart = point;
+        Point testEdgeEnd = getExternalPoint(point.getX());
+        if (point.getY() > testEdgeEnd.getY()) {
+            testEdgeStart = testEdgeEnd;
+            testEdgeEnd = point;
+        }
+
+        int numPaths = polygon.getPathCount();
+        for (int i = 0; i < numPaths; i++) {
+            int pathStartIndex = polygon.getPathStart(i);
+            int pathEndIndex = polygon.getPathEnd(i);
+            for (int j = pathStartIndex; j < pathEndIndex - 1; j++) {
+                Point edgeStart = polygon.getPoint(j);
+                Point edgeEnd = polygon.getPoint(j + 1);
+                if (edgeStart.equals(point)) {
+                    return 1;
+                }
+                if (edgeIntersectsTestEdge(edgeStart, edgeEnd, testEdgeStart, testEdgeEnd)) {
+                    intersectionSum++;
+                }
+            }
+            // check last edge that closes the loop back at the starting point
+            Point lastEdgeStart = polygon.getPoint(pathEndIndex - 1);
+            Point lastEdgeEnd = polygon.getPoint(pathStartIndex);
+            if (lastEdgeStart.equals(point)) {
+                return 1;
+            }
+            if (edgeIntersectsTestEdge(lastEdgeStart, lastEdgeEnd, testEdgeStart, testEdgeEnd)) {
+                intersectionSum++;
+            }
+        }
+        return intersectionSum;
+    }
+
+    private static boolean containsEitherPole(Polygon polygon)
+    {
+        boolean containsEitherPole = false;
+        int numPaths = polygon.getPathCount();
+        for (int i = 0; i < numPaths; i++) {
+            if (pathContainsEitherPole(polygon, polygon.getPathStart(i), polygon.getPathEnd(i))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean pathContainsEitherPole(Polygon polygon, int start, int end)
+    {
+        SphericalExcessCalculator calculator = initializeSphericalExcessCalculator(polygon, start, end);
+        return calculator.containsEitherPole();
+    }
+
     private static double computeSphericalExcess(Polygon polygon, int start, int end)
+    {
+        SphericalExcessCalculator calculator = initializeSphericalExcessCalculator(polygon, start, end);
+        return calculator.computeSphericalExcess();
+    }
+
+    private static SphericalExcessCalculator initializeSphericalExcessCalculator(Polygon polygon, int start, int end)
     {
         // Our calculations rely on not processing the same point twice
         if (polygon.getPoint(end - 1).equals(polygon.getPoint(start))) {
@@ -1609,7 +1776,7 @@ public final class GeoFunctions
             calculator.add(point);
         }
 
-        return calculator.computeSphericalExcess();
+        return calculator;
     }
 
     private static class SphericalExcessCalculator
@@ -1619,6 +1786,7 @@ public final class GeoFunctions
 
         private double sphericalExcess;
         private double courseDelta;
+        private boolean containsPole;
 
         private boolean firstPoint;
         private double firstInitialBearing;
@@ -1642,6 +1810,139 @@ public final class GeoFunctions
             firstPoint = true;
         }
 
+        private double computeInitialBearing(double cos, double sin, double deltaLongitude)
+        {
+            double sinOfDeltaLongitude = Math.sin(deltaLongitude);
+            double cosOfDeltaLongitude = Math.cos(deltaLongitude);
+
+            // Initial bearing from previous to current
+            double y = sinOfDeltaLongitude * cos;
+            double x = previousCos * sin - previousSin * cos * cosOfDeltaLongitude;
+            return Math.atan2(y, x);
+        }
+
+        private double computeFinalBearing(double cos, double sin, double deltaLongitude)
+        {
+            double sinOfDeltaLongitude = Math.sin(deltaLongitude);
+            double cosOfDeltaLongitude = Math.cos(deltaLongitude);
+
+            // Final bearing from previous to current = opposite of bearing from current to previous
+            double finalY = -sinOfDeltaLongitude * previousCos;
+            double finalX = previousSin * cos - previousCos * sin * cosOfDeltaLongitude;
+            return (Math.atan2(finalY, finalX) + PI) % TWO_PI;
+        }
+
+        private double computeEquatorialBearing(double previousBearing)
+        {
+            // We extrapolate the great circle defined by two points to the point
+            // where it crosses the equator, and determine the bearing there
+            double bearingSin = Math.sin(previousBearing);
+            double bearingCos = Math.cos(previousBearing);
+            double y = bearingSin * previousCos;
+            double x = Math.sqrt(bearingCos * bearingCos + bearingSin * bearingSin * previousSin * previousSin);
+            return Math.atan2(y, x);
+        }
+
+        private double computeDeltaLongitude(double equatorialBearing, double firstBearing)
+        {
+            // if the longitude of the northbound equatorial crossing point were
+            // 0 degrees, at what longitude would we expect to find a point with the given latitude?
+            double y = 1.0 - previousCos * previousCos;
+            double x = pow(Math.tan(PI / 2.0 - Math.abs(equatorialBearing)), 2) * previousCos * previousCos;
+
+            // there are four points with the same latitude on every
+            // great circle. This is their absolute magnitude with respect
+            // to 0 and 180 degrees
+            double absExpectedLongitude = asin(Math.sqrt(y / x));
+
+            // if the first bearing is between -90 and 90, that indicates a northward
+            // tilt at the first point. here we make sur we've picked the expected
+            // longitude which is consistent with that northward tilt
+            double expectedLongitude;
+            boolean bearingsHaveSameSign = Math.signum(equatorialBearing) * Math.signum(firstBearing) >= 0;
+            boolean equatorialBearingEast = equatorialBearing >= 0;
+            boolean pointLatitudeIsPositive = previousPhi >= 0;
+            if (equatorialBearingEast) {
+                // point lies within +/- 90 deg of equatorial crossing
+                if (bearingsHaveSameSign) {
+                    // positive latitude indicates we've passed the equator
+                    if (pointLatitudeIsPositive) {
+                        expectedLongitude = absExpectedLongitude;
+                    }
+                    // negative latitude indicates we're approaching equator northbound
+                    else {
+                        expectedLongitude = -1.0 * absExpectedLongitude;
+                    }
+                }
+                // point lies more than +/- 90 deg away from equatorial crossing
+                // (i.e. on the opposite side)
+                else {
+                    // positive latitude indicates we're approaching equator southbound
+                    if (pointLatitudeIsPositive) {
+                        expectedLongitude = TWO_PI - absExpectedLongitude;
+                    }
+                    // negative latitude indicates we've passed the equator
+                    else {
+                        expectedLongitude = -1.0 * TWO_PI + absExpectedLongitude;
+                    }
+                }
+            }
+            // equatorial bearing west
+            else {
+                // point lies within +/- 90 deg of equatorial crossing
+                if (bearingsHaveSameSign) {
+                    // positive latitude indicates we've passed the equator
+                    if (pointLatitudeIsPositive) {
+                        expectedLongitude = -1.0 * absExpectedLongitude;
+                    }
+                    // negative latitude indicates we're approaching the equator northbound
+                    else {
+                        expectedLongitude = absExpectedLongitude;
+                    }
+                }
+                // point lies more than +/- 90 deg away from equatorial crossing
+                // (i.e. on the opposite side)
+                else {
+                    if (pointLatitudeIsPositive) {
+                        expectedLongitude = -1.0 * TWO_PI + absExpectedLongitude;
+                    }
+                    // negative latitude indicates we're approaching the equator
+                    else {
+                        expectedLongitude = TWO_PI - absExpectedLongitude;
+                    }
+                }
+            }
+
+            double longitudeShift = previousLongitude - expectedLongitude; // actual - expected
+            return longitudeShift;
+        }
+
+        public double computeExtrapolatedLatitudeThroughPoint(Point point, double longitude)
+        {
+            // Given two points that uniquely define a great circle
+            // (the one most recently added, and the one passed here),
+            // calculate the latitude at the given arbitrary longitude
+            // on that circle
+
+            double phi = toRadians(point.getY());
+            double pointLongitude = toRadians(point.getX());
+            double deltaLongitude = pointLongitude - previousLongitude;
+            double cos = Math.cos(phi);
+            double sin = Math.sin(phi);
+
+            firstInitialBearing = computeInitialBearing(cos, sin, deltaLongitude);
+            double equatorialBearing = computeEquatorialBearing(firstInitialBearing);
+            double longitudeAdjustment = computeDeltaLongitude(equatorialBearing, firstInitialBearing);
+
+            double tanOfEquatorialBearing = Math.tan(PI / 2.0 - Math.abs(equatorialBearing));
+            double sinOfAdjustedLongitude = Math.sin(toRadians(longitude) - longitudeAdjustment);
+            int sign = 1;
+            //if (equatorialBearing % (PI / 2.0) != 0) {
+            //    sign = (Math.tan(equatorialBearing) * sinOfAdjustedLongitude > 0) ? 1 : -1;
+            //}
+            return sign * toDegrees(acos(1.0 / Math.sqrt(1.0 + pow(tanOfEquatorialBearing, 2) * pow(sinOfAdjustedLongitude, 2))));
+        }
+
         private void add(Point point) throws IllegalStateException
         {
             checkState(!done, "Computation of spherical excess is complete");
@@ -1661,18 +1962,9 @@ public final class GeoFunctions
 
             double cos = Math.cos(phi);
             double sin = Math.sin(phi);
-            double sinOfDeltaLongitude = Math.sin(deltaLongitude);
-            double cosOfDeltaLongitude = Math.cos(deltaLongitude);
 
-            // Initial bearing from previous to current
-            double y = sinOfDeltaLongitude * cos;
-            double x = previousCos * sin - previousSin * cos * cosOfDeltaLongitude;
-            double initialBearing = (Math.atan2(y, x) + TWO_PI) % TWO_PI;
-
-            // Final bearing from previous to current = opposite of bearing from current to previous
-            double finalY = -sinOfDeltaLongitude * previousCos;
-            double finalX = previousSin * cos - previousCos * sin * cosOfDeltaLongitude;
-            double finalBearing = (Math.atan2(finalY, finalX) + PI) % TWO_PI;
+            double initialBearing = (computeInitialBearing(cos, sin, deltaLongitude) + TWO_PI) % TWO_PI;
+            double finalBearing = computeFinalBearing(cos, sin, deltaLongitude);
 
             // When processing our first point we don't yet have a previousFinalBearing
             if (firstPoint) {
@@ -1705,11 +1997,23 @@ public final class GeoFunctions
                 // In which case we need to correct the spherical excess by 2Pi
                 if (Math.abs(courseDelta) < PI / 4) {
                     sphericalExcess = Math.abs(sphericalExcess) - TWO_PI;
+                    containsPole = true;
+                }
+                else {
+                    containsPole = false;
                 }
                 done = true;
             }
 
             return sphericalExcess;
+        }
+
+        public boolean containsEitherPole()
+        {
+            if (!done) {
+                computeSphericalExcess();
+            }
+            return containsPole;
         }
     }
 

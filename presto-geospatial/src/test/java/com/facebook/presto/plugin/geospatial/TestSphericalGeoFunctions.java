@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -202,6 +203,100 @@ public class TestSphericalGeoFunctions
     private void assertArea(String wkt, double expectedArea)
     {
         assertFunction(format("ABS(ROUND((ST_Area(to_spherical_geography(ST_GeometryFromText('%s'))) / %f - 1 ) * %d, 0))", wkt, expectedArea, 10000), DOUBLE, 0.0);
+    }
+
+    @Test
+    public void testStContains()
+    {
+        // to visualize relative locations, see http://www.gcmap.com/mapui
+        String brisbane = "153.1218 -27.3942";
+        String buffalo = "-78.8784 42.8864"; // longitude, latitutde
+        String fortLauderdale = "-80.1373 26.1224";
+        String grandRapids = "-85.6681 42.9634";
+        String honolulu = "-157.8583 21.3069";
+        String losAngeles = "-118.4085 33.9416";
+        String melbourne = "144.8410 -37.6690";
+        String newYork = "-74.0060 40.7128";
+        String noumea = "166.4416 -22.2711";
+        String oklahomaCity = "-97.5164 35.4676";
+        String saltLakeCity = "-111.8910 40.7608";
+        String sanFrancisco = "-122.3790 37.6213";
+        String santiago = "-70.6693 -33.4489";
+        String sydney = "151.1753 -33.9399";
+        String wichita = "-97.3301 37.6872";
+
+        String[] saltBuffFortArr = {saltLakeCity, buffalo, fortLauderdale, saltLakeCity};
+        String saltBuffFort = buildPolygon(saltBuffFortArr);
+        String[] losAngMelSydSanFranArr = {losAngeles, melbourne, sydney, sanFrancisco};
+        String losAngMelSydSanFran = buildPolygon(losAngMelSydSanFranArr);
+
+        // null arguments
+        assertFunction("ST_Contains(to_spherical_geography(ST_GeometryFromText(null)), to_spherical_geography(ST_GeometryFromText('POINT (0 1)')))", BOOLEAN, null);
+        assertFunction("ST_Contains(to_spherical_geography(ST_GeometryFromText('POLYGON((0 0, 0 1, 1 1, 1 1, 1 0, 0 0))')), to_spherical_geography(ST_GeometryFromText(null)))", BOOLEAN, null);
+
+        // Invalid lefthand polygon (too few vertices)
+        assertInvalidFunction("ST_Contains(to_spherical_geography(ST_GeometryFromText('POLYGON((25 21, 10 11))')), to_spherical_geography(ST_GeometryFromText('POINT (0 1)')))", "Polygon is not valid: a loop contains less then 3 vertices.");
+
+        // Invalid lefthand argument (point)
+        assertInvalidFunction("ST_Contains(to_spherical_geography(ST_GeometryFromText('POINT (0 1)')), to_spherical_geography(ST_GeometryFromText('POINT (0 1)')))", "When applied to SphericalGeography inputs, ST_Contains only supports POLYGON. Input type is: POINT");
+
+        // Invalid righthand argument (non-point)
+        assertInvalidFunction("ST_Contains(to_spherical_geography(ST_GeometryFromText('POLYGON((0 0, 0 1, 1 1, 1 0, 0 0))')), to_spherical_geography(ST_GeometryFromText('POLYGON((0 0, 0 1, 1 1, 1 0, 0 0))')))", "When applied to SphericalGeography inputs, ST_Contains only supports POINT. Input type is: POLYGON");
+
+        //Invalid lefthand polygon (duplicated point)
+        assertInvalidFunction("ST_Contains(to_spherical_geography(ST_GeometryFromText('POLYGON((0 0, 0 1, 1 1, 1 1, 1 0, 0 0))')), to_spherical_geography(ST_GeometryFromText('POINT (0 1)')))", "Polygon is not valid: it has two identical consecutive vertices");
+
+        // Invalid point (pole)
+        assertInvalidFunction("ST_Contains(to_spherical_geography(ST_GeometryFromText('POLYGON((0 0, 0 1, 1 1, 1 0, 0 0))')), to_spherical_geography(ST_GeometryFromText('POINT (10 90)')))", "When applied to SphericalGeography inputs, ST_Contains only supports points which are not poles.");
+        assertInvalidFunction("ST_Contains(to_spherical_geography(ST_GeometryFromText('POLYGON((0 0, 0 1, 1 1, 1 0, 0 0))')), to_spherical_geography(ST_GeometryFromText('POINT (-10 -90)')))", "When applied to SphericalGeography inputs, ST_Contains only supports points which are not poles.");
+
+        // Invalid polygon (contains pole)
+        assertInvalidFunction("ST_Contains(to_spherical_geography(ST_GeometryFromText('POLYGON((0 85, 135 85, -70 85, -10 85, 0 85))')), to_spherical_geography(ST_GeometryFromText('POINT (-10 80)')))", "When applied to SphericalGeography inputs, ST_Contains only supports polygons which do not enclose poles.");
+
+        // small, simple 4-sided polygons
+        assertContains("10 10, 10 30, 20 30, 20 10", "50 41", false);
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "15 40", false);
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "5 20", false);
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "25 20", false);
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "15 2", false);
+        assertContains("10 -10, 10 -30, 20 -30, 25 -8, 10 -10", "15 -2", false);
+        assertContains("-10 10, -10 30, -20 30, -25 8, -10 10", "-15 35", false);
+
+        // based on flight routes from salt lake city -> buffalo -> ft. lauderdale -> salt lake city
+        assertContains(saltBuffFort, buffalo, true);
+        assertContains(saltBuffFort, wichita, true);
+        assertContains(saltBuffFort, newYork, false);
+        assertContains(saltBuffFort, santiago, false);
+        assertContains(saltBuffFort, oklahomaCity, false);
+        assertContains(saltBuffFort, grandRapids, true);
+
+        // based on flight routes from LA -> melbourne -> sydney -> SF -> LA
+        assertContains(losAngMelSydSanFran, sydney, true);
+        assertContains(losAngMelSydSanFran, noumea, false);
+        assertContains(losAngMelSydSanFran, grandRapids, false);
+
+        // polygon that looks like "I", starting from lower left corner
+        assertContains("30 -10, 30 5, 35 5, 35 15, 30 15, 30 20, 50 20, 50 15, 45 15, 45 5, 50 5, 50 -10", "40 11", true);
+        assertContains("30 -10, 30 5, 35 5, 35 15, 30 15, 30 20, 50 20, 50 15, 45 15, 45 5, 50 5, 50 -10", "47 14", false);
+        assertContains("30 -10, 30 5, 35 5, 35 15, 30 15, 30 20, 50 20, 50 15, 45 15, 45 5, 50 5, 50 -10", "27 25", false);
+
+        // polygon with a hole, starting from lower left corner
+        assertContains("-10 -80, -30 -80, -30 -50, -10 -50), (-12 -72, -20 -72, -20 -12", "-18 -70", false);
+    }
+
+    private String buildPolygon(String[] polygonPoints)
+    {
+        StringBuilder strBuilder = new StringBuilder();
+        for (int i = 0; i < polygonPoints.length - 1; i++) {
+            strBuilder.append(format("%s, ", polygonPoints[i]));
+        }
+        strBuilder.append(polygonPoints[polygonPoints.length - 1]);
+        return strBuilder.toString();
+    }
+
+    private void assertContains(String polygonString, String point, boolean expected)
+    {
+        assertFunction(format("ST_Contains(to_spherical_geography(ST_GeometryFromText('POLYGON((%s))')), to_spherical_geography(ST_GeometryFromText('POINT (%s)')))", polygonString, point), BOOLEAN, expected);
     }
 
     @Test
