@@ -127,7 +127,7 @@ public class TaskResource
     {
         requireNonNull(taskUpdateRequest, "taskUpdateRequest is null");
 
-        Session session = taskUpdateRequest.getSession().toSession(sessionPropertyManager);
+        Session session = taskUpdateRequest.getSession().toSession(sessionPropertyManager, taskUpdateRequest.getExtraCredentials());
         TaskInfo taskInfo = taskManager.updateTask(session,
                 taskId,
                 taskUpdateRequest.getFragment(),

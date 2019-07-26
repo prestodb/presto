@@ -29,6 +29,7 @@ import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_EXTRA_CREDENTIAL;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PATH;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
@@ -61,6 +62,8 @@ public class TestHttpRequestSessionContext
                         .put(PRESTO_ROLE, "foo_connector=ALL")
                         .put(PRESTO_ROLE, "bar_connector=NONE")
                         .put(PRESTO_ROLE, "foobar_connector=ROLE{role}")
+                        .put(PRESTO_EXTRA_CREDENTIAL, "test.token.foo=bar")
+                        .put(PRESTO_EXTRA_CREDENTIAL, "test.token.abc=xyz")
                         .build(),
                 "testRemote");
 
@@ -79,6 +82,7 @@ public class TestHttpRequestSessionContext
                 "foo_connector", new SelectedRole(SelectedRole.Type.ALL, Optional.empty()),
                 "bar_connector", new SelectedRole(SelectedRole.Type.NONE, Optional.empty()),
                 "foobar_connector", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("role"))));
+        assertEquals(context.getIdentity().getExtraCredentials(), ImmutableMap.of("test.token.foo", "bar", "test.token.abc", "xyz"));
     }
 
     @Test(expectedExceptions = WebApplicationException.class)
