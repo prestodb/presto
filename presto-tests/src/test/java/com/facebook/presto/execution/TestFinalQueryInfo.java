@@ -78,6 +78,7 @@ public class TestFinalQueryInfo
                     ImmutableMap.of(),
                     ImmutableMap.of(),
                     ImmutableMap.of(),
+                    ImmutableMap.of(),
                     null,
                     new Duration(2, MINUTES));
 

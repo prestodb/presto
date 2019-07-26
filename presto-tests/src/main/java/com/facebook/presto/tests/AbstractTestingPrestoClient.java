@@ -154,6 +154,7 @@ public abstract class AbstractTestingPrestoClient<T>
                 properties.build(),
                 session.getPreparedStatements(),
                 session.getIdentity().getRoles(),
+                session.getIdentity().getExtraCredentials(),
                 session.getTransactionId().map(Object::toString).orElse(null),
                 clientRequestTimeout);
     }

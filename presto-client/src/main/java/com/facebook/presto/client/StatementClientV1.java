@@ -54,6 +54,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_CAPABILITIE
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_EXTRA_CREDENTIAL;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PATH;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
@@ -188,6 +189,11 @@ class StatementClientV1
         Map<String, SelectedRole> roles = session.getRoles();
         for (Entry<String, SelectedRole> entry : roles.entrySet()) {
             builder.addHeader(PrestoHeaders.PRESTO_ROLE, entry.getKey() + '=' + urlEncode(entry.getValue().toString()));
+        }
+
+        Map<String, String> extraCredentials = session.getExtraCredentials();
+        for (Entry<String, String> entry : extraCredentials.entrySet()) {
+            builder.addHeader(PRESTO_EXTRA_CREDENTIAL, entry.getKey() + "=" + entry.getValue());
         }
 
         Map<String, String> statements = session.getPreparedStatements();
