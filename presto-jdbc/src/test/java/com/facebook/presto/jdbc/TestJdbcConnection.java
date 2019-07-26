@@ -29,11 +29,13 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.jdbc.TestPrestoDriver.closeQuietly;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -192,6 +194,18 @@ public class TestJdbcConnection
             connection.setClientInfo("ApplicationName", "testing");
             assertConnectionSource(connection, "fruit:testing");
         }
+    }
+
+    @Test
+    public void testExtraCredentials()
+            throws SQLException
+    {
+        Map<String, String> credentials = ImmutableMap.of("test.token.foo", "bar", "test.token.abc", "xyz");
+        Connection connection = DriverManager.getConnection("jdbc:presto://localhost:8080?extraCredentials=test.token.foo:bar;test.token.abc:xyz", "admin", null);
+
+        assertTrue(connection instanceof PrestoConnection);
+        PrestoConnection prestoConnection = (PrestoConnection) connection;
+        assertEquals(prestoConnection.getExtraCredentials(), credentials);
     }
 
     private Connection createConnection()
