@@ -1262,12 +1262,6 @@ public class TestExpressionCompiler
         assertExecute("bound_double in (12.34E0, " + doubleValues + ")", BOOLEAN, true);
         assertExecute("bound_double in (" + doubleValues + ")", BOOLEAN, false);
 
-        String stringValues = range(2000, 7000)
-                .mapToObj(i -> format("'%s'", i))
-                .collect(joining(", "));
-        assertExecute("bound_string in ('hello', " + stringValues + ")", BOOLEAN, true);
-        assertExecute("bound_string in (" + stringValues + ")", BOOLEAN, false);
-
         String timestampValues = range(0, 2_000)
                 .mapToObj(i -> format("TIMESTAMP '1970-01-01 01:01:0%s.%s+01:00'", i / 1000, i % 1000))
                 .collect(joining(", "));

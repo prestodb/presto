@@ -15,13 +15,9 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
-import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.relation.RowExpressionVisitor;
-import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.CharType;
@@ -49,7 +45,6 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentPath;
 import com.facebook.presto.sql.tree.CurrentUser;
 import com.facebook.presto.sql.tree.DecimalLiteral;
-import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
@@ -90,9 +85,7 @@ import io.airlift.slice.Slices;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLegacyTimestamp;
@@ -488,85 +481,11 @@ public final class SqlToRowExpressionTranslator
         {
             RowExpression value = process(node.getExpression(), context);
 
-            if (allChildrenTypeOnly(node)) {
-                return changeType(value, getType(node));
-            }
-
             if (node.isSafe()) {
                 return call(TRY_CAST.name(), functionManager.lookupCast(TRY_CAST, value.getType().getTypeSignature(), getType(node).getTypeSignature()), getType(node), value);
             }
 
             return call(CAST.name(), functionManager.lookupCast(CAST, value.getType().getTypeSignature(), getType(node).getTypeSignature()), getType(node), value);
-        }
-
-        private static RowExpression changeType(RowExpression value, Type targetType)
-        {
-            ChangeTypeVisitor visitor = new ChangeTypeVisitor(targetType);
-            return value.accept(visitor, null);
-        }
-
-        private static boolean allChildrenTypeOnly(Cast node)
-        {
-            // TODO this is a hack, we should remove the changeType optimization completely and fix tests related to this optimization.
-            AtomicReference<Optional<Boolean>> allTrue = new AtomicReference<>(Optional.empty());
-            new DefaultExpressionTraversalVisitor<Void, AtomicReference<Optional<Boolean>>>()
-            {
-                @Override
-                protected Void visitCast(Cast node, AtomicReference<Optional<Boolean>> context)
-                {
-                    super.visitCast(node, context);
-                    context.set(Optional.of(node.isTypeOnly() && context.get().orElse(true)));
-                    return null;
-                }
-            }.process(node, allTrue);
-            return allTrue.get().orElse(false);
-        }
-
-        private static class ChangeTypeVisitor
-                implements RowExpressionVisitor<RowExpression, Void>
-        {
-            private final Type targetType;
-
-            private ChangeTypeVisitor(Type targetType)
-            {
-                this.targetType = targetType;
-            }
-
-            @Override
-            public RowExpression visitCall(CallExpression call, Void context)
-            {
-                return new CallExpression(call.getDisplayName(), call.getFunctionHandle(), targetType, call.getArguments());
-            }
-
-            @Override
-            public RowExpression visitInputReference(InputReferenceExpression reference, Void context)
-            {
-                return field(reference.getField(), targetType);
-            }
-
-            @Override
-            public RowExpression visitConstant(ConstantExpression literal, Void context)
-            {
-                return constant(literal.getValue(), targetType);
-            }
-
-            @Override
-            public RowExpression visitLambda(LambdaDefinitionExpression lambda, Void context)
-            {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public RowExpression visitVariableReference(VariableReferenceExpression reference, Void context)
-            {
-                return new VariableReferenceExpression(reference.getName(), targetType);
-            }
-
-            @Override
-            public RowExpression visitSpecialForm(SpecialFormExpression specialForm, Void context)
-            {
-                return specialForm(specialForm.getForm(), targetType, specialForm.getArguments());
-            }
         }
 
         @Override

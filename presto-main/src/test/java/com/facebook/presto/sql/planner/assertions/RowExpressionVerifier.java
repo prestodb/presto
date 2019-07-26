@@ -354,6 +354,12 @@ final class RowExpressionVerifier
     @Override
     protected Boolean visitStringLiteral(StringLiteral expected, RowExpression actual)
     {
+        if (actual instanceof CallExpression && functionResolution.isCastFunction(((CallExpression) actual).getFunctionHandle())) {
+            Object value = rowExpressionInterpreter(actual, metadata, session.toConnectorSession()).evaluate();
+            if (value instanceof Slice) {
+                return expected.getValue().equals(((Slice) value).toStringUtf8());
+            }
+        }
         if (actual instanceof ConstantExpression && actual.getType().getJavaType() == Slice.class) {
             String actualString = (String) LiteralInterpreter.evaluate(TEST_SESSION.toConnectorSession(), (ConstantExpression) actual);
             return expected.getValue().equals(actualString);
