@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+`import com.facebook.presto.spi.block.ColumnarMap;
 import com.facebook.presto.spi.type.Type;
 
 import javax.annotation.Nullable;
@@ -23,6 +24,12 @@ import javax.annotation.Nullable;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Unnester for a nested column with map type.
+ * Maintains a {@link ColumnarMap} object to get underlying keys and values block from the map block.
+ *
+ * All protected methods implemented here assume that they are being invoked when {@code columnarMap} is non-null.
+ */
 public class MapUnnester
         implements Unnester
 {
@@ -32,6 +39,8 @@ public class MapUnnester
 
     private int position;
     private int positionCount;
+
+    private ColumnarMap columnarMap;
 
     public MapUnnester(Type keyType, Type valueType)
     {
