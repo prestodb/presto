@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionHandleResolver;
 
 public class StaticFunctionNamespaceHandleResolver
         implements FunctionHandleResolver

@@ -11,18 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
+package com.facebook.presto.spi.function;
 
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.FunctionMetadata;
-import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.function.SqlFunction;
+import com.facebook.presto.spi.api.Experimental;
 import com.facebook.presto.spi.relation.FullyQualifiedName;
 
 import java.util.Collection;
 import java.util.List;
 
+@Experimental
 public interface FunctionNamespaceManager
 {
     void addFunctions(List<? extends SqlFunction> functions);

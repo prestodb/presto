@@ -11,11 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
+package com.facebook.presto.spi.function;
 
-public interface FunctionNamespaceManagerFactory
+public interface FunctionHandleResolver
 {
-    String getName();
-
-    FunctionHandleResolver getHandleResolver();
+    Class<? extends FunctionHandle> getFunctionHandleClass();
 }
