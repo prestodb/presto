@@ -19,9 +19,11 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -240,6 +242,14 @@ public final class LiteralEncoder
 
     public static boolean isSupportedLiteralType(Type type)
     {
+        if (type instanceof ArrayType) {
+            return isSupportedLiteralType(((ArrayType) type).getElementType());
+        }
+        else if (type instanceof RowType) {
+            RowType rowType = (RowType) type;
+            return rowType.getTypeParameters().stream()
+                    .allMatch(LiteralEncoder::isSupportedLiteralType);
+        }
         return SUPPORTED_LITERAL_TYPES.contains(type.getJavaType());
     }
 
