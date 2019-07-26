@@ -149,6 +149,7 @@ import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.SqlWindowFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -697,6 +698,18 @@ public class StaticFunctionNamespaceManager
     }
 
     @Override
+    public Collection<SqlFunction> getCandidates(QueryId queryId, FullyQualifiedName name)
+    {
+        return functions.get(name);
+    }
+
+    @Override
+    public FunctionHandle getFunctionHandle(QueryId queryId, Signature signature)
+    {
+        return new StaticFunctionHandle(signature);
+    }
+
+    @Override
     public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
     {
         checkArgument(functionHandle instanceof StaticFunctionHandle, "Expect StaticFunctionHandle");
@@ -733,14 +746,14 @@ public class StaticFunctionNamespaceManager
 
     public FunctionHandle lookupFunction(FullyQualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
-        Collection<SqlFunction> allCandidates = functions.get(name);
+        Collection<SqlFunction> allCandidates = getCandidates(null, name);
         List<SqlFunction> exactCandidates = allCandidates.stream()
                 .filter(function -> function.getSignature().getTypeVariableConstraints().isEmpty())
                 .collect(Collectors.toList());
 
         Optional<Signature> match = matchFunctionExact(exactCandidates, parameterTypes);
         if (match.isPresent()) {
-            return new StaticFunctionHandle(match.get());
+            return getFunctionHandle(null, match.get());
         }
 
         List<SqlFunction> genericCandidates = allCandidates.stream()
@@ -749,13 +762,12 @@ public class StaticFunctionNamespaceManager
 
         match = matchFunctionExact(genericCandidates, parameterTypes);
         if (match.isPresent()) {
-            return new StaticFunctionHandle(match.get());
+            return getFunctionHandle(null, match.get());
         }
 
         throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(name.getSuffix(), parameterTypes, allCandidates));
     }
 
-    @Override
     public FunctionHandle resolveFunction(FullyQualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         try {
@@ -767,10 +779,10 @@ public class StaticFunctionNamespaceManager
             }
         }
 
-        Collection<SqlFunction> allCandidates = functions.get(name);
+        Collection<SqlFunction> allCandidates = getCandidates(null, name);
         Optional<Signature> match = matchFunctionWithCoercion(allCandidates, parameterTypes);
         if (match.isPresent()) {
-            return new StaticFunctionHandle(match.get());
+            return getFunctionHandle(null, match.get());
         }
 
         if (name.getSuffix().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
@@ -783,7 +795,7 @@ public class StaticFunctionNamespaceManager
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
 
-            return new StaticFunctionHandle(getMagicLiteralFunctionSignature(type));
+            return getFunctionHandle(null, getMagicLiteralFunctionSignature(type));
         }
 
         throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(name.getSuffix(), parameterTypes, allCandidates));
@@ -977,7 +989,7 @@ public class StaticFunctionNamespaceManager
             Type parameterType = parameterTypes.get(i);
             if (parameterType.equals(UNKNOWN)) {
                 // TODO: This still doesn't feel right. Need to understand function resolution logic better to know what's the right way.
-                StaticFunctionHandle functionHandle = new StaticFunctionHandle(boundSignature);
+                StaticFunctionHandle functionHandle = (StaticFunctionHandle) getFunctionHandle(null, boundSignature);
                 if (getFunctionMetadata(functionHandle).isCalledOnNullInput()) {
                     return false;
                 }
@@ -1051,7 +1063,7 @@ public class StaticFunctionNamespaceManager
 
     private SpecializedFunctionKey doGetSpecializedFunctionKey(Signature signature)
     {
-        Iterable<SqlFunction> candidates = functions.get(signature.getName());
+        Iterable<SqlFunction> candidates = getCandidates(null, signature.getName());
         // search for exact match
         Type returnType = typeManager.getType(signature.getReturnType());
         List<TypeSignatureProvider> argumentTypeSignatureProviders = fromTypeSignatures(signature.getArgumentTypes());
@@ -1163,7 +1175,7 @@ public class StaticFunctionNamespaceManager
             }
             throw e;
         }
-        return new StaticFunctionHandle(signature);
+        return getFunctionHandle(null, signature);
     }
 
     private static Optional<List<Type>> toTypes(List<TypeSignatureProvider> typeSignatureProviders, TypeManager typeManager)

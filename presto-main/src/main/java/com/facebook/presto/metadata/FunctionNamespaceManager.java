@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.relation.FullyQualifiedName;
-import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface FunctionNamespaceManager
@@ -27,7 +29,21 @@ public interface FunctionNamespaceManager
 
     List<SqlFunction> listFunctions();
 
-    FunctionHandle resolveFunction(FullyQualifiedName name, List<TypeSignatureProvider> parameterTypes);
+    /**
+     * Ideally function namespaces should support transactions like connectors do, and getCandidates should be transaction-aware.
+     * queryId serves as a transaction ID before proper support for transaction is introduced.
+     * TODO Support transaction in function namespaces
+     */
+    Collection<SqlFunction> getCandidates(QueryId queryId, FullyQualifiedName name);
+
+    /**
+     * If a SqlFunction for a given signature is returned from {@link #getCandidates(QueryId, FullyQualifiedName)}
+     * for a given queryId, getFunctionHandle with the same queryId should return a valid FunctionHandle, even if the function
+     * is deleted. Multiple calls of this function with the same parameters should return the same FunctionHandle.
+     * queryId serves as a transaction ID before proper support for transaction is introduced.
+     * TODO Support transaction in function namespaces
+     */
+    FunctionHandle getFunctionHandle(QueryId queryId, Signature signature);
 
     FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle);
 }
