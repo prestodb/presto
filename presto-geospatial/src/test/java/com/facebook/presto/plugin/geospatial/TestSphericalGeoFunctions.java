@@ -223,6 +223,7 @@ public class TestSphericalGeoFunctions
         String sanFrancisco = "-122.3790 37.6213";
         String santiago = "-70.6693 -33.4489";
         String sydney = "151.1753 -33.9399";
+        String southeastOfSydney = "151.3 -34.0";
         String wichita = "-97.3301 37.6872";
 
         String[] saltBuffFortArr = {saltLakeCity, buffalo, fortLauderdale, saltLakeCity};
@@ -272,7 +273,9 @@ public class TestSphericalGeoFunctions
 
         // based on flight routes from LA -> melbourne -> sydney -> SF -> LA
         assertContains(losAngMelSydSanFran, sydney, true);
+        assertContains(losAngMelSydSanFran, southeastOfSydney, true);
         assertContains(losAngMelSydSanFran, noumea, false);
+        assertContains(losAngMelSydSanFran, honolulu, false);
         assertContains(losAngMelSydSanFran, grandRapids, false);
 
         // polygon that looks like "I", starting from lower left corner
@@ -282,6 +285,7 @@ public class TestSphericalGeoFunctions
 
         // polygon with a hole, starting from lower left corner
         assertContains("-10 -80, -30 -80, -30 -50, -10 -50), (-12 -72, -20 -72, -20 -12", "-18 -70", false);
+        assertContains("-10 -80, -30 -80, -30 -50, -10 -50), (-12 -72, -20 -72, -20 -12", "-25 -55", true);
     }
 
     private String buildPolygon(String[] polygonPoints)

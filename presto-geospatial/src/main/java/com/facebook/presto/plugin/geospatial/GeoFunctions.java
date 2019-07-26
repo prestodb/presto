@@ -1936,10 +1936,7 @@ public final class GeoFunctions
 
             double tanOfEquatorialBearing = Math.tan(PI / 2.0 - Math.abs(equatorialBearing));
             double sinOfAdjustedLongitude = Math.sin(toRadians(longitude) - longitudeAdjustment);
-            int sign = 1;
-            //if (equatorialBearing % (PI / 2.0) != 0) {
-            //    sign = (Math.tan(equatorialBearing) * sinOfAdjustedLongitude > 0) ? 1 : -1;
-            //}
+            int sign = (equatorialBearing * sinOfAdjustedLongitude >= 0) ? 1 : -1;
             return sign * toDegrees(acos(1.0 / Math.sqrt(1.0 + pow(tanOfEquatorialBearing, 2) * pow(sinOfAdjustedLongitude, 2))));
         }
 
