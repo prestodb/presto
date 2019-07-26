@@ -787,19 +787,6 @@ public final class SqlToRowExpressionTranslator
             RowExpression base = process(node.getBase(), context);
             RowExpression index = process(node.getIndex(), context);
 
-            // this block will handle row subscript, converts the ROW_CONSTRUCTOR with subscript to a DEREFERENCE expression
-            if (base.getType() instanceof RowType) {
-                checkState(index instanceof ConstantExpression, "Subscript expression on ROW requires a ConstantExpression");
-                ConstantExpression position = (ConstantExpression) index;
-                checkState(position.getValue() instanceof Long, "ConstantExpression should contain a valid integer index into the row");
-                Long offset = (Long) position.getValue();
-                checkState(
-                        offset >= 1 && offset <= base.getType().getTypeParameters().size(),
-                        "Subscript index out of bounds %s: should be >= 1 and <= %s",
-                        offset,
-                        base.getType().getTypeParameters().size());
-                return specialForm(DEREFERENCE, getType(node), base, Expressions.constant(offset - 1, INTEGER));
-            }
             return call(
                     SUBSCRIPT.name(),
                     functionManager.resolveOperator(SUBSCRIPT, fromTypes(base.getType(), index.getType())),
