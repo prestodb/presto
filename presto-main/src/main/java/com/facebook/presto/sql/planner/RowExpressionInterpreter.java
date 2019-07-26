@@ -722,6 +722,10 @@ public class RowExpressionInterpreter
             if (optimize && !isSupportedLiteralType(targetType)) {
                 return changed(call(callExpression.getDisplayName(), callExpression.getFunctionHandle(), callExpression.getType(), toRowExpression(value, sourceType)));
             }
+
+            if (metadata.getTypeManager().isTypeOnlyCoercion(sourceType, targetType)) {
+                return changed(value);
+            }
             return notChanged();
         }
 

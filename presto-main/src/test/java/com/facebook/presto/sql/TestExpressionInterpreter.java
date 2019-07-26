@@ -577,6 +577,7 @@ public class TestExpressionInterpreter
 
         // string
         assertOptimizedEquals("cast('xyz' as VARCHAR)", "'xyz'");
+        assertOptimizedEquals("cast(cast('abcxyz' as VARCHAR(3)) as VARCHAR(5))", "'abc'");
 
         // null
         assertOptimizedEquals("cast(null as VARCHAR)", "null");
